@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import type { StoryHubBlockProps, StoryHubStory, StoryHubTheme } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -168,9 +169,10 @@ function CornerNotch({ color, position }: { color: string; position: "tl" | "tr"
 
 interface Props {
   props: StoryHubBlockProps;
+  onFieldChange?: (updated: StoryHubBlockProps) => void;
 }
 
-export function BlockStoryHub({ props }: Props) {
+export function BlockStoryHub({ props, onFieldChange }: Props) {
   const prefersDark = usePrefersDark();
   const mode: "light" | "dark" =
     props.colorScheme === "auto" ? (prefersDark ? "dark" : "light") : props.colorScheme;
@@ -244,6 +246,14 @@ export function BlockStoryHub({ props }: Props) {
   }, [sourceStories, activeFilter, defaultFilter]);
 
   const [view, setView] = useState<"grid" | "list">("grid");
+
+  const field = (key: keyof StoryHubBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateStat = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    const stats = props.stats.map((s, idx) => idx === i ? { ...s, [key]: v } : s);
+    onFieldChange({ ...props, stats });
+  };
 
   const issueLabel = useMemo(() => {
     // Stable per-page so it doesn't change between renders.
@@ -342,7 +352,7 @@ export function BlockStoryHub({ props }: Props) {
               }}
             >
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: theme.accent, boxShadow: `0 0 8px ${theme.accent}`, fontFamily: BODY }} />
-              {props.eyebrow}
+              <InlineText as="span" value={props.eyebrow} onUpdate={field("eyebrow")} />
               <span aria-hidden style={{ width: 28, height: 1, background: theme.accent, opacity: 0.5, fontFamily: BODY }} />
             </motion.div>
             <motion.h1
@@ -358,8 +368,8 @@ export function BlockStoryHub({ props }: Props) {
                 fontWeight: 500,
               }}
             >
-              {props.heroTitle}{" "}
-              <span style={{ fontStyle: "italic", color: theme.accent, fontFamily: DISPLAY }}>{props.heroAccent}</span>
+              <InlineText as="span" value={props.heroTitle} onUpdate={field("heroTitle")} />{" "}
+              <InlineText as="span" value={props.heroAccent} onUpdate={field("heroAccent")} style={{ fontStyle: "italic", color: theme.accent, fontFamily: DISPLAY }} />
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -371,7 +381,7 @@ export function BlockStoryHub({ props }: Props) {
                 color: theme.muted,
                 maxWidth: "36rem", fontFamily: BODY }}
             >
-              {props.subhead}
+              <InlineText as="span" value={props.subhead} onUpdate={field("subhead")} multiline style={{ fontFamily: BODY }} />
             </motion.p>
 
             {/* Reader stats line */}
@@ -957,7 +967,10 @@ export function BlockStoryHub({ props }: Props) {
                 >
                   No. {String(i + 1).padStart(2, "0")}
                 </div>
-                <div
+                <InlineText
+                  as="div"
+                  value={stat.number}
+                  onUpdate={onFieldChange ? (v) => updateStat(i, "number", v) : undefined}
                   style={{
                     fontFamily: displayFont,
                     fontStyle: "italic",
@@ -968,10 +981,11 @@ export function BlockStoryHub({ props }: Props) {
                     letterSpacing: "-0.022em",
                     fontVariantNumeric: "tabular-nums",
                   }}
-                >
-                  {stat.number}
-                </div>
-                <div
+                />
+                <InlineText
+                  as="div"
+                  value={stat.label}
+                  onUpdate={onFieldChange ? (v) => updateStat(i, "label", v) : undefined}
                   style={{
                     marginTop: "1rem",
                     fontSize: "0.75rem",
@@ -980,9 +994,7 @@ export function BlockStoryHub({ props }: Props) {
                     color: theme.muted,
                     fontWeight: 600,
                   }}
-                >
-                  {stat.label}
-                </div>
+                />
               </div>
             ))}
           </div>
@@ -994,7 +1006,10 @@ export function BlockStoryHub({ props }: Props) {
         <div style={{ marginBottom: "2.5rem", display: "flex", justifyContent: "center" }}>
           <Ornament color={theme.accent} size={42} />
         </div>
-        <h2
+        <InlineText
+          as="h2"
+          value={props.ctaHeadline}
+          onUpdate={field("ctaHeadline")}
           style={{
             fontFamily: displayFont,
             fontSize: "clamp(2.5rem, 5.4vw, 4.25rem)",
@@ -1005,9 +1020,7 @@ export function BlockStoryHub({ props }: Props) {
             maxWidth: "44rem",
             margin: "0 auto 2.5rem",
           }}
-        >
-          {props.ctaHeadline}
-        </h2>
+        />
         <div
           style={{
             display: "flex",

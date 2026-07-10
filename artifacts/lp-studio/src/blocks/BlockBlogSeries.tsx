@@ -35,6 +35,9 @@ import type {
 } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { InlineText } from "@/components/InlineText";
+
+type BlogFieldChange = (updated: BlogSeriesBlockProps) => void;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error boundary (mirrors ContentSeries)
@@ -298,7 +301,9 @@ function StickyNav({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Hero
 // ─────────────────────────────────────────────────────────────────────────────
-function Hero({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
+function Hero({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedTheme; onFieldChange?: BlogFieldChange }) {
+  const field = (key: keyof BlogSeriesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const eyebrow = p.heroEyebrow ?? "A Series on Attention";
   const headline = p.heroHeadline ?? "Writing for people who";
   const accent = p.heroHeadlineAccent ?? "still read closely.";
@@ -334,7 +339,7 @@ function Hero({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.7, ease: "easeOut" }}
         >
-          {eyebrow && (
+          {(eyebrow || onFieldChange) && (
             <div
               style={{
                 marginBottom: "1.75rem",
@@ -349,7 +354,7 @@ function Hero({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
               }}
             >
               <span style={{ height: "1px", width: "2rem", backgroundColor: C.accent }} />
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("heroEyebrow")} />
             </div>
           )}
           <h1
@@ -363,16 +368,20 @@ function Hero({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
               margin: 0,
             }}
           >
-            {headline}
-            {accent && (
+            <InlineText as="span" value={headline} onUpdate={field("heroHeadline")} />
+            {(accent || onFieldChange) && (
               <>
                 <br />
-                <span style={{ fontStyle: "italic", fontWeight: 500 }}>{accent}</span>
+                <InlineText as="span" value={accent} onUpdate={field("heroHeadlineAccent")} style={{ fontStyle: "italic", fontWeight: 500 }} />
               </>
             )}
           </h1>
-          {deck && (
-            <p
+          {(deck || onFieldChange) && (
+            <InlineText
+              as="p"
+              value={deck}
+              onUpdate={field("heroDeck")}
+              multiline
               style={{
                 marginTop: "1.75rem",
                 maxWidth: "32rem",
@@ -380,9 +389,7 @@ function Hero({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
                 lineHeight: 1.65,
                 color: C.inkSoft,
               }}
-            >
-              {deck}
-            </p>
+            />
           )}
           <div
             style={{
@@ -578,11 +585,17 @@ function ArticleCard({ a, C }: { a: BlogSeriesArticle; C: ResolvedTheme }) {
   );
 }
 
-function ArchiveSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
+function ArchiveSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedTheme; onFieldChange?: BlogFieldChange }) {
+  const field = (key: keyof BlogSeriesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const eyebrow = p.archiveEyebrow ?? "Latest from the archive";
   const linkText = p.archiveLinkText ?? "";
   const linkUrl = p.archiveLinkUrl ?? "#";
   const featured = p.featuredArticle;
+  const updateFeatured = (key: "title" | "excerpt") =>
+    onFieldChange && featured
+      ? (v: string) => onFieldChange({ ...p, featuredArticle: { ...featured, [key]: v } })
+      : undefined;
   const featuredBadge = p.featuredBadge ?? "Featured Essay";
   const articles = (p.articles ?? []).filter((a) => !a.hidden);
 
@@ -599,7 +612,10 @@ function ArchiveSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme })
           paddingBottom: "1rem",
         }}
       >
-        <h2
+        <InlineText
+          as="h2"
+          value={eyebrow}
+          onUpdate={field("archiveEyebrow")}
           style={{
             fontSize: "0.75rem",
             fontWeight: 600,
@@ -608,9 +624,7 @@ function ArchiveSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme })
             color: C.inkSoft,
             margin: 0,
           }}
-        >
-          {eyebrow}
-        </h2>
+        />
         {linkText && (
           <a
             href={linkUrl}
@@ -683,7 +697,10 @@ function ArchiveSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme })
                 </span>
               )}
             </div>
-            <h3
+            <InlineText
+              as="h3"
+              value={featured.title}
+              onUpdate={updateFeatured("title")}
               style={{
                 fontFamily: C.displayFont,
                 fontWeight: 300,
@@ -693,13 +710,9 @@ function ArchiveSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme })
                 color: C.ink,
                 margin: 0,
               }}
-            >
-              {featured.title}
-            </h3>
+            />
             {featured.excerpt && (
-              <p style={{ marginTop: "1.25rem", maxWidth: "36rem", fontSize: "1rem", lineHeight: 1.65, color: C.inkSoft }}>
-                {featured.excerpt}
-              </p>
+              <InlineText as="p" value={featured.excerpt} onUpdate={updateFeatured("excerpt")} multiline style={{ marginTop: "1.25rem", maxWidth: "36rem", fontSize: "1rem", lineHeight: 1.65, color: C.inkSoft }} />
             )}
             <div style={{ marginTop: "2rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
               {featured.avatarUrl && (
@@ -745,7 +758,9 @@ function ArchiveSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme })
 // ─────────────────────────────────────────────────────────────────────────────
 // Topics
 // ─────────────────────────────────────────────────────────────────────────────
-function TopicsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
+function TopicsSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedTheme; onFieldChange?: BlogFieldChange }) {
+  const field = (key: keyof BlogSeriesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const topics = p.topics ?? [];
   if (!topics.length) return null;
   const eyebrow = p.topicsEyebrow ?? "Browse";
@@ -760,8 +775,11 @@ function TopicsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) 
           style={{ display: "flex", flexDirection: "column", gap: "0.75rem", justifyContent: "space-between" }}
         >
           <div>
-            {eyebrow && (
-              <p
+            {(eyebrow || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={eyebrow}
+                onUpdate={field("topicsEyebrow")}
                 style={{
                   fontSize: "0.6875rem",
                   fontWeight: 600,
@@ -770,12 +788,13 @@ function TopicsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) 
                   color: C.accent,
                   margin: 0,
                 }}
-              >
-                {eyebrow}
-              </p>
+              />
             )}
-            {headline && (
-              <h2
+            {(headline || onFieldChange) && (
+              <InlineText
+                as="h2"
+                value={headline}
+                onUpdate={field("topicsHeadline")}
                 style={{
                   fontFamily: C.displayFont,
                   marginTop: "0.5rem",
@@ -784,13 +803,11 @@ function TopicsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) 
                   letterSpacing: "-0.01em",
                   color: C.ink,
                 }}
-              >
-                {headline}
-              </h2>
+              />
             )}
           </div>
-          {description && (
-            <p style={{ maxWidth: "24rem", fontSize: "0.875rem", color: C.inkSoft }}>{description}</p>
+          {(description || onFieldChange) && (
+            <InlineText as="p" value={description} onUpdate={field("topicsDescription")} multiline style={{ maxWidth: "24rem", fontSize: "0.875rem", color: C.inkSoft }} />
           )}
         </div>
         <div style={{ marginTop: "2.25rem", display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
@@ -828,7 +845,9 @@ function TopicsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) 
 // ─────────────────────────────────────────────────────────────────────────────
 // Contributors
 // ─────────────────────────────────────────────────────────────────────────────
-function ContributorsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
+function ContributorsSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedTheme; onFieldChange?: BlogFieldChange }) {
+  const field = (key: keyof BlogSeriesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const contributors = p.contributors ?? [];
   if (!contributors.length) return null;
   const eyebrow = p.contributorsEyebrow ?? "The contributors";
@@ -836,7 +855,10 @@ function ContributorsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedThe
   return (
     <section id="contributors" style={{ margin: "0 auto", maxWidth: "1240px", padding: "5rem 1.5rem 0" }}>
       <div style={{ borderBottom: `1px solid ${C.line}`, paddingBottom: "1rem" }}>
-        <h2
+        <InlineText
+          as="h2"
+          value={eyebrow}
+          onUpdate={field("contributorsEyebrow")}
           style={{
             fontSize: "0.75rem",
             fontWeight: 600,
@@ -845,9 +867,7 @@ function ContributorsSection({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedThe
             color: C.inkSoft,
             margin: 0,
           }}
-        >
-          {eyebrow}
-        </h2>
+        />
       </div>
       <div
         className="bbs-contributors"
@@ -929,12 +949,16 @@ function SubscribeSection({
   C,
   pageId,
   sessionId,
+  onFieldChange,
 }: {
   p: BlogSeriesBlockProps;
   C: ResolvedTheme;
   pageId?: number;
   sessionId?: string;
+  onFieldChange?: BlogFieldChange;
 }) {
+  const field = (key: keyof BlogSeriesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -1009,7 +1033,7 @@ function SubscribeSection({
           textAlign: "center",
         }}
       >
-        {eyebrow && (
+        {(eyebrow || onFieldChange) && (
           <div
             style={{
               margin: "0 auto 1.75rem",
@@ -1024,7 +1048,7 @@ function SubscribeSection({
             }}
           >
             <Mail size={14} />
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field("subscribeEyebrow")} />
           </div>
         )}
         <h2
@@ -1039,16 +1063,20 @@ function SubscribeSection({
             color: C.paper,
           }}
         >
-          {headline}
-          {accent && (
+          <InlineText as="span" value={headline} onUpdate={field("subscribeHeadline")} />
+          {(accent || onFieldChange) && (
             <>
               <br />
-              <span style={{ fontStyle: "italic" }}>{accent}</span>
+              <InlineText as="span" value={accent} onUpdate={field("subscribeHeadlineAccent")} style={{ fontStyle: "italic" }} />
             </>
           )}
         </h2>
-        {description && (
-          <p
+        {(description || onFieldChange) && (
+          <InlineText
+            as="p"
+            value={description}
+            onUpdate={field("subscribeDescription")}
+            multiline
             style={{
               margin: "1.5rem auto 0",
               maxWidth: "28rem",
@@ -1056,9 +1084,7 @@ function SubscribeSection({
               lineHeight: 1.65,
               color: rgba(C.paper, 0.7),
             }}
-          >
-            {description}
-          </p>
+          />
         )}
 
         {submitted ? (
@@ -1239,8 +1265,7 @@ interface Props {
   sessionId?: string;
 }
 
-export function BlockBlogSeries({ props: p, brand, onFieldChange: _onFieldChange, pageId, sessionId }: Props) {
-  void _onFieldChange;
+export function BlockBlogSeries({ props: p, brand, onFieldChange, pageId, sessionId }: Props) {
   const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
   useBlockFonts(C.displayFont, C.bodyFont);
 
@@ -1296,12 +1321,12 @@ export function BlockBlogSeries({ props: p, brand, onFieldChange: _onFieldChange
         }}
       >
         {safeProps.showNav !== false && <StickyNav p={safeProps} C={C} />}
-        {safeProps.showHero !== false && <Hero p={safeProps} C={C} />}
-        {safeProps.showArchive !== false && <ArchiveSection p={safeProps} C={C} />}
-        {safeProps.showTopics !== false && <TopicsSection p={safeProps} C={C} />}
-        {safeProps.showContributors !== false && <ContributorsSection p={safeProps} C={C} />}
+        {safeProps.showHero !== false && <Hero p={safeProps} C={C} onFieldChange={onFieldChange} />}
+        {safeProps.showArchive !== false && <ArchiveSection p={safeProps} C={C} onFieldChange={onFieldChange} />}
+        {safeProps.showTopics !== false && <TopicsSection p={safeProps} C={C} onFieldChange={onFieldChange} />}
+        {safeProps.showContributors !== false && <ContributorsSection p={safeProps} C={C} onFieldChange={onFieldChange} />}
         {safeProps.showSubscribe !== false && (
-          <SubscribeSection p={safeProps} C={C} pageId={pageId} sessionId={sessionId} />
+          <SubscribeSection p={safeProps} C={C} pageId={pageId} sessionId={sessionId} onFieldChange={onFieldChange} />
         )}
         {safeProps.showFooter !== false && <Footer p={safeProps} C={C} />}
       </div>

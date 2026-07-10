@@ -4,6 +4,7 @@ import type { BusinessCaseCenteredBlockProps } from "../lib/block-types/dso-bloc
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 import type { BrandConfig } from "../lib/brand-config";
 import { BrandLogo } from "../components/BrandLogo";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -16,9 +17,10 @@ interface Props {
    *  "With <brandName>" comparison-table label so the same template
    *  renders correctly for any DSO. Per-block props still win. */
   brand?: BrandConfig;
+  onFieldChange?: (updated: BusinessCaseCenteredBlockProps) => void;
 }
 
-export function BlockBusinessCaseCentered({ props, brand }: Props) {
+export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor ?? brand?.pageBackground ?? "#f6f5ee";
   const ink = props.inkColor ?? brand?.primaryColor ?? "#0d1f15";
   const dark = props.darkColor ?? brand?.primaryColor ?? "#0d1f15";
@@ -32,6 +34,14 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
 
   const brandName = brand?.brandName?.trim() || "Dandy";
   const logoAlt = props.logoAlt || brandName;
+
+  const field = (key: keyof BusinessCaseCenteredBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateSignalCard = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const signalCards = props.signalCards.map((card, idx) => idx === i ? { ...card, [key]: value } : card);
+    onFieldChange({ ...props, signalCards });
+  };
 
   return (
     <div
@@ -58,26 +68,26 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
         </div>
 
         <div className="max-w-4xl mx-auto flex flex-col items-center z-10 mt-16">
-          {props.heroEyebrow && (
+          {(props.heroEyebrow || onFieldChange) && (
             <>
               <div className="w-12 h-[2px] mb-8" style={{ background: accent }} />
-              <h2
+              <InlineText
+                as="h2"
+                value={props.heroEyebrow}
+                onUpdate={field("heroEyebrow")}
                 className="text-xs font-semibold tracking-[0.2em] uppercase mb-6"
                 style={{ color: accent }}
-              >
-                {props.heroEyebrow}
-              </h2>
+              />
             </>
           )}
-          <h1
+          <InlineText
+            as="h1"
+            value={props.heroHeadline}
+            onUpdate={field("heroHeadline")}
             className="text-5xl md:text-7xl font-medium leading-[1.1] mb-8 max-w-4xl"
             style={{ fontFamily: DISPLAY, color: headlineOnDark }}
-          >
-            {props.heroHeadline}
-          </h1>
-          <p className="text-lg md:text-xl max-w-2xl mb-12 font-light" style={{ color: `${bg}b0` }}>
-            {props.heroSubhead}
-          </p>
+          />
+          <InlineText as="p" value={props.heroSubhead} onUpdate={field("heroSubhead")} multiline className="text-lg md:text-xl max-w-2xl mb-12 font-light" style={{ color: `${bg}b0` }} />
           <div className="flex flex-col items-center gap-6">
             <a
               href={props.heroPrimaryCtaUrl}
@@ -103,12 +113,10 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
-            <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
-              {props.situationHeading}
-            </h2>
-            <p className="text-lg text-gray-700 leading-relaxed mb-6">{props.situationBody}</p>
-            {props.situationBodyExtra && (
-              <p className="text-lg text-gray-700 leading-relaxed">{props.situationBodyExtra}</p>
+            <InlineText as="h2" value={props.situationHeading} onUpdate={field("situationHeading")} className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }} />
+            <InlineText as="p" value={props.situationBody} onUpdate={field("situationBody")} multiline className="text-lg text-gray-700 leading-relaxed mb-6" />
+            {(props.situationBodyExtra || onFieldChange) && (
+              <InlineText as="p" value={props.situationBodyExtra ?? ""} onUpdate={field("situationBodyExtra")} multiline className="text-lg text-gray-700 leading-relaxed" />
             )}
           </div>
           <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -146,20 +154,21 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
         style={{ background: dark, color: bg }}
       >
         <div className="mb-16">
-          {props.signalEyebrow && (
+          {(props.signalEyebrow || onFieldChange) && (
             <h2
               className="text-xs font-semibold tracking-[0.2em] uppercase mb-4"
               style={{ color: accent }}
             >
-              {props.signalEyebrow} →
+              <InlineText as="span" value={props.signalEyebrow} onUpdate={field("signalEyebrow")} /> →
             </h2>
           )}
-          <h3
+          <InlineText
+            as="h3"
+            value={props.signalHeading}
+            onUpdate={field("signalHeading")}
             className="text-4xl md:text-5xl max-w-3xl leading-tight"
             style={{ fontFamily: DISPLAY, color: headlineOnDark }}
-          >
-            {props.signalHeading}
-          </h3>
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {props.signalCards.map((card, i) => {
@@ -174,23 +183,22 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
                     className="text-lg italic relative z-10 pt-4 mb-6"
                     style={{ fontFamily: DISPLAY }}
                   >
-                    "{card.body}"
+                    "<InlineText as="span" value={card.body} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "body", v) : undefined} multiline />"
                   </p>
-                  <div
+                  <InlineText
+                    as="div"
+                    value={card.attribution}
+                    onUpdate={onFieldChange ? (v) => updateSignalCard(i, "attribution", v) : undefined}
                     className="text-sm font-semibold uppercase tracking-wider"
                     style={{ color: accent }}
-                  >
-                    {card.attribution}
-                  </div>
+                  />
                 </div>
               );
             }
             return (
               <div key={i} className="border border-white/20 p-8">
-                <div className="text-5xl mb-4" style={{ color: accent, fontFamily: DISPLAY }}>
-                  {card.stat}
-                </div>
-                <p className="text-lg">{card.body}</p>
+                <InlineText as="div" value={card.stat} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "stat", v) : undefined} className="text-5xl mb-4" style={{ color: accent, fontFamily: DISPLAY }} />
+                <InlineText as="p" value={card.body} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "body", v) : undefined} multiline className="text-lg" />
               </div>
             );
           })}
@@ -202,11 +210,9 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       {props.showCost !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
-            {props.costHeading}
-          </h2>
-          {props.costSubhead && (
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">{props.costSubhead}</p>
+          <InlineText as="h2" value={props.costHeading} onUpdate={field("costHeading")} className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }} />
+          {(props.costSubhead || onFieldChange) && (
+            <InlineText as="p" value={props.costSubhead ?? ""} onUpdate={field("costSubhead")} multiline className="text-xl text-gray-600 max-w-2xl mx-auto" />
           )}
         </div>
 

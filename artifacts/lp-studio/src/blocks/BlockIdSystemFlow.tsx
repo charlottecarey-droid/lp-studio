@@ -1,7 +1,9 @@
 import type { IdSystemFlowBlockProps } from "@/lib/block-types";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: IdSystemFlowBlockProps;
+  onFieldChange?: (updated: IdSystemFlowBlockProps) => void;
 }
 
 const HEAD = `var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', system-ui, sans-serif`;
@@ -16,12 +18,19 @@ function pad2(n: number) {
   return String(n + 1).padStart(2, "0");
 }
 
-export function BlockIdSystemFlow({ props }: Props) {
+export function BlockIdSystemFlow({ props, onFieldChange }: Props) {
   const stations = (props.stations ?? []).slice(0, 6);
   const activeIndex = Math.max(
     0,
     Math.min(stations.length - 1, props.activeIndex ?? 0),
   );
+  const field = (key: keyof IdSystemFlowBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateStation = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    const next = (props.stations ?? []).map((s, idx) => idx === i ? { ...s, [key]: v } : s);
+    onFieldChange({ ...props, stations: next });
+  };
 
   return (
     <section
@@ -47,26 +56,30 @@ export function BlockIdSystemFlow({ props }: Props) {
         <>
           <div className="id-flow__head">
             <div>
-              {props.eyebrow && (
+              {(props.eyebrow || onFieldChange) && (
                 <div className="id-flow__eyebrow">
                   <span className="id-flow__eyebrow-dot" aria-hidden />
-                  <span dangerouslySetInnerHTML={{ __html: props.eyebrow }} />
+                  <InlineText as="span" value={props.eyebrow ?? ""} onUpdate={field("eyebrow")} />
                 </div>
               )}
-              <h2
+              <InlineText
+                as="h2"
                 className="id-flow__headline"
-                dangerouslySetInnerHTML={{ __html: props.headline }}
+                value={props.headline}
+                onUpdate={field("headline")}
               />
             </div>
             {(props.metricLabel || props.metricValue) && (
               <div className="id-flow__metric">
                 {props.metricLabel && (
-                  <div className="id-flow__metric-label">{props.metricLabel}</div>
+                  <InlineText as="div" className="id-flow__metric-label" value={props.metricLabel} onUpdate={field("metricLabel")} />
                 )}
                 {props.metricValue && (
-                  <div
+                  <InlineText
+                    as="div"
                     className="id-flow__metric-value"
-                    dangerouslySetInnerHTML={{ __html: props.metricValue }}
+                    value={props.metricValue}
+                    onUpdate={field("metricValue")}
                   />
                 )}
               </div>
@@ -136,12 +149,14 @@ export function BlockIdSystemFlow({ props }: Props) {
             {s.category && (
               <div className="id-flow__cell-cat">{s.category}</div>
             )}
-            <div
+            <InlineText
+              as="div"
               className="id-flow__cell-title"
-              dangerouslySetInnerHTML={{ __html: s.title }}
+              value={s.title}
+              onUpdate={onFieldChange ? (v) => updateStation(i, "title", v) : undefined}
             />
             {s.description && (
-              <div className="id-flow__cell-desc">{s.description}</div>
+              <InlineText as="div" className="id-flow__cell-desc" multiline value={s.description} onUpdate={onFieldChange ? (v) => updateStation(i, "description", v) : undefined} />
             )}
           </div>
         ))}
@@ -160,10 +175,13 @@ export function BlockIdSystemFlow({ props }: Props) {
                   {props.footerBadge}
                 </span>
               )}
-              {props.footerBody && (
-                <p
+              {(props.footerBody || onFieldChange) && (
+                <InlineText
+                  as="p"
                   className="id-flow__footer-body"
-                  dangerouslySetInnerHTML={{ __html: props.footerBody }}
+                  multiline
+                  value={props.footerBody ?? ""}
+                  onUpdate={field("footerBody")}
                 />
               )}
             </div>
@@ -171,16 +189,19 @@ export function BlockIdSystemFlow({ props }: Props) {
               {(props.footerMetricLabel || props.footerMetricValue) && (
                 <div className="id-flow__footer-metric">
                   {props.footerMetricLabel && (
-                    <div className="id-flow__metric-label">
-                      {props.footerMetricLabel}
-                    </div>
+                    <InlineText
+                      as="div"
+                      className="id-flow__metric-label"
+                      value={props.footerMetricLabel}
+                      onUpdate={field("footerMetricLabel")}
+                    />
                   )}
                   {props.footerMetricValue && (
-                    <div
+                    <InlineText
+                      as="div"
                       className="id-flow__footer-metric-value"
-                      dangerouslySetInnerHTML={{
-                        __html: props.footerMetricValue,
-                      }}
+                      value={props.footerMetricValue}
+                      onUpdate={field("footerMetricValue")}
                     />
                   )}
                 </div>

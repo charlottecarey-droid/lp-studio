@@ -6,6 +6,7 @@ import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Logo Marquee — continuous horizontal logo ribbon(s) with edge fade masks.
@@ -134,8 +135,10 @@ function LogoMark({
   );
 }
 
-export function BlockLogoMarquee({ props, brand, animationsEnabled }: Props) {
+export function BlockLogoMarquee({ props, brand, animationsEnabled, onFieldChange }: Props) {
   const p = props as LogoMarqueeWallProps;
+  const field = (key: keyof LogoMarqueeBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
   const surface = resolveSectionSurface(props, "#ffffff");
   const dark = surface.isDark;
   const textColor = props.textColor || surface.color || (dark ? "rgba(255,255,255,0.85)" : "#334155");
@@ -201,14 +204,15 @@ export function BlockLogoMarquee({ props, brand, animationsEnabled }: Props) {
       `}</style>
 
       <div className="relative z-10 py-14 md:py-16">
-        {props.eyebrow && (
+        {(props.eyebrow || onFieldChange) && (
           <div className="mb-10 flex flex-col items-center px-6">
-            <h2
+            <InlineText
+              as="h2"
+              value={props.eyebrow ?? ""}
+              onUpdate={field("eyebrow")}
               className="text-center text-xs font-semibold uppercase tracking-[0.18em] md:text-sm"
               style={{ color: dark ? "rgba(255,255,255,0.6)" : "#64748b", fontFamily: bodyFamily }}
-            >
-              {props.eyebrow}
-            </h2>
+            />
             <span
               aria-hidden="true"
               className="mt-3 h-0.5 w-10 rounded-full"

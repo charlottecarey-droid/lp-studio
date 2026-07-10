@@ -5,6 +5,7 @@ import type { MinimalNavBlockProps } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: MinimalNavBlockProps;
@@ -12,7 +13,7 @@ interface Props {
   onFieldChange?: (updated: MinimalNavBlockProps) => void;
 }
 
-export function BlockMinimalNav({ props, brand }: Props) {
+export function BlockMinimalNav({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor ?? "#ffffff";
   const text = props.textColor ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
@@ -21,6 +22,8 @@ export function BlockMinimalNav({ props, brand }: Props) {
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const logoText = props.logoText || brand.brandName || "Brand";
+  const field = (key: keyof MinimalNavBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   return (
     <header className="w-full border-b" style={{ backgroundColor: bg, borderColor: border }}>
@@ -29,9 +32,7 @@ export function BlockMinimalNav({ props, brand }: Props) {
           {brandHasLogo(brand, props.logoUrl) ? (
             <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />
           ) : (
-            <span className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }}>
-              {logoText}
-            </span>
+            <InlineText as="span" value={logoText} onUpdate={field("logoText")} className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }} />
           )}
         </div>
         {props.ctaLabel && (

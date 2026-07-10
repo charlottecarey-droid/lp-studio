@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import type { ProductLaunchBlockProps, ProductLaunchTheme } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { InlineText } from "@/components/InlineText";
 
 // Product Launch / Keynote block — premium upgrade.
 //
@@ -147,9 +148,10 @@ function useScrollProgress(): number {
 
 interface Props {
   props: ProductLaunchBlockProps;
+  onFieldChange?: (updated: ProductLaunchBlockProps) => void;
 }
 
-export function BlockProductLaunch({ props }: Props) {
+export function BlockProductLaunch({ props, onFieldChange }: Props) {
   const prefersDark = usePrefersDark();
   const mode: "light" | "dark" =
     props.colorScheme === "auto" ? (prefersDark ? "dark" : "light") : props.colorScheme;
@@ -215,6 +217,14 @@ export function BlockProductLaunch({ props }: Props) {
   const slabTint = (c: string | undefined, alpha = 0.12) =>
     c ? `color-mix(in srgb, ${c} ${alpha * 100}%, transparent)` : `color-mix(in srgb, ${theme.accent} ${alpha * 100}%, transparent)`;
 
+  const field = (key: keyof ProductLaunchBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateSlab = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    const slabs = props.slabs.map((s, idx) => idx === i ? { ...s, [key]: v } : s);
+    onFieldChange({ ...props, slabs });
+  };
+
   return (
     <div style={{ fontFamily: bodyFont, background: theme.bg, color: theme.fg, minHeight: "100vh" }}>
       <style>{`
@@ -270,7 +280,10 @@ export function BlockProductLaunch({ props }: Props) {
             >
               {(props.productName?.trim()?.[0] ?? "·").toUpperCase()}
             </span>
-            <div
+            <InlineText
+              as="div"
+              value={props.productName}
+              onUpdate={field("productName")}
               style={{
                 fontSize: "16px",
                 fontWeight: 700,
@@ -279,9 +292,7 @@ export function BlockProductLaunch({ props }: Props) {
                 color: theme.fg,
                 whiteSpace: "nowrap",
               }}
-            >
-              {props.productName}
-            </div>
+            />
             {!isMobile && (
               <span
                 style={{
@@ -601,11 +612,14 @@ export function BlockProductLaunch({ props }: Props) {
                   animation: "lppl-pulse-dot 1.8s ease-in-out infinite",
                 }}
               />
-              {props.heroEyebrow || "Keynote · 2026"}
+              <InlineText as="span" value={props.heroEyebrow || "Keynote · 2026"} onUpdate={field("heroEyebrow")} />
             </span>
           </div>
 
-          <h1
+          <InlineText
+            as="h1"
+            value={props.heroTitle}
+            onUpdate={field("heroTitle")}
             style={{
               fontFamily: displayFont,
               fontSize: "clamp(56px, 10.5vw, 132px)",
@@ -619,10 +633,12 @@ export function BlockProductLaunch({ props }: Props) {
               WebkitTextFillColor: "transparent",
               color: "transparent",
             }}
-          >
-            {props.heroTitle}
-          </h1>
-          <p
+          />
+          <InlineText
+            as="p"
+            value={props.heroTagline}
+            onUpdate={field("heroTagline")}
+            multiline
             style={{
               fontSize: "clamp(20px, 3.6vw, 30px)",
               color: theme.muted,
@@ -634,9 +650,7 @@ export function BlockProductLaunch({ props }: Props) {
               marginLeft: "auto",
               marginRight: "auto",
             }}
-          >
-            {props.heroTagline}
-          </p>
+          />
           <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
             {props.heroPrimaryCtaText && (
               <a
@@ -923,7 +937,10 @@ export function BlockProductLaunch({ props }: Props) {
                     Chapter {chapterNo}
                   </span>
                   {slab.eyebrow && (
-                    <span
+                    <InlineText
+                      as="span"
+                      value={slab.eyebrow}
+                      onUpdate={onFieldChange ? (v) => updateSlab(i, "eyebrow", v) : undefined}
                       style={{
                         color: theme.muted,
                         fontSize: 11,
@@ -931,13 +948,14 @@ export function BlockProductLaunch({ props }: Props) {
                         textTransform: "uppercase",
                         fontWeight: 700,
                       }}
-                    >
-                      {slab.eyebrow}
-                    </span>
+                    />
                   )}
                 </div>
 
-                <h2
+                <InlineText
+                  as="h2"
+                  value={slab.title}
+                  onUpdate={onFieldChange ? (v) => updateSlab(i, "title", v) : undefined}
                   style={{
                     fontFamily: displayFont,
                     fontSize: "clamp(38px, 5.4vw, 64px)",
@@ -946,10 +964,12 @@ export function BlockProductLaunch({ props }: Props) {
                     lineHeight: 1.05,
                     marginBottom: "20px",
                   }}
-                >
-                  {slab.title}
-                </h2>
-                <p
+                />
+                <InlineText
+                  as="p"
+                  value={slab.body}
+                  onUpdate={onFieldChange ? (v) => updateSlab(i, "body", v) : undefined}
+                  multiline
                   style={{
                     fontSize: "19px",
                     color: theme.muted,
@@ -958,9 +978,7 @@ export function BlockProductLaunch({ props }: Props) {
                     marginBottom: "28px",
                     maxWidth: 520,
                   }}
-                >
-                  {slab.body}
-                </p>
+                />
                 {slab.bullets.length > 0 && (
                   <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                     {slab.bullets.map((b, j) => (
@@ -1189,7 +1207,10 @@ export function BlockProductLaunch({ props }: Props) {
                 </span>
                 <HairlineRule color={theme.border} />
               </div>
-              <h2
+              <InlineText
+                as="h2"
+                value={props.specsHeadline}
+                onUpdate={field("specsHeadline")}
                 style={{
                   fontFamily: displayFont,
                   fontSize: "clamp(38px, 5vw, 56px)",
@@ -1197,9 +1218,7 @@ export function BlockProductLaunch({ props }: Props) {
                   letterSpacing: "-0.032em",
                   lineHeight: 1.05,
                 }}
-              >
-                {props.specsHeadline}
-              </h2>
+              />
             </div>
 
             <div
@@ -1389,8 +1408,11 @@ export function BlockProductLaunch({ props }: Props) {
 
           <div style={{ position: "relative", maxWidth: 1200, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 40 }}>
-              {props.plansHeadline && (
-                <h2
+              {(props.plansHeadline || onFieldChange) && (
+                <InlineText
+                  as="h2"
+                  value={props.plansHeadline ?? ""}
+                  onUpdate={field("plansHeadline")}
                   style={{
                     fontFamily: displayFont,
                     fontSize: "clamp(38px, 5vw, 56px)",
@@ -1398,9 +1420,7 @@ export function BlockProductLaunch({ props }: Props) {
                     letterSpacing: "-0.032em",
                     marginBottom: 24,
                   }}
-                >
-                  {props.plansHeadline}
-                </h2>
+                />
               )}
 
               {/* Billing toggle */}
@@ -1703,7 +1723,10 @@ export function BlockProductLaunch({ props }: Props) {
           >
             The release · Available {issueLabel}
           </div>
-          <h2
+          <InlineText
+            as="h2"
+            value={props.ctaHeadline}
+            onUpdate={field("ctaHeadline")}
             style={{
               fontFamily: displayFont,
               fontSize: "clamp(44px, 8vw, 88px)",
@@ -1712,11 +1735,13 @@ export function BlockProductLaunch({ props }: Props) {
               lineHeight: 0.96,
               marginBottom: 18,
             }}
-          >
-            {props.ctaHeadline}
-          </h2>
-          {props.ctaSubtitle && (
-            <p
+          />
+          {(props.ctaSubtitle || onFieldChange) && (
+            <InlineText
+              as="p"
+              value={props.ctaSubtitle ?? ""}
+              onUpdate={field("ctaSubtitle")}
+              multiline
               style={{
                 fontSize: 19,
                 color: theme.muted,
@@ -1727,9 +1752,7 @@ export function BlockProductLaunch({ props }: Props) {
                 marginLeft: "auto",
                 marginRight: "auto",
               }}
-            >
-              {props.ctaSubtitle}
-            </p>
+            />
           )}
           {props.ctaButtonText && (
             <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 12 }}>
@@ -1872,9 +1895,7 @@ export function BlockProductLaunch({ props }: Props) {
                   {props.productName}
                 </span>
               </div>
-              <p style={{ fontSize: 13, color: theme.muted, lineHeight: 1.55, maxWidth: 280 }}>
-                {props.footerText}
-              </p>
+              <InlineText as="p" value={props.footerText ?? ""} onUpdate={field("footerText")} multiline style={{ fontSize: 13, color: theme.muted, lineHeight: 1.55, maxWidth: 280 }} />
             </div>
 
             {[

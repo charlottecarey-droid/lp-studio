@@ -42,6 +42,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 import { getDtrParams } from "@/lib/dtr";
+import { InlineText } from "@/components/InlineText";
 
 class ContentSeriesErrorBoundary extends Component<
   { children: ReactNode },
@@ -397,6 +398,8 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
+type FieldUpdater = (key: keyof ContentSeriesBlockProps) => (v: string) => void;
+
 function StickyNav({
   p,
   C,
@@ -607,7 +610,7 @@ function platformIconFor(cta: ContentSeriesCta): { icon: React.ReactNode; label:
   return { icon: <Link2 size={18} />, label: cta.label || "Link" };
 }
 
-function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function HeroFullBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
   const Icon = seriesIcon(p.seriesType);
   const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.heroCtaUrl ?? "#episodes";
@@ -687,7 +690,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
             }}
           >
             <Sparkles size={14} />
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field?.("heroEyebrow")} />
           </motion.p>
 
           <motion.h1
@@ -702,10 +705,10 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
               marginBottom: "1.25rem",
             }}
           >
-            {p.seriesTitle}
+            <InlineText as="span" value={p.seriesTitle} onUpdate={field?.("seriesTitle")} />
           </motion.h1>
 
-          {p.seriesSubtitle && (
+          {(p.seriesSubtitle || field) && (
             <motion.p
               variants={fadeUp}
               style={{
@@ -718,7 +721,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
                 margin: "0 auto 2.75rem",
               }}
             >
-              {p.seriesSubtitle}
+              <InlineText as="span" value={p.seriesSubtitle ?? ""} onUpdate={field?.("seriesSubtitle")} multiline />
             </motion.p>
           )}
 
@@ -786,7 +789,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
   );
 }
 
-function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function HeroHalfBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
   const Icon = seriesIcon(p.seriesType);
   const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.heroCtaUrl ?? "#episodes";
@@ -842,7 +845,7 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
             }}
           >
             <Sparkles size={14} />
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field?.("heroEyebrow")} />
           </motion.p>
 
           <motion.h1
@@ -857,10 +860,10 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
               marginBottom: "1.25rem",
             }}
           >
-            {p.seriesTitle}
+            <InlineText as="span" value={p.seriesTitle} onUpdate={field?.("seriesTitle")} />
           </motion.h1>
 
-          {p.seriesSubtitle && (
+          {(p.seriesSubtitle || field) && (
             <motion.p
               variants={fadeUp}
               style={{
@@ -873,7 +876,7 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
                 marginBottom: "2.75rem",
               }}
             >
-              {p.seriesSubtitle}
+              <InlineText as="span" value={p.seriesSubtitle ?? ""} onUpdate={field?.("seriesSubtitle")} multiline />
             </motion.p>
           )}
 
@@ -968,7 +971,7 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
   );
 }
 
-function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function HeroTextOnly({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
   const Icon = seriesIcon(p.seriesType);
   const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.heroCtaUrl ?? "#episodes";
@@ -1013,7 +1016,7 @@ function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
             }}
           >
             <Sparkles size={14} />
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field?.("heroEyebrow")} />
           </motion.p>
 
           <motion.h1
@@ -1028,10 +1031,10 @@ function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
               marginBottom: "1.25rem",
             }}
           >
-            {p.seriesTitle}
+            <InlineText as="span" value={p.seriesTitle} onUpdate={field?.("seriesTitle")} />
           </motion.h1>
 
-          {p.seriesSubtitle && (
+          {(p.seriesSubtitle || field) && (
             <motion.p
               variants={fadeUp}
               style={{
@@ -1044,7 +1047,7 @@ function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
                 margin: "0 auto 2.75rem",
               }}
             >
-              {p.seriesSubtitle}
+              <InlineText as="span" value={p.seriesSubtitle ?? ""} onUpdate={field?.("seriesSubtitle")} multiline />
             </motion.p>
           )}
 
@@ -1109,11 +1112,11 @@ function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   );
 }
 
-function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function Hero({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
   const layout = p.heroLayout ?? "half-bleed";
-  if (layout === "full-bleed") return <HeroFullBleed p={p} C={C} />;
-  if (layout === "text-only") return <HeroTextOnly p={p} C={C} />;
-  return <HeroHalfBleed p={p} C={C} />;
+  if (layout === "full-bleed") return <HeroFullBleed p={p} C={C} field={field} />;
+  if (layout === "text-only") return <HeroTextOnly p={p} C={C} field={field} />;
+  return <HeroHalfBleed p={p} C={C} field={field} />;
 }
 
 const STATUS_CONFIG: Record<EpisodeStatus, { label: string; color: string; dotColor: string }> = {
@@ -1863,7 +1866,7 @@ function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   );
 }
 
-function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function AboutSection({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
   const headline = p.aboutHeadline;
   const description = p.aboutDescription;
   const audience = p.aboutAudience;
@@ -1879,15 +1882,15 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
             About the Series
           </motion.p>
 
-          {headline && (
+          {(headline || field) && (
             <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4.2vw, 3.2rem)", lineHeight: 1.15, color: C.heading, letterSpacing: "-0.01em", marginBottom: "1.75rem", maxWidth: "44rem" }}>
-              {headline}
+              <InlineText as="span" value={headline ?? ""} onUpdate={field?.("aboutHeadline")} />
             </motion.h2>
           )}
 
-          {description && (
+          {(description || field) && (
             <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", lineHeight: 1.75, color: C.muted, maxWidth: "48rem", marginBottom: audience || topics.length ? "2.5rem" : 0 }}>
-              {description}
+              <InlineText as="span" value={description ?? ""} onUpdate={field?.("aboutDescription")} multiline />
             </motion.p>
           )}
 
@@ -2672,7 +2675,7 @@ function SectionTransition({ C }: { C: ResolvedTheme }) {
   );
 }
 
-function FormSection({ p, C, onOpenForm, hasFollowingTransition }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: () => void; hasFollowingTransition?: boolean }) {
+function FormSection({ p, C, onOpenForm, hasFollowingTransition, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: () => void; hasFollowingTransition?: boolean; field?: FieldUpdater }) {
   // Visibility is controlled solely by the `showForm` toggle (gated at the
   // callsite). An empty `formSteps` array must NOT hide the section — the
   // modal falls back to DEFAULT_GUEST_FORM_STEPS so the apply button always
@@ -2715,14 +2718,14 @@ function FormSection({ p, C, onOpenForm, hasFollowingTransition }: { p: ContentS
           style={{ position: "relative", maxWidth: "40rem", margin: "0 auto", textAlign: "center" }}
         >
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field?.("formEyebrow")} />
           </motion.p>
           <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em", marginBottom: subtitle ? "1.25rem" : "2rem", lineHeight: 1.15 }}>
-            {headline}
+            <InlineText as="span" value={headline} onUpdate={field?.("formHeadline")} />
           </motion.h2>
-          {subtitle && (
+          {(subtitle || field) && (
             <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", color: C.muted, lineHeight: 1.7, marginBottom: "2.25rem" }}>
-              {subtitle}
+              <InlineText as="span" value={subtitle} onUpdate={field?.("formSubheadline")} multiline />
             </motion.p>
           )}
           <motion.button
@@ -2849,7 +2852,7 @@ function SubscribeForm({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Re
   );
 }
 
-function CtaSection({ p, C, onSubscribe }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onSubscribe: (initial: Record<string, string>) => void }) {
+function CtaSection({ p, C, onSubscribe, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onSubscribe: (initial: Record<string, string>) => void; field?: FieldUpdater }) {
   const headline = p.ctaSectionHeadline;
   const sub = p.ctaSectionSubheadline;
   const ctas: ContentSeriesCta[] = p.ctas ?? [];
@@ -2875,14 +2878,14 @@ function CtaSection({ p, C, onSubscribe }: { p: ContentSeriesBlockProps; C: Reso
         variants={stagger}
         style={{ position: "relative", maxWidth: "48rem", margin: "0 auto", textAlign: "center" }}
       >
-        {headline && (
+        {(headline || field) && (
           <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2.2rem, 5vw, 3.6rem)", lineHeight: 1.1, color: C.heading, letterSpacing: "-0.01em", marginBottom: sub ? "1.25rem" : "2.5rem" }}>
-            {headline}
+            <InlineText as="span" value={headline ?? ""} onUpdate={field?.("ctaSectionHeadline")} />
           </motion.h2>
         )}
-        {sub && (
+        {(sub || field) && (
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", lineHeight: 1.7, color: C.muted, maxWidth: "36rem", margin: "0 auto 2.75rem" }}>
-            {sub}
+            <InlineText as="span" value={sub ?? ""} onUpdate={field?.("ctaSectionSubheadline")} multiline />
           </motion.p>
         )}
         {showSubscribe && (
@@ -3055,8 +3058,10 @@ function resolveHeroFromEpisodes(
   return applyEpisodeToHero(p, newest);
 }
 
-export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldChange, pageId, sessionId }: Props) {
-  void _onFieldChange;
+export function BlockContentSeries({ props: p, brand, onFieldChange, pageId, sessionId }: Props) {
+  const field = onFieldChange
+    ? (key: keyof ContentSeriesBlockProps) => (v: string) => onFieldChange({ ...p, [key]: v })
+    : undefined;
   const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
   useBlockFonts(C.displayFont, C.bodyFont);
 
@@ -3180,13 +3185,13 @@ export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldCha
         }}
       >
         {(safeProps.showNav !== false) && <StickyNav p={effective} C={C} onSubscribe={openSubscribeForm} />}
-        {(safeProps.showHero !== false) && <Hero p={effective} C={C} />}
+        {(safeProps.showHero !== false) && <Hero p={effective} C={C} field={field} />}
         {(safeProps.showEpisodes !== false) && <EpisodeLibrary p={effective} C={C} />}
         {(safeProps.showHosts !== false) && <HostsSection p={effective} C={C} />}
-        {(safeProps.showAbout !== false) && <AboutSection p={effective} C={C} />}
-        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} onOpenForm={() => openGuestForm()} hasFollowingTransition={safeProps.showCta !== false} />}
+        {(safeProps.showAbout !== false) && <AboutSection p={effective} C={C} field={field} />}
+        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} onOpenForm={() => openGuestForm()} hasFollowingTransition={safeProps.showCta !== false} field={field} />}
         {(safeProps.showForm !== false) && (safeProps.showCta !== false) && <SectionTransition C={C} />}
-        {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onSubscribe={openSubscribeForm} />}
+        {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onSubscribe={openSubscribeForm} field={field} />}
       </div>
       {formModalState.open && formModalState.kind === "subscribe" && effective.subscribeFormSource && effective.subscribeFormSource !== "simple" ? (
         <EmailCaptureModal

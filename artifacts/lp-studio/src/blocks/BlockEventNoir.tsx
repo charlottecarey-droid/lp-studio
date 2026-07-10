@@ -26,6 +26,7 @@ import {
 import type { BrandConfig } from "@/lib/brand-config";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { InlineText } from "@/components/InlineText";
 
 // ── Hardcoded editorial "noir" defaults ─────────────────────────────────────
 const NOIR = {
@@ -74,6 +75,7 @@ interface Props {
   /** Builder mode — currently unused for static rendering; accepted so the
    *  renderer can pass it through like sibling full-page blocks. */
   isBuilder?: boolean;
+  onFieldChange?: (updated: EventNoirBlockProps) => void;
 }
 
 interface NoirTheme {
@@ -122,7 +124,7 @@ function useCountdown(targetIso?: string) {
 }
 
 // ── Reusable bits ───────────────────────────────────────────────────────────
-function Eyebrow({ text, C, withRule = false }: { text: string; C: NoirTheme; withRule?: boolean }) {
+function Eyebrow({ text, C, withRule = false, onUpdate }: { text: string; C: NoirTheme; withRule?: boolean; onUpdate?: (v: string) => void }) {
   return (
     <div
       style={{
@@ -138,7 +140,7 @@ function Eyebrow({ text, C, withRule = false }: { text: string; C: NoirTheme; wi
       }}
     >
       {withRule && <span style={{ width: "2rem", height: 1, backgroundColor: C.accent }} />}
-      {text}
+      <InlineText as="span" value={text} onUpdate={onUpdate} />
     </div>
   );
 }
@@ -320,7 +322,9 @@ function Nav({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function Hero({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Hero({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const eyebrow = p.heroEyebrow ?? "";
   const tagline = p.heroTagline ?? "";
   const ctaLabel = p.heroCtaLabel ?? "Secure Your Place";
@@ -391,12 +395,15 @@ function Hero({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
         className="lg:grid-cols-12"
       >
         <div className="lg:col-span-8">
-          {eyebrow && (
+          {(eyebrow || onFieldChange) && (
             <div style={{ marginBottom: "1.5rem" }}>
-              <Eyebrow text={eyebrow} C={C} withRule />
+              <Eyebrow text={eyebrow} C={C} withRule onUpdate={field("heroEyebrow")} />
             </div>
           )}
-          <h1
+          <InlineText
+            as="h1"
+            value={p.eventName}
+            onUpdate={field("eventName")}
             style={{
               fontFamily: C.display,
               fontSize: heroSize,
@@ -405,11 +412,13 @@ function Hero({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
               marginBottom: "1.5rem",
               fontWeight: 500,
             }}
-          >
-            {p.eventName}
-          </h1>
-          {tagline && (
-            <p
+          />
+          {(tagline || onFieldChange) && (
+            <InlineText
+              as="p"
+              value={tagline}
+              onUpdate={field("heroTagline")}
+              multiline
               style={{
                 fontFamily: C.body,
                 fontSize: "clamp(1.1rem, 2.2vw, 1.5rem)",
@@ -419,9 +428,7 @@ function Hero({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
                 marginBottom: "3rem",
                 lineHeight: 1.5,
               }}
-            >
-              {tagline}
-            </p>
+            />
           )}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
             <NoirButton C={C} href={ctaUrl}>
@@ -440,22 +447,26 @@ function Hero({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
           className="lg:col-span-4 lg:text-right"
           style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
         >
-          {p.eventDate && (
+          {(p.eventDate || onFieldChange) && (
             <div>
               <div style={{ color: C.tertiary, textTransform: "uppercase", letterSpacing: "0.18em", fontSize: "0.7rem", marginBottom: "0.5rem", fontFamily: C.body }}>
                 Date
               </div>
-              <div style={{ color: C.ink, fontSize: "1.1rem", fontWeight: 500, fontFamily: C.body }}>{p.eventDate}</div>
+              <InlineText as="div" value={p.eventDate ?? ""} onUpdate={field("eventDate")} style={{ color: C.ink, fontSize: "1.1rem", fontWeight: 500, fontFamily: C.body }} />
             </div>
           )}
-          {p.eventLocation && (
+          {(p.eventLocation || onFieldChange) && (
             <div>
               <div style={{ color: C.tertiary, textTransform: "uppercase", letterSpacing: "0.18em", fontSize: "0.7rem", marginBottom: "0.5rem", fontFamily: C.body }}>
                 Location
               </div>
-              <div style={{ color: C.ink, fontSize: "1.1rem", fontWeight: 500, fontFamily: C.body, whiteSpace: "pre-line" }}>
-                {p.eventLocation}
-              </div>
+              <InlineText
+                as="div"
+                value={p.eventLocation ?? ""}
+                onUpdate={field("eventLocation")}
+                multiline
+                style={{ color: C.ink, fontSize: "1.1rem", fontWeight: 500, fontFamily: C.body, whiteSpace: "pre-line" }}
+              />
             </div>
           )}
         </div>
@@ -464,7 +475,9 @@ function Hero({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function Countdown({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Countdown({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const t = useCountdown(p.countdownTargetDate);
   const items = [
     { label: "Days", value: t.days },
@@ -475,9 +488,9 @@ function Countdown({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.bg, borderBottom: `1px solid ${C.borderSoft}` }}>
       <div style={{ maxWidth: C.maxW, margin: "0 auto" }}>
-        {p.countdownHeading && (
+        {(p.countdownHeading || onFieldChange) && (
           <div style={{ textAlign: "center", marginBottom: "3rem" }}>
-            <h2 style={{ fontFamily: C.display, fontSize: "clamp(1.75rem, 4vw, 2.5rem)", color: C.ink }}>{p.countdownHeading}</h2>
+            <InlineText as="h2" value={p.countdownHeading ?? ""} onUpdate={field("countdownHeading")} style={{ fontFamily: C.display, fontSize: "clamp(1.75rem, 4vw, 2.5rem)", color: C.ink }} />
           </div>
         )}
         <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: "2rem" }}>
@@ -506,28 +519,32 @@ function Countdown({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function About({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function About({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const stats = p.aboutStats ?? [];
   const paragraphs = (p.aboutBody ?? "").split(/\n\n+/).filter(Boolean);
+  const updateParagraph = (i: number, v: string) => {
+    if (!onFieldChange) return;
+    const next = paragraphs.slice();
+    next[i] = v;
+    onFieldChange({ ...p, aboutBody: next.join("\n\n") });
+  };
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.bg }}>
       <div className="grid grid-cols-1 lg:grid-cols-2" style={{ maxWidth: C.maxW, margin: "0 auto", gap: "4rem" }}>
         <div>
-          {p.aboutEyebrow && (
+          {(p.aboutEyebrow || onFieldChange) && (
             <div style={{ marginBottom: "1.5rem" }}>
-              <Eyebrow text={p.aboutEyebrow} C={C} />
+              <Eyebrow text={p.aboutEyebrow ?? ""} C={C} onUpdate={field("aboutEyebrow")} />
             </div>
           )}
-          {p.aboutHeading && (
-            <h2 style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 3rem)", color: C.ink, lineHeight: 1.15, marginBottom: "2rem" }}>
-              {p.aboutHeading}
-            </h2>
+          {(p.aboutHeading || onFieldChange) && (
+            <InlineText as="h2" value={p.aboutHeading ?? ""} onUpdate={field("aboutHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 3rem)", color: C.ink, lineHeight: 1.15, marginBottom: "2rem" }} />
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             {paragraphs.map((para, i) => (
-              <p key={i} style={{ color: C.muted, fontSize: "1.1rem", fontWeight: 300, lineHeight: 1.7, fontFamily: C.body }}>
-                {para}
-              </p>
+              <InlineText key={i} as="p" value={para} onUpdate={onFieldChange ? (v) => updateParagraph(i, v) : undefined} multiline style={{ color: C.muted, fontSize: "1.1rem", fontWeight: 300, lineHeight: 1.7, fontFamily: C.body }} />
             ))}
           </div>
         </div>
@@ -556,11 +573,21 @@ function About({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function Agenda({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Agenda({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const days: EventAgendaDay[] = p.agendaDays ?? [];
   const [active, setActive] = useState(0);
   if (days.length === 0) return null;
-  const day = days[Math.min(active, days.length - 1)];
+  const dayIdx = Math.min(active, days.length - 1);
+  const day = days[dayIdx];
+  const updateSession = (si: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const nextDays = days.map((d, di) =>
+      di === dayIdx ? { ...d, sessions: d.sessions.map((s, j) => (j === si ? { ...s, [key]: value } : s)) } : d,
+    );
+    onFieldChange({ ...p, agendaDays: nextDays });
+  };
 
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.surface }}>
@@ -570,14 +597,12 @@ function Agenda({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
           style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "4rem", gap: "2rem" }}
         >
           <div>
-            {p.agendaEyebrow && (
+            {(p.agendaEyebrow || onFieldChange) && (
               <div style={{ marginBottom: "1rem" }}>
-                <Eyebrow text={p.agendaEyebrow} C={C} />
+                <Eyebrow text={p.agendaEyebrow ?? ""} C={C} onUpdate={field("agendaEyebrow")} />
               </div>
             )}
-            <h2 style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink }}>
-              {p.agendaHeading ?? "The Itinerary"}
-            </h2>
+            <InlineText as="h2" value={p.agendaHeading ?? "The Itinerary"} onUpdate={field("agendaHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink }} />
           </div>
           {days.length > 1 && (
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -623,9 +648,12 @@ function Agenda({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
               </div>
               <div style={{ flexGrow: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
-                  <h3 style={{ fontFamily: C.display, fontSize: "1.5rem", color: C.ink }}>{session.title}</h3>
+                  <InlineText as="h3" value={session.title} onUpdate={onFieldChange ? (v) => updateSession(i, "title", v) : undefined} style={{ fontFamily: C.display, fontSize: "1.5rem", color: C.ink }} />
                   {session.speaker && (
-                    <span
+                    <InlineText
+                      as="span"
+                      value={session.speaker}
+                      onUpdate={onFieldChange ? (v) => updateSession(i, "speaker", v) : undefined}
                       style={{
                         fontSize: "0.65rem",
                         textTransform: "uppercase",
@@ -635,15 +663,11 @@ function Agenda({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
                         color: C.muted,
                         fontFamily: C.body,
                       }}
-                    >
-                      {session.speaker}
-                    </span>
+                    />
                   )}
                 </div>
                 {session.description && (
-                  <p style={{ color: C.muted, fontWeight: 300, maxWidth: "40rem", fontFamily: C.body, lineHeight: 1.6 }}>
-                    {session.description}
-                  </p>
+                  <InlineText as="p" value={session.description} onUpdate={onFieldChange ? (v) => updateSession(i, "description", v) : undefined} multiline style={{ color: C.muted, fontWeight: 300, maxWidth: "40rem", fontFamily: C.body, lineHeight: 1.6 }} />
                 )}
               </div>
             </div>
@@ -702,21 +726,25 @@ function SpeakerImage({ url, name, C }: { url?: string; name: string; C: NoirThe
   );
 }
 
-function Speakers({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Speakers({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const speakers = p.speakers ?? [];
+  const updateSpeaker = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...p, speakers: speakers.map((s, idx) => (idx === i ? { ...s, [key]: value } : s)) });
+  };
   if (speakers.length === 0) return null;
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.bg }}>
       <div style={{ maxWidth: C.maxW, margin: "0 auto" }}>
         <div style={{ marginBottom: "4rem" }}>
-          {p.speakersEyebrow && (
+          {(p.speakersEyebrow || onFieldChange) && (
             <div style={{ marginBottom: "1rem" }}>
-              <Eyebrow text={p.speakersEyebrow} C={C} />
+              <Eyebrow text={p.speakersEyebrow ?? ""} C={C} onUpdate={field("speakersEyebrow")} />
             </div>
           )}
-          <h2 style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink }}>
-            {p.speakersHeading ?? "The Voices"}
-          </h2>
+          <InlineText as="h2" value={p.speakersHeading ?? "The Voices"} onUpdate={field("speakersHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink }} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4" style={{ gap: "2rem" }}>
           {speakers.map((sp, i) => (
@@ -733,7 +761,7 @@ function Speakers({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
               >
                 <SpeakerImage url={sp.photoUrl} name={sp.name} C={C} />
               </div>
-              <h3 style={{ fontFamily: C.display, fontSize: "1.25rem", color: C.ink, marginBottom: "0.25rem" }}>{sp.name}</h3>
+              <InlineText as="h3" value={sp.name} onUpdate={onFieldChange ? (v) => updateSpeaker(i, "name", v) : undefined} style={{ fontFamily: C.display, fontSize: "1.25rem", color: C.ink, marginBottom: "0.25rem" }} />
               {(sp.role || sp.company) && (
                 <p style={{ fontSize: "0.8rem", color: C.tertiary, textTransform: "uppercase", letterSpacing: "0.15em", fontFamily: C.body }}>
                   {[sp.role, sp.company].filter(Boolean).join(", ")}
@@ -747,7 +775,9 @@ function Speakers({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function Venue({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Venue({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.surface }}>
       <div className="grid grid-cols-1 lg:grid-cols-2" style={{ maxWidth: C.maxW, margin: "0 auto", gap: "4rem", alignItems: "center" }}>
@@ -788,21 +818,19 @@ function Venue({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
         </div>
 
         <div>
-          {p.venueEyebrow && (
+          {(p.venueEyebrow || onFieldChange) && (
             <div style={{ marginBottom: "1rem" }}>
-              <Eyebrow text={p.venueEyebrow} C={C} />
+              <Eyebrow text={p.venueEyebrow ?? ""} C={C} onUpdate={field("venueEyebrow")} />
             </div>
           )}
-          <h2 style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink, marginBottom: "2rem" }}>
-            {p.venueHeading ?? p.venueName ?? "The Venue"}
-          </h2>
+          <InlineText as="h2" value={p.venueHeading ?? p.venueName ?? "The Venue"} onUpdate={field("venueHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink, marginBottom: "2rem" }} />
           <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-            {p.venueAddress && (
+            {(p.venueAddress || onFieldChange) && (
               <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
                 <MapPin style={{ color: C.accent, width: "1.5rem", height: "1.5rem", flexShrink: 0, marginTop: "0.25rem" }} />
                 <div>
                   <h4 style={{ color: C.ink, fontWeight: 500, fontSize: "1.1rem", marginBottom: "0.25rem", fontFamily: C.body }}>Address</h4>
-                  <p style={{ color: C.muted, fontWeight: 300, fontFamily: C.body, whiteSpace: "pre-line", lineHeight: 1.6 }}>{p.venueAddress}</p>
+                  <InlineText as="p" value={p.venueAddress ?? ""} onUpdate={field("venueAddress")} multiline style={{ color: C.muted, fontWeight: 300, fontFamily: C.body, whiteSpace: "pre-line", lineHeight: 1.6 }} />
                 </div>
               </div>
             )}
@@ -811,16 +839,16 @@ function Venue({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
                 <Calendar style={{ color: C.accent, width: "1.5rem", height: "1.5rem", flexShrink: 0, marginTop: "0.25rem" }} />
                 <div>
                   <h4 style={{ color: C.ink, fontWeight: 500, fontSize: "1.1rem", marginBottom: "0.25rem", fontFamily: C.body }}>Venue</h4>
-                  <p style={{ color: C.muted, fontWeight: 300, fontFamily: C.body, lineHeight: 1.6 }}>{p.venueName}</p>
+                  <InlineText as="p" value={p.venueName} onUpdate={field("venueName")} style={{ color: C.muted, fontWeight: 300, fontFamily: C.body, lineHeight: 1.6 }} />
                 </div>
               </div>
             )}
-            {p.venueDescription && (
+            {(p.venueDescription || onFieldChange) && (
               <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
                 <Clock style={{ color: C.accent, width: "1.5rem", height: "1.5rem", flexShrink: 0, marginTop: "0.25rem" }} />
                 <div>
                   <h4 style={{ color: C.ink, fontWeight: 500, fontSize: "1.1rem", marginBottom: "0.25rem", fontFamily: C.body }}>Details</h4>
-                  <p style={{ color: C.muted, fontWeight: 300, fontFamily: C.body, lineHeight: 1.6 }}>{p.venueDescription}</p>
+                  <InlineText as="p" value={p.venueDescription ?? ""} onUpdate={field("venueDescription")} multiline style={{ color: C.muted, fontWeight: 300, fontFamily: C.body, lineHeight: 1.6 }} />
                 </div>
               </div>
             )}
@@ -831,15 +859,17 @@ function Venue({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function Gallery({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Gallery({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const images = p.galleryImages ?? [];
   if (images.length === 0) return null;
   const aspects = ["4 / 3", "3 / 4", "4 / 3"];
   return (
     <section style={{ padding: `${C.sectionPad}px 0`, backgroundColor: C.bg, overflow: "hidden" }}>
-      {p.galleryHeading && (
+      {(p.galleryHeading || onFieldChange) && (
         <div style={{ maxWidth: C.maxW, margin: "0 auto 3rem", padding: "0 2rem" }}>
-          <h2 style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink }}>{p.galleryHeading}</h2>
+          <InlineText as="h2" value={p.galleryHeading ?? ""} onUpdate={field("galleryHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink }} />
         </div>
       )}
       <div style={{ display: "flex", gap: "1rem", padding: "0 2rem", maxWidth: C.maxW, margin: "0 auto" }}>
@@ -871,15 +901,15 @@ function Gallery({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function Sponsors({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Sponsors({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const sponsors = p.sponsors ?? [];
   if (sponsors.length === 0) return null;
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.surface, borderTop: `1px solid ${C.borderSoft}`, borderBottom: `1px solid ${C.borderSoft}` }}>
       <div style={{ maxWidth: C.maxW, margin: "0 auto", textAlign: "center" }}>
-        <h3 style={{ color: C.tertiary, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "0.72rem", marginBottom: "3rem", fontFamily: C.body }}>
-          {p.sponsorsHeading ?? "In Partnership With"}
-        </h3>
+        <InlineText as="h3" value={p.sponsorsHeading ?? "In Partnership With"} onUpdate={field("sponsorsHeading")} style={{ color: C.tertiary, textTransform: "uppercase", letterSpacing: "0.2em", fontSize: "0.72rem", marginBottom: "3rem", fontFamily: C.body }} />
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "3rem", opacity: 0.5 }}>
           {sponsors.map((s, i) =>
             s.logoUrl ? (
@@ -896,21 +926,21 @@ function Sponsors({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function Tickets({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function Tickets({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const tiers = p.ticketTiers ?? [];
   if (tiers.length === 0) return null;
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.bg }}>
       <div style={{ maxWidth: C.maxW, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
-          {p.ticketsEyebrow && (
+          {(p.ticketsEyebrow || onFieldChange) && (
             <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
-              <Eyebrow text={p.ticketsEyebrow} C={C} />
+              <Eyebrow text={p.ticketsEyebrow ?? ""} C={C} onUpdate={field("ticketsEyebrow")} />
             </div>
           )}
-          <h2 style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 3rem)", color: C.ink }}>
-            {p.ticketsHeading ?? "Registration"}
-          </h2>
+          <InlineText as="h2" value={p.ticketsHeading ?? "Registration"} onUpdate={field("ticketsHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 3rem)", color: C.ink }} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: "2rem" }}>
           {tiers.map((tier, i) => (
@@ -957,15 +987,15 @@ function Tickets({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function FAQ({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function FAQ({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const field = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const items = p.faqItems ?? [];
   if (items.length === 0) return null;
   return (
     <section style={{ padding: `${C.sectionPad}px 2rem`, backgroundColor: C.bg }}>
       <div style={{ maxWidth: Math.min(C.maxW, 880), margin: "0 auto" }}>
-        <h2 style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink, marginBottom: "4rem", textAlign: "center" }}>
-          {p.faqHeading ?? "Inquiries"}
-        </h2>
+        <InlineText as="h2" value={p.faqHeading ?? "Inquiries"} onUpdate={field("faqHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2rem, 4.5vw, 2.75rem)", color: C.ink, marginBottom: "4rem", textAlign: "center" }} />
         <div>
           {items.map((item, i) => (
             <details key={i} style={{ padding: "1.5rem 0", borderTop: i === 0 ? "none" : `1px solid ${C.borderSoft}` }}>
@@ -993,7 +1023,9 @@ function FAQ({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
   );
 }
 
-function RsvpForm({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
+function RsvpForm({ p, C, onFieldChange }: { p: EventNoirBlockProps; C: NoirTheme; onFieldChange?: (updated: EventNoirBlockProps) => void }) {
+  const editField = (key: keyof EventNoirBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const fields = p.formFields && p.formFields.length > 0 ? p.formFields : DEFAULT_FORM_FIELDS;
   const [values, setValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -1118,16 +1150,14 @@ function RsvpForm({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
       />
       <div style={{ maxWidth: Math.min(C.maxW, 760), margin: "0 auto", position: "relative", zIndex: 10 }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
-          {p.formEyebrow && (
+          {(p.formEyebrow || onFieldChange) && (
             <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
-              <Eyebrow text={p.formEyebrow} C={C} />
+              <Eyebrow text={p.formEyebrow ?? ""} C={C} onUpdate={editField("formEyebrow")} />
             </div>
           )}
-          <h2 style={{ fontFamily: C.display, fontSize: "clamp(2.25rem, 5vw, 3rem)", color: C.ink, marginBottom: "1.5rem" }}>
-            {p.formHeading ?? "Request Invitation"}
-          </h2>
-          {p.formSubheading && (
-            <p style={{ color: C.muted, fontWeight: 300, fontSize: "1.1rem", fontFamily: C.body, lineHeight: 1.6 }}>{p.formSubheading}</p>
+          <InlineText as="h2" value={p.formHeading ?? "Request Invitation"} onUpdate={editField("formHeading")} style={{ fontFamily: C.display, fontSize: "clamp(2.25rem, 5vw, 3rem)", color: C.ink, marginBottom: "1.5rem" }} />
+          {(p.formSubheading || onFieldChange) && (
+            <InlineText as="p" value={p.formSubheading ?? ""} onUpdate={editField("formSubheading")} multiline style={{ color: C.muted, fontWeight: 300, fontSize: "1.1rem", fontFamily: C.body, lineHeight: 1.6 }} />
           )}
         </div>
 
@@ -1272,7 +1302,7 @@ function Footer({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
 }
 
 // ── Block ───────────────────────────────────────────────────────────────────
-export function BlockEventNoir({ props, brand }: Props) {
+export function BlockEventNoir({ props, brand, onFieldChange }: Props) {
   const p = props;
 
   const displayFont =
@@ -1332,17 +1362,17 @@ export function BlockEventNoir({ props, brand }: Props) {
         }}
       />
       {showNav && <Nav p={p} C={C} />}
-      {showHero && <Hero p={p} C={C} />}
-      {showCountdown && <Countdown p={p} C={C} />}
-      {showAbout && <About p={p} C={C} />}
-      {showAgenda && <Agenda p={p} C={C} />}
-      {showSpeakers && <Speakers p={p} C={C} />}
-      {showVenue && <Venue p={p} C={C} />}
-      {showGallery && <Gallery p={p} C={C} />}
-      {showSponsors && <Sponsors p={p} C={C} />}
-      {showTickets && <Tickets p={p} C={C} />}
-      {showFaq && <FAQ p={p} C={C} />}
-      {showForm && <RsvpForm p={p} C={C} />}
+      {showHero && <Hero p={p} C={C} onFieldChange={onFieldChange} />}
+      {showCountdown && <Countdown p={p} C={C} onFieldChange={onFieldChange} />}
+      {showAbout && <About p={p} C={C} onFieldChange={onFieldChange} />}
+      {showAgenda && <Agenda p={p} C={C} onFieldChange={onFieldChange} />}
+      {showSpeakers && <Speakers p={p} C={C} onFieldChange={onFieldChange} />}
+      {showVenue && <Venue p={p} C={C} onFieldChange={onFieldChange} />}
+      {showGallery && <Gallery p={p} C={C} onFieldChange={onFieldChange} />}
+      {showSponsors && <Sponsors p={p} C={C} onFieldChange={onFieldChange} />}
+      {showTickets && <Tickets p={p} C={C} onFieldChange={onFieldChange} />}
+      {showFaq && <FAQ p={p} C={C} onFieldChange={onFieldChange} />}
+      {showForm && <RsvpForm p={p} C={C} onFieldChange={onFieldChange} />}
       {showFooter && <Footer p={p} C={C} />}
     </div>
   );

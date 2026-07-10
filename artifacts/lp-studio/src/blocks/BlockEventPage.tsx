@@ -10,6 +10,7 @@ import type { FormField } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 import { pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
+import { InlineText } from "@/components/InlineText";
 
 // Default dark luxury palette — used when theme overrides are absent
 const DEFAULT_THEME: Required<Omit<EventPageTheme, "headingColor">> & { headingColor: string } = {
@@ -235,10 +236,23 @@ interface Props {
   testId?: number;
   variantId?: number;
   sessionId?: string;
+  onFieldChange?: (updated: EventPageBlockProps) => void;
 }
 
-export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId }: Props) {
+export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId, onFieldChange }: Props) {
   const C = useMemo(() => resolveTheme(p.theme), [p.theme]);
+  const field = (key: keyof EventPageBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
+  const updateDay = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const agendaDays = p.agendaDays.map((d, idx) => (idx === i ? { ...d, [key]: value } : d));
+    onFieldChange({ ...p, agendaDays });
+  };
+  const updateDetail = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const details = p.details.map((d, idx) => (idx === i ? { ...d, [key]: value } : d));
+    onFieldChange({ ...p, details });
+  };
   useBlockFonts(
     p.theme?.displayFontFamily ?? DEFAULT_THEME.displayFontFamily,
     p.theme?.bodyFontFamily ?? DEFAULT_THEME.bodyFontFamily,
@@ -490,9 +504,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
         {p.logoUrl ? (
           <img src={p.logoUrl} alt="Logo" style={{ height: "1.25rem", width: "auto" }} />
         ) : (
-          <span style={{ fontFamily: displayFont, fontSize: "1.1rem", color: C.navText, letterSpacing: "0.05em" }}>
-            {p.eventName}
-          </span>
+          <InlineText as="span" value={p.eventName} onUpdate={field("eventName")} style={{ fontFamily: displayFont, fontSize: "1.1rem", color: C.navText, letterSpacing: "0.05em" }} />
         )}
         {p.navLinks.length > 0 && (
           <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
@@ -569,17 +581,16 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             transition={{ duration: 1, delay: 0.3 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.heroEyebrow, marginBottom: "2rem" }}
           >
-            {p.heroEyebrow}
+            <InlineText as="span" value={p.heroEyebrow} onUpdate={field("heroEyebrow")} style={{ color: C.heroEyebrow }} />
           </motion.p>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.2, delay: 0.6 }}
+          <InlineText
+            as="h1"
+            value={p.eventName}
+            onUpdate={field("eventName")}
+            animate={{ y: 20, delay: 0.6, duration: 1.2 }}
             style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(3rem, 8vw, 5.5rem)", lineHeight: 1.1, marginBottom: "1rem", color: C.heroHeading }}
-          >
-            {p.eventName}
-          </motion.h1>
+          />
 
           <motion.p
             initial={{ opacity: 0 }}
@@ -587,7 +598,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             transition={{ duration: 0.8, delay: 0.9 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.75rem", letterSpacing: "0.3em", textTransform: "uppercase", color: "hsl(38 25% 72%)", marginBottom: "1.5rem" }}
           >
-            {p.eventSubtitle}
+            <InlineText as="span" value={p.eventSubtitle} onUpdate={field("eventSubtitle")} />
           </motion.p>
 
           <motion.div
@@ -603,7 +614,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             transition={{ duration: 0.8, delay: 1.2 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.heroTagline, maxWidth: "28rem", margin: "0 auto 2rem", lineHeight: 1.7 }}
           >
-            {p.heroTagline}
+            <InlineText as="span" value={p.heroTagline} onUpdate={field("heroTagline")} multiline style={{ color: C.heroTagline }} />
           </motion.p>
 
           <motion.p
@@ -612,7 +623,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             transition={{ duration: 0.8, delay: 1.4 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.65rem", color: "rgba(122,128,136,0.6)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "3rem" }}
           >
-            {p.heroLocation}
+            <InlineText as="span" value={p.heroLocation} onUpdate={field("heroLocation")} />
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.6 }}>
@@ -665,13 +676,13 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             variants={stagger} style={{ textAlign: "center", marginBottom: "5rem" }}
           >
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
-              {p.agendaEyebrow}
+              <InlineText as="span" value={p.agendaEyebrow} onUpdate={field("agendaEyebrow")} />
             </motion.p>
             <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.heading, marginBottom: "1.5rem" }}>
-              {p.agendaHeadline}
+              <InlineText as="span" value={p.agendaHeadline} onUpdate={field("agendaHeadline")} />
             </motion.h2>
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, maxWidth: "32rem", margin: "0 auto", lineHeight: 1.7 }}>
-              {p.agendaSubtitle}
+              <InlineText as="span" value={p.agendaSubtitle} onUpdate={field("agendaSubtitle")} multiline />
             </motion.p>
           </motion.div>
 
@@ -715,28 +726,25 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
                     transition={{ duration: 0.3 }}
                     style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.3em", textTransform: "uppercase", color: C.primary, marginBottom: "0.25rem" }}
                   >
-                    {day.day}
+                    <InlineText as="span" value={day.day} onUpdate={onFieldChange ? (v) => updateDay(i, "day", v) : undefined} />
                   </motion.p>
                 </div>
                 <div>
-                  <h3
+                  <InlineText
+                    as="h3"
+                    value={day.title}
+                    onUpdate={onFieldChange ? (v) => updateDay(i, "title", v) : undefined}
                     style={{ fontFamily: displayFont, fontWeight: 400, fontStyle: "italic", fontSize: "1.5rem", color: C.heading, marginBottom: "1rem", transition: "color 0.5s" }}
                     className="group-hover:text-[#b59a6e]"
-                  >
-                    {day.title}
-                  </h3>
-                  <p style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, lineHeight: 1.7, marginBottom: "1rem" }}>
-                    {day.description}
-                  </p>
+                  />
+                  <InlineText as="p" value={day.description} onUpdate={onFieldChange ? (v) => updateDay(i, "description", v) : undefined} multiline style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, lineHeight: 1.7, marginBottom: "1rem" }} />
                   <motion.div
                     initial={{ width: 0 }} whileInView={{ width: "3rem" }} viewport={{ once: true }}
                     transition={{ duration: 0.8, delay: 0.3 + i * 0.15 }}
                     style={{ height: "1px", backgroundColor: "rgba(181,154,110,0.3)", marginBottom: "1rem" }}
                   />
                   {day.highlight && (
-                    <p style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: "rgba(122,128,136,0.8)", lineHeight: 1.7 }}>
-                      {day.highlight}
-                    </p>
+                    <InlineText as="p" value={day.highlight} onUpdate={onFieldChange ? (v) => updateDay(i, "highlight", v) : undefined} multiline style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: "rgba(122,128,136,0.8)", lineHeight: 1.7 }} />
                   )}
                 </div>
               </motion.div>
@@ -855,13 +863,13 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             variants={stagger} style={{ textAlign: "center", marginBottom: "4rem" }}
           >
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
-              {p.detailsEyebrow}
+              <InlineText as="span" value={p.detailsEyebrow} onUpdate={field("detailsEyebrow")} />
             </motion.p>
             <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.heading, marginBottom: "1.25rem" }}>
-              {p.detailsHeadline}
+              <InlineText as="span" value={p.detailsHeadline} onUpdate={field("detailsHeadline")} />
             </motion.h2>
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, maxWidth: "32rem", margin: "0 auto", lineHeight: 1.7 }}>
-              {p.detailsSubtitle}
+              <InlineText as="span" value={p.detailsSubtitle} onUpdate={field("detailsSubtitle")} multiline />
             </motion.p>
           </motion.div>
 
@@ -878,17 +886,15 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
                 style={{ textAlign: "center", padding: "3rem 1.5rem", backgroundColor: C.card, cursor: "default" }}
                 className="group"
               >
-                <p style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.3em", textTransform: "uppercase", color: C.muted, marginBottom: "1rem", transition: "color 0.4s" }}
+                <InlineText
+                  as="p"
+                  value={detail.label}
+                  onUpdate={onFieldChange ? (v) => updateDetail(i, "label", v) : undefined}
+                  style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.3em", textTransform: "uppercase", color: C.muted, marginBottom: "1rem", transition: "color 0.4s" }}
                   className="group-hover:text-[#b59a6e]"
-                >
-                  {detail.label}
-                </p>
-                <p style={{ fontFamily: displayFont, fontStyle: "italic", fontSize: "1.25rem", color: C.heading, marginBottom: "0.5rem" }}>
-                  {detail.value}
-                </p>
-                <p style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.75rem", color: C.muted }}>
-                  {detail.sub}
-                </p>
+                />
+                <InlineText as="p" value={detail.value} onUpdate={onFieldChange ? (v) => updateDetail(i, "value", v) : undefined} style={{ fontFamily: displayFont, fontStyle: "italic", fontSize: "1.25rem", color: C.heading, marginBottom: "0.5rem" }} />
+                <InlineText as="p" value={detail.sub} onUpdate={onFieldChange ? (v) => updateDetail(i, "sub", v) : undefined} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.75rem", color: C.muted }} />
               </motion.div>
             ))}
           </motion.div>
@@ -915,13 +921,13 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             variants={stagger} style={{ textAlign: "center", marginBottom: "3.5rem" }}
           >
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
-              {p.rsvpEyebrow}
+              <InlineText as="span" value={p.rsvpEyebrow} onUpdate={field("rsvpEyebrow")} />
             </motion.p>
             <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.heading, marginBottom: "1.25rem" }}>
-              {p.rsvpHeadline}
+              <InlineText as="span" value={p.rsvpHeadline} onUpdate={field("rsvpHeadline")} />
             </motion.h2>
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, maxWidth: "28rem", margin: "0 auto", lineHeight: 1.7 }}>
-              {p.rsvpSubtitle}
+              <InlineText as="span" value={p.rsvpSubtitle} onUpdate={field("rsvpSubtitle")} multiline />
             </motion.p>
           </motion.div>
 

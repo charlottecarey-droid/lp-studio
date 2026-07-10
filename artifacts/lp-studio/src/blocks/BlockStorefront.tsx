@@ -37,6 +37,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { InlineText } from "@/components/InlineText";
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /*  Error boundary                                                           */
@@ -362,9 +363,11 @@ function iconButtonStyle(C: ResolvedTheme): React.CSSProperties {
 /*  Product hero                                                             */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function ProductHero({ p, C }: { p: StorefrontBlockProps; C: ResolvedTheme }) {
+function ProductHero({ p, C, onFieldChange }: { p: StorefrontBlockProps; C: ResolvedTheme; onFieldChange?: (updated: StorefrontBlockProps) => void }) {
   const variants: StorefrontVariant[] = p.heroVariants ?? [];
   const [selected, setSelected] = useState(0);
+  const field = (key: keyof StorefrontBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
 
   const eyebrow = p.heroEyebrow ?? "Flagship Roast";
   const title = p.heroTitle ?? "Midnight Reserve.";
@@ -391,13 +394,13 @@ function ProductHero({ p, C }: { p: StorefrontBlockProps; C: ResolvedTheme }) {
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} className="bsf-hero-copy">
           <motion.span variants={fadeUp} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", borderRadius: "999px", border: `1px solid ${C.primaryFaint}`, padding: "0.25rem 0.75rem", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: C.primary }}>
             <span style={{ height: "0.4rem", width: "0.4rem", borderRadius: "999px", backgroundColor: C.primary }} />
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field("heroEyebrow")} />
           </motion.span>
           <motion.h1 variants={fadeUp} style={{ fontFamily: C.displayFont, marginTop: "1.25rem", fontSize: "clamp(2.75rem, 6vw, 4.2rem)", lineHeight: 1.02, letterSpacing: "-0.02em", color: C.heading }}>
-            {title}
+            <InlineText as="span" value={title} onUpdate={field("heroTitle")} />
           </motion.h1>
           <motion.p variants={fadeUp} style={{ marginTop: "1.25rem", maxWidth: "28rem", fontSize: "1.125rem", lineHeight: 1.6, color: rgba(C.fg, 0.7) }}>
-            {description}
+            <InlineText as="span" value={description} onUpdate={field("heroDescription")} multiline />
           </motion.p>
 
           <motion.div variants={fadeUp} style={{ marginTop: "1.5rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -533,13 +536,25 @@ function ValueProps({ p, C }: { p: StorefrontBlockProps; C: ResolvedTheme }) {
 /*  Collections + product grid                                              */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function CollectionsSection({ p, C }: { p: StorefrontBlockProps; C: ResolvedTheme }) {
+function CollectionsSection({ p, C, onFieldChange }: { p: StorefrontBlockProps; C: ResolvedTheme; onFieldChange?: (updated: StorefrontBlockProps) => void }) {
   const collections: StorefrontCollection[] = p.collections ?? [];
   const products: StorefrontProduct[] = p.products ?? [];
   const filters = p.productFilters ?? ["All", "Dark", "Medium", "Light", "Decaf", "Bundles"];
   const [activeFilter, setActiveFilter] = useState(0);
   const eyebrow = p.productsEyebrow ?? "Shop the catalog";
   const heading = p.productsHeadline ?? "Featured roasts";
+  const field = (key: keyof StorefrontBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
+  const updateCollection = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = collections.map((c, idx) => (idx === i ? { ...c, [key]: value } : c));
+    onFieldChange({ ...p, collections: next });
+  };
+  const updateProduct = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = products.map((prod, idx) => (idx === i ? { ...prod, [key]: value } : prod));
+    onFieldChange({ ...p, products: next });
+  };
 
   return (
     <>
@@ -553,9 +568,9 @@ function CollectionsSection({ p, C }: { p: StorefrontBlockProps; C: ResolvedThem
               return (
                 <div key={i} style={{ position: "relative", overflow: "hidden", borderRadius: "1.5rem", padding: "2.5rem", backgroundColor: bg, color: fg }}>
                   <div style={{ position: "relative", zIndex: 10, maxWidth: "18rem" }}>
-                    {col.eyebrow && <p style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: accent ? "rgba(255,255,255,0.8)" : C.primary }}>{col.eyebrow}</p>}
-                    <h3 style={{ fontFamily: C.displayFont, marginTop: "0.75rem", fontSize: "1.875rem", lineHeight: 1.2 }}>{col.title}</h3>
-                    {col.description && <p style={{ marginTop: "0.75rem", fontSize: "0.875rem", color: accent ? "rgba(255,255,255,0.85)" : "rgba(246,240,230,0.7)" }}>{col.description}</p>}
+                    {col.eyebrow && <InlineText as="p" value={col.eyebrow} onUpdate={onFieldChange ? (v) => updateCollection(i, "eyebrow", v) : undefined} style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: accent ? "rgba(255,255,255,0.8)" : C.primary }} />}
+                    <InlineText as="h3" value={col.title} onUpdate={onFieldChange ? (v) => updateCollection(i, "title", v) : undefined} style={{ fontFamily: C.displayFont, marginTop: "0.75rem", fontSize: "1.875rem", lineHeight: 1.2 }} />
+                    {col.description && <InlineText as="p" value={col.description} onUpdate={onFieldChange ? (v) => updateCollection(i, "description", v) : undefined} multiline style={{ marginTop: "0.75rem", fontSize: "0.875rem", color: accent ? "rgba(255,255,255,0.85)" : "rgba(246,240,230,0.7)" }} />}
                     <a
                       href={col.ctaUrl ?? "#shop"}
                       style={accent
@@ -579,8 +594,8 @@ function CollectionsSection({ p, C }: { p: StorefrontBlockProps; C: ResolvedThem
         <section id="shop" style={{ maxWidth: "80rem", margin: "0 auto", padding: "4rem 1.25rem", fontFamily: C.bodyFont }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: "1rem" }}>
             <div>
-              <p style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: C.primary }}>{eyebrow}</p>
-              <h2 style={{ fontFamily: C.displayFont, marginTop: "0.5rem", fontSize: "clamp(2rem, 4vw, 2.5rem)", letterSpacing: "-0.01em", color: C.heading }}>{heading}</h2>
+              <InlineText as="p" value={eyebrow} onUpdate={field("productsEyebrow")} style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: C.primary }} />
+              <InlineText as="h2" value={heading} onUpdate={field("productsHeadline")} style={{ fontFamily: C.displayFont, marginTop: "0.5rem", fontSize: "clamp(2rem, 4vw, 2.5rem)", letterSpacing: "-0.01em", color: C.heading }} />
             </div>
             {filters.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -603,7 +618,7 @@ function CollectionsSection({ p, C }: { p: StorefrontBlockProps; C: ResolvedThem
 
           <div className="bsf-product-grid" style={{ marginTop: "2.25rem", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1.5rem" }}>
             {products.map((prod, i) => (
-              <ProductCard key={i} prod={prod} C={C} addLabel={p.productAddToCartLabel ?? "Add to cart"} />
+              <ProductCard key={i} prod={prod} C={C} addLabel={p.productAddToCartLabel ?? "Add to cart"} onNameUpdate={onFieldChange ? (v) => updateProduct(i, "name", v) : undefined} />
             ))}
           </div>
         </section>
@@ -612,7 +627,7 @@ function CollectionsSection({ p, C }: { p: StorefrontBlockProps; C: ResolvedThem
   );
 }
 
-function ProductCard({ prod, C, addLabel }: { prod: StorefrontProduct; C: ResolvedTheme; addLabel: string }) {
+function ProductCard({ prod, C, addLabel, onNameUpdate }: { prod: StorefrontProduct; C: ResolvedTheme; addLabel: string; onNameUpdate?: (v: string) => void }) {
   const [hover, setHover] = useState(false);
   const tagDark = prod.tag === "Bestseller" || prod.tag === "Limited";
   return (
@@ -643,7 +658,7 @@ function ProductCard({ prod, C, addLabel }: { prod: StorefrontProduct; C: Resolv
       </div>
       <div style={{ padding: "0.75rem 0.25rem 0.25rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-          <h3 style={{ fontFamily: C.displayFont, fontSize: "1rem", fontWeight: 600, lineHeight: 1.2, color: C.heading }}>{prod.name}</h3>
+          <InlineText as="h3" value={prod.name} onUpdate={onNameUpdate} style={{ fontFamily: C.displayFont, fontSize: "1rem", fontWeight: 600, lineHeight: 1.2, color: C.heading }} />
           {prod.price && <span style={{ fontWeight: 600, color: C.heading }}>{prod.price}</span>}
         </div>
         {prod.category && <p style={{ marginTop: "0.15rem", fontSize: "0.75rem", color: rgba(C.fg, 0.55) }}>{prod.category}</p>}
@@ -728,7 +743,9 @@ function SocialProof({ p, C }: { p: StorefrontBlockProps; C: ResolvedTheme }) {
 /*  Closing CTA / bundle                                                     */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function ClosingCta({ p, C }: { p: StorefrontBlockProps; C: ResolvedTheme }) {
+function ClosingCta({ p, C, onFieldChange }: { p: StorefrontBlockProps; C: ResolvedTheme; onFieldChange?: (updated: StorefrontBlockProps) => void }) {
+  const field = (key: keyof StorefrontBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const eyebrow = p.bundleEyebrow ?? "Best value";
   const title = p.bundleTitle ?? "The Morning Kit";
   const description = p.bundleDescription ?? "Two of our most-loved roasts plus a handmade stoneware mug. Everything you need for a better morning ritual — bundled and discounted.";
@@ -748,10 +765,10 @@ function ClosingCta({ p, C }: { p: StorefrontBlockProps; C: ResolvedTheme }) {
         <div className="bsf-bundle-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", gap: "2.5rem", padding: "4rem" }}>
           <div>
             <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", borderRadius: "999px", padding: "0.25rem 0.75rem", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: "#fff", backgroundColor: C.primary }}>
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("bundleEyebrow")} />
             </span>
-            <h2 style={{ fontFamily: C.displayFont, marginTop: "1.25rem", fontSize: "clamp(2.25rem, 5vw, 3rem)", lineHeight: 1.1, letterSpacing: "-0.01em" }}>{title}</h2>
-            <p style={{ marginTop: "1rem", maxWidth: "28rem", color: "rgba(246,240,230,0.7)" }}>{description}</p>
+            <InlineText as="h2" value={title} onUpdate={field("bundleTitle")} style={{ fontFamily: C.displayFont, marginTop: "1.25rem", fontSize: "clamp(2.25rem, 5vw, 3rem)", lineHeight: 1.1, letterSpacing: "-0.01em" }} />
+            <InlineText as="p" value={description} onUpdate={field("bundleDescription")} multiline style={{ marginTop: "1rem", maxWidth: "28rem", color: "rgba(246,240,230,0.7)" }} />
             <div style={{ marginTop: "1.75rem", display: "flex", alignItems: "center", gap: "1rem" }}>
               <span style={{ fontFamily: C.displayFont, fontSize: "2.25rem", fontWeight: 600 }}>{price}</span>
               {comparePrice && <span style={{ fontSize: "1.125rem", color: "rgba(246,240,230,0.4)", textDecoration: "line-through" }}>{comparePrice}</span>}
@@ -945,8 +962,7 @@ interface Props {
   sessionId?: string;
 }
 
-export function BlockStorefront({ props: p, brand, onFieldChange: _onFieldChange, pageId, sessionId }: Props) {
-  void _onFieldChange;
+export function BlockStorefront({ props: p, brand, onFieldChange, pageId, sessionId }: Props) {
   const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
   const base = brandDefaults(brand);
   useBlockFonts(
@@ -984,11 +1000,11 @@ export function BlockStorefront({ props: p, brand, onFieldChange: _onFieldChange
       <div style={{ backgroundColor: C.bg, color: C.fg, fontFamily: C.bodyFont, minHeight: "100vh" }}>
         {(safeProps.showAnnouncement !== false) && <AnnouncementBar p={safeProps} C={C} />}
         {(safeProps.showNav !== false) && <StickyNav p={safeProps} C={C} />}
-        {(safeProps.showHero !== false) && <ProductHero p={safeProps} C={C} />}
+        {(safeProps.showHero !== false) && <ProductHero p={safeProps} C={C} onFieldChange={onFieldChange} />}
         {(safeProps.showValueProps !== false) && <ValueProps p={safeProps} C={C} />}
-        {(safeProps.showCollections !== false) && <CollectionsSection p={safeProps} C={C} />}
+        {(safeProps.showCollections !== false) && <CollectionsSection p={safeProps} C={C} onFieldChange={onFieldChange} />}
         {(safeProps.showSocialProof !== false) && <SocialProof p={safeProps} C={C} />}
-        {(safeProps.showClosingCta !== false) && <ClosingCta p={safeProps} C={C} />}
+        {(safeProps.showClosingCta !== false) && <ClosingCta p={safeProps} C={C} onFieldChange={onFieldChange} />}
         {(safeProps.showFooter !== false) && <FooterSection p={safeProps} C={C} pageId={pageId} sessionId={sessionId} showNewsletter={showNewsletter} />}
       </div>
     </StorefrontErrorBoundary>

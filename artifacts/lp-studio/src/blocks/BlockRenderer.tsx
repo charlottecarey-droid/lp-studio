@@ -968,6 +968,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
             isBuilder={isBuilder}
+            onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "sticky-header":
@@ -1059,6 +1060,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             isBuilder={isBuilder}
             pageId={pageId}
             variantId={variantId}
+            onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "dandy-product-hero":
@@ -1184,23 +1186,23 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "storefront":
         return <BlockStorefront props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-noir":
-        return <BlockEventNoir props={block.props} brand={brand} isBuilder={isBuilder} />;
+        return <BlockEventNoir props={block.props} brand={brand} isBuilder={isBuilder} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-luminous":
-        return <BlockEventLuminous props={block.props} />;
+        return <BlockEventLuminous props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-split":
-        return <BlockEventSplit props={block.props} brand={brand} />;
+        return <BlockEventSplit props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "case-metrics":
-        return <BlockCaseMetrics props={block.props} brand={brand} />;
+        return <BlockCaseMetrics props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "case-editorial":
-        return <BlockCaseEditorial props={block.props} brand={brand} />;
+        return <BlockCaseEditorial props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "case-modular":
-        return <BlockCaseModular props={block.props} />;
+        return <BlockCaseModular props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
-        return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
+        return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "product-launch":
-        return <BlockProductLaunch props={block.props} />;
+        return <BlockProductLaunch props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "story-hub":
-        return <BlockStoryHub props={block.props} />;
+        return <BlockStoryHub props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-landing-hero":
         return (
           <BlockEventLandingHero
@@ -1217,11 +1219,11 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "spatial-tour":
         return <BlockSpatialTour props={block.props} />;
       case "business-case-split":
-        return <BlockBusinessCaseSplit props={block.props} brand={brand} />;
+        return <BlockBusinessCaseSplit props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "business-case-centered":
-        return <BlockBusinessCaseCentered props={block.props} brand={brand} />;
+        return <BlockBusinessCaseCentered props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "business-case-premium":
-        return <BlockBusinessCasePremium props={block.props} brand={brand} isBuilder={isBuilder} />;
+        return <BlockBusinessCasePremium props={block.props} brand={brand} isBuilder={isBuilder} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "storybrand-journey":
         return (
           <BlockStorybrandJourney
@@ -1252,6 +1254,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             onCtaClick={onCtaClick
               ? () => onCtaClick(block.props.finalCtaUrl ?? block.props.heroCtaUrl ?? "#")
               : undefined}
+            onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "deal-room":
@@ -1608,7 +1611,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "id-parallax-showcase":
         return <BlockIdParallaxShowcase props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-system-flow":
-        return <BlockIdSystemFlow props={block.props} />;
+        return <BlockIdSystemFlow props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-form":
         return <BlockIdForm props={block.props} />;
       case "id-stats":
@@ -1624,6 +1627,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
           <BlockIdReservationPass
             props={block.props}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl || "") : undefined}
+            onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "bento-showcase":

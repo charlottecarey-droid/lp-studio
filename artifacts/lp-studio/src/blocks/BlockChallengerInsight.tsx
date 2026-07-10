@@ -22,6 +22,7 @@ import {
   type HeroLayout,
   type MicrositeNavLink,
 } from "./microsite-chrome";
+import { InlineText } from "@/components/InlineText";
 
 /* ----------------------------------------------------------------------------
  * Challenger Insight Brief — type "challenger-insight"
@@ -312,6 +313,7 @@ interface Props {
   /** Builder mode: render static divs (no observers / scroll animation). */
   isBuilder?: boolean;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: ChallengerInsightBlockProps) => void;
 }
 
 const DISPLAY = BRAND_DISPLAY_STACK;
@@ -494,7 +496,7 @@ const ChiAurora: React.FC<{ a: string; b: string; isStatic?: boolean }> = ({ a, 
   </div>
 );
 
-export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: Props) {
+export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick, onFieldChange }: Props) {
   const prefersReducedMotion = useReducedMotion() ?? false;
   /** Static rendering: builder (no observers) — reveals stay opacity-only
    *  under reduced motion, counters render final values immediately. */
@@ -605,15 +607,61 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
     });
   };
 
-  const eyebrow = (text: string | undefined, index: string, deep = false) =>
-    text ? (
+  const field = (key: keyof ChallengerInsightBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateStakeholder = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = (props.stakeholders ?? D.stakeholders ?? []).map((s, idx) => idx === i ? { ...s, [key]: value } : s);
+    onFieldChange({ ...props, stakeholders: next });
+  };
+  const updatePlanStep = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = (props.planSteps ?? D.planSteps ?? []).map((s, idx) => idx === i ? { ...s, [key]: value } : s);
+    onFieldChange({ ...props, planSteps: next });
+  };
+  const updateTestimonial = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = (props.testimonials ?? D.testimonials ?? []).map((t, idx) => idx === i ? { ...t, [key]: value } : t);
+    onFieldChange({ ...props, testimonials: next });
+  };
+  const updateCostStatLabel = (i: number, value: string) => {
+    if (!onFieldChange) return;
+    const next = (props.costStats ?? D.costStats ?? []).map((s, idx) => idx === i ? { ...s, label: value } : s);
+    onFieldChange({ ...props, costStats: next });
+  };
+  const updateBeliefSupport = (i: number, value: string) => {
+    if (!onFieldChange) return;
+    const next = (props.beliefSupport ?? D.beliefSupport ?? []).slice();
+    next[i] = value;
+    onFieldChange({ ...props, beliefSupport: next });
+  };
+  const updateRealitySupport = (i: number, value: string) => {
+    if (!onFieldChange) return;
+    const next = (props.realitySupport ?? D.realitySupport ?? []).slice();
+    next[i] = value;
+    onFieldChange({ ...props, realitySupport: next });
+  };
+  const updateBetterWayParagraph = (i: number, value: string) => {
+    if (!onFieldChange) return;
+    const next = (props.betterWayParagraphs ?? D.betterWayParagraphs ?? []).slice();
+    next[i] = value;
+    onFieldChange({ ...props, betterWayParagraphs: next });
+  };
+
+  const eyebrow = (
+    text: string | undefined,
+    index: string,
+    deep = false,
+    onUpdate?: (v: string) => void,
+  ) =>
+    text || onUpdate ? (
       <div
         className="flex items-center gap-3 mb-6 text-[11px] font-semibold uppercase tracking-[0.3em]"
         style={{ color: deep ? accentLabelDeep : accentLabel, fontFamily: BODY }}
       >
         <span className="tabular-nums">{index}</span>
         <span aria-hidden className="h-px w-8" style={{ background: deep ? accentLabelDeep : accentLabel }} />
-        <span>{text}</span>
+        <InlineText as="span" value={text ?? ""} onUpdate={onUpdate} />
       </div>
     ) : null;
 
@@ -713,13 +761,13 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
             reduced={prefersReducedMotion}
             className={heroImageUrl ? "lg:col-span-7" : ""}
           >
-            {kicker && (
+            {(kicker || onFieldChange) && (
               <p
                 className="mb-8 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
                 style={{ color: accentLabel, fontFamily: BODY }}
               >
                 <span aria-hidden className="h-px w-10" style={{ background: accentLabel }} />
-                {kicker}
+                <InlineText as="span" value={kicker ?? ""} onUpdate={field("kicker")} />
               </p>
             )}
             <h1
@@ -732,18 +780,23 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                 color: ink.text,
               }}
             >
+              {/* Headline stays panel-edited: renderMarked paints the accent
+                  highlighter span, and swapping it for a plain editable run
+                  would make the builder canvas lie about the published look. */}
               {renderMarked(headline, highlightPhrase, {
                 background: markBg,
                 color: markText,
               })}
             </h1>
-            {subheadline && (
-              <p
+            {(subheadline || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={subheadline ?? ""}
+                onUpdate={field("subheadline")}
+                multiline
                 className="mt-8 max-w-2xl text-lg leading-relaxed md:text-xl"
                 style={{ color: ink.muted, fontFamily: BODY }}
-              >
-                {subheadline}
-              </p>
+              />
             )}
             {heroCtaText && (
               <div className="mt-12">
@@ -812,18 +865,23 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
         <section id="evidence" className="relative scroll-mt-8">
           <div className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
-              {eyebrow(props.reframeEyebrow ?? D.reframeEyebrow, "01")}
+              {eyebrow(props.reframeEyebrow ?? D.reframeEyebrow, "01", false, field("reframeEyebrow"))}
             </Reveal>
             <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-10 lg:gap-16">
               {/* Belief column — deliberately muted. */}
               <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
-                <p
+                <InlineText
+                  as="p"
+                  value={props.beliefLabel ?? D.beliefLabel ?? ""}
+                  onUpdate={field("beliefLabel")}
                   className="mb-5 text-[11px] font-semibold uppercase tracking-[0.3em]"
                   style={{ color: ink.muted, fontFamily: BODY }}
-                >
-                  {props.beliefLabel ?? D.beliefLabel}
-                </p>
-                <h2
+                />
+                <InlineText
+                  as="h2"
+                  value={props.beliefStatement ?? D.beliefStatement ?? ""}
+                  onUpdate={field("beliefStatement")}
+                  multiline
                   className="font-bold"
                   style={{
                     fontFamily: DISPLAY,
@@ -832,25 +890,22 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     letterSpacing: "-0.015em",
                     color: ink.muted,
                   }}
-                >
-                  {props.beliefStatement ?? D.beliefStatement}
-                </h2>
+                />
                 <div className="mt-7 space-y-4 border-l pl-5" style={{ borderColor: ink.hairline }}>
                   {(props.beliefSupport ?? D.beliefSupport ?? []).slice(0, 2).map((line, i) => (
-                    <p key={i} className="text-base leading-relaxed" style={{ color: ink.muted }}>
-                      {line}
-                    </p>
+                    <InlineText key={i} as="p" value={line} onUpdate={onFieldChange ? (v) => updateBeliefSupport(i, v) : undefined} multiline className="text-base leading-relaxed" style={{ color: ink.muted }} />
                   ))}
                 </div>
               </Reveal>
               {/* Data column — the accent treatment lives here. */}
               <Reveal isStatic={isStatic} reduced={prefersReducedMotion} delay={0.12}>
-                <p
+                <InlineText
+                  as="p"
+                  value={props.realityLabel ?? D.realityLabel ?? ""}
+                  onUpdate={field("realityLabel")}
                   className="mb-5 text-[11px] font-semibold uppercase tracking-[0.3em]"
                   style={{ color: accentLabel, fontFamily: BODY }}
-                >
-                  {props.realityLabel ?? D.realityLabel}
-                </p>
+                />
                 <h2
                   className="font-bold"
                   style={{
@@ -861,18 +916,14 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     color: ink.text,
                   }}
                 >
-                  <span className="chi-underline" style={{ backgroundImage: underlineCss }}>
-                    {props.realityStatement ?? D.realityStatement}
-                  </span>
+                  <InlineText as="span" value={props.realityStatement ?? D.realityStatement ?? ""} onUpdate={field("realityStatement")} multiline className="chi-underline" style={{ backgroundImage: underlineCss }} />
                 </h2>
                 <div
                   className="mt-7 space-y-4 border-l-2 pl-5"
                   style={{ borderColor: accentDisplay }}
                 >
                   {(props.realitySupport ?? D.realitySupport ?? []).slice(0, 2).map((line, i) => (
-                    <p key={i} className="text-base leading-relaxed" style={{ color: ink.text }}>
-                      {line}
-                    </p>
+                    <InlineText key={i} as="p" value={line} onUpdate={onFieldChange ? (v) => updateRealitySupport(i, v) : undefined} multiline className="text-base leading-relaxed" style={{ color: ink.text }} />
                   ))}
                 </div>
               </Reveal>
@@ -919,8 +970,12 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           />
           <div className="relative mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
-              {eyebrow(props.costEyebrow ?? D.costEyebrow, "02", true)}
-              <h2
+              {eyebrow(props.costEyebrow ?? D.costEyebrow, "02", true, field("costEyebrow"))}
+              <InlineText
+                as="h2"
+                value={props.costHeading ?? D.costHeading ?? ""}
+                onUpdate={field("costHeading")}
+                multiline
                 className="max-w-3xl font-bold"
                 style={{
                   fontFamily: DISPLAY,
@@ -929,9 +984,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                   letterSpacing: "-0.02em",
                   color: inkDeep.text,
                 }}
-              >
-                {props.costHeading ?? D.costHeading}
-              </h2>
+              />
             </Reveal>
             <div
               className={`mt-14 grid grid-cols-1 gap-y-12 gap-x-10 ${
@@ -986,12 +1039,14 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                       </div>
                     );
                   })()}
-                  <p
+                  <InlineText
+                    as="p"
+                    value={stat.label}
+                    onUpdate={onFieldChange ? (v) => updateCostStatLabel(i, v) : undefined}
+                    multiline
                     className="mt-4 max-w-[26ch] text-sm font-medium leading-snug tracking-wide sm:text-base"
                     style={{ color: inkDeep.muted, fontFamily: BODY }}
-                  >
-                    {stat.label}
-                  </p>
+                  />
                 </Reveal>
               ))}
             </div>
@@ -1013,8 +1068,12 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           <div aria-hidden className="h-px w-full" style={{ background: ink.hairline }} />
           <div className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
-              {eyebrow(props.tailorEyebrow ?? D.tailorEyebrow, "03")}
-              <h2
+              {eyebrow(props.tailorEyebrow ?? D.tailorEyebrow, "03", false, field("tailorEyebrow"))}
+              <InlineText
+                as="h2"
+                value={props.tailorHeading ?? D.tailorHeading ?? ""}
+                onUpdate={field("tailorHeading")}
+                multiline
                 className="max-w-2xl font-bold"
                 style={{
                   fontFamily: DISPLAY,
@@ -1023,9 +1082,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                   letterSpacing: "-0.02em",
                   color: ink.text,
                 }}
-              >
-                {props.tailorHeading ?? D.tailorHeading}
-              </h2>
+              />
             </Reveal>
             <div
               className={`mt-12 grid grid-cols-1 gap-5 ${
@@ -1050,21 +1107,21 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     onMouseEnter={(e) => (e.currentTarget.style.background = glassBgHover)}
                     onMouseLeave={(e) => (e.currentTarget.style.background = glassBg)}
                   >
-                    <p
+                    <InlineText
+                      as="p"
+                      value={card.label}
+                      onUpdate={onFieldChange ? (v) => updateStakeholder(i, "label", v) : undefined}
                       className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em]"
                       style={{ color: accentLabel, fontFamily: BODY }}
-                    >
-                      {card.label}
-                    </p>
-                    <h3
+                    />
+                    <InlineText
+                      as="h3"
+                      value={card.title}
+                      onUpdate={onFieldChange ? (v) => updateStakeholder(i, "title", v) : undefined}
                       className="mb-3 text-xl font-bold leading-snug"
                       style={{ fontFamily: DISPLAY, letterSpacing: "-0.01em", color: ink.text }}
-                    >
-                      {card.title}
-                    </h3>
-                    <p className="text-sm leading-relaxed sm:text-base" style={{ color: ink.muted }}>
-                      {card.body}
-                    </p>
+                    />
+                    <InlineText as="p" value={card.body} onUpdate={onFieldChange ? (v) => updateStakeholder(i, "body", v) : undefined} multiline className="text-sm leading-relaxed sm:text-base" style={{ color: ink.muted }} />
                   </div>
                 </Reveal>
               ))}
@@ -1088,7 +1145,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                 reduced={prefersReducedMotion}
                 className={props.betterWayImageUrl ? "lg:col-span-7" : "max-w-3xl"}
               >
-                {eyebrow(props.betterWayEyebrow ?? D.betterWayEyebrow, "04")}
+                {eyebrow(props.betterWayEyebrow ?? D.betterWayEyebrow, "04", false, field("betterWayEyebrow"))}
                 <h2
                   className="font-bold"
                   style={{
@@ -1099,19 +1156,19 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     color: ink.text,
                   }}
                 >
-                  <span className="chi-underline" style={{ backgroundImage: underlineCss }}>
-                    {props.betterWayHeading ?? D.betterWayHeading}
-                  </span>
+                  <InlineText as="span" value={props.betterWayHeading ?? D.betterWayHeading ?? ""} onUpdate={field("betterWayHeading")} multiline className="chi-underline" style={{ backgroundImage: underlineCss }} />
                 </h2>
                 <div className="mt-8 space-y-5">
                   {paragraphs.map((para, i) => (
-                    <p
+                    <InlineText
                       key={i}
+                      as="p"
+                      value={para}
+                      onUpdate={onFieldChange ? (v) => updateBetterWayParagraph(i, v) : undefined}
+                      multiline
                       className="text-base leading-relaxed md:text-lg"
                       style={{ color: i === 0 ? ink.text : ink.muted }}
-                    >
-                      {para}
-                    </p>
+                    />
                   ))}
                 </div>
               </Reveal>
@@ -1150,9 +1207,13 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           <div aria-hidden className="h-px w-full" style={{ background: ink.hairline }} />
           <div className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
-              {eyebrow(props.proofEyebrow ?? D.proofEyebrow, "05")}
-              {(props.proofHeading ?? D.proofHeading) && (
-                <h2
+              {eyebrow(props.proofEyebrow ?? D.proofEyebrow, "05", false, field("proofEyebrow"))}
+              {((props.proofHeading ?? D.proofHeading) || onFieldChange) && (
+                <InlineText
+                  as="h2"
+                  value={props.proofHeading ?? D.proofHeading ?? ""}
+                  onUpdate={field("proofHeading")}
+                  multiline
                   className="max-w-2xl font-bold"
                   style={{
                     fontFamily: DISPLAY,
@@ -1161,9 +1222,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     letterSpacing: "-0.02em",
                     color: ink.text,
                   }}
-                >
-                  {props.proofHeading ?? D.proofHeading}
-                </h2>
+                />
               )}
             </Reveal>
             {testimonials.length > 0 && (
@@ -1189,7 +1248,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                         className="text-lg leading-relaxed md:text-xl"
                         style={{ fontFamily: DISPLAY, color: ink.text }}
                       >
-                        &ldquo;{t.quote}&rdquo;
+                        &ldquo;<InlineText as="span" value={t.quote} onUpdate={onFieldChange ? (v) => updateTestimonial(i, "quote", v) : undefined} multiline />&rdquo;
                       </blockquote>
                       <figcaption className="mt-7 flex items-center gap-3.5">
                         <span
@@ -1205,16 +1264,15 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                           {initialsOf(t.name)}
                         </span>
                         <span>
-                          <span
+                          <InlineText
+                            as="span"
+                            value={t.name}
+                            onUpdate={onFieldChange ? (v) => updateTestimonial(i, "name", v) : undefined}
                             className="block text-sm font-semibold"
                             style={{ color: ink.text, fontFamily: BODY }}
-                          >
-                            {t.name}
-                          </span>
+                          />
                           {t.title && (
-                            <span className="block text-xs" style={{ color: ink.muted }}>
-                              {t.title}
-                            </span>
+                            <InlineText as="span" value={t.title} onUpdate={onFieldChange ? (v) => updateTestimonial(i, "title", v) : undefined} className="block text-xs" style={{ color: ink.muted }} />
                           )}
                         </span>
                       </figcaption>
@@ -1285,8 +1343,12 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           />
           <div className="relative mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
-              {eyebrow(props.planEyebrow ?? D.planEyebrow, "06", true)}
-              <h2
+              {eyebrow(props.planEyebrow ?? D.planEyebrow, "06", true, field("planEyebrow"))}
+              <InlineText
+                as="h2"
+                value={props.planHeading ?? D.planHeading ?? ""}
+                onUpdate={field("planHeading")}
+                multiline
                 className="max-w-2xl font-bold"
                 style={{
                   fontFamily: DISPLAY,
@@ -1295,9 +1357,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                   letterSpacing: "-0.02em",
                   color: inkDeep.text,
                 }}
-              >
-                {props.planHeading ?? D.planHeading}
-              </h2>
+              />
             </Reveal>
             {planSteps.length > 0 && (
               <ol
@@ -1323,18 +1383,21 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                       >
                         {String(i + 1).padStart(2, "0")}
                       </span>
-                      <h3
+                      <InlineText
+                        as="h3"
+                        value={step.title}
+                        onUpdate={onFieldChange ? (v) => updatePlanStep(i, "title", v) : undefined}
                         className="mt-3 text-lg font-bold leading-snug"
                         style={{ fontFamily: DISPLAY, color: inkDeep.text }}
-                      >
-                        {step.title}
-                      </h3>
-                      <p
+                      />
+                      <InlineText
+                        as="p"
+                        value={step.description}
+                        onUpdate={onFieldChange ? (v) => updatePlanStep(i, "description", v) : undefined}
+                        multiline
                         className="mt-2.5 text-sm leading-relaxed sm:text-base"
                         style={{ color: inkDeep.muted }}
-                      >
-                        {step.description}
-                      </p>
+                      />
                     </li>
                   </Reveal>
                 ))}

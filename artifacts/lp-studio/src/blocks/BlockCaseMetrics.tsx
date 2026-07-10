@@ -22,6 +22,7 @@ import {
 import type { BrandConfig } from "@/lib/brand-config";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { InlineText } from "@/components/InlineText";
 
 // ── Icon mapping for approach cards ─────────────────────────────────────────
 const APPROACH_ICONS: Record<string, React.FC<{ className?: string }>> = {
@@ -72,9 +73,10 @@ interface Props {
   /** Tenant brand config. Drives default colors / fonts / brand name.
    *  Per-block props always win. */
   brand?: BrandConfig;
+  onFieldChange?: (updated: CaseMetricsBlockProps) => void;
 }
 
-export function BlockCaseMetrics({ props, brand }: Props) {
+export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
   // ── Style tokens: prop ?? brand ?? hardcoded editorial default ─────────────
   const bg = props.bgColor ?? brand?.pageBackground ?? "#ffffff";
   const ink = props.inkColor ?? brand?.textColor ?? "#0f172a";
@@ -192,6 +194,33 @@ export function BlockCaseMetrics({ props, brand }: Props) {
     props.footerTagline ||
     "The platform for modern, data-driven teams. Scale effortlessly, decide instantly.";
   const footerNote = props.footerNote || `© ${new Date().getFullYear()} ${brandName}. All rights reserved.`;
+
+  const field = (key: keyof CaseMetricsBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateMetric = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, metrics: metrics.map((m, idx) => (idx === i ? { ...m, [key]: v } : m)) });
+  };
+  const updateProfileRow = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, profile: profile.map((row, idx) => (idx === i ? { ...row, [key]: v } : row)) });
+  };
+  const updateApproachCard = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, approachCards: approachCards.map((c, idx) => (idx === i ? { ...c, [key]: v } : c)) });
+  };
+  const updateResultStat = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, resultStats: resultStats.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)) });
+  };
+  const updateModule = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, modules: modules.map((m, idx) => (idx === i ? { ...m, [key]: v } : m)) });
+  };
+  const updateTakeaway = (i: number, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, takeaways: takeaways.map((t, idx) => (idx === i ? { ...t, text: v } : t)) });
+  };
 
   // ── Shared sub-styles ─────────────────────────────────────────────────────
   const eyebrowStyle: React.CSSProperties = {
@@ -340,15 +369,18 @@ export function BlockCaseMetrics({ props, brand }: Props) {
             {showHero && (
               <div style={{ maxWidth: 760, marginBottom: "5rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "2rem", flexWrap: "wrap" }}>
-                  <span style={{ ...eyebrowStyle, color: accent }}>{heroEyebrow}</span>
-                  {clientName && (
+                  <InlineText as="span" value={heroEyebrow} onUpdate={field("heroEyebrow")} style={{ ...eyebrowStyle, color: accent }} />
+                  {(clientName || onFieldChange) && (
                     <>
                       <span style={{ width: 32, height: 1, background: rgba(accent, 0.5) }} />
-                      <span style={{ ...eyebrowStyle, color: rgba("#ffffff", 0.6) }}>{clientName}</span>
+                      <InlineText as="span" value={clientName} onUpdate={field("clientName")} style={{ ...eyebrowStyle, color: rgba("#ffffff", 0.6) }} />
                     </>
                   )}
                 </div>
-                <h1
+                <InlineText
+                  as="h1"
+                  value={heroHeadline}
+                  onUpdate={field("heroHeadline")}
                   style={{
                     fontFamily: display,
                     fontSize: `${3.25 * hScale}rem`,
@@ -358,12 +390,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                     marginBottom: "2rem",
                     color: headlineOnDark,
                   }}
-                >
-                  {heroHeadline}
-                </h1>
-                <p style={{ fontSize: "1.25rem", color: rgba("#ffffff", 0.78), lineHeight: 1.6, maxWidth: 640 }}>
-                  {heroSummary}
-                </p>
+                />
+                <InlineText as="p" value={heroSummary} onUpdate={field("heroSummary")} multiline style={{ fontSize: "1.25rem", color: rgba("#ffffff", 0.78), lineHeight: 1.6, maxWidth: 640 }} />
                 {props.heroCtaLabel && (
                   <a
                     href={props.heroCtaUrl || "#"}
@@ -389,10 +417,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
 
             {showMetrics && (
               <>
-                {props.metricsHeading && (
-                  <h2 style={{ ...eyebrowStyle, color: rgba("#ffffff", 0.6), marginBottom: "1rem" }}>
-                    {props.metricsHeading}
-                  </h2>
+                {(props.metricsHeading || onFieldChange) && (
+                  <InlineText as="h2" value={props.metricsHeading ?? ""} onUpdate={field("metricsHeading")} style={{ ...eyebrowStyle, color: rgba("#ffffff", 0.6), marginBottom: "1rem" }} />
                 )}
                 <div
                   style={{
@@ -414,9 +440,7 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                           {head}
                           {unit && <span style={{ color: accent }}>{unit}</span>}
                         </div>
-                        <div style={{ fontSize: "0.875rem", fontWeight: 500, color: rgba("#ffffff", 0.6), textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                          {m.label}
-                        </div>
+                        <InlineText as="div" value={m.label} onUpdate={onFieldChange ? (v) => updateMetric(i, "label", v) : undefined} style={{ fontSize: "0.875rem", fontWeight: 500, color: rgba("#ffffff", 0.6), textTransform: "uppercase", letterSpacing: "0.04em" }} />
                         {m.caption && (
                           <div style={{ fontSize: "0.8rem", color: rgba("#ffffff", 0.45), marginTop: "0.5rem" }}>{m.caption}</div>
                         )}
@@ -447,12 +471,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
             }}
           >
             <div style={{ flex: "1 1 240px" }}>
-              <h3 style={{ ...eyebrowStyle, fontSize: "0.7rem", marginBottom: "1rem" }}>
-                {props.atAGlanceHeading || "About the Company"}
-              </h3>
-              <p style={{ color: muted, lineHeight: 1.6 }}>
-                {heroSummary}
-              </p>
+              <InlineText as="h3" value={props.atAGlanceHeading || "About the Company"} onUpdate={field("atAGlanceHeading")} style={{ ...eyebrowStyle, fontSize: "0.7rem", marginBottom: "1rem" }} />
+              <InlineText as="p" value={heroSummary} onUpdate={field("heroSummary")} multiline style={{ color: muted, lineHeight: 1.6 }} />
             </div>
             <div
               style={{
@@ -465,8 +485,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
             >
               {profile.map((row, i) => (
                 <div key={`${row.label}-${i}`}>
-                  <div style={{ ...eyebrowStyle, fontSize: "0.7rem", marginBottom: "0.5rem" }}>{row.label}</div>
-                  <div style={{ fontWeight: 600, color: headline }}>{row.value}</div>
+                  <InlineText as="div" value={row.label} onUpdate={onFieldChange ? (v) => updateProfileRow(i, "label", v) : undefined} style={{ ...eyebrowStyle, fontSize: "0.7rem", marginBottom: "0.5rem" }} />
+                  <InlineText as="div" value={row.value} onUpdate={onFieldChange ? (v) => updateProfileRow(i, "value", v) : undefined} style={{ fontWeight: 600, color: headline }} />
                 </div>
               ))}
             </div>
@@ -489,10 +509,13 @@ export function BlockCaseMetrics({ props, brand }: Props) {
             className="lg:[grid-template-columns:5fr_7fr]"
           >
             <div>
-              {props.challengeEyebrow && (
-                <div style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem" }}>{props.challengeEyebrow}</div>
+              {(props.challengeEyebrow || onFieldChange) && (
+                <InlineText as="div" value={props.challengeEyebrow ?? ""} onUpdate={field("challengeEyebrow")} style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem" }} />
               )}
-              <h2
+              <InlineText
+                as="h2"
+                value={props.challengeHeading || "The Challenge"}
+                onUpdate={field("challengeHeading")}
                 style={{
                   fontFamily: display,
                   fontSize: `${2.25 * hScale}rem`,
@@ -501,13 +524,15 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                   color: headline,
                   lineHeight: 1.1,
                 }}
-              >
-                {props.challengeHeading || "The Challenge"}
-              </h2>
-              <div style={{ fontSize: "1.125rem", color: muted, lineHeight: 1.7, whiteSpace: "pre-line" }}>
-                {props.challengeBody ||
+              />
+              <InlineText
+                as="div"
+                value={props.challengeBody ||
                   "Rapid growth pushed the existing infrastructure past its limits. The team needed a complete architectural shift without pausing feature delivery."}
-              </div>
+                onUpdate={field("challengeBody")}
+                multiline
+                style={{ fontSize: "1.125rem", color: muted, lineHeight: 1.7, whiteSpace: "pre-line" }}
+              />
             </div>
             <div style={{ aspectRatio: "4 / 3", borderRadius: radius, overflow: "hidden", background: rgba(accent, 0.08) }}>
               {props.challengeImageUrl ? (
@@ -530,10 +555,13 @@ export function BlockCaseMetrics({ props, brand }: Props) {
         <section style={{ ...sectionStyle({ background: rgba(ink, 0.03) }), borderBottom: `1px solid ${border}` }}>
           <div style={{ ...containerStyle, maxWidth: 1280 }}>
             <div style={{ maxWidth: 720, marginBottom: "4rem" }}>
-              {props.approachEyebrow && (
-                <div style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem" }}>{props.approachEyebrow}</div>
+              {(props.approachEyebrow || onFieldChange) && (
+                <InlineText as="div" value={props.approachEyebrow ?? ""} onUpdate={field("approachEyebrow")} style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem" }} />
               )}
-              <h2
+              <InlineText
+                as="h2"
+                value={props.approachHeading || "The Approach"}
+                onUpdate={field("approachHeading")}
                 style={{
                   fontFamily: display,
                   fontSize: `${2.25 * hScale}rem`,
@@ -542,11 +570,9 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                   color: headline,
                   lineHeight: 1.1,
                 }}
-              >
-                {props.approachHeading || "The Approach"}
-              </h2>
-              {props.approachBody && (
-                <p style={{ fontSize: "1.125rem", color: muted, lineHeight: 1.7 }}>{props.approachBody}</p>
+              />
+              {(props.approachBody || onFieldChange) && (
+                <InlineText as="p" value={props.approachBody ?? ""} onUpdate={field("approachBody")} multiline style={{ fontSize: "1.125rem", color: muted, lineHeight: 1.7 }} />
               )}
             </div>
             <div
@@ -581,10 +607,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                     >
                       <Icon className="w-6 h-6" />
                     </div>
-                    <h3 style={{ fontFamily: display, fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem", color: headline }}>
-                      {card.title}
-                    </h3>
-                    <p style={{ color: muted, lineHeight: 1.6 }}>{card.body}</p>
+                    <InlineText as="h3" value={card.title} onUpdate={onFieldChange ? (v) => updateApproachCard(i, "title", v) : undefined} style={{ fontFamily: display, fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem", color: headline }} />
+                    <InlineText as="p" value={card.body} onUpdate={onFieldChange ? (v) => updateApproachCard(i, "body", v) : undefined} multiline style={{ color: muted, lineHeight: 1.6 }} />
                   </div>
                 );
               })}
@@ -597,12 +621,13 @@ export function BlockCaseMetrics({ props, brand }: Props) {
       {showResults && (
         <section style={{ ...sectionStyle(), borderBottom: `1px solid ${border}` }}>
           <div style={{ ...containerStyle, maxWidth: 1280 }}>
-            {props.resultsEyebrow && (
-              <div style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem", textAlign: "center" }}>
-                {props.resultsEyebrow}
-              </div>
+            {(props.resultsEyebrow || onFieldChange) && (
+              <InlineText as="div" value={props.resultsEyebrow ?? ""} onUpdate={field("resultsEyebrow")} style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem", textAlign: "center" }} />
             )}
-            <h2
+            <InlineText
+              as="h2"
+              value={props.resultsHeading || "The Results"}
+              onUpdate={field("resultsHeading")}
               style={{
                 fontFamily: display,
                 fontSize: `${2.25 * hScale}rem`,
@@ -611,13 +636,9 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                 textAlign: "center",
                 color: headline,
               }}
-            >
-              {props.resultsHeading || "The Results"}
-            </h2>
-            {props.resultsBody && (
-              <p style={{ fontSize: "1.125rem", color: muted, lineHeight: 1.7, textAlign: "center", maxWidth: 720, margin: "0 auto 4rem" }}>
-                {props.resultsBody}
-              </p>
+            />
+            {(props.resultsBody || onFieldChange) && (
+              <InlineText as="p" value={props.resultsBody ?? ""} onUpdate={field("resultsBody")} multiline style={{ fontSize: "1.125rem", color: muted, lineHeight: 1.7, textAlign: "center", maxWidth: 720, margin: "0 auto 4rem" }} />
             )}
             <div
               style={{ display: "grid", gridTemplateColumns: "1fr", gap: "3rem", textAlign: "center" }}
@@ -625,12 +646,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
             >
               {resultStats.map((s, i) => (
                 <div key={`${s.label}-${i}`}>
-                  <div style={{ fontFamily: mono, fontSize: "3.5rem", fontWeight: 700, color: headline, marginBottom: "1rem", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                    {s.value}
-                  </div>
-                  <h3 style={{ fontFamily: display, fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem", color: headline }}>
-                    {s.label}
-                  </h3>
+                  <InlineText as="div" value={s.value} onUpdate={onFieldChange ? (v) => updateResultStat(i, "value", v) : undefined} style={{ fontFamily: mono, fontSize: "3.5rem", fontWeight: 700, color: headline, marginBottom: "1rem", letterSpacing: "-0.03em", lineHeight: 1 }} />
+                  <InlineText as="h3" value={s.label} onUpdate={onFieldChange ? (v) => updateResultStat(i, "label", v) : undefined} style={{ fontFamily: display, fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem", color: headline }} />
                   {s.caption && <p style={{ color: muted, lineHeight: 1.6 }}>{s.caption}</p>}
                 </div>
               ))}
@@ -640,7 +657,7 @@ export function BlockCaseMetrics({ props, brand }: Props) {
       )}
 
       {/* 7. Pull quote / testimonial */}
-      {showQuote && props.quoteText && (
+      {showQuote && (props.quoteText || onFieldChange) && (
         <section style={{ background: rgba(dark, 0.96), color: headlineOnDark, paddingTop: sectionPad, paddingBottom: sectionPad, paddingLeft: "1.5rem", paddingRight: "1.5rem" }}>
           <div
             style={{
@@ -679,7 +696,11 @@ export function BlockCaseMetrics({ props, brand }: Props) {
               <svg width="48" height="48" viewBox="0 0 32 32" fill={accent} style={{ marginBottom: "1.5rem", opacity: 0.5 }} aria-hidden>
                 <path d="M10 8c-3.3 0-6 2.7-6 6v10h10V14H8c0-1.1.9-2 2-2h2V8h-2zm14 0c-3.3 0-6 2.7-6 6v10h10V14h-6c0-1.1.9-2 2-2h2V8h-2z" />
               </svg>
-              <blockquote
+              <InlineText
+                as="blockquote"
+                value={props.quoteText ?? ""}
+                onUpdate={field("quoteText")}
+                multiline
                 style={{
                   fontFamily: display,
                   fontSize: "1.75rem",
@@ -688,18 +709,14 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                   marginBottom: "2rem",
                   color: headlineOnDark,
                 }}
-              >
-                {props.quoteText}
-              </blockquote>
-              {(props.quoteAuthor || props.quoteRole) && (
+              />
+              {(props.quoteAuthor || props.quoteRole || onFieldChange) && (
                 <div>
-                  {props.quoteAuthor && (
-                    <div style={{ fontFamily: display, fontWeight: 700, fontSize: "1.125rem" }}>{props.quoteAuthor}</div>
+                  {(props.quoteAuthor || onFieldChange) && (
+                    <InlineText as="div" value={props.quoteAuthor ?? ""} onUpdate={field("quoteAuthor")} style={{ fontFamily: display, fontWeight: 700, fontSize: "1.125rem" }} />
                   )}
-                  {props.quoteRole && (
-                    <div style={{ fontFamily: mono, fontSize: "0.875rem", color: accent, marginTop: "0.25rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      {props.quoteRole}
-                    </div>
+                  {(props.quoteRole || onFieldChange) && (
+                    <InlineText as="div" value={props.quoteRole ?? ""} onUpdate={field("quoteRole")} style={{ fontFamily: mono, fontSize: "0.875rem", color: accent, marginTop: "0.25rem", textTransform: "uppercase", letterSpacing: "0.08em" }} />
                   )}
                 </div>
               )}
@@ -712,10 +729,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
       {showGallery && galleryImages.length > 0 && (
         <section style={{ ...sectionStyle() }}>
           <div style={{ ...containerStyle, maxWidth: 1280 }}>
-            {props.galleryHeading && (
-              <h2 style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", color: headline }}>
-                {props.galleryHeading}
-              </h2>
+            {(props.galleryHeading || onFieldChange) && (
+              <InlineText as="h2" value={props.galleryHeading ?? ""} onUpdate={field("galleryHeading")} style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", color: headline }} />
             )}
             <div
               style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem" }}
@@ -749,10 +764,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
       {showModules && modules.length > 0 && (
         <section style={{ ...sectionStyle({ background: rgba(ink, 0.03) }), borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}` }}>
           <div style={{ ...containerStyle, maxWidth: 1280 }}>
-            {props.modulesHeading && (
-              <h2 style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", color: headline, textAlign: "center" }}>
-                {props.modulesHeading}
-              </h2>
+            {(props.modulesHeading || onFieldChange) && (
+              <InlineText as="h2" value={props.modulesHeading ?? ""} onUpdate={field("modulesHeading")} style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", color: headline, textAlign: "center" }} />
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: "5rem" }}>
               {modules.map((mod, i) => {
@@ -769,10 +782,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                     className="lg:[grid-template-columns:repeat(2,minmax(0,1fr))]"
                   >
                     <div style={{ order: reverse ? 2 : 1 }}>
-                      <h3 style={{ fontFamily: display, fontSize: `${1.75 * hScale}rem`, fontWeight: 700, marginBottom: "1.5rem", color: headline, lineHeight: 1.15 }}>
-                        {mod.heading}
-                      </h3>
-                      <div style={{ color: muted, lineHeight: 1.7, whiteSpace: "pre-line" }}>{mod.body}</div>
+                      <InlineText as="h3" value={mod.heading} onUpdate={onFieldChange ? (v) => updateModule(i, "heading", v) : undefined} style={{ fontFamily: display, fontSize: `${1.75 * hScale}rem`, fontWeight: 700, marginBottom: "1.5rem", color: headline, lineHeight: 1.15 }} />
+                      <InlineText as="div" value={mod.body} onUpdate={onFieldChange ? (v) => updateModule(i, "body", v) : undefined} multiline style={{ color: muted, lineHeight: 1.7, whiteSpace: "pre-line" }} />
                     </div>
                     <div style={{ order: reverse ? 1 : 2, aspectRatio: "4 / 3", borderRadius: radius, overflow: "hidden", background: rgba(accent, 0.08) }}>
                       {mod.imageUrl ? (
@@ -798,9 +809,7 @@ export function BlockCaseMetrics({ props, brand }: Props) {
       {showTakeaways && takeaways.length > 0 && (
         <section style={{ ...sectionStyle() }}>
           <div style={{ maxWidth: 880, marginLeft: "auto", marginRight: "auto" }}>
-            <h2 style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", textAlign: "center", color: headline }}>
-              {props.takeawaysHeading || "Key Takeaways"}
-            </h2>
+            <InlineText as="h2" value={props.takeawaysHeading || "Key Takeaways"} onUpdate={field("takeawaysHeading")} style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", textAlign: "center", color: headline }} />
             <div
               style={{
                 background: cardBg,
@@ -833,7 +842,7 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                     </span>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", color: ink, lineHeight: 1.6 }}>
                       <CheckCircle2 className="w-5 h-5" style={{ color: accent, flexShrink: 0, marginTop: 2 }} />
-                      <span>{t.text}</span>
+                      <InlineText as="span" value={t.text} onUpdate={onFieldChange ? (v) => updateTakeaway(i, v) : undefined} />
                     </div>
                   </li>
                 ))}
@@ -847,12 +856,8 @@ export function BlockCaseMetrics({ props, brand }: Props) {
       {showCta && (
         <section style={{ background: accent, paddingTop: sectionPad, paddingBottom: sectionPad, paddingLeft: "1.5rem", paddingRight: "1.5rem", textAlign: "center" }}>
           <div style={{ maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>
-            <h2 style={{ fontFamily: display, fontSize: `${2.75 * hScale}rem`, fontWeight: 700, color: accentInk, marginBottom: "1.5rem", lineHeight: 1.1 }}>
-              {props.ctaHeading || "Ready to see what's possible?"}
-            </h2>
-            <p style={{ fontSize: "1.25rem", color: rgba(accentInk, 0.8), marginBottom: "2.5rem", maxWidth: 640, marginLeft: "auto", marginRight: "auto" }}>
-              {props.ctaBody || "Join the teams building the future on a faster, more reliable foundation."}
-            </p>
+            <InlineText as="h2" value={props.ctaHeading || "Ready to see what's possible?"} onUpdate={field("ctaHeading")} style={{ fontFamily: display, fontSize: `${2.75 * hScale}rem`, fontWeight: 700, color: accentInk, marginBottom: "1.5rem", lineHeight: 1.1 }} />
+            <InlineText as="p" value={props.ctaBody || "Join the teams building the future on a faster, more reliable foundation."} onUpdate={field("ctaBody")} multiline style={{ fontSize: "1.25rem", color: rgba(accentInk, 0.8), marginBottom: "2.5rem", maxWidth: 640, marginLeft: "auto", marginRight: "auto" }} />
             <a
               href={props.ctaUrl || "#"}
               style={{
@@ -890,9 +895,7 @@ export function BlockCaseMetrics({ props, brand }: Props) {
                       <span style={{ width: 24, height: 24, background: accent, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <Zap className="w-3 h-3" style={{ color: accentInk }} />
                       </span>
-                      <span style={{ fontFamily: display, fontWeight: 700, fontSize: "1.125rem", color: headlineOnDark, letterSpacing: "-0.01em" }}>
-                        {brandName}
-                      </span>
+                      <InlineText as="span" value={brandName} onUpdate={field("brandName")} style={{ fontFamily: display, fontWeight: 700, fontSize: "1.125rem", color: headlineOnDark, letterSpacing: "-0.01em" }} />
                     </>
                   )}
                 </div>

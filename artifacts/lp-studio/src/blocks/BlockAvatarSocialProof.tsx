@@ -6,6 +6,7 @@ import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { StatCounter } from "./StatCounter";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: AvatarSocialProofBlockProps;
@@ -42,8 +43,10 @@ function Stars({ rating, max, color }: { rating: number; max: number; color: str
   );
 }
 
-export function BlockAvatarSocialProof({ props }: Props) {
+export function BlockAvatarSocialProof({ props, onFieldChange }: Props) {
   const surface = resolveSectionSurface(props, "#ffffff");
+  const field = (key: keyof AvatarSocialProofBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
   const textColor = props.textColor || surface.color || "#0f172a";
   const accent = props.accentColor || "var(--brand-accent, #6366f1)";
   const ratingMax = props.ratingMax && props.ratingMax > 0 ? props.ratingMax : 5;
@@ -102,24 +105,25 @@ export function BlockAvatarSocialProof({ props }: Props) {
           </div>
         )}
 
-        <h2
+        <InlineText
+          as="h2"
+          value={props.headline ?? ""}
+          onUpdate={field("headline")}
           className="text-2xl md:text-4xl font-bold tracking-tight"
           style={{ color: textColor, fontFamily: headFamily }}
-        >
-          {props.headline}
-        </h2>
+        />
 
-        {props.testimonialQuote && (
+        {(props.testimonialQuote || onFieldChange) && (
           <figure className="mt-2 max-w-2xl">
             <blockquote
               className="text-lg md:text-xl leading-relaxed italic"
               style={{ color: "#334155", fontFamily: bodyFamily }}
             >
-              &ldquo;{props.testimonialQuote}&rdquo;
+              &ldquo;<InlineText as="span" value={props.testimonialQuote ?? ""} onUpdate={field("testimonialQuote")} multiline />&rdquo;
             </blockquote>
-            {props.testimonialAuthor && (
+            {(props.testimonialAuthor || onFieldChange) && (
               <figcaption className="mt-3 text-sm font-semibold" style={{ color: "#64748b" }}>
-                — {props.testimonialAuthor}
+                — <InlineText as="span" value={props.testimonialAuthor ?? ""} onUpdate={field("testimonialAuthor")} />
               </figcaption>
             )}
           </figure>

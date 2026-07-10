@@ -22,6 +22,7 @@ import {
 import type { BrandConfig } from "../lib/brand-config";
 import { toFontFamilyValue } from "../lib/font-catalog";
 import { useBlockFonts } from "../lib/use-block-fonts";
+import { InlineText } from "@/components/InlineText";
 
 // ── small utilities ─────────────────────────────────────────────────────────
 
@@ -51,9 +52,17 @@ const MONO = "'Space Mono', 'IBM Plex Mono', monospace";
 interface Props {
   props: EventSplitBlockProps;
   brand?: BrandConfig;
+  onFieldChange?: (updated: EventSplitBlockProps) => void;
 }
 
-export function BlockEventSplit({ props: p, brand }: Props) {
+export function BlockEventSplit({ props: p, brand, onFieldChange }: Props) {
+  const field = (key: keyof EventSplitBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
+  const updateSpeaker = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const nextSpeakers = (p.speakers ?? []).map((s, idx) => (idx === i ? { ...s, [key]: value } : s));
+    onFieldChange({ ...p, speakers: nextSpeakers });
+  };
   // ── theme tokens: prop ?? brand ?? hardcoded editorial default ─────────────
   const bg = p.bgColor ?? firstNonEmpty(brand?.pageBackground) ?? "#0A0A0A";
   const dark = p.darkColor ?? "#000000";
@@ -131,11 +140,14 @@ export function BlockEventSplit({ props: p, brand }: Props) {
   });
 
   // ── reusable bits ──────────────────────────────────────────────────────────
-  const Eyebrow = ({ label }: { label?: string }) =>
-    label ? (
+  const Eyebrow = ({ label, onUpdate }: { label?: string; onUpdate?: (v: string) => void }) =>
+    label || onUpdate ? (
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
         <div style={{ width: "3rem", height: 1, backgroundColor: accent }} />
-        <span
+        <InlineText
+          as="span"
+          value={label ?? ""}
+          onUpdate={onUpdate}
           style={{
             color: accent,
             fontFamily: MONO,
@@ -143,16 +155,14 @@ export function BlockEventSplit({ props: p, brand }: Props) {
             letterSpacing: "0.18em",
             textTransform: "uppercase",
           }}
-        >
-          {label}
-        </span>
+        />
       </div>
     ) : null;
 
-  const SectionHeader = ({ eyebrow, title }: { eyebrow?: string; title?: string }) => (
+  const SectionHeader = ({ eyebrow, title, onEyebrowUpdate, onTitleUpdate }: { eyebrow?: string; title?: string; onEyebrowUpdate?: (v: string) => void; onTitleUpdate?: (v: string) => void }) => (
     <div style={{ marginBottom: "clamp(2.5rem, 6vw, 5rem)" }}>
-      <Eyebrow label={eyebrow} />
-      {title && <h2 style={h2Style()}>{title}</h2>}
+      <Eyebrow label={eyebrow} onUpdate={onEyebrowUpdate} />
+      {(title || onTitleUpdate) && <InlineText as="h2" value={title ?? ""} onUpdate={onTitleUpdate} style={h2Style()} />}
     </div>
   );
 
@@ -253,6 +263,13 @@ export function BlockEventSplit({ props: p, brand }: Props) {
   const agendaDays = p.agendaDays ?? [];
   const [activeDay, setActiveDay] = useState(0);
   const safeActiveDay = Math.min(activeDay, Math.max(0, agendaDays.length - 1));
+  const updateSession = (si: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const nextDays = agendaDays.map((d, di) =>
+      di === safeActiveDay ? { ...d, sessions: d.sessions.map((s, j) => (j === si ? { ...s, [key]: value } : s)) } : d,
+    );
+    onFieldChange({ ...p, agendaDays: nextDays });
+  };
 
   // ── faq ─────────────────────────────────────────────────────────────────
   const faqItems = p.faqItems ?? [];
@@ -482,10 +499,13 @@ export function BlockEventSplit({ props: p, brand }: Props) {
                     display: "inline-block",
                   }}
                 />
-                {heroEyebrow}
+                <InlineText as="span" value={heroEyebrow} onUpdate={field("heroEyebrow")} />
               </div>
 
-              <h1
+              <InlineText
+                as="h1"
+                value={eventName}
+                onUpdate={field("eventName")}
                 style={{
                   fontFamily: displayFont,
                   fontWeight: 700,
@@ -495,12 +515,14 @@ export function BlockEventSplit({ props: p, brand }: Props) {
                   margin: "0 0 1.5rem",
                   color: headline,
                 }}
-              >
-                {eventName}
-              </h1>
+              />
 
-              {heroTagline && (
-                <p
+              {(heroTagline || onFieldChange) && (
+                <InlineText
+                  as="p"
+                  value={heroTagline ?? ""}
+                  onUpdate={field("heroTagline")}
+                  multiline
                   style={{
                     fontSize: "clamp(1.1rem, 2.2vw, 1.5rem)",
                     color: muted,
@@ -509,9 +531,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
                     fontWeight: 300,
                     lineHeight: 1.4,
                   }}
-                >
-                  {heroTagline}
-                </p>
+                />
               )}
 
               <div
@@ -523,17 +543,17 @@ export function BlockEventSplit({ props: p, brand }: Props) {
                   paddingTop: "2rem",
                 }}
               >
-                {eventDate && (
+                {(eventDate || onFieldChange) && (
                   <div>
                     <Calendar size={22} style={{ color: accent, marginBottom: "0.5rem" }} />
-                    <div style={{ fontFamily: displayFont, fontWeight: 700, marginBottom: "0.15rem" }}>{eventDate}</div>
+                    <InlineText as="div" value={eventDate ?? ""} onUpdate={field("eventDate")} style={{ fontFamily: displayFont, fontWeight: 700, marginBottom: "0.15rem" }} />
                     <div style={{ fontSize: "0.85rem", color: muted, fontFamily: MONO }}>Mark your calendar</div>
                   </div>
                 )}
-                {eventLocation && (
+                {(eventLocation || onFieldChange) && (
                   <div>
                     <MapPin size={22} style={{ color: accent, marginBottom: "0.5rem" }} />
-                    <div style={{ fontFamily: displayFont, fontWeight: 700, marginBottom: "0.15rem" }}>{eventLocation}</div>
+                    <InlineText as="div" value={eventLocation ?? ""} onUpdate={field("eventLocation")} style={{ fontFamily: displayFont, fontWeight: 700, marginBottom: "0.15rem" }} />
                     <div style={{ fontSize: "0.85rem", color: muted, fontFamily: MONO }}>Venue</div>
                   </div>
                 )}
@@ -660,7 +680,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
           >
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontFamily: MONO, fontSize: "0.85rem", color: muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
               <span style={{ width: 8, height: 8, borderRadius: "999px", backgroundColor: accent, display: "inline-block" }} />
-              {firstNonEmpty(p.countdownHeading) ?? "Registration closing soon"}
+              <InlineText as="span" value={firstNonEmpty(p.countdownHeading) ?? "Registration closing soon"} onUpdate={field("countdownHeading")} />
             </div>
             {timeLeft && (
               <div style={{ display: "flex", gap: "1.5rem", fontFamily: MONO }}>
@@ -687,11 +707,9 @@ export function BlockEventSplit({ props: p, brand }: Props) {
       {showAbout && (
         <section id="about" style={sectionStyle({ backgroundColor: bg })}>
           <div style={containerStyle}>
-            <SectionHeader eyebrow={firstNonEmpty(p.aboutEyebrow) ?? "Why Attend"} title={firstNonEmpty(p.aboutHeading) ?? "Beyond the surface."} />
-            {p.aboutBody && (
-              <p style={{ color: muted, fontSize: "1.15rem", lineHeight: 1.6, maxWidth: "44rem", marginBottom: "3rem", fontWeight: 300 }}>
-                {p.aboutBody}
-              </p>
+            <SectionHeader eyebrow={firstNonEmpty(p.aboutEyebrow) ?? "Why Attend"} title={firstNonEmpty(p.aboutHeading) ?? "Beyond the surface."} onEyebrowUpdate={field("aboutEyebrow")} onTitleUpdate={field("aboutHeading")} />
+            {(p.aboutBody || onFieldChange) && (
+              <InlineText as="p" value={p.aboutBody ?? ""} onUpdate={field("aboutBody")} multiline style={{ color: muted, fontSize: "1.15rem", lineHeight: 1.6, maxWidth: "44rem", marginBottom: "3rem", fontWeight: 300 }} />
             )}
             {stats.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.5rem" }}>
@@ -723,7 +741,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
       {showAgenda && agendaDays.length > 0 && (
         <section id="agenda" style={sectionStyle({ backgroundColor: cardBg })}>
           <div style={containerStyle}>
-            <SectionHeader eyebrow={firstNonEmpty(p.agendaEyebrow) ?? "Schedule"} title={firstNonEmpty(p.agendaHeading) ?? "The agenda."} />
+            <SectionHeader eyebrow={firstNonEmpty(p.agendaEyebrow) ?? "Schedule"} title={firstNonEmpty(p.agendaHeading) ?? "The agenda."} onEyebrowUpdate={field("agendaEyebrow")} onTitleUpdate={field("agendaHeading")} />
             <div style={{ display: "flex", flexWrap: "wrap", gap: "3rem" }}>
               {/* day tabs */}
               <div style={{ flex: "1 1 200px", maxWidth: "16rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -772,14 +790,12 @@ export function BlockEventSplit({ props: p, brand }: Props) {
                       {s.time}
                     </div>
                     <div style={{ flex: 1, minWidth: "12rem" }}>
-                      <h4 style={{ fontFamily: displayFont, fontWeight: 700, fontSize: "1.25rem", margin: "0 0 0.5rem", color: headline }}>
-                        {s.title}
-                      </h4>
+                      <InlineText as="h4" value={s.title} onUpdate={onFieldChange ? (v) => updateSession(i, "title", v) : undefined} style={{ fontFamily: displayFont, fontWeight: 700, fontSize: "1.25rem", margin: "0 0 0.5rem", color: headline }} />
                       {s.description && (
-                        <p style={{ color: muted, fontSize: "0.95rem", margin: "0 0 0.5rem", lineHeight: 1.5 }}>{s.description}</p>
+                        <InlineText as="p" value={s.description} onUpdate={onFieldChange ? (v) => updateSession(i, "description", v) : undefined} multiline style={{ color: muted, fontSize: "0.95rem", margin: "0 0 0.5rem", lineHeight: 1.5 }} />
                       )}
                       {s.speaker && (
-                        <div style={{ color: muted, fontSize: "0.85rem", fontFamily: MONO }}>{s.speaker}</div>
+                        <InlineText as="div" value={s.speaker} onUpdate={onFieldChange ? (v) => updateSession(i, "speaker", v) : undefined} style={{ color: muted, fontSize: "0.85rem", fontFamily: MONO }} />
                       )}
                     </div>
                   </div>
@@ -794,7 +810,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
       {showSpeakers && speakers.length > 0 && (
         <section id="speakers" style={sectionStyle({ backgroundColor: bg })}>
           <div style={containerStyle}>
-            <SectionHeader eyebrow={firstNonEmpty(p.speakersEyebrow) ?? "Speakers"} title={firstNonEmpty(p.speakersHeading) ?? "The lineup."} />
+            <SectionHeader eyebrow={firstNonEmpty(p.speakersEyebrow) ?? "Speakers"} title={firstNonEmpty(p.speakersHeading) ?? "The lineup."} onEyebrowUpdate={field("speakersEyebrow")} onTitleUpdate={field("speakersHeading")} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "1.5rem" }}>
               {speakers.map((sp, i) => (
                 <div key={i}>
@@ -820,9 +836,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
                       <div style={{ position: "absolute", inset: 0, ...imgPlaceholder }} />
                     )}
                   </div>
-                  <h4 style={{ fontFamily: displayFont, fontWeight: 700, fontSize: "1.15rem", margin: "0 0 0.25rem", color: headline }}>
-                    {sp.name}
-                  </h4>
+                  <InlineText as="h4" value={sp.name} onUpdate={onFieldChange ? (v) => updateSpeaker(i, "name", v) : undefined} style={{ fontFamily: displayFont, fontWeight: 700, fontSize: "1.15rem", margin: "0 0 0.25rem", color: headline }} />
                   <p style={{ color: muted, fontSize: "0.85rem", fontFamily: MONO, margin: 0 }}>
                     {[sp.role, sp.company].filter(Boolean).join(" · ")}
                   </p>
@@ -846,29 +860,27 @@ export function BlockEventSplit({ props: p, brand }: Props) {
                 justifyContent: "center",
               }}
             >
-              <Eyebrow label={firstNonEmpty(p.venueEyebrow) ?? "The Venue"} />
-              <h2 style={{ ...h2Style(), marginBottom: "1.5rem" }}>{firstNonEmpty(p.venueHeading) ?? p.venueName ?? "The Venue"}</h2>
-              {p.venueDescription && (
-                <p style={{ color: muted, fontSize: "1.1rem", lineHeight: 1.6, marginBottom: "2rem", fontWeight: 300 }}>
-                  {p.venueDescription}
-                </p>
+              <Eyebrow label={firstNonEmpty(p.venueEyebrow) ?? "The Venue"} onUpdate={field("venueEyebrow")} />
+              <InlineText as="h2" value={firstNonEmpty(p.venueHeading) ?? p.venueName ?? "The Venue"} onUpdate={field("venueHeading")} style={{ ...h2Style(), marginBottom: "1.5rem" }} />
+              {(p.venueDescription || onFieldChange) && (
+                <InlineText as="p" value={p.venueDescription ?? ""} onUpdate={field("venueDescription")} multiline style={{ color: muted, fontSize: "1.1rem", lineHeight: 1.6, marginBottom: "2rem", fontWeight: 300 }} />
               )}
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "1.5rem", fontFamily: MONO }}>
-                {p.venueName && (
+                {(p.venueName || onFieldChange) && (
                   <li style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
                     <Building2 size={22} style={{ color: accent, flexShrink: 0 }} />
                     <div>
-                      <div style={{ color: ink, marginBottom: "0.25rem" }}>{p.venueName}</div>
-                      {p.venueAddress && <div style={{ color: muted }}>{p.venueAddress}</div>}
+                      <InlineText as="div" value={p.venueName ?? ""} onUpdate={field("venueName")} style={{ color: ink, marginBottom: "0.25rem" }} />
+                      {(p.venueAddress || onFieldChange) && <InlineText as="div" value={p.venueAddress ?? ""} onUpdate={field("venueAddress")} multiline style={{ color: muted }} />}
                     </div>
                   </li>
                 )}
-                {eventLocation && (
+                {(eventLocation || onFieldChange) && (
                   <li style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
                     <MapPin size={22} style={{ color: accent, flexShrink: 0 }} />
                     <div>
                       <div style={{ color: ink, marginBottom: "0.25rem" }}>Location</div>
-                      <div style={{ color: muted }}>{eventLocation}</div>
+                      <InlineText as="div" value={eventLocation ?? ""} onUpdate={field("eventLocation")} style={{ color: muted }} />
                     </div>
                   </li>
                 )}
@@ -894,8 +906,8 @@ export function BlockEventSplit({ props: p, brand }: Props) {
       {showGallery && galleryImages.length > 0 && (
         <section style={sectionStyle({ backgroundColor: bg })}>
           <div style={containerStyle}>
-            {firstNonEmpty(p.galleryHeading) && (
-              <SectionHeader title={firstNonEmpty(p.galleryHeading)} />
+            {(firstNonEmpty(p.galleryHeading) || onFieldChange) && (
+              <SectionHeader title={firstNonEmpty(p.galleryHeading)} onTitleUpdate={field("galleryHeading")} />
             )}
           </div>
           <div style={{ display: "flex", gap: "1rem", overflowX: "auto", padding: "0 1.5rem 1rem" }}>
@@ -929,9 +941,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
       {showSponsors && sponsors.length > 0 && (
         <section style={sectionStyle({ backgroundColor: cardBg })}>
           <div style={containerStyle}>
-            <p style={{ textAlign: "center", fontFamily: MONO, fontSize: "0.85rem", color: muted, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "3rem" }}>
-              {firstNonEmpty(p.sponsorsHeading) ?? "Backed by industry leaders"}
-            </p>
+            <InlineText as="p" value={firstNonEmpty(p.sponsorsHeading) ?? "Backed by industry leaders"} onUpdate={field("sponsorsHeading")} style={{ textAlign: "center", fontFamily: MONO, fontSize: "0.85rem", color: muted, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "3rem" }} />
             <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: "clamp(2rem, 6vw, 5rem)" }}>
               {sponsors.map((s, i) =>
                 s.logoUrl ? (
@@ -957,7 +967,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
       {showTickets && ticketTiers.length > 0 && (
         <section id="tickets" style={sectionStyle({ backgroundColor: bg })}>
           <div style={containerStyle}>
-            <SectionHeader eyebrow={firstNonEmpty(p.ticketsEyebrow) ?? "Tickets"} title={firstNonEmpty(p.ticketsHeading) ?? "Secure your access."} />
+            <SectionHeader eyebrow={firstNonEmpty(p.ticketsEyebrow) ?? "Tickets"} title={firstNonEmpty(p.ticketsHeading) ?? "Secure your access."} onEyebrowUpdate={field("ticketsEyebrow")} onTitleUpdate={field("ticketsHeading")} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", maxWidth: "60rem", marginLeft: "auto", marginRight: "auto" }}>
               {ticketTiers.map((tier, i) => (
                 <div
@@ -1033,7 +1043,7 @@ export function BlockEventSplit({ props: p, brand }: Props) {
         <section style={sectionStyle({ backgroundColor: bg })}>
           <div style={{ ...containerStyle, display: "flex", flexWrap: "wrap", gap: "clamp(2rem, 6vw, 4rem)" }}>
             <div style={{ flex: "1 1 240px", maxWidth: "22rem" }}>
-              <SectionHeader eyebrow="FAQ" title={firstNonEmpty(p.faqHeading) ?? "Got questions?"} />
+              <SectionHeader eyebrow="FAQ" title={firstNonEmpty(p.faqHeading) ?? "Got questions?"} onTitleUpdate={field("faqHeading")} />
             </div>
             <div style={{ flex: "2 1 420px", display: "flex", flexDirection: "column", gap: "1rem" }}>
               {faqItems.map((item, i) => {
@@ -1102,10 +1112,10 @@ export function BlockEventSplit({ props: p, brand }: Props) {
               }}
             >
               <div style={{ textAlign: "center", marginBottom: "3rem" }}>
-                <Eyebrow label={firstNonEmpty(p.formEyebrow)} />
-                <h2 style={{ ...h2Style(), textAlign: "center" }}>{firstNonEmpty(p.formHeading) ?? "Reserve your seat."}</h2>
-                {p.formSubheading && (
-                  <p style={{ color: muted, marginTop: "1rem" }}>{p.formSubheading}</p>
+                <Eyebrow label={firstNonEmpty(p.formEyebrow)} onUpdate={field("formEyebrow")} />
+                <InlineText as="h2" value={firstNonEmpty(p.formHeading) ?? "Reserve your seat."} onUpdate={field("formHeading")} style={{ ...h2Style(), textAlign: "center" }} />
+                {(p.formSubheading || onFieldChange) && (
+                  <InlineText as="p" value={p.formSubheading ?? ""} onUpdate={field("formSubheading")} multiline style={{ color: muted, marginTop: "1rem" }} />
                 )}
               </div>
 

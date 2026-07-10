@@ -15,9 +15,11 @@ import {
   resolveHeadingScale,
 } from "@/lib/block-types";
 import { useBrandConfig } from "@/components/BrandSwatches";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: CaseModularBlockProps;
+  onFieldChange?: (updated: CaseModularBlockProps) => void;
 }
 
 interface ResolvedTokens {
@@ -69,7 +71,7 @@ function num2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-export function BlockCaseModular({ props }: Props) {
+export function BlockCaseModular({ props, onFieldChange }: Props) {
   const brand = useBrandConfig();
 
   const t: ResolvedTokens = useMemo(() => {
@@ -270,6 +272,33 @@ export function BlockCaseModular({ props }: Props) {
   const galleryImages = props.galleryImages ?? [];
   const takeaways = props.takeaways ?? [];
 
+  const field = (key: keyof CaseModularBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateMetric = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, metrics: metrics.map((m, idx) => (idx === i ? { ...m, [key]: v } : m)) });
+  };
+  const updateProfileRow = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, profile: profile.map((row, idx) => (idx === i ? { ...row, [key]: v } : row)) });
+  };
+  const updateApproachCard = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, approachCards: approachCards.map((c, idx) => (idx === i ? { ...c, [key]: v } : c)) });
+  };
+  const updateResultStat = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, resultStats: resultStats.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)) });
+  };
+  const updateModule = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, modules: modules.map((m, idx) => (idx === i ? { ...m, [key]: v } : m)) });
+  };
+  const updateTakeaway = (i: number, v: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, takeaways: takeaways.map((tk, idx) => (idx === i ? { ...tk, text: v } : tk)) });
+  };
+
   return (
     <div
       id="top"
@@ -335,7 +364,10 @@ export function BlockCaseModular({ props }: Props) {
                   >
                     <Layers size={16} color={t.bg} />
                   </div>
-                  <span
+                  <InlineText
+                    as="span"
+                    value={brandName}
+                    onUpdate={field("brandName")}
                     style={{
                       fontFamily: t.displayFont,
                       fontWeight: 600,
@@ -343,9 +375,7 @@ export function BlockCaseModular({ props }: Props) {
                       letterSpacing: "0.04em",
                       textTransform: "uppercase",
                     }}
-                  >
-                    {brandName}
-                  </span>
+                  />
                 </>
               )}
             </div>
@@ -451,9 +481,7 @@ export function BlockCaseModular({ props }: Props) {
           >
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <Layers size={18} color={t.ink} />
-              <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
-                {brandName}
-              </span>
+              <InlineText as="span" value={brandName} onUpdate={field("brandName")} style={{ fontWeight: 600, fontSize: "0.85rem" }} />
             </div>
             <select
               value={activeSection}
@@ -488,7 +516,7 @@ export function BlockCaseModular({ props }: Props) {
           {showHero && (
             <section id="hero" data-case-section style={sectionStyle}>
               <div style={{ maxWidth: t.maxWidth }}>
-                {props.heroEyebrow && (
+                {(props.heroEyebrow || onFieldChange) && (
                   <div
                     style={{
                       display: "inline-flex",
@@ -513,11 +541,14 @@ export function BlockCaseModular({ props }: Props) {
                         background: t.accent,
                       }}
                     />
-                    {props.heroEyebrow}
+                    <InlineText as="span" value={props.heroEyebrow ?? ""} onUpdate={field("heroEyebrow")} />
                   </div>
                 )}
 
-                <h1
+                <InlineText
+                  as="h1"
+                  value={props.heroHeadline}
+                  onUpdate={field("heroHeadline")}
                   style={{
                     fontFamily: t.displayFont,
                     fontWeight: 700,
@@ -527,12 +558,14 @@ export function BlockCaseModular({ props }: Props) {
                     color: t.headline,
                     fontSize: `clamp(2.25rem, 5vw, ${4.25 * t.headingScale}rem)`,
                   }}
-                >
-                  {props.heroHeadline}
-                </h1>
+                />
 
-                {props.heroSummary && (
-                  <p
+                {(props.heroSummary || onFieldChange) && (
+                  <InlineText
+                    as="p"
+                    value={props.heroSummary ?? ""}
+                    onUpdate={field("heroSummary")}
+                    multiline
                     style={{
                       fontSize: "clamp(1.1rem, 2vw, 1.4rem)",
                       color: t.muted,
@@ -541,9 +574,7 @@ export function BlockCaseModular({ props }: Props) {
                       marginBottom: "3rem",
                       maxWidth: 720,
                     }}
-                  >
-                    {props.heroSummary}
-                  </p>
+                  />
                 )}
 
                 {showMetrics && metrics.length > 0 && (
@@ -560,7 +591,10 @@ export function BlockCaseModular({ props }: Props) {
                   >
                     {metrics.map((m, i) => (
                       <div key={i}>
-                        <div
+                        <InlineText
+                          as="div"
+                          value={m.value}
+                          onUpdate={onFieldChange ? (v) => updateMetric(i, "value", v) : undefined}
                           style={{
                             fontFamily: t.displayFont,
                             fontSize: "1.85rem",
@@ -568,12 +602,8 @@ export function BlockCaseModular({ props }: Props) {
                             marginBottom: "0.25rem",
                             color: t.headline,
                           }}
-                        >
-                          {m.value}
-                        </div>
-                        <div style={{ fontSize: "0.85rem", color: t.muted }}>
-                          {m.label}
-                        </div>
+                        />
+                        <InlineText as="div" value={m.label} onUpdate={onFieldChange ? (v) => updateMetric(i, "label", v) : undefined} style={{ fontSize: "0.85rem", color: t.muted }} />
                       </div>
                     ))}
                   </div>
@@ -606,7 +636,7 @@ export function BlockCaseModular({ props }: Props) {
           )}
 
           {/* At a glance — client fact panel */}
-          {showAtAGlance && (props.clientName || profile.length > 0) && (
+          {showAtAGlance && (props.clientName || profile.length > 0 || onFieldChange) && (
             <section
               data-case-section
               id="at-a-glance"
@@ -622,11 +652,12 @@ export function BlockCaseModular({ props }: Props) {
                 }}
               >
                 <div style={{ flex: "1 1 240px", minWidth: 220 }}>
-                  <h3 style={{ ...eyebrowStyle, marginBottom: "1rem" }}>
-                    {props.atAGlanceHeading || "The Client"}
-                  </h3>
-                  {props.clientName && (
-                    <div
+                  <InlineText as="h3" value={props.atAGlanceHeading || "The Client"} onUpdate={field("atAGlanceHeading")} style={{ ...eyebrowStyle, marginBottom: "1rem" }} />
+                  {(props.clientName || onFieldChange) && (
+                    <InlineText
+                      as="div"
+                      value={props.clientName ?? ""}
+                      onUpdate={field("clientName")}
                       style={{
                         fontFamily: t.displayFont,
                         fontSize: "1.5rem",
@@ -634,14 +665,10 @@ export function BlockCaseModular({ props }: Props) {
                         marginBottom: "0.5rem",
                         color: t.headline,
                       }}
-                    >
-                      {props.clientName}
-                    </div>
+                    />
                   )}
-                  {props.heroSummary && (
-                    <p style={{ color: t.muted, fontSize: "0.85rem", lineHeight: 1.5 }}>
-                      {props.heroSummary}
-                    </p>
+                  {(props.heroSummary || onFieldChange) && (
+                    <InlineText as="p" value={props.heroSummary ?? ""} onUpdate={field("heroSummary")} multiline style={{ color: t.muted, fontSize: "0.85rem", lineHeight: 1.5 }} />
                   )}
                 </div>
                 {profile.length > 0 && (
@@ -656,10 +683,8 @@ export function BlockCaseModular({ props }: Props) {
                   >
                     {profile.map((row, i) => (
                       <div key={i}>
-                        <h4 style={{ ...eyebrowStyle, marginBottom: "0.4rem" }}>
-                          {row.label}
-                        </h4>
-                        <p style={{ fontWeight: 500, color: t.ink }}>{row.value}</p>
+                        <InlineText as="h4" value={row.label} onUpdate={onFieldChange ? (v) => updateProfileRow(i, "label", v) : undefined} style={{ ...eyebrowStyle, marginBottom: "0.4rem" }} />
+                        <InlineText as="p" value={row.value} onUpdate={onFieldChange ? (v) => updateProfileRow(i, "value", v) : undefined} style={{ fontWeight: 500, color: t.ink }} />
                       </div>
                     ))}
                   </div>
@@ -677,18 +702,22 @@ export function BlockCaseModular({ props }: Props) {
                   number={numberFor["challenge"]}
                   title={props.challengeHeading || "The Challenge"}
                   eyebrow={props.challengeEyebrow}
+                  onTitleChange={field("challengeHeading")}
+                  onEyebrowChange={field("challengeEyebrow")}
                 />
-                {props.challengeBody && (
-                  <p
+                {(props.challengeBody || onFieldChange) && (
+                  <InlineText
+                    as="p"
+                    value={props.challengeBody ?? ""}
+                    onUpdate={field("challengeBody")}
+                    multiline
                     style={{
                       fontSize: "1.15rem",
                       lineHeight: 1.7,
                       color: t.ink,
                       whiteSpace: "pre-line",
                     }}
-                  >
-                    {props.challengeBody}
-                  </p>
+                  />
                 )}
                 {challengeImg && (
                   <div
@@ -731,9 +760,15 @@ export function BlockCaseModular({ props }: Props) {
                   title={props.approachHeading || "The Approach"}
                   eyebrow={props.approachEyebrow}
                   onDark
+                  onTitleChange={field("approachHeading")}
+                  onEyebrowChange={field("approachEyebrow")}
                 />
-                {props.approachBody && (
-                  <p
+                {(props.approachBody || onFieldChange) && (
+                  <InlineText
+                    as="p"
+                    value={props.approachBody ?? ""}
+                    onUpdate={field("approachBody")}
+                    multiline
                     style={{
                       fontSize: "1.1rem",
                       lineHeight: 1.7,
@@ -741,9 +776,7 @@ export function BlockCaseModular({ props }: Props) {
                       marginBottom: approachCards.length > 0 ? "3rem" : 0,
                       maxWidth: 760,
                     }}
-                  >
-                    {props.approachBody}
-                  </p>
+                  />
                 )}
                 {approachCards.length > 0 && (
                   <div
@@ -780,25 +813,28 @@ export function BlockCaseModular({ props }: Props) {
                         >
                           {i + 1}
                         </div>
-                        <h3
+                        <InlineText
+                          as="h3"
+                          value={card.title}
+                          onUpdate={onFieldChange ? (v) => updateApproachCard(i, "title", v) : undefined}
                           style={{
                             fontSize: "1.1rem",
                             fontWeight: 600,
                             marginBottom: "0.75rem",
                             color: t.headlineOnDark,
                           }}
-                        >
-                          {card.title}
-                        </h3>
-                        <p
+                        />
+                        <InlineText
+                          as="p"
+                          value={card.body}
+                          onUpdate={onFieldChange ? (v) => updateApproachCard(i, "body", v) : undefined}
+                          multiline
                           style={{
                             fontSize: "0.9rem",
                             lineHeight: 1.6,
                             color: rgba(t.headlineOnDark, 0.6),
                           }}
-                        >
-                          {card.body}
-                        </p>
+                        />
                       </div>
                     ))}
                   </div>
@@ -816,9 +852,15 @@ export function BlockCaseModular({ props }: Props) {
                   number={numberFor["results"]}
                   title={props.resultsHeading || "The Impact"}
                   eyebrow={props.resultsEyebrow}
+                  onTitleChange={field("resultsHeading")}
+                  onEyebrowChange={field("resultsEyebrow")}
                 />
-                {props.resultsBody && (
-                  <p
+                {(props.resultsBody || onFieldChange) && (
+                  <InlineText
+                    as="p"
+                    value={props.resultsBody ?? ""}
+                    onUpdate={field("resultsBody")}
+                    multiline
                     style={{
                       fontSize: "1.1rem",
                       lineHeight: 1.7,
@@ -826,9 +868,7 @@ export function BlockCaseModular({ props }: Props) {
                       marginBottom: resultStats.length > 0 ? "2.5rem" : 0,
                       maxWidth: 760,
                     }}
-                  >
-                    {props.resultsBody}
-                  </p>
+                  />
                 )}
                 {resultStats.length > 0 && (
                   <div
@@ -851,7 +891,10 @@ export function BlockCaseModular({ props }: Props) {
                           boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                         }}
                       >
-                        <div
+                        <InlineText
+                          as="div"
+                          value={s.value}
+                          onUpdate={onFieldChange ? (v) => updateResultStat(i, "value", v) : undefined}
                           style={{
                             fontFamily: t.displayFont,
                             fontSize: "2.75rem",
@@ -860,19 +903,18 @@ export function BlockCaseModular({ props }: Props) {
                             marginBottom: "0.5rem",
                             lineHeight: 1,
                           }}
-                        >
-                          {s.value}
-                        </div>
-                        <h4
+                        />
+                        <InlineText
+                          as="h4"
+                          value={s.label}
+                          onUpdate={onFieldChange ? (v) => updateResultStat(i, "label", v) : undefined}
                           style={{
                             fontSize: "1.05rem",
                             fontWeight: 600,
                             marginBottom: "0.5rem",
                             color: t.headline,
                           }}
-                        >
-                          {s.label}
-                        </h4>
+                        />
                         {s.caption && (
                           <p style={{ color: t.muted, fontSize: "0.85rem", lineHeight: 1.5 }}>
                             {s.caption}
@@ -887,7 +929,7 @@ export function BlockCaseModular({ props }: Props) {
           )}
 
           {/* Testimonial / Quote */}
-          {showQuote && props.quoteText && (
+          {showQuote && (props.quoteText || onFieldChange) && (
             <section
               id="testimonial"
               data-case-section
@@ -926,9 +968,9 @@ export function BlockCaseModular({ props }: Props) {
                     margin: "0 0 2rem",
                   }}
                 >
-                  &ldquo;{props.quoteText}&rdquo;
+                  &ldquo;<InlineText as="span" value={props.quoteText ?? ""} onUpdate={field("quoteText")} multiline />&rdquo;
                 </blockquote>
-                {(props.quoteAuthor || portraitImg) && (
+                {(props.quoteAuthor || portraitImg || onFieldChange) && (
                   <div
                     style={{
                       display: "flex",
@@ -962,15 +1004,11 @@ export function BlockCaseModular({ props }: Props) {
                       )}
                     </div>
                     <div style={{ textAlign: "left" }}>
-                      {props.quoteAuthor && (
-                        <div style={{ fontWeight: 700, color: t.ink }}>
-                          {props.quoteAuthor}
-                        </div>
+                      {(props.quoteAuthor || onFieldChange) && (
+                        <InlineText as="div" value={props.quoteAuthor ?? ""} onUpdate={field("quoteAuthor")} style={{ fontWeight: 700, color: t.ink }} />
                       )}
-                      {props.quoteRole && (
-                        <div style={{ fontSize: "0.85rem", color: t.muted }}>
-                          {props.quoteRole}
-                        </div>
+                      {(props.quoteRole || onFieldChange) && (
+                        <InlineText as="div" value={props.quoteRole ?? ""} onUpdate={field("quoteRole")} style={{ fontSize: "0.85rem", color: t.muted }} />
                       )}
                     </div>
                   </div>
@@ -1001,7 +1039,7 @@ export function BlockCaseModular({ props }: Props) {
                     }}
                   >
                     <FileText size={15} />{" "}
-                    {props.modulesHeading || "Deep Dive Modules"}
+                    <InlineText as="span" value={props.modulesHeading || "Deep Dive Modules"} onUpdate={field("modulesHeading")} />
                   </div>
                 </div>
               )}
@@ -1033,18 +1071,21 @@ export function BlockCaseModular({ props }: Props) {
                           number={numberFor[`module-${i + 1}`]}
                           title={m.heading || `Module ${i + 1}`}
                           small
+                          onTitleChange={onFieldChange ? (v) => updateModule(i, "heading", v) : undefined}
                         />
                         {m.body && (
-                          <p
+                          <InlineText
+                            as="p"
+                            value={m.body}
+                            onUpdate={onFieldChange ? (v) => updateModule(i, "body", v) : undefined}
+                            multiline
                             style={{
                               fontSize: "1.05rem",
                               lineHeight: 1.7,
                               color: t.muted,
                               whiteSpace: "pre-line",
                             }}
-                          >
-                            {m.body}
-                          </p>
+                          />
                         )}
                       </div>
                       <div style={{ flex: "1 1 320px", minWidth: 0, width: "100%" }}>
@@ -1090,6 +1131,7 @@ export function BlockCaseModular({ props }: Props) {
                 number={numberFor["gallery"]}
                 title={props.galleryHeading || "Visual Artifacts"}
                 onDark
+                onTitleChange={field("galleryHeading")}
               />
               <div
                 className="bcm-gallery-grid"
@@ -1150,6 +1192,7 @@ export function BlockCaseModular({ props }: Props) {
                 t={t}
                 number={numberFor["takeaways"]}
                 title={props.takeawaysHeading || "Key Takeaways"}
+                onTitleChange={field("takeawaysHeading")}
               />
               <div
                 className="bcm-takeaways-grid"
@@ -1180,16 +1223,17 @@ export function BlockCaseModular({ props }: Props) {
                     >
                       <CheckCircle2 size={18} />
                     </div>
-                    <p
+                    <InlineText
+                      as="p"
+                      value={tk.text}
+                      onUpdate={onFieldChange ? (v) => updateTakeaway(i, v) : undefined}
                       style={{
                         color: t.ink,
                         fontSize: "0.95rem",
                         lineHeight: 1.6,
                         margin: 0,
                       }}
-                    >
-                      {tk.text}
-                    </p>
+                    />
                   </div>
                 ))}
               </div>
@@ -1197,7 +1241,7 @@ export function BlockCaseModular({ props }: Props) {
           )}
 
           {/* Closing CTA band */}
-          {showCta && (props.ctaHeading || props.ctaBody || props.ctaLabel) && (
+          {showCta && (props.ctaHeading || props.ctaBody || props.ctaLabel || onFieldChange) && (
             <section
               id="cta"
               style={{
@@ -1210,8 +1254,11 @@ export function BlockCaseModular({ props }: Props) {
                 textAlign: "center",
               }}
             >
-              {props.ctaHeading && (
-                <h2
+              {(props.ctaHeading || onFieldChange) && (
+                <InlineText
+                  as="h2"
+                  value={props.ctaHeading ?? ""}
+                  onUpdate={field("ctaHeading")}
                   style={{
                     fontFamily: t.displayFont,
                     fontSize: "clamp(1.75rem, 4vw, 3rem)",
@@ -1220,12 +1267,14 @@ export function BlockCaseModular({ props }: Props) {
                     marginBottom: "1.5rem",
                     color: t.accentInk,
                   }}
-                >
-                  {props.ctaHeading}
-                </h2>
+                />
               )}
-              {props.ctaBody && (
-                <p
+              {(props.ctaBody || onFieldChange) && (
+                <InlineText
+                  as="p"
+                  value={props.ctaBody ?? ""}
+                  onUpdate={field("ctaBody")}
+                  multiline
                   style={{
                     fontSize: "1.15rem",
                     fontWeight: 300,
@@ -1234,9 +1283,7 @@ export function BlockCaseModular({ props }: Props) {
                     maxWidth: 640,
                     margin: "0 auto 2.5rem",
                   }}
-                >
-                  {props.ctaBody}
-                </p>
+                />
               )}
               {props.ctaLabel && (
                 <a
@@ -1294,9 +1341,7 @@ export function BlockCaseModular({ props }: Props) {
                   }}
                 >
                   <Layers size={18} />
-                  <span style={{ fontWeight: 600, letterSpacing: "0.04em" }}>
-                    {brandName}
-                  </span>
+                  <InlineText as="span" value={brandName} onUpdate={field("brandName")} style={{ fontWeight: 600, letterSpacing: "0.04em" }} />
                 </div>
                 {(props.footerLinks ?? []).length > 0 && (
                   <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
@@ -1357,6 +1402,8 @@ function SectionTitle({
   eyebrow,
   onDark,
   small,
+  onTitleChange,
+  onEyebrowChange,
 }: {
   t: ResolvedTokens;
   number?: string;
@@ -1364,12 +1411,17 @@ function SectionTitle({
   eyebrow?: string;
   onDark?: boolean;
   small?: boolean;
+  onTitleChange?: (v: string) => void;
+  onEyebrowChange?: (v: string) => void;
 }) {
   const headColor = onDark ? t.headlineOnDark : t.headline;
   return (
     <div style={{ marginBottom: small ? "1.5rem" : "2.5rem" }}>
-      {eyebrow && (
-        <div
+      {(eyebrow || onEyebrowChange) && (
+        <InlineText
+          as="div"
+          value={eyebrow ?? ""}
+          onUpdate={onEyebrowChange}
           style={{
             fontSize: "0.625rem",
             fontWeight: 600,
@@ -1378,9 +1430,7 @@ function SectionTitle({
             color: t.accent,
             marginBottom: "0.75rem",
           }}
-        >
-          {eyebrow}
-        </div>
+        />
       )}
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
         {number && (
@@ -1395,7 +1445,10 @@ function SectionTitle({
             {number}
           </span>
         )}
-        <h2
+        <InlineText
+          as="h2"
+          value={title}
+          onUpdate={onTitleChange}
           style={{
             fontFamily: t.displayFont,
             fontSize: small ? "1.5rem" : `${1.85 * t.headingScale}rem`,
@@ -1404,9 +1457,7 @@ function SectionTitle({
             color: headColor,
             margin: 0,
           }}
-        >
-          {title}
-        </h2>
+        />
       </div>
     </div>
   );

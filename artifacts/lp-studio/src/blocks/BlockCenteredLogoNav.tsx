@@ -5,6 +5,7 @@ import type { CenteredLogoNavBlockProps } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: CenteredLogoNavBlockProps;
@@ -12,7 +13,7 @@ interface Props {
   onFieldChange?: (updated: CenteredLogoNavBlockProps) => void;
 }
 
-export function BlockCenteredLogoNav({ props, brand }: Props) {
+export function BlockCenteredLogoNav({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor ?? "#ffffff";
   const text = props.textColor ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
@@ -21,6 +22,8 @@ export function BlockCenteredLogoNav({ props, brand }: Props) {
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const logoText = props.logoText || brand.brandName || "Brand";
+  const field = (key: keyof CenteredLogoNavBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   const renderLinks = (links: { label: string; url: string }[], align: "start" | "end") => (
     <nav
@@ -48,9 +51,7 @@ export function BlockCenteredLogoNav({ props, brand }: Props) {
           {brandHasLogo(brand, props.logoUrl) ? (
             <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />
           ) : (
-            <span className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }}>
-              {logoText}
-            </span>
+            <InlineText as="span" value={logoText} onUpdate={field("logoText")} className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }} />
           )}
         </div>
         <div className="flex items-center justify-end gap-5">

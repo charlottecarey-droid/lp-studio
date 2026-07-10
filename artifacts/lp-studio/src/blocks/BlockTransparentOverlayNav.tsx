@@ -6,6 +6,7 @@ import type { TransparentOverlayNavBlockProps } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: TransparentOverlayNavBlockProps;
@@ -13,7 +14,7 @@ interface Props {
   onFieldChange?: (updated: TransparentOverlayNavBlockProps) => void;
 }
 
-export function BlockTransparentOverlayNav({ props, brand }: Props) {
+export function BlockTransparentOverlayNav({ props, brand, onFieldChange }: Props) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -32,6 +33,8 @@ export function BlockTransparentOverlayNav({ props, brand }: Props) {
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const logoText = props.logoText || brand.brandName || "Brand";
+  const field = (key: keyof TransparentOverlayNavBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   return (
     <div className="sticky top-0 z-50 w-full" style={{ fontFamily: BODY }}>
@@ -56,9 +59,7 @@ export function BlockTransparentOverlayNav({ props, brand }: Props) {
             {brandHasLogo(brand, props.logoUrl) ? (
               <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />
             ) : (
-              <span className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }}>
-                {logoText}
-              </span>
+              <InlineText as="span" value={logoText} onUpdate={field("logoText")} className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }} />
             )}
             <nav className="hidden items-center gap-7 md:flex">
               {(props.links ?? []).map((l, i) => (

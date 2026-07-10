@@ -13,6 +13,7 @@ import { getImageBgSectionStyle } from "@/lib/bg-styles";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { InlineText } from "@/components/InlineText";
 
 /* ------------------------------------------------------------------------- */
 /*  Error boundary                                                           */
@@ -194,6 +195,19 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
   const agenda = p.agenda ?? [];
   const resources = p.resources ?? [];
   const faqs = p.faqs ?? [];
+
+  const field = (key: keyof WebinarHubBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
+  const updateSpeaker = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = speakers.map((s, idx) => (idx === i ? { ...s, [key]: value } : s));
+    onFieldChange({ ...p, speakers: next });
+  };
+  const updateAgendaItem = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = agenda.map((item, idx) => (idx === i ? { ...item, [key]: value } : item));
+    onFieldChange({ ...p, agenda: next });
+  };
 
   /* ---- Video resolution (hero + featured) ---- */
   const heroVideo = resolveWebinarVideo(p.heroVideoUrl, { autoplay: true });
@@ -511,8 +525,8 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
                 {statusPill}
                 {p.editionLabel && <span style={{ fontFamily: monoFont, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.5 }}>{p.editionLabel}</span>}
               </div>
-              <h1 style={{ fontFamily: displayFont, fontSize: "clamp(2.75rem, 6vw, 4.5rem)", lineHeight: 1.05, letterSpacing: "-0.02em", marginBottom: "2rem" }}>{p.title}</h1>
-              {p.subtitle && <p style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.7)", lineHeight: 1.6, marginBottom: "3rem", maxWidth: "32rem" }}>{p.subtitle}</p>}
+              <InlineText as="h1" value={p.title} onUpdate={field("title")} style={{ fontFamily: displayFont, fontSize: "clamp(2.75rem, 6vw, 4.5rem)", lineHeight: 1.05, letterSpacing: "-0.02em", marginBottom: "2rem" }} />
+              {(p.subtitle || onFieldChange) && <InlineText as="p" value={p.subtitle ?? ""} onUpdate={field("subtitle")} multiline style={{ fontSize: "1.125rem", color: "rgba(255,255,255,0.7)", lineHeight: 1.6, marginBottom: "3rem", maxWidth: "32rem" }} />}
               <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem 2rem", paddingTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
                 {(p.date || p.time) && (
                   <div>
@@ -578,14 +592,14 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
         <section id="agenda" style={{ padding: "8rem 1.5rem", background: C.sand }}>
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
             <div style={{ marginBottom: "5rem" }}>
-              <MonoLabel opacity={1}>{p.agendaEyebrow || "Itinerary"}</MonoLabel>
-              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}>{p.agendaHeadline || "Session Agenda"}</h2>
+              <MonoLabel opacity={1}><InlineText as="span" value={p.agendaEyebrow || "Itinerary"} onUpdate={field("agendaEyebrow")} /></MonoLabel>
+              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}><InlineText as="span" value={p.agendaHeadline || "Session Agenda"} onUpdate={field("agendaHeadline")} /></h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.5rem" }}>
               {agenda.map((item, i) => (
                 <div key={i} style={{ background: "#fff", padding: "2rem", border: "1px solid #E6E1D6", display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
                   <div style={{ fontFamily: monoFont, fontSize: "1.875rem", fontWeight: 300, color: "rgba(0,0,0,0.2)", marginBottom: "1.5rem" }}>{item.time}</div>
-                  <h4 style={{ fontSize: "1.25rem", fontWeight: 500, marginBottom: "0.75rem" }}>{item.title}</h4>
+                  <InlineText as="h4" value={item.title} onUpdate={onFieldChange ? (v) => updateAgendaItem(i, "title", v) : undefined} style={{ fontSize: "1.25rem", fontWeight: 500, marginBottom: "0.75rem" }} />
                   {item.desc && <p style={{ color: "rgba(0,0,0,0.6)", fontSize: "0.875rem", lineHeight: 1.6, marginBottom: "2rem", flex: 1 }}>{item.desc}</p>}
                   {item.speaker && (
                     <div style={{ paddingTop: "1.5rem", borderTop: "1px solid #E6E1D6", marginTop: "auto", display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -605,8 +619,8 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
         <section style={{ padding: "8rem 1.5rem", background: "#000", color: "#fff" }}>
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
             <div style={{ marginBottom: "4rem" }}>
-              <MonoLabel color="rgba(255,255,255,0.5)" opacity={1}>{p.videoEyebrow || (status === "live" ? "On Air" : "The Archive")}</MonoLabel>
-              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}>{p.videoHeadline || (status === "live" ? "Live Broadcast" : "Session Materials")}</h2>
+              <MonoLabel color="rgba(255,255,255,0.5)" opacity={1}><InlineText as="span" value={p.videoEyebrow || (status === "live" ? "On Air" : "The Archive")} onUpdate={field("videoEyebrow")} /></MonoLabel>
+              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}><InlineText as="span" value={p.videoHeadline || (status === "live" ? "Live Broadcast" : "Session Materials")} onUpdate={field("videoHeadline")} /></h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0,1fr))", gap: "3rem" }} className="wh-video-grid">
               <div style={{ gridColumn: featuredSidebar.length > 0 ? "span 8 / span 8" : "span 12 / span 12" }} className="wh-video-main">
@@ -685,10 +699,10 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
             <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", marginBottom: "5rem", gap: "2rem" }}>
               <div>
-                <MonoLabel opacity={1}>{p.speakersEyebrow || "The Panel"}</MonoLabel>
-                <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}>{p.speakersHeadline || "Industry Experts"}</h2>
+                <MonoLabel opacity={1}><InlineText as="span" value={p.speakersEyebrow || "The Panel"} onUpdate={field("speakersEyebrow")} /></MonoLabel>
+                <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}><InlineText as="span" value={p.speakersHeadline || "Industry Experts"} onUpdate={field("speakersHeadline")} /></h2>
               </div>
-              {p.speakersDescription && <p style={{ color: "rgba(0,0,0,0.6)", maxWidth: "20rem", textAlign: "right" }}>{p.speakersDescription}</p>}
+              {(p.speakersDescription || onFieldChange) && <InlineText as="p" value={p.speakersDescription ?? ""} onUpdate={field("speakersDescription")} multiline style={{ color: "rgba(0,0,0,0.6)", maxWidth: "20rem", textAlign: "right" }} />}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "4rem 2rem" }}>
               {speakers.map((s, idx) => {
@@ -706,9 +720,9 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
                       )}
                     </div>
                     {highlighted && <span style={{ display: "inline-block", marginBottom: "0.75rem", padding: "0.25rem 0.5rem", fontFamily: monoFont, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: "#fff", background: accent }}>Featured for you</span>}
-                    <h3 style={{ fontFamily: displayFont, fontSize: "1.5rem", marginBottom: 4 }}>{s.name}</h3>
-                    {s.role && <p style={{ fontFamily: monoFont, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.15em", color: accent, marginBottom: "1rem" }}>{s.role}</p>}
-                    {s.bio && <p style={{ color: "rgba(0,0,0,0.7)", fontSize: "0.875rem", lineHeight: 1.6 }}>{s.bio}</p>}
+                    <InlineText as="h3" value={s.name} onUpdate={onFieldChange ? (v) => updateSpeaker(idx, "name", v) : undefined} style={{ fontFamily: displayFont, fontSize: "1.5rem", marginBottom: 4 }} />
+                    {s.role && <InlineText as="p" value={s.role} onUpdate={onFieldChange ? (v) => updateSpeaker(idx, "role", v) : undefined} style={{ fontFamily: monoFont, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.15em", color: accent, marginBottom: "1rem" }} />}
+                    {s.bio && <InlineText as="p" value={s.bio} onUpdate={onFieldChange ? (v) => updateSpeaker(idx, "bio", v) : undefined} multiline style={{ color: "rgba(0,0,0,0.7)", fontSize: "0.875rem", lineHeight: 1.6 }} />}
                   </div>
                 );
               })}
@@ -722,8 +736,8 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
         <section id="resources" style={{ padding: "8rem 1.5rem", background: C.sand }}>
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
             <div style={{ marginBottom: "5rem" }}>
-              <MonoLabel opacity={1}>{p.resourcesEyebrow || "Library"}</MonoLabel>
-              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}>{p.resourcesHeadline || "Featured Resources"}</h2>
+              <MonoLabel opacity={1}><InlineText as="span" value={p.resourcesEyebrow || "Library"} onUpdate={field("resourcesEyebrow")} /></MonoLabel>
+              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}><InlineText as="span" value={p.resourcesHeadline || "Featured Resources"} onUpdate={field("resourcesHeadline")} /></h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
               {resources.map((res, i) => {
@@ -771,8 +785,8 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
         <section id="faq" style={{ padding: "8rem 1.5rem", background: "#fff" }}>
           <div style={{ maxWidth: "48rem", margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: "5rem" }}>
-              <MonoLabel opacity={1}>{p.faqEyebrow || "Information"}</MonoLabel>
-              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}>{p.faqHeadline || "Common Questions"}</h2>
+              <MonoLabel opacity={1}><InlineText as="span" value={p.faqEyebrow || "Information"} onUpdate={field("faqEyebrow")} /></MonoLabel>
+              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}><InlineText as="span" value={p.faqHeadline || "Common Questions"} onUpdate={field("faqHeadline")} /></h2>
             </div>
             <div style={{ borderTop: "1px solid #E6E1D6" }}>
               {faqs.map((faq, i) => (
@@ -799,9 +813,9 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
         <section style={{ position: "relative", padding: "8rem 1.5rem", overflow: "hidden", textAlign: "center", background: C.ink, color: C.sand, ...(p.finalCtaBackgroundImageUrl ? getImageBgSectionStyle(p.finalCtaBackgroundImageUrl) : {}) }}>
           {p.finalCtaBackgroundImageUrl && <div style={{ position: "absolute", inset: 0, backgroundColor: "#0A0A0A", opacity: finalOverlay, pointerEvents: "none" }} />}
           <div style={{ maxWidth: "48rem", margin: "0 auto", position: "relative", zIndex: 10 }}>
-            <MonoLabel color="rgba(255,255,255,0.5)" opacity={1}>{p.finalCtaKicker || m.kicker}</MonoLabel>
+            <MonoLabel color="rgba(255,255,255,0.5)" opacity={1}><InlineText as="span" value={p.finalCtaKicker || m.kicker} onUpdate={field("finalCtaKicker")} /></MonoLabel>
             <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 6vw, 3.75rem)", marginTop: "1.5rem", marginBottom: "2rem", lineHeight: 1.05 }}>
-              {p.finalCtaHeadline || (status === "live" ? "The session is live right now" : status === "on-demand" ? "Watch the full session on your time" : "Save your seat before it fills")}
+              <InlineText as="span" value={p.finalCtaHeadline || (status === "live" ? "The session is live right now" : status === "on-demand" ? "Watch the full session on your time" : "Save your seat before it fills")} onUpdate={field("finalCtaHeadline")} />
             </h2>
             {(p.finalCtaSubtitle || p.subtitle) && <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "1.125rem", marginBottom: "3rem", maxWidth: "36rem", marginInline: "auto" }}>{p.finalCtaSubtitle || p.subtitle}</p>}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", justifyContent: "center" }}>

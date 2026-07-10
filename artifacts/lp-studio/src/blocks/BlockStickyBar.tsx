@@ -7,6 +7,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -21,9 +22,10 @@ interface Props {
   /** When true (builder canvas), render the bar in-flow instead of fixed so
    *  it doesn't overlay the builder's top bar / control rails. */
   isBuilder?: boolean;
+  onFieldChange?: (updated: StickyBarBlockProps) => void;
 }
 
-export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId, sessionId, isBuilder }: Props) {
+export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId, sessionId, isBuilder, onFieldChange }: Props) {
   const [cpOpen, setCpOpen] = useState(false);
   const isChiliPiper = p.ctaAction === "chilipiper" && !!p.chilipiperUrl;
   const [visible, setVisible] = useState(isBuilder ? true : p.showAfterScroll <= 0);
@@ -51,6 +53,8 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
       ? getBgStyle(p.backgroundStyle)
       : { backgroundColor: p.backgroundStyle === "muted" ? "hsl(42,18%,96%)" : p.backgroundStyle === "light-gray" ? "#f8fafc" : "#ffffff" };
   const textColor = (isDark || isBrand) ? "#ffffff" : "#1e293b";
+  const field = (key: keyof StickyBarBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
 
   return (
     <>
@@ -62,7 +66,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
       )}
       style={{ ...barBgStyle, color: textColor }}
     >
-      <p className="text-sm font-medium flex-1 text-center" style={{ fontFamily: BODY }}>{p.text}</p>
+      <InlineText as="p" value={p.text ?? ""} onUpdate={field("text")} className="text-sm font-medium flex-1 text-center" style={{ fontFamily: BODY }} />
       {p.ctaText && (
         <button
           onClick={() => {

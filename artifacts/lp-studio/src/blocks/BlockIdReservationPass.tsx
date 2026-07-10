@@ -6,10 +6,12 @@ import { useBrandConfig } from "@/components/BrandSwatches";
 import { usePageContext } from "@/lib/page-context";
 import { safeNavigate } from "@/lib/safe-url";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: IdReservationPassBlockProps;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: IdReservationPassBlockProps) => void;
 }
 
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -42,10 +44,17 @@ const BODY = BRAND_BODY_FONT;
  * are pure text. All copy and CTA behavior is editable from the
  * IdReservationPassPanel.
  */
-export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
+export function BlockIdReservationPass({ props: p, onCtaClick, onFieldChange }: Props) {
   const brand = useBrandConfig();
   const ctx = usePageContext();
   const prefersReducedMotion = useReducedMotion();
+  const field = (key: keyof IdReservationPassBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
+  const updateMeta = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    const next = (p.meta ?? []).map((m, idx) => idx === i ? { ...m, [key]: v } : m);
+    onFieldChange({ ...p, meta: next });
+  };
 
   const accent = p.accentColor || "#C7E738";
   const ordinal = p.ordinal ?? "№ 001";
@@ -204,24 +213,28 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
-          {eyebrow && (
+          {(eyebrow || onFieldChange) && (
             <div className="id-pass__eyebrow">
               <span className="id-pass__eyebrow-rule" />
-              <span
+              <InlineText
+                as="span"
                 className="id-pass__eyebrow-text"
-                dangerouslySetInnerHTML={{ __html: eyebrow }}
+                value={eyebrow}
+                onUpdate={field("eyebrow")}
               />
               <span className="id-pass__eyebrow-rule" />
             </div>
           )}
 
-          <h2
+          <InlineText
+            as="h2"
             className="id-pass__headline"
             style={{ fontFamily: DISPLAY }}
-            dangerouslySetInnerHTML={{ __html: p.headline }}
+            value={p.headline}
+            onUpdate={field("headline")}
           />
 
-          {body && <p className="id-pass__body">{body}</p>}
+          {(body || onFieldChange) && <InlineText as="p" className="id-pass__body" multiline value={body} onUpdate={field("body")} />}
 
           {seats && (
             <div className="id-pass__seats">
@@ -243,13 +256,14 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
             <div className="id-pass__meta-grid">
               {meta.map((m, i) => (
                 <div className="id-pass__meta" key={`${m.label}-${i}`}>
-                  <span className="id-pass__meta-label">{m.label}</span>
-                  <span
+                  <InlineText as="span" className="id-pass__meta-label" value={m.label} onUpdate={onFieldChange ? (v) => updateMeta(i, "label", v) : undefined} />
+                  <InlineText
+                    as="span"
                     className="id-pass__meta-value"
                     style={{ fontFamily: DISPLAY }}
-                  >
-                    {m.value}
-                  </span>
+                    value={m.value}
+                    onUpdate={onFieldChange ? (v) => updateMeta(i, "value", v) : undefined}
+                  />
                 </div>
               ))}
             </div>

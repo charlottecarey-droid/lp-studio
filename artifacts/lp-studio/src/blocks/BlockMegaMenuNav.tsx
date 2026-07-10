@@ -8,6 +8,7 @@ import type { MegaMenuNavBlockProps } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: MegaMenuNavBlockProps;
@@ -15,7 +16,7 @@ interface Props {
   onFieldChange?: (updated: MegaMenuNavBlockProps) => void;
 }
 
-export function BlockMegaMenuNav({ props, brand }: Props) {
+export function BlockMegaMenuNav({ props, brand, onFieldChange }: Props) {
   const [open, setOpen] = useState(false);
   const bg = props.bgColor ?? "#ffffff";
   const text = props.textColor ?? "#0f172a";
@@ -31,6 +32,8 @@ export function BlockMegaMenuNav({ props, brand }: Props) {
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const logoText = props.logoText || brand.brandName || "Brand";
+  const field = (key: keyof MegaMenuNavBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   return (
     <header
@@ -43,9 +46,7 @@ export function BlockMegaMenuNav({ props, brand }: Props) {
           {brandHasLogo(brand, props.logoUrl) ? (
             <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />
           ) : (
-            <span className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }}>
-              {logoText}
-            </span>
+            <InlineText as="span" value={logoText} onUpdate={field("logoText")} className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }} />
           )}
           <nav className="hidden items-center gap-7 md:flex">
             {(props.links ?? []).map((l, i) => (

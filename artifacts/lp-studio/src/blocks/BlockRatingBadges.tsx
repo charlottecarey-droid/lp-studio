@@ -7,6 +7,7 @@ import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { StatCounter } from "./StatCounter";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: RatingBadgesBlockProps;
@@ -45,13 +46,21 @@ function Stars({ rating, max, size, color }: { rating: number; max: number; size
   );
 }
 
-export function BlockRatingBadges({ props }: Props) {
+export function BlockRatingBadges({ props, onFieldChange }: Props) {
   const surface = resolveSectionSurface(props, "#f8fafc");
   const textColor = props.textColor || surface.color || "#0f172a";
   const accent = props.accentColor || "var(--brand-accent, #6366f1)";
   const ratingMax = props.ratingMax && props.ratingMax > 0 ? props.ratingMax : 5;
   const badges = props.badges && props.badges.length > 0 ? props.badges : DEFAULT_BADGES;
   const starColor = "#f59e0b";
+  const field = (key: keyof RatingBadgesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateBadge = (i: number, key: "platform" | "reviewCount" | "award", v: string) => {
+    if (!onFieldChange) return;
+    const next = badges.slice();
+    next[i] = { ...next[i], [key]: v };
+    onFieldChange({ ...props, badges: next });
+  };
 
   useBlockFonts(props.headlineFont, props.bodyFont);
   const headFamily = props.headlineFont
@@ -69,13 +78,14 @@ export function BlockRatingBadges({ props }: Props) {
         style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
       />
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 md:py-20 flex flex-col items-center gap-10 md:gap-12">
-        {props.eyebrow && (
-          <h2
+        {(props.eyebrow || onFieldChange) && (
+          <InlineText
+            as="h2"
+            value={props.eyebrow ?? ""}
+            onUpdate={field("eyebrow")}
             className="text-center text-sm md:text-base font-semibold uppercase tracking-[0.16em]"
             style={{ color: "#64748b", fontFamily: bodyFamily }}
-          >
-            {props.eyebrow}
-          </h2>
+          />
         )}
         <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {badges.map((badge, i) => {
@@ -93,12 +103,13 @@ export function BlockRatingBadges({ props }: Props) {
                     : { backgroundColor: "#ffffff", borderColor: "#e2e8f0", color: textColor }
                 }
               >
-                <span
+                <InlineText
+                  as="span"
+                  value={badge.platform}
+                  onUpdate={onFieldChange ? (v) => updateBadge(i, "platform", v) : undefined}
                   className="text-sm font-semibold uppercase tracking-wide"
                   style={{ fontFamily: bodyFamily, color: featured ? "#ffffff" : "#475569" }}
-                >
-                  {badge.platform}
-                </span>
+                />
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-extrabold leading-none" style={{ fontFamily: headFamily }}>
                     <StatCounter value={badge.rating.toFixed(1)} />
@@ -109,9 +120,13 @@ export function BlockRatingBadges({ props }: Props) {
                 </div>
                 <Stars rating={badge.rating} max={ratingMax} size={18} color={starColor} />
                 {badge.reviewCount && (
-                  <span className="text-sm" style={{ color: featured ? "#cbd5e1" : "#64748b" }}>
-                    {badge.reviewCount}
-                  </span>
+                  <InlineText
+                    as="span"
+                    value={badge.reviewCount}
+                    onUpdate={onFieldChange ? (v) => updateBadge(i, "reviewCount", v) : undefined}
+                    className="text-sm"
+                    style={{ color: featured ? "#cbd5e1" : "#64748b" }}
+                  />
                 )}
                 {badge.award && (
                   <span
@@ -123,7 +138,11 @@ export function BlockRatingBadges({ props }: Props) {
                     }
                   >
                     <Award className="h-3.5 w-3.5" />
-                    {badge.award}
+                    <InlineText
+                      as="span"
+                      value={badge.award}
+                      onUpdate={onFieldChange ? (v) => updateBadge(i, "award", v) : undefined}
+                    />
                   </span>
                 )}
               </div>

@@ -5,6 +5,7 @@ import type { BusinessCasePremiumBlockProps } from "../lib/block-types/dso-block
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 import type { BrandConfig } from "../lib/brand-config";
 import { BrandLogo } from "../components/BrandLogo";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -62,6 +63,7 @@ interface Props {
    *  We skip framer-motion scroll/hover animations in this mode to keep
    *  editing snappy — they would otherwise re-mount on every keystroke. */
   isBuilder?: boolean;
+  onFieldChange?: (updated: BusinessCasePremiumBlockProps) => void;
 }
 
 /**
@@ -77,7 +79,7 @@ interface Props {
  * and an upgraded comparison table (zebra rows, dark "With Dandy" pillar,
  * stronger ink contrast).
  */
-export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
+export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChange }: Props) {
   /** In the builder, render plain divs and strip framer-motion animation props
    *  so each keystroke doesn't re-create IntersectionObservers + animation state. */
   const M: React.ElementType = isBuilder
@@ -112,6 +114,14 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   // in the comparison table without per-page overrides.
   const brandName = brand?.brandName?.trim() || "Dandy";
   const logoAlt = props.logoAlt || brandName;
+
+  const field = (key: keyof BusinessCasePremiumBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateSignalCard = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const signalCards = props.signalCards.map((card, idx) => idx === i ? { ...card, [key]: value } : card);
+    onFieldChange({ ...props, signalCards });
+  };
 
   const heroStats = (props.situationStats ?? []).slice(0, 4);
   const useSplitHero = (props.heroLayout ?? "centered") === "split-image-right";
@@ -187,27 +197,31 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           : "items-start text-left max-w-xl")
       }
     >
-      {props.kicker && (
+      {(props.kicker || onFieldChange) && (
         <div
           className="flex items-center gap-3 mb-8 text-[10px] font-semibold tracking-[0.3em] uppercase"
           style={{ color: `${bg}99`, fontFamily: BODY }}
         >
           <span className="w-8 h-px" style={{ background: accent }} />
-          <span>{props.kicker}</span>
+          <InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} />
         </div>
       )}
-      {props.heroEyebrow && (
+      {(props.heroEyebrow || onFieldChange) && (
         <>
           {!props.kicker && <div className="w-12 h-[2px] mb-8" style={{ background: accent }} />}
-          <h2
+          <InlineText
+            as="h2"
+            value={props.heroEyebrow}
+            onUpdate={field("heroEyebrow")}
             className="text-xs font-semibold tracking-[0.2em] uppercase mb-6"
             style={{ color: accent, fontFamily: BODY }}
-          >
-            {props.heroEyebrow}
-          </h2>
+          />
         </>
       )}
-      <h1
+      <InlineText
+        as="h1"
+        value={props.heroHeadline}
+        onUpdate={field("heroHeadline")}
         className={
           "font-medium leading-[1.05] mb-8 " +
           (align === "center"
@@ -215,18 +229,18 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
             : "text-5xl md:text-6xl xl:text-7xl")
         }
         style={{ fontFamily: DISPLAY, color: headlineOnDark }}
-      >
-        {props.heroHeadline}
-      </h1>
-      <p
+      />
+      <InlineText
+        as="p"
+        value={props.heroSubhead}
+        onUpdate={field("heroSubhead")}
+        multiline
         className={
           "text-lg md:text-xl font-light mb-12 " +
           (align === "center" ? "max-w-2xl" : "max-w-lg")
         }
         style={{ color: `${bg}b0`, fontFamily: BODY }}
-      >
-        {props.heroSubhead}
-      </p>
+      />
       <div
         className={
           "flex flex-col gap-6 " + (align === "center" ? "items-center" : "items-start")
@@ -480,30 +494,33 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <Reveal isBuilder={isBuilder} className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
-            {props.situationEyebrow && (
-              <div
+            {(props.situationEyebrow || onFieldChange) && (
+              <InlineText
+                as="div"
+                value={props.situationEyebrow}
+                onUpdate={field("situationEyebrow")}
                 className="text-xs font-semibold tracking-[0.2em] uppercase mb-4"
                 style={{ color: `${ink}80`, fontFamily: BODY }}
-              >
-                {props.situationEyebrow}
-              </div>
+              />
             )}
-            <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
-              {props.situationHeading}
-            </h2>
-            <p
+            <InlineText as="h2" value={props.situationHeading} onUpdate={field("situationHeading")} className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }} />
+            <InlineText
+              as="p"
+              value={props.situationBody}
+              onUpdate={field("situationBody")}
+              multiline
               className="text-lg leading-relaxed mb-6"
               style={{ color: `${ink}cc`, fontFamily: BODY }}
-            >
-              {props.situationBody}
-            </p>
-            {props.situationBodyExtra && (
-              <p
+            />
+            {(props.situationBodyExtra || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={props.situationBodyExtra ?? ""}
+                onUpdate={field("situationBodyExtra")}
+                multiline
                 className="text-lg leading-relaxed"
                 style={{ color: `${ink}cc`, fontFamily: BODY }}
-              >
-                {props.situationBodyExtra}
-              </p>
+              />
             )}
             {props.situationImageUrl && (
               <div className="mt-8 border-t-2 pt-6 overflow-hidden group" style={{ borderColor: accent }}>
@@ -576,20 +593,21 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
         style={{ background: dark, color: bg }}
       >
         <div className="mb-16">
-          {props.signalEyebrow && (
+          {(props.signalEyebrow || onFieldChange) && (
             <h2
               className="text-xs font-semibold tracking-[0.2em] uppercase mb-4"
               style={{ color: accent, fontFamily: BODY }}
             >
-              {props.signalEyebrow} →
+              <InlineText as="span" value={props.signalEyebrow} onUpdate={field("signalEyebrow")} /> →
             </h2>
           )}
-          <h3
+          <InlineText
+            as="h3"
+            value={props.signalHeading}
+            onUpdate={field("signalHeading")}
             className="text-4xl md:text-5xl max-w-3xl leading-tight"
             style={{ fontFamily: DISPLAY, color: headlineOnDark }}
-          >
-            {props.signalHeading}
-          </h3>
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {props.signalCards.map((card, i) => {
@@ -609,25 +627,25 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                     style={{ background: accent }}
                   />
                   {card.attribution && (
-                    <div
+                    <InlineText
+                      as="div"
+                      value={card.attribution}
+                      onUpdate={onFieldChange ? (v) => updateSignalCard(i, "attribution", v) : undefined}
                       className="text-[10px] uppercase tracking-[0.3em] mb-3 font-semibold"
                       style={{ color: accent, fontFamily: BODY }}
-                    >
-                      {card.attribution}
-                    </div>
+                    />
                   )}
                   {card.stat && (
-                    <div
+                    <InlineText
+                      as="div"
+                      value={card.stat}
+                      onUpdate={onFieldChange ? (v) => updateSignalCard(i, "stat", v) : undefined}
                       className="text-5xl md:text-6xl leading-none mb-4"
                       style={{ color: accent, fontFamily: DISPLAY }}
-                    >
-                      {card.stat}
-                    </div>
+                    />
                   )}
                   {card.body && (
-                    <p className="text-base leading-relaxed" style={{ color: `${bg}cc`, fontFamily: BODY }}>
-                      {card.body}
-                    </p>
+                    <InlineText as="p" value={card.body} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "body", v) : undefined} multiline className="text-base leading-relaxed" style={{ color: `${bg}cc`, fontFamily: BODY }} />
                   )}
                 </M>
               );
@@ -655,14 +673,15 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                     className="text-lg italic relative z-10 pt-4 mb-6"
                     style={{ fontFamily: DISPLAY }}
                   >
-                    "{card.body}"
+                    "<InlineText as="span" value={card.body} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "body", v) : undefined} multiline />"
                   </p>
-                  <div
+                  <InlineText
+                    as="div"
+                    value={card.attribution}
+                    onUpdate={onFieldChange ? (v) => updateSignalCard(i, "attribution", v) : undefined}
                     className="text-sm font-semibold uppercase tracking-wider"
                     style={{ color: accent, fontFamily: BODY }}
-                  >
-                    {card.attribution}
-                  </div>
+                  />
                 </M>
               );
             }
@@ -681,16 +700,15 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                   style={{ background: accent }}
                 />
                 {card.stat && (
-                  <div
+                  <InlineText
+                    as="div"
+                    value={card.stat}
+                    onUpdate={onFieldChange ? (v) => updateSignalCard(i, "stat", v) : undefined}
                     className="text-4xl mb-4"
                     style={{ color: accent, fontFamily: DISPLAY }}
-                  >
-                    {card.stat}
-                  </div>
+                  />
                 )}
-                <p className="text-lg" style={{ fontFamily: BODY }}>
-                  {card.body}
-                </p>
+                <InlineText as="p" value={card.body} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "body", v) : undefined} multiline className="text-lg" style={{ fontFamily: BODY }} />
               </M>
             );
           })}
@@ -702,24 +720,25 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
       {props.showCost !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          {props.costEyebrow && (
-            <div
+          {(props.costEyebrow || onFieldChange) && (
+            <InlineText
+              as="div"
+              value={props.costEyebrow}
+              onUpdate={field("costEyebrow")}
               className="text-xs font-semibold tracking-[0.2em] uppercase mb-4"
               style={{ color: `${ink}80`, fontFamily: BODY }}
-            >
-              {props.costEyebrow}
-            </div>
+            />
           )}
-          <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
-            {props.costHeading}
-          </h2>
-          {props.costSubhead && (
-            <p
+          <InlineText as="h2" value={props.costHeading} onUpdate={field("costHeading")} className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }} />
+          {(props.costSubhead || onFieldChange) && (
+            <InlineText
+              as="p"
+              value={props.costSubhead ?? ""}
+              onUpdate={field("costSubhead")}
+              multiline
               className="text-xl max-w-2xl mx-auto"
               style={{ color: `${ink}99`, fontFamily: BODY }}
-            >
-              {props.costSubhead}
-            </p>
+            />
           )}
         </div>
 

@@ -24,9 +24,11 @@ import {
   resolveHeadingScale,
 } from "@/lib/block-types";
 import { useBrandConfig } from "@/components/BrandSwatches";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: EventLuminousBlockProps;
+  onFieldChange?: (updated: EventLuminousBlockProps) => void;
 }
 
 // ── color helpers ───────────────────────────────────────────────────────────
@@ -71,8 +73,15 @@ function useCountdown(targetIso?: string) {
   }, [targetIso, now]);
 }
 
-export function BlockEventLuminous({ props }: Props) {
+export function BlockEventLuminous({ props, onFieldChange }: Props) {
   const brand = useBrandConfig();
+  const field = (key: keyof EventLuminousBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateSpeaker = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const speakers = (props.speakers ?? []).map((s, idx) => (idx === i ? { ...s, [key]: value } : s));
+    onFieldChange({ ...props, speakers });
+  };
 
   // ── Style tokens: prop ?? brand ?? hardcoded editorial default ─────────────
   const bg = props.bgColor ?? brand?.pageBackground ?? "#fafbfc";
@@ -144,6 +153,14 @@ export function BlockEventLuminous({ props }: Props) {
   const agendaDays = props.agendaDays ?? [];
   const [activeDay, setActiveDay] = useState(0);
   const activeAgenda = agendaDays[activeDay] ?? agendaDays[0];
+  const activeAgendaIdx = agendaDays[activeDay] ? activeDay : 0;
+  const updateSession = (si: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const nextDays = agendaDays.map((d, di) =>
+      di === activeAgendaIdx ? { ...d, sessions: d.sessions.map((s, j) => (j === si ? { ...s, [key]: value } : s)) } : d,
+    );
+    onFieldChange({ ...props, agendaDays: nextDays });
+  };
 
   // ── FAQ accordion state ────────────────────────────────────────────────────
   const faqItems = props.faqItems ?? [];
@@ -555,7 +572,7 @@ export function BlockEventLuminous({ props }: Props) {
                 className="lg:grid-cols-2"
               >
                 <div style={{ maxWidth: "40rem" }}>
-                  {(props.heroEyebrow || props.eventDate || props.eventLocation) && (
+                  {(props.heroEyebrow || props.eventDate || props.eventLocation || onFieldChange) && (
                     <div
                       style={{
                         ...eyebrowStyle,
@@ -574,11 +591,18 @@ export function BlockEventLuminous({ props }: Props) {
                           background: accent,
                         }}
                       />
-                      {props.heroEyebrow ||
-                        [props.eventDate, props.eventLocation].filter(Boolean).join(" • ")}
+                      <InlineText
+                        as="span"
+                        value={props.heroEyebrow ||
+                          [props.eventDate, props.eventLocation].filter(Boolean).join(" • ")}
+                        onUpdate={field("heroEyebrow")}
+                      />
                     </div>
                   )}
-                  <h1
+                  <InlineText
+                    as="h1"
+                    value={eventName}
+                    onUpdate={field("eventName")}
                     style={{
                       fontFamily: displayFont,
                       fontSize: heroSize,
@@ -588,11 +612,13 @@ export function BlockEventLuminous({ props }: Props) {
                       color: headline,
                       marginBottom: "1.5rem",
                     }}
-                  >
-                    {eventName}
-                  </h1>
-                  {props.heroTagline && (
-                    <p
+                  />
+                  {(props.heroTagline || onFieldChange) && (
+                    <InlineText
+                      as="p"
+                      value={props.heroTagline ?? ""}
+                      onUpdate={field("heroTagline")}
+                      multiline
                       style={{
                         fontSize: "1.2rem",
                         color: muted,
@@ -601,9 +627,7 @@ export function BlockEventLuminous({ props }: Props) {
                         maxWidth: "32rem",
                         marginBottom: "2.5rem",
                       }}
-                    >
-                      {props.heroTagline}
-                    </p>
+                    />
                   )}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
                     <a
@@ -699,7 +723,10 @@ export function BlockEventLuminous({ props }: Props) {
               }}
             >
               <div>
-                <h3
+                <InlineText
+                  as="h3"
+                  value={props.countdownHeading ?? "Registration Closes Soon"}
+                  onUpdate={field("countdownHeading")}
                   style={{
                     fontSize: "1.25rem",
                     fontWeight: 600,
@@ -707,11 +734,9 @@ export function BlockEventLuminous({ props }: Props) {
                     marginBottom: "0.25rem",
                     fontFamily: displayFont,
                   }}
-                >
-                  {props.countdownHeading ?? "Registration Closes Soon"}
-                </h3>
-                {props.eventDate && (
-                  <p style={{ color: muted, fontSize: "0.9rem" }}>{props.eventDate}</p>
+                />
+                {(props.eventDate || onFieldChange) && (
+                  <InlineText as="p" value={props.eventDate ?? ""} onUpdate={field("eventDate")} style={{ color: muted, fontSize: "0.9rem" }} />
                 )}
               </div>
               <div style={{ display: "flex", gap: "2rem" }}>
@@ -754,10 +779,13 @@ export function BlockEventLuminous({ props }: Props) {
           <section id="about" style={sectionStyle(bg)}>
             <div style={container}>
               <div style={{ maxWidth: "48rem", margin: "0 auto", textAlign: "center", marginBottom: "4rem" }}>
-                {props.aboutEyebrow && (
-                  <div style={{ ...eyebrowStyle, marginBottom: "1rem" }}>{props.aboutEyebrow}</div>
+                {(props.aboutEyebrow || onFieldChange) && (
+                  <InlineText as="div" value={props.aboutEyebrow ?? ""} onUpdate={field("aboutEyebrow")} style={{ ...eyebrowStyle, marginBottom: "1rem" }} />
                 )}
-                <h2
+                <InlineText
+                  as="h2"
+                  value={props.aboutHeading ?? "Clarity through design."}
+                  onUpdate={field("aboutHeading")}
                   style={{
                     fontSize: h2Size,
                     fontWeight: 700,
@@ -766,13 +794,9 @@ export function BlockEventLuminous({ props }: Props) {
                     marginBottom: "1.5rem",
                     fontFamily: displayFont,
                   }}
-                >
-                  {props.aboutHeading ?? "Clarity through design."}
-                </h2>
-                {props.aboutBody && (
-                  <p style={{ fontSize: "1.15rem", color: muted, fontWeight: 300, lineHeight: 1.75 }}>
-                    {props.aboutBody}
-                  </p>
+                />
+                {(props.aboutBody || onFieldChange) && (
+                  <InlineText as="p" value={props.aboutBody ?? ""} onUpdate={field("aboutBody")} multiline style={{ fontSize: "1.15rem", color: muted, fontWeight: 300, lineHeight: 1.75 }} />
                 )}
               </div>
 
@@ -835,12 +859,13 @@ export function BlockEventLuminous({ props }: Props) {
                 }}
               >
                 <div>
-                  {props.agendaEyebrow && (
-                    <div style={{ ...eyebrowStyle, marginBottom: "0.75rem" }}>
-                      {props.agendaEyebrow}
-                    </div>
+                  {(props.agendaEyebrow || onFieldChange) && (
+                    <InlineText as="div" value={props.agendaEyebrow ?? ""} onUpdate={field("agendaEyebrow")} style={{ ...eyebrowStyle, marginBottom: "0.75rem" }} />
                   )}
-                  <h2
+                  <InlineText
+                    as="h2"
+                    value={props.agendaHeading ?? "Agenda"}
+                    onUpdate={field("agendaHeading")}
                     style={{
                       fontSize: h2Size,
                       fontWeight: 700,
@@ -848,9 +873,7 @@ export function BlockEventLuminous({ props }: Props) {
                       letterSpacing: "-0.02em",
                       fontFamily: displayFont,
                     }}
-                  >
-                    {props.agendaHeading ?? "Agenda"}
-                  </h2>
+                  />
                 </div>
                 {agendaDays.length > 1 && (
                   <div
@@ -920,18 +943,14 @@ export function BlockEventLuminous({ props }: Props) {
                           border: `1px solid ${border}`,
                         }}
                       >
-                        <h4 style={{ fontSize: "1.15rem", fontWeight: 600, color: headline, marginBottom: s.speaker || s.description ? "0.4rem" : 0 }}>
-                          {s.title}
-                        </h4>
+                        <InlineText as="h4" value={s.title} onUpdate={onFieldChange ? (v) => updateSession(i, "title", v) : undefined} style={{ fontSize: "1.15rem", fontWeight: 600, color: headline, marginBottom: s.speaker || s.description ? "0.4rem" : 0 }} />
                         {s.description && (
-                          <p style={{ fontSize: "0.9rem", color: muted, marginBottom: s.speaker ? "0.4rem" : 0 }}>
-                            {s.description}
-                          </p>
+                          <InlineText as="p" value={s.description} onUpdate={onFieldChange ? (v) => updateSession(i, "description", v) : undefined} multiline style={{ fontSize: "0.9rem", color: muted, marginBottom: s.speaker ? "0.4rem" : 0 }} />
                         )}
                         {s.speaker && (
                           <p style={{ fontSize: "0.85rem", color: muted, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                             <span style={{ width: "0.35rem", height: "0.35rem", borderRadius: "999px", background: muted }} />
-                            {s.speaker}
+                            <InlineText as="span" value={s.speaker} onUpdate={onFieldChange ? (v) => updateSession(i, "speaker", v) : undefined} />
                           </p>
                         )}
                       </div>
@@ -948,12 +967,13 @@ export function BlockEventLuminous({ props }: Props) {
           <section id="speakers" style={sectionStyle(bg)}>
             <div style={container}>
               <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-                {props.speakersEyebrow && (
-                  <div style={{ ...eyebrowStyle, marginBottom: "0.75rem" }}>
-                    {props.speakersEyebrow}
-                  </div>
+                {(props.speakersEyebrow || onFieldChange) && (
+                  <InlineText as="div" value={props.speakersEyebrow ?? ""} onUpdate={field("speakersEyebrow")} style={{ ...eyebrowStyle, marginBottom: "0.75rem" }} />
                 )}
-                <h2
+                <InlineText
+                  as="h2"
+                  value={props.speakersHeading ?? "Speakers"}
+                  onUpdate={field("speakersHeading")}
                   style={{
                     fontSize: h2Size,
                     fontWeight: 700,
@@ -961,9 +981,7 @@ export function BlockEventLuminous({ props }: Props) {
                     letterSpacing: "-0.02em",
                     fontFamily: displayFont,
                   }}
-                >
-                  {props.speakersHeading ?? "Speakers"}
-                </h2>
+                />
               </div>
 
               <div
@@ -1020,9 +1038,7 @@ export function BlockEventLuminous({ props }: Props) {
                       }}
                     />
                     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "1.75rem" }}>
-                      <h3 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#ffffff", marginBottom: "0.25rem" }}>
-                        {sp.name}
-                      </h3>
+                      <InlineText as="h3" value={sp.name} onUpdate={onFieldChange ? (v) => updateSpeaker(i, "name", v) : undefined} style={{ fontSize: "1.4rem", fontWeight: 700, color: "#ffffff", marginBottom: "0.25rem" }} />
                       {(sp.role || sp.company) && (
                         <p style={{ fontSize: "0.85rem", color: rgba("#ffffff", 0.8), fontWeight: 500 }}>
                           {[sp.role, sp.company].filter(Boolean).join(", ")}
@@ -1037,7 +1053,7 @@ export function BlockEventLuminous({ props }: Props) {
         )}
 
         {/* ── VENUE ─────────────────────────────────────────────────────── */}
-        {showVenue && (props.venueName || props.venueAddress || props.venueDescription || props.venueImageUrl) && (
+        {showVenue && (props.venueName || props.venueAddress || props.venueDescription || props.venueImageUrl || onFieldChange) && (
           <section style={sectionStyle(card)}>
             <div style={container}>
               <div
@@ -1045,10 +1061,13 @@ export function BlockEventLuminous({ props }: Props) {
                 className="lg:grid-cols-2"
               >
                 <div>
-                  {props.venueEyebrow && (
-                    <div style={{ ...eyebrowStyle, marginBottom: "1rem" }}>{props.venueEyebrow}</div>
+                  {(props.venueEyebrow || onFieldChange) && (
+                    <InlineText as="div" value={props.venueEyebrow ?? ""} onUpdate={field("venueEyebrow")} style={{ ...eyebrowStyle, marginBottom: "1rem" }} />
                   )}
-                  <h2
+                  <InlineText
+                    as="h2"
+                    value={props.venueHeading ?? "The Space"}
+                    onUpdate={field("venueHeading")}
                     style={{
                       fontSize: h2Size,
                       fontWeight: 700,
@@ -1057,13 +1076,9 @@ export function BlockEventLuminous({ props }: Props) {
                       marginBottom: "1.5rem",
                       fontFamily: displayFont,
                     }}
-                  >
-                    {props.venueHeading ?? "The Space"}
-                  </h2>
-                  {props.venueDescription && (
-                    <p style={{ fontSize: "1.1rem", color: muted, fontWeight: 300, lineHeight: 1.75, marginBottom: "2rem" }}>
-                      {props.venueDescription}
-                    </p>
+                  />
+                  {(props.venueDescription || onFieldChange) && (
+                    <InlineText as="p" value={props.venueDescription ?? ""} onUpdate={field("venueDescription")} multiline style={{ fontSize: "1.1rem", color: muted, fontWeight: 300, lineHeight: 1.75, marginBottom: "2rem" }} />
                   )}
                   <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                     {(props.venueName || props.venueAddress) && (
@@ -1083,11 +1098,11 @@ export function BlockEventLuminous({ props }: Props) {
                           <MapPin size={18} style={{ color: accent }} />
                         </div>
                         <div>
-                          {props.venueName && (
-                            <h4 style={{ fontWeight: 600, color: headline }}>{props.venueName}</h4>
+                          {(props.venueName || onFieldChange) && (
+                            <InlineText as="h4" value={props.venueName ?? ""} onUpdate={field("venueName")} style={{ fontWeight: 600, color: headline }} />
                           )}
-                          {props.venueAddress && (
-                            <p style={{ color: muted }}>{props.venueAddress}</p>
+                          {(props.venueAddress || onFieldChange) && (
+                            <InlineText as="p" value={props.venueAddress ?? ""} onUpdate={field("venueAddress")} multiline style={{ color: muted }} />
                           )}
                         </div>
                       </div>
@@ -1109,8 +1124,8 @@ export function BlockEventLuminous({ props }: Props) {
                           <Calendar size={18} style={{ color: accent }} />
                         </div>
                         <div>
-                          <h4 style={{ fontWeight: 600, color: headline }}>{props.eventDate}</h4>
-                          {props.eventLocation && <p style={{ color: muted }}>{props.eventLocation}</p>}
+                          <InlineText as="h4" value={props.eventDate ?? ""} onUpdate={field("eventDate")} style={{ fontWeight: 600, color: headline }} />
+                          {(props.eventLocation || onFieldChange) && <InlineText as="p" value={props.eventLocation ?? ""} onUpdate={field("eventLocation")} style={{ color: muted }} />}
                         </div>
                       </div>
                     )}
@@ -1148,11 +1163,9 @@ export function BlockEventLuminous({ props }: Props) {
         {/* ── GALLERY ───────────────────────────────────────────────────── */}
         {showGallery && (props.galleryImages ?? []).length > 0 && (
           <section style={{ padding: "3rem 0", background: dark, overflow: "hidden" }}>
-            {props.galleryHeading && (
+            {(props.galleryHeading || onFieldChange) && (
               <div style={{ ...container, marginBottom: "1.5rem" }}>
-                <h2 style={{ fontSize: "1.25rem", fontWeight: 600, color: headlineOnDark, fontFamily: displayFont }}>
-                  {props.galleryHeading}
-                </h2>
+                <InlineText as="h2" value={props.galleryHeading ?? ""} onUpdate={field("galleryHeading")} style={{ fontSize: "1.25rem", fontWeight: 600, color: headlineOnDark, fontFamily: displayFont }} />
               </div>
             )}
             <div
@@ -1191,12 +1204,13 @@ export function BlockEventLuminous({ props }: Props) {
           <section id="tickets" style={sectionStyle(bg)}>
             <div style={container}>
               <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-                {props.ticketsEyebrow && (
-                  <div style={{ ...eyebrowStyle, marginBottom: "0.75rem" }}>
-                    {props.ticketsEyebrow}
-                  </div>
+                {(props.ticketsEyebrow || onFieldChange) && (
+                  <InlineText as="div" value={props.ticketsEyebrow ?? ""} onUpdate={field("ticketsEyebrow")} style={{ ...eyebrowStyle, marginBottom: "0.75rem" }} />
                 )}
-                <h2
+                <InlineText
+                  as="h2"
+                  value={props.ticketsHeading ?? "Tickets"}
+                  onUpdate={field("ticketsHeading")}
                   style={{
                     fontSize: h2Size,
                     fontWeight: 700,
@@ -1204,9 +1218,7 @@ export function BlockEventLuminous({ props }: Props) {
                     letterSpacing: "-0.02em",
                     fontFamily: displayFont,
                   }}
-                >
-                  {props.ticketsHeading ?? "Tickets"}
-                </h2>
+                />
               </div>
 
               <div
@@ -1285,7 +1297,10 @@ export function BlockEventLuminous({ props }: Props) {
         {showSponsors && (props.sponsors ?? []).length > 0 && (
           <section style={{ ...sectionStyle(card), borderBottom: `1px solid ${border}` }}>
             <div style={{ ...container, textAlign: "center" }}>
-              <p
+              <InlineText
+                as="p"
+                value={props.sponsorsHeading ?? "Supported by industry leaders"}
+                onUpdate={field("sponsorsHeading")}
                 style={{
                   fontSize: "0.8rem",
                   fontWeight: 700,
@@ -1294,9 +1309,7 @@ export function BlockEventLuminous({ props }: Props) {
                   color: muted,
                   marginBottom: "3rem",
                 }}
-              >
-                {props.sponsorsHeading ?? "Supported by industry leaders"}
-              </p>
+              />
               <div
                 style={{
                   display: "flex",
@@ -1340,7 +1353,10 @@ export function BlockEventLuminous({ props }: Props) {
           <section style={sectionStyle(bg)}>
             <div style={{ ...container, maxWidth: "48rem" }}>
               <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-                <h2
+                <InlineText
+                  as="h2"
+                  value={props.faqHeading ?? "Questions?"}
+                  onUpdate={field("faqHeading")}
                   style={{
                     fontSize: h2Size,
                     fontWeight: 700,
@@ -1348,9 +1364,7 @@ export function BlockEventLuminous({ props }: Props) {
                     letterSpacing: "-0.02em",
                     fontFamily: displayFont,
                   }}
-                >
-                  {props.faqHeading ?? "Questions?"}
-                </h2>
+                />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 {faqItems.map((faq, i) => (
@@ -1442,12 +1456,13 @@ export function BlockEventLuminous({ props }: Props) {
                 }}
               >
                 <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-                  {props.formEyebrow && (
-                    <div style={{ ...eyebrowStyle, justifyContent: "center", marginBottom: "0.75rem" }}>
-                      {props.formEyebrow}
-                    </div>
+                  {(props.formEyebrow || onFieldChange) && (
+                    <InlineText as="div" value={props.formEyebrow ?? ""} onUpdate={field("formEyebrow")} style={{ ...eyebrowStyle, justifyContent: "center", marginBottom: "0.75rem" }} />
                   )}
-                  <h2
+                  <InlineText
+                    as="h2"
+                    value={props.formHeading ?? "Reserve Your Pass"}
+                    onUpdate={field("formHeading")}
                     style={{
                       fontSize: "clamp(1.6rem, 4vw, 2rem)",
                       fontWeight: 700,
@@ -1456,13 +1471,9 @@ export function BlockEventLuminous({ props }: Props) {
                       marginBottom: "0.75rem",
                       fontFamily: displayFont,
                     }}
-                  >
-                    {props.formHeading ?? "Reserve Your Pass"}
-                  </h2>
-                  {props.formSubheading && (
-                    <p style={{ color: muted, fontWeight: 300, fontSize: "0.95rem" }}>
-                      {props.formSubheading}
-                    </p>
+                  />
+                  {(props.formSubheading || onFieldChange) && (
+                    <InlineText as="p" value={props.formSubheading ?? ""} onUpdate={field("formSubheading")} multiline style={{ color: muted, fontWeight: 300, fontSize: "0.95rem" }} />
                   )}
                 </div>
 

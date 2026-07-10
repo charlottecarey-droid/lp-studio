@@ -6,6 +6,7 @@ import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: AboutTeamBlockProps;
@@ -61,6 +62,14 @@ export function BlockAboutTeam({ props, brand, onFieldChange }: Props) {
   const members = props.members ?? [];
   const [activeIdx, setActiveIdx] = useState(0);
 
+  const field = (key: keyof AboutTeamBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateMember = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const next = members.map((m, idx) => (idx === i ? { ...m, [key]: value } : m));
+    onFieldChange({ ...props, members: next });
+  };
+
   if (members.length === 0) {
     if (!onFieldChange) return null;
     return (
@@ -98,29 +107,33 @@ export function BlockAboutTeam({ props, brand, onFieldChange }: Props) {
       <div className="relative z-10 mx-auto max-w-5xl px-6 py-16 md:px-12 md:py-20">
         {showHeader && (
           <div className="mx-auto mb-12 max-w-2xl text-center">
-            {props.eyebrow && (
-              <p
+            {(props.eyebrow || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={props.eyebrow ?? ""}
+                onUpdate={field("eyebrow")}
                 className="text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{ color: accent, fontFamily: bodyFamily }}
-              >
-                {props.eyebrow}
-              </p>
+              />
             )}
-            {props.headline && (
-              <h2
+            {(props.headline || onFieldChange) && (
+              <InlineText
+                as="h2"
+                value={props.headline ?? ""}
+                onUpdate={field("headline")}
                 className="mt-4 text-4xl font-semibold leading-[1.08] md:text-5xl"
                 style={{ fontFamily: headFamily }}
-              >
-                {props.headline}
-              </h2>
+              />
             )}
-            {props.subheadline && (
-              <p
+            {(props.subheadline || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={props.subheadline ?? ""}
+                onUpdate={field("subheadline")}
+                multiline
                 className="mt-5 text-base leading-relaxed md:text-lg"
                 style={{ color: muted }}
-              >
-                {props.subheadline}
-              </p>
+              />
             )}
           </div>
         )}
@@ -166,16 +179,21 @@ export function BlockAboutTeam({ props, brand, onFieldChange }: Props) {
           </div>
 
           <div className="flex flex-col">
-            <h3
+            <InlineText
+              as="h3"
+              value={active?.name || "Team member"}
+              onUpdate={onFieldChange ? (v) => updateMember(Math.min(activeIdx, members.length - 1), "name", v) : undefined}
               className="text-4xl font-semibold leading-[1.08] md:text-5xl"
               style={{ fontFamily: headFamily }}
-            >
-              {active?.name || "Team member"}
-            </h3>
+            />
             {active?.role && (
-              <p className="mt-2 text-lg font-medium" style={{ color: accent }}>
-                {active.role}
-              </p>
+              <InlineText
+                as="p"
+                value={active.role}
+                onUpdate={onFieldChange ? (v) => updateMember(Math.min(activeIdx, members.length - 1), "role", v) : undefined}
+                className="mt-2 text-lg font-medium"
+                style={{ color: accent }}
+              />
             )}
 
             {(active?.location || active?.focus) && (
@@ -201,7 +219,13 @@ export function BlockAboutTeam({ props, brand, onFieldChange }: Props) {
             )}
 
             {active?.bio && (
-              <p className="mt-6 text-[15px] leading-[1.8]">{active.bio}</p>
+              <InlineText
+                as="p"
+                value={active.bio}
+                onUpdate={onFieldChange ? (v) => updateMember(Math.min(activeIdx, members.length - 1), "bio", v) : undefined}
+                multiline
+                className="mt-6 text-[15px] leading-[1.8]"
+              />
             )}
 
             {(active?.linkedinUrl || active?.email) && (

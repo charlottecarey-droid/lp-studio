@@ -6,6 +6,7 @@ import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
 import { RevealStagger, RevealItem } from "@/lib/premium-toolkit";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: LogoWallBlockProps;
@@ -75,6 +76,8 @@ export function BlockLogoWall({ props, onFieldChange }: Props) {
   const accent = props.accentColor || "var(--brand-accent, #6366f1)";
   const grayscale = props.grayscale !== false;
   const logos = props.logos && props.logos.length > 0 ? props.logos : DEFAULT_LOGOS;
+  const field = (key: keyof LogoWallBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   useBlockFonts(props.headlineFont, props.bodyFont);
   const headFamily = props.headlineFont
@@ -92,13 +95,14 @@ export function BlockLogoWall({ props, onFieldChange }: Props) {
         style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
       />
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-14 md:py-20 flex flex-col items-center gap-10 md:gap-12">
-        {props.eyebrow && (
-          <h2
+        {(props.eyebrow || onFieldChange) && (
+          <InlineText
+            as="h2"
+            value={props.eyebrow ?? ""}
+            onUpdate={field("eyebrow")}
             className="text-xs md:text-sm font-medium uppercase tracking-[0.2em] text-center"
             style={{ color: "#94a3b8", fontFamily: bodyFamily }}
-          >
-            {props.eyebrow}
-          </h2>
+          />
         )}
         {onFieldChange ? (
           <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-8 md:gap-x-20 md:gap-y-10">

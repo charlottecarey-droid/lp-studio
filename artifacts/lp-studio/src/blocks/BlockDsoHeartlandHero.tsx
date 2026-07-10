@@ -15,11 +15,13 @@ import {
   type BrandConfig,
 } from "@/lib/brand-config";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoHeartlandHeroBlockProps;
   brand?: BrandConfig;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoHeartlandHeroBlockProps) => void;
   /** When true, the block is being rendered inside the LP Studio builder canvas.
    *  In that case the sticky hero nav is rendered absolute-within-the-hero
    *  instead of fixed-to-viewport so it cannot overlap the builder's top bar. */
@@ -77,7 +79,7 @@ function buildFullBleedScrim(strength: number): string {
 }
 
 
-export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId }: Props) {
+export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId, onFieldChange }: Props) {
   const submitMode = p.submitMode ?? "navigate";
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
@@ -139,6 +141,13 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   ) : null;
   const imageRight = (p.heroImageSide ?? "right") !== "left";
   const company = p.companyName?.trim() ?? "";
+  const field = (key: keyof DsoHeartlandHeroBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
+  const updateStat = (i: number, key: string, v: string) => {
+    if (!onFieldChange) return;
+    const stats = (p.stats ?? []).map((s, idx) => idx === i ? { ...s, [key]: v } : s);
+    onFieldChange({ ...p, stats });
+  };
 
   // ── Accent legibility on the dark hero surface ──────────────────────────
   // The accent elements (eyebrow, highlighted headline word, stat values, CTA
@@ -213,7 +222,10 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     >
       {p.stats.map((s, i) => (
         <div key={i} className="dso-stats-item">
-          <div
+          <InlineText
+            as="div"
+            value={s.value}
+            onUpdate={onFieldChange ? (v) => updateStat(i, "value", v) : undefined}
             style={{
               fontFamily: DISPLAY_FONT,
               fontSize:
@@ -225,10 +237,11 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
-          >
-            {s.value}
-          </div>
-          <div
+          />
+          <InlineText
+            as="div"
+            value={s.label}
+            onUpdate={onFieldChange ? (v) => updateStat(i, "label", v) : undefined}
             style={{
               fontSize: "0.75rem",
               color: p.statLabelColor ?? MUTED_FG,
@@ -236,9 +249,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
-          >
-            {s.label}
-          </div>
+          />
         </div>
       ))}
     </motion.div>
@@ -597,9 +608,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               style={{ opacity: scrollOpacity, y: scrollY, flex: "0 0 55%", padding: "7rem 3rem 4rem", minWidth: 0 }}
               className="relative z-10 flex flex-col justify-center hl-split-content"
             >
-              {p.eyebrow && (
+              {(p.eyebrow || onFieldChange) && (
                 <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
-                  {p.eyebrow}
+                  <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
 
@@ -620,9 +631,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 {renderHeadline()}
               </motion.h1>
 
-              {p.subheadline && (
+              {(p.subheadline || onFieldChange) && (
                 <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
-                  {p.subheadline}
+                  <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
 
@@ -725,9 +736,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               style={{ opacity: scrollOpacity, y: scrollY, flex: `0 0 ${splitContentW}%`, padding: `2rem ${splitSidePad}px`, minWidth: 0 }}
               className="relative z-10 flex flex-col justify-center"
             >
-              {p.eyebrow && (
+              {(p.eyebrow || onFieldChange) && (
                 <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
-                  {p.eyebrow}
+                  <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
               <motion.h1
@@ -746,9 +757,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               >
                 {renderHeadline()}
               </motion.h1>
-              {p.subheadline && (
+              {(p.subheadline || onFieldChange) && (
                 <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
-                  {p.subheadline}
+                  <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
               {ctaButtons}
@@ -895,9 +906,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 textAlign: "center",
               }}
             >
-              {p.eyebrow && (
+              {(p.eyebrow || onFieldChange) && (
                 <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
-                  {p.eyebrow}
+                  <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
 
@@ -918,9 +929,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 {renderHeadline()}
               </motion.h1>
 
-              {p.subheadline && (
+              {(p.subheadline || onFieldChange) && (
                 <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
-                  {p.subheadline}
+                  <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
 
@@ -1076,7 +1087,10 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               >
                 {p.stats.map((s, i) => (
                   <div key={i} className="dso-stats-item" style={{ textAlign: "center" }}>
-                    <div
+                    <InlineText
+                      as="div"
+                      value={s.value}
+                      onUpdate={onFieldChange ? (v) => updateStat(i, "value", v) : undefined}
                       style={{
                         fontFamily: DISPLAY_FONT,
                         fontSize: "clamp(1.375rem, 3vw, 2rem)",
@@ -1085,10 +1099,11 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                         letterSpacing: "-0.02em",
                         lineHeight: 1,
                       }}
-                    >
-                      {s.value}
-                    </div>
-                    <div
+                    />
+                    <InlineText
+                      as="div"
+                      value={s.label}
+                      onUpdate={onFieldChange ? (v) => updateStat(i, "label", v) : undefined}
                       style={{
                         fontSize: "0.75rem",
                         color: MUTED_FG,
@@ -1096,9 +1111,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                         textTransform: "uppercase",
                         letterSpacing: "0.06em",
                       }}
-                    >
-                      {s.label}
-                    </div>
+                    />
                   </div>
                 ))}
               </motion.div>
@@ -1207,9 +1220,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           className="relative z-10 flex flex-col justify-center flex-1 w-full pt-20"
         >
           <div className="max-w-[1200px] mx-auto px-6 md:px-10 w-full">
-            {p.eyebrow && (
+            {(p.eyebrow || onFieldChange) && (
               <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
-                {p.eyebrow}
+                <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
               </motion.p>
             )}
 
@@ -1231,9 +1244,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               {renderHeadline()}
             </motion.h1>
 
-            {p.subheadline && (
+            {(p.subheadline || onFieldChange) && (
               <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: 520, fontFamily: BODY }}>
-                {p.subheadline}
+                <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: fullBleedSubColor, fontFamily: BODY }} />
               </motion.p>
             )}
 

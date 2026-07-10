@@ -4,6 +4,7 @@ import type { BusinessCaseSplitBlockProps, BusinessCaseSignalCard } from "../lib
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 import type { BrandConfig } from "../lib/brand-config";
 import { BrandLogo } from "../components/BrandLogo";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -20,9 +21,10 @@ interface Props {
    *  "With <brandName>" label so the same template renders correctly
    *  for any DSO. Per-block props still win. */
   brand?: BrandConfig;
+  onFieldChange?: (updated: BusinessCaseSplitBlockProps) => void;
 }
 
-export function BlockBusinessCaseSplit({ props, brand }: Props) {
+export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor ?? brand?.pageBackground ?? "#f6f5ee";
   const ink = props.inkColor ?? brand?.primaryColor ?? "#0f2a1c";
   const dark = props.darkColor ?? brand?.primaryColor ?? "#0d1f15";
@@ -36,6 +38,14 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
 
   const brandName = brand?.brandName?.trim() || "Dandy";
   const logoAlt = props.logoAlt || brandName;
+
+  const field = (key: keyof BusinessCaseSplitBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateSignalCard = (i: number, key: string, value: string) => {
+    if (!onFieldChange) return;
+    const signalCards = props.signalCards.map((card, idx) => idx === i ? { ...card, [key]: value } : card);
+    onFieldChange({ ...props, signalCards });
+  };
 
   return (
     <div
@@ -57,23 +67,20 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           </nav>
 
           <div className="max-w-2xl mt-12">
-            {props.heroEyebrow && (
+            {(props.heroEyebrow || onFieldChange) && (
               <div className="flex items-center gap-4 mb-8">
                 <div className="h-px w-8" style={{ background: accent }} />
-                <span className="text-xs font-bold tracking-[0.2em] uppercase" style={{ color: accent }}>
-                  {props.heroEyebrow}
-                </span>
+                <InlineText as="span" value={props.heroEyebrow} onUpdate={field("heroEyebrow")} className="text-xs font-bold tracking-[0.2em] uppercase" style={{ color: accent }} />
               </div>
             )}
-            <h1
+            <InlineText
+              as="h1"
+              value={props.heroHeadline}
+              onUpdate={field("heroHeadline")}
               className="text-5xl lg:text-6xl xl:text-7xl leading-[1.05] tracking-tight mb-8"
               style={{ fontFamily: DISPLAY, color: headlineOnDark }}
-            >
-              {props.heroHeadline}
-            </h1>
-            <p className="text-white/70 text-lg md:text-xl font-light leading-relaxed max-w-xl mb-12">
-              {props.heroSubhead}
-            </p>
+            />
+            <InlineText as="p" value={props.heroSubhead} onUpdate={field("heroSubhead")} multiline className="text-white/70 text-lg md:text-xl font-light leading-relaxed max-w-xl mb-12" />
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               <a
                 href={props.heroPrimaryCtaUrl}
@@ -114,21 +121,17 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
       {props.showSituation !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
-          {props.situationEyebrow && (
-            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-              {props.situationEyebrow}
-            </span>
+          {(props.situationEyebrow || onFieldChange) && (
+            <InlineText as="span" value={props.situationEyebrow} onUpdate={field("situationEyebrow")} className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }} />
           )}
-          <h2 className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }}>
-            {props.situationHeading}
-          </h2>
+          <InlineText as="h2" value={props.situationHeading} onUpdate={field("situationHeading")} className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5 space-y-6">
-            <p className="text-xl leading-relaxed text-slate-700 font-light">{props.situationBody}</p>
-            {props.situationBodyExtra && (
-              <p className="text-xl leading-relaxed text-slate-700 font-light">{props.situationBodyExtra}</p>
+            <InlineText as="p" value={props.situationBody} onUpdate={field("situationBody")} multiline className="text-xl leading-relaxed text-slate-700 font-light" />
+            {(props.situationBodyExtra || onFieldChange) && (
+              <InlineText as="p" value={props.situationBodyExtra ?? ""} onUpdate={field("situationBodyExtra")} multiline className="text-xl leading-relaxed text-slate-700 font-light" />
             )}
           </div>
           <div className="lg:col-span-6 lg:col-start-7 flex flex-col justify-center gap-8">
@@ -147,17 +150,13 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
       {props.showSignal !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16 flex-wrap">
-          {props.signalEyebrow && (
-            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-              {props.signalEyebrow}
-            </span>
+          {(props.signalEyebrow || onFieldChange) && (
+            <InlineText as="span" value={props.signalEyebrow} onUpdate={field("signalEyebrow")} className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }} />
           )}
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-bold tracking-[0.2em] uppercase text-slate-500">THE SIGNAL</span>
             <ArrowRight className="w-4 h-4" style={{ color: accent }} />
-            <span className="text-2xl md:text-3xl" style={{ color: headline, fontFamily: DISPLAY }}>
-              {props.signalHeading}
-            </span>
+            <InlineText as="span" value={props.signalHeading} onUpdate={field("signalHeading")} className="text-2xl md:text-3xl" style={{ color: headline, fontFamily: DISPLAY }} />
           </div>
         </div>
 
@@ -181,14 +180,15 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
                       className="text-xl italic leading-snug mb-8 text-white/90"
                       style={{ fontFamily: DISPLAY }}
                     >
-                      "{card.body}"
+                      "<InlineText as="span" value={card.body} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "body", v) : undefined} multiline />"
                     </p>
-                    <div
+                    <InlineText
+                      as="div"
+                      value={card.attribution}
+                      onUpdate={onFieldChange ? (v) => updateSignalCard(i, "attribution", v) : undefined}
                       className="text-xs font-medium uppercase tracking-wider"
                       style={{ color: accent }}
-                    >
-                      {card.attribution}
-                    </div>
+                    />
                   </div>
                 </div>
               );
@@ -200,8 +200,8 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
                   <div className="mb-6" style={{ color: accent }}>
                     <Icon className="w-8 h-8" />
                   </div>
-                  <h3 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>{card.stat}</h3>
-                  <p className="text-slate-600 leading-relaxed">{card.body}</p>
+                  <InlineText as="h3" value={card.stat} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "stat", v) : undefined} className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }} />
+                  <InlineText as="p" value={card.body} onUpdate={onFieldChange ? (v) => updateSignalCard(i, "body", v) : undefined} multiline className="text-slate-600 leading-relaxed" />
                 </div>
               </div>
             );
@@ -214,17 +214,13 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
       {props.showCost !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
-          {props.costEyebrow && (
-            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-              {props.costEyebrow}
-            </span>
+          {(props.costEyebrow || onFieldChange) && (
+            <InlineText as="span" value={props.costEyebrow} onUpdate={field("costEyebrow")} className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }} />
           )}
-          <h2 className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }}>
-            {props.costHeading}
-          </h2>
+          <InlineText as="h2" value={props.costHeading} onUpdate={field("costHeading")} className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }} />
         </div>
-        {props.costSubhead && (
-          <p className="text-lg text-slate-600 max-w-2xl mb-16 -mt-8">{props.costSubhead}</p>
+        {(props.costSubhead || onFieldChange) && (
+          <InlineText as="p" value={props.costSubhead ?? ""} onUpdate={field("costSubhead")} multiline className="text-lg text-slate-600 max-w-2xl mb-16 -mt-8" />
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-16">
