@@ -67,6 +67,8 @@ import { refreshBlockCopy } from "@/lib/copy-api";
 import { COPY_FIELDS } from "@/lib/copy-fields";
 import { propagateCtaToAll, countCtaTargets, blockHasCta } from "@/lib/cta-propagation";
 import type { CtaConfig } from "@/lib/cta/ctaConfig";
+import { runPrePublishChecks, type PrePublishFinding, type CheckableBlock } from "@/lib/pre-publish-checks";
+import { PrePublishDialog } from "./PrePublishDialog";
 import { PageCtaSection } from "@/pages/builder/property-panels/PageCtaSection";
 import { PageStyleSection } from "@/pages/builder/property-panels/PageStyleSection";
 import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
@@ -1423,6 +1425,10 @@ export default function BuilderEditor() {
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  // Pre-publish review (replaces the native publish confirm): findings from
+  // the static checks, shown in PrePublishDialog. Advisory only.
+  const [prePublishOpen, setPrePublishOpen] = useState(false);
+  const [prePublishFindings, setPrePublishFindings] = useState<PrePublishFinding[]>([]);
   // Device preview: tablet/mobile swap the editable canvas for a same-origin
   // iframe of /preview/:slug — blocks respond to VIEWPORT media queries, so a
   // width-constrained div would keep desktop styles; only an iframe gives the
@@ -2724,13 +2730,30 @@ export default function BuilderEditor() {
     void factFlags.refresh();
   };
 
-  const handlePublish = async () => {
+  const handlePublish = () => {
     const isPublished = status === "published";
-    const confirmMsg = isPublished
-      ? "Unpublish this page? It will no longer be publicly accessible."
-      : "Publish this page? It will be publicly accessible.";
-    if (!confirm(confirmMsg)) return;
-    const newStatus: "draft" | "published" = isPublished ? "draft" : "published";
+    if (isPublished) {
+      if (!confirm("Unpublish this page? It will no longer be publicly accessible.")) return;
+      void performStatusChange("draft");
+      return;
+    }
+    // Publish path: run the static pre-publish checks and confirm through the
+    // review dialog (replaces the old native confirm). Advisory only — the
+    // dialog always offers "Publish anyway".
+    setPrePublishFindings(
+      runPrePublishChecks({
+        blocks: blocks as unknown as CheckableBlock[],
+        metaTitle,
+        metaDescription,
+        ogImage,
+        allowIndexing,
+        pageCta,
+      }),
+    );
+    setPrePublishOpen(true);
+  };
+
+  const performStatusChange = async (newStatus: "draft" | "published") => {
     setIsSaving(true);
     try {
       // Publish goes through a direct PUT so we can detect the Strict Facts
@@ -3229,6 +3252,29 @@ export default function BuilderEditor() {
 
       {/* Task #1138 — Strict Facts review modal. */}
       <FactReviewModal open={factReviewOpen} onOpenChange={setFactReviewOpen} ff={factFlags} />
+
+      {/* Pre-publish review — static checks + confirm, replaces confirm(). */}
+      <PrePublishDialog
+        open={prePublishOpen}
+        findings={prePublishFindings}
+        publishing={isSaving}
+        onClose={() => setPrePublishOpen(false)}
+        onPublish={() => {
+          setPrePublishOpen(false);
+          void performStatusChange("published");
+        }}
+        onGoToBlock={(blockId) => {
+          setPrePublishOpen(false);
+          setSelectedBlockId(blockId);
+          // Defer until the dialog unmounts so the scroll isn't fighting the
+          // modal's focus trap/overlay teardown.
+          setTimeout(() => {
+            document
+              .querySelector(`[data-block-id="${blockId}"]`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 80);
+        }}
+      />
 
 
       {/* Post-publish outreach banner */}
