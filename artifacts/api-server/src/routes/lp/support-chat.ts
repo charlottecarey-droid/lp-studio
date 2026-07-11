@@ -15,6 +15,9 @@
  */
 import { Router } from "express";
 import OpenAI from "openai";
+import { db } from "@workspace/db";
+import { supportTicketsTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { createSseChatEmitter } from "../../lib/conversation/chatEmitter";
@@ -117,6 +120,42 @@ router.post("/lp/support/chat", supportChatLimiter, async (req, res): Promise<vo
     if (!emitter.aborted) {
       messageId = await persistAssistantTurn(conversationId, result.text, result.actions);
     }
+
+    // escalate_to_support files a real ticket (July 2026) — previously the
+    // widget only rendered a mailto: and nothing was captured. One OPEN
+    // ticket per conversation: the bot may re-emit the action on later
+    // turns of the same thread, which should not spawn duplicates. Failures
+    // never break the chat response.
+    const escalation = result.actions.find((a) => a.type === "escalate_to_support");
+    if (escalation && !emitter.aborted) {
+      try {
+        const summary =
+          typeof escalation.args?.summary === "string" && escalation.args.summary.trim()
+            ? escalation.args.summary.trim()
+            : userMessage;
+        const [existing] = await db
+          .select({ id: supportTicketsTable.id })
+          .from(supportTicketsTable)
+          .where(and(
+            eq(supportTicketsTable.conversationId, conversationId),
+            eq(supportTicketsTable.status, "open"),
+          ))
+          .limit(1);
+        if (!existing) {
+          await db.insert(supportTicketsTable).values({
+            tenantId,
+            conversationId,
+            userEmail: req.authUser?.email ?? null,
+            userName: req.authUser?.name ?? null,
+            summary: summary.slice(0, 2000),
+            currentPath: currentPath ?? null,
+          });
+        }
+      } catch (err) {
+        logger.error({ err: String(err), tenantId, conversationId }, "[support-chat] ticket insert failed");
+      }
+    }
+
     emitter.done({ conversationId, messageId });
   } catch (err) {
     if (emitter.aborted) {

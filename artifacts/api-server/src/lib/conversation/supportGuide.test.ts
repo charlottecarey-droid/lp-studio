@@ -113,4 +113,16 @@ describe("supportGuideMode", () => {
     expect(persona.toLowerCase()).toContain("only");
     expect(persona.toLowerCase()).toContain("guide");
   });
+
+  it("escalation files a ticket immediately — the action contract says so", () => {
+    // The route persists a support_tickets row when escalate_to_support is
+    // emitted, so the bot must know it's an immediate file (not a proposal),
+    // must confirm to the user, and must not re-file per tidbit.
+    expect(supportGuideMode.actionInstruction).toContain("FILES A SUPPORT TICKET");
+    expect(supportGuideMode.actionInstruction).toContain("ONCE per conversation");
+    const escalate = SUPPORT_GUIDE_ACTIONS.find((a) => a.type === "escalate_to_support")!;
+    expect(escalate.description).toContain("filed the moment you call this");
+    // open_page stays review-and-apply.
+    expect(supportGuideMode.actionInstruction).toContain("nothing happens until they click");
+  });
 });

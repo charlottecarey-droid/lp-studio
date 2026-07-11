@@ -28,7 +28,7 @@ import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
   Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound, Smartphone, Share2, Wand2, ChefHat,
-  Newspaper, Megaphone,
+  Newspaper, Megaphone, LifeBuoy,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
@@ -43,6 +43,7 @@ import SuperAdminTrialPhones from "./SuperAdminTrialPhones";
 import SuperAdminBlog from "./SuperAdminBlog";
 import SuperAdminGeneratorPresets from "./SuperAdminGeneratorPresets";
 import SuperAdminRecipes from "./SuperAdminRecipes";
+import SuperAdminSupport from "./SuperAdminSupport";
 // Lazy: the one-pager editor + templates gallery drag in jsPDF/pdfjs + font/QR
 // tooling — keep them out of the superadmin chunk until the tab is opened.
 // scope="global" makes both edit the tenant_id-NULL rows every tenant inherits.
@@ -1293,8 +1294,9 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "page-recipes" | "one-pagers" | "homepage-og" | "announcement" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "page-recipes" | "one-pagers" | "homepage-og" | "announcement" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "support" | "superadmins">(() => {
     if (typeof window !== "undefined") {
+      if (window.location.hash === "#support") return "support";
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#generator-presets") return "generator-presets";
       if (window.location.hash === "#page-recipes") return "page-recipes";
@@ -1411,6 +1413,7 @@ export default function SuperAdminPage() {
     { key: "notifications", label: "Notifications", icon: Bell },
     { key: "trial-phones", label: "Trial Phones", icon: Smartphone },
     { key: "blog", label: "Blog", icon: Newspaper },
+    { key: "support", label: "Support", icon: LifeBuoy },
     ...(isRoot ? [{ key: "superadmins" as typeof tab, label: "Superadmins", icon: KeyRound }] : []),
   ];
 
@@ -1501,6 +1504,8 @@ export default function SuperAdminPage() {
           <SuperAdminTrialPhones />
         ) : tab === "blog" ? (
           <SuperAdminBlog />
+        ) : tab === "support" ? (
+          <SuperAdminSupport />
         ) : tab === "asset-health" ? (
           <SuperAdminAssetHealth />
         ) : tab === "superadmins" && isRoot ? (

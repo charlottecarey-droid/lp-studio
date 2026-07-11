@@ -820,6 +820,13 @@
       "when": 1757000000000,
       "tag": "0116_drop_orphan_brand_settings",
       "breakpoints": false
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1757100000000,
+      "tag": "0117_support_tickets",
+      "breakpoints": false
     }
   ]
 }

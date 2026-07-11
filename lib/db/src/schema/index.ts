@@ -60,6 +60,9 @@ export * from "./aiGenerationLog";
 // mode-tagged transcript table for every conversational surface.
 export * from "./conversations";
 
+// Support-bot escalations (superadmin Support tab)
+export * from "./supportTickets";
+
 // Per-tenant inbound webhook secrets
 export * from "./tenantWebhookSecrets";
 

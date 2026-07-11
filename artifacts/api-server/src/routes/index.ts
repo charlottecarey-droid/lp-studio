@@ -17,6 +17,7 @@ import salesRouter from "./sales";
 import videoRouter from "./video";
 import authRouter from "./auth";
 import adminRouter from "./admin";
+import supportTicketsRouter from "./supportTickets";
 import blockCatalogRouter from "./blockCatalog";
 import pageRecipesRouter from "./pageRecipes";
 import tenantBlockLibraryRouter from "./tenantBlockLibrary";
@@ -126,6 +127,9 @@ router.use(tenantBlockGovernanceRouter);
 // MUST mount before adminRouter so its specific /admin paths match before
 // adminRouter's blanket requireAuth wildcard swallows them.
 router.use(notificationsRouter);
+// Superadmin support desk (/admin/support-*): requireSuperadmin per route,
+// mounted before adminRouter for the same wildcard-requireAuth reason.
+router.use(supportTicketsRouter);
 router.use("/admin", adminRouter);
 router.use("/webhooks", webhooksRouter);
 // Task #425 — self-serve billing. The /billing/* prefix is NOT covered by

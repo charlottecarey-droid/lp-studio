@@ -20,6 +20,7 @@ import {
   ArrowRight,
   Mail,
   LifeBuoy,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -313,17 +314,25 @@ function SupportActionButton({
     );
   }
   if (action.type === "escalate_to_support") {
+    // The server files a support ticket the moment the bot emits this action
+    // (routes/lp/support-chat.ts), so this renders as a confirmation — not a
+    // proposal. The mailto stays as a secondary path for adding detail or
+    // attachments the chat can't carry.
     const summary = typeof action.args?.summary === "string" ? action.args.summary : "";
     const href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
-      "LP Studio support request",
+      "LP Studio support request (follow-up)",
     )}&body=${encodeURIComponent(summary)}`;
     return (
-      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" asChild>
-        <a href={href}>
-          <Mail className="w-3.5 h-3.5" aria-hidden />
-          {action.label || "Email the team"}
+      <span className="inline-flex items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden />
+          Ticket filed with the team
+        </span>
+        <a href={href} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+          <Mail className="w-3 h-3" aria-hidden />
+          add details by email
         </a>
-      </Button>
+      </span>
     );
   }
   return null;

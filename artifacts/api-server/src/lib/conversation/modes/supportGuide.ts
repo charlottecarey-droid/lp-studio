@@ -95,7 +95,9 @@ export const SUPPORT_GUIDE_ACTIONS: AllowedActionDef[] = [
   {
     type: "escalate_to_support",
     description:
-      "Offer to hand the question to the LP Studio team — when the guide doesn't cover it, the user reports a bug, or they ask for a feature that doesn't exist.",
+      "File the question as a support ticket for the LP Studio team — when the guide doesn't " +
+      "cover it, the user reports a bug, or they ask for a feature that doesn't exist. The " +
+      "ticket is filed the moment you call this.",
     properties: {
       summary: {
         type: "string",
@@ -124,6 +126,13 @@ export const supportGuideMode: ConversationMode = {
   goal:
     "Resolve the user's how-do-I question about LP Studio from the guide, or hand it " +
     "to the LP Studio team with a clear summary when the guide can't.",
+  actionInstruction:
+    "open_page renders a button the user can click — propose it, nothing happens until they " +
+    "click. escalate_to_support is different: calling it FILES A SUPPORT TICKET with the LP " +
+    "Studio team immediately (the summary you write is what the team reads — make it complete " +
+    "and specific). After calling it, tell the user their request has been sent and the team " +
+    "will follow up at their account email. Call it at most ONCE per conversation — if they " +
+    "add details afterwards, the team sees the full transcript; do not file again.",
   systemPromptBuilder: () => PERSONA,
   groundingBuilder: (ctx: ConversationContext) => {
     const c = ctx as SupportGuideContext;
