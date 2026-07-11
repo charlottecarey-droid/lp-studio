@@ -7,6 +7,7 @@ import brandRouter from "./brand";
 import pagesRouter from "./pages";
 import collaborationRouter from "./collaboration";
 import analyticsRouter from "./analytics";
+import chatAnalyticsRouter from "./chat-analytics";
 import libraryRouter from "./library";
 import proofPointsRouter from "./proof-points";
 import proofPointsImportRouter from "./proof-points-import";
@@ -113,6 +114,7 @@ router.use(performanceRouter); // Must come before pagesRouter to avoid /lp/page
 router.use(pagesRouter);
 router.use(collaborationRouter);
 router.use(analyticsRouter);
+router.use(chatAnalyticsRouter);
 router.use(libraryRouter);
 router.use(proofPointsRouter);
 router.use(proofPointsImportRouter);

@@ -4,8 +4,10 @@ import {
   MapPin, Globe, TrendingUp, TrendingDown, RefreshCw,
   BarChart3, Users, FileText, ArrowUpRight, ArrowDownRight, Minus,
   Eye, MousePointerClick, Target, FlaskConical, CalendarCheck,
+  MessagesSquare, Sparkles, Loader2,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
+import { ChatTranscriptDialog } from "@/components/ChatTranscriptDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -73,6 +75,42 @@ const BOOKING_ORIGIN_LABELS: Record<string, string> = {
   email: "Email capture",
   unknown: "Untracked (older bookings)",
 };
+
+/** GET /lp/analytics/chat — the lead-capture page bot's read side. */
+interface ChatAnalyticsData {
+  conversations: number;
+  conversationsTrend: number;
+  visitorMessages: number;
+  avgTurns: number;
+  chatLeads: number;
+  captureRate: number;
+  chatBookings: number;
+  byPage: { pageId: number; title: string; slug: string; count: number }[];
+  series: { date: string; count: number }[];
+  period: string;
+}
+
+interface ChatQuestion {
+  conversationId: number;
+  content: string;
+  createdAt: string;
+  pageId: number | null;
+  pageTitle: string | null;
+}
+
+interface ChatInsightTheme {
+  theme: string;
+  count: number;
+  examples: string[];
+  suggestion: string;
+}
+
+interface ChatInsights {
+  analyzedCount: number;
+  summary: string;
+  themes: ChatInsightTheme[];
+  tooFewQuestions?: boolean;
+}
 
 interface Overview {
   totalVisits: number;
@@ -157,6 +195,33 @@ function useAnalytics(days: number, includeTest: boolean) {
 
   useEffect(() => { load(); }, [days, includeTest]);
   return { overview, traffic, pages, cities, countries, ghostSubmits, bookings, loading, error, reload: load };
+}
+
+/** Chat-tab data, fetched lazily — the tab is new and most sessions never
+ *  open it, so it doesn't ride the main Promise.all. */
+function useChatAnalytics(days: number, active: boolean) {
+  const [chat, setChat] = useState<ChatAnalyticsData | null>(null);
+  const [questions, setQuestions] = useState<ChatQuestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadedKey, setLoadedKey] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!active || loadedKey === days) return;
+    setLoading(true);
+    Promise.all([
+      fetch(`${API_BASE}/lp/analytics/chat?days=${days}`).then(r => r.json()),
+      fetch(`${API_BASE}/lp/analytics/chat/questions?days=${days}`).then(r => r.json()),
+    ])
+      .then(([c, q]) => {
+        setChat(c && typeof c.conversations === "number" ? c : null);
+        setQuestions(Array.isArray(q) ? q : []);
+        setLoadedKey(days);
+      })
+      .catch(() => { setChat(null); setQuestions([]); })
+      .finally(() => setLoading(false));
+  }, [active, days, loadedKey]);
+
+  return { chat, questions, loading };
 }
 
 /* ------------------------------------------------------------------ */
@@ -822,10 +887,225 @@ function BookingsCard({ bookings, loading, micrositeDomain }: { bookings: Bookin
 }
 
 /* ------------------------------------------------------------------ */
+/*  Chat tab — the lead-capture page bot's analytics                   */
+/* ------------------------------------------------------------------ */
+
+function ChatTab({ days, chat, questions, loading, micrositeDomain }: {
+  days: number;
+  chat: ChatAnalyticsData | null;
+  questions: ChatQuestion[];
+  loading: boolean;
+  micrositeDomain: string | null;
+}) {
+  const [openConversationId, setOpenConversationId] = useState<number | null>(null);
+  const [insights, setInsights] = useState<ChatInsights | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+
+  // A new period invalidates a previous analysis.
+  useEffect(() => { setInsights(null); setInsightsError(null); }, [days]);
+
+  const analyze = () => {
+    setAnalyzing(true);
+    setInsightsError(null);
+    fetch(`${API_BASE}/lp/analytics/chat/insights`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days }),
+    })
+      .then(async r => {
+        if (!r.ok) throw new Error((await r.json().catch(() => null))?.error ?? "Analysis failed");
+        return r.json() as Promise<ChatInsights>;
+      })
+      .then(setInsights)
+      .catch((e: Error) => setInsightsError(e.message))
+      .finally(() => setAnalyzing(false));
+  };
+
+  const hasBot = (chat?.conversations ?? 0) > 0 || questions.length > 0;
+
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Conversations" value={chat?.conversations ?? 0} trend={chat?.conversationsTrend} icon={MessagesSquare} loading={loading} />
+        <StatCard label="Chat Leads" value={chat?.chatLeads ?? 0} icon={Target} loading={loading} />
+        <StatCard label="Capture Rate" value={chat ? `${chat.captureRate.toFixed(1)}%` : "0%"} icon={TrendingUp} loading={loading} />
+        <StatCard label="Meetings via Chat" value={chat?.chatBookings ?? 0} icon={CalendarCheck} loading={loading} />
+      </div>
+
+      {!loading && !hasBot ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <MessagesSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              No chat conversations in this period. Add the "Lead Capture Chat" block to a published
+              page and visitor conversations, questions, and captured leads will report here.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Conversation volume */}
+            <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                  Conversations
+                  {chat && chat.avgTurns > 0 && (
+                    <span className="ml-auto text-xs text-muted-foreground font-normal">
+                      avg {chat.avgTurns} visitor messages each
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-3">
+                {loading ? (
+                  <Skeleton className="h-[160px] w-full rounded" />
+                ) : chat && chat.series.length > 1 ? (
+                  <>
+                    <Sparkline data={chat.series} dataKey="count" color="#6366f1" height={160} />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1 px-0.5">
+                      <span>{new Date(chat.series[0].date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      <span>{new Date(chat.series[chat.series.length - 1].date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4">No data</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Which pages talk */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  Conversations by Page
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <LoadingSkeleton rows={4} />
+                ) : (chat?.byPage.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">No data</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {chat?.byPage.slice(0, 6).map(p => (
+                      <BarRow
+                        key={p.pageId}
+                        label={p.title}
+                        sub={micrositeDomain ? `/${p.slug}` : `/lp/${p.slug}`}
+                        count={p.count}
+                        max={chat.byPage[0]?.count ?? 1}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Raw visitor-question feed */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <MessagesSquare className="w-4 h-4 text-muted-foreground" />
+                  What Visitors Are Asking
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <LoadingSkeleton rows={6} />
+                ) : questions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">No visitor messages in this period.</p>
+                ) : (
+                  <div className="divide-y divide-border max-h-[420px] overflow-y-auto -mr-2 pr-2">
+                    {questions.map((q, i) => (
+                      <button
+                        key={`${q.conversationId}-${i}`}
+                        type="button"
+                        onClick={() => setOpenConversationId(q.conversationId)}
+                        title="Open the full transcript"
+                        className="w-full text-left py-2.5 group"
+                      >
+                        <p className="text-sm leading-snug group-hover:text-primary transition-colors">"{q.content}"</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {q.pageTitle ?? "Unknown page"} · {new Date(q.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* LLM theme clustering */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-muted-foreground" />
+                  Question Themes
+                  <button
+                    type="button"
+                    onClick={analyze}
+                    disabled={analyzing || questions.length < 3}
+                    className="ml-auto flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                  >
+                    {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {insights ? "Re-analyze" : "Analyze with AI"}
+                  </button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {insightsError ? (
+                  <p className="text-sm text-destructive py-4">{insightsError}</p>
+                ) : !insights ? (
+                  <p className="text-sm text-muted-foreground py-4">
+                    {questions.length < 3
+                      ? "Needs at least a few visitor questions to analyze."
+                      : `Cluster the ${questions.length} recent visitor messages into recurring questions and objections — and what to change on your pages.`}
+                  </p>
+                ) : insights.tooFewQuestions ? (
+                  <p className="text-sm text-muted-foreground py-4">Not enough questions yet to find patterns.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {insights.summary && <p className="text-sm text-muted-foreground">{insights.summary}</p>}
+                    {insights.themes.map(t => (
+                      <div key={t.theme} className="rounded-lg border p-3">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-sm font-semibold">{t.theme}</p>
+                          <span className="text-xs text-muted-foreground shrink-0">{t.count}×</span>
+                        </div>
+                        {t.examples.length > 0 && (
+                          <p className="text-xs text-muted-foreground italic mt-1">
+                            {t.examples.map(e => `"${e}"`).join(" · ")}
+                          </p>
+                        )}
+                        {t.suggestion && (
+                          <p className="text-xs mt-1.5 text-emerald-700">→ {t.suggestion}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      <ChatTranscriptDialog conversationId={openConversationId} onClose={() => setOpenConversationId(null)} />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
-const ANALYTICS_TABS = ["overview", "pages", "locations", "conversions"] as const;
+const ANALYTICS_TABS = ["overview", "pages", "locations", "conversions", "chat"] as const;
 type AnalyticsTab = (typeof ANALYTICS_TABS)[number];
 
 /** Derive the active tab from the current URL path (e.g. `/analytics/locations`). */
@@ -849,6 +1129,7 @@ export default function AnalyticsPage() {
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const [showTest, setShowTest] = useState(false);
   const { overview, traffic, pages, cities, countries, ghostSubmits, bookings, loading, error, reload } = useAnalytics(days, showTest);
+  const { chat, questions: chatQuestions, loading: chatLoading } = useChatAnalytics(days, activeTab === "chat");
 
   const totalVisits = countries.reduce((s, r) => s + r.count, 0);
   const topCities = cities.slice(0, 20);
@@ -922,6 +1203,7 @@ export default function AnalyticsPage() {
             <TabsTrigger value="pages">Pages</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="conversions">Conversions</TabsTrigger>
+            <TabsTrigger value="chat">Chat</TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW TAB */}
@@ -1203,6 +1485,11 @@ export default function AnalyticsPage() {
             </div>
 
             <BookingsCard bookings={bookings} loading={loading} micrositeDomain={micrositeDomain} />
+          </TabsContent>
+
+          {/* CHAT TAB — the lead-capture page bot's read side */}
+          <TabsContent value="chat" className="space-y-6 mt-4">
+            <ChatTab days={days} chat={chat} questions={chatQuestions} loading={chatLoading} micrositeDomain={micrositeDomain} />
           </TabsContent>
         </Tabs>
       </div>
