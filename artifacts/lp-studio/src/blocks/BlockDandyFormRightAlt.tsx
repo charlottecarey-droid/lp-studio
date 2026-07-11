@@ -81,6 +81,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
     pageId,
     variantId,
     sessionId: anonSessionId,
+    origin: "form",
   });
 
   const field = (key: keyof DandyFormRightAltBlockProps) =>

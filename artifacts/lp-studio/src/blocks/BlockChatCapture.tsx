@@ -200,6 +200,7 @@ function ChatCaptureLauncher({
     testId,
     variantId,
     sessionId,
+    origin: "chat",
     onBookingConfirmed: () => {
       setSchedulerUrl(null);
       const confirmation =

@@ -156,6 +156,7 @@ export function EmailCaptureModal({
     url: chiliPiperHandoffUrl ?? "",
     pageId,
     variantId,
+    origin: "email",
   });
 
   useEffect(() => {

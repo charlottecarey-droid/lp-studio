@@ -138,6 +138,7 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
       known,
       scroll,
       clicks,
+      bookings,
     ] = await Promise.all([
       // anonymous visits
       db.execute(sql`
@@ -219,6 +220,18 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
           count(*) FILTER (WHERE created_at > ${prevStart} AND created_at <= ${curStart}) AS prev
         FROM lp_heatmap_events WHERE page_id = ${pageId} AND event_type = 'click'
       `),
+      // meetings booked — scheduler embeds (Chili Piper / Calendly) write a
+      // best-effort lead with a "Booking Source" field on booking-confirmed;
+      // that lead is the page-attributable booking record (the matching
+      // lp_events rows historically carry no page_id).
+      db.execute(sql`
+        SELECT
+          count(*) FILTER (WHERE created_at > ${curStart}) AS cur,
+          count(*) FILTER (WHERE created_at > ${prevStart} AND created_at <= ${curStart}) AS prev
+        FROM lp_leads
+        WHERE page_id = ${pageId} AND tenant_id = ${tenantId}
+          AND fields->>'Booking Source' IS NOT NULL
+      `),
     ]);
 
     const num = (rows: Record<string, unknown>[], key: "cur" | "prev"): number =>
@@ -277,6 +290,10 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
         clicksPerSession: {
           value: Math.round(cpsCur * 100) / 100,
           deltaPct: pctDelta(cpsCur, cpsPrev),
+        },
+        bookings: {
+          value: num(bookings.rows, "cur"),
+          deltaPct: pctDelta(num(bookings.rows, "cur"), num(bookings.rows, "prev")),
         },
       },
     });

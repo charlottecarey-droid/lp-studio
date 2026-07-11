@@ -69,6 +69,7 @@ export function useChiliPiperBookingTracking({
   variantId,
   sessionId,
   onBookingConfirmed,
+  origin,
 }: {
   url: string;
   pageId?: number;
@@ -87,6 +88,14 @@ export function useChiliPiperBookingTracking({
    * and post its booking-confirmation message.
    */
   onBookingConfirmed?: () => void;
+  /**
+   * Which flow hosts this scheduler ("form" hand-off, page "chat", "email"
+   * capture modal, standalone "cta" button/modal). Stamped on the booking
+   * lead as hidden `_bookingOrigin` (underscore keys never surface as lead
+   * columns/CSV/merge vars) so booking analytics can attribute the flow.
+   * Rows recorded before this shipped have no stamp and report as unknown.
+   */
+  origin?: "form" | "chat" | "email" | "cta";
 }) {
   const submittedRef = useRef(false);
   useEffect(() => { submittedRef.current = false; }, [url]);
@@ -140,6 +149,7 @@ export function useChiliPiperBookingTracking({
       if (lead?.phone) fields["Phone"] = lead.phone;
       fields["Booking Source"] = isCalendly ? "Calendly" : "Chili Piper";
       fields["Chili Piper URL"] = url;
+      if (origin) fields["_bookingOrigin"] = origin;
 
       if (pageId != null && Object.keys(fields).length > 0) {
         try {
@@ -165,6 +175,10 @@ export function useChiliPiperBookingTracking({
           };
           if (testId != null) trackBody.testId = testId;
           if (variantId != null) trackBody.variantId = variantId;
+          // Page attribution on the event row itself (lp_events.page_id) —
+          // booking analytics reads the lead, but funnel/event queries
+          // shouldn't have to session-join to find the page.
+          trackBody.pageId = pageId;
           await fetch(`${API_BASE}/lp/track`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -177,7 +191,7 @@ export function useChiliPiperBookingTracking({
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [url, pageId, testId, variantId, sessionId]);
+  }, [url, pageId, testId, variantId, sessionId, origin]);
 }
 
 export function ChiliPiperModal({ url, pageId: pageIdProp, testId: testIdProp, variantId: variantIdProp, sessionId: sessionIdProp, onClose }: Props) {
@@ -193,7 +207,7 @@ export function ChiliPiperModal({ url, pageId: pageIdProp, testId: testIdProp, v
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  useChiliPiperBookingTracking({ url, pageId, testId, variantId, sessionId });
+  useChiliPiperBookingTracking({ url, pageId, testId, variantId, sessionId, origin: "cta" });
 
   return createPortal(
     <div

@@ -685,4 +685,109 @@ router.get("/lp/analytics/ghost-submits", async (req, res): Promise<void> => {
   }
 });
 
+/* ------------------------------------------------------------------ */
+/*  GET /lp/analytics/bookings — meetings booked via scheduler embeds  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Meetings booked through the Chili Piper / Calendly hand-off (forms, CTA
+ * buttons, email-capture modal, page chat). The booking record is the
+ * best-effort LEAD the scheduler embed writes on booking-confirmed — it
+ * carries "Booking Source" (Chili Piper | Calendly), the page id, and (since
+ * July 2026) a hidden `_bookingOrigin` field naming the flow. The
+ * `chilipiper_booking` lp_events rows are NOT used here: they historically
+ * carry no page_id, so they can't be page-attributed.
+ *
+ * No test-lead filtering: direct-scheduler bookings frequently arrive with
+ * no PII at all, which the isTestLead heuristic would misclassify — and a
+ * confirmed booking is a strong enough signal to always count.
+ */
+router.get("/lp/analytics/bookings", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+
+  try {
+    const days = Math.max(1, Math.min(365, parseInt((req.query.days as string) || "30", 10) || 30));
+    const dateFilter = sql`now() - make_interval(days => ${days})`;
+    const prevDateFilter = sql`now() - make_interval(days => ${days * 2})`;
+
+    // Both windows in one read, bucketed against the same DB `now()` boundary
+    // (mirrors the overview endpoint's leads query).
+    const rows = await db
+      .select({
+        pageId: lpLeadsTable.pageId,
+        fields: lpLeadsTable.fields,
+        createdAt: lpLeadsTable.createdAt,
+        isCurrent: sql<boolean>`(${lpLeadsTable.createdAt} > ${dateFilter})`,
+      })
+      .from(lpLeadsTable)
+      .where(and(
+        eq(lpLeadsTable.tenantId, tenantId),
+        sql`${lpLeadsTable.fields} ->> 'Booking Source' is not null`,
+        sql`${lpLeadsTable.createdAt} > ${prevDateFilter}`,
+      ));
+
+    let total = 0;
+    let prevTotal = 0;
+    const bySource = new Map<string, number>();
+    const byOrigin = new Map<string, number>();
+    const byPageCount = new Map<number, number>();
+    const byDay = new Map<string, number>();
+
+    for (const r of rows) {
+      if (!r.isCurrent) { prevTotal++; continue; }
+      total++;
+      const f = (r.fields ?? {}) as Record<string, unknown>;
+      const source = typeof f["Booking Source"] === "string" && f["Booking Source"] ? (f["Booking Source"] as string) : "Unknown";
+      // `_bookingOrigin` only exists on bookings recorded after the origin
+      // stamp shipped — older rows land in "unknown" rather than being guessed.
+      const origin = typeof f["_bookingOrigin"] === "string" && f["_bookingOrigin"] ? (f["_bookingOrigin"] as string) : "unknown";
+      bySource.set(source, (bySource.get(source) ?? 0) + 1);
+      byOrigin.set(origin, (byOrigin.get(origin) ?? 0) + 1);
+      byPageCount.set(r.pageId, (byPageCount.get(r.pageId) ?? 0) + 1);
+      if (r.createdAt) {
+        const day = new Date(r.createdAt).toISOString().slice(0, 10);
+        byDay.set(day, (byDay.get(day) ?? 0) + 1);
+      }
+    }
+
+    // Continuous daily series (zero-filled) so the sparkline reads correctly
+    // even when bookings are sparse.
+    const series: { date: string; count: number }[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const day = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+      series.push({ date: day, count: byDay.get(day) ?? 0 });
+    }
+
+    // Resolve page titles for the attribution list (tenant-scoped).
+    const pageIds = [...byPageCount.keys()];
+    const pageRows = pageIds.length > 0
+      ? await db
+          .select({ id: lpPagesTable.id, title: lpPagesTable.title, slug: lpPagesTable.slug })
+          .from(lpPagesTable)
+          .where(and(eq(lpPagesTable.tenantId, tenantId), inArray(lpPagesTable.id, pageIds)))
+      : [];
+    const byPage = pageRows
+      .map(p => ({ pageId: p.id, title: p.title, slug: p.slug, count: byPageCount.get(p.id) ?? 0 }))
+      .sort((a, b) => b.count - a.count);
+
+    const bookingsTrend = prevTotal > 0
+      ? ((total - prevTotal) / prevTotal) * 100
+      : (total > 0 ? 100 : 0);
+
+    res.json({
+      totalBookings: total,
+      bookingsTrend,
+      bySource: [...bySource.entries()].map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count),
+      byOrigin: [...byOrigin.entries()].map(([origin, count]) => ({ origin, count })).sort((a, b) => b.count - a.count),
+      byPage,
+      series,
+      period: `${days}d`,
+    });
+  } catch (err) {
+    console.error("Booking analytics error:", err);
+    res.status(500).json({ error: "Failed to load booking analytics" });
+  }
+});
+
 export default router;

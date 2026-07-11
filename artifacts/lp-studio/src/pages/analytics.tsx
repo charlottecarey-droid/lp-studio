@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   MapPin, Globe, TrendingUp, TrendingDown, RefreshCw,
   BarChart3, Users, FileText, ArrowUpRight, ArrowDownRight, Minus,
-  Eye, MousePointerClick, Target, FlaskConical,
+  Eye, MousePointerClick, Target, FlaskConical, CalendarCheck,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +50,29 @@ interface PageMetrics {
   conversions: number;
   cvr: number;
 }
+
+/** GET /lp/analytics/bookings — meetings booked via the Chili Piper /
+ *  Calendly scheduler embeds (the booking record is the "Booking Source"
+ *  lead each embed writes on booking-confirmed). */
+interface BookingsData {
+  totalBookings: number;
+  bookingsTrend: number;
+  bySource: { source: string; count: number }[];
+  byOrigin: { origin: string; count: number }[];
+  byPage: { pageId: number; title: string; slug: string; count: number }[];
+  series: { date: string; count: number }[];
+  period: string;
+}
+
+/** Human labels for the hidden `_bookingOrigin` stamp. Bookings recorded
+ *  before the stamp shipped have no origin and report as "unknown". */
+const BOOKING_ORIGIN_LABELS: Record<string, string> = {
+  form: "Form hand-off",
+  chat: "Page chat",
+  cta: "CTA button",
+  email: "Email capture",
+  unknown: "Untracked (older bookings)",
+};
 
 interface Overview {
   totalVisits: number;
@@ -99,6 +122,7 @@ function useAnalytics(days: number, includeTest: boolean) {
   const [cities, setCities] = useState<CityRow[]>([]);
   const [countries, setCountries] = useState<CountryRow[]>([]);
   const [ghostSubmits, setGhostSubmits] = useState<GhostSubmitRow[]>([]);
+  const [bookings, setBookings] = useState<BookingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,21 +140,23 @@ function useAnalytics(days: number, includeTest: boolean) {
       fetch(`${API_BASE}/lp/analytics/locations`).then(r => r.json()),
       fetch(`${API_BASE}/lp/analytics/countries`).then(r => r.json()),
       fetch(`${API_BASE}/lp/analytics/ghost-submits?days=${days}`).then(r => r.json()),
+      fetch(`${API_BASE}/lp/analytics/bookings?days=${days}`).then(r => r.json()),
     ])
-      .then(([o, t, p, c, co, gs]) => {
+      .then(([o, t, p, c, co, gs, bk]) => {
         setOverview(o);
         setTraffic(t);
         setPages(p);
         setCities(c);
         setCountries(co);
         setGhostSubmits(Array.isArray(gs) ? gs : []);
+        setBookings(bk && typeof bk.totalBookings === "number" ? bk : null);
       })
       .catch(() => setError("Failed to load analytics data"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [days, includeTest]);
-  return { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload: load };
+  return { overview, traffic, pages, cities, countries, ghostSubmits, bookings, loading, error, reload: load };
 }
 
 /* ------------------------------------------------------------------ */
@@ -239,15 +265,15 @@ function LoadingSkeleton({ rows = 6 }: { rows?: number }) {
 /*  Sparkline — tiny inline chart for traffic trends                   */
 /* ------------------------------------------------------------------ */
 
-function Sparkline({
+function Sparkline<T extends object>({
   data,
   dataKey,
   color = "currentColor",
   height = 120,
   showArea = true,
 }: {
-  data: TrafficDay[];
-  dataKey: keyof TrafficDay;
+  data: T[];
+  dataKey: keyof T;
   color?: string;
   height?: number;
   showArea?: boolean;
@@ -698,6 +724,104 @@ function ConversionFunnel({ overview, pages, ghostSubmits, loading }: { overview
 }
 
 /* ------------------------------------------------------------------ */
+/*  Bookings — meetings booked via scheduler embeds                    */
+/* ------------------------------------------------------------------ */
+
+function BookingsCard({ bookings, loading, micrositeDomain }: { bookings: BookingsData | null; loading: boolean; micrositeDomain: string | null }) {
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Meetings Booked</CardTitle>
+        </CardHeader>
+        <CardContent><Skeleton className="h-[180px] w-full rounded" /></CardContent>
+      </Card>
+    );
+  }
+
+  const total = bookings?.totalBookings ?? 0;
+  const maxPage = bookings?.byPage[0]?.count ?? 1;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <CalendarCheck className="w-4 h-4 text-muted-foreground" />
+          Meetings Booked
+          {bookings && bookings.bySource.length > 0 && (
+            <span className="ml-auto flex items-center gap-1.5 font-normal">
+              {bookings.bySource.map(s => (
+                <span key={s.source} className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                  {s.source}: <span className="font-semibold text-foreground">{s.count}</span>
+                </span>
+              ))}
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {total === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            No meetings booked in this period. Bookings are counted when a visitor completes a
+            Chili Piper or Calendly scheduler — from a form hand-off, a CTA button, or the page chat.
+          </p>
+        ) : (
+          <>
+            {/* Daily bookings trend */}
+            {bookings && bookings.series.length > 1 && (
+              <div className="mb-5">
+                <Sparkline data={bookings.series} dataKey="count" color="#6366f1" height={90} />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1 px-0.5">
+                  <span>{new Date(bookings.series[0].date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  <span>{new Date(bookings.series[bookings.series.length - 1].date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Which pages book meetings */}
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  By Page
+                </h4>
+                <div className="divide-y divide-border">
+                  {bookings?.byPage.slice(0, 5).map(p => (
+                    <BarRow
+                      key={p.pageId}
+                      label={p.title}
+                      sub={micrositeDomain ? `/${p.slug}` : `/lp/${p.slug}`}
+                      count={p.count}
+                      max={maxPage}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Which flow produced the booking */}
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  By Flow
+                </h4>
+                <div className="divide-y divide-border">
+                  {bookings?.byOrigin.map(o => (
+                    <BarRow
+                      key={o.origin}
+                      label={BOOKING_ORIGIN_LABELS[o.origin] ?? o.origin}
+                      count={o.count}
+                      max={bookings.byOrigin[0]?.count ?? 1}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -724,7 +848,7 @@ export default function AnalyticsPage() {
   const { domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const [showTest, setShowTest] = useState(false);
-  const { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload } = useAnalytics(days, showTest);
+  const { overview, traffic, pages, cities, countries, ghostSubmits, bookings, loading, error, reload } = useAnalytics(days, showTest);
 
   const totalVisits = countries.reduce((s, r) => s + r.count, 0);
   const topCities = cities.slice(0, 20);
@@ -1019,7 +1143,7 @@ export default function AnalyticsPage() {
 
           {/* CONVERSIONS TAB */}
           <TabsContent value="conversions" className="space-y-6 mt-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard
                 label="Total Leads"
                 value={overview?.totalLeads ?? 0}
@@ -1038,6 +1162,13 @@ export default function AnalyticsPage() {
                 label="Pages with Leads"
                 value={pages.filter(p => p.leads > 0).length}
                 icon={FileText}
+                loading={loading}
+              />
+              <StatCard
+                label="Meetings Booked"
+                value={bookings?.totalBookings ?? 0}
+                trend={bookings?.bookingsTrend}
+                icon={CalendarCheck}
                 loading={loading}
               />
             </div>
@@ -1070,6 +1201,8 @@ export default function AnalyticsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            <BookingsCard bookings={bookings} loading={loading} micrositeDomain={micrositeDomain} />
           </TabsContent>
         </Tabs>
       </div>

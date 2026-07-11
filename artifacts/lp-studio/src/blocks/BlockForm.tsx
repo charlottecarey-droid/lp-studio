@@ -487,6 +487,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
     testId,
     variantId,
     sessionId: effectiveSessionId,
+    origin: "form",
   });
 
   useEffect(() => {

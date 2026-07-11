@@ -67,6 +67,10 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
       submittedRef.current = true;
       fields["Booking Source"] = "Chili Piper";
       fields["Chili Piper URL"] = url;
+      // Flow attribution for booking analytics (hidden underscore field —
+      // never surfaces as a lead column). This standalone button keeps its
+      // own listener, so it stamps independently of the shared hook.
+      fields["_bookingOrigin"] = "cta";
 
       if (pageId != null) {
         try {
@@ -88,6 +92,9 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
             sessionId: sessionId ?? `anon-${Date.now()}`,
             eventType: "conversion",
             conversionType: "chilipiper_booking",
+            // Page attribution on the event row (lp_events.page_id) — this
+            // whole branch is already gated on pageId != null.
+            pageId,
           };
           if (testId != null) trackBody.testId = testId;
           if (variantId != null) trackBody.variantId = variantId;

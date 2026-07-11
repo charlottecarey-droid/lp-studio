@@ -22,6 +22,7 @@ import {
   UserCheck,
   MousePointerClick,
   Target,
+  CalendarCheck,
   Percent,
   ScrollText,
   Eye,
@@ -115,6 +116,9 @@ interface SummaryResponse {
     conversionRate: Metric;
     avgScrollDepth: Metric;
     clicksPerSession: Metric;
+    /** Meetings booked via Chili Piper / Calendly scheduler embeds on this
+     *  page (counted from the "Booking Source" lead each embed writes). */
+    bookings: Metric;
   };
 }
 
@@ -1075,10 +1079,11 @@ export default function PageDetail() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
             <StatCard label="Visits" value={m?.visits.value ?? 0} trend={m?.visits.deltaPct} icon={Users} loading={isLoading} />
             <StatCard label="Unique visitors" value={m?.uniqueVisitors.value ?? 0} trend={m?.uniqueVisitors.deltaPct} icon={UserCheck} loading={isLoading} />
             <StatCard label="Leads" value={m?.leads.value ?? 0} trend={m?.leads.deltaPct} icon={Target} loading={isLoading} />
+            <StatCard label="Meetings" value={m?.bookings?.value ?? 0} trend={m?.bookings?.deltaPct} icon={CalendarCheck} loading={isLoading} />
             <StatCard label="CVR" value={m ? `${m.conversionRate.value.toFixed(1)}%` : "0%"} trend={m?.conversionRate.deltaPct} icon={Percent} loading={isLoading} />
             <StatCard label="Avg scroll" value={m ? `${Math.round(m.avgScrollDepth.value)}%` : "0%"} trend={m?.avgScrollDepth.deltaPct} icon={ScrollText} loading={isLoading} />
             <StatCard label="Clicks / session" value={m ? m.clicksPerSession.value.toFixed(1) : "0"} trend={m?.clicksPerSession.deltaPct} icon={MousePointerClick} loading={isLoading} />
