@@ -21,10 +21,23 @@
  *  - Inside a person/author card a job `title`/`role`/`name` is left untouched.
  *  - Fail-safe: any unexpected input is returned unchanged.
  *
+ * SHOUTING (July 2026): the model also emits ALL-CAPS runs ("50 YEARS OF
+ * INNOVATION in Dental Technology"), and the original pass treated every
+ * all-caps word as an acronym — so shouted headings sailed through untouched
+ * (or worse, only their Title-Cased tail got lowercased, shipping a mixed
+ * mess). Now a run of TWO OR MORE consecutive non-curated all-caps words is
+ * classified as shouting and sentence-cased like ordinary copy. An ISOLATED
+ * non-curated all-caps word (CEREC, NADL) still reads as an unknown acronym
+ * and is preserved — the adjacency rule is what separates "…OF INNOVATION…"
+ * from "Precision CEREC Workflows". Curated acronyms never count toward a
+ * shouted run, so "Boost AI ROI Today" keeps both.
+ *
  * Known, accepted limitation: a multi-word proper noun that is NOT in the
  * provided allowlist (e.g. a third-party "Cleveland Clinic" mentioned in a
  * heading) will be lowercased like any other Title-Cased phrase. The brand's
- * own names + the account name are protected; arbitrary external names are not.
+ * own names + the account name are protected; arbitrary external names are
+ * not — same for a multi-word all-caps name ("MAYO CLINIC"), which the
+ * shouting rule will sentence-case unless it's in the allowlist.
  */
 
 /** Curated acronyms that are NEVER ordinary English words, so forcing their
@@ -130,9 +143,37 @@ function countWords(s: string): number {
   return (s.match(/\p{L}[\p{L}\p{N}'’-]*/gu) ?? []).length;
 }
 
-/** True when the (already-masked) string looks Title-Cased: most eligible
- *  non-first content words start with a capital. */
-function looksTitleCased(masked: string): boolean {
+/** All-caps word that could be an acronym (letters/digits, ≥2 chars, at least
+ *  one capital — excludes pure numbers like "50"). */
+const ALL_CAPS_WORD = /^[\p{Lu}\p{N}&]{2,}$/u;
+
+/** Detect SHOUTED words: two or more consecutive non-curated all-caps words
+ *  ("50 YEARS OF INNOVATION") are emphasis, not acronyms, and get sentence-
+ *  cased. Isolated all-caps words (CEREC) stay preserved as unknown acronyms;
+ *  curated acronyms (AI, ROI) never join a run, so "Boost AI ROI Today" keeps
+ *  both. Scans hyphen-free segments so "AI-POWERED DENTISTRY" shouts too;
+ *  pure numbers are transparent ("SAVE 50 HOURS" is one run). Returns the
+ *  shouted words' exact text — convertWord/looksTitleCased match on it. */
+function findShoutedWords(masked: string): Set<string> {
+  const segments = masked.match(/[\p{L}\p{N}&]+/gu) ?? [];
+  const letterWords = segments.filter((w) => !/^\p{N}+$/u.test(w));
+  const isCandidate = (w: string) =>
+    ALL_CAPS_WORD.test(w) && /\p{Lu}/u.test(w) && !ACRONYM_CANONICAL[w.toLowerCase()];
+  const shouted = new Set<string>();
+  for (let i = 0; i < letterWords.length; i++) {
+    if (!isCandidate(letterWords[i])) continue;
+    const prev = i > 0 && isCandidate(letterWords[i - 1]);
+    const next = i < letterWords.length - 1 && isCandidate(letterWords[i + 1]);
+    if (prev || next) shouted.add(letterWords[i]);
+  }
+  return shouted;
+}
+
+/** True when the (already-masked) string looks Title-Cased OR shouted: most
+ *  eligible non-first content words start with a capital. Shouted words count
+ *  as capitalized evidence (they're emphatic capitals, not acronyms), so a
+ *  fully ALL-CAPS heading is detected and rewritten. */
+function looksTitleCased(masked: string, shouted: ReadonlySet<string>): boolean {
   const words = masked.match(/\p{L}[\p{L}\p{N}'’-]*|\p{N}[\p{L}\p{N}'’-]*/gu) ?? [];
   if (words.length < 2) return false;
   let eligible = 0;
@@ -141,7 +182,13 @@ function looksTitleCased(masked: string): boolean {
     if (i === 0) continue; // first word is capitalized in both cases
     const w = words[i];
     const lw = w.toLowerCase();
-    if (/^[\p{Lu}\p{N}&]{2,}$/u.test(w)) continue; // acronym
+    if (/^[\p{Lu}\p{N}&]{2,}$/u.test(w)) {
+      if (shouted.has(w)) {
+        eligible++;
+        capitalized++;
+      }
+      continue; // real acronym — neutral evidence
+    }
     if (/^\p{N}/u.test(w)) continue; // number / masked placeholder id
     if (/\p{Lu}/u.test(w.slice(1))) continue; // mixed/internal caps
     const isCap = /^\p{Lu}/u.test(w);
@@ -162,13 +209,14 @@ function looksTitleCased(masked: string): boolean {
   return capitalized / eligible >= 0.6;
 }
 
-/** Lowercase a single Title-Cased word, preserving acronyms, mixed-case tokens,
- *  numbers, and (at a sentence start) the leading capital. */
-function convertWord(word: string, sentenceStart: boolean): string {
+/** Lowercase a single Title-Cased or SHOUTED word, preserving real acronyms,
+ *  mixed-case tokens, numbers, and (at a sentence start) the leading capital. */
+function convertWord(word: string, sentenceStart: boolean, shouted: ReadonlySet<string>): string {
   if (!word) return word;
-  if (/^[\p{Lu}\p{N}&]{2,}$/u.test(word)) return word; // DSO, AI, HIPAA
+  const isAllCaps = /^[\p{Lu}\p{N}&]{2,}$/u.test(word);
+  if (isAllCaps && !shouted.has(word)) return word; // DSO, AI, HIPAA, lone CEREC
   if (word === "I") return word;
-  if (/\p{Lu}/u.test(word.slice(1))) return word; // iOS, McKesson, SaaS
+  if (!isAllCaps && /\p{Lu}/u.test(word.slice(1))) return word; // iOS, McKesson, SaaS
   if (/^\p{N}/u.test(word)) return word; // 3D, 24/7, numbers
   const lower = word.toLowerCase();
   if (ACRONYM_CANONICAL[lower]) return ACRONYM_CANONICAL[lower]; // Roi -> ROI
@@ -178,7 +226,7 @@ function convertWord(word: string, sentenceStart: boolean): string {
 
 /** Convert one whitespace-delimited token, peeling leading/trailing punctuation
  *  and handling hyphenated compounds. Masked placeholders pass through intact. */
-function convertToken(token: string, sentenceStart: boolean): string {
+function convertToken(token: string, sentenceStart: boolean, shouted: ReadonlySet<string>): string {
   if (token.includes(MASK_OPEN)) return token;
   const m = token.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}].*?)?([^\p{L}\p{N}]*)$/u);
   if (!m || !m[2]) return token;
@@ -188,11 +236,11 @@ function convertToken(token: string, sentenceStart: boolean): string {
   if (core.includes("-")) {
     const segs = core
       .split("-")
-      .map((seg, i) => (seg ? convertWord(seg, sentenceStart && i === 0) : seg))
+      .map((seg, i) => (seg ? convertWord(seg, sentenceStart && i === 0, shouted) : seg))
       .join("-");
     return lead + segs + trail;
   }
-  return lead + convertWord(core, sentenceStart) + trail;
+  return lead + convertWord(core, sentenceStart, shouted) + trail;
 }
 
 /** Normalize a single heading string to sentence case, or return it unchanged
@@ -201,7 +249,8 @@ function normalizeHeadingString(input: string, phrases: ProtectedPhrase[]): stri
   if (!input || input.length > 200) return input; // paragraph guard
   if (countWords(input) > 18) return input;
   const { masked, restores } = maskPhrases(input, phrases);
-  if (!looksTitleCased(masked)) return input;
+  const shouted = findShoutedWords(masked);
+  if (!looksTitleCased(masked, shouted)) return input;
 
   const parts = masked.split(/(\s+)/);
   let sentenceStart = true;
@@ -211,7 +260,7 @@ function normalizeHeadingString(input: string, phrases: ProtectedPhrase[]): stri
       out.push(part);
       continue;
     }
-    out.push(convertToken(part, sentenceStart));
+    out.push(convertToken(part, sentenceStart, shouted));
     // A trailing .!?: (optionally followed by a closing quote/bracket) starts a
     // new sentence for the next token.
     sentenceStart = /[.!?:]["'’”)\]]*$/.test(part);

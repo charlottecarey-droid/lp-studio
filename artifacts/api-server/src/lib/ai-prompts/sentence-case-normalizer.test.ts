@@ -60,6 +60,51 @@ describe("sentenceCaseHeading", () => {
   });
 });
 
+describe("sentenceCaseHeading — SHOUTED (all-caps) copy", () => {
+  it("sentence-cases a mixed shouted+Title-Cased heading (the July 2026 field report)", () => {
+    expect(sentenceCaseHeading("50 YEARS OF INNOVATION in Dental Technology")).toBe(
+      "50 years of innovation in dental technology",
+    );
+  });
+
+  it("sentence-cases a fully ALL-CAPS heading", () => {
+    expect(sentenceCaseHeading("TRUSTED BY LEADING DENTAL PRACTICES")).toBe(
+      "Trusted by leading dental practices",
+    );
+  });
+
+  it("keeps curated acronyms out of shouted runs", () => {
+    expect(sentenceCaseHeading("MAXIMIZE YOUR ROI THIS YEAR")).toBe(
+      "Maximize your ROI this year",
+    );
+    // Adjacent curated acronyms never shout each other.
+    expect(sentenceCaseHeading("Boost AI ROI Today")).toBe("Boost AI ROI today");
+  });
+
+  it("preserves an ISOLATED unknown all-caps word as an acronym", () => {
+    const s = "Precision CEREC Workflows";
+    expect(sentenceCaseHeading(s)).toBe("Precision CEREC workflows");
+  });
+
+  it("numbers are transparent inside a shouted run", () => {
+    expect(sentenceCaseHeading("SAVE 50 HOURS EVERY MONTH")).toBe(
+      "Save 50 hours every month",
+    );
+  });
+
+  it("shouted hyphenated compounds sentence-case per segment, keeping curated acronyms", () => {
+    expect(sentenceCaseHeading("AI-POWERED DENTISTRY Made Simple")).toBe(
+      "AI-powered dentistry made simple",
+    );
+  });
+
+  it("a protected proper noun in caps survives a shouted heading", () => {
+    expect(sentenceCaseHeading("WHY TEAMS CHOOSE DANDY LAB", ["Dandy Lab"])).toBe(
+      "Why teams choose Dandy Lab",
+    );
+  });
+});
+
 describe("normalizeHeadingsToSentenceCase", () => {
   it("only rewrites heading-like fields, never body/url/color/name", () => {
     const blocks = [
