@@ -1,6 +1,6 @@
 /**
  * pageCtaApply — the render-time Page CTA transform, made block-TYPE aware
- * (July 2026 coverage fix, phase 2).
+ * (July 2026 coverage fix, phase 2) and CAPABILITY aware (phase 3).
  *
  * ctaConfig's shim is presence-based: it writes only keys the props INSTANCE
  * already declares. That's the right no-pollution rule for arbitrary props,
@@ -17,6 +17,20 @@
  * per-block buttons remain an explicit editor action. Unknown types (custom
  * schema blocks, retired types) degrade to the pure presence-based behavior.
  *
+ * CAPABILITY RULES (July 2026 field bug): a chilipiper Page CTA wrote its
+ * scheduler URL only to `chilipiperUrl`-style keys — but the dso block family
+ * declares none; their renderers take the scheduler URL in `ctaUrl`
+ * (ChiliPiperButton url={ctaUrl}) — so every followed button kept an EMPTY
+ * destination and clicked into nothing. Two rules fix the class:
+ *   1. Fallback: a chilipiper Page CTA applied to a block with a url key but
+ *      no chilipiper-capable key writes the scheduler URL into the url key
+ *      (and forces the action key to "chilipiper" so modal-chilipiper
+ *      degrades to the modal the renderer actually implements).
+ *   2. Gate: a Page CTA action the block CANNOT render (modal-form without
+ *      modal keys, video-modal without a video key, url without a url key)
+ *      is not applied at all — the block keeps its own working button.
+ *      A broken injected button is strictly worse than no injection.
+ *
  * ctaConfig.ts stays a leaf module (no registry import) — the registry pulls
  * in every block thumbnail, which panels/tests that only need the shim
  * shouldn't pay for.
@@ -25,6 +39,10 @@ import { getBlockDef } from "@/lib/block-types";
 import {
   applyPageCtaToBlockProps,
   PRIMARY_CTA_KEYS,
+  CTA_ACTION_KEYS,
+  CTA_URL_KEYS,
+  CTA_CHILIPIPER_KEYS,
+  CTA_VIDEO_URL_KEYS,
   type CtaConfig,
 } from "./ctaConfig";
 
@@ -54,12 +72,20 @@ export function primaryCtaKeysForType(blockType: string): readonly string[] {
   return keys;
 }
 
+/** Modal-chilipiper capable keys (subset of CTA_MODAL_KEYS the renderers key
+ *  off). Kept local — only the capability check needs them. */
+const MODAL_CHILIPIPER_KEYS: readonly string[] = ["modalChilipiperUrl", "modalChiliPiperHandoffUrl"];
+/** Modal-form capable keys. */
+const MODAL_FORM_KEYS: readonly string[] = ["modalFormId", "modalFormSource"];
+
 /**
  * Apply the Page CTA to a block's props, targeting both instance-declared AND
- * type-declared primary CTA keys. Returns a NEW props object. Render-only —
- * exactly like applyPageCtaToBlockProps, callers must restore via
- * restorePrimaryCtaProps before persisting (restore already strips every
- * PRIMARY_CTA_KEYS member, including any key this augmentation introduced).
+ * type-declared primary CTA keys, with the capability gate + chilipiper-in-url
+ * fallback described in the header. Returns a NEW props object (or `base`
+ * itself when gated). Render-only — exactly like applyPageCtaToBlockProps,
+ * callers must restore via restorePrimaryCtaProps before persisting (restore
+ * already strips every PRIMARY_CTA_KEYS member, including any key this
+ * augmentation introduced).
  */
 export function applyPageCtaToBlock(
   blockType: string,
@@ -68,19 +94,60 @@ export function applyPageCtaToBlock(
 ): Props {
   const base = (props && typeof props === "object" ? props : {}) as Props;
   const typeKeys = primaryCtaKeysForType(blockType);
-  if (typeKeys.length === 0) return applyPageCtaToBlockProps(blockType, base, pageCta);
+  const declared = (k: string): boolean => has(base, k) || typeKeys.includes(k);
+  const anyDeclared = (keys: readonly string[]): boolean => keys.some(declared);
 
-  // Placeholders make type-declared keys visible to the shim's presence rule;
-  // instance values win where both exist.
-  const augmented: Props = {};
-  for (const k of typeKeys) augmented[k] = undefined;
-  Object.assign(augmented, base);
-
-  const written = applyPageCtaToBlockProps(blockType, augmented, pageCta);
-  // Drop placeholders nothing was written to, so the result carries no keys
-  // the instance didn't have and the Page CTA didn't set.
-  for (const k of typeKeys) {
-    if (written[k] === undefined && !has(base, k)) delete written[k];
+  // Capability gate — never inject an action this block can't render.
+  const action = pageCta?.action ?? "url";
+  const chilipiperCapable =
+    anyDeclared(CTA_CHILIPIPER_KEYS) || anyDeclared(MODAL_CHILIPIPER_KEYS);
+  if (action === "modal-form" && !anyDeclared(MODAL_FORM_KEYS)) return base;
+  if (action === "video-modal" && !anyDeclared(CTA_VIDEO_URL_KEYS)) return base;
+  if (
+    (action === "chilipiper" || action === "modal-chilipiper") &&
+    !chilipiperCapable &&
+    !anyDeclared(CTA_URL_KEYS)
+  ) {
+    return base;
   }
+  if (action === "url" && !anyDeclared(CTA_URL_KEYS)) return base;
+
+  let written: Props;
+  if (typeKeys.length === 0) {
+    written = applyPageCtaToBlockProps(blockType, base, pageCta);
+  } else {
+    // Placeholders make type-declared keys visible to the shim's presence
+    // rule; instance values win where both exist.
+    const augmented: Props = {};
+    for (const k of typeKeys) augmented[k] = undefined;
+    Object.assign(augmented, base);
+
+    written = applyPageCtaToBlockProps(blockType, augmented, pageCta);
+    // Drop placeholders nothing was written to, so the result carries no keys
+    // the instance didn't have and the Page CTA didn't set.
+    for (const k of typeKeys) {
+      if (written[k] === undefined && !has(base, k)) delete written[k];
+    }
+  }
+
+  // Chilipiper-in-url fallback: the shim wrote the scheduler URL to a
+  // chilipiper key this block doesn't have (and the empty cfg.url into its
+  // url key). Route the scheduler URL into the declared url key(s) and force
+  // the action to plain "chilipiper" so ChiliPiperButton-style renderers
+  // (which read ctaMode + ctaUrl) open the scheduler.
+  const chili = (pageCta?.chilipiper ?? "").trim();
+  if (
+    (action === "chilipiper" || action === "modal-chilipiper") &&
+    chili !== "" &&
+    !chilipiperCapable
+  ) {
+    for (const k of CTA_URL_KEYS) {
+      if (declared(k)) written[k] = chili;
+    }
+    for (const k of CTA_ACTION_KEYS) {
+      if (declared(k)) written[k] = "chilipiper";
+    }
+  }
+
   return written;
 }

@@ -41,7 +41,7 @@ afterEach(() => {
 describe("BlockDsoSplitFeature video", () => {
   it("renders image + play button for a Wistia media link, swaps to autoplay iframe on click", () => {
     const { container, getByLabelText } = render(
-      <BlockDsoSplitFeature props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", videoUrl: VIDEO })} brand={BRAND} />,
+      <BlockDsoSplitFeature props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", wistiaUrl: VIDEO })} brand={BRAND} />,
     );
     expect(container.querySelector("img")?.getAttribute("src")).toContain("thumb.jpg");
     expect(container.querySelector("iframe")).toBeNull();
@@ -55,7 +55,7 @@ describe("BlockDsoSplitFeature video", () => {
   it("opens the modal instead when videoPlayMode is modal, and closes it", () => {
     const { container, getByLabelText } = render(
       <BlockDsoSplitFeature
-        props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", videoUrl: VIDEO, videoPlayMode: "modal" })}
+        props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", wistiaUrl: VIDEO, videoPlayMode: "modal" })}
         brand={BRAND}
       />,
     );
@@ -71,7 +71,7 @@ describe("BlockDsoSplitFeature video", () => {
 
   it("embeds the player directly (no autoplay) when a video is set without an image", () => {
     const { container } = render(
-      <BlockDsoSplitFeature props={props({ imageUrl: undefined, videoUrl: VIDEO })} brand={BRAND} />,
+      <BlockDsoSplitFeature props={props({ imageUrl: undefined, wistiaUrl: VIDEO })} brand={BRAND} />,
     );
     const iframe = container.querySelector("iframe");
     expect(iframe?.getAttribute("src")).toContain(IFRAME_SRC);
@@ -94,7 +94,7 @@ describe("BlockDsoSplitFeature video", () => {
     })));
     const { container } = render(
       <BlockDsoSplitFeature
-        props={props({ imageUrl: undefined, videoUrl: "https://dandy.wistia.com/s/r0zpnamhjfarc6a" })}
+        props={props({ imageUrl: undefined, wistiaUrl: "https://dandy.wistia.com/s/r0zpnamhjfarc6a" })}
         brand={BRAND}
       />,
     );
@@ -106,10 +106,24 @@ describe("BlockDsoSplitFeature video", () => {
     expect(vi.mocked(fetch).mock.calls[0]![0]).toContain("fast.wistia.com/oembed");
   });
 
+  it("legacy pages that saved the video under videoUrl still play (render fallback)", () => {
+    // videoUrl doubles as a primary-CTA alias, hence the wistiaUrl rename —
+    // but pages saved before the rename must keep playing until the panel
+    // migrates them on the next edit.
+    const { container, getByLabelText } = render(
+      <BlockDsoSplitFeature
+        props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", videoUrl: VIDEO })}
+        brand={BRAND}
+      />,
+    );
+    fireEvent.click(getByLabelText("Play video"));
+    expect(container.querySelector("iframe")?.getAttribute("src")).toContain(IFRAME_SRC);
+  });
+
   it("falls back to the plain image when the video URL isn't a Wistia link", () => {
     const { container, queryByLabelText } = render(
       <BlockDsoSplitFeature
-        props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", videoUrl: "https://youtube.com/watch?v=nope" })}
+        props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", wistiaUrl: "https://youtube.com/watch?v=nope" })}
         brand={BRAND}
       />,
     );

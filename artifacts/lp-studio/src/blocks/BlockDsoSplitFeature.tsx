@@ -33,26 +33,30 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
     ctaUrl,
     ctaMode = "link",
     imageUrl,
-    videoUrl,
     videoPlayMode = "inline",
     imagePosition = "right",
     backgroundStyle = "white",
   } = props;
 
-  const directId = videoUrl ? extractWistiaId(videoUrl) : null;
+  // wistiaUrl is the canonical prop; legacy pages saved the video under
+  // `videoUrl`, which doubles as a primary-CTA alias and gets clobbered by an
+  // active Page CTA — hence the rename. Fallback keeps legacy pages playing
+  // (whenever no Page CTA interferes) until the panel migrates them.
+  const videoSource = props.wistiaUrl || props.videoUrl || "";
+  const directId = videoSource ? extractWistiaId(videoSource) : null;
   // wistia.com/s/<token> share links carry a token, not the media id — the
   // panel normalises them on paste, but pages saved with a raw share link
   // (or generator output) still resolve here at render time via oEmbed.
   const [resolvedId, setResolvedId] = useState<string | null>(null);
   useEffect(() => {
     setResolvedId(null);
-    if (!videoUrl || directId || !isWistiaShareLink(videoUrl)) return;
+    if (!videoSource || directId || !isWistiaShareLink(videoSource)) return;
     let cancelled = false;
-    void resolveWistiaShareLink(videoUrl).then((id) => {
+    void resolveWistiaShareLink(videoSource).then((id) => {
       if (!cancelled && id) setResolvedId(id);
     });
     return () => { cancelled = true; };
-  }, [videoUrl, directId]);
+  }, [videoSource, directId]);
   const wistiaId = directId ?? resolvedId;
   // Inline playback: the thumbnail swaps to the autoplaying player in place.
   const [playing, setPlaying] = useState(false);

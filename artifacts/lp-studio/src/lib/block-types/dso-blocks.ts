@@ -765,7 +765,15 @@ export interface DsoSplitFeatureBlockProps {
   /** Any Wistia link (share, media page, embed URL, or bare hashed id).
    *  When set, the image column becomes a video: imageUrl serves as the
    *  thumbnail with a play button (falls back to the Wistia player's own
-   *  poster when no image is set). */
+   *  poster when no image is set).
+   *
+   *  Named `wistiaUrl` DELIBERATELY: `videoUrl` is a primary-CTA alias
+   *  (CTA_VIDEO_URL_KEYS), so the Page CTA render transform overwrote it on
+   *  follower blocks and killed the video whenever a Page CTA was active. */
+  wistiaUrl?: string;
+  /** @deprecated Legacy home of `wistiaUrl` (July 2026). Read as a render
+   *  fallback only; the panel migrates it on the next edit. Collides with
+   *  the Page CTA transform — see wistiaUrl. */
   videoUrl?: string;
   /** How the video plays when the thumbnail is clicked: swapped in place
    *  ("inline", default) or in a full-screen overlay ("modal"). */

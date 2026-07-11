@@ -6350,8 +6350,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             )}
             <ImagePicker label="Image" value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v || undefined } })} />
-            <WistiaUrlField value={p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, videoUrl: v } })} />
-            {p.videoUrl && (
+            {/* Writes wistiaUrl and clears the legacy videoUrl on every edit —
+                videoUrl doubles as a primary-CTA alias, so a Page CTA clobbers
+                any video stored there (self-migrating rename, July 2026). */}
+            <WistiaUrlField value={p.wistiaUrl ?? p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, wistiaUrl: v, videoUrl: undefined } })} />
+            {(p.wistiaUrl || p.videoUrl) && (
               <div className="space-y-1.5"><Label className="text-xs">Video Playback</Label><Select value={p.videoPlayMode ?? "inline"} onValueChange={v => onChange({ ...block, props: { ...p, videoPlayMode: v as "inline" | "modal" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="inline" className="text-xs">Play in place</SelectItem><SelectItem value="modal" className="text-xs">Open in modal</SelectItem></SelectContent></Select></div>
             )}
             <div className="grid grid-cols-2 gap-2">

@@ -65,3 +65,81 @@ describe("applyPageCtaToBlock — type fallback", () => {
     expect(restored).toEqual(original);
   });
 });
+
+describe("applyPageCtaToBlock — capability rules (July 2026 field bug)", () => {
+  // The Page CTA editor stores the unused url slot as "" — that empty string
+  // is exactly what used to clobber ctaUrl on chilipiper-in-url blocks.
+  const CHILI_PAGE_CTA: CtaConfig = {
+    label: "Book a demo",
+    action: "chilipiper",
+    chilipiper: "https://acme.chilipiper.com/round-robin/demo",
+    url: "",
+  };
+
+  it("routes a chilipiper Page CTA into ctaUrl for blocks without a chilipiper key", () => {
+    // dso-split-feature's renderer opens ChiliPiperButton with url={ctaUrl};
+    // it declares no chilipiperUrl key. The old behavior wrote "" into ctaUrl
+    // and the scheduler URL into a key the block doesn't have → dead button.
+    const out = applyPageCtaToBlock(
+      "dso-split-feature",
+      { ctaText: "", ctaUrl: "https://old.example.com", ctaMode: "link" },
+      CHILI_PAGE_CTA,
+    );
+    expect(out.ctaText).toBe("Book a demo");
+    expect(out.ctaUrl).toBe("https://acme.chilipiper.com/round-robin/demo");
+    expect(out.ctaMode).toBe("chilipiper");
+  });
+
+  it("modal-chilipiper degrades to plain chilipiper on the same targets", () => {
+    const out = applyPageCtaToBlock(
+      "dso-split-feature",
+      { ctaText: "x", ctaUrl: "", ctaMode: "link" },
+      { ...CHILI_PAGE_CTA, action: "modal-chilipiper" },
+    );
+    expect(out.ctaUrl).toBe("https://acme.chilipiper.com/round-robin/demo");
+    expect(out.ctaMode).toBe("chilipiper");
+  });
+
+  it("still writes the dedicated chilipiper key when the block declares one", () => {
+    const out = applyPageCtaToBlock(
+      "custom-schema",
+      { ctaText: "x", ctaUrl: "https://own", chilipiperUrl: "" },
+      CHILI_PAGE_CTA,
+    );
+    expect(out.chilipiperUrl).toBe("https://acme.chilipiper.com/round-robin/demo");
+  });
+
+  it("never touches wistiaUrl — it is not a CTA alias", () => {
+    const out = applyPageCtaToBlock(
+      "dso-split-feature",
+      { ctaText: "", ctaUrl: "", wistiaUrl: "https://fast.wistia.net/embed/iframe/abc12345" },
+      CHILI_PAGE_CTA,
+    );
+    expect(out.wistiaUrl).toBe("https://fast.wistia.net/embed/iframe/abc12345");
+  });
+
+  it("gates modal-form off blocks without modal keys — the block keeps its own button", () => {
+    const base = { ctaText: "Own", ctaUrl: "https://own", ctaMode: "link" };
+    const out = applyPageCtaToBlock("dso-split-feature", base, {
+      label: "Page",
+      action: "modal-form",
+      modalFormId: 5,
+    } as CtaConfig);
+    expect(out).toBe(base);
+  });
+
+  it("gates video-modal off blocks without a video CTA key", () => {
+    const base = { ctaText: "Own", ctaUrl: "https://own" };
+    const out = applyPageCtaToBlock("dso-split-feature", base, {
+      label: "Page",
+      action: "video-modal",
+      videoUrl: "https://youtu.be/x",
+    });
+    expect(out).toBe(base);
+  });
+
+  it("gates a url Page CTA off label-only blocks", () => {
+    const base = { ctaText: "Own" };
+    expect(applyPageCtaToBlock("custom-schema", base, PAGE_CTA)).toBe(base);
+  });
+});
