@@ -122,7 +122,7 @@ import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-
 // plus a deterministic sentence-case normalizer that fixes Title Case for sure.
 import { findBannedPhrases, applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks } from "../../lib/ai-prompts/critique-pass";
-import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-case-normalizer";
+import { normalizeHeadingsToSentenceCase, collectAuthoredStrings } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import type { PageRecipe, RecipePromptPath } from "../../lib/ai-prompts/page-recipes";
 import { RECIPE_FREESTYLE_OVERRIDE_CLAUSE } from "../../lib/ai-prompts/page-recipes";
@@ -1208,23 +1208,8 @@ export function mergeAuthored(base: unknown, ai: unknown): unknown {
   return base;
 }
 
-// Collect every string value nested anywhere in an authored template's props.
-// The sentence-case normalizer treats these as protected: a heading that still
-// exactly equals its authored value (restored by mergeAuthored, or authored-only
-// because the AI omitted the block) has human-chosen casing, not model output.
-function collectAuthoredStrings(node: unknown, into: Set<string>): void {
-  if (typeof node === "string") {
-    if (node.trim().length > 0) into.add(node);
-    return;
-  }
-  if (Array.isArray(node)) {
-    for (const item of node) collectAuthoredStrings(item, into);
-    return;
-  }
-  if (node && typeof node === "object") {
-    for (const v of Object.values(node as Record<string, unknown>)) collectAuthoredStrings(v, into);
-  }
-}
+// collectAuthoredStrings moved to the sentence-case-normalizer module (July
+// 2026) so the LP page generator shares the same authored-casing protection.
 
 // Replace {{company_name}} / {{practice_count}} everywhere (safety net for any
 // field the AI left as the authored placeholder), then collapse double spaces.

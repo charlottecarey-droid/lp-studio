@@ -62,14 +62,46 @@ const STOPWORDS = new Set([
 /** Heading-like field whose value should read as sentence case. */
 function isHeadingKey(key: string): boolean {
   const k = key.toLowerCase();
+  // Styling/config keys that merely CONTAIN a heading word carry enums, font
+  // names ("Playfair Display"), colors, or sizes — never copy. Reject before
+  // the suffix checks so broadened patterns can't reach them.
+  if (/(font|color|colour|size|scale|weight|align|width|layout|style)$/.test(k)) return false;
   // headline/heading/title/subtitle/tagline/eyebrow/kicker and prefixed
   // variants (subHeadline, sectionTitle, ctaHeadline, stepTitle, cardTitle…).
   if (/(headline|heading|title|subtitle|tagline|eyebrow|kicker)$/.test(k)) return true;
+  // subhead family (section-kit `subhead`, business-case `heroSubhead`,
+  // `costSubhead`…) and the blog hero's standfirst (`heroDeck`).
+  if (/(subhead|subheading|deck)$/.test(k)) return true;
+  // Multi-line hero headlines (`heroHeadlineLine1`…) and the emphasized /
+  // accent fragment of a headline (`calendarHeadlineEmphasis`,
+  // `heroHeadlineAccent`) — copy split across keys is still copy.
+  if (/headline(line\d+|emphasis|accent)$/.test(k)) return true;
   // FAQ question, stat / feature label.
   if (k === "question" || k === "label") return true;
   // Visible button / CTA / link text (never the URL — url/href keys never match).
   if (/(label|text)$/.test(k) && /(cta|button|link|step|tab|card)/.test(k)) return true;
   return false;
+}
+
+/**
+ * Collect every string value nested anywhere in an authored template's props.
+ * Callers pass the result as `preserveValues`: a heading that still exactly
+ * equals its authored value (restored by a merge backstop, or authored-only
+ * because the AI omitted it) has human-chosen casing, not model output.
+ * Shared by the microsite + page generators.
+ */
+export function collectAuthoredStrings(node: unknown, into: Set<string>): void {
+  if (typeof node === "string") {
+    if (node.trim().length > 0) into.add(node);
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) collectAuthoredStrings(item, into);
+    return;
+  }
+  if (node && typeof node === "object") {
+    for (const v of Object.values(node as Record<string, unknown>)) collectAuthoredStrings(v, into);
+  }
 }
 
 /** Keys whose presence marks an object as a person / author card. */

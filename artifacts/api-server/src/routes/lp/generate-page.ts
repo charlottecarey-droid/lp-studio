@@ -24,6 +24,7 @@ import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
+import { normalizeHeadingsToSentenceCase, collectAuthoredStrings } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import {
   pickRecipe,
@@ -9466,6 +9467,34 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       // ship two stacked navbars. The freeform path does the same.
       stripRedundantLeadingNav(mergedBlocks as Array<{ type?: unknown }>);
 
+      // Deterministic sentence-case normalizer — the LAST copy mutation, so no
+      // earlier pass can re-introduce Title Case (mirrors the microsite path;
+      // this generator historically never ran it, which is how Title-Cased
+      // headings shipped on generated pages). Authored template strings keep
+      // their human-chosen casing.
+      try {
+        const authoredTemplateStrings = new Set<string>();
+        for (const tb of tplBlocks) {
+          collectAuthoredStrings((tb as Record<string, unknown>).props, authoredTemplateStrings);
+        }
+        const { changed } = normalizeHeadingsToSentenceCase(mergedBlocks as unknown[], {
+          properNouns: [
+            resolvedBrandName,
+            brand.brandName as string | undefined,
+            ...((brand.productLines ?? []).map((p) => p?.name)),
+          ],
+          preserveValues: authoredTemplateStrings,
+        });
+        if (changed > 0) {
+          logger.info(
+            { event: "ai_sentence_case_normalized", tenantId, changed, path: "template" },
+            "[generate-page] sentence-case normalizer fixed Title Case headings",
+          );
+        }
+      } catch (caseErr) {
+        logger.warn({ err: caseErr, tenantId }, "[generate-page] sentence-case normalizer skipped");
+      }
+
       emitter.stage("polish", "done", "Critiquing & polishing copy");
       emitter.blocksSnapshot(mergedBlocks, "polish");
       emitter.stage("finalize", "start", "Finalizing the page");
@@ -11450,6 +11479,30 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       if (block?.type !== "dso-heartland-hero") continue;
       const bp = block.props;
       if (bp && typeof bp === "object") (bp as Record<string, unknown>).companyName = "";
+    }
+
+    // Deterministic sentence-case normalizer — the LAST copy mutation, so no
+    // earlier pass (critique, governance restore) can re-introduce Title Case.
+    // Mirrors the microsite path; the freeform LP generator historically never
+    // ran it. Pure model output — nothing authored to preserve here (curated
+    // injected blocks are code-authored in sentence case, which the detector
+    // leaves untouched by construction).
+    try {
+      const { changed } = normalizeHeadingsToSentenceCase(parsed.blocks as unknown[], {
+        properNouns: [
+          resolvedBrandName,
+          brand.brandName as string | undefined,
+          ...((brand.productLines ?? []).map((p) => p?.name)),
+        ],
+      });
+      if (changed > 0) {
+        logger.info(
+          { event: "ai_sentence_case_normalized", tenantId, changed, path: "freeform" },
+          "[generate-page] sentence-case normalizer fixed Title Case headings",
+        );
+      }
+    } catch (caseErr) {
+      logger.warn({ err: caseErr, tenantId }, "[generate-page] sentence-case normalizer skipped");
     }
 
     emitter.stage("polish", "done", "Critiquing & polishing copy");

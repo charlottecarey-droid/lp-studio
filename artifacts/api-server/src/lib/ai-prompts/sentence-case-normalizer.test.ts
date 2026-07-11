@@ -105,6 +105,47 @@ describe("sentenceCaseHeading — SHOUTED (all-caps) copy", () => {
   });
 });
 
+describe("normalizeHeadingsToSentenceCase — key coverage (July 2026 gaps)", () => {
+  it("covers subhead / heroSubhead / heroDeck / headline-line + emphasis fragments", () => {
+    const blocks = [{
+      type: "x",
+      props: {
+        subhead: "Faster Turnaround For Your Practice",
+        heroSubhead: "Built For Modern Labs",
+        heroDeck: "The Future Of Denture Workflows",
+        heroHeadlineLine1: "Precision You Can",
+        heroHeadlineLine2: "Actually Trust",
+        calendarHeadlineEmphasis: "Every Single Week",
+      },
+    }];
+    normalizeHeadingsToSentenceCase(blocks);
+    const p = blocks[0].props;
+    expect(p.subhead).toBe("Faster turnaround for your practice");
+    expect(p.heroSubhead).toBe("Built for modern labs");
+    expect(p.heroDeck).toBe("The future of denture workflows");
+    expect(p.heroHeadlineLine1).toBe("Precision you can");
+    expect(p.heroHeadlineLine2).toBe("Actually trust");
+    expect(p.calendarHeadlineEmphasis).toBe("Every single week");
+  });
+
+  it("never touches styling/config keys that merely contain a heading word", () => {
+    const blocks = [{
+      type: "x",
+      props: {
+        headlineFont: "Playfair Display",
+        headlineColor: "Dark Slate Blue",
+        headingScale: "Extra Large",
+        headlineWeight: "Semi Bold",
+        headlineAlign: "Center Right",
+        headerLayout: "Split Stacked",
+      },
+    }];
+    const before = JSON.stringify(blocks);
+    normalizeHeadingsToSentenceCase(blocks);
+    expect(JSON.stringify(blocks)).toBe(before);
+  });
+});
+
 describe("normalizeHeadingsToSentenceCase", () => {
   it("only rewrites heading-like fields, never body/url/color/name", () => {
     const blocks = [
