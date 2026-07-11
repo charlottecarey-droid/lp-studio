@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus, ArrowLeft,
-  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye, Monitor, Tablet, Smartphone,
+  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye, Monitor, Tablet, Smartphone, Copy,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -1262,6 +1262,18 @@ export default function BuilderEditor() {
       return next;
     });
   }, []);
+  // The stacks live in refs (non-reactive); mirror their sizes into state so
+  // the top-bar Undo/Redo buttons' disabled states track them. Every mutation,
+  // undo, and redo produces a new `blocks` identity, so keying on it reads the
+  // refs exactly once per committed change.
+  const [historyCounts, setHistoryCounts] = useState({ past: 0, future: 0 });
+  useEffect(() => {
+    setHistoryCounts((prev) => {
+      const past = historyPastRef.current.length;
+      const future = historyFutureRef.current.length;
+      return prev.past === past && prev.future === future ? prev : { past, future };
+    });
+  }, [blocks]);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   // Mobile "Best on desktop" notice — dismissable, remembered across visits.
   const [desktopNoticeDismissed, setDesktopNoticeDismissed] = useState<boolean>(() => {
@@ -3064,6 +3076,10 @@ export default function BuilderEditor() {
         liveUrl={getLpPageUrl(slug, micrositeDomain, tenantHost)}
         previewUrl={getLpPreviewUrl(slug, micrositeDomain)}
         onSave={handleSave}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={historyCounts.past > 0}
+        canRedo={historyCounts.future > 0}
         onSaveAsTemplate={() => { setTemplateLabel(templateLabel || title); setShowTemplateDialog(true); }}
         onOpenAbTest={() => setAbTestModalOpen(true)}
         onOpenAdCopy={Number.isFinite(pageIdNum) ? () => setAdCopyDialogOpen(true) : undefined}
@@ -3696,6 +3712,7 @@ export default function BuilderEditor() {
                           isSelected={selectedBlockId === block.id}
                           onSelect={() => { setSelectedBlockId(block.id); if (isMobile) { setMobileLeftOpen(false); setMobileRightOpen(true); } }}
                           onDelete={() => deleteBlock(block.id)}
+                          onDuplicate={() => duplicateBlock(block.id)}
                           onTestBlock={() => handleOpenBlockTestModal(block.id)}
                           onBlockChange={updateBlock}
                           onSaveToLibrary={setSaveToLibraryBlock}
@@ -4607,6 +4624,8 @@ interface SortableCanvasBlockProps {
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  /** Duplicate this block in place (same as ⌘D on the selected block). */
+  onDuplicate: () => void;
   onTestBlock: () => void;
   onBlockChange: (updated: PageBlock) => void;
   onSaveToLibrary: (block: PageBlock) => void;
@@ -4629,7 +4648,7 @@ interface SortableCanvasBlockProps {
   renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
 }
 
-function SortableCanvasBlockInner({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, pageCta, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
+function SortableCanvasBlockInner({ block, brand, isSelected, onSelect, onDelete, onDuplicate, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, pageCta, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -4781,6 +4800,13 @@ function SortableCanvasBlockInner({ block, brand, isSelected, onSelect, onDelete
           disabled={settingDefault}
         >
           {settingDefault ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Star className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary"
+          onClick={e => { e.stopPropagation(); onDuplicate(); }}
+          title="Duplicate block (⌘D)"
+        >
+          <Copy className="w-3.5 h-3.5" />
         </button>
         <button
           className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-red-500"

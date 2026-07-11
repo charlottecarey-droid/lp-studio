@@ -4,7 +4,7 @@ import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
   Clock, Megaphone, Users, ChevronDown, X, MoreHorizontal, Loader2,
-  LayoutGrid, SlidersHorizontal, Sparkles,
+  LayoutGrid, SlidersHorizontal, Sparkles, Undo2, Redo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,12 @@ interface BuilderTopBarProps {
   onTitleChange: (title: string) => void;
   onTitleBlur: () => void;
   onSave: () => void;
+  /** Canvas undo/redo — the buttons make the long-standing keyboard-only
+   *  history (⌘Z / ⇧⌘Z) discoverable. Disabled states mirror the stacks. */
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
   onSaveAsTemplate: () => void;
   onOpenAbTest: () => void;
   onOpenAdCopy?: () => void;
@@ -105,6 +111,10 @@ export function BuilderTopBar({
   onTitleChange,
   onTitleBlur,
   onSave,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
   onSaveAsTemplate,
   onOpenAbTest,
   onOpenAdCopy,
@@ -313,6 +323,46 @@ export function BuilderTopBar({
 
       {/* Spacer pushes everything else to the right */}
       <div className="flex-1" />
+
+      {/* ── Undo / Redo — the history always existed but was keyboard-only,
+           which reads as "the builder can't undo". Visible buttons with the
+           shortcut in the tooltip make it discoverable AND teach ⌘Z. ─── */}
+      {onUndo && onRedo && (
+        <div className="hidden sm:flex items-center gap-0.5 mr-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={onUndo}
+                disabled={!canUndo}
+                aria-label="Undo"
+                data-testid="builder-undo-button"
+              >
+                <Undo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Undo (⌘Z)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={onRedo}
+                disabled={!canRedo}
+                aria-label="Redo"
+                data-testid="builder-redo-button"
+              >
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Redo (⇧⌘Z)</TooltipContent>
+          </Tooltip>
+        </div>
+      )}
 
       {/* ── "Saved Ns ago" hint sits just left of the action cluster ─── */}
       <span
