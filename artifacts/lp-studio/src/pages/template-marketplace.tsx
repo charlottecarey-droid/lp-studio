@@ -734,15 +734,19 @@ export default function TemplateMarketplace() {
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
                         <Eye className="h-8 w-8 text-white" />
                       </div>
-                      {template.isGlobal && (
-                        <Badge className="absolute top-2 left-2 bg-white/90 text-foreground hover:bg-white text-[10px] font-medium border border-border/40">
-                          Starter
-                        </Badge>
-                      )}
-                      {template.fullPage && (
-                        <Badge className="absolute bottom-2 left-2 bg-primary/90 text-primary-foreground hover:bg-primary text-[10px] font-medium border border-primary/40">
-                          Full Page
-                        </Badge>
+                      {(template.isGlobal || template.fullPage) && (
+                        <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
+                          {template.isGlobal && (
+                            <Badge className="bg-white/90 text-foreground hover:bg-white text-[10px] font-medium border border-border/40">
+                              Starter
+                            </Badge>
+                          )}
+                          {template.fullPage && (
+                            <Badge className="bg-primary/90 text-primary-foreground hover:bg-primary text-[10px] font-medium border border-primary/40">
+                              Full Page
+                            </Badge>
+                          )}
+                        </div>
                       )}
                     </button>
                     <button
