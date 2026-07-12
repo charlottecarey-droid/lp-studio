@@ -143,3 +143,62 @@ describe("applyPageCtaToBlock — capability rules (July 2026 field bug)", () =>
     expect(applyPageCtaToBlock("custom-schema", base, PAGE_CTA)).toBe(base);
   });
 });
+
+describe("applyPageCtaToBlock — modal-chilipiper field bug (July 2026)", () => {
+  // The REAL config shape the Page CTA panel produces for "Open email →
+  // Chili Piper modal": the scheduler URL lives in modalChilipiperUrl (a
+  // CTA_MODAL_KEYS field carried verbatim), and `chilipiper` stays empty.
+  // The old fallback only read cfg.chilipiper → every such Page CTA wrote
+  // ctaAction "modal-chilipiper" with no modal URL — a dead button.
+  const MODAL_CHILI_PAGE_CTA = {
+    label: "Book a demo",
+    action: "modal-chilipiper",
+    chilipiper: "",
+    url: "",
+    modalChilipiperUrl: "https://acme.chilipiper.com/round-robin/demo",
+  } as CtaConfig;
+
+  it("degrades to a plain chilipiper popup on blocks without modal keys (url-key family)", () => {
+    const out = applyPageCtaToBlock(
+      "dso-split-feature",
+      { ctaText: "x", ctaUrl: "", ctaMode: "link" },
+      MODAL_CHILI_PAGE_CTA,
+    );
+    expect(out.ctaUrl).toBe("https://acme.chilipiper.com/round-robin/demo");
+    expect(out.ctaMode).toBe("chilipiper");
+  });
+
+  it("prefers the dedicated chilipiper key when the block declares one", () => {
+    const out = applyPageCtaToBlock(
+      "custom-schema",
+      { ctaText: "x", ctaUrl: "https://own", chilipiperUrl: "", ctaAction: "url" },
+      MODAL_CHILI_PAGE_CTA,
+    );
+    expect(out.chilipiperUrl).toBe("https://acme.chilipiper.com/round-robin/demo");
+    expect(out.ctaAction).toBe("chilipiper");
+    // Same as the plain-chilipiper flavor: the Page CTA's empty url slot lands
+    // in ctaUrl (render-only, unread when the action is chilipiper).
+    expect(out.ctaUrl).toBe("");
+  });
+
+  it("keeps the real modal on blocks that declare modal keys", () => {
+    const out = applyPageCtaToBlock(
+      "custom-schema",
+      { ctaText: "x", ctaUrl: "", ctaAction: "url", modalChilipiperUrl: "" },
+      MODAL_CHILI_PAGE_CTA,
+    );
+    expect(out.ctaAction).toBe("modal-chilipiper");
+    expect(out.modalChilipiperUrl).toBe("https://acme.chilipiper.com/round-robin/demo");
+  });
+
+  it("gates off entirely when the modal CTA has no scheduler URL anywhere", () => {
+    const base = { ctaText: "Own", ctaUrl: "https://own", ctaMode: "link" };
+    const out = applyPageCtaToBlock("dso-split-feature", base, {
+      label: "Page",
+      action: "modal-chilipiper",
+      chilipiper: "",
+      url: "",
+    } as CtaConfig);
+    expect(out).toBe(base);
+  });
+});

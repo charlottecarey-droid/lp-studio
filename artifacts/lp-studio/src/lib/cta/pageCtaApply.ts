@@ -101,8 +101,22 @@ export function applyPageCtaToBlock(
   const action = pageCta?.action ?? "url";
   const chilipiperCapable =
     anyDeclared(CTA_CHILIPIPER_KEYS) || anyDeclared(MODAL_CHILIPIPER_KEYS);
+  // The email→scheduler modal flavor stores its scheduler URL in
+  // `modalChilipiperUrl` (a CTA_MODAL_KEYS field carried verbatim on the
+  // config), NOT in `chilipiper` — reading only cfg.chilipiper is exactly the
+  // field bug that made every modal-chilipiper Page CTA a dead button.
+  const modalChiliUrl =
+    typeof (pageCta as Props | null | undefined)?.["modalChilipiperUrl"] === "string"
+      ? ((pageCta as Props)["modalChilipiperUrl"] as string).trim()
+      : "";
+  const schedulerUrl = (pageCta?.chilipiper ?? "").trim() || modalChiliUrl;
+  const modalChiliCapable = anyDeclared(MODAL_CHILIPIPER_KEYS);
   if (action === "modal-form" && !anyDeclared(MODAL_FORM_KEYS)) return base;
   if (action === "video-modal" && !anyDeclared(CTA_VIDEO_URL_KEYS)) return base;
+  // modal-chilipiper on a block without modal keys degrades to the plain
+  // scheduler popup (below) — but only when there IS a scheduler URL to
+  // degrade to; otherwise the block keeps its own working button.
+  if (action === "modal-chilipiper" && !modalChiliCapable && schedulerUrl === "") return base;
   if (
     (action === "chilipiper" || action === "modal-chilipiper") &&
     !chilipiperCapable &&
@@ -136,13 +150,35 @@ export function applyPageCtaToBlock(
   // the action to plain "chilipiper" so ChiliPiperButton-style renderers
   // (which read ctaMode + ctaUrl) open the scheduler.
   const chili = (pageCta?.chilipiper ?? "").trim();
-  if (
-    (action === "chilipiper" || action === "modal-chilipiper") &&
-    chili !== "" &&
-    !chilipiperCapable
-  ) {
+  if (action === "chilipiper" && chili !== "" && !chilipiperCapable) {
     for (const k of CTA_URL_KEYS) {
       if (declared(k)) written[k] = chili;
+    }
+    for (const k of CTA_ACTION_KEYS) {
+      if (declared(k)) written[k] = "chilipiper";
+    }
+  }
+
+  // Modal-chilipiper degrade: the email→scheduler modal needs modal keys the
+  // block's renderer forwards to CtaButton. A block without them used to get
+  // ctaAction "modal-chilipiper" and no modal URL — a dead button (the old
+  // fallback above also only read cfg.chilipiper, which the modal flavor
+  // leaves empty). Degrade to the plain scheduler popup those renderers DO
+  // implement: dedicated chilipiper key when declared, else the url key. The
+  // email-capture step is lost on these blocks, but Chili Piper collects the
+  // email itself — a working popup beats a broken modal.
+  if (action === "modal-chilipiper" && !modalChiliCapable && schedulerUrl !== "") {
+    let wroteDedicated = false;
+    for (const k of CTA_CHILIPIPER_KEYS) {
+      if (declared(k)) {
+        written[k] = schedulerUrl;
+        wroteDedicated = true;
+      }
+    }
+    if (!wroteDedicated) {
+      for (const k of CTA_URL_KEYS) {
+        if (declared(k)) written[k] = schedulerUrl;
+      }
     }
     for (const k of CTA_ACTION_KEYS) {
       if (declared(k)) written[k] = "chilipiper";
