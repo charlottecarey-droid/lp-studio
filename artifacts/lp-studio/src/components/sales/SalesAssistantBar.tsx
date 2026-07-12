@@ -1,6 +1,7 @@
 /**
- * SalesAssistantBar — the sales console's "What would you like to do today?"
- * prompt box (July 2026). Mounted at the top of the sales dashboard.
+ * SalesAssistantBar — the sales console's "What's the play?" Sidekick prompt
+ * box (July 2026). Mounted at the top of the sales dashboard and in the nav's
+ * Sidekick panel.
  *
  * Streams from POST /api/sales/assistant/chat (shared conversation engine,
  * sales_assistant mode). The bot proposes executable action cards:
@@ -203,7 +204,7 @@ export function SalesAssistantBar() {
               void send();
             }
           }}
-          placeholder="What would you like to do today?"
+          placeholder="What's the play?"
           aria-label="Ask the sales assistant"
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
