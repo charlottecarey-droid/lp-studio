@@ -48,7 +48,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getLpPageUrl, getLpPageViewUrl } from "@/lib/utils";
+import { getLpPageUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { PageConversionScore } from "@/components/analytics/PageConversionScore";
 import { PageSpeedPanel } from "@/components/analytics/PageSpeedPanel";
@@ -1010,7 +1010,7 @@ export default function PageDetail() {
             <div className="flex flex-wrap items-center gap-2">
               {page?.slug && <CopyUrlButton url={getLpPageUrl(page.slug, micrositeDomain, tenantHost)} />}
               {page?.slug && (
-                <a href={getLpPageViewUrl(page.slug)} target="_blank" rel="noreferrer">
+                <a href={getLpPageUrl(page.slug, micrositeDomain, tenantHost)} target="_blank" rel="noreferrer">
                   <Button variant="outline" size="sm">
                     <Eye className="w-4 h-4 mr-1.5" />
                     View live

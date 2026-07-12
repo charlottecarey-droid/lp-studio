@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/layout/app-layout";
-import { getLpPageUrl, getLpPageViewUrl } from "@/lib/utils";
+import { getLpPageUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
@@ -154,7 +154,7 @@ export default function LivePages() {
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <a href={getLpPageViewUrl(test.slug)} target="_blank" rel="noopener noreferrer">
+                          <a href={liveUrl} target="_blank" rel="noopener noreferrer">
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted" title="Open live page">
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Button>
@@ -205,7 +205,7 @@ export default function LivePages() {
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <a href={getLpPageViewUrl(page.slug)} target="_blank" rel="noopener noreferrer">
+                          <a href={liveUrl} target="_blank" rel="noopener noreferrer">
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted" title="Open live page">
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Button>
