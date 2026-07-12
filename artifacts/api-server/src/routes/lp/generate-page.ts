@@ -25,6 +25,7 @@ import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "open
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 import { normalizeHeadingsToSentenceCase, collectAuthoredStrings } from "../../lib/ai-prompts/sentence-case-normalizer";
+import { resolveDeadGeneratedLinks } from "../../lib/ai-prompts/dead-links";
 import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import {
   pickRecipe,
@@ -9467,6 +9468,26 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       // ship two stacked navbars. The freeform path does the same.
       stripRedundantLeadingNav(mergedBlocks as Array<{ type?: unknown }>);
 
+      // Dead-link resolution — the schemas teach the model `ctaUrl ("#")` as a
+      // placeholder, and templates carry their own "#" stubs. Anchor nav links
+      // to real sections, point CTAs at defaultCtaUrl/the form, drop the rest
+      // (empty beats dead). Runs before the normalizer so that stays the last
+      // copy mutation.
+      try {
+        const linkFixes = resolveDeadGeneratedLinks(
+          mergedBlocks as Parameters<typeof resolveDeadGeneratedLinks>[0],
+          { defaultCtaUrl: brand.defaultCtaUrl as string | undefined },
+        );
+        if (linkFixes.anchored + linkFixes.resolved + linkFixes.dropped > 0) {
+          logger.info(
+            { event: "ai_dead_links_resolved", tenantId, ...linkFixes, path: "template" },
+            "[generate-page] dead '#' links resolved",
+          );
+        }
+      } catch (linkErr) {
+        logger.warn({ err: linkErr, tenantId }, "[generate-page] dead-link resolution skipped");
+      }
+
       // Deterministic sentence-case normalizer — the LAST copy mutation, so no
       // earlier pass can re-introduce Title Case (mirrors the microsite path;
       // this generator historically never ran it, which is how Title-Cased
@@ -11479,6 +11500,26 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       if (block?.type !== "dso-heartland-hero") continue;
       const bp = block.props;
       if (bp && typeof bp === "object") (bp as Record<string, unknown>).companyName = "";
+    }
+
+    // Dead-link resolution — the schemas teach the model `ctaUrl ("#")` as a
+    // placeholder that only defaultCtaUrl tenants ever escaped, and nav links
+    // never resolved for anyone. Anchor nav links to real sections, point
+    // CTAs at defaultCtaUrl/the form, drop the rest (empty beats dead). Runs
+    // before the normalizer so that stays the last copy mutation.
+    try {
+      const linkFixes = resolveDeadGeneratedLinks(
+        parsed.blocks as Parameters<typeof resolveDeadGeneratedLinks>[0],
+        { defaultCtaUrl: brand.defaultCtaUrl as string | undefined },
+      );
+      if (linkFixes.anchored + linkFixes.resolved + linkFixes.dropped > 0) {
+        logger.info(
+          { event: "ai_dead_links_resolved", tenantId, ...linkFixes, path: "freeform" },
+          "[generate-page] dead '#' links resolved",
+        );
+      }
+    } catch (linkErr) {
+      logger.warn({ err: linkErr, tenantId }, "[generate-page] dead-link resolution skipped");
     }
 
     // Deterministic sentence-case normalizer — the LAST copy mutation, so no
