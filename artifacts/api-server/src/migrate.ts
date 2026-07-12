@@ -1867,8 +1867,14 @@ async function runMigrationsBody(): Promise<void> {
       // types are again removed-then-reseeded (the insert below is
       // ON CONFLICT DO NOTHING — a type must be in LEAKY_TYPES_TO_REMOVE for
       // its refreshed seed row to land on an existing database).
+      // v6 (2026-07-11): the July-8 insights-video empty-imagery seed edits
+      // rode the already-applied v5 marker on the current prod DB, and two
+      // stale v2-era generic rows (grid-cta-tile with Dandy forest bg,
+      // id-reservation-pass with the Inside Dandy event copy) were never in
+      // the LEAKY list. Both types now fall back to neutralized
+      // BLOCK_REGISTRY defaults after deletion — no replacement seed row.
       const marker = await db.execute<{ exists: number }>(
-        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v5'`
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v6'`
       );
       const alreadySeeded = marker.rows.length > 0;
       if (!alreadySeeded) {
@@ -1888,6 +1894,10 @@ async function runMigrationsBody(): Promise<void> {
           // Dandy hexes); each now has a neutral force row in the seed.
           "dandy-columns-v2", "dandy-columns-v3", "dandy-hero-v7-s3",
           "dandy-side-image-v6", "dandy-conversion-panel-1",
+          // v6 additions — stale v2-era generic rows with Dandy defaults
+          // (forest bg / Inside Dandy event copy). Deliberately NOT reseeded:
+          // generic tenants fall back to the neutralized registry defaults.
+          "grid-cta-tile", "id-reservation-pass",
         ];
         let removed = 0;
         for (const badType of LEAKY_TYPES_TO_REMOVE) {
@@ -1912,11 +1922,11 @@ async function runMigrationsBody(): Promise<void> {
           if (result.rows.length > 0) inserted++;
         }
         await db.execute(sql`
-          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v5') ON CONFLICT DO NOTHING
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v6') ON CONFLICT DO NOTHING
         `);
         logger.info(
           { removed, inserted, total: GENERIC_BLOCK_CATALOG_SEED.length },
-          "block_catalog generic seed applied (v4: graduated section blocks)"
+          "block_catalog generic seed applied (v6: stale grid-cta-tile/id-reservation-pass purge)"
         );
       }
     } catch (seedErr) {

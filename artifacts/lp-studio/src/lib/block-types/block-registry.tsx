@@ -5181,29 +5181,31 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     type: "id-reservation-pass" as const,
     label: "Event Series · Reservation Pass (Final CTA)",
     category: "Showcase" as BlockCategory,
+    // Neutral defaults — Dandy's Inside-Dandy event copy lives in the dental
+    // block_catalog row, which overrides these for dental-industry tenants.
     defaultProps: (): IdReservationPassBlockProps => ({
       ordinal: "№ 001",
       status: "RESERVATION OPEN",
-      eyebrow: "LIMITED ENGAGEMENT · DYKEMA · JULY 2026",
+      eyebrow: "LIMITED ENGAGEMENT",
       headline: "Reserve your <em>front-row</em> seat.",
-      body: "A 6–8 minute spatial experience on Apple Vision Pro. One real case, end to end — scan intake, AI design, robotic milling, QC, shipping. Twenty-four seats only.",
+      body: "A short guided experience of the product — one real workflow, end to end. Limited seats per session.",
       seatsRemainingText: "12 of 24 seats remaining",
-      passLabel: "DANDY · INSIDE PASS",
-      passSerial: "№ INSIDE-2026-0418",
+      passLabel: "INSIDE PASS",
+      passSerial: "№ PASS-0001",
       meta: [
-        { label: "DATE", value: "July 14 – 16, 2026" },
-        { label: "LOCATION", value: "Dykema Lounge · Booth 412" },
+        { label: "DATE", value: "Dates announced soon" },
+        { label: "LOCATION", value: "Main stage" },
         { label: "DURATION", value: "6 – 8 minutes" },
       ],
       primaryCtaText: "Reserve your seat",
       primaryCtaUrl: "#",
       primaryCtaAction: "url",
       chilipiperUrl: "",
-      secondaryCtaText: "Press inquiry",
-      secondaryCtaUrl: "mailto:press@meetdandy.com",
+      secondaryCtaText: "",
+      secondaryCtaUrl: "",
       backgroundImageUrl: "",
-      footerNotes: ["PRESS", "INVESTORS", "BOOTH 412"],
-      accentColor: "#C7E738",
+      footerNotes: ["PRESS", "INVESTORS", "EVENTS"],
+      accentColor: "#3b82f6",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -5662,7 +5664,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     type: "grid-cta-tile",
     label: "CTA Tile",
     category: "Grid Pieces",
-    defaultProps: (): GridCtaTileBlockProps => ({ headline: "Ready to start?", body: "Book a 15-minute walkthrough.", ctaText: "Get a demo", ctaUrl: "#", bgColor: "#003A30", textColor: "#ffffff" }),
+    defaultProps: (): GridCtaTileBlockProps => ({ headline: "Ready to start?", body: "Book a 15-minute walkthrough.", ctaText: "Get a demo", ctaUrl: "#", bgColor: "#0f172a", textColor: "#ffffff" }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
         <rect width="120" height="70" fill="#003A30" rx="4" />
