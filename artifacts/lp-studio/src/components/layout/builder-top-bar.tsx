@@ -42,6 +42,11 @@ interface BuilderTopBarProps {
   availableSegments?: { id: string; name: string }[];
   onSegmentChange?: (segmentId: string | null) => void;
   liveUrl: string;
+  /** Where "View live" OPENS. Defaults to liveUrl; the builder passes the
+   *  current-origin view URL (session-resolved server-side) so viewing works
+   *  for tenant-switched superadmins and on dev hosts, while the copy action
+   *  keeps the canonical liveUrl. */
+  viewUrl?: string;
   previewUrl: string;
   onTitleChange: (title: string) => void;
   onTitleBlur: () => void;
@@ -107,6 +112,7 @@ export function BuilderTopBar({
   availableSegments,
   onSegmentChange,
   liveUrl,
+  viewUrl,
   previewUrl,
   onTitleChange,
   onTitleBlur,
@@ -467,7 +473,7 @@ export function BuilderTopBar({
 
       {/* Preview / View button — adapts based on publish status */}
       {status === "published" ? (
-        <a href={liveUrl} target="_blank" rel="noopener noreferrer" onClick={handleViewLive}>
+        <a href={viewUrl ?? liveUrl} target="_blank" rel="noopener noreferrer" onClick={handleViewLive}>
           <Button
             variant="outline"
             size="sm"

@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
+import { cn, getLpPageUrl, getLpPageViewUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, getBrandButtonCss, getBrandSurfaceCss, type BrandConfig } from "@/lib/brand-config";
 import { useFactFlags } from "@/hooks/use-fact-flags";
@@ -3142,6 +3142,7 @@ export default function BuilderEditor() {
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
         liveUrl={getLpPageUrl(slug, micrositeDomain, tenantHost)}
+        viewUrl={getLpPageViewUrl(slug)}
         previewUrl={getLpPreviewUrl(slug, micrositeDomain)}
         onSave={handleSave}
         onUndo={undo}

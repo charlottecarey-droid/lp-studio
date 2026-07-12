@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, getLpPageUrl } from "@/lib/utils";
+import { cn, getLpPageUrl, getLpPageViewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 import { CopyButton } from "./copy-button";
@@ -69,7 +69,10 @@ export function PageRow({
   // "view" / external-link button always opens *something* — the live page if
   // it exists, otherwise the authenticated preview. Without this, clicking
   // view on a draft loaded the public live URL which 404s.
-  const viewUrl = liveUrl ?? `/preview/${page.slug}`;
+  // Published views open on the CURRENT origin (the server resolves the
+  // session's tenant on unbound hosts), so View works for tenant-switched
+  // superadmins and on dev hosts. Copy keeps the canonical liveUrl.
+  const viewUrl = liveUrl ? getLpPageViewUrl(page.slug) : `/preview/${page.slug}`;
   const viewIsPreview = liveUrl === null;
   const linkedCount = countLinkedGlobalBlocks(page.blocks);
   const linkedBadge = linkedCount > 0 ? (

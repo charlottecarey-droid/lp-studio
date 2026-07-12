@@ -14,7 +14,7 @@ import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { revealAccountName } from "../../lib/apollo-reveal";
 import { findTenantByHost, getActiveHostsForTenant, extractWildcardSlug } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
-import { SESSION_COOKIE, type AuthUser } from "../../middleware/requireAuth";
+import { SESSION_COOKIE, optionalAuth, type AuthUser } from "../../middleware/requireAuth";
 import { hydrateCustomSchemaBlocks } from "./hydrate-custom-schema";
 
 /**
@@ -22,11 +22,32 @@ import { hydrateCustomSchemaBlocks } from "./hydrate-custom-schema";
  * Returns null if no tenant is mapped to that host. Page lookups by slug must
  * always be scoped by tenant — slugs are unique only per (tenant_id, slug).
  */
-async function resolveTenantIdFromRequest(req: Request): Promise<number | null> {
+/**
+ * Resolve the tenant a page request belongs to. HOST-FIRST — public visitors
+ * on a tenant-bound host (custom domain, microsite domain, wildcard
+ * subdomain) resolve exactly as before, and responses stay CDN-cacheable.
+ *
+ * SESSION FALLBACK (July 2026): when the host pins no tenant (the admin app
+ * host, a dev webview, localhost), fall back to the authenticated session's
+ * tenant — this is what lets "View page" open on the CURRENT origin for
+ * editors and tenant-switched superadmins whose canonical tenant host is
+ * unreachable or differs from where they're working. Anonymous visitors on
+ * unbound hosts still resolve to nothing (404), so nothing new is exposed.
+ * `viaSession` responses must never be publicly cached (same URL, different
+ * tenant per session) and must not record analytics visits (an editor
+ * checking their own page is not a visitor).
+ */
+async function resolveTenantIdFromRequest(
+  req: Request,
+): Promise<{ tenantId: number | null; viaSession: boolean }> {
   const host = getRequestHost(req);
-  if (!host) return null;
-  const match = await findTenantByHost(host);
-  return match?.tenantId ?? null;
+  if (host) {
+    const match = await findTenantByHost(host);
+    if (match?.tenantId != null) return { tenantId: match.tenantId, viaSession: false };
+  }
+  const authedTenantId =
+    (req as { authUser?: { tenantId?: number | null } }).authUser?.tenantId ?? null;
+  return { tenantId: authedTenantId, viaSession: authedTenantId != null };
 }
 
 /**
@@ -552,7 +573,10 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-router.get("/lp/page/:slug", async (req, res): Promise<void> => {
+// optionalAuth: this route is public (anonymous visitors on tenant hosts),
+// but on hosts that pin no tenant the resolver falls back to the caller's
+// session tenant — optionalAuth hydrates req.authUser so that fallback works.
+router.get("/lp/page/:slug", optionalAuth, async (req, res): Promise<void> => {
   const params = GetPageConfigParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -575,8 +599,9 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
 
   if (!test) {
     // Check if it's a builder page — slugs are unique only per (tenant_id, slug),
-    // so we must scope the lookup by the host's tenant.
-    const tenantId = await resolveTenantIdFromRequest(req);
+    // so we must scope the lookup by the host's tenant (or, on hosts that pin
+    // no tenant, the authenticated session's tenant — see the resolver).
+    const { tenantId, viaSession } = await resolveTenantIdFromRequest(req);
     if (tenantId == null) {
       res.status(404).json({ error: "Page not found" });
       return;
@@ -601,28 +626,37 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         return;
       }
 
-      // Record a geo-tagged visit for builder pages (fire-and-forget)
-      const clientIp = getClientIp(req);
-      const utm = extractUtm(req);
-      lookupGeoAsync(clientIp)
-        .then((geo) =>
-          db.insert(lpPageVisitsTable).values({
-            pageId: builderPage.id,
-            sessionId,
-            ...geo,
-            ...utm,
-          }).onConflictDoNothing()
-        )
-        .catch((err) => {
-          console.warn("Error recording page visit for page", builderPage.id, ":", err);
-        });
+      // Record a geo-tagged visit for builder pages (fire-and-forget).
+      // Session-resolved views are editors/superadmins checking their own
+      // page from the app host — not visitors; keep them out of analytics.
+      if (!viaSession) {
+        const clientIp = getClientIp(req);
+        const utm = extractUtm(req);
+        lookupGeoAsync(clientIp)
+          .then((geo) =>
+            db.insert(lpPageVisitsTable).values({
+              pageId: builderPage.id,
+              sessionId,
+              ...geo,
+              ...utm,
+            }).onConflictDoNothing()
+          )
+          .catch((err) => {
+            console.warn("Error recording page visit for page", builderPage.id, ":", err);
+          });
+      }
 
       // Cache published pages at the HTTP layer — browsers and CDNs can reuse
       // the response for 60 s. Draft pages are never cached so editors see changes immediately.
       // ETag/conditional-GET is disabled globally in app.ts so this response
       // is never returned as a 304 with an empty body (which would crash the
       // viewer client — see app.ts comment).
-      if (builderPage.status === "published" && !previewVariantId) {
+      if (viaSession) {
+        // Same URL resolves to a DIFFERENT tenant per session on unbound
+        // hosts — a shared/CDN cache entry here would leak one tenant's page
+        // to another tenant's editors (or to anonymous 404s). Never cache.
+        res.set("Cache-Control", "private, no-store");
+      } else if (builderPage.status === "published" && !previewVariantId) {
         // Browser caches for 60 s (returning visitors get instant loads),
         // CDN/edge caches for 5 min (s-maxage), and serves a stale
         // response for up to 24 h while revalidating in the background.
@@ -818,7 +852,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   const enrichedHasPage = "linkedPage" in enrichedVariant && enrichedVariant.linkedPage != null;
   let basePage: { id: number; title: string; slug: string; blocks: unknown; customCss: string | null; status: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: unknown } | null = null;
   if (!enrichedHasPage) {
-    const tenantId = await resolveTenantIdFromRequest(req);
+    const { tenantId } = await resolveTenantIdFromRequest(req);
     if (tenantId != null) {
       const [found] = await db
         .select()

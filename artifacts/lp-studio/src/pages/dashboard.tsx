@@ -25,7 +25,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/layout/app-layout";
 import { NewLauncher } from "@/components/NewLauncher";
-import { getLpPageUrl } from "@/lib/utils";
+import { getLpPageUrl, getLpPageViewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { PendingReviewWidget } from "@/components/dashboard/PendingReviewWidget";
 
@@ -507,7 +507,7 @@ export default function Dashboard() {
 
                           <div className="relative flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
                             {liveUrl && isRunning && (
-                              <a href={liveUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name} in a new tab`}>
+                              <a href={getLpPageViewUrl(item.slug)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name} in a new tab`}>
                                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted" title="Open live page" tabIndex={-1}>
                                   <ExternalLink className="w-3.5 h-3.5" />
                                 </Button>

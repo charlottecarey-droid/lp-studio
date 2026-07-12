@@ -40,6 +40,20 @@ export function getLpPageUrl(
 }
 
 /**
+ * URL for the EDITOR's "View page" click — always the CURRENT origin's
+ * `/lp/<slug>` path. The server's /lp/page/:slug resolver falls back to the
+ * authenticated session's tenant on hosts that pin no tenant, so this link
+ * works from the admin host, a dev webview, or a tenant-switched superadmin
+ * session — exactly the contexts where the canonical-host link can point at
+ * a host that doesn't resolve (or resolves a different deployment). Keep
+ * {@link getLpPageUrl} for anything SHARED with visitors (Copy URL, emails,
+ * OG screenshots): the canonical host remains the public URL.
+ */
+export function getLpPageViewUrl(slug: string): string {
+  return `${window.location.origin}/lp/${slug}`;
+}
+
+/**
  * Preview URL for an authenticated editor's in-app draft preview. Always
  * uses the **current admin host** (window.location.origin) — never the
  * tenant's microsite/custom domain — because the editor's session cookie
