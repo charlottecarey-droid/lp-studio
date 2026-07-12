@@ -110,6 +110,9 @@ function parseArgs(argv: string[]): { briefFilter: Set<string> | null; updateBas
   let updateBaselines = false;
   let keepTenants = false;
   for (const arg of argv) {
+    // pnpm (unlike npm) forwards the `--` separator to the script verbatim,
+    // so `pnpm … eval:generation -- --brief=x` delivers a literal "--".
+    if (arg === "--") continue;
     if (arg.startsWith("--brief=")) briefIds.push(...arg.slice("--brief=".length).split(",").filter(Boolean));
     else if (arg === "--update-baselines") updateBaselines = true;
     else if (arg === "--keep-tenants") keepTenants = true;
