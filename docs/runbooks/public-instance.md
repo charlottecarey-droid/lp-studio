@@ -105,6 +105,54 @@ elsewhere): `REPLIT_CONNECTORS_HOSTNAME`, `REPL_IDENTITY`,
 `VITE_GENERATION_JOBS=1` (already the FE default posture — confirm it's set
 like prod), Sentry DSNs per instance.
 
+## 3a. Launch-day fill-in order (generate → copy → set up)
+
+The §3 table is the full inventory; this is the *do-it* order. Most values are
+copied or generated — only ~4 involve standing up a new third-party thing, and
+each of those can be reused from the current instance to launch, then isolated
+later. Realistic time once the Neon project + DNS exist: well under an hour.
+
+**Step 1 — Generate fresh (unique per instance; NEVER copy from Dandy's).**
+Run in your own terminal, paste each line into the new instance's Replit Secrets:
+```bash
+for k in CSRF_SECRET SESSION_SECRET CREDENTIAL_ENCRYPTION_KEY \
+         UNSUB_SECRET NOTIFICATION_PREFS_SECRET WORKER_HOST_SECRET; do
+  echo "$k=$(openssl rand -hex 32)"
+done
+# + ADMIN_PASSWORD=<pick a strong one>   (first-superadmin bootstrap login)
+```
+`CSRF_SECRET` is also hard-required at boot; the rest are prod-guard secrets.
+
+**Step 2 — Copy verbatim from the current instance** (same third-party accounts
+are fine at launch; the runbook's "separate for cost attribution" is a later
+optimization, not a blocker):
+- [ ] `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`
+- [ ] `AI_INTEGRATIONS_GEMINI_*` / `GEMINI_API_KEY` (optional fallback)
+- [ ] `FIRECRAWL_API_KEY`, `PERPLEXITY_API_KEY`, `APOLLO_API_KEY`, `PAGESPEED_API_KEY`
+- [ ] `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (keys are host-scoped, so sharing works; new bucket only if you want storage isolation)
+- [ ] `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_ENABLED` (only if billing is on at launch and it's the same Stripe account)
+- [ ] *Defer* `SFDC_*` / `SLACK_*` / `CLOUDFLARE_*` — per-integration, needed only when a tenant connects one
+
+**Step 3 — New setup (the only real "creation"; reuse-to-start where noted):**
+- [ ] `DATABASE_URL` — the NEW, EMPTY public Neon project. Triple-check it isn't Dandy's.
+- [ ] `RESEND_API_KEY` + `RESEND_WEBHOOK_SECRET` — new Resend, or reuse current to launch. Leave `RESEND_FROM_EMAIL` / `EMAIL_REPLY_TO` UNSET (senders resolve per tenant).
+- [ ] `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` — new Turnstile site, or reuse.
+- [ ] `GOOGLE_*` / `GITHUB_OAUTH_*` — own OAuth client (see the `google-oauth` note: non-sensitive scopes, publish consent screen Testing→In production, register the callback), or point the current client's redirect at the new host to launch.
+
+**Step 4 — Plain config (not secret, but required):**
+- [ ] `STRICT_PROD_GUARDS=1` — fail the boot loudly if any prod-guard secret is missing
+- [ ] `WILDCARD_TENANT_BASE_HOSTS=lpstudio.ai,app.lpstudio.ai`
+- [ ] `GOOGLE_REDIRECT_URI=https://app.lpstudio.ai/api/auth/google/callback` (must match the registered callback)
+- [ ] `VITE_GENERATION_JOBS=1`
+- [ ] `ROOT_SUPERADMIN_EMAIL=<your email>` (first superadmin bootstrap)
+
+**Step 5 — After it boots:**
+- [ ] DNS: `*.lpstudio.ai` + apex/app point at the public deployment (Cloudflare workers per §4); confirm a wildcard subdomain resolves.
+- [ ] Migrations auto-apply on the fresh DB; the block-catalog + global-template seeds run first-boot (markers absent on a new DB), so no manual seed step.
+- [ ] Run the §5 smoke checklist.
+
+Tally: ~6 generated (one command) + ~10 copied + 4 new-setup items + 5 config lines. Nothing to migrate — Dandy's data stays on the current instance.
+
 ## 4. Routing
 
 - Point `app.lpstudio.ai` (and the apex marketing host) at the **public**
