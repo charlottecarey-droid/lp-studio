@@ -112,8 +112,11 @@ export function DevToolsPanel() {
     switchTenant,
   } = useAuth();
 
-  // Only render for superadmins
-  if (!user?.isAdmin) return null;
+  // Only render for PLATFORM superadmins (app_users.role === "superadmin").
+  // `user.isAdmin` is the TENANT admin flag — gating on it exposed the tenant
+  // switcher to every customer admin (the switch/role-preview endpoints were
+  // always requireSuperadmin server-side, so this was UI-only exposure).
+  if (!user || (user.appUserRole ?? null) !== "superadmin") return null;
 
   return <DevToolsInner
     user={user}
