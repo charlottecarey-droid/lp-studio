@@ -29,6 +29,7 @@ import { LINKED_FORM_STYLE_KEY, readLinkedFormStyle, writeLinkedFormStyle, type 
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -1447,6 +1448,11 @@ export default function BuilderEditor() {
   // the static checks, shown in PrePublishDialog. Advisory only.
   const [prePublishOpen, setPrePublishOpen] = useState(false);
   const [prePublishFindings, setPrePublishFindings] = useState<PrePublishFinding[]>([]);
+  // Styled confirms replacing the last native confirm()s (builder UX #5).
+  // pendingTemplateApply holds the apply action for whichever of the three
+  // template-library sources was clicked; null = dialog closed.
+  const [confirmUnpublishOpen, setConfirmUnpublishOpen] = useState(false);
+  const [pendingTemplateApply, setPendingTemplateApply] = useState<(() => void) | null>(null);
   // Device preview: tablet/mobile swap the editable canvas for a same-origin
   // iframe of /preview/:slug — blocks respond to VIEWPORT media queries, so a
   // width-constrained div would keep desktop styles; only an iframe gives the
@@ -2787,8 +2793,7 @@ export default function BuilderEditor() {
   const handlePublish = () => {
     const isPublished = status === "published";
     if (isPublished) {
-      if (!confirm("Unpublish this page? It will no longer be publicly accessible.")) return;
-      void performStatusChange("draft");
+      setConfirmUnpublishOpen(true);
       return;
     }
     // Publish path: run the static pre-publish checks and confirm through the
@@ -2805,6 +2810,16 @@ export default function BuilderEditor() {
       }),
     );
     setPrePublishOpen(true);
+  };
+
+  // Template library picks replace the whole canvas: apply straight away on
+  // an empty page, otherwise route through the styled replace-confirm.
+  const requestTemplateApply = (apply: () => void) => {
+    if (blocks.length === 0) {
+      apply();
+      return;
+    }
+    setPendingTemplateApply(() => apply);
   };
 
   const performStatusChange = async (newStatus: "draft" | "published") => {
@@ -3335,6 +3350,31 @@ export default function BuilderEditor() {
       />
 
 
+      {/* Styled confirms replacing the last native confirm()s (builder UX #5) */}
+      <ConfirmDialog
+        open={confirmUnpublishOpen}
+        onOpenChange={setConfirmUnpublishOpen}
+        title="Unpublish this page?"
+        description="It will no longer be publicly accessible. You can publish it again at any time."
+        confirmLabel="Unpublish"
+        destructive
+        onConfirm={() => {
+          setConfirmUnpublishOpen(false);
+          void performStatusChange("draft");
+        }}
+      />
+      <ConfirmDialog
+        open={pendingTemplateApply !== null}
+        onOpenChange={open => { if (!open) setPendingTemplateApply(null); }}
+        title="Replace current blocks?"
+        description="Applying this template replaces everything on the canvas. Undo can bring the current layout back."
+        confirmLabel="Replace blocks"
+        onConfirm={() => {
+          pendingTemplateApply?.();
+          setPendingTemplateApply(null);
+        }}
+      />
+
       {/* Post-publish outreach banner */}
       {showOutreachBanner && (
         <div className="relative mx-4 mt-2 flex items-center gap-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 px-5 py-3.5 animate-in slide-in-from-top-2">
@@ -3663,24 +3703,18 @@ export default function BuilderEditor() {
                 fullPageBlocks={fullPageCatalogBlocks}
                 dbTemplates={dbTemplates}
                 homepageDefaultIds={templateHomepageIds}
-                onSelect={templateId => {
-                  if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
-                    applyTemplate(templateId);
-                    if (isMobile) setMobileLeftOpen(false);
-                  }
-                }}
-                onSelectBlock={type => {
-                  if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
-                    applyFullPageBlock(type);
-                    if (isMobile) setMobileLeftOpen(false);
-                  }
-                }}
-                onSelectDbTemplate={id => {
-                  if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
-                    void applyDbTemplate(id);
-                    if (isMobile) setMobileLeftOpen(false);
-                  }
-                }}
+                onSelect={templateId => requestTemplateApply(() => {
+                  applyTemplate(templateId);
+                  if (isMobile) setMobileLeftOpen(false);
+                })}
+                onSelectBlock={type => requestTemplateApply(() => {
+                  applyFullPageBlock(type);
+                  if (isMobile) setMobileLeftOpen(false);
+                })}
+                onSelectDbTemplate={id => requestTemplateApply(() => {
+                  void applyDbTemplate(id);
+                  if (isMobile) setMobileLeftOpen(false);
+                })}
               />
             </TabsContent>
           </Tabs>
