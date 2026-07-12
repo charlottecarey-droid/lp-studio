@@ -250,6 +250,12 @@ async function savePage(id: string, data: SavePageData) {
   return res.json();
 }
 
+// Canvas autosave: quiet period after the last edit before a draft persists,
+// and how long to back off after a failed attempt (retries stay silent after
+// the first failure toast; the Save button keeps showing the dirty state).
+const AUTOSAVE_DEBOUNCE_MS = 2500;
+const AUTOSAVE_RETRY_COOLDOWN_MS = 30_000;
+
 function CustomBlockThumbnail({ blockType }: { blockType: string }) {
   const def = getBlockDef(blockType as BlockType);
   return (
@@ -1453,6 +1459,10 @@ export default function BuilderEditor() {
   const lastSavedSnapshotRef = useRef<string>("");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
+  // Autosave failure tracking: toast once per outage, then retry quietly on
+  // a cooldown. Reset by markSaved (any successful persist).
+  const autosaveFailureCountRef = useRef(0);
+  const autosaveRetryAtRef = useRef(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [abTestModalOpen, setAbTestModalOpen] = useState(false);
@@ -2528,13 +2538,18 @@ export default function BuilderEditor() {
   // Snapshot of the current editable payload, used to derive isDirty by
   // comparing to lastSavedSnapshotRef. Audience/segment fields are excluded
   // because they're persisted via their own targeted handler.
-  const currentSnapshot = useMemo(() => {
+  // ONE builder serves both currentSnapshot and markSaved: they compare as
+  // raw JSON strings, so any key-set or key-order drift between the two makes
+  // isDirty stick to true after every save — which autosave then turns into
+  // an infinite save loop. (markSaved once carried a hand-copied subset and
+  // did exactly that.)
+  const buildSnapshot = (statusValue: typeof status) => {
     try {
       return JSON.stringify({
         title,
         slug,
         blocks,
-        status,
+        status: statusValue,
         customCss,
         metaTitle,
         metaDescription,
@@ -2549,7 +2564,12 @@ export default function BuilderEditor() {
     } catch {
       return "";
     }
-  }, [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, pageVariables, pageCta]);
+  };
+  const currentSnapshot = useMemo(
+    () => buildSnapshot(status),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are buildSnapshot's actual inputs
+    [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, pageVariables, pageCta],
+  );
 
   const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
 
@@ -2565,27 +2585,12 @@ export default function BuilderEditor() {
   // racing React's setState (we can't read the post-setStatus value
   // synchronously here).
   const markSaved = (overrides: { status?: "draft" | "pending_review" | "published" } = {}) => {
-    let snap: string;
-    try {
-      snap = JSON.stringify({
-        title,
-        slug,
-        blocks,
-        status: overrides.status ?? status,
-        customCss,
-        metaTitle,
-        metaDescription,
-        ogImage,
-        animationsEnabled,
-        smoothScroll,
-        pageVariables: pageVariables ?? {},
-      });
-    } catch {
-      snap = currentSnapshot;
-    }
+    const snap = buildSnapshot(overrides.status ?? status) || currentSnapshot;
     lastSavedSnapshotRef.current = snap;
     setSavedSnapshot(snap);
     setLastSavedAt(Date.now());
+    autosaveFailureCountRef.current = 0;
+    autosaveRetryAtRef.current = 0;
   };
 
   const handleSave = async () => {
@@ -2629,6 +2634,43 @@ export default function BuilderEditor() {
       setIsSaving(false);
     }
   };
+
+  // Canvas autosave (builder UX #4). DRAFT pages only: page content is
+  // single-copy, so saving a published or in-review page immediately changes
+  // what visitors/reviewers see — that stays behind the explicit Save button.
+  // Catalog mode is excluded too (its Save writes block_catalog global
+  // defaults). Debounced against the dirty snapshot; the effect re-arms when
+  // isSaving flips back, which doubles as the silent retry loop after a
+  // failure (autosaveRetryAtRef stretches the wait). Visible undo/redo makes
+  // an unwanted autosaved edit recoverable, and useUnsavedChangesWarning
+  // still covers the debounce window on tab close.
+  const autosaveEligible = !catalogMode && !isLoading && status === "draft";
+  useEffect(() => {
+    if (!autosaveEligible || !isDirty || isSaving) return;
+    const waitMs = Math.max(AUTOSAVE_DEBOUNCE_MS, autosaveRetryAtRef.current - Date.now());
+    const timer = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        await savePage(pageId, getPageData());
+        markSaved();
+      } catch {
+        autosaveFailureCountRef.current += 1;
+        autosaveRetryAtRef.current = Date.now() + AUTOSAVE_RETRY_COOLDOWN_MS;
+        if (autosaveFailureCountRef.current === 1) {
+          toast({
+            title: "Autosave failed",
+            description: "Your edits are still here — we'll keep retrying, or use Save to try now.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        setIsSaving(false);
+      }
+    }, waitMs);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getPageData/markSaved are
+    // recreated per render; currentSnapshot already tracks every field they read.
+  }, [currentSnapshot, autosaveEligible, isDirty, isSaving]);
 
   // Tablet/mobile preview shows the SAVED draft (the iframe can't see local
   // state), so entering a device saves pending edits first — otherwise the
