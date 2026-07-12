@@ -288,7 +288,7 @@ export const MAGAZINE_WELCOME_HTML = `<!DOCTYPE html>
         </td></tr>
         <tr><td style="padding:80px 0 0 0;"></td></tr>
         <tr><td class="px-pad" style="padding:0 56px 0 56px;">
-          <img class="full-img" src="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1440&h=900&q=80" alt="LP Studio" width="608" style="display:block;width:100%;max-width:608px;height:auto;border-radius:2px;">
+          <img class="full-img" src="https://devo.lpstudio.ai/api/storage/objects/uploads/9a45912c-fadd-4d9e-b787-810ba163c643" alt="The LP Studio builder" width="608" style="display:block;width:100%;max-width:608px;height:auto;border-radius:2px;">
         </td></tr>
         <tr><td class="px-pad" style="padding:14px 56px 0 56px;">
           <p style="margin:0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:500;letter-spacing:0.20em;text-transform:uppercase;color:#8B857C;">Fig. 01 · The workspace</p>
