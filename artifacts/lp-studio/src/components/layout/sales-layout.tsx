@@ -496,10 +496,10 @@ export function SalesTopNav() {
                 : "bg-white/6 border-white/12 text-white/85 hover:bg-white/10 hover:text-white"
             }`}
             aria-expanded={assistantOpen}
-            aria-label="Sales assistant"
+            aria-label="Sidekick — sales assistant"
           >
             <Sparkles className="w-3.5 h-3.5 text-violet-300" />
-            <span className="hidden sm:inline">Assistant</span>
+            <span className="hidden sm:inline">Sidekick</span>
           </button>
           <SettingsDropdown />
           <div className="hidden md:block w-[200px]">
