@@ -371,7 +371,6 @@ export const MAGAZINE_WELCOME_HTML = `<!DOCTYPE html>
           <p style="margin:0 0 28px 0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#2E2A8C;">Dispatch · Sales<span style="color:#E26B4F;">.</span></p>
           <p class="quote-l" style="margin:0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:40px;line-height:1.12;font-weight:700;letter-spacing:-0.035em;color:#1A1815;"><span style="color:#4B47E5;">"</span>I shipped a page in 10 minutes that helped me land a 16-location expansion deal. Marketing would've taken three weeks. I'm not going back.<span style="color:#4B47E5;">"</span></p>
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:36px;"><tr>
-            <td valign="middle" width="56" style="padding-right:14px;"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80" alt="AE" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:50%;"></td>
             <td valign="middle">
               <p style="margin:0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#1A1815;letter-spacing:-0.015em;">AE</p>
               <p style="margin:2px 0 0 0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:#5C5853;">LP Studio superfan</p>
@@ -390,7 +389,6 @@ export const MAGAZINE_WELCOME_HTML = `<!DOCTYPE html>
               <p style="margin:0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#1A1815;letter-spacing:-0.015em;text-align:right;">Marketing Lead</p>
               <p style="margin:2px 0 0 0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:#5C5853;text-align:right;">LP Studio convert</p>
             </td>
-            <td valign="middle" width="56" style="padding-left:14px;"><img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80" alt="Marketing Lead" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:50%;"></td>
           </tr></table>
         </td></tr>
       </table>
