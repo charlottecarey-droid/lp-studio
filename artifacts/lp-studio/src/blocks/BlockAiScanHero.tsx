@@ -5,15 +5,29 @@ import type { AiScanHeroBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickCtaButtonColors, contrastTextColor } from "@/lib/brand-config";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import { mixHex, contrastRatio } from "@/lib/section-ink";
 import { InlineText } from "@/components/InlineText";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { CtaButton } from "@/components/CtaButton";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 
-/** Warm editorial default surface (Procore-style beige) used when no
- *  backgroundStyle preset and no custom bgColor are set. */
+/** Warm editorial beige — the LAST-resort default surface, used only when the
+ *  brand has no usable primaryColor (see brandSurface below). */
 const WARM_BG = "#F2E9E1";
+
+/** Default surface when no backgroundStyle preset and no custom bgColor are
+ *  set: the brand's primary color when it's light enough to carry dark ink
+ *  (many brands' primary IS their paper tone), otherwise a near-white tint
+ *  of it — so the hero reads on-brand out of the box instead of the
+ *  hardcoded Procore-style beige. Must resolve to a real hex (never a CSS
+ *  var) — the contrast/ink math in resolveSectionSurface parses it. */
+function brandSurface(brand: BrandConfig): string {
+  const primary = (brand.primaryColor ?? "").trim();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(primary)) return WARM_BG;
+  if (contrastRatio(primary, DARK_INK) >= 4.5) return primary;
+  return mixHex(primary, "#ffffff", 0.08);
+}
 const DARK_INK = "#141210";
 /** Fallback accent when the brand has no accent var — a confident orange that
  *  matches the reference eyebrow dot + primary button. */
@@ -65,15 +79,16 @@ export function BlockAiScanHero({
   // editorial default. Contrast (isDark) is derived from the *resolved* hex so
   // a pale-brand or dark override never claims the wrong ink.
   const hasBgColor = !!props.bgColor?.trim();
+  const defaultBg = brandSurface(brand);
   const paintedBg = hasBgColor
     ? (props.bgColor as string)
     : backgroundStyle
       ? (getBgStyle(backgroundStyle).background as string)
-      : WARM_BG;
+      : defaultBg;
   const surface = resolveSectionSurface(
     {
       backgroundStyle: hasBgColor ? undefined : backgroundStyle,
-      bgColor: hasBgColor ? props.bgColor : backgroundStyle ? undefined : WARM_BG,
+      bgColor: hasBgColor ? props.bgColor : backgroundStyle ? undefined : defaultBg,
     },
     "#ffffff",
     brand,
