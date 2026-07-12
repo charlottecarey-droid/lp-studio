@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
-import { BLOCK_REGISTRY, getBlockDef, type PageBlock, type BlockType, type BlockCategory, type BlockSettings } from "@/lib/block-types";
+import { getBlockDef, type PageBlock, type BlockType, type BlockCategory, type BlockSettings } from "@/lib/block-types";
+import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
 import { PropertyPanel } from "@/pages/builder/property-panels/PropertyPanel";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig, type AudienceSegment } from "@/lib/brand-config";
@@ -149,6 +150,25 @@ export function BlockDefaultsContent() {
   const { entries: govEntries, save: saveGovernance, saving: govSaving, loading: govLoading } = useTenantBlockGovernance();
   const segments = brand.segments ?? [];
 
+  // Same catalog resolution as the builder's block panel — industry-aware
+  // labels/categories/default props with the generic-catalog neutral rows
+  // merged over the registry. This page used to read BLOCK_REGISTRY raw,
+  // which showed non-Dandy tenants the Dandy registry defaults the builder
+  // panel never shows (the neutral state lives in catalog rows, not code).
+  // Catalog-only rows without an in-code registry def are excluded: the
+  // property panel and renderer need a registry definition to edit/preview.
+  const { blocks: catalogBlocks } = useBlockCatalog();
+  const resolvedBlocks = useMemo<ResolvedBlockDef[]>(
+    () => catalogBlocks.filter((b) => !!getBlockDef(b.type as BlockType)),
+    [catalogBlocks],
+  );
+  const resolvedByType = useMemo(
+    () => new Map(resolvedBlocks.map((b) => [b.type, b])),
+    [resolvedBlocks],
+  );
+  const resolvedDefaultProps = (type: string): object =>
+    (resolvedByType.get(type)?.defaultProps() ?? getBlockDef(type as BlockType)!.defaultProps()) as object;
+
   useEffect(() => {
     Promise.all([
       fetch(`${API}/lp/block-defaults`).then(r => r.json() as Promise<Record<string, unknown>>),
@@ -170,9 +190,8 @@ export function BlockDefaultsContent() {
 
   const selectBlockType = (type: BlockType) => {
     setSelectedType(type);
-    const def = getBlockDef(type)!;
     const saved = blockDefaults[type];
-    const props = saved?.props ?? def.defaultProps();
+    const props = saved?.props ?? resolvedDefaultProps(type);
     const blockSettings = saved?.blockSettings ?? {};
     setCurrentBlock({ id: "defaults-preview", type, props, blockSettings } as PageBlock);
   };
@@ -193,7 +212,7 @@ export function BlockDefaultsContent() {
           blockSettings: currentBlock.blockSettings ?? {},
         },
       }));
-      toast({ title: "Default saved", description: `${getBlockDef(currentBlock.type)?.label} will now use this content when added to new pages.` });
+      toast({ title: "Default saved", description: `${resolvedByType.get(currentBlock.type)?.label ?? getBlockDef(currentBlock.type)?.label} will now use this content when added to new pages.` });
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
     } finally {
@@ -211,8 +230,7 @@ export function BlockDefaultsContent() {
         delete next[currentBlock.type];
         return next;
       });
-      const def = getBlockDef(currentBlock.type)!;
-      setCurrentBlock({ ...currentBlock, props: def.defaultProps(), blockSettings: {} } as PageBlock);
+      setCurrentBlock({ ...currentBlock, props: resolvedDefaultProps(currentBlock.type), blockSettings: {} } as PageBlock);
       toast({ title: "Reset to built-in defaults" });
     } catch {
       toast({ title: "Failed to reset", variant: "destructive" });
@@ -228,19 +246,19 @@ export function BlockDefaultsContent() {
     const known = new Set<BlockCategory>([...coreCategories, ...segmentCategories]);
     const seen = new Set<BlockCategory>();
     const out: BlockCategory[] = [];
-    for (const b of BLOCK_REGISTRY) {
+    for (const b of resolvedBlocks) {
       if (known.has(b.category) || seen.has(b.category)) continue;
       seen.add(b.category);
       out.push(b.category);
     }
     return out.sort((a, b) => a.localeCompare(b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [resolvedBlocks]);
   const savedCount = Object.keys(blockDefaults).length;
 
   const renderCategoryList = (cats: BlockCategory[], accent?: string) =>
     cats.map(cat => {
-      const blocks = BLOCK_REGISTRY.filter(b => b.category === cat);
+      const blocks = resolvedBlocks.filter(b => b.category === cat);
       if (blocks.length === 0) return null;
       return (
         <div key={cat}>
@@ -252,7 +270,7 @@ export function BlockDefaultsContent() {
               return (
                 <button
                   key={block.type}
-                  onClick={() => selectBlockType(block.type)}
+                  onClick={() => selectBlockType(block.type as BlockType)}
                   className={cn(
                     "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors",
                     isSelected
@@ -323,10 +341,10 @@ export function BlockDefaultsContent() {
           <div className="px-5 py-3 border-b border-border bg-background/80 backdrop-blur shrink-0 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                {getBlockDef(currentBlock.type)?.category}
+                {resolvedByType.get(currentBlock.type)?.category ?? getBlockDef(currentBlock.type)?.category}
               </p>
               <h2 className="text-sm font-semibold text-foreground leading-tight">
-                {getBlockDef(currentBlock.type)?.label} — Default Content
+                {resolvedByType.get(currentBlock.type)?.label ?? getBlockDef(currentBlock.type)?.label} — Default Content
               </h2>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -367,7 +385,7 @@ export function BlockDefaultsContent() {
                     content: (
                       <BlockGovernanceTab
                         blockType={currentBlock.type}
-                        blockLabel={getBlockDef(currentBlock.type)?.label ?? currentBlock.type}
+                        blockLabel={resolvedByType.get(currentBlock.type)?.label ?? getBlockDef(currentBlock.type)?.label ?? currentBlock.type}
                         segments={segments}
                         entries={govEntries}
                         save={saveGovernance}
