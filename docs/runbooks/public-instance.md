@@ -80,7 +80,7 @@ deploy fails loudly instead of launching half-secured:
 | `UNSUB_SECRET` | Unsubscribe-link signing — fresh. |
 | `RESEND_WEBHOOK_SECRET` | From the public instance's own Resend webhook config. |
 | `TURNSTILE_SECRET_KEY` / `TURNSTILE_SITE_KEY` | Its own Turnstile site (bot protection on public forms). |
-| `GOOGLE_*` / `GITHUB_OAUTH_*` (+ redirect URIs) | New OAuth apps with lpstudio.ai redirect URIs, if social login is on. |
+| `GOOGLE_*` / `GITHUB_OAUTH_*` (+ redirect URIs) | New OAuth apps with lpstudio.ai redirect URIs, if social login is on. **Google:** scopes are non-sensitive (email/profile/openid) so NO brand-verification wall — but you MUST publish the consent screen **Testing → In production** (Testing caps at 100 test-users) and register this instance's exact `…/api/auth/google/callback` in the client's Authorized redirect URIs (Google allows no wildcards). Pin `GOOGLE_REDIRECT_URI` to that callback. See the `google-oauth` memory note for the full migration. |
 
 **Feature secrets** (feature silently off / degraded until set):
 
