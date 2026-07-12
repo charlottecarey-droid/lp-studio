@@ -91,7 +91,11 @@ const TOPIC_RULES: ReadonlyArray<{ topic: string; anchor: string; types: RegExp;
 /** Labels that mean "take me to the conversion point". */
 const CONVERSION_LABEL = /contact|get started|start|demo|book|talk|sign ?up|quote|schedule|apply|join|trial|reserve/;
 
-const FORM_BLOCK_TYPES = new Set(["form", "id-form", "dandy-form-right-alt"]);
+// Dedicated capture blocks — always render a form, so they're valid anchor
+// targets for conversion CTAs. split-form-final-cta captures inline (its
+// email field IS the conversion); blocks that merely OFFER an email-capture
+// ctaStyle don't belong here.
+const FORM_BLOCK_TYPES = new Set(["form", "id-form", "dandy-form-right-alt", "split-form-final-cta"]);
 
 function isDeadUrl(v: unknown): boolean {
   return typeof v === "string" && (v.trim() === "#" || v.trim() === "");

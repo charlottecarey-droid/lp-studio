@@ -184,6 +184,15 @@ describe("anchor uniqueness + idempotence", () => {
     expect((nav.props!.navLinks as Array<{ url: string }>)[0].url).toBe("#pricing-2");
   });
 
+  it("anchors CTAs to a split-form-final-cta block (inline capture counts as a form)", () => {
+    const hero: DeadLinkBlock = { id: "h1", type: "hero", props: { ctaText: "Reserve a seat", ctaUrl: "#" } };
+    const finale: DeadLinkBlock = { id: "s1", type: "split-form-final-cta", props: { heading: "Reserve", formTitle: "Save your spot" } };
+    resolveDeadGeneratedLinks([hero, finale]);
+    expect(hero.props!.ctaUrl).toBe("#get-started");
+    expect(hero.props!.ctaText).toBe("Reserve a seat");
+    expect(finale.blockSettings?.anchorId).toBe("get-started");
+  });
+
   it("is a no-op on a page with nothing dead", () => {
     const blocks: DeadLinkBlock[] = [
       { id: "h1", type: "hero", props: { ctaText: "Go", ctaUrl: "https://x.com" } },
