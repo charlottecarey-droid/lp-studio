@@ -483,23 +483,27 @@ export function SalesTopNav() {
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
           {/* Sales assistant — same engine as the dashboard prompt box, reachable
               from every console page. Panel below; closes on navigation. */}
-          {/* Solid violet so it reads on the dark green nav regardless of the
-              tenant's brand-accent color (a dark accent made the old
-              accent-tinted text illegible here). */}
+          {/* Glass pill in the nav's own white-on-dark language (the earlier
+              solid violet fit nothing here). Deliberately NOT brand-accent
+              tinted: a dark tenant accent made accent-tinted text illegible
+              on this dark nav — only the sparkle icon carries a fixed, always
+              legible violet hint. */}
           <button
             onClick={() => setAssistantOpen((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] font-medium text-white shadow-sm ${
-              assistantOpen ? "bg-violet-500" : "bg-violet-600 hover:bg-violet-500"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all duration-200 whitespace-nowrap text-[13px] font-medium ${
+              assistantOpen
+                ? "bg-white/12 border-white/20 text-white"
+                : "bg-white/6 border-white/12 text-white/85 hover:bg-white/10 hover:text-white"
             }`}
             aria-expanded={assistantOpen}
             aria-label="Sales assistant"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5 text-violet-300" />
             <span className="hidden sm:inline">Assistant</span>
           </button>
           <SettingsDropdown />
           <div className="hidden md:block w-[200px]">
-            <ModeToggle />
+            <ModeToggle onDark />
           </div>
           <div className="w-px h-5 bg-white/10 hidden md:block" />
           <UserAvatarDropdown />
@@ -577,7 +581,7 @@ export function SalesTopNav() {
 
           <div className="pt-3 border-t border-white/8">
             <div className="flex justify-center py-2">
-              <ModeToggle />
+              <ModeToggle onDark />
             </div>
           </div>
         </div>

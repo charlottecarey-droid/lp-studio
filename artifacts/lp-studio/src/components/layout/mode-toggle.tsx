@@ -5,10 +5,34 @@ import { useAuth } from "@/context/AuthContext";
 import { resolveFeatures } from "@/lib/plan-features";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export function ModeToggle() {
+/** Visual context. The default styles use the sidebar-* tokens, which are
+ *  tuned for the LIGHT marketing sidebar; on the sales console's dark green
+ *  nav those resolve to dark-on-dark and the inactive label ("Marketing")
+ *  becomes illegible. `onDark` swaps to explicit white-on-dark styles. */
+interface ModeToggleProps {
+  onDark?: boolean;
+}
+
+const SURFACE = {
+  light: {
+    container: "bg-sidebar-foreground/5 border-sidebar-foreground/8",
+    slider: "bg-sidebar-primary",
+    activeText: "text-sidebar-primary-foreground",
+    inactiveText: "text-sidebar-foreground/65 hover:text-sidebar-foreground/90",
+  },
+  dark: {
+    container: "bg-white/8 border-white/12",
+    slider: "bg-white/95",
+    activeText: "text-[#12241C]",
+    inactiveText: "text-white/60 hover:text-white/90",
+  },
+} as const;
+
+export function ModeToggle({ onDark = false }: ModeToggleProps) {
   const { setMode, lockedMode } = useAppMode();
   const [location, navigate] = useLocation();
   const { user } = useAuth();
+  const surface = SURFACE[onDark ? "dark" : "light"];
 
   const isSales = location === "/sales" || location.startsWith("/sales/");
 
@@ -48,13 +72,14 @@ export function ModeToggle() {
     // unannotated pill so we don't promise an upgrade to users whose
     // tenant already pays for Sales but whose role just lacks access.
     const pill = (
-      <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 w-full">
-        <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-primary" />
+      <div className={`relative flex items-center border rounded-md p-0.5 w-full ${surface.container}`}>
+        <div className={`absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] ${surface.slider}`} />
         <ModeButton
           active={true}
           onClick={() => {}}
           icon={<Megaphone className="w-3 h-3" />}
           label="Marketing"
+          surface={surface}
           trailing={planLocksToMarketing ? <Lock className="w-3 h-3 opacity-70" data-testid="sales-locked-icon" /> : undefined}
         />
       </div>
@@ -72,22 +97,23 @@ export function ModeToggle() {
 
   if (lockedMode === "sales") {
     return (
-      <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 w-full">
-        <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-primary" />
+      <div className={`relative flex items-center border rounded-md p-0.5 w-full ${surface.container}`}>
+        <div className={`absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] ${surface.slider}`} />
         <ModeButton
           active={true}
           onClick={() => {}}
           icon={<Target className="w-3 h-3" />}
           label="Sales"
+          surface={surface}
         />
       </div>
     );
   }
 
   return (
-    <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 gap-0 w-full">
+    <div className={`relative flex items-center border rounded-md p-0.5 gap-0 w-full ${surface.container}`}>
       <div
-        className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-[5px] bg-sidebar-primary transition-all duration-200 ease-out"
+        className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-[5px] transition-all duration-200 ease-out ${surface.slider}`}
         style={{ left: isSales ? "calc(50% + 2px)" : "2px" }}
       />
       <ModeButton
@@ -95,31 +121,32 @@ export function ModeToggle() {
         onClick={() => handleSwitch("marketing")}
         icon={<Megaphone className="w-3 h-3" />}
         label="Marketing"
+        surface={surface}
       />
       <ModeButton
         active={isSales}
         onClick={() => handleSwitch("sales")}
         icon={<Target className="w-3 h-3" />}
         label="Sales"
+        surface={surface}
       />
     </div>
   );
 }
 
-function ModeButton({ active, onClick, icon, label, trailing }: {
+function ModeButton({ active, onClick, icon, label, trailing, surface }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
   trailing?: React.ReactNode;
+  surface: (typeof SURFACE)[keyof typeof SURFACE];
 }) {
   return (
     <button
       onClick={onClick}
       className={`relative z-10 flex items-center justify-center gap-1.5 flex-1 py-1 rounded-[5px] text-[11px] font-medium tracking-wide transition-colors duration-150 ${
-        active
-          ? "text-sidebar-primary-foreground"
-          : "text-sidebar-foreground/65 hover:text-sidebar-foreground/90"
+        active ? surface.activeText : surface.inactiveText
       }`}
     >
       {icon}
