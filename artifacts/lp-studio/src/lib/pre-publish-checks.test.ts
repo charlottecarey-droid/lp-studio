@@ -147,3 +147,65 @@ describe("placeholder + page hygiene", () => {
     expect(severities.indexOf("note")).toBeGreaterThan(severities.lastIndexOf("warning"));
   });
 });
+
+describe("generation annotations (builder UX #6)", () => {
+  const IMG = "https://cdn.example.com/hero.jpg";
+  const HERO_WITH_IMG: CheckableBlock = {
+    id: "h1",
+    type: "hero",
+    props: { ctaText: "Go", ctaUrl: "https://x.com", imageUrl: IMG },
+  };
+
+  it("surfaces an image-fit flag as a note pointing at the matching block", () => {
+    const findings = run([HERO_WITH_IMG, LEADFUL_FORM], {
+      generationAnnotations: {
+        imageFitFlags: [{ blockType: "hero", field: "imageUrl", imageUrl: IMG, reason: "topic mismatch" }],
+      },
+    });
+    const fit = findings.find(f => f.id === "image-fit:h1:imageUrl");
+    expect(fit?.severity).toBe("note");
+    expect(fit?.blockId).toBe("h1");
+    expect(fit?.detail).toContain("topic mismatch");
+  });
+
+  it("self-prunes an image-fit flag once the image was replaced or the block removed", () => {
+    const flag = { blockType: "hero", field: "imageUrl", imageUrl: IMG, reason: "r" };
+    // Image replaced with a different URL.
+    const replaced = run(
+      [{ ...HERO_WITH_IMG, props: { ...HERO_WITH_IMG.props, imageUrl: "https://cdn.example.com/other.jpg" } }, LEADFUL_FORM],
+      { generationAnnotations: { imageFitFlags: [flag] } },
+    );
+    expect(replaced.some(f => f.id.startsWith("image-fit:"))).toBe(false);
+    // Block removed entirely.
+    const removed = run([LEADFUL_FORM], { generationAnnotations: { imageFitFlags: [flag] } });
+    expect(removed.some(f => f.id.startsWith("image-fit:"))).toBe(false);
+  });
+
+  it("surfaces only UNRESOLVED critique annotations whose block still exists", () => {
+    const findings = run([HERO_WITH_IMG, LEADFUL_FORM], {
+      generationAnnotations: {
+        critiqueAnnotations: [
+          { blockId: "h1", blockType: "hero", removedPhrases: ["game-changing"], resolved: false },
+          { blockId: "h1", blockType: "hero", removedPhrases: [], resolved: true },
+          { blockId: "gone", blockType: "hero", removedPhrases: ["synergy"], resolved: false },
+        ],
+      },
+    });
+    const crit = findings.filter(f => f.id.startsWith("critique:"));
+    expect(crit).toHaveLength(1);
+    expect(crit[0].blockId).toBe("h1");
+    expect(crit[0].severity).toBe("note");
+    expect(crit[0].detail).toContain("game-changing");
+  });
+
+  it("dedupes annotation findings and is a no-op for null/absent annotations", () => {
+    const dup = { blockType: "hero", field: "imageUrl", imageUrl: IMG, reason: "r" };
+    const findings = run([HERO_WITH_IMG, LEADFUL_FORM], {
+      generationAnnotations: { imageFitFlags: [dup, dup] },
+    });
+    expect(findings.filter(f => f.id.startsWith("image-fit:"))).toHaveLength(1);
+
+    expect(run([HERO_WITH_IMG, LEADFUL_FORM], { generationAnnotations: null })).toEqual([]);
+    expect(run([HERO_WITH_IMG, LEADFUL_FORM])).toEqual([]);
+  });
+});

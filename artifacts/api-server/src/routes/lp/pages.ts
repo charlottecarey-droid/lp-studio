@@ -43,6 +43,47 @@ function sanitizeStringArray(value: unknown): string[] | null {
   return cleaned.length > 0 ? cleaned : null;
 }
 
+/** Clamp + shape the client-supplied generation-annotation stash (builder
+ *  UX #6) down to the known ImageFitFlag / CritiqueAnnotation fields. The
+ *  data is advisory-only and tenant-visible-only, so strict shaping (drop
+ *  unknown keys, cap sizes) is the whole defense — junk can't hide arbitrary
+ *  payloads in the column. Returns null (column stays NULL) when nothing
+ *  useful survives. */
+const MAX_GENERATION_ANNOTATION_ITEMS = 100;
+function sanitizeGenerationAnnotations(raw: unknown): {
+  imageFitFlags: Array<{ blockType: string; field: string; imageUrl: string; reason: string }>;
+  critiqueAnnotations: Array<{ blockId: string; blockType: string; removedPhrases: string[]; resolved: boolean }>;
+} | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const isObj = (x: unknown): x is Record<string, unknown> =>
+    !!x && typeof x === "object" && !Array.isArray(x);
+  const imageFitFlags = (Array.isArray(o.imageFitFlags) ? o.imageFitFlags : [])
+    .filter(isObj)
+    .slice(0, MAX_GENERATION_ANNOTATION_ITEMS)
+    .map((f) => ({
+      blockType: typeof f.blockType === "string" ? f.blockType.slice(0, 100) : "",
+      field: typeof f.field === "string" ? f.field.slice(0, 100) : "",
+      imageUrl: typeof f.imageUrl === "string" ? f.imageUrl.slice(0, 2000) : "",
+      reason: typeof f.reason === "string" ? f.reason.slice(0, 500) : "",
+    }))
+    .filter((f) => f.blockType && f.field && f.imageUrl);
+  const critiqueAnnotations = (Array.isArray(o.critiqueAnnotations) ? o.critiqueAnnotations : [])
+    .filter(isObj)
+    .slice(0, MAX_GENERATION_ANNOTATION_ITEMS)
+    .map((c) => ({
+      blockId: typeof c.blockId === "string" ? c.blockId.slice(0, 200) : "",
+      blockType: typeof c.blockType === "string" ? c.blockType.slice(0, 100) : "",
+      removedPhrases: Array.isArray(c.removedPhrases)
+        ? c.removedPhrases.filter((p): p is string => typeof p === "string").map((p) => p.slice(0, 200)).slice(0, 20)
+        : [],
+      resolved: c.resolved === true,
+    }))
+    .filter((c) => c.blockId);
+  if (imageFitFlags.length === 0 && critiqueAnnotations.length === 0) return null;
+  return { imageFitFlags, critiqueAnnotations };
+}
+
 /**
  * Page-review permission helpers (task #108).
  *
@@ -437,6 +478,10 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     title, slug, blocks, status, customCss, metaTitle, metaDescription,
     ogImage, animationsEnabled, smoothScroll, pageVariables, fromTemplateId, audienceType, segmentId,
     trustedFactForms,
+    // Generation-annotation stash (builder UX #6): advisory image-fit /
+    // critique flags from the generation result, surfaced later by the
+    // builder's pre-publish check.
+    generationAnnotations,
     // Template eligibility (June 2026). Meaningful only on template rows; gate
     // where a tenant-created template may be AUTO-recommended. All optional +
     // fail-open (null/empty = ANY). funnelStage is the PRIMARY stage;
@@ -458,6 +503,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     audienceType?: unknown;
     segmentId?: unknown;
     trustedFactForms?: unknown;
+    generationAnnotations?: unknown;
     funnelStage?: unknown;
     eligibleSegments?: unknown;
     eligiblePersonas?: unknown;
@@ -698,6 +744,9 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         // later /fact-flags/sync never flags quotes that came from the
         // generation reference URL. Validated against on-page quotes above.
         trustedFactForms: safeTrustedFactForms,
+        // Advisory generation flags (builder UX #6) — shaped/capped above;
+        // NULL when absent or nothing useful survived sanitization.
+        generationAnnotations: sanitizeGenerationAnnotations(generationAnnotations),
         createdBy: req.authUser?.email ?? null,
       })
       .returning());

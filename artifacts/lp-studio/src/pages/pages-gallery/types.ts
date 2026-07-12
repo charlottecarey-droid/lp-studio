@@ -62,6 +62,13 @@ export interface CreatePageData {
    *  the per-request generation reference URL. Persisted on the page so the
    *  later /fact-flags/sync never flags them. */
   trustedFactForms?: string[];
+  /** Generation-annotation stash (builder UX #6): the result's advisory
+   *  image-fit / critique flags, persisted so the builder's pre-publish
+   *  check can surface them instead of dropping them with the receipt. */
+  generationAnnotations?: {
+    imageFitFlags?: unknown[];
+    critiqueAnnotations?: unknown[];
+  };
 }
 
 export interface ApiTemplate {

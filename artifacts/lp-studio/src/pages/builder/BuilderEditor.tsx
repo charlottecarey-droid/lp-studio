@@ -68,7 +68,7 @@ import { refreshBlockCopy } from "@/lib/copy-api";
 import { COPY_FIELDS } from "@/lib/copy-fields";
 import { propagateCtaToAll, countCtaTargets, blockHasCta } from "@/lib/cta-propagation";
 import type { CtaConfig } from "@/lib/cta/ctaConfig";
-import { runPrePublishChecks, type PrePublishFinding, type CheckableBlock } from "@/lib/pre-publish-checks";
+import { runPrePublishChecks, type PrePublishFinding, type CheckableBlock, type GenerationAnnotations } from "@/lib/pre-publish-checks";
 import { PrePublishDialog } from "./PrePublishDialog";
 import { PageCtaSection } from "@/pages/builder/property-panels/PageCtaSection";
 import { PageStyleSection } from "@/pages/builder/property-panels/PageStyleSection";
@@ -202,6 +202,10 @@ interface FetchedPage {
   segmentId?: string | null;
   /** "Match style from URL" — page-level visual token overrides (or null). */
   styleOverrides?: Record<string, unknown> | null;
+  /** Generation-annotation stash (builder UX #6) — advisory image-fit /
+   *  critique flags saved at generation time; null/absent for hand-built
+   *  pages and pages predating the stash. */
+  generationAnnotations?: GenerationAnnotations | null;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
@@ -1313,6 +1317,11 @@ export default function BuilderEditor() {
   // page's canvas + published render. Written/cleared by its own route (the
   // page PUT never carries it), so handleSave can't clobber it.
   const [pageStyleOverrides, setPageStyleOverrides] = useState<Record<string, unknown> | null>(null);
+  // Generation-annotation stash (builder UX #6): advisory image-fit/critique
+  // flags saved with the page at generation time; fed to the pre-publish
+  // check, which self-prunes them against the current canvas. Read-only in
+  // the builder (never edited or saved back).
+  const [generationAnnotations, setGenerationAnnotations] = useState<GenerationAnnotations | null>(null);
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   // Task #1085 — true when this page is a global template (owned by the neutral
@@ -1787,6 +1796,7 @@ export default function BuilderEditor() {
         setPageVariables(p.pageVariables ?? {});
         setPageCta((p.ctaDefault ?? null) as CtaConfig | null);
         setPageStyleOverrides((p.styleOverrides ?? null) as Record<string, unknown> | null);
+        setGenerationAnnotations(p.generationAnnotations ?? null);
         setBrand(b);
         setBlockDefaults(defaults);
         setCustomBlocks(customs);
@@ -2807,6 +2817,7 @@ export default function BuilderEditor() {
         ogImage,
         allowIndexing,
         pageCta,
+        generationAnnotations,
       }),
     );
     setPrePublishOpen(true);

@@ -469,6 +469,11 @@ export default function PagesGallery() {
     activeSeg: AudienceSegment | null,
     prompt: string,
   ): Promise<number> => {
+    // Generation-annotation stash (builder UX #6): the advisory image-fit /
+    // critique flags land on the page row so the builder's pre-publish check
+    // can surface them — previously they died with the receipt card.
+    const imageFitFlags = Array.isArray(generated.imageFitFlags) ? generated.imageFitFlags : [];
+    const critiqueAnnotations = Array.isArray(generated.critiqueAnnotations) ? generated.critiqueAnnotations : [];
     const page = await createPage({
       title: generated.title,
       slug: generated.slug,
@@ -479,6 +484,9 @@ export default function PagesGallery() {
       // Strict Facts — persist trusted (url-sourced) quote forms so the later
       // fact-flags sync never flags quotes that came from the reference URL.
       trustedFactForms: Array.isArray(generated.trustedFactForms) ? generated.trustedFactForms : undefined,
+      generationAnnotations: imageFitFlags.length > 0 || critiqueAnnotations.length > 0
+        ? { imageFitFlags, critiqueAnnotations }
+        : undefined,
     });
     // Task #1138 — detect + persist per-page fact flags so the builder can
     // surface the review banner + publish gate. Best-effort: a failed sync

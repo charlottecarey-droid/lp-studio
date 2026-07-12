@@ -139,6 +139,13 @@ export const lpPagesTable = pgTable("lp_pages", {
   // `normalizedFormFor("quote", …)` strings. Empty for pages with no url-sourced
   // facts.
   trustedFactForms: jsonb("trusted_fact_forms").notNull().default([]),
+  // Generation annotations stash (builder UX #6, July 2026). ADDITIVE +
+  // NULLABLE: NULL = not AI-generated (or predates the column). Written once
+  // by POST /lp/pages from the generation result; read by the builder so the
+  // pre-publish check can surface the advisory notes that were previously
+  // shown only in the Watch-It-Build receipt and then dropped. Shape:
+  //   { imageFitFlags: ImageFitFlag[], critiqueAnnotations: CritiqueAnnotation[] }
+  generationAnnotations: jsonb("generation_annotations"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

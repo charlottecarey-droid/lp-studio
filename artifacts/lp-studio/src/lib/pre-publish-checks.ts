@@ -40,6 +40,30 @@ export interface CheckableBlock {
   children?: CheckableBlock[] | null;
 }
 
+/** Advisory annotations computed at generation time and stashed on the page
+ *  (lp_pages.generation_annotations, builder UX #6). Shapes mirror the
+ *  server's ImageFitFlag / CritiqueAnnotation but every field is optional —
+ *  this is stored jsonb, so the checks must survive any drift. */
+export interface ImageFitAnnotation {
+  blockType?: string;
+  /** The prop key holding the image (e.g. "imageUrl", "src"). */
+  field?: string;
+  imageUrl?: string;
+  reason?: string;
+}
+export interface CritiqueBlockAnnotation {
+  blockId?: string;
+  blockType?: string;
+  /** Banned/cliché phrases present before the polish rewrite. */
+  removedPhrases?: string[];
+  /** false = re-scanning the rewritten block still found hits. */
+  resolved?: boolean;
+}
+export interface GenerationAnnotations {
+  imageFitFlags?: ImageFitAnnotation[];
+  critiqueAnnotations?: CritiqueBlockAnnotation[];
+}
+
 export interface PrePublishInput {
   blocks: CheckableBlock[];
   metaTitle: string;
@@ -48,6 +72,9 @@ export interface PrePublishInput {
   /** lp_pages.allow_indexing — false means robots are told to stay out. */
   allowIndexing: boolean | null;
   pageCta: CtaConfig | null;
+  /** Generation-time advisory flags stashed on the page; null/absent for
+   *  hand-built pages and pages predating the stash. */
+  generationAnnotations?: GenerationAnnotations | null;
 }
 
 const FORM_BLOCK_TYPES = new Set(["form", "id-form", "dandy-form-right-alt"]);
@@ -141,8 +168,10 @@ export function runPrePublishChecks(input: PrePublishInput): PrePublishFinding[]
   const pageCtaActive = ctaConfigHasValue(input.pageCta);
   let hasLeadCapture = false;
   const placeholderFlagged = new Set<string>();
+  const allBlocks: CheckableBlock[] = [];
 
   walk(input.blocks, (b) => {
+    allBlocks.push(b);
     const props = (b.props && typeof b.props === "object" ? b.props : {}) as Record<string, unknown>;
 
     // Lead-capture presence (forms with content, chat bot, scheduler/modal CTAs).
@@ -204,6 +233,55 @@ export function runPrePublishChecks(input: PrePublishInput): PrePublishFinding[]
     if (action === "chilipiper" || action === "modal-form" || action === "modal-chilipiper") {
       hasLeadCapture = true;
     }
+  }
+
+  // Generation annotations (builder UX #6): advisory flags computed at
+  // generation time and stashed on the page. Both kinds SELF-PRUNE against
+  // the current canvas so they stop nagging once the user fixes the block:
+  // an image-fit flag must still match a block's exact image URL (replacing
+  // the image clears it), and an unresolved critique note must point at a
+  // block that still exists (deleting or re-generating clears it).
+  const seenAnnotationIds = new Set<string>();
+  for (const flag of input.generationAnnotations?.imageFitFlags ?? []) {
+    if (!flag || typeof flag !== "object" || !flag.field || !flag.imageUrl) continue;
+    const host = allBlocks.find(
+      (b) => b.type === flag.blockType && (b.props ?? {})[flag.field as string] === flag.imageUrl,
+    );
+    if (!host) continue;
+    const id = `image-fit:${host.id}:${flag.field}`;
+    if (seenAnnotationIds.has(id)) continue;
+    seenAnnotationIds.add(id);
+    notes.push({
+      id,
+      severity: "note",
+      title: "Image may not match its section",
+      detail: flag.reason
+        ? `Flagged at generation: ${flag.reason}`
+        : "The generator flagged this image as a weak fit for the surrounding copy.",
+      blockId: host.id,
+      blockType: host.type,
+    });
+  }
+  for (const c of input.generationAnnotations?.critiqueAnnotations ?? []) {
+    if (!c || typeof c !== "object" || c.resolved !== false || !c.blockId) continue;
+    const host = allBlocks.find((b) => b.id === c.blockId);
+    if (!host) continue;
+    const id = `critique:${c.blockId}`;
+    if (seenAnnotationIds.has(id)) continue;
+    seenAnnotationIds.add(id);
+    const phrases = Array.isArray(c.removedPhrases)
+      ? c.removedPhrases.filter((p): p is string => typeof p === "string")
+      : [];
+    notes.push({
+      id,
+      severity: "note",
+      title: "Marketing clichés may remain",
+      detail: phrases.length
+        ? `The AI polish pass couldn't fully rewrite this block (e.g. ${phrases.slice(0, 3).map((p) => `"${p}"`).join(", ")}). Worth a read before publishing.`
+        : "The AI polish pass couldn't fully rewrite this block. Worth a read before publishing.",
+      blockId: host.id,
+      blockType: host.type,
+    });
   }
 
   // Page-level hygiene.
