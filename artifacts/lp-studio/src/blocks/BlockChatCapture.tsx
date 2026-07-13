@@ -85,10 +85,14 @@ export function BlockChatCapture({
   const botName = props.botName?.trim() || "Assistant";
   const welcome = props.welcomeMessage?.trim() || `Hi! I'm ${botName} — ask me anything about this page.`;
 
+  // enabled === false = kill switch (unset means on). The server mirrors this
+  // in findChatCaptureBlock, so a disabled block also refuses the chat API.
+  const disabled = props.enabled === false;
+
   // ── Builder canvas: static preview card, no live chat ─────────────────────
   if (isBuilder) {
     return (
-      <div className="max-w-md mx-auto my-6 rounded-xl border border-dashed border-gray-300 bg-white p-5">
+      <div className={`max-w-md mx-auto my-6 rounded-xl border border-dashed border-gray-300 bg-white p-5 ${disabled ? "opacity-60" : ""}`}>
         <div className="flex items-center gap-3 mb-3">
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
@@ -97,9 +101,18 @@ export function BlockChatCapture({
             <ChatIcon />
           </div>
           <div>
-            <p className="font-semibold text-sm text-gray-900">{botName} — lead-capture chat</p>
+            <p className="font-semibold text-sm text-gray-900">
+              {botName} — lead-capture chat
+              {disabled && (
+                <span className="ml-2 align-middle inline-block rounded-full bg-gray-200 text-gray-600 text-[10px] font-medium px-2 py-0.5">
+                  Disabled
+                </span>
+              )}
+            </p>
             <p className="text-xs text-gray-500">
-              Floating launcher on the published page ({props.position === "bottom-left" ? "bottom left" : "bottom right"})
+              {disabled
+                ? "Hidden on the published page until re-enabled"
+                : `Floating launcher on the published page (${props.position === "bottom-left" ? "bottom left" : "bottom right"})`}
             </p>
           </div>
         </div>
@@ -112,6 +125,7 @@ export function BlockChatCapture({
     );
   }
 
+  if (disabled) return null;
   if (pageId == null) return null;
 
   return (

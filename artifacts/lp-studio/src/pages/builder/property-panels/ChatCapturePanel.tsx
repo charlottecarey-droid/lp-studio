@@ -42,6 +42,15 @@ export function ChatCapturePanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className={LABEL_CLS + " !mb-0"}>Chat Bot Enabled</Label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Off hides the launcher and turns the bot away — settings are kept.
+          </p>
+        </div>
+        <Switch checked={props.enabled !== false} onCheckedChange={v => set("enabled", v)} />
+      </div>
       <div>
         <Label className={LABEL_CLS}>Bot Name</Label>
         <Input value={props.botName} onChange={e => set("botName", e.target.value)} className="text-sm" placeholder="Assistant" />

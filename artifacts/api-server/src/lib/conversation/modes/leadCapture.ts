@@ -140,12 +140,19 @@ export interface RawPageBlock {
 }
 
 /** Depth-first search of the persisted page blocks for the chat-capture
- *  block (the server-trusted config source). PURE + exported for tests. */
+ *  block (the server-trusted config source). A block with props.enabled ===
+ *  false is treated as absent — the kill switch must fail closed here, or a
+ *  page with the bot toggled off would still serve the public chat API.
+ *  PURE + exported for tests. */
 export function findChatCaptureBlock(raw: unknown): RawPageBlock | null {
   if (!Array.isArray(raw)) return null;
   for (const b of raw as RawPageBlock[]) {
     if (!b || typeof b !== "object") continue;
-    if (b.type === "chat-capture") return b;
+    if (b.type === "chat-capture") {
+      const props = b.props as Record<string, unknown> | undefined;
+      if (props && props.enabled === false) continue;
+      return b;
+    }
     const inChildren = findChatCaptureBlock(b.children);
     if (inChildren) return inChildren;
   }

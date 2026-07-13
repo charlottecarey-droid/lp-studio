@@ -98,6 +98,10 @@ describe("form + lead-capture checks", () => {
 
   it("chat-capture, scheduler CTAs, and a modal-form Page CTA all count as lead capture", () => {
     expect(run([{ id: "c1", type: "chat-capture", props: {} }]).some(f => f.id === "no-lead-capture")).toBe(false);
+    // …but a chat bot with the kill switch off captures nothing.
+    expect(
+      run([{ id: "c1", type: "chat-capture", props: { enabled: false } }]).some(f => f.id === "no-lead-capture"),
+    ).toBe(true);
     expect(
       run([{ id: "b1", type: "hero", props: { ctaText: "Book", ctaMode: "chilipiper", chilipiperUrl: "https://x.cp.com" } }])
         .some(f => f.id === "no-lead-capture"),

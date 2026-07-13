@@ -175,8 +175,9 @@ export function runPrePublishChecks(input: PrePublishInput): PrePublishFinding[]
     const props = (b.props && typeof b.props === "object" ? b.props : {}) as Record<string, unknown>;
 
     // Lead-capture presence (forms with content, chat bot, scheduler/modal CTAs).
+    // A chat bot with the kill switch off (enabled === false) captures nothing.
     if (LEAD_CAPTURE_TYPES.has(b.type)) {
-      if (b.type === "chat-capture" || !formBlockIsEmpty(props)) hasLeadCapture = true;
+      if (b.type === "chat-capture" ? props.enabled !== false : !formBlockIsEmpty(props)) hasLeadCapture = true;
     }
 
     // Empty form blocks.

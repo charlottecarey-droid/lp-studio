@@ -5011,6 +5011,11 @@ export interface VideoBackgroundFinalCtaBlockProps extends CtaModalConfig {
  *  this block's props off the persisted page as the bot's trusted config —
  *  see api-server routes/lp/chat-capture.ts. */
 export interface ChatCaptureBlockProps {
+  /** Kill switch: false hides the launcher on the published page AND makes
+   *  the server refuse chat for this page (block treated as absent). Unset =
+   *  enabled, so existing pages are unaffected. A/B "bot off" variants set
+   *  this false via blockOverrides without touching the persisted page. */
+  enabled?: boolean;
   /** The name the bot introduces itself with (e.g. "Maya"). */
   botName: string;
   /** First message shown when the visitor opens the chat. */

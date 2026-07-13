@@ -68,6 +68,26 @@ describe("findChatCaptureBlock", () => {
     expect(findChatCaptureBlock(null)).toBeNull();
     expect(findChatCaptureBlock("nope")).toBeNull();
   });
+
+  it("treats a disabled block (props.enabled === false) as absent — the kill switch fails closed", () => {
+    expect(
+      findChatCaptureBlock([{ id: "b", type: "chat-capture", props: { botName: "Maya", enabled: false } }]),
+    ).toBeNull();
+    // Unset and explicit true both count as enabled (existing pages never set it).
+    expect(
+      findChatCaptureBlock([{ id: "b", type: "chat-capture", props: { botName: "Maya" } }])?.id,
+    ).toBe("b");
+    expect(
+      findChatCaptureBlock([{ id: "b", type: "chat-capture", props: { botName: "Maya", enabled: true } }])?.id,
+    ).toBe("b");
+    // A disabled block doesn't mask an enabled one later in the page.
+    expect(
+      findChatCaptureBlock([
+        { id: "off", type: "chat-capture", props: { enabled: false } },
+        { id: "on", type: "chat-capture", props: {} },
+      ])?.id,
+    ).toBe("on");
+  });
 });
 
 describe("extractLinkedFormFields", () => {
