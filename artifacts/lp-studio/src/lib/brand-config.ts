@@ -887,6 +887,34 @@ export function pickContrastingColor(
 }
 
 /**
+ * Brand-aware "contrast card" surface for the quote/testimonial family.
+ * Those blocks set their cards on a surface that contrasts with the section;
+ * the old auto pick hardcoded slate (#1E293B), so every tenant's quote cards
+ * read as generic navy-on-white. Brand-aware order on a light section: a dark
+ * brand primary becomes the card itself; light-primary brands get a soft
+ * accent-tinted light card; generic slate only when the brand offers neither.
+ * Dark sections flip to a light card (accent-tinted when possible). May
+ * return a color-mix() string — downstream ink derivation already treats
+ * non-hex surfaces as light (pickContrastingColor), which is correct for the
+ * near-white tints this emits.
+ */
+export function resolveQuoteCardBg(
+  brand: BrandConfig,
+  accent: string | undefined | null,
+  sectionBase: string | undefined | null,
+): string {
+  const sectionDark = !!sectionBase && isValidHex(sectionBase) && relativeLuminance(sectionBase) < 0.4;
+  const tint = accent && isValidHex(accent) ? accent : "";
+  if (sectionDark) {
+    return tint ? `color-mix(in srgb, ${tint} 6%, #FFFFFF)` : "#FFFFFF";
+  }
+  const primary = brand.primaryColor && isValidHex(brand.primaryColor) ? brand.primaryColor : "";
+  if (primary && relativeLuminance(primary) < 0.45) return primary;
+  if (tint) return `color-mix(in srgb, ${tint} 7%, #FFFFFF)`;
+  return "#1E293B";
+}
+
+/**
  * Resolve the bg + text colors a CTA button should use given the section
  * background it's sitting on. Guards against the "blue button on blue
  * section" failure mode where the AI sets `bgColor` to the brand primary

@@ -1,7 +1,7 @@
 import { Star, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor, isValidHex } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex, resolveQuoteCardBg, DEFAULT_BRAND } from "@/lib/brand-config";
 import type { QuoteWithImageBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -31,7 +31,9 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const text = props.textColor ?? surface.color ?? "#0F172A";
   // Brand-derived accent: panel override → brand accent → brand primary.
-  const accent = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#0F172A";
+  // `||` on purpose: brand fields are often empty strings, which `??` would
+  // keep — and the final fallback must be the neutral accent, never navy.
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || DEFAULT_BRAND.accentColor;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   // The quote card contrasts with the section: white card on light sections,
   // deep slate card on dark ones. A valid `cardBgColor` override wins, and all
@@ -40,10 +42,23 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
     props.cardBgColor && (isValidHex(props.cardBgColor) || props.cardBgColor.startsWith("var("))
       ? props.cardBgColor
       : undefined;
-  const cardBg = cardOverride ?? pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#1E293B"]);
+  const cardBg = cardOverride ?? resolveQuoteCardBg(brand, accent, surface.base);
   const cardText = pickContrastingColor(props.textColor, cardBg, ["#0F172A", "#F8FAFC"]);
   const cardMuted = pickContrastingColor(undefined, cardBg, ["#64748B", "#94A3B8"]);
   const cardBorder = `color-mix(in srgb, ${cardText} 10%, transparent)`;
+  // Brand-aware blurb: the quote is this block's display element, so it takes
+  // the first brand ink (heading token → primary → accent) that clears the
+  // WCAG AA LARGE-text ratio (3:1 — the blurb renders ≥24px) on the card; the
+  // neutral card ink stays the fallback. An explicit textColor override wins.
+  const cardDark = pickContrastingColor(undefined, cardBg, ["#0F172A", "#F8FAFC"]) === "#F8FAFC";
+  const quoteInk = props.textColor
+    ? cardText
+    : pickContrastingColor(
+        cardDark ? brand.headingOnDarkColor : brand.headingOnLightColor,
+        cardBg,
+        [brand.primaryColor, accent, cardText],
+        3,
+      );
   const showCta = props.showCta ?? true;
   const rating = props.rating ?? 5;
   const imageRight = props.imageSide === "right";
@@ -138,7 +153,7 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
                 onUpdate={onFieldChange ? (v) => update("quote", v) : undefined}
                 className="mt-1 text-balance font-medium tracking-tight"
                 style={{
-                  color: cardText,
+                  color: quoteInk,
                   fontFamily: DISPLAY,
                   fontSize: "clamp(1.25rem, 2.4vw, 1.75rem)",
                   lineHeight: 1.3,

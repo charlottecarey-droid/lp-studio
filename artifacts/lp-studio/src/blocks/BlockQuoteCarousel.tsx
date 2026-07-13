@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Star, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex, resolveQuoteCardBg, DEFAULT_BRAND } from "@/lib/brand-config";
 import type { QuoteCarouselBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -61,10 +61,23 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
     cardOverride ??
     (cardTheme === "light" ? "#FFFFFF"
     : cardTheme === "dark" ? "#0F172A"
-    : pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]));
+    : resolveQuoteCardBg(brand, accent, bgSurface.base));
   const cardText = pickContrastingColor(undefined, cardBg, ["#0F172A", "#F8FAFC"]);
   const cardMuted = pickContrastingColor(undefined, cardBg, ["#64748B", "#94A3B8"]);
   const cardBorder = `color-mix(in srgb, ${cardText} 10%, transparent)`;
+  // Brand-aware blurb: the quote is this block's display element, so it takes
+  // the first brand ink (heading token → primary → accent) that clears the
+  // WCAG AA LARGE-text ratio (3:1 — the blurb renders ≥24px) on the card; the
+  // neutral card ink stays the fallback. An explicit textColor override wins.
+  const cardDark = cardText === "#F8FAFC";
+  const quoteInk = props.textColor
+    ? cardText
+    : pickContrastingColor(
+        cardDark ? brand.headingOnDarkColor : brand.headingOnLightColor,
+        cardBg,
+        [brand.primaryColor, accent, cardText],
+        3,
+      );
 
   const testimonials = props.testimonials ?? [];
   const [activeIndex, setActiveIndex] = useState(0);
@@ -223,7 +236,7 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
                         onUpdate={onFieldChange ? (v) => updateTestimonial(i, { quote: v }) : undefined}
                         className="mt-4 flex-1 text-balance font-medium tracking-tight"
                         style={{
-                          color: cardText,
+                          color: quoteInk,
                           fontFamily: DISPLAY,
                           fontSize: "clamp(1.25rem, 2.6vw, 1.875rem)",
                           lineHeight: 1.3,

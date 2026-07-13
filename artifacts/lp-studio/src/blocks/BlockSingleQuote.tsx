@@ -63,6 +63,18 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
   const panelMuted = cardOverride ? pickContrastingColor(undefined, cardOverride, ["#64748B", "#94A3B8"]) : muted;
   const panelBorder = cardOverride ? `color-mix(in srgb, ${panelText} 12%, transparent)` : border;
   const panelDark = cardOverride ? pickContrastingColor(undefined, cardOverride, ["#0F172A", "#F8FAFC"]) === "#F8FAFC" : surface.isDark;
+  // Brand-aware blurb: the quote is this block's display element, so it takes
+  // the first brand ink (heading token → primary → accent) that clears the
+  // WCAG AA LARGE-text ratio (3:1 — it renders ≥26px) on its surface; the
+  // neutral panel ink stays the fallback. An explicit textColor override wins.
+  const quoteInk = props.textColor
+    ? panelText
+    : pickContrastingColor(
+        panelDark ? brand.headingOnDarkColor : brand.headingOnLightColor,
+        cardOverride ?? surface.base,
+        [brand.primaryColor, accent, panelText],
+        3,
+      );
 
   const update = <K extends keyof SingleQuoteBlockProps>(key: K, value: SingleQuoteBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -161,7 +173,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
         split ? "text-left" : "mx-auto max-w-3xl text-center",
       )}
       style={{
-        color: panelText,
+        color: quoteInk,
         fontFamily: DISPLAY,
         fontSize: split ? "clamp(1.75rem, 4vw, 2.75rem)" : "clamp(1.625rem, 3.6vw, 2.5rem)",
         lineHeight: 1.18,

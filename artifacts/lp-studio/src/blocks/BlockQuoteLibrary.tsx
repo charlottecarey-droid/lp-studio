@@ -1,7 +1,7 @@
 import { Star, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor, isValidHex } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex, resolveQuoteCardBg, DEFAULT_BRAND } from "@/lib/brand-config";
 import type { QuoteLibraryBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -40,7 +40,9 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
   const bgSurface = resolveSectionSurface(props, "#F8FAFC");
   const text = props.textColor ?? bgSurface.color ?? "#0F172A";
   // Brand-derived accent: panel override → brand accent → brand primary.
-  const accent = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#0F172A";
+  // `||` on purpose: brand fields are often empty strings, which `??` would
+  // keep — and the final fallback must be the neutral accent, never navy.
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || DEFAULT_BRAND.accentColor;
   const muted = pickContrastingColor(undefined, bgSurface.base, ["#64748B", "#94A3B8"]);
   const border = `color-mix(in srgb, ${text} 12%, transparent)`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
@@ -55,8 +57,21 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
     props.cardBgColor && (isValidHex(props.cardBgColor) || props.cardBgColor.startsWith("var("))
       ? props.cardBgColor
       : undefined;
-  const cardBg = cardOverride ?? pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+  const cardBg = cardOverride ?? resolveQuoteCardBg(brand, accent, bgSurface.base);
   const cardText = pickContrastingColor(undefined, cardBg, ["#0F172A", "#F8FAFC"]);
+  // Brand-aware blurb for the FEATURED (display-type) quote: the first brand
+  // ink (heading token → primary → accent) that clears the WCAG AA LARGE-text
+  // ratio (3:1 — it renders ≥18pt) on the card; neutral ink otherwise. Regular
+  // cards keep neutral body ink. An explicit textColor override wins.
+  const cardDark = cardText === "#F8FAFC";
+  const quoteInk = props.textColor
+    ? cardText
+    : pickContrastingColor(
+        cardDark ? brand.headingOnDarkColor : brand.headingOnLightColor,
+        cardBg,
+        [brand.primaryColor, accent, cardText],
+        3,
+      );
   const cardMuted = pickContrastingColor(undefined, cardBg, ["#64748B", "#94A3B8"]);
   const cardBorder = `color-mix(in srgb, ${cardText} 9%, transparent)`;
 
@@ -176,7 +191,7 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
                     onUpdate={onFieldChange ? (v) => updateTestimonial(i, { quote: v }) : undefined}
                     className={cn("text-balance leading-relaxed", featured ? "font-medium tracking-tight" : "")}
                     style={{
-                      color: cardText,
+                      color: featured ? quoteInk : cardText,
                       fontFamily: featured ? DISPLAY : BODY,
                       fontSize: featured ? "clamp(1.125rem, 2vw, 1.375rem)" : "0.9375rem",
                       lineHeight: featured ? 1.35 : 1.6,
