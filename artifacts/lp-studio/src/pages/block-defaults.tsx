@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { getBlockDef, type PageBlock, type BlockType, type BlockCategory, type BlockSettings } from "@/lib/block-types";
 import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
 import { PropertyPanel } from "@/pages/builder/property-panels/PropertyPanel";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { PAGE_DESIGN_WIDTH } from "@/components/generation/liveBlocks";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,56 @@ const API = "/api";
 interface SavedDefault {
   props: object;
   blockSettings: BlockSettings;
+}
+
+/**
+ * Renders the block at the real page design width (1200px) and scales it to
+ * fit the preview column — same idiom as LivePreviewCanvas. Blocks are laid
+ * out for desktop viewports; rendering them raw in the ~650px column made
+ * every preview wrap and misrepresent the block.
+ */
+function ScaledBlockPreview({ block, brand }: { block: PageBlock; brand: BrandConfig }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.55);
+  const [innerH, setInnerH] = useState(0);
+
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      if (w > 0) setScale(Math.min(1, w / PAGE_DESIGN_WIDTH));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setInnerH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    // Wrapper height = content height × scale so the card hugs the scaled block.
+    // The fixed-width surface is absolutely positioned so its 1200px layout
+    // width can never widen the flex column it sits in.
+    <div ref={outerRef} className="relative overflow-hidden" style={{ height: innerH > 0 ? innerH * scale : 240 }}>
+      <div
+        className="absolute top-0 left-0"
+        style={{ width: PAGE_DESIGN_WIDTH, transform: `scale(${scale})`, transformOrigin: "top left" }}
+      >
+        <div ref={innerRef} data-lp-page style={getBrandStyleVars(brand)}>
+          <BlockRenderer block={block} brand={brand} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function BlockDefaultsPage() {
@@ -397,12 +448,12 @@ export function BlockDefaultsContent() {
                 ]}
               />
             </div>
-            {/* Live preview */}
-            <div className="flex-1 overflow-y-auto bg-muted/30">
+            {/* Live preview (min-w-0: the fixed-width scaled child must not widen this flex item) */}
+            <div className="flex-1 min-w-0 overflow-y-auto bg-muted/30">
               <div className="p-4">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 ml-1">Live Preview</p>
-                <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-border" style={getBrandStyleVars(brand)} data-lp-page>
-                  <BlockRenderer block={currentBlock} brand={brand} />
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-border">
+                  <ScaledBlockPreview block={currentBlock} brand={brand} />
                 </div>
               </div>
             </div>
