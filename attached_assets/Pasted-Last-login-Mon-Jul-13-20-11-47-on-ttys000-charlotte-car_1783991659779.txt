@@ -1,0 +1,110 @@
+Last login: Mon Jul 13 20:11:47 on ttys000
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % cd ~/lp-studio-staging
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git push origin staging
+To https://github.com/charlottecarey-droid/lp-studio.git
+ ! [rejected]            staging -> staging (fetch first)
+error: failed to push some refs to 'https://github.com/charlottecarey-droid/lp-studio.git'
+hint: Updates were rejected because the remote contains work that you do
+hint: not have locally. This is usually caused by another repository pushing
+hint: to the same ref. You may want to first integrate the remote changes
+hint: (e.g., 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git push --rebase origin staging
+error: unknown option `rebase'
+usage: git push [<options>] [<repository> [<refspec>...]]
+
+    -v, --verbose         be more verbose
+    -q, --quiet           be more quiet
+    --repo <repository>   repository
+    --all                 push all refs
+    --mirror              mirror all refs
+    -d, --delete          delete refs
+    --tags                push tags (can't be used with --all or --mirror)
+    -n, --dry-run         dry run
+    --porcelain           machine-readable output
+    -f, --force           force updates
+    --force-with-lease[=<refname>:<expect>]
+                          require old value of ref to be at this value
+    --force-if-includes   require remote updates to be integrated locally
+    --recurse-submodules (check|on-demand|no)
+                          control recursive pushing of submodules
+    --thin                use thin pack
+    --receive-pack <receive-pack>
+                          receive pack program
+    --exec <receive-pack>
+                          receive pack program
+    -u, --set-upstream    set upstream for git pull/status
+    --progress            force progress reporting
+    --prune               prune locally removed refs
+    --no-verify           bypass pre-push hook
+    --follow-tags         push missing but relevant tags
+    --signed[=(yes|no|if-asked)]
+                          GPG sign the push
+    --atomic              request atomic transaction on remote side
+    -o, --push-option <server-specific>
+                          option to transmit
+    -4, --ipv4            use IPv4 addresses only
+    -6, --ipv6            use IPv6 addresses only
+
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git --rebase origin staging
+unknown option: --rebase
+usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
+           <command> [<args>]
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git fetch origin
+git pull --rebase origin staging
+git push origin staging
+remote: Enumerating objects: 2, done.
+remote: Counting objects: 100% (2/2), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 2 (delta 1), reused 1 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (2/2), 615 bytes | 153.00 KiB/s, done.
+From https://github.com/charlottecarey-droid/lp-studio
+   3d8ec3328..d974f8493  staging    -> origin/staging
+error: cannot pull with rebase: You have unstaged changes.
+error: please commit or stash them.
+To https://github.com/charlottecarey-droid/lp-studio.git
+ ! [rejected]            staging -> staging (non-fast-forward)
+error: failed to push some refs to 'https://github.com/charlottecarey-droid/lp-studio.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. Integrate the remote changes (e.g.
+hint: 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git status
+On branch staging
+Your branch is behind 'origin/staging' by 2 commits, and can be fast-forwarded.
+  (use "git pull" to update your local branch)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   artifacts/api-server/src/lib/brand-import/extractors/buttons.ts
+	modified:   artifacts/api-server/src/lib/brand-import/extractors/colors.ts
+	modified:   artifacts/api-server/src/routes/lp/generate-page.ts
+	modified:   artifacts/api-server/src/routes/lp/page-style-from-url.ts
+	modified:   artifacts/api-server/src/routes/lp/pages.ts
+	modified:   artifacts/lp-studio/src/components/generation/LivePreviewCanvas.tsx
+	modified:   artifacts/lp-studio/src/lib/brand-config.ts
+	modified:   artifacts/lp-studio/src/lib/button-style-parity.test.ts
+	modified:   artifacts/lp-studio/src/lib/generationStream.ts
+	modified:   artifacts/lp-studio/src/pages/builder/BuilderEditor.tsx
+	modified:   artifacts/lp-studio/src/pages/builder/property-panels/PageStyleSection.tsx
+	modified:   artifacts/lp-studio/src/pages/landing-page-viewer.tsx
+	modified:   artifacts/lp-studio/src/pages/pages-gallery.tsx
+	modified:   artifacts/lp-studio/src/pages/pages-gallery/types.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	LP-Studio-Handoff-July-11-2026.md
+	LP-Studio-Handoff-July-5-2026.md
+	artifacts/api-server/src/lib/auto-style-from-reference.test.ts
+	artifacts/api-server/src/lib/auto-style-from-reference.ts
+	artifacts/api-server/src/lib/brand-import/extractors/buttons.test.ts
+	artifacts/api-server/src/lib/page-style-overrides.ts
+	artifacts/api-server/src/routes/lp/pages.styleOverrides.integration.test.ts
+
+no changes added to commit (use "git add" and/or "git commit -a")
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % 
