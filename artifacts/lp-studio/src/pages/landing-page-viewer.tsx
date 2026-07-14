@@ -26,7 +26,7 @@ import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-type
 import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
-import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, getBrandButtonCss, getBrandSurfaceCss, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, getBrandButtonCss, getBrandButtonShapeCss, getBrandSurfaceCss, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import { useAuth } from "@/context/AuthContext";
@@ -944,6 +944,7 @@ export default function LandingPageViewer() {
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
         {getBrandButtonCss(renderBrand) && <style>{getBrandButtonCss(renderBrand)}</style>}
+        <style>{getBrandButtonShapeCss(renderBrand)}</style>
         {getBrandSurfaceCss(renderBrand) && <style>{getBrandSurfaceCss(renderBrand)}</style>}
         {!smoothScroll && <style>{`html { scroll-behavior: auto !important; }`}</style>}
         {scopedCss && <style>{scopedCss}</style>}
@@ -1073,6 +1074,7 @@ export default function LandingPageViewer() {
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
         {getBrandButtonCss(renderBrand) && <style>{getBrandButtonCss(renderBrand)}</style>}
+        <style>{getBrandButtonShapeCss(renderBrand)}</style>
         {getBrandSurfaceCss(renderBrand) && <style>{getBrandSurfaceCss(renderBrand)}</style>}
         {!linkedSmoothScroll && <style>{`html { scroll-behavior: auto !important; }`}</style>}
         {linkedPageScopedCss && <style>{linkedPageScopedCss}</style>}
@@ -1192,6 +1194,7 @@ export default function LandingPageViewer() {
         }
       `}</style>
       {getBrandButtonCss(brand) && <style>{getBrandButtonCss(brand)}</style>}
+      <style>{getBrandButtonShapeCss(brand)}</style>
       {getBrandSurfaceCss(brand) && <style>{getBrandSurfaceCss(brand)}</style>}
 
       {/* Above-fold wrapper — 80vh so the video peeks below */}

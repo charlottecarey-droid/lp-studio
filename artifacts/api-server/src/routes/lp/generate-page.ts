@@ -63,6 +63,7 @@ import {
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { matchTemplateIntent } from "../../lib/ai-prompts/template-intent";
 import { detectFacts, isNonStatIdiom, siblingLabelText } from "../../lib/factFlags";
+import { startAutoStyleFromReference, type AutoStyleResult } from "../../lib/auto-style-from-reference";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { NAV_TYPES, SELF_NAV_TYPES, stripRedundantLeadingNav } from "../../lib/nav-dedup";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
@@ -8435,6 +8436,19 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
     typeof screenshotDataUrl === "string" && screenshotDataUrl.startsWith("data:image/")
       ? preprocessScreenshotDataUrl(screenshotDataUrl).then((s) => s)
       : Promise.resolve(undefined);
+  // Brand-fidelity step 5 (July 2026) — auto "style from URL": when the user
+  // provided a reference URL, extract its visual tokens (same orchestrator +
+  // whitelist as the builder's explicit "Match style from URL" action)
+  // CONCURRENTLY with generation. Deliberately NOT in the Promise.all below —
+  // generation must never wait on it; each result site races it against a
+  // short grace window instead. Fail-open: resolves null on any failure.
+  const autoStylePromise: Promise<AutoStyleResult | null> =
+    !captureOnly && perRequestUrls.length > 0
+      ? startAutoStyleFromReference({
+          referenceUrls: perRequestUrls,
+          apiKey: process.env.FIRECRAWL_API_KEY,
+        })
+      : Promise.resolve(null);
 
   emitter.stage("context", "done", "Loading brand & content context");
   // The parallel window below is dominated by the reference scrapes (media/
@@ -9526,6 +9540,10 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
           detail: `${strictMismatches.length} stat(s) on the page aren't in your approved facts — review them before publishing.`,
         });
       }
+      // Auto style-from-URL: give the concurrent extraction a short grace
+      // window (usually settled long ago via the 24h URL cache) — a cold,
+      // slow reference site must not stall the finished page.
+      const autoStyle = await withTimeout(autoStylePromise, 10_000);
       emitter.receipt({
         recipeId: null,
         intentMatchedTemplate,
@@ -9540,6 +9558,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
         critiqueCount: critiqueAnnotations.length,
         usedScreenshot: !!visionImage,
         degradations,
+        autoStyled: !!autoStyle,
       });
       emitter.stage("finalize", "done", "Finalizing the page");
 
@@ -9547,6 +9566,12 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
         title: parsed.title,
         slug,
         blocks: mergedBlocks,
+        // Auto style-from-URL (July 2026, additive): whitelisted visual tokens
+        // extracted from the first reference URL. The FE passes them through
+        // to POST /lp/pages (which re-filters server-side) so the saved page
+        // is styled like the reference site.
+        styleOverrides: autoStyle?.styleOverrides ?? null,
+        styleSourceUrl: autoStyle?.sourceUrl ?? null,
         // June 2026 — all-in-one intent routing (additive): non-null when the
         // generation was routed through this template by prompt intent (no
         // explicit templateId), so the FE can show "used the X template".
@@ -11621,6 +11646,9 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
         detail: `${strictMismatches.length} stat(s) on the page aren't in your approved facts — review them before publishing.`,
       });
     }
+    // Auto style-from-URL: same grace race as the template path — see the
+    // comment there.
+    const autoStyle = await withTimeout(autoStylePromise, 10_000);
     emitter.receipt({
       recipeId: chosenRecipe?.id ?? null,
       // June 2026 — "Shuffle layout" (additive): the applied, validated recipe
@@ -11640,6 +11668,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       usedScreenshot: !!visionImage,
       degradations,
       twoPassPlan,
+      autoStyled: !!autoStyle,
     });
     emitter.stage("finalize", "done", "Finalizing the page");
 
@@ -11647,6 +11676,12 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       title: parsed.title,
       slug: parsed.slug,
       blocks: parsed.blocks,
+      // Auto style-from-URL (July 2026, additive): whitelisted visual tokens
+      // extracted from the first reference URL. The FE passes them through
+      // to POST /lp/pages (which re-filters server-side) so the saved page
+      // is styled like the reference site.
+      styleOverrides: autoStyle?.styleOverrides ?? null,
+      styleSourceUrl: autoStyle?.sourceUrl ?? null,
       // June 2026 — all-in-one intent routing (additive). Always null on the
       // freeform path: a confident intent match returns from the template
       // branch above instead.

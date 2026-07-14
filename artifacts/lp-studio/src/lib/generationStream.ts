@@ -91,6 +91,9 @@ export interface GenerationReceipt {
   /** Recipe ids the caller asked to avoid (shuffle) — echoed back by the
    *  server when `excludeRecipeIds` was sent. Absent otherwise. */
   excludedRecipeIds?: string[];
+  /** Auto style-from-URL (July 2026): true when the result carries style
+   *  overrides extracted from the reference URL. Absent on older servers. */
+  autoStyled?: boolean;
 }
 
 /** Terminal payload — same JSON body the non-streaming endpoint returns. */
@@ -100,6 +103,12 @@ export interface GenerationResult {
   blocks: PageBlock[];
   trustedFactForms?: string[];
   intentMatchedTemplate?: { slug: string; score: number } | null;
+  /** Auto style-from-URL (July 2026): whitelisted visual tokens extracted
+   *  from the first reference URL, passed through to POST /lp/pages so the
+   *  saved page is styled like the reference site. Null when no reference
+   *  URL was given or extraction didn't finish in time. */
+  styleOverrides?: Record<string, unknown> | null;
+  styleSourceUrl?: string | null;
   [key: string]: unknown;
 }
 

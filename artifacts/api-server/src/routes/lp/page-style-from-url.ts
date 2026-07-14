@@ -11,8 +11,10 @@
  * tenant BrandConfig at render time (lp-studio/src/lib/page-style-overrides.ts
  * — the whitelist there is this route's contract; keep the key set in sync).
  *
- * Explicit user action by design: extraction never runs implicitly during
- * generation, and the DELETE gives a one-click "back to my brand" reset.
+ * This is the builder's explicit re-match/reset surface; generation ALSO
+ * auto-applies the same filtered tokens when the user provides a reference
+ * URL (lib/auto-style-from-reference.ts). The DELETE gives a one-click
+ * "back to my brand" reset for both.
  * Validation chain mirrors /lp/brand-import/from-url-stream (same URL guards,
  * light AI limiters, per-tenant bucket). No opts.tenantId is passed to the
  * orchestrator — style tokens need no asset mirroring, and the shared cache
@@ -46,37 +48,11 @@ function checkRate(key: string): boolean {
   return true;
 }
 
-/** The visual keys a page style override may carry — the server-side twin of
- *  PAGE_STYLE_OVERRIDE_KEYS in lp-studio/src/lib/page-style-overrides.ts
- *  (which re-validates every value at render time). Identity/copy/logo/voice
- *  proposals are deliberately absent: matching a page's STYLE to a URL must
- *  never change whose page it is. */
-const STYLE_OVERRIDE_KEYS: readonly string[] = [
-  // colors
-  "primaryColor", "accentColor", "pageBackground", "cardBackground",
-  "textColor", "ctaBackground", "ctaText", "navBgColor", "navText",
-  "borderColor", "secondary1", "secondary2", "secondary3", "secondary4", "secondary5",
-  // typography
-  "displayFont", "displayFontUrl", "bodyFont", "bodyFontUrl",
-  // buttons
-  "buttonRadius", "buttonShadow", "buttonPaddingX", "buttonPaddingY",
-  "buttonFontWeight", "buttonTextCase", "secondaryButtonStyle", "buttonStyleRaw",
-  // cards + layout
-  "cardRadius", "cardShadow", "layoutDensity",
-];
-
-/** Filter an orchestrator `proposed` map down to the style-override payload.
- *  Pure — exported for its unit test. */
-export function pickPageStyleOverrides(proposed: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const k of STYLE_OVERRIDE_KEYS) {
-    const v = proposed[k];
-    if (v === undefined || v === null) continue;
-    if (typeof v === "string" && v.trim() === "") continue;
-    out[k] = v;
-  }
-  return out;
-}
+// The whitelist filter lives in lib/page-style-overrides so the
+// auto-style-on-generation path shares it; re-exported to keep this route's
+// historical import path (and its unit test) working.
+import { pickPageStyleOverrides } from "../../lib/page-style-overrides";
+export { pickPageStyleOverrides };
 
 async function loadTenantPage(pageId: number, tenantId: number): Promise<{ id: number } | null> {
   const rows = await db

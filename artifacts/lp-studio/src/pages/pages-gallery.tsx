@@ -474,6 +474,12 @@ export default function PagesGallery() {
     // can surface them — previously they died with the receipt card.
     const imageFitFlags = Array.isArray(generated.imageFitFlags) ? generated.imageFitFlags : [];
     const critiqueAnnotations = Array.isArray(generated.critiqueAnnotations) ? generated.critiqueAnnotations : [];
+    // Auto style-from-URL: carry the generation's extracted visual tokens
+    // into the page row (the server re-filters through its whitelist).
+    const styleOverrides =
+      generated.styleOverrides && typeof generated.styleOverrides === "object" && Object.keys(generated.styleOverrides).length > 0
+        ? generated.styleOverrides
+        : undefined;
     const page = await createPage({
       title: generated.title,
       slug: generated.slug,
@@ -487,6 +493,7 @@ export default function PagesGallery() {
       generationAnnotations: imageFitFlags.length > 0 || critiqueAnnotations.length > 0
         ? { imageFitFlags, critiqueAnnotations }
         : undefined,
+      styleOverrides,
     });
     // Task #1138 — detect + persist per-page fact flags so the builder can
     // surface the review banner + publish gate. Best-effort: a failed sync

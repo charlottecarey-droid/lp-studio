@@ -69,6 +69,10 @@ export interface CreatePageData {
     imageFitFlags?: unknown[];
     critiqueAnnotations?: unknown[];
   };
+  /** Auto style-from-URL (July 2026): visual tokens the generation extracted
+   *  from the reference URL. The server re-filters through its whitelist
+   *  before persisting to lp_pages.style_overrides. */
+  styleOverrides?: Record<string, unknown>;
 }
 
 export interface ApiTemplate {

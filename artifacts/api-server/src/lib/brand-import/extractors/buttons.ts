@@ -83,6 +83,11 @@ function scoreButtonSelector(selector: string): number {
   // notion.com / anthropic.com the deterministic picker was landing on a
   // 40x40 hamburger toggle instead of the real primary CTA.
   if (/\btoggle\b|\bclose\b|\bmenu-?(?:open|close|toggle|button)\b|\bhamburger\b|\bnav-?toggle\b|\bmobile-?menu\b|\bdismiss\b|\bopen-menu\b/.test(s)) score -= 200;
+  // Hard-exclude cookie/consent tooling. These vendors ship "primary button"
+  // rules (`.fides-banner-button-primary`, OneTrust's `#onetrust-accept-btn-
+  // handler`, …) that outscore the site's own CTA — a live tenant's imported
+  // button style was the Fides cookie banner's, var() tokens and all.
+  if (/fides|onetrust|cookie|consent|didomi|usercentrics|osano|truste|gdpr|qc-cmp|sp_choice|cmplz|cky-/.test(s)) score -= 400;
   return score;
 }
 
@@ -118,13 +123,94 @@ function scoreSurfaceSelector(selector: string): number {
 function parseRadiusToPx(value: string): number | null {
   if (!value) return null;
   const v = value.trim();
+  // An unresolved token must never be parsed: the number regex below would
+  // happily read the "4" out of `var(--radius-4)` and call the button square.
+  if (/\bvar\(|\bcalc\(/i.test(v)) return null;
   if (/^9999px$/i.test(v) || /^999rem$/i.test(v) || /^50%$/i.test(v) || /^9999/.test(v)) return 9999;
   const m = v.match(/(-?\d+(?:\.\d+)?)\s*(px|rem|em)?/);
   if (!m) return null;
   const n = parseFloat(m[1]);
   const unit = m[2] ?? "px";
-  if (unit === "rem" || unit === "em") return n * 16;
-  return n;
+  const px = unit === "rem" || unit === "em" ? n * 16 : n;
+  // A negative radius is invalid CSS — a garbage parse, not a shape signal.
+  return px < 0 ? null : px;
+}
+
+// ── CSS custom-property resolution ──────────────────────────────────────────
+// Modern sites declare their button styling through design tokens
+// (`background: var(--button-bg)`), so the raw declaration is useless — and
+// worse than useless once emitted on OUR pages, where the token is undefined
+// and the whole declaration collapses to its initial value (a transparent
+// CTA). Collect every custom-property declaration across the scraped
+// stylesheets (last one wins — good enough for single-theme token maps) and
+// substitute values before any parsing. Values still containing var() after
+// resolution are dropped by the caller.
+
+function collectCustomProps(css: string, into: Map<string, string>): void {
+  const cleaned = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const re = /(--[a-zA-Z0-9_-]+)\s*:\s*([^;{}]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cleaned))) {
+    const value = m[2].trim();
+    if (value) into.set(m[1], value);
+  }
+}
+
+/** Substitute `var(--name[, fallback])` references (recursively, bounded) from
+ *  the collected custom-property map. Returns null when any reference can't
+ *  be resolved — the caller drops the declaration rather than emitting a
+ *  value that collapses at render time. Exported for its unit test. */
+export function resolveCssVars(value: string, props: Map<string, string>, depth = 0): string | null {
+  if (depth > 4) return null;
+  if (!/var\(/i.test(value)) return value;
+  let out = "";
+  let i = 0;
+  while (i < value.length) {
+    const idx = value.toLowerCase().indexOf("var(", i);
+    if (idx < 0) { out += value.slice(i); break; }
+    out += value.slice(i, idx);
+    let parens = 1;
+    let j = idx + 4;
+    while (j < value.length && parens > 0) {
+      if (value[j] === "(") parens++;
+      else if (value[j] === ")") parens--;
+      j++;
+    }
+    if (parens > 0) return null; // unbalanced — unparseable
+    const inner = value.slice(idx + 4, j - 1);
+    // Split "--name, fallback" at the first TOP-LEVEL comma (fallbacks may
+    // themselves contain function calls with commas).
+    let comma = -1;
+    let d = 0;
+    for (let k = 0; k < inner.length; k++) {
+      if (inner[k] === "(") d++;
+      else if (inner[k] === ")") d--;
+      else if (inner[k] === "," && d === 0) { comma = k; break; }
+    }
+    const name = (comma < 0 ? inner : inner.slice(0, comma)).trim();
+    const fallback = comma < 0 ? null : inner.slice(comma + 1).trim();
+    const sub = props.get(name) ?? fallback;
+    if (sub === null || sub === undefined || sub === "") return null;
+    const resolved = resolveCssVars(sub, props, depth + 1);
+    if (resolved === null) return null;
+    out += resolved;
+    i = j;
+  }
+  return /var\(/i.test(out) ? resolveCssVars(out, props, depth + 1) : out;
+}
+
+/** Resolve every declaration value through the custom-property map; drop
+ *  declarations that remain unresolvable. */
+function resolveDeclarations(
+  decls: Record<string, string>,
+  props: Map<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(decls)) {
+    const r = resolveCssVars(v, props);
+    if (r !== null && r.trim() !== "") out[k] = r;
+  }
+  return out;
 }
 
 // True when a background is pure white or fully transparent. Such fills are
@@ -206,10 +292,21 @@ export async function extractButtons(
     return { status: "failed", data: null, confidence: "low", errors: ["no CSS sources"] };
   }
 
+  // Token map for var() substitution — built across ALL stylesheets before
+  // any rule is considered, since a rule and the tokens it references usually
+  // live in different sources.
+  const customProps = new Map<string, string>();
+  for (const css of cssSources) collectCustomProps(css, customProps);
+
   const buttonHits: RuleHit[] = [];
   const surfaceHits: RuleHit[] = [];
   for (const css of cssSources) {
-    for (const r of parseRules(css)) {
+    for (const rule of parseRules(css)) {
+      // Resolve design tokens up front so every downstream read (white/
+      // transparent detection, radius/padding parsing, the stored raw style)
+      // sees concrete values; unresolvable declarations are dropped here.
+      const r = { selector: rule.selector, declarations: resolveDeclarations(rule.declarations, customProps) };
+      if (Object.keys(r.declarations).length === 0) continue;
       const btnScore = scoreButtonSelector(r.selector);
       if (btnScore > 0
         && (r.declarations["border-radius"] || r.declarations["padding"] || r.declarations["background"] || r.declarations["background-color"])

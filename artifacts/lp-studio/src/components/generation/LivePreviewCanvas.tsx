@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import {
   getBrandButtonCss,
+  getBrandButtonShapeCss,
   getBrandSurfaceCss,
   getBrandStyleVars,
   type BrandConfig,
@@ -63,6 +64,7 @@ export function LivePreviewCanvas({
   const suppressScrollUntilRef = useRef(0);
 
   const brandButtonCss = getBrandButtonCss(brand);
+  const brandButtonShapeCss = getBrandButtonShapeCss(brand);
   const brandSurfaceCss = getBrandSurfaceCss(brand);
 
   // Re-enable auto-follow whenever a new generation starts, even if the user
@@ -174,6 +176,7 @@ export function LivePreviewCanvas({
               >
                 <BrandFontLoader brand={brand} />
                 {brandButtonCss && <style>{brandButtonCss}</style>}
+                <style>{brandButtonShapeCss}</style>
                 {brandSurfaceCss && <style>{brandSurfaceCss}</style>}
                 {entries.map((entry) => (
                   <LiveBlock

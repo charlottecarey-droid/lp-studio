@@ -5,8 +5,9 @@
  * colors, fonts, button styling, card radius/shadow, layout density — and
  * store them as page-level style overrides (lp_pages.style_overrides). The
  * canvas + published page merge them over the tenant brand at render time;
- * "Remove" is a one-click reset back to the brand. Explicit action only:
- * nothing here runs during generation.
+ * "Remove" is a one-click reset back to the brand. Generation with a
+ * reference URL ALSO auto-applies the same tokens (July 2026) — this panel
+ * is the re-match/reset surface for both.
  *
  * The extraction can take up to a minute cold (full site scrape); repeat
  * matches on the same URL are served from the importer's 24h cache.

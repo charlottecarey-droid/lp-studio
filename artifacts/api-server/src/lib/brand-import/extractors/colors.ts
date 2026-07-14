@@ -420,7 +420,21 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
     }
   }
 
-  const ctaText = safe(slots.ctaText, luminance(hexToRgb(ctaBg) ?? [0, 0, 0]) > 0.5 ? "#0F172A" : "#FFFFFF");
+  let ctaText = safe(slots.ctaText, luminance(hexToRgb(ctaBg) ?? [0, 0, 0]) > 0.5 ? "#0F172A" : "#FFFFFF");
+  // Legibility guard: the LLM occasionally proposes a ctaText that doesn't
+  // read on its own ctaBackground (seen live: #0E71EB text on a #2848A8 fill —
+  // ~1.4:1). A CTA label below WCAG AA (4.5:1) is replaced by black/white per
+  // the fill's luminance; the fill itself is never changed.
+  const contrast = (a: string, b: string): number => {
+    const la = luminance(hexToRgb(a) ?? [0, 0, 0]);
+    const lb = luminance(hexToRgb(b) ?? [0, 0, 0]);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  };
+  if (contrast(ctaText, ctaBg) < 4.5) {
+    const legible = luminance(hexToRgb(ctaBg) ?? [0, 0, 0]) > 0.5 ? "#0F172A" : "#FFFFFF";
+    errors.push(`ctaText (${ctaText}) fails contrast on ctaBackground (${ctaBg}); replaced with ${legible}`);
+    ctaText = legible;
+  }
   const pageBg = safe(slots.pageBackground, lightest);
   const cardBg = safe(slots.cardBackground, pageBg);
   const text = safe(slots.text, darkest);

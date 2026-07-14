@@ -33,7 +33,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, getBrandButtonCss, getBrandSurfaceCss, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, getBrandButtonCss, getBrandButtonShapeCss, getBrandSurfaceCss, type BrandConfig } from "@/lib/brand-config";
 import { useFactFlags } from "@/hooks/use-fact-flags";
 import { syncFactFlags } from "@/lib/fact-flags-api";
 import { FactReviewModal } from "@/components/FactReviewModal";
@@ -3788,6 +3788,7 @@ export default function BuilderEditor() {
                   .animate-marquee:hover { animation-play-state: paused; }
                 `}</style>
                 {getBrandButtonCss(brand) && <style>{getBrandButtonCss(brand)}</style>}
+                <style>{getBrandButtonShapeCss(brand)}</style>
                 {getBrandSurfaceCss(brand) && <style>{getBrandSurfaceCss(brand)}</style>}
                 <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
                     {!catalogMode && <InsertionBar onClick={() => openInsertAt(0)} />}

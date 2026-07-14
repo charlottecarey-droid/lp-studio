@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_BRAND,
   getBrandButtonCss,
+  getBrandButtonShapeCss,
+  getBrandStyleVars,
   getButtonClasses,
   getImportedButtonInlineStyle,
   type BrandConfig,
@@ -204,8 +206,26 @@ describe("getBrandButtonCss import gating", () => {
     expect(getBrandButtonCss(zero)).not.toContain("padding-left");
     expect(getBrandButtonCss(zero)).not.toContain("padding-top");
     expect(getBrandButtonCss(multi)).not.toContain("padding-left");
-    // a single positive length on the other axis is still honored
-    expect(getBrandButtonCss(multi)).toContain("padding-top:16px !important");
+    // Padding is all-or-nothing (July 2026): forcing one axis while the other
+    // keeps the brand token produced squished mixes (live tenants stored
+    // paddingY "0" beside a real paddingX). One bad axis drops BOTH.
+    expect(getBrandButtonCss(multi)).not.toContain("padding-top");
+  });
+
+  it("emits padding only when BOTH axes are usable", () => {
+    const both: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, paddingX: "28px", paddingY: "14px" },
+    };
+    const css = getBrandButtonCss(both);
+    expect(css).toContain("padding-left:28px !important");
+    expect(css).toContain("padding-top:14px !important");
+    // petco stored paddingY "0" beside paddingX "16px" — neither may emit.
+    const mixed: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, paddingX: "16px", paddingY: "0" },
+    };
+    expect(getBrandButtonCss(mixed)).not.toContain("padding-");
   });
 
   it("rejects invisible / near-white shadowless scraped backgrounds so the brand fill applies", () => {
@@ -318,6 +338,218 @@ describe("emitter parity: getBrandButtonCss vs getImportedButtonInlineStyle gate
       buttonStyleRaw: { ...IMPORTED_STYLE, background: { type: "solid", value: "#11223300" } },
     };
     expect(getBrandButtonCss(brand)).not.toContain("background:");
+  });
+});
+
+describe("imported values that cannot resolve on our pages (July 2026)", () => {
+  // Live tenants stored buttonStyleRaw built from the SOURCE site's design
+  // tokens: `background: var(--petco__dk-blue)`, `var(--fides-overlay-…)` (a
+  // cookie banner), shadows referencing var(). Emitted with !important these
+  // don't just drop — they win the cascade and then compute to the property's
+  // initial value, painting transparent CTAs with unreadable labels.
+  it("rejects a var() background and emits neither fill nor label", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: {
+        ...IMPORTED_STYLE,
+        background: { type: "solid", value: "var(--petco__dk-blue)" },
+        textColor: "var(--petco__white)",
+      },
+    };
+    const css = getBrandButtonCss(brand);
+    expect(css).not.toContain("background:");
+    expect(css).not.toContain("color:");
+    const inline = getImportedButtonInlineStyle(brand);
+    expect(inline.background).toBeUndefined();
+    expect(inline.color).toBeUndefined();
+  });
+
+  it("rejects a gradient background containing var() stops", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, background: { type: "gradient", value: "linear-gradient(90deg, var(--a), #112233)" } },
+    };
+    expect(getBrandButtonCss(brand)).not.toContain("background:");
+  });
+
+  it("rejects a value with an embedded !important (would emit an invalid double-important declaration)", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, background: { type: "solid", value: "var(--color-white)!important" } },
+    };
+    expect(getBrandButtonCss(brand)).not.toContain("background:");
+  });
+
+  it("rejects a box-shadow referencing var()", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, boxShadow: "inset 0 0 0 var(--border-light) rgb(0,0,0)" },
+    };
+    const css = getBrandButtonCss(brand);
+    expect(css).not.toContain("box-shadow");
+    expect(getImportedButtonInlineStyle(brand).boxShadow).toBeUndefined();
+  });
+
+  it("drops a visible-but-unmeasurable fill instead of forcing it without a legible label", () => {
+    // An exotic color function passes the visibility checks but its contrast
+    // can't be measured, so no label can be guaranteed — fill and label are
+    // emitted together or not at all.
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, textColor: null, background: { type: "solid", value: "oklch(0.6 0.2 30)" } },
+    };
+    const css = getBrandButtonCss(brand);
+    expect(css).not.toContain("background:");
+    expect(css).not.toContain("color:");
+  });
+});
+
+describe("imported radius vs vision category reconciliation (July 2026)", () => {
+  // The CSS parse regularly lands on the wrong rule while the vision check
+  // correctly identifies the shape: live tenants stored radiusPx 4 — and -2 —
+  // against category "pill". The category is the shape authority.
+  it("corrects a sub-pill radius parse to fully round when the category is pill", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "pill", radiusPx: 4 },
+    };
+    expect(getBrandButtonCss(brand)).toContain("border-radius:9999px !important");
+  });
+
+  it("corrects a negative radius parse on a pill", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "pill", radiusPx: -2 },
+    };
+    expect(getBrandButtonCss(brand)).toContain("border-radius:9999px !important");
+  });
+
+  it("keeps a real pill radius verbatim", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "pill", radiusPx: 999 },
+    };
+    expect(getBrandButtonCss(brand)).toContain("border-radius:999px !important");
+  });
+
+  it("keeps a genuinely square parse and drops a contradicting one for category square", () => {
+    const square: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "square", radiusPx: 0 },
+    };
+    expect(getBrandButtonCss(square)).toContain("border-radius:0px !important");
+    const contradicting: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "square", radiusPx: 24 },
+    };
+    expect(getBrandButtonCss(contradicting)).not.toContain("border-radius");
+  });
+
+  it("keeps a plausible rounded radius and drops an implausible one", () => {
+    const plausible: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "rounded", radiusPx: 10 },
+    };
+    expect(getBrandButtonCss(plausible)).toContain("border-radius:10px !important");
+    const implausible: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "rounded", radiusPx: 60 },
+    };
+    expect(getBrandButtonCss(implausible)).not.toContain("border-radius");
+  });
+
+  it("emits no radius when none was parsed (the buttonRadius token owns the shape)", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, category: "pill", radiusPx: null },
+    };
+    expect(getBrandButtonCss(brand)).not.toContain("border-radius");
+  });
+});
+
+describe("getBrandStyleVars CTA label legibility (July 2026)", () => {
+  // ~80 blocks consume --brand-cta-text directly, so the var itself must be
+  // contrast-guarded: a live tenant stored ctaText #0E71EB on ctaBackground
+  // #2848A8 (~1.4:1) and every var-driven CTA rendered blue-on-blue.
+  it("replaces an illegible ctaText with a contrasting label", () => {
+    const vars = getBrandStyleVars({
+      ...DEFAULT_BRAND,
+      ctaBackground: "#2848A8",
+      ctaText: "#0E71EB",
+    }) as Record<string, string>;
+    expect(vars["--brand-cta-bg"]).toBe("#2848A8");
+    expect(vars["--brand-cta-text"]).toBe("#ffffff");
+  });
+
+  it("keeps a legible ctaText verbatim", () => {
+    const vars = getBrandStyleVars({
+      ...DEFAULT_BRAND,
+      ctaBackground: "#2848A8",
+      ctaText: "#FFFFFF",
+    }) as Record<string, string>;
+    expect(vars["--brand-cta-text"]).toBe("#FFFFFF");
+  });
+
+  it("derives the label from the fill when no ctaText is set", () => {
+    const vars = getBrandStyleVars({
+      ...DEFAULT_BRAND,
+      ctaBackground: "#F5F1ED",
+      ctaText: "",
+    }) as Record<string, string>;
+    // light fill → near-black label
+    expect(vars["--brand-cta-text"].toLowerCase()).not.toBe("#ffffff");
+  });
+});
+
+describe("getBrandButtonShapeCss — page-wide button curvature (July 2026)", () => {
+  // Only ~17 of ~220 blocks route their CTAs through getButtonClasses; the
+  // rest hand-roll radius utilities that the brand token never reached (and
+  // that the CARD remap in getBrandSurfaceCss was mis-styling). Every
+  // button-shaped element must converge on the single brand radius.
+  const SHAPE_INJECTION_RE = /<style>\{\s*getBrandButtonShapeCss\(\s*\w+\s*\)\s*\}<\/style>/;
+
+  it("both the builder canvas and the published viewer inject it inside their data-lp-page wrapper", () => {
+    expect(SHAPE_INJECTION_RE.test(pageWrapperSlice(read(BUILDER)))).toBe(true);
+    expect(SHAPE_INJECTION_RE.test(pageWrapperSlice(read(VIEWER)))).toBe(true);
+  });
+
+  it("the viewer injects it in every data-lp-page render branch", () => {
+    const viewerSrc = read(VIEWER);
+    const branches = [...viewerSrc.matchAll(/\sdata-lp-page(?=[\s/>])/g)];
+    expect(branches.length).toBeGreaterThan(0);
+    for (const m of branches) {
+      expect(SHAPE_INJECTION_RE.test(viewerSrc.slice(m.index, m.index + 2000))).toBe(true);
+    }
+  });
+
+  it("emits the token's radius for button-shaped elements only", () => {
+    const css = getBrandButtonShapeCss({ ...DEFAULT_BRAND, buttonRadius: "square" });
+    expect(css).toContain("border-radius:0px !important");
+    // scoped to padded <button>/<a> — icon buttons (p-*/w-* sized) keep their shape
+    expect(css).toContain('button[class*="px-"]');
+    expect(css).toContain('a[class*="px-"]');
+    expect(css).toContain("[data-lp-page]");
+  });
+
+  it("maps every ButtonRadius token to its concrete radius", () => {
+    expect(getBrandButtonShapeCss({ ...DEFAULT_BRAND, buttonRadius: "pill" })).toContain("border-radius:9999px");
+    expect(getBrandButtonShapeCss({ ...DEFAULT_BRAND, buttonRadius: "rounded" })).toContain("border-radius:0.75rem");
+    expect(getBrandButtonShapeCss({ ...DEFAULT_BRAND, buttonRadius: "slight" })).toContain("border-radius:0.5rem");
+    expect(getBrandButtonShapeCss({ ...DEFAULT_BRAND, buttonRadius: "square" })).toContain("border-radius:0px");
+  });
+
+  it("excludes token-driven and imported buttons so their exact radii win", () => {
+    const css = getBrandButtonShapeCss(DEFAULT_BRAND);
+    expect(css).toContain(":not(.lp-btn)");
+    expect(css).toContain(":not(.lp-brand-btn)");
+  });
+
+  it("outranks the card-radius remap for hand-rolled buttons (tag selector beats the utility remap)", () => {
+    // getBrandSurfaceCss emits `[data-lp-page] .rounded-xl:not(.lp-btn)` at
+    // specificity (0,3,0); the shape selector must exceed it so buttons get
+    // BUTTON radius, not card radius. Tag + [class*=] + two :not()s = (0,4,1).
+    const css = getBrandButtonShapeCss(DEFAULT_BRAND);
+    expect(css).toMatch(/\[data-lp-page\] button\[class\*="px-"\]:not\(\.lp-btn\):not\(\.lp-brand-btn\)/);
   });
 });
 

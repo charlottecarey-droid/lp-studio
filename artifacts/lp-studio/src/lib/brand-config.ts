@@ -1073,6 +1073,14 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
     "#93c5fd", // blue-300, a soft link tint that reads on most dark brand colors
     "#ffffff",
   ]);
+  // CTA tokens. The label var is contrast-guarded against the fill var here
+  // because ~80 blocks consume `--brand-cta-text` directly (no per-block
+  // guard): an imported ctaText that doesn't read on ctaBackground (URL
+  // imports have stored e.g. #0E71EB text on a #2848A8 fill) must never
+  // reach the page. The fill is kept verbatim — only the label is corrected.
+  const ctaBg = isValidHex(brand.ctaBackground ?? "") ? (brand.ctaBackground as string) : accent;
+  const ctaTextPref = isValidHex(brand.ctaText ?? "") ? (brand.ctaText as string) : undefined;
+  const ctaText = pickContrastingColor(ctaTextPref, ctaBg, [contrastTextColor(ctaBg)], 4.5);
 
   const vars: Record<string, string> = {
     "--brand-primary": primary,
@@ -1089,7 +1097,7 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
     "--brand-nav-text": brand.navText || "#ffffff",
     "--brand-border": brand.borderColor || "#e2e8f0",
     "--brand-cta-bg": brand.ctaBackground || accent,
-    "--brand-cta-text": brand.ctaText || onAccent,
+    "--brand-cta-text": ctaText,
     // Heading tokens. Blocks should reference these for headings instead of
     // hard-coding `var(--brand-primary)` (which is a generic palette anchor,
     // not a guaranteed-legible text color).
@@ -1262,8 +1270,16 @@ export function getButtonClasses(
 function sanitizeCssValue(v: string): string | null {
   const t = v.trim();
   if (!t) return null;
-  if (/[<>{}\\;@]/.test(t)) return null;
+  if (/[<>{}\\;@!]/.test(t)) return null;
   if (t.includes("/*") || t.includes("*/")) return null;
+  // Values referencing the SOURCE site's custom properties / relative color
+  // functions can never resolve on our pages: `background: var(--x) !important`
+  // is invalid at computed-value time, which doesn't just drop the declaration —
+  // it still wins the cascade and then computes to the property's initial value
+  // (transparent fill, invisible button). Imported tenants have stored e.g.
+  // `var(--fides-overlay-primary-button-background-color)` (a cookie banner)
+  // and `var(--petco__dk-blue)`; none of these may reach an emitted rule.
+  if (/\bvar\(|\bcolor-mix\(/i.test(t)) return null;
   return t;
 }
 
@@ -1397,6 +1413,40 @@ function usableImportedPadding(value: string | null | undefined): string | null 
 }
 
 /**
+ * Resolve the border-radius the imported button style may emit, reconciling
+ * the CSS-parsed `radiusPx` with the vision-verified `category`. The two
+ * regularly disagree when the CSS parse landed on the wrong rule (a cookie
+ * banner, a utility button): tenants have stored radiusPx 4 — and even -2 —
+ * against a vision-confirmed "pill". Emitted with `!important`, that squares
+ * off every CTA on the page. The category is the shape authority ("curvyness").
+ * No parse at all emits nothing (the buttonRadius token owns the shape, and a
+ * manual token choice stays overridable); a parse that CONTRADICTS the
+ * category is corrected, not passed through:
+ *   - pill/gradient-pill → a sub-pill (or negative) parse becomes fully round.
+ *   - square             → keep only a genuinely square parse (≤2px).
+ *   - rounded (and outline/ghost, which describe fill not shape) → keep a
+ *     plausible mid-range parse; outside it return null so the brand's own
+ *     buttonRadius token (derived from the same category) owns the shape.
+ */
+function resolveImportedRadiusPx(raw: ImportedButtonStyle): number | null {
+  const r = raw.radiusPx;
+  if (typeof r !== "number" || !Number.isFinite(r)) return null;
+  if (raw.category === "pill" || raw.category === "gradient-pill") {
+    return r >= 100 ? r : 9999;
+  }
+  if (r < 0) return null;
+  if (raw.category === "square") return r <= 2 ? r : null;
+  return r >= 3 && r <= 32 ? r : null;
+}
+
+/** A scraped box-shadow usable for emission: sanitized, an actual shadow (not
+ *  "none"/"transparent"), and free of source-site tokens (sanitizeCssValue). */
+function usableImportedShadow(value: string | null | undefined): string | null {
+  if (!hasDefiningShadow(value)) return null;
+  return sanitizeCssValue(value as string);
+}
+
+/**
  * Inline-style form of the imported "Primary button CSS" (buttonStyleRaw).
  * Used for the Brand Settings live preview, where a React style object wins
  * over the utility classes from getButtonClasses. Only emits properties that
@@ -1407,21 +1457,33 @@ export function getImportedButtonInlineStyle(brand: BrandConfig): CSSProperties 
   const raw = brand.buttonStyleRaw;
   if (!raw) return {};
   const s: CSSProperties = {};
+  // Legibility invariant: a fill is only forced when a contrasting label color
+  // can be derived alongside it (resolveImportedButtonLabelColor falls back to
+  // black/white against the resolved fill). A fill whose color can't be read
+  // (e.g. an exotic color function) is dropped entirely rather than risking
+  // "text the same color as the button".
   const bg = usableImportedBg(raw.background?.value, hasDefiningShadow(raw.boxShadow));
-  if (bg) s.background = bg;
-  if (raw.boxShadow) s.boxShadow = raw.boxShadow;
-  if (typeof raw.radiusPx === "number") s.borderRadius = `${raw.radiusPx}px`;
+  const labelColor = bg ? resolveImportedButtonLabelColor(raw) : null;
+  if (bg && labelColor) {
+    s.background = bg;
+    s.color = labelColor;
+  }
+  const shadow = usableImportedShadow(raw.boxShadow);
+  if (shadow) s.boxShadow = shadow;
+  const radiusPx = resolveImportedRadiusPx(raw);
+  if (radiusPx !== null) s.borderRadius = `${radiusPx}px`;
+  // Padding is all-or-nothing: forcing one axis while the other keeps the
+  // brand token produces squished mixes (tenants have stored paddingY "0" and
+  // var(...) beside a real paddingX). When either axis is unusable the brand's
+  // buttonPaddingX/Y utilities own the whole hit area.
   const px = usableImportedPadding(raw.paddingX);
-  if (px) { s.paddingLeft = px; s.paddingRight = px; }
   const py = usableImportedPadding(raw.paddingY);
-  if (py) { s.paddingTop = py; s.paddingBottom = py; }
+  if (px && py) {
+    s.paddingLeft = px; s.paddingRight = px;
+    s.paddingTop = py; s.paddingBottom = py;
+  }
   if (typeof raw.fontWeight === "number") s.fontWeight = raw.fontWeight;
   if (raw.textTransform) s.textTransform = raw.textTransform as CSSProperties["textTransform"];
-  // Only force a label color when we're also forcing a (usable) fill — deriving
-  // contrast against a rejected near-white background would mis-color the label
-  // on the block's real brand fill.
-  const labelColor = bg ? resolveImportedButtonLabelColor(raw) : null;
-  if (labelColor) s.color = labelColor;
   return s;
 }
 
@@ -1436,30 +1498,74 @@ export function getBrandButtonCss(brand: BrandConfig): string {
   const raw = brand.buttonStyleRaw;
   if (!raw) return "";
   const decls: string[] = [];
+  // Same legibility invariant as getImportedButtonInlineStyle: fill and label
+  // are emitted together or not at all, so a forced background can never pair
+  // with an underivable label ("text the same color as the button").
   const bg = usableImportedBg(raw.background?.value, hasDefiningShadow(raw.boxShadow));
-  if (bg) decls.push(`background:${bg} !important`);
-  const shadow = raw.boxShadow ? sanitizeCssValue(raw.boxShadow) : null;
-  if (shadow) decls.push(`box-shadow:${shadow} !important`);
-  if (typeof raw.radiusPx === "number" && Number.isFinite(raw.radiusPx)) {
-    decls.push(`border-radius:${raw.radiusPx}px !important`);
+  const labelColor = bg ? resolveImportedButtonLabelColor(raw) : null;
+  const col = labelColor ? sanitizeCssValue(labelColor) : null;
+  if (bg && col) {
+    decls.push(`background:${bg} !important`);
+    decls.push(`color:${col} !important`);
   }
+  const shadow = usableImportedShadow(raw.boxShadow);
+  if (shadow) decls.push(`box-shadow:${shadow} !important`);
+  const radiusPx = resolveImportedRadiusPx(raw);
+  if (radiusPx !== null) {
+    decls.push(`border-radius:${radiusPx}px !important`);
+  }
+  // Padding is all-or-nothing — see getImportedButtonInlineStyle.
   const px = usableImportedPadding(raw.paddingX);
-  if (px) decls.push(`padding-left:${px} !important`, `padding-right:${px} !important`);
   const py = usableImportedPadding(raw.paddingY);
-  if (py) decls.push(`padding-top:${py} !important`, `padding-bottom:${py} !important`);
+  if (px && py) {
+    decls.push(`padding-left:${px} !important`, `padding-right:${px} !important`);
+    decls.push(`padding-top:${py} !important`, `padding-bottom:${py} !important`);
+  }
   if (typeof raw.fontWeight === "number" && Number.isFinite(raw.fontWeight)) {
     decls.push(`font-weight:${raw.fontWeight} !important`);
   }
   const tt = raw.textTransform ? sanitizeCssValue(raw.textTransform) : null;
   if (tt) decls.push(`text-transform:${tt} !important`);
-  // Only force a label color when we're also forcing a (usable) fill — deriving
-  // contrast against a rejected near-white background would mis-color the label
-  // on the block's real brand fill.
-  const labelColor = bg ? resolveImportedButtonLabelColor(raw) : null;
-  const col = labelColor ? sanitizeCssValue(labelColor) : null;
-  if (col) decls.push(`color:${col} !important`);
   if (decls.length === 0) return "";
   return `.lp-brand-btn{${decls.join(";")}}`;
+}
+
+/** Concrete border-radius per ButtonRadius token for the page-wide button
+ *  SHAPE remap. Values mirror the BUTTON_RADIUS utility classes (rounded-full
+ *  / rounded-xl / rounded-lg / rounded-none) so token blocks and hand-rolled
+ *  blocks land on the same radius. */
+const BUTTON_SHAPE_RADIUS: Record<ButtonRadius, string> = {
+  pill: "9999px",
+  rounded: "0.75rem",
+  slight: "0.5rem",
+  square: "0px",
+};
+
+/**
+ * Stylesheet that makes EVERY button-shaped element follow the brand's
+ * buttonRadius token (brand-fidelity, July 2026). Only ~17 of ~220 blocks
+ * build their CTAs through getButtonClasses; the rest hand-roll utilities
+ * (`rounded-full px-8 py-4`) or inline styles, so an imported/manual radius
+ * token never reached them — worse, getBrandSurfaceCss's CARD remap caught
+ * their `rounded-xl` and gave buttons card radii. Buttons deliberately
+ * CONVERGE on the single brand radius (unlike cards, whose remap is
+ * proportional): one curvature is the brand signature.
+ *
+ * "Button-shaped" = a `<button>` or `<a>` carrying a horizontal-padding
+ * utility (`[class*="px-"]`). That catches text CTAs (including form submits
+ * and nav pills — a radius is invisible on transparent fills, so false
+ * positives are harmless) while excluding icon buttons / close buttons /
+ * carousel arrows, which use uniform `p-*`/`w-*` sizing and should keep their
+ * circles. `.lp-btn` (token-driven already) and `.lp-brand-btn` (imported
+ * exact radius wins) are excluded; the tag+attribute selectors outrank both
+ * the card remap and Tailwind utilities, and `!important` beats inline
+ * styles.
+ */
+export function getBrandButtonShapeCss(brand: BrandConfig): string {
+  const radius = BUTTON_SHAPE_RADIUS[brand.buttonRadius] ?? BUTTON_SHAPE_RADIUS.pill;
+  const sel = (tag: string): string =>
+    `[data-lp-page] ${tag}[class*="px-"]:not(.lp-btn):not(.lp-brand-btn)`;
+  return `${sel("button")},${sel("a")}{border-radius:${radius} !important}`;
 }
 
 /** Remapped border-radius per CardRadius token, keyed by the Tailwind radius

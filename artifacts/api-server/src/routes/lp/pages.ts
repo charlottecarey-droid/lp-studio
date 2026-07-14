@@ -23,6 +23,7 @@ import { getMicrositeTemplateCompatibility } from "@workspace/lp-template-engine
 import { enforceFactFlagPublishGate } from "./fact-flags";
 import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
+import { pickPageStyleOverrides } from "../../lib/page-style-overrides";
 
 const router = Router();
 
@@ -482,6 +483,10 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     // critique flags from the generation result, surfaced later by the
     // builder's pre-publish check.
     generationAnnotations,
+    // Auto style-from-URL (July 2026): visual tokens the generation extracted
+    // from the reference URL. Re-filtered through the server whitelist below;
+    // invalid/empty payloads are silently dropped, never a 400.
+    styleOverrides,
     // Template eligibility (June 2026). Meaningful only on template rows; gate
     // where a tenant-created template may be AUTO-recommended. All optional +
     // fail-open (null/empty = ANY). funnelStage is the PRIMARY stage;
@@ -504,6 +509,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     segmentId?: unknown;
     trustedFactForms?: unknown;
     generationAnnotations?: unknown;
+    styleOverrides?: unknown;
     funnelStage?: unknown;
     eligibleSegments?: unknown;
     eligiblePersonas?: unknown;
@@ -694,6 +700,15 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
           ),
         )
       : [];
+    // Auto style-from-URL — harden the client-supplied override payload with
+    // the same whitelist the explicit "Match style from URL" route applies:
+    // only known visual keys survive; anything else (or an empty/garbage
+    // payload) is silently dropped so page creation never fails over style.
+    const pickedStyleOverrides =
+      styleOverrides && typeof styleOverrides === "object" && !Array.isArray(styleOverrides)
+        ? pickPageStyleOverrides(styleOverrides as Record<string, unknown>)
+        : {};
+    const safeStyleOverrides = Object.keys(pickedStyleOverrides).length > 0 ? pickedStyleOverrides : null;
     // Slug uniqueness: a page slug must be unique per tenant. The AI page
     // generator derives the slug from the title, so regenerating pages for the
     // same product yields a colliding slug and the insert would otherwise fail.
@@ -747,6 +762,9 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         // Advisory generation flags (builder UX #6) — shaped/capped above;
         // NULL when absent or nothing useful survived sanitization.
         generationAnnotations: sanitizeGenerationAnnotations(generationAnnotations),
+        // Auto style-from-URL — whitelist-filtered above; NULL when absent or
+        // nothing valid survived.
+        styleOverrides: safeStyleOverrides,
         createdBy: req.authUser?.email ?? null,
       })
       .returning());
