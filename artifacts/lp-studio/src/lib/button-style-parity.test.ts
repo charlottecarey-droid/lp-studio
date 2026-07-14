@@ -551,6 +551,19 @@ describe("getBrandButtonShapeCss — page-wide button curvature (July 2026)", ()
     const css = getBrandButtonShapeCss(DEFAULT_BRAND);
     expect(css).toMatch(/\[data-lp-page\] button\[class\*="px-"\]:not\(\.lp-btn\):not\(\.lp-brand-btn\)/);
   });
+
+  it("also targets the shared CtaButton marker (classless, inline-styled CTAs)", () => {
+    // CtaButton renders a classless <button> whose radius is an inline style,
+    // so the `[class*="px-"]` heuristic misses it (BlockAiScanHero's hero CTA
+    // hard-coded borderRadius:0.5rem stayed put). The `.lp-cta-btn` marker
+    // selector reaches it, and `!important` overrides the inline radius.
+    const css = getBrandButtonShapeCss({ ...DEFAULT_BRAND, buttonRadius: "square" });
+    expect(css).toContain(
+      '[data-lp-page] .lp-cta-btn:not(.lp-btn):not(.lp-brand-btn)',
+    );
+    // Same convergence value + !important as the tag selectors.
+    expect(css).toContain("border-radius:0px !important");
+  });
 });
 
 describe("getButtonClasses marker class", () => {

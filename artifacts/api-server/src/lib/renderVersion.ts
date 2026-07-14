@@ -34,7 +34,7 @@
  * every unrelated lp-studio deploy (expensive Playwright fan-out) even
  * when nothing about rendering changed.
  */
-export const CURRENT_RENDER_VERSION = "2026-05-31.1";
+export const CURRENT_RENDER_VERSION = "2026-07-13.1";
 
 /** R2 object metadata key under which CURRENT_RENDER_VERSION is stored. */
 export const RENDER_VERSION_META_KEY = "render-version";

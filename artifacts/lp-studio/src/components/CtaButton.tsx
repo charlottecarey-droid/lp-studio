@@ -108,6 +108,13 @@ export function CtaButton({
   const resolvedPageId = pageId ?? ctx.pageId ?? undefined;
   const resolvedVariantId = variantId ?? ctx.variantId ?? undefined;
 
+  // Brand-radius convergence (July 2026): CtaButton renders text CTAs with no
+  // Tailwind `px-` class (padding/radius are inline), so getBrandButtonShapeCss's
+  // `[class*="px-"]` selector can't reach them. Tag every CtaButton with a stable
+  // marker so the page-wide shape rule can force the brand radius here too — the
+  // rule uses `!important`, so it overrides a block's inline `borderRadius`.
+  const btnClass = ["lp-cta-btn", className].filter(Boolean).join(" ");
+
   // ── Unified CTA inheritance (Phase 1, backward-compatible) ─────────────────
   // A button that ALREADY has its own action/destination keeps it verbatim
   // (block layer wins) — so every existing CTA renders byte-for-byte as today.
@@ -149,7 +156,7 @@ export function CtaButton({
   // Chili Piper iframe popup (existing behavior).
   if (effAction === "chilipiper" && effChilipiper) {
     return (
-      <ChiliPiperButton url={effChilipiper} className={className} style={style}>
+      <ChiliPiperButton url={effChilipiper} className={btnClass} style={style}>
         {children}
       </ChiliPiperButton>
     );
@@ -184,7 +191,7 @@ export function CtaButton({
           safeNavigate(effUrl, isSameTab ? "_self" : "_blank");
         }
       }}
-      className={className}
+      className={btnClass}
       style={{ cursor: "pointer", ...style }}
       whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
       whileTap={animationsEnabled ? { scale: 0.96 } : undefined}

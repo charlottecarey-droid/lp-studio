@@ -1565,7 +1565,14 @@ export function getBrandButtonShapeCss(brand: BrandConfig): string {
   const radius = BUTTON_SHAPE_RADIUS[brand.buttonRadius] ?? BUTTON_SHAPE_RADIUS.pill;
   const sel = (tag: string): string =>
     `[data-lp-page] ${tag}[class*="px-"]:not(.lp-btn):not(.lp-brand-btn)`;
-  return `${sel("button")},${sel("a")}{border-radius:${radius} !important}`;
+  // The shared <CtaButton> renders a classless <button> whose padding/radius
+  // are inline styles, so the `[class*="px-"]` heuristic can't reach it (e.g.
+  // BlockAiScanHero's hero CTA hard-coded `borderRadius: 0.5rem`). It stamps a
+  // stable `.lp-cta-btn` marker; target it directly so every CtaButton across
+  // all blocks converges on the brand radius too. `!important` beats the inline
+  // border-radius; the same token/imported exclusions apply.
+  const cta = `[data-lp-page] .lp-cta-btn:not(.lp-btn):not(.lp-brand-btn)`;
+  return `${sel("button")},${sel("a")},${cta}{border-radius:${radius} !important}`;
 }
 
 /** Remapped border-radius per CardRadius token, keyed by the Tailwind radius
