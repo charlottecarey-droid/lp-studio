@@ -18,13 +18,13 @@ interface TeamMember {
 
 const AUDIENCE_LABELS: Record<Audience, string> = {
   executive: "Executive",
-  clinical: "Clinical",
-  "practice-manager": "Practice Manager",
+  clinical: "End User",
+  "practice-manager": "Manager",
 };
 
 const AUDIENCE_DESC: Record<Audience, string> = {
   executive: "Quality, consistency, and control at scale.",
-  clinical: "Digital dentistry workflows and seamless clinical tools.",
+  clinical: "Hands-on workflows and the tools teams use every day.",
   "practice-manager": "Reduce operational friction and administrative burden.",
 };
 

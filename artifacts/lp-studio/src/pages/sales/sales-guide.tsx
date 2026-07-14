@@ -221,7 +221,7 @@ const SECTIONS: Section[] = [
             Choose from Pilot Proposal, Comparison Sheet, New Partner Welcome, or ROI Summary. Each has a structure suited to a different sales moment.
           </Feature>
           <Feature title="Audience Focus">
-            Select Executive, Clinical, or Practice Manager and the body copy adjusts to speak to that person's priorities.
+            Select Executive, End User, or Manager and the body copy adjusts to speak to that person's priorities.
           </Feature>
           <Feature title="Prospect Logo">
             Upload the prospect's logo and it gets placed on the PDF alongside yours, so the document feels bespoke.

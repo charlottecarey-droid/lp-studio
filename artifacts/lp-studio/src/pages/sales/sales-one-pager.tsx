@@ -1146,7 +1146,7 @@ const SalesOnePager = () => {
                   >
                     {isDandy
                       ? (a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1))
-                      : (a === "practice-manager" ? "Operations" : a === "clinical" ? "Team" : "Executive")}
+                      : (a === "practice-manager" ? "Manager" : a === "clinical" ? "End User" : "Executive")}
                   </button>
                 ))}
               </div>

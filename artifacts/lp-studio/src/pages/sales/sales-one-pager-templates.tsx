@@ -602,8 +602,8 @@ function TemplateCard({ tpl, isBuiltin, visible, onToggleVisibility, onEdit, onC
 // ════════════════════════════════════════════════════════════════════
 const PILOT_AUDIENCES = [
   { value: "executive", label: "Executive" },
-  { value: "clinical", label: "Clinical" },
-  { value: "practice-manager", label: "Practice Manager" },
+  { value: "clinical", label: "End User" },
+  { value: "practice-manager", label: "Manager" },
 ] as const;
 
 function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
@@ -2379,7 +2379,12 @@ export default function SalesOnePagerTemplates({ scope = "tenant" }: { scope?: T
                       id: bt.id,
                       label: sLabel(bt.label),
                       description: sLabel(bt.description),
-                      backgroundUrl: "backgroundUrl" in bt ? bt.backgroundUrl : undefined,
+                      // The Agreement Summary thumbnail is a bundled Dandy
+                      // screenshot ("Summary of Dandy Agreement"). The generated
+                      // PDF is brand-scrubbed, but this static preview isn't — so
+                      // only show it for Dandy tenants; non-Dandy tenants fall
+                      // back to the neutral skeleton like the other built-ins.
+                      backgroundUrl: previewIsDandy && "backgroundUrl" in bt ? bt.backgroundUrl : undefined,
                     }}
                     isBuiltin
                     visible={visibility[bt.id] !== false}

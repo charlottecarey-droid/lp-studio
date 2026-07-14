@@ -2411,21 +2411,21 @@ function SalesConsoleSettings({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm">Clinical header image</Label>
+          <Label className="text-sm">End-user header image</Label>
           <ImagePicker
             value={sc.onePagerHeaderImages?.clinical ?? ""}
             onChange={url => patch({ onePagerHeaderImages: { ...(sc.onePagerHeaderImages ?? {}), clinical: url } })}
             placeholder="Optional — leave empty for a neutral header"
-            aiHint="One-pager clinical header image"
+            aiHint="One-pager end-user header image"
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm">Practice-manager header image</Label>
+          <Label className="text-sm">Manager header image</Label>
           <ImagePicker
             value={sc.onePagerHeaderImages?.practiceManager ?? ""}
             onChange={url => patch({ onePagerHeaderImages: { ...(sc.onePagerHeaderImages ?? {}), practiceManager: url } })}
             placeholder="Optional — leave empty for a neutral header"
-            aiHint="One-pager practice-manager header image"
+            aiHint="One-pager manager header image"
           />
         </div>
         <div className="space-y-1.5">

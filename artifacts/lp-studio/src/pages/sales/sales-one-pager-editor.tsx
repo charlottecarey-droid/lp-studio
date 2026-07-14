@@ -1503,7 +1503,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
                       className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${audience === a ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
                       {isDandy
                         ? (a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1))
-                        : (a === "practice-manager" ? "Operations" : a === "clinical" ? "Team" : "Executive")}
+                        : (a === "practice-manager" ? "Manager" : a === "clinical" ? "End User" : "Executive")}
                     </button>
                   ))}
                 </div>
