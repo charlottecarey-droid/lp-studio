@@ -1212,7 +1212,7 @@ function ContactListView() {
           /* ── Flat List (virtualized) ── */
           <div className="flex flex-col gap-2">
             <p className="text-xs text-muted-foreground px-1">{filtered.length} contact{filtered.length !== 1 ? "s" : ""}</p>
-            <div ref={flatScrollRef} className="max-h-[70vh] overflow-y-auto rounded-xl" style={{ contain: "strict" }}>
+            <div ref={flatScrollRef} className="h-[70vh] overflow-y-auto rounded-xl">
               <div style={{ height: flatVirtualizer.getTotalSize(), width: "100%", position: "relative" }}>
                 {flatVirtualizer.getVirtualItems().map((virtualRow) => {
                   const contact = filtered[virtualRow.index];

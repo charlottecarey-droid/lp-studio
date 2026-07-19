@@ -1660,6 +1660,7 @@ interface Signal {
   id: number;
   accountId: number | null;
   contactId: number | null;
+  contactName?: string | null;
   type: string;
   source: string | null;
   metadata: Record<string, unknown>;
@@ -1671,6 +1672,7 @@ const signalConfig: Record<string, { icon: typeof Activity; label: string; color
   email_open: { icon: Mail, label: "Email Opened", color: "text-amber-500" },
   email_click: { icon: MousePointerClick, label: "Email Clicked", color: "text-emerald-500" },
   form_submit: { icon: FileText, label: "Form Submitted", color: "text-purple-500" },
+  visitor_identified: { icon: Users, label: "Visitor Identified", color: "text-primary" },
 };
 
 function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts: Contact[] }) {
@@ -1711,6 +1713,12 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
         const config = signalConfig[signal.type] ?? { icon: Activity, label: signal.type, color: "text-muted-foreground" };
         const Icon = config.icon;
         const contact = signal.contactId ? contactMap.get(signal.contactId) : null;
+        const meta = (signal.metadata ?? {}) as Record<string, string | undefined>;
+        // Resolve a display name: linked contact → API contactName → visitor metadata
+        const metaName = [meta.firstName, meta.lastName].filter(Boolean).join(" ");
+        const displayName = contact
+          ? `${contact.firstName} ${contact.lastName}`
+          : signal.contactName || metaName || null;
 
         const row = (
           <div className={`flex items-start gap-3 px-4 py-3 bg-card border border-border/60 rounded-xl transition-colors ${contact ? "hover:bg-muted/30 cursor-pointer" : ""}`}>
@@ -1720,11 +1728,11 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
             <div className="flex-1 min-w-0">
               <p className="text-sm text-foreground">
                 <span className="font-medium">{config.label}</span>
-                {contact && (
-                  <span className="text-muted-foreground"> by </span>
-                )}
-                {contact && (
-                  <span className="font-medium text-foreground">{contact.firstName} {contact.lastName}</span>
+                {displayName && (
+                  <>
+                    <span className="text-muted-foreground"> by </span>
+                    <span className="font-medium text-foreground">{displayName}</span>
+                  </>
                 )}
               </p>
               {signal.source && (

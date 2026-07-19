@@ -244,7 +244,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 flex flex-col gap-3 overflow-y-auto flex-1">
+        <div className="px-6 py-4 flex flex-col gap-3 overflow-y-auto flex-1 min-h-0">
 
           {/* Loading */}
           {loading && (
@@ -339,7 +339,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
                 </button>
 
                 {briefOpen && (brief || briefError) && (
-                  <div className="px-4 py-3 border-t border-border bg-card max-h-72 overflow-y-auto">
+                  <div className="px-4 py-3 border-t border-border bg-card">
                     {briefError && (
                       <p className="text-[12px] text-destructive">{briefError}</p>
                     )}

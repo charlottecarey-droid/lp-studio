@@ -420,7 +420,7 @@ export default function SalesSignals() {
               {groupedSignals.map(([accountName, acctSignals]) => {
                 const isCollapsed = collapsedAccounts.has(accountName);
                 return (
-                  <div key={accountName} className="border border-border/60 rounded-xl overflow-hidden">
+                  <div key={accountName} className="border border-border/60 rounded-xl overflow-hidden shrink-0">
                     <button
                       onClick={() => toggleAccountCollapse(accountName)}
                       className="w-full flex items-center gap-3 px-5 py-3.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
@@ -439,12 +439,37 @@ export default function SalesSignals() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground">
-                                {signal.contactName ?? signal.accountName ?? "Anonymous"}{" "}
-                                <span className="text-muted-foreground font-normal">
-                                  {getSignalLabel(signal.type).toLowerCase()}
-                                </span>
+                                {signal.type === "visitor_identified"
+                                  ? (() => {
+                                      const m = (signal.metadata ?? {}) as Record<string, string | undefined>;
+                                      const personName = [m.firstName, m.lastName].filter(Boolean).join(" ");
+                                      return personName
+                                        ? <>{personName}<span className="text-muted-foreground font-normal"> · identified</span></>
+                                        : <span className="text-muted-foreground font-normal">Unknown visitor</span>;
+                                    })()
+                                  : <>{signal.contactName ?? signal.accountName ?? "Anonymous"}{" "}<span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span></>
+                                }
                               </p>
-                              {signal.source && <p className="text-xs text-muted-foreground truncate">{signal.source}</p>}
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                {signal.type === "visitor_identified"
+                                  ? (() => {
+                                      const m = signal.metadata as Record<string, string | undefined>;
+                                      const slug = m.slug ?? (m.pageUrl ? m.pageUrl.split("/").filter(Boolean).pop() : null);
+                                      const activity = m.lastActivity || m.activityType?.replace(/_/g, " ");
+                                      return <>
+                                        {slug
+                                          ? <span>Visited <span className="font-mono text-[11px]">/{slug}</span></span>
+                                          : activity
+                                            ? <span className="capitalize">{activity}</span>
+                                            : <span>Identified</span>
+                                        }
+                                        {signal.source && <><span className="text-border">·</span><span className="capitalize">{signal.source}</span></>}
+                                        {m.linkedinUrl && <><span className="text-border">·</span><a href={m.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" onClick={e => e.stopPropagation()}>LinkedIn</a></>}
+                                      </>;
+                                    })()
+                                  : signal.source && <span className="truncate">{signal.source}</span>
+                                }
+                              </div>
                             </div>
                             <span className="text-xs text-muted-foreground shrink-0">
                               {format(new Date(signal.createdAt), "MMM d, h:mm a")}
