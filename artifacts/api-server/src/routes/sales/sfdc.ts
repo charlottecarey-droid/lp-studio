@@ -7,6 +7,18 @@ import { encryptCredential } from "../../lib/encryption";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { signSfdcState, verifySfdcState } from "../../lib/sfdc-oauth-state";
 import { parseSyncFilters } from "../../lib/sfdc-sync-filters";
+import {
+  REQUEST_OBJECT,
+  CHOICE_OBJECT,
+  ACCOUNT_URL_FIELD,
+  PERMISSION_SET_NAME,
+  readMicrositeButtonState,
+  writeMicrositeButtonState,
+  provisionMicrositeButton,
+  syncMicrositeChoices,
+} from "../../lib/sfdcMicrositeButton";
+import { runSfdcMicrositePollForConnection } from "../../lib/sfdcMicrositeRequestPoller";
+import { getTenantPlanFeatures } from "../../lib/planFeatures";
 
 const router = Router();
 
@@ -670,6 +682,147 @@ router.post("/sfdc/writeback/bulk-engagement", requireAuth, async (req, res): Pr
   } catch (err) {
     logger.error({ err }, "Error in bulk engagement push");
     res.status(500).json({ error: "Failed to push engagement scores" });
+  }
+});
+
+// ─── Salesforce "Create Microsite" button (Task #1448) ──────────────────────
+// Settings + provisioning + choice-sync + test-poll endpoints for the pull-
+// model microsite button. All tenant-scoped via the tenant's own active
+// connection; fail closed when there is none.
+
+/**
+ * GET /sfdc/microsite-button
+ * Feature state + the API-name contract the settings UI renders into the
+ * Screen Flow instructions.
+ */
+router.get("/sfdc/microsite-button", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const conn = await sfdcService.getActiveConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
+    const [row] = await db
+      .select({ metadata: sfdcConnectionsTable.metadata })
+      .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.id, conn.id))
+      .limit(1);
+    res.json({
+      state: readMicrositeButtonState(row?.metadata),
+      contract: {
+        requestObject: REQUEST_OBJECT,
+        choiceObject: CHOICE_OBJECT,
+        accountUrlField: ACCOUNT_URL_FIELD,
+        permissionSet: PERMISSION_SET_NAME,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /sfdc/microsite-button failed");
+    res.status(500).json({ error: "Failed to load microsite button settings" });
+  }
+});
+
+/**
+ * PUT /sfdc/microsite-button
+ * Enable/disable the poller for this tenant's connection.
+ */
+router.put("/sfdc/microsite-button", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const enabled = req.body?.enabled;
+  if (typeof enabled !== "boolean") {
+    res.status(400).json({ error: "enabled (boolean) is required" });
+    return;
+  }
+  try {
+    const conn = await sfdcService.getActiveConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
+    if (enabled) {
+      // The poller itself also enforces this gate, but failing the toggle here
+      // gives the admin an actionable message instead of a silently-dead button.
+      const { features } = await getTenantPlanFeatures(tenantId);
+      if (!features.salesConsole) {
+        res.status(403).json({ error: "The Salesforce microsite button requires a plan that includes the Sales Console." });
+        return;
+      }
+    }
+    const state = await writeMicrositeButtonState(conn.id, { enabled });
+    res.json({ state });
+  } catch (err) {
+    logger.error({ err }, "PUT /sfdc/microsite-button failed");
+    res.status(500).json({ error: "Failed to update microsite button settings" });
+  }
+});
+
+/**
+ * POST /sfdc/microsite-button/provision
+ * Idempotently create the custom objects/fields/permission set in the org.
+ * Partial failure returns status "manual" plus the list of missing pieces.
+ */
+router.post("/sfdc/microsite-button/provision", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const conn = await sfdcService.getActiveConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
+    const result = await provisionMicrositeButton(conn.id);
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, "POST /sfdc/microsite-button/provision failed");
+    res.status(500).json({ error: "Provisioning failed — check the connection and try again" });
+  }
+});
+
+/**
+ * POST /sfdc/microsite-button/sync-choices
+ * Push the tenant's segments + microsite-eligible templates into
+ * LP_Studio_Choice__c so the Screen Flow dropdowns are current.
+ */
+router.post("/sfdc/microsite-button/sync-choices", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const conn = await sfdcService.getActiveConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
+    const result = await syncMicrositeChoices(conn.id, tenantId);
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, "POST /sfdc/microsite-button/sync-choices failed");
+    res.status(500).json({ error: "Choice sync failed — provision the Salesforce objects first" });
+  }
+});
+
+/**
+ * POST /sfdc/microsite-button/poll-now
+ * Manual test path: run one poll tick for THIS tenant only (same advisory
+ * lock as the scheduler, so it can't double-claim against a live sweep).
+ */
+router.post("/sfdc/microsite-button/poll-now", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const conn = await sfdcService.getActiveConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
+    // Same plan gate the scheduled poller applies — a downgraded tenant must
+    // not be able to run polls manually that the sweep would skip.
+    const { features } = await getTenantPlanFeatures(tenantId);
+    if (!features.salesConsole) {
+      res.status(403).json({ error: "The Salesforce microsite button requires the Sales Console plan" });
+      return;
+    }
+    const [row] = await db
+      .select({ metadata: sfdcConnectionsTable.metadata })
+      .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.id, conn.id))
+      .limit(1);
+    if (!readMicrositeButtonState(row?.metadata).enabled) {
+      res.status(409).json({ error: "Enable the microsite button first" });
+      return;
+    }
+    const outcome = await runSfdcMicrositePollForConnection({ connectionId: conn.id, tenantId });
+    const [after] = await db
+      .select({ metadata: sfdcConnectionsTable.metadata })
+      .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.id, conn.id))
+      .limit(1);
+    res.json({ outcome, state: readMicrositeButtonState(after?.metadata) });
+  } catch (err) {
+    logger.error({ err }, "POST /sfdc/microsite-button/poll-now failed");
+    res.status(500).json({ error: "Poll failed" });
   }
 });
 

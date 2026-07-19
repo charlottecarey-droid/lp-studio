@@ -29,6 +29,7 @@ import { startBrandedSubdomainReconcilePoller } from "./lib/brandedSubdomainReco
 import { startBrandedEmailSubdomainPoller } from "./lib/brandedEmailSubdomainPoller";
 import { startMarketoSyncPoller } from "./lib/marketoSyncPoller";
 import { startHubspotSyncPoller } from "./lib/hubspotSyncPoller";
+import { startSfdcMicrositeRequestPoller } from "./lib/sfdcMicrositeRequestPoller";
 import { startBlogPublishPoller } from "./lib/blogPublishPoller";
 import { startBlogProgramPoller } from "./lib/blogProgramPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
@@ -632,6 +633,15 @@ const httpServer = app.listen(port, (err) => {
   // OR when MARKETO_FAKE_MODE is set (see poller).
   startMarketoSyncPoller();
   startHubspotSyncPoller();
+
+  // Task #1448 — Salesforce "Create Microsite" button request poller. Every
+  // 60s, for each connected tenant with the feature enabled, picks up New
+  // LP_Studio_Microsite_Request__c records (created by the rep's Screen
+  // Flow), enqueues the existing microsite generation job, and on a later
+  // tick writes the finished page URL back to the Account and marks the
+  // request Complete/Failed. Per-tenant advisory-locked; hourly-capped.
+  // Production-only unless SFDC_MICROSITE_POLLER_ENABLED=1 (see poller).
+  startSfdcMicrositeRequestPoller();
 
   // Blog Phase 2 — scheduled-publish sweep. Flips status='scheduled' blog_posts
   // to 'published' once scheduled_at <= now (atomic conditional UPDATE,

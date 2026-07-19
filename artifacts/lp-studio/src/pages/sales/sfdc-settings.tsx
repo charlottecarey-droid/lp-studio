@@ -276,6 +276,249 @@ function SyncStatusBadge({ status }: { status: string }) {
   }
 }
 
+interface MicrositeButtonState {
+  enabled: boolean;
+  provisionStatus: "unprovisioned" | "provisioned" | "manual";
+  provisionProblems: string[];
+  lastProvisionAt: string | null;
+  lastChoicesSyncAt: string | null;
+  lastPollAt: string | null;
+  lastError: string | null;
+}
+
+interface MicrositeButtonContract {
+  requestObject: string;
+  choiceObject: string;
+  accountUrlField: string;
+  permissionSet: string;
+}
+
+/**
+ * Task #1448 — Salesforce "Create Microsite" button. Lets reps trigger
+ * microsite generation from a Screen Flow inside Salesforce; LP Studio polls
+ * for their requests roughly once a minute. This card owns enable/disable,
+ * one-click Salesforce object setup, dropdown-choice refresh, and a manual
+ * "check now" test path.
+ */
+function MicrositeButtonCard() {
+  const [state, setState] = useState<MicrositeButtonState | null>(null);
+  const [contract, setContract] = useState<MicrositeButtonContract | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/sales/sfdc/microsite-button`);
+        if (!res.ok) return; // no active connection — parent already gates on connected
+        const data = await res.json();
+        if (!cancelled) {
+          setState(data.state ?? null);
+          setContract(data.contract ?? null);
+        }
+      } catch (err) {
+        console.error("Failed to load microsite button settings:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function run(action: string, fn: () => Promise<void>) {
+    setBusy(action);
+    setError(null);
+    setNotice(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong — please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function readJsonOrThrow(res: Response): Promise<any> {
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  const handleToggle = (enabled: boolean) =>
+    run("toggle", async () => {
+      const res = await fetch(`${API_BASE}/sales/sfdc/microsite-button`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const data = await readJsonOrThrow(res);
+      setState(data.state);
+      setNotice(enabled
+        ? "Turned on. LP Studio now checks Salesforce for new microsite requests about once a minute."
+        : "Turned off. Requests created in Salesforce will wait until you turn this back on.");
+    });
+
+  const handleProvision = () =>
+    run("provision", async () => {
+      const res = await fetch(`${API_BASE}/sales/sfdc/microsite-button/provision`, { method: "POST" });
+      const data = await readJsonOrThrow(res);
+      // Refresh the whole state so provisionStatus/problems reflect the server's write.
+      const fresh = await fetch(`${API_BASE}/sales/sfdc/microsite-button`).then((r) => r.json());
+      setState(fresh.state ?? null);
+      setNotice(data.status === "provisioned"
+        ? "Salesforce is set up — the objects the button needs are all in place."
+        : "Partial setup: some pieces could not be created automatically. See the list below for what your Salesforce admin needs to add by hand.");
+    });
+
+  const handleSyncChoices = () =>
+    run("choices", async () => {
+      const res = await fetch(`${API_BASE}/sales/sfdc/microsite-button/sync-choices`, { method: "POST" });
+      const data = await readJsonOrThrow(res);
+      const fresh = await fetch(`${API_BASE}/sales/sfdc/microsite-button`).then((r) => r.json());
+      setState(fresh.state ?? null);
+      setNotice(`Dropdown choices refreshed (${data.created} added, ${data.updated} updated, ${data.deactivated} removed).`);
+    });
+
+  const handlePollNow = () =>
+    run("poll", async () => {
+      const res = await fetch(`${API_BASE}/sales/sfdc/microsite-button/poll-now`, { method: "POST" });
+      const data = await readJsonOrThrow(res);
+      setState(data.state ?? null);
+      setNotice(data.outcome === "ran"
+        ? "Checked Salesforce for requests just now."
+        : "Another check was already running — try again in a minute.");
+    });
+
+  if (!state) return null;
+
+  return (
+    <Card className="p-6 border border-border/40 bg-card/50 backdrop-blur-sm">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-3">
+            <Cloud className="w-5 h-5 text-emerald-500" />
+            Create Microsites from Salesforce
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Give your reps a button inside Salesforce that builds an account microsite here
+            and writes the finished link back onto the Account.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Label htmlFor="microsite-button-toggle" className="text-sm text-muted-foreground">
+            {state.enabled ? "On" : "Off"}
+          </Label>
+          <Switch
+            id="microsite-button-toggle"
+            checked={state.enabled}
+            disabled={busy !== null}
+            onCheckedChange={handleToggle}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 text-sm text-destructive mb-3">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      {notice && (
+        <div className="flex items-start gap-2 text-sm text-emerald-600 dark:text-emerald-400 mb-3">
+          <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {/* Step 1 — Salesforce object setup */}
+        <div className="rounded-lg border border-border/40 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">1. Set up Salesforce</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {state.provisionStatus === "provisioned" && "Done — the request tracking objects exist in your org."}
+                {state.provisionStatus === "manual" && "Partially done — a few pieces need to be created by hand (see below)."}
+                {state.provisionStatus === "unprovisioned" && "Creates the two small custom objects and the Account link field the button needs. The connected Salesforce user needs the \u201CCustomize Application\u201D permission for this to work automatically."}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={handleProvision} disabled={busy !== null} className="gap-2 shrink-0">
+              {busy === "provision" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
+              {state.provisionStatus === "unprovisioned" ? "Set up Salesforce" : "Re-check setup"}
+            </Button>
+          </div>
+          {state.provisionStatus === "manual" && state.provisionProblems.length > 0 && (
+            <div className="mt-3 rounded-md bg-amber-500/10 border border-amber-500/30 p-3">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5 mb-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Ask your Salesforce admin to create these by hand:
+              </p>
+              <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-0.5">
+                {state.provisionProblems.map((p, i) => (<li key={i}>{p}</li>))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Step 2 — rep access + flow */}
+        <div className="rounded-lg border border-border/40 p-4 space-y-2">
+          <p className="text-sm font-medium">2. Give your reps access</p>
+          <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
+            <li>
+              Assign the <code className="bg-muted px-1 py-0.5 rounded">{contract?.permissionSet ?? "LP_Studio_Microsites"}</code> permission
+              set to every rep who should see the button — the Salesforce flow runs as the rep, not as an admin.
+            </li>
+            <li>
+              Build a simple Screen Flow (or quick action) on the Account page that creates a{" "}
+              <code className="bg-muted px-1 py-0.5 rounded">{contract?.requestObject ?? "LP_Studio_Microsite_Request__c"}</code> record
+              with the Account's ID and Status <code className="bg-muted px-1 py-0.5 rounded">New</code>.
+            </li>
+            <li>
+              Optional dropdowns for audience segment and template can read from{" "}
+              <code className="bg-muted px-1 py-0.5 rounded">{contract?.choiceObject ?? "LP_Studio_Choice__c"}</code>.
+              For a &ldquo;Recommended&rdquo; default, simply leave the segment and template fields blank —
+              LP Studio picks the best fit automatically.
+            </li>
+            <li>
+              The finished page link lands on the Account in{" "}
+              <code className="bg-muted px-1 py-0.5 rounded">{contract?.accountUrlField ?? "LP_Studio_Microsite_URL__c"}</code>{" "}
+              and on the request record itself.
+            </li>
+          </ul>
+        </div>
+
+        {/* Status + actions */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />
+            Last check: {state.lastPollAt ? format(new Date(state.lastPollAt), "MMM d, h:mm a") : "never"}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <RefreshCw className="w-3.5 h-3.5" />
+            Choices updated: {state.lastChoicesSyncAt ? format(new Date(state.lastChoicesSyncAt), "MMM d, h:mm a") : "never"}
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <Button size="sm" variant="ghost" onClick={handleSyncChoices} disabled={busy !== null} className="gap-1.5 h-7 text-xs">
+              {busy === "choices" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Refresh choices
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handlePollNow} disabled={busy !== null || !state.enabled} className="gap-1.5 h-7 text-xs">
+              {busy === "poll" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+              Check now
+            </Button>
+          </div>
+        </div>
+        {state.lastError && (
+          <p className="text-xs text-destructive flex items-start gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            Last problem: {state.lastError}
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export default function SfdcSettingsPage() {
   const [connection, setConnection] = useState<SfdcConnection | null>(null);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
@@ -601,6 +844,9 @@ export default function SfdcSettingsPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Salesforce "Create Microsite" button (Task #1448) */}
+            <MicrositeButtonCard />
 
             {/* Sync Filters Card */}
             <Card className="p-6 border border-border/40 bg-card/50 backdrop-blur-sm">

@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { logger } from "./logger";
 import { encryptCredential, decryptCredential } from "./encryption";
+import { isUniqueViolation } from "./dbErrors";
 import { applyWhere, buildAccountWhere, buildContactWhere, buildLeadWhere, buildOpportunityWhere, parseSyncFilters } from "./sfdc-sync-filters";
 
 const SFDC_AUTH_URL = "https://login.salesforce.com";
@@ -1011,6 +1012,223 @@ export class SfdcService {
     } catch (err) {
       logger.error({ err, tenantId }, "Error retrieving active SFDC connection");
       return null;
+    }
+  }
+
+  // ─── GENERIC SOBJECT + TOOLING HELPERS (Task #1448) ─────────────
+  //
+  // The microsite-button feature provisions custom objects via the Tooling
+  // API and reads/writes its own request records. These helpers are generic
+  // (object name + field map) but strictly validated: object names must be
+  // identifier-shaped and record ids must be 15/18-char alphanumeric before
+  // they are ever interpolated into a URL or SOQL string.
+
+  /** Strict Salesforce record-id shape check (15 or 18 chars, alphanumeric only). */
+  static isValidSfdcId(id: unknown): id is string {
+    return typeof id === "string" && /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(id);
+  }
+
+  /** Identifier-shaped sObject / field API name (letters, digits, underscores). */
+  private assertApiName(name: string, what: string): void {
+    if (!/^[A-Za-z][A-Za-z0-9_.]*$/.test(name)) {
+      throw new Error(`Invalid Salesforce ${what}: ${JSON.stringify(name).slice(0, 80)}`);
+    }
+  }
+
+  /**
+   * Generic SOQL query returning loosely-typed records (custom objects aren't
+   * covered by the typed interfaces above). Same fetch/rate-limit handling as
+   * querySalesforce.
+   */
+  async queryRecords<T = Record<string, unknown>>(connectionId: number, soql: string): Promise<T[]> {
+    const result = await this.querySalesforce(connectionId, soql);
+    return (result.records ?? []) as unknown as T[];
+  }
+
+  /**
+   * Create a record of any sObject type. Throws with the Salesforce error body
+   * on failure so callers can surface a readable reason.
+   */
+  async createSObject(connectionId: number, objectName: string, fields: Record<string, unknown>): Promise<{ id: string }> {
+    this.assertApiName(objectName, "sObject name");
+    const connection = await this.getConnectionWithValidToken(connectionId);
+    const response = await fetch(
+      `${connection.instanceUrl}/services/data/${SFDC_API_VERSION}/sobjects/${objectName}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(fields),
+      },
+    );
+    if (response.status === 429) throw new Error("SFDC_RATE_LIMIT");
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`SFDC create ${objectName} failed (${response.status}): ${text.slice(0, 600)}`);
+    }
+    const result = JSON.parse(text) as { id: string };
+    return { id: result.id };
+  }
+
+  /**
+   * PATCH fields on an existing record. Salesforce returns 204 No Content on
+   * success. Throws with the error body on failure.
+   */
+  async updateSObject(connectionId: number, objectName: string, recordId: string, fields: Record<string, unknown>): Promise<void> {
+    this.assertApiName(objectName, "sObject name");
+    if (!SfdcService.isValidSfdcId(recordId)) {
+      throw new Error(`Invalid Salesforce record id: ${JSON.stringify(recordId).slice(0, 40)}`);
+    }
+    const connection = await this.getConnectionWithValidToken(connectionId);
+    const response = await fetch(
+      `${connection.instanceUrl}/services/data/${SFDC_API_VERSION}/sobjects/${objectName}/${recordId}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(fields),
+      },
+    );
+    if (response.status === 429) throw new Error("SFDC_RATE_LIMIT");
+    if (response.status === 204) return;
+    const text = await response.text();
+    throw new Error(`SFDC update ${objectName}/${recordId} failed (${response.status}): ${text.slice(0, 600)}`);
+  }
+
+  /**
+   * Create a Tooling API record (CustomObject / CustomField / …). Used by the
+   * microsite-button provisioner. Throws with the Salesforce error body on
+   * failure; callers detect "already exists" via DUPLICATE_* error codes in
+   * the message.
+   */
+  async toolingCreate(connectionId: number, toolingType: string, payload: Record<string, unknown>): Promise<{ id: string }> {
+    this.assertApiName(toolingType, "Tooling type");
+    const connection = await this.getConnectionWithValidToken(connectionId);
+    const response = await fetch(
+      `${connection.instanceUrl}/services/data/${SFDC_API_VERSION}/tooling/sobjects/${toolingType}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+    if (response.status === 429) throw new Error("SFDC_RATE_LIMIT");
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`SFDC tooling create ${toolingType} failed (${response.status}): ${text.slice(0, 600)}`);
+    }
+    const result = JSON.parse(text) as { id: string };
+    return { id: result.id };
+  }
+
+  /**
+   * Describe an sObject. Returns null when the object does not exist (404) —
+   * the provisioner uses this to check what still needs creating. Other
+   * failures throw.
+   */
+  async describeSObject(connectionId: number, objectName: string): Promise<{ name: string; fields: Array<{ name: string; updateable?: boolean }> } | null> {
+    this.assertApiName(objectName, "sObject name");
+    const connection = await this.getConnectionWithValidToken(connectionId);
+    const response = await fetch(
+      `${connection.instanceUrl}/services/data/${SFDC_API_VERSION}/sobjects/${objectName}/describe`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    if (response.status === 404) return null;
+    if (response.status === 429) throw new Error("SFDC_RATE_LIMIT");
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`SFDC describe ${objectName} failed (${response.status}): ${text.slice(0, 600)}`);
+    }
+    return await response.json() as { name: string; fields: Array<{ name: string; updateable?: boolean }> };
+  }
+
+  /**
+   * Pull ONE Account from Salesforce and upsert it into sales_accounts,
+   * tenant-scoped. Used by the microsite-request poller when a rep triggers a
+   * microsite for an account that hasn't been synced into LP Studio yet.
+   *
+   * SECURITY / data-integrity notes:
+   *   - The lookup is filtered by tenantId. sales_accounts.salesforce_id is
+   *     unique GLOBALLY, so if the same Salesforce id already exists under a
+   *     DIFFERENT tenant we fail explicitly rather than reuse or steal it
+   *     (the insert's unique violation is translated to a readable error).
+   *   - sfdcAccountId is validated to the strict 15/18-char id shape before
+   *     being interpolated into SOQL.
+   */
+  async syncSingleAccount(connectionId: number, tenantId: number, sfdcAccountId: string): Promise<{ id: number; name: string }> {
+    if (!SfdcService.isValidSfdcId(sfdcAccountId)) {
+      throw new Error("Invalid Salesforce Account id");
+    }
+    const [existing] = await db
+      .select({ id: salesAccountsTable.id, name: salesAccountsTable.name })
+      .from(salesAccountsTable)
+      .where(and(
+        eq(salesAccountsTable.salesforceId, sfdcAccountId),
+        eq(salesAccountsTable.tenantId, tenantId),
+      ))
+      .limit(1);
+
+    const soql = `SELECT Id, Name, Website, Industry, Type, OwnerId, Owner.Name, BillingCity, BillingState FROM Account WHERE Id = '${sfdcAccountId}' LIMIT 1`;
+    const records = await this.queryRecords<SfdcAccount>(connectionId, soql);
+    const account = records[0];
+    if (!account) {
+      throw new Error(`Account ${sfdcAccountId} not found in Salesforce (or not visible to the connected user)`);
+    }
+
+    const domain = account.Website ? this.extractDomain(account.Website) : null;
+    const metadata = {
+      billingCity: account.BillingCity,
+      billingState: account.BillingState,
+      type: account.Type,
+    };
+
+    if (existing) {
+      await db
+        .update(salesAccountsTable)
+        .set({
+          name: account.Name,
+          domain,
+          industry: account.Industry || null,
+          owner: account.Owner?.Name || null,
+          metadata,
+          sfdcLastSyncedAt: new Date(),
+        })
+        .where(eq(salesAccountsTable.id, existing.id));
+      return { id: existing.id, name: account.Name };
+    }
+
+    try {
+      const [inserted] = await db.insert(salesAccountsTable).values({
+        tenantId,
+        salesforceId: account.Id,
+        name: account.Name,
+        domain,
+        industry: account.Industry || null,
+        owner: account.Owner?.Name || null,
+        metadata,
+        sfdcLastSyncedAt: new Date(),
+      }).returning({ id: salesAccountsTable.id });
+      if (!inserted) throw new Error("Insert returned no row");
+      return { id: inserted.id, name: account.Name };
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        // The salesforce_id exists under another tenant (global unique index).
+        throw new Error("This Salesforce account is already linked to a different LP Studio workspace");
+      }
+      throw err;
     }
   }
 

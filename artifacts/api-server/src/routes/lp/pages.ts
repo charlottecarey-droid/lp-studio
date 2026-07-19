@@ -1,9 +1,10 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, asc, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable, micrositeTemplateOverridesTable } from "@workspace/db";
+import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
+import { listTemplatesForTenant } from "../../lib/templateListing";
 import { resolveOGFields } from "../../lib/resolvePageOG";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
@@ -19,7 +20,6 @@ import { withDbRetry, isTransientDbError } from "../../lib/dbResilience";
 import { isUniqueViolation } from "../../lib/dbErrors";
 import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
-import { getMicrositeTemplateCompatibility } from "@workspace/lp-template-engine";
 import { enforceFactFlagPublishGate } from "./fact-flags";
 import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
@@ -375,97 +375,9 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
     // create-microsite dropdown (task #1219). Effective = explicit
     // micrositeEnabled override, else the computed compatibility default.
     const forMicrosite = String(req.query.forMicrosite ?? "").toLowerCase() === "true";
-    // The first block's type — business-case templates are single-block
-    // "monograph" documents whose first (only) block is business-case-*.
-    const isBusinessCaseGlobal = and(
-      eq(lpPagesTable.isGlobal, true),
-      sql`(${lpPagesTable.blocks} -> 0 ->> 'type') LIKE 'business-case%'`,
-    );
-    // Global all-in-one flagship/framework templates — single-block monograph
-    // documents the rep microsite generator is meant to use (the StoryBrand /
-    // MEDDIC exec-decision-brief / Challenger framework pages, plus the
-    // business-case all-in-ones). is_all_in_one is the canonical flag for these
-    // curated, structure-locked layouts; including it under salesMode surfaces
-    // the framework pages whose first block (storybrand-journey /
-    // exec-decision-brief / challenger-insight) is NOT business-case-* and so
-    // was missed by isBusinessCaseGlobal above. The full off-brand global
-    // starter library (is_all_in_one = false) stays excluded.
-    const isFlagshipGlobal = and(
-      eq(lpPagesTable.isGlobal, true),
-      eq(lpPagesTable.isAllInOne, true),
-    );
-    // ownedOnly: tenant-owned AND not flagged is_global. The is_global=false
-    // guard is defensive — a tenant template should not normally also be a
-    // global starter, but if it ever is, we don't want it leaking into the
-    // sales-rep microsite generator's tenant-only picker.
-    const ownedTemplates = and(
-      eq(lpPagesTable.tenantId, tenantId),
-      eq(lpPagesTable.isGlobal, false),
-    );
-    const visibility = salesMode
-      ? or(ownedTemplates, isBusinessCaseGlobal, isFlagshipGlobal)
-      : ownedOnly
-        ? ownedTemplates
-        : or(
-            eq(lpPagesTable.tenantId, tenantId),
-            eq(lpPagesTable.isGlobal, true),
-          );
-    const templates = await db
-      .select()
-      .from(lpPagesTable)
-      .where(
-        and(
-          eq(lpPagesTable.isTemplate, true),
-          visibility,
-        ),
-      )
-      .orderBy(asc(lpPagesTable.templateLabel));
-
-    // Built-in (global) templates are shared rows, so a tenant's enable/hide +
-    // rename of them lives in lp_microsite_template_overrides (task #1219
-    // follow-up). Owned templates keep using their own row columns. Fetch the
-    // tenant's overrides only when global rows are actually present in the
-    // result (salesMode / full library), then apply enabled + label below.
-    const hasGlobals = templates.some((t) => t.isGlobal);
-    const overrideByTemplateId = hasGlobals
-      ? new Map(
-          (
-            await db
-              .select()
-              .from(micrositeTemplateOverridesTable)
-              .where(eq(micrositeTemplateOverridesTable.tenantId, tenantId))
-          ).map((o) => [o.templateId, o]),
-        )
-      : new Map<number, { enabled: boolean | null; label: string | null }>();
-
-    // Overlay a tenant's per-tenant rename of a built-in template so the
-    // dropdown shows the marketing-chosen name (applies regardless of
-    // forMicrosite so every consumer sees the same label).
-    const withOverrides = templates.map((t) => {
-      if (!t.isGlobal) return t;
-      const ov = overrideByTemplateId.get(t.id);
-      return ov?.label ? { ...t, templateLabel: ov.label } : t;
-    });
-
-    const result = forMicrosite
-      ? withOverrides.filter((t) => {
-          // Built-in template: tenant override wins, else compatibility default.
-          if (t.isGlobal) {
-            const ov = overrideByTemplateId.get(t.id);
-            if (typeof ov?.enabled === "boolean") return ov.enabled;
-            const blocks = Array.isArray(t.blocks) ? t.blocks : [];
-            return getMicrositeTemplateCompatibility(
-              blocks as ReadonlyArray<{ type?: unknown }>,
-            ).compatible;
-          }
-          // Owned template: explicit row override, else compatibility default.
-          if (typeof t.micrositeEnabled === "boolean") return t.micrositeEnabled;
-          const blocks = Array.isArray(t.blocks) ? t.blocks : [];
-          return getMicrositeTemplateCompatibility(
-            blocks as ReadonlyArray<{ type?: unknown }>,
-          ).compatible;
-        })
-      : withOverrides;
+    // Filtering logic lives in lib/templateListing.ts so the Salesforce
+    // microsite-button choice sync (Task #1448) shows the exact same set.
+    const result = await listTemplatesForTenant(tenantId, { ownedOnly, salesMode, forMicrosite });
     res.json(result);
   } catch (err) {
     console.error("GET /lp/templates error:", String(err));
