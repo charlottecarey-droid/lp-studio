@@ -18,6 +18,9 @@ import type { CtaSuiteFields } from "@/lib/cta-modal";
 import type {
   AccountMicrositeBlockProps,
   AccountMicrositeBriefItem,
+  AccountMicrositeHeroStat,
+  AccountMicrositeImpactStat,
+  AccountMicrositeFaq,
   AccountMicrositeReason,
   AccountMicrositePhase,
   AccountMicrositeUseCase,
@@ -33,9 +36,10 @@ import type {
 /* ----------------------------------------------------------------------------
  * Property panel for the "account-microsite" full-page ABM block. Collapsible
  * sections mirror the block: visibility toggles, navbar/hero (+ shared CTA
- * suite), palette, account brief, why-now, recommended approach, use cases,
- * value by persona, proof, resources, mutual action plan, account team, and the
- * close (reuses the same shared CTA suite as the hero).
+ * suite + hero stats), palette, account brief, personal note, why-now,
+ * recommended approach, use cases, expected impact, value by persona, proof,
+ * resources, mutual action plan, FAQ, account team, and the close (reuses the
+ * same shared CTA suite as the hero).
  * -------------------------------------------------------------------------- */
 
 interface Props {
@@ -168,13 +172,16 @@ export function AccountMicrositePanel({ props, onChange, onApplyCtaToAll }: Prop
     palette: false,
     hero: true,
     brief: false,
+    note: false,
     why: false,
     approach: false,
     useCases: false,
+    impact: false,
     persona: false,
     proof: false,
     resources: false,
     plan: false,
+    faq: false,
     team: false,
     close: false,
   });
@@ -253,19 +260,43 @@ export function AccountMicrositePanel({ props, onChange, onApplyCtaToAll }: Prop
   const removeMember = (i: number) => set("teamMembers", props.teamMembers.filter((_, j) => j !== i));
   const moveMember = (i: number, dir: -1 | 1) => set("teamMembers", moveItem(props.teamMembers, i, dir));
 
+  const heroStats = props.heroStats ?? [];
+  const setHeroStat = (i: number, patch: Partial<AccountMicrositeHeroStat>) =>
+    set("heroStats", heroStats.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const addHeroStat = () => set("heroStats", [...heroStats, { value: "2×", label: "New stat" }]);
+  const removeHeroStat = (i: number) => set("heroStats", heroStats.filter((_, j) => j !== i));
+  const moveHeroStat = (i: number, dir: -1 | 1) => set("heroStats", moveItem(heroStats, i, dir));
+
+  const impactStats = props.impactStats ?? [];
+  const setImpactStat = (i: number, patch: Partial<AccountMicrositeImpactStat>) =>
+    set("impactStats", impactStats.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const addImpactStat = () => set("impactStats", [...impactStats, { value: "2×", label: "New stat", detail: "" }]);
+  const removeImpactStat = (i: number) => set("impactStats", impactStats.filter((_, j) => j !== i));
+  const moveImpactStat = (i: number, dir: -1 | 1) => set("impactStats", moveItem(impactStats, i, dir));
+
+  const faqs = props.faqs ?? [];
+  const setFaq = (i: number, patch: Partial<AccountMicrositeFaq>) =>
+    set("faqs", faqs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const addFaq = () => set("faqs", [...faqs, { question: "New question?", answer: "The straight answer." }]);
+  const removeFaq = (i: number) => set("faqs", faqs.filter((_, j) => j !== i));
+  const moveFaq = (i: number, dir: -1 | 1) => set("faqs", moveItem(faqs, i, dir));
+
   /* — shared CTA suite (hero primary + close share the same fields) — */
   const ctaSuite: CtaSuiteFields = props;
   const setCta = (next: CtaSuiteFields) => onChange({ ...props, ...next });
 
   const SECTION_TOGGLES: Array<{ key: keyof AccountMicrositeBlockProps; label: string }> = [
     { key: "showBrief", label: "Account brief card" },
+    { key: "showNote", label: "Personal note" },
     { key: "showWhy", label: "Why this matters now" },
     { key: "showApproach", label: "Recommended approach" },
     { key: "showUseCases", label: "Relevant use cases" },
+    { key: "showImpact", label: "Expected impact (stats)" },
     { key: "showPersona", label: "Value by persona" },
     { key: "showProof", label: "Proof for this buyer" },
     { key: "showResources", label: "Recommended resources" },
     { key: "showPlan", label: "Mutual action plan" },
+    { key: "showFaq", label: "FAQ / objection handling" },
     { key: "showTeam", label: "Account team" },
     { key: "showClose", label: "Close (scheduling CTA)" },
   ];
@@ -450,6 +481,24 @@ export function AccountMicrositePanel({ props, onChange, onApplyCtaToAll }: Prop
                 <Input value={props.ctaSecondaryUrl ?? ""} onChange={(e) => set("ctaSecondaryUrl", e.target.value)} placeholder="#" className="text-xs h-8 font-mono" />
               </Field>
             </div>
+
+            <div className="space-y-2 pt-1">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Hero stats (0–3) — count up when numeric</div>
+              {heroStats.map((s, i) => (
+                <div key={i} className="space-y-2 p-2 border border-border rounded">
+                  <ArrayItemHeader label="Stat" index={i} total={heroStats.length} onMoveUp={() => moveHeroStat(i, -1)} onMoveDown={() => moveHeroStat(i, 1)} onRemove={() => removeHeroStat(i)} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Value"><Input value={s.value} onChange={(e) => setHeroStat(i, { value: e.target.value })} className="text-xs h-8" /></Field>
+                    <Field label="Label"><Input value={s.label} onChange={(e) => setHeroStat(i, { label: e.target.value })} className="text-xs h-8" /></Field>
+                  </div>
+                </div>
+              ))}
+              {heroStats.length < 3 && (
+                <Button variant="outline" size="sm" className="w-full text-xs" onClick={addHeroStat}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add hero stat
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -479,6 +528,36 @@ export function AccountMicrositePanel({ props, onChange, onApplyCtaToAll }: Prop
                 </Button>
               )}
             </div>
+            <Field label="Footnote (optional — the 'tell us what we got wrong' line)">
+              <Textarea value={props.briefNote ?? ""} onChange={(e) => set("briefNote", e.target.value)} className="text-xs min-h-14" />
+            </Field>
+          </div>
+        )}
+      </div>
+
+      {/* Personal note */}
+      <div className="space-y-2">
+        <SectionHeader label="Personal note" open={open.note} onToggle={() => toggle("note")} />
+        {open.note && (
+          <div className="space-y-3">
+            <Field label="Kicker"><Input value={props.noteKicker ?? ""} onChange={(e) => set("noteKicker", e.target.value)} className="text-xs h-8" /></Field>
+            <Field label="The note (2–4 sentences, written like a human)">
+              <AiTextField
+                value={props.noteBody ?? ""}
+                onChange={(v) => set("noteBody", v)}
+                rows={5}
+                className="text-xs"
+                onSuggest={() => suggestCopy("account-microsite", "noteBody", props.noteBody ?? "", { accountName: props.accountName, headline: props.headline })}
+                fieldLabel="Personal note"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Signature name"><Input value={props.noteName ?? ""} onChange={(e) => set("noteName", e.target.value)} className="text-xs h-8" /></Field>
+              <Field label="Signature role"><Input value={props.noteRole ?? ""} onChange={(e) => set("noteRole", e.target.value)} className="text-xs h-8" /></Field>
+            </div>
+            <Field label="Avatar (optional — falls back to an initial)">
+              <ImagePicker value={props.noteAvatarUrl ?? ""} onChange={(v) => set("noteAvatarUrl", v || undefined)} aiHint="professional headshot" />
+            </Field>
           </div>
         )}
       </div>
@@ -558,6 +637,42 @@ export function AccountMicrositePanel({ props, onChange, onApplyCtaToAll }: Prop
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add use case
               </Button>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              With 3+ use cases the first one is featured larger — lead with the strongest.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Expected impact */}
+      <div className="space-y-2">
+        <SectionHeader label="Expected impact" open={open.impact} onToggle={() => toggle("impact")} />
+        {open.impact && (
+          <div className="space-y-3">
+            <Field label="Kicker"><Input value={props.impactKicker ?? ""} onChange={(e) => set("impactKicker", e.target.value)} className="text-xs h-8" /></Field>
+            <Field label="Heading"><Textarea value={props.impactHeading ?? ""} onChange={(e) => set("impactHeading", e.target.value)} className="text-xs min-h-16" /></Field>
+            <Field label="Intro (optional)"><Textarea value={props.impactIntro ?? ""} onChange={(e) => set("impactIntro", e.target.value)} className="text-xs min-h-14" /></Field>
+            <div className="space-y-2 pt-1">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Stats (3 best) — count up when numeric</div>
+              {impactStats.map((s, i) => (
+                <div key={i} className="space-y-2 p-2 border border-border rounded">
+                  <ArrayItemHeader label="Stat" index={i} total={impactStats.length} onMoveUp={() => moveImpactStat(i, -1)} onMoveDown={() => moveImpactStat(i, 1)} onRemove={() => removeImpactStat(i)} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Value"><Input value={s.value} onChange={(e) => setImpactStat(i, { value: e.target.value })} className="text-xs h-8" /></Field>
+                    <Field label="Label"><Input value={s.label} onChange={(e) => setImpactStat(i, { label: e.target.value })} className="text-xs h-8" /></Field>
+                  </div>
+                  <Field label="Detail (optional)"><Textarea value={s.detail ?? ""} onChange={(e) => setImpactStat(i, { detail: e.target.value })} className="text-xs min-h-14" /></Field>
+                </div>
+              ))}
+              {impactStats.length < 4 && (
+                <Button variant="outline" size="sm" className="w-full text-xs" onClick={addImpactStat}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add stat
+                </Button>
+              )}
+            </div>
+            <Field label="Footnote (the honesty line)">
+              <Textarea value={props.impactFootnote ?? ""} onChange={(e) => set("impactFootnote", e.target.value)} className="text-xs min-h-14" />
+            </Field>
           </div>
         )}
       </div>
@@ -688,6 +803,30 @@ export function AccountMicrositePanel({ props, onChange, onApplyCtaToAll }: Prop
               ))}
               <Button variant="outline" size="sm" className="w-full text-xs" onClick={addStep}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add step
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* FAQ / objection handling */}
+      <div className="space-y-2">
+        <SectionHeader label="FAQ / objection handling" open={open.faq} onToggle={() => toggle("faq")} />
+        {open.faq && (
+          <div className="space-y-3">
+            <Field label="Kicker"><Input value={props.faqKicker ?? ""} onChange={(e) => set("faqKicker", e.target.value)} className="text-xs h-8" /></Field>
+            <Field label="Heading"><Textarea value={props.faqHeading ?? ""} onChange={(e) => set("faqHeading", e.target.value)} className="text-xs min-h-16" /></Field>
+            <div className="space-y-2 pt-1">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Questions (3–5 best)</div>
+              {faqs.map((f, i) => (
+                <div key={i} className="space-y-2 p-2 border border-border rounded">
+                  <ArrayItemHeader label="Question" index={i} total={faqs.length} onMoveUp={() => moveFaq(i, -1)} onMoveDown={() => moveFaq(i, 1)} onRemove={() => removeFaq(i)} />
+                  <Field label="Question"><Textarea value={f.question} onChange={(e) => setFaq(i, { question: e.target.value })} className="text-xs min-h-14" /></Field>
+                  <Field label="Answer"><Textarea value={f.answer} onChange={(e) => setFaq(i, { answer: e.target.value })} className="text-xs min-h-14" /></Field>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={addFaq}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add question
               </Button>
             </div>
           </div>
