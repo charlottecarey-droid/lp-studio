@@ -11,3 +11,20 @@ description: Design rules for the pull-model Salesforce microsite request poller
 - **Plan gate covers manual paths too.** The scheduler checks the salesConsole plan per tenant, and the manual poll-now route must apply the same 403 gate — otherwise a downgraded tenant with the flag still enabled can run polls by hand.
 - **Enable/enabled state lives in sfdc_connections.metadata** (readMicrositeButtonState / writeMicrositeButtonState), not a new table; eligibility = connected connection + active tenant + non-null tenantId + enabled flag + plan.
 - **How to apply:** any new trigger surface (webhook, second button, bulk action) must reuse the same claim-first + LIVE-only + plan-gated pattern and record the trigger as a sales signal (type `microsite_requested`).
+
+# Provisioning: Tooling API cannot create custom OBJECTS
+
+- The Tooling REST API's CustomObject describe reports `createable: false`
+  (only CustomField is createable there). POSTing FullName/Metadata to
+  `/tooling/sobjects/CustomObject` fails with INVALID_FIELD
+  "No such column 'FullName'" — on every org/API version tried, not an org quirk.
+- **Fix pattern:** create objects via the SOAP Metadata API `createMetadata`
+  call (`POST {instance}/services/Soap/m/{ver}` with the OAuth access token as
+  `<sessionId>`); keep custom FIELDS on the Tooling REST path (works fine).
+  Element order inside `<metadata>` must follow the WSDL sequence
+  (fullName → deploymentStatus → label → nameField → pluralLabel → sharingModel).
+- Failure shape: SOAP returns HTTP 200 with `<success>false</success>` +
+  `<statusCode>`/`<message>` — parse these into the thrown error so
+  DUPLICATE_DEVELOPER_NAME idempotency matching keeps working.
+- Web search / docs claim the tooling POST works — trust the org's own
+  `/describe` (`createable` flag) over blog posts.

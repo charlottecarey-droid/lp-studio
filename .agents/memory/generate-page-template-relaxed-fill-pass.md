@@ -41,6 +41,6 @@ path got the relaxed pass, the template path didn't. This surfaced as a
   path has NO `aiFillEmptyImages` pass, so AI-image-gen-enabled tenants get
   relaxed starters where the freeform path would first place an AI image. That's
   a quality gap, not a correctness bug.
-- When #1443's "starter-hero elimination" (heroes go empty when no suitable
-  TENANT image) lands, BOTH pipelines AND this test's contract must change
-  together — don't pre-empt it in one path only.
+- When the planned "starter-hero elimination" change lands (heroes go empty
+  when no suitable TENANT image), BOTH pipelines AND this test's contract must
+  change together — don't pre-empt it in one path only.

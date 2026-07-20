@@ -201,17 +201,18 @@ export async function provisionMicrositeButton(
 
     if (!objectExists) {
       try {
-        await sfdcService.toolingCreate(connectionId, "CustomObject", {
-          FullName: obj.apiName,
-          Metadata: {
-            label: obj.label,
-            pluralLabel: obj.pluralLabel,
-            nameField: { type: "AutoNumber", label: `${obj.label} #`, displayFormat: "R-{00000}" },
-            deploymentStatus: "Deployed",
-            // ReadWrite sharing so the integration user can read/patch
-            // rep-created request rows without View All on a private model.
-            sharingModel: "ReadWrite",
-          },
+        // Objects go through the SOAP Metadata API — the Tooling API cannot
+        // create CustomObject (describe reports createable:false; only
+        // CustomField is createable there). ReadWrite sharing so the
+        // integration user can read/patch rep-created request rows without
+        // View All on a private model.
+        await sfdcService.metadataCreateCustomObject(connectionId, {
+          fullName: obj.apiName,
+          label: obj.label,
+          pluralLabel: obj.pluralLabel,
+          nameFieldLabel: `${obj.label} #`,
+          nameFieldDisplayFormat: "R-{00000}",
+          sharingModel: "ReadWrite",
         });
       } catch (err) {
         if (!isAlreadyExistsError(err)) {
