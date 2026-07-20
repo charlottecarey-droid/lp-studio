@@ -32,3 +32,15 @@ refetches status, and strips the query param via history.replaceState.
 
 **Why:** one-click Connect mirrors the sales console; tenants must never re-enter
 Connected App credentials, and a sales-console-connected tenant must not reconnect.
+
+**Org uniqueness + disconnect ≠ delete.** `sfdc_connections.org_id` is globally UNIQUE:
+one Salesforce org can be linked to only ONE tenant. The app's "Disconnect" only sets
+`status='disconnected'` — the row (and its org_id claim) survives, so a different tenant
+connecting the same org gets a duplicate-key insert failure surfaced as the generic
+"Failed to complete OAuth exchange" (token exchange actually succeeded; the auth code is
+consumed, so a retry then shows invalid_grant/expired code). Diagnose in api-server logs
+(duplicate key on `sfdc_connections_org_id_key`); unblock by deleting the stale
+disconnected row for that org. The callback upsert only matches same tenant+org.
+Also: redirect_uri is built from global secret `API_BASE_URL` (currently the dev
+janeway.replit.dev domain, shared by dev AND prod), which must be listed in the
+Connected App callback URLs and re-checked whenever the dev domain rotates.
