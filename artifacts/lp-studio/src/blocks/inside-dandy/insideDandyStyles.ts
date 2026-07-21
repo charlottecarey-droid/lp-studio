@@ -462,12 +462,29 @@ const CSS = `
 .id-grid .id-grid-card .id-grid-cta::after { content:"→"; display:inline-block; transition:transform 280ms var(--id-ease); }
 .id-grid .id-grid-card:hover .id-grid-cta { gap:14px; }
 .id-grid .id-grid-card:hover .id-grid-cta::after { transform:translateX(4px); }
+
+/* Single-row variants (2 or 3 cards across). Fewer cards get more presence:
+   taller cards, roomier padding, a larger display headline, and a citron
+   hairline that draws across the top edge on hover. Stack on mobile. */
+.id-grid.id-grid-row-3 .id-grid-cards { grid-template-columns:repeat(3,1fr); }
+.id-grid.id-grid-row-2 .id-grid-card, .id-grid.id-grid-row-3 .id-grid-card { min-height:400px; padding:72px 56px 60px; overflow:hidden; }
+.id-grid.id-grid-row-2 .id-grid-card { padding:72px 64px 64px; }
+.id-grid.id-grid-row-2 .id-grid-card .id-grid-headline { font-size:clamp(28px,2.7vw,38px); }
+.id-grid.id-grid-row-3 .id-grid-card .id-grid-headline { font-size:clamp(25px,2.3vw,34px); }
+.id-grid.id-grid-row-2 .id-grid-card .id-grid-num, .id-grid.id-grid-row-3 .id-grid-card .id-grid-num { font-size:20px; }
+.id-grid.id-grid-row-2 .id-grid-card .id-grid-body { font-size:16px; max-width:44ch; }
+.id-grid.id-grid-row-2 .id-grid-card::before, .id-grid.id-grid-row-3 .id-grid-card::before { content:""; position:absolute; top:0; left:0; right:0; height:1px; background:var(--id-cit); transform:scaleX(0); transform-origin:left center; transition:transform 520ms var(--id-ease); }
+.id-grid.id-grid-row-2 .id-grid-card:hover::before, .id-grid.id-grid-row-3 .id-grid-card:hover::before { transform:scaleX(1); }
+@media (max-width:1024px) {
+  .id-grid.id-grid-row-3 .id-grid-cards { grid-template-columns:1fr; border-left:none; }
+  .id-grid.id-grid-row-3 .id-grid-card { border-right:none; min-height:0; }
+}
 @media (max-width:780px) {
   .id-grid { padding:120px 24px 140px; }
   .id-grid.id-grid-flush-bottom { padding-bottom:0; }
   .id-grid .id-grid-intro { margin-bottom:64px; gap:24px; }
-  .id-grid .id-grid-cards { grid-template-columns:1fr; border-left:none; border-top:1px solid var(--id-line); }
-  .id-grid .id-grid-card { padding:48px 8px 40px; min-height:0; border-right:none; }
+  .id-grid .id-grid-cards, .id-grid.id-grid-row-2 .id-grid-cards, .id-grid.id-grid-row-3 .id-grid-cards { grid-template-columns:1fr; border-left:none; border-top:1px solid var(--id-line); }
+  .id-grid .id-grid-card, .id-grid.id-grid-row-2 .id-grid-card, .id-grid.id-grid-row-3 .id-grid-card { padding:48px 8px 40px; min-height:0; border-right:none; }
 }
 
 @media (max-width:980px) {
@@ -599,6 +616,8 @@ const CSS = `
   .id-art-bars .id-bar,
   .id-showcase .id-frame .id-frame-img,
   .id-intro h2 .id-word { opacity:1 !important; transform:none !important; transition:none !important; animation:none !important; }
+  /* Row-variant hover hairline: snap instead of draw (keep its scaleX state). */
+  .id-grid .id-grid-card::before { transition:none !important; }
 }
 
 /* ============================================================

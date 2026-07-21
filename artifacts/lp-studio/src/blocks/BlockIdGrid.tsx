@@ -20,7 +20,9 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
   const isEditor = !!onFieldChange;
   const f = (k: keyof IdGridBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [k]: v }) : undefined;
-  const cards = (props.cards ?? []).slice(0, 4);
+  const layout = props.layout === "row-2" || props.layout === "row-3" ? props.layout : "grid";
+  const cardCap = layout === "row-2" ? 2 : layout === "row-3" ? 3 : 4;
+  const cards = (props.cards ?? []).slice(0, cardCap);
   const updateCard = (i: number, patch: Partial<IdGridCard>) => {
     if (!onFieldChange) return;
     const next = cards.map((c, idx) => (idx === i ? { ...c, ...patch } : c));
@@ -57,7 +59,7 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
   }, [isEditor, revealed]);
 
   return (
-    <section ref={sectionRef} className={`id-block id-grid${revealed ? " id-grid-revealed" : ""}${props.flushBottom ? " id-grid-flush-bottom" : ""}`}>
+    <section ref={sectionRef} className={`id-block id-grid${layout !== "grid" ? ` id-grid-${layout}` : ""}${revealed ? " id-grid-revealed" : ""}${props.flushBottom ? " id-grid-flush-bottom" : ""}`}>
       <div className="id-inner">
         <div className="id-grid-intro">
           {(props.eyebrow || isEditor) && (

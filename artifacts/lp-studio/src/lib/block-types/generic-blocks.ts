@@ -2947,7 +2947,13 @@ export interface IdGridBlockProps {
   headline: string;
   /** Centered subheading paragraph. */
   subheading?: string;
-  /** Exactly four cards rendered in a 2x2 grid (numbered 01–04). */
+  /** Card layout. "grid" (default) renders four cards in a 2×2 grid;
+   *  "row-2" / "row-3" render a single row of two / three cards.
+   *  Rows stack to one column on mobile. */
+  layout?: "grid" | "row-2" | "row-3";
+  /** Up to four cards (numbered 01–04). The layout caps how many render:
+   *  four in the 2×2 grid, two in "row-2", three in "row-3" — extra card
+   *  data is kept but not rendered. */
   cards: IdGridCard[];
   /** When true, removes the block's bottom padding so the next block sits
    *  flush against the grid's bottom border. Defaults to false. */

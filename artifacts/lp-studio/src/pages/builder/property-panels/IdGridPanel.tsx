@@ -9,9 +9,17 @@ interface Props {
   onChange: (props: IdGridBlockProps) => void;
 }
 
+const LAYOUT_OPTIONS: Array<{ value: "grid" | "row-2" | "row-3"; label: string }> = [
+  { value: "grid", label: "2×2 grid — four cards" },
+  { value: "row-2", label: "Single row — two cards" },
+  { value: "row-3", label: "Single row — three cards" },
+];
+
 export function IdGridPanel({ props, onChange }: Props) {
   const u = (patch: Partial<IdGridBlockProps>) => onChange({ ...props, ...patch });
   const cards = props.cards ?? [];
+  const layout = props.layout === "row-2" || props.layout === "row-3" ? props.layout : "grid";
+  const cardCap = layout === "row-2" ? 2 : layout === "row-3" ? 3 : 4;
   const updateCard = (i: number, patch: Partial<IdGridCard>) => {
     const next = cards.map((c, idx) => (idx === i ? { ...c, ...patch } : c));
     u({ cards: next });
@@ -21,6 +29,21 @@ export function IdGridPanel({ props, onChange }: Props) {
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout</div>
+        <div className="space-y-1">
+          <Label className="text-xs">Card layout</Label>
+          <select
+            value={layout}
+            onChange={(e) => u({ layout: e.target.value as IdGridBlockProps["layout"] })}
+            className="w-full text-xs h-8 rounded-md border border-border bg-background px-2"
+          >
+            {LAYOUT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Rows stack to one column on mobile. Cards beyond the layout's count are kept but not shown.
+          </p>
+        </div>
         <div className="flex items-center justify-between gap-3 rounded-md border p-2">
           <div className="space-y-0.5">
             <Label className="text-xs">Flush with next block</Label>
@@ -36,8 +59,10 @@ export function IdGridPanel({ props, onChange }: Props) {
         <Textarea placeholder="Subheading" value={props.subheading ?? ""} onChange={(e) => u({ subheading: e.target.value })} rows={3} className="text-xs" />
       </div>
       <div className="space-y-2">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cards (2x2)</div>
-        {cards.slice(0, 4).map((card, i) => (
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Cards ({layout === "grid" ? "2×2" : `${cardCap} across`})
+        </div>
+        {cards.slice(0, cardCap).map((card, i) => (
           <div key={i} className="border rounded-md p-2 space-y-2">
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Card {i + 1} · {String(i + 1).padStart(2, "0")}</div>
             <div>
