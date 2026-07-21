@@ -175,7 +175,11 @@ const CSS = `
 .id-spotlight-bg { position:absolute; inset:0; background:#001814 radial-gradient(ellipse 80% 60% at 70% 50%, rgba(10,74,62,0.55), transparent 70%); pointer-events:none; }
 .id-spotlight-grid { position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:0 60px; display:grid; grid-template-columns:minmax(280px, 32%) 1fr; gap:48px; align-items:center; }
 .id-spotlight-text { color:#fff; padding-right:16px; }
-.id-spotlight-eyebrow { font:500 11px/1.6 var(--id-mono, ui-monospace, monospace); letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:24px; }
+/* Matches the shared .id-block .id-eyebrow treatment (citron + 24px hairline
+   ::before, as on the Parallax Showcase) — the Spotlight isn't an .id-block,
+   so the spec is replicated here. */
+.id-spotlight-eyebrow { display:inline-flex; align-items:center; gap:14px; font-size:11px; line-height:1.6; letter-spacing:0.28em; text-transform:uppercase; color:var(--id-cit, #C7E738); font-weight:500; margin-bottom:24px; }
+.id-spotlight-eyebrow::before { content:""; width:24px; height:1px; background:var(--id-cit, #C7E738); flex-shrink:0; }
 .id-spotlight-h { font-family:var(--id-display, "Bagoss Standard", Georgia, serif); font-weight:300; font-size:clamp(36px, 4vw, 56px); line-height:1.05; letter-spacing:-0.01em; margin:0 0 20px; color:#fff; }
 .id-spotlight-h em { font-style:normal; color:var(--id-cit, #C7E738); font-weight:300; }
 .id-spotlight-body { font:400 16px/1.55 var(--id-body, system-ui, sans-serif); color:rgba(255,255,255,0.7); margin:0; max-width:34ch; }
