@@ -15,13 +15,15 @@ const CSS = `
 .id-block em { font-style:italic; font-family:var(--id-display); color:var(--id-cit); }
 .id-block h1, .id-block h2, .id-block h3, .id-block h4 { font-family:var(--id-display); font-weight:400; }
 .id-block h1 em, .id-block h2 em, .id-block h3 em, .id-block h4 em { font-style:italic; }
-/* Hero + Intro + Parallax Showcase: <em> keeps the citron accent but drops the
-   italic (per Charlotte, Jul 2026). Placed after the .id-block rules above so
-   the equal-specificity tie goes to these. Spotlight gets the same treatment
-   on its own .id-spotlight-h rule below (it isn't an .id-block), and the
-   Intro's per-letter animation copy on its .id-em-word rule. */
+/* Hero + Intro + Numbered Grid + Parallax Showcase: <em> keeps the citron
+   accent but drops the italic (per Charlotte, Jul 2026). Placed after the
+   .id-block rules above so the equal-specificity tie goes to these. Spotlight
+   gets the same treatment on its own .id-spotlight-h rule below (it isn't an
+   .id-block), and the Intro's per-letter animation copy on its .id-em-word
+   rule. */
 .id-hero em, .id-hero h1 em, .id-hero h2 em, .id-hero h3 em, .id-hero h4 em,
 .id-intro em, .id-intro h1 em, .id-intro h2 em, .id-intro h3 em, .id-intro h4 em,
+.id-grid em, .id-grid h1 em, .id-grid h2 em, .id-grid h3 em, .id-grid h4 em,
 .id-showcase em, .id-showcase h1 em, .id-showcase h2 em, .id-showcase h3 em, .id-showcase h4 em { font-style:normal; }
 
 /* Scroll reveal: elements animate in when their container has .id-in-view */
@@ -456,7 +458,7 @@ const CSS = `
 .id-grid .id-grid-card .id-grid-chip::before { content:""; width:5px; height:5px; border-radius:50%; background:var(--id-cit); box-shadow:0 0 6px rgba(199,231,56,0.7); }
 @keyframes idHeroLivePulse { 0% { box-shadow:0 0 0 0 rgba(199,231,56,0.55); } 70% { box-shadow:0 0 0 8px rgba(199,231,56,0); } 100% { box-shadow:0 0 0 0 rgba(199,231,56,0); } }
 .id-grid .id-grid-card .id-grid-headline { font-family:var(--id-display); font-weight:400; font-size:clamp(24px,2.2vw,32px); line-height:1.12; letter-spacing:-0.012em; color:#fff; margin:0; }
-.id-grid .id-grid-card .id-grid-headline em { color:var(--id-cit); font-style:italic; }
+.id-grid .id-grid-card .id-grid-headline em { color:var(--id-cit); font-style:normal; }
 .id-grid .id-grid-card .id-grid-body { font-size:15px; line-height:1.55; color:rgba(255,255,255,0.7); margin:0; font-weight:300; }
 .id-grid .id-grid-card .id-grid-cta { margin-top:auto; display:inline-flex; align-items:center; gap:10px; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:var(--id-cit); text-decoration:none; font-weight:500; padding-top:8px; transition:gap 280ms var(--id-ease), color 280ms var(--id-ease); align-self:flex-start; }
 .id-grid .id-grid-card .id-grid-cta::after { content:"→"; display:inline-block; transition:transform 280ms var(--id-ease); }
