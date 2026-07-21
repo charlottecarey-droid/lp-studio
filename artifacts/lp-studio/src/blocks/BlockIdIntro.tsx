@@ -21,7 +21,7 @@ type Token =
  * Tokenises the statement into words and spaces, with each word broken into
  * individual letters so each letter can fade up as the visitor scrolls.
  * <em>…</em> spans are preserved on the containing word so accent words stay
- * in the citron accent color and italic via the `.id-em-word` class.
+ * in the citron accent color (upright, not italic) via the `.id-em-word` class.
  */
 function tokenize(text: string): Token[] {
   if (!text) return [];

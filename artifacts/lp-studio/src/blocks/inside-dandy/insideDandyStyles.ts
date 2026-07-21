@@ -15,11 +15,13 @@ const CSS = `
 .id-block em { font-style:italic; font-family:var(--id-display); color:var(--id-cit); }
 .id-block h1, .id-block h2, .id-block h3, .id-block h4 { font-family:var(--id-display); font-weight:400; }
 .id-block h1 em, .id-block h2 em, .id-block h3 em, .id-block h4 em { font-style:italic; }
-/* Hero + Parallax Showcase: <em> keeps the citron accent but drops the italic
-   (per Charlotte, Jul 2026). Placed after the .id-block rules above so the
-   equal-specificity tie goes to these. Spotlight gets the same treatment on
-   its own .id-spotlight-h rule below (it isn't an .id-block). */
+/* Hero + Intro + Parallax Showcase: <em> keeps the citron accent but drops the
+   italic (per Charlotte, Jul 2026). Placed after the .id-block rules above so
+   the equal-specificity tie goes to these. Spotlight gets the same treatment
+   on its own .id-spotlight-h rule below (it isn't an .id-block), and the
+   Intro's per-letter animation copy on its .id-em-word rule. */
 .id-hero em, .id-hero h1 em, .id-hero h2 em, .id-hero h3 em, .id-hero h4 em,
+.id-intro em, .id-intro h1 em, .id-intro h2 em, .id-intro h3 em, .id-intro h4 em,
 .id-showcase em, .id-showcase h1 em, .id-showcase h2 em, .id-showcase h3 em, .id-showcase h4 em { font-style:normal; }
 
 /* Scroll reveal: elements animate in when their container has .id-in-view */
@@ -129,7 +131,7 @@ const CSS = `
 .id-intro h2 { font-size:clamp(40px,5.6vw,84px); line-height:1.15; letter-spacing:-0.018em; color:#fff; max-width:18ch; margin:0; }
 .id-intro h2 em { color:var(--id-cit); font-feature-settings:"ss01"; }
 .id-intro h2 .id-word { display:inline-block; white-space:nowrap; }
-.id-intro h2 .id-em-word { color:var(--id-cit); font-style:italic; font-feature-settings:"ss01"; }
+.id-intro h2 .id-em-word { color:var(--id-cit); font-style:normal; font-feature-settings:"ss01"; }
 .id-intro h2 .id-letter { display:inline-block; opacity:0.14; transition:opacity 480ms var(--id-ease-out), color 480ms var(--id-ease-out); }
 .id-intro h2 .id-letter.id-lit { opacity:1; }
 
