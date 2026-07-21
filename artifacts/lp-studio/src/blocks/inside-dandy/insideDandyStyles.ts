@@ -15,6 +15,12 @@ const CSS = `
 .id-block em { font-style:italic; font-family:var(--id-display); color:var(--id-cit); }
 .id-block h1, .id-block h2, .id-block h3, .id-block h4 { font-family:var(--id-display); font-weight:400; }
 .id-block h1 em, .id-block h2 em, .id-block h3 em, .id-block h4 em { font-style:italic; }
+/* Hero + Parallax Showcase: <em> keeps the citron accent but drops the italic
+   (per Charlotte, Jul 2026). Placed after the .id-block rules above so the
+   equal-specificity tie goes to these. Spotlight gets the same treatment on
+   its own .id-spotlight-h rule below (it isn't an .id-block). */
+.id-hero em, .id-hero h1 em, .id-hero h2 em, .id-hero h3 em, .id-hero h4 em,
+.id-showcase em, .id-showcase h1 em, .id-showcase h2 em, .id-showcase h3 em, .id-showcase h4 em { font-style:normal; }
 
 /* Scroll reveal: elements animate in when their container has .id-in-view */
 .id-reveal { opacity:0; transform:translateY(40px); transition:opacity 1100ms var(--id-ease-out), transform 1100ms var(--id-ease-out); will-change:opacity,transform; }
@@ -49,7 +55,7 @@ const CSS = `
    on each side flanks the label, mimicking a magazine kicker. */
 .id-hero .id-hero-eyebrow { display:inline-flex; align-items:center; justify-content:center; gap:14px; margin:0 0 36px; padding:0; border:0; border-radius:0; background:transparent; color:rgba(255,255,255,0.62); font-size:11px; letter-spacing:0.22em; text-transform:uppercase; font-weight:500; opacity:0; transform:translateY(8px); transition:opacity 1000ms 100ms var(--id-ease-out), transform 1000ms 100ms var(--id-ease-out); }
 .id-hero .id-hero-eyebrow::before { content:""; width:24px; height:1px; border-radius:0; background:var(--id-cit); box-shadow:none; flex-shrink:0; }
-.id-hero .id-hero-eyebrow::after { content:""; width:24px; height:1px; background:rgba(255,255,255,0.18); flex-shrink:0; }
+.id-hero .id-hero-eyebrow::after { content:""; width:24px; height:1px; background:var(--id-cit); flex-shrink:0; }
 .id-hero.id-ready .id-hero-eyebrow { opacity:1; transform:translateY(0); }
 
 .id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:calc(clamp(48px,8vw,140px) * var(--id-hero-h1-scale, 1)); line-height:0.94; letter-spacing:-0.032em; color:#fff; margin:0; overflow-wrap:break-word; word-break:normal; hyphens:auto; }
@@ -167,7 +173,7 @@ const CSS = `
 .id-spotlight-text { color:#fff; padding-right:16px; }
 .id-spotlight-eyebrow { font:500 11px/1.6 var(--id-mono, ui-monospace, monospace); letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-bottom:24px; }
 .id-spotlight-h { font-family:var(--id-display, "Bagoss Standard", Georgia, serif); font-weight:300; font-size:clamp(36px, 4vw, 56px); line-height:1.05; letter-spacing:-0.01em; margin:0 0 20px; color:#fff; }
-.id-spotlight-h em { font-style:italic; color:var(--id-cit, #C7E738); font-weight:300; }
+.id-spotlight-h em { font-style:normal; color:var(--id-cit, #C7E738); font-weight:300; }
 .id-spotlight-body { font:400 16px/1.55 var(--id-body, system-ui, sans-serif); color:rgba(255,255,255,0.7); margin:0; max-width:34ch; }
 .id-spotlight-stage { position:relative; min-height:520px; display:flex; align-items:center; justify-content:center; }
 .id-spotlight-media { position:relative; width:100%; aspect-ratio:16/10; border-radius:16px; overflow:hidden; }
