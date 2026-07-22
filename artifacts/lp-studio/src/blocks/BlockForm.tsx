@@ -712,9 +712,16 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
       const mkto = globalForm?.marketoConfig;
       if (GHOST_SUBMIT_ENABLED && mkto?.forms2?.baseUrl && mkto.forms2.munchkinId && mkto.forms2.formId) {
         const mappings = mkto.fieldMappings ?? {};
+        // Fields flagged "Keep out of CRM syncs" never reach Marketo — the
+        // server strips them from the REST sync, and the ghost Forms2 submit
+        // must honor the same flag.
+        const crmExcludedLabels = new Set(
+          allSteps.flatMap(s => s.fields.filter(f => f.excludeFromCrmSync).map(f => f.label)),
+        );
         const ghost: Record<string, string> = {};
         for (const [label, value] of Object.entries(allFields)) {
           if (!value) continue;
+          if (crmExcludedLabels.has(label)) continue;
           // Map by label; fall back to the label itself when there is no
           // explicit mapping (Marketo will silently drop unknown fields).
           const mktoKey = mappings[label] ?? label;

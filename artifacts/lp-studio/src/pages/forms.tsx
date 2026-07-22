@@ -201,6 +201,9 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown, allField
           </button>
         </div>
         <span className="text-sm font-medium flex-1 truncate">{field.label || "Untitled field"}</span>
+        {field.excludeFromCrmSync && (
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground border border-border rounded px-1 py-px shrink-0">no CRM</span>
+        )}
         <span className="text-xs text-muted-foreground capitalize">{field.type}</span>
         {field.required && <span className="text-xs text-red-500">*</span>}
         {open ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
@@ -254,6 +257,20 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown, allField
               />
             </div>
           )}
+          <div className="flex items-start justify-between gap-3 rounded-md border p-2">
+            <div className="min-w-0">
+              <Label className={LABEL_CLS + " !mb-0"}>Keep out of CRM syncs</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                Still captured on the lead (and sent to email, Google Sheets, Slack, and webhooks),
+                but never sent to Marketo, HubSpot, or Salesforce. Use for custom fields that
+                don&apos;t exist in the CRM — one unknown field makes Marketo skip the whole lead.
+              </p>
+            </div>
+            <Switch
+              checked={!!field.excludeFromCrmSync}
+              onCheckedChange={v => set("excludeFromCrmSync", v ? true : undefined)}
+            />
+          </div>
           {field.type !== "hidden" && (
             <ConditionEditor
               condition={field.visibilityCondition}

@@ -18,6 +18,7 @@ import {
   type SalesforceConfig,
 } from "../../lib/notifications";
 import { syncLeadToSheets, syncLeadToMarketo } from "./integrations";
+import { collectCrmSuppressedLabels, omitSuppressedFields } from "../../lib/crmFieldSuppression";
 import { appendGuestApplicationToSheet } from "./podcast-availability";
 import { sfdcService } from "../../lib/sfdc-service";
 import { hubspotService } from "../../lib/hubspot-service";
@@ -527,6 +528,10 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       let sendFollowUpToSubmitter = false;
       let followUpTemplateId: number | null = null;
       let enrollCampaignId: number | null = null;
+      // Labels of global-form fields flagged excludeFromCrmSync — stripped
+      // from the Marketo/HubSpot/SFDC payloads below, but kept everywhere
+      // else (lead record, email, sheets, Slack, webhook).
+      let crmSuppressedLabels = new Set<string>();
 
       if (formId) {
         // Tenant-scoped lookup: a global form's config only applies when it
@@ -546,6 +551,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           sendFollowUpToSubmitter = !!globalForm.sendFollowUpToSubmitter;
           followUpTemplateId = globalForm.followUpTemplateId ?? null;
           enrollCampaignId = globalForm.enrollCampaignId ?? null;
+          crmSuppressedLabels = collectCrmSuppressedLabels(globalForm.steps);
         }
       } else {
         const [notif] = await db.select().from(lpFormNotificationsTable).where(eq(lpFormNotificationsTable.pageId, pageId));
@@ -614,7 +620,13 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       const perFormMarketo = marketoConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
       const perFormSalesforce = salesforceConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
 
-      await syncLeadToMarketo(payload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId).catch(err =>
+      // CRM-facing view of the submission: suppressed fields stripped. Used by
+      // Marketo, SFDC, and HubSpot below; every other destination keeps the
+      // full field set.
+      const crmFields = omitSuppressedFields(fields as Record<string, unknown>, crmSuppressedLabels);
+      const crmPayload: LeadPayload = { ...payload, fields: crmFields };
+
+      await syncLeadToMarketo(crmPayload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId).catch(err =>
         console.error("Marketo sync error for lead", lead.id, ":", err)
       );
       await syncLeadToSheets({
@@ -640,7 +652,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           ? null
           : await sfdcService.getActiveConnection(pageTenantId);
         if (conn) {
-          const f = fields as Record<string, string>;
+          const f = crmFields as Record<string, string>;
 
           // Look up configured field mappings for the Lead object so UTM
           // params map to whatever fields already exist in this SFDC org
@@ -718,7 +730,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       try {
         const hsConn = await hubspotService.getActiveConnection(pageTenantId);
         if (hsConn) {
-          const f = fields as Record<string, string>;
+          const f = crmFields as Record<string, string>;
           const email = f.email || f.Email || f.work_email;
           if (email) {
             await hubspotService.pushFormLead(hsConn.id, pageTenantId, {

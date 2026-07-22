@@ -102,6 +102,13 @@ export interface FormField {
   defaultValue?: string;
   /** If set, this field is only visible when the condition is met */
   visibilityCondition?: StepCondition;
+  /** When true, this field is captured on the lead (and still included in
+   *  email notifications, Google Sheets, Slack, and webhooks) but is EXCLUDED
+   *  from CRM/marketing syncs — Marketo, HubSpot, and Salesforce. Use for
+   *  custom fields that don't exist in the CRM: Marketo's createOrUpdate is
+   *  all-or-nothing, so one unknown field name would otherwise skip the whole
+   *  lead. Only honored on global forms (their field defs live server-side). */
+  excludeFromCrmSync?: boolean;
 }
 
 export interface FormStep {
