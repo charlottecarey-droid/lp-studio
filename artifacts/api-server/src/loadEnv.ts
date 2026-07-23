@@ -36,3 +36,18 @@ if (process.env.NODE_ENV !== "production") {
     process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET_TEST ?? "";
   }
 }
+
+// ALL environments: normalize base-URL env vars that get concatenated into
+// OAuth redirect URIs and webhook URLs. These values are hand-pasted into the
+// Secrets pane, so a stray leading/trailing space or trailing slash produces a
+// malformed redirect URI (e.g. " https://app.lpstudio.ai/api/sales/slack/callback")
+// that the provider rejects with an opaque "redirect_uri did not match" error.
+// Trimming here — the single choke point every entry file imports — protects
+// every callsite at once.
+for (const key of ["API_BASE_URL", "APP_BASE_URL", "PUBLIC_API_BASE_URL"] as const) {
+  const raw = process.env[key];
+  if (typeof raw === "string") {
+    const cleaned = raw.trim().replace(/\/+$/, "");
+    if (cleaned !== raw) process.env[key] = cleaned;
+  }
+}
