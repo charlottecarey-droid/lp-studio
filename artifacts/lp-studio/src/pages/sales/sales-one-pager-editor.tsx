@@ -145,6 +145,10 @@ interface BodyConfig {
   compTableRowHeight: number; compTableHeaderHeight: number; compTableCapColWidth: number;
   compStatValueSize: number; compStatLabelSize: number; compStatCardHeight: number;
   compTableAboveSpacing: number; compTableBelowSpacing: number;
+  /** Per-section drag nudges, keyed by the generator's region key (see
+   *  sectionOffset in @workspace/one-pager-types). Written only by the
+   *  preview drag handles — there are no sliders for these. */
+  sectionOffsets?: Record<string, { x: number; y: number }>;
 }
 interface TeamConfig { show: boolean; headingFontSize: number; nameFontSize: number; }
 interface FooterConfig { fontSize: number; show: boolean; link: string; height: number; }
@@ -1347,6 +1351,27 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
   // SAME ranges as the sliders so a drag can never exceed what the sliders
   // allow. Commit uses functional updates, so specs can be rebuilt per render.
   const clampPt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
+  // Body/footer sections have no sliders — drags write bodyCfg.sectionOffsets
+  // (the generators' sectionOffset() knob). Clamped so a nudge stays a nudge:
+  // a section can't be dragged further than roughly its own column width.
+  const bodyHandle = (key: string, label: string): DragHandleSpec => ({
+    key, label, axis: "xy",
+    commit: (dx, dy) => setBodyCfg(p => {
+      const cur = p.sectionOffsets?.[key] ?? { x: 0, y: 0 };
+      return {
+        ...p,
+        sectionOffsets: {
+          ...(p.sectionOffsets ?? {}),
+          [key]: { x: clampPt(cur.x + dx, -150, 150), y: clampPt(cur.y + dy, -150, 150) },
+        },
+      };
+    }),
+  });
+  const BODY_HANDLES: Record<string, Array<[string, string]>> = {
+    pilot: [["bodyHeadline", "Body headline"], ["intro", "Intro"], ["checklist", "Checklist"], ["features", "Features"], ["quote", "Quote"], ["team", "Team"], ["footer", "Footer text"]],
+    comparison: [["table", "Table"], ["stats", "Stats"], ["team", "Team"], ["footer", "Footer text"]],
+    partner: [["bodyHeadline", "Body headline"], ["intro", "Intro"], ["features", "Features"], ["stats", "Stats"], ["team", "Team"], ["footer", "Footer text"]],
+  };
   const dragHandles: DragHandleSpec[] = editorTemplate === "agreement-summary"
     ? [
         { key: "logoGroup", label: "Logo group", axis: "xy", commit: (dx, dy) => { setAgreementLogoGroupOffsetX(v => clampPt(v + dx, -80, 80)); setAgreementLogoGroupOffsetY(v => clampPt(v + dy, -60, 60)); } },
@@ -1363,6 +1388,10 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
         ...(editorTemplate === "partner"
           ? [{ key: "subtitle", label: "Subtitle", axis: "xy", commit: (dx: number, dy: number) => setHeaderCfg(p => ({ ...p, subtitleOffsetX: clampPt((p.subtitleOffsetX ?? 0) + dx, -80, 200), subtitleLineOffsetY: clampPt((p.subtitleLineOffsetY ?? 0) + dy, -60, 60) })) } as DragHandleSpec]
           : []),
+        // Free-position body/footer sections. Handles for regions a given
+        // render didn't report (e.g. a hidden quote or empty team) simply
+        // don't appear — PdfPreviewCanvas skips unknown keys.
+        ...(BODY_HANDLES[editorTemplate] ?? []).map(([key, label]) => bodyHandle(key, label)),
       ];
 
   // ── Logo upload ───────────────────────────────────────────────────

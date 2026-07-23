@@ -149,3 +149,77 @@ describe("one-pager layout-region probes", () => {
     expect(nudged.sections.y - base.sections.y).toBeCloseTo(40, 5);
   }, 30_000);
 });
+
+// ── Body/footer section nudges (bodyCfg.sectionOffsets) ────────────────────
+//
+// Same 1:1 contract as the header knobs, via the sectionOffset() map the
+// editor's body drag handles write. Also pins the flow-isolation rule: a
+// nudged section moves alone — the running y cursor is advanced by the
+// UN-offset height, so the next section stays put.
+describe("body-section offset probes (sectionOffsets)", () => {
+  type BodyGen = (bodyCfg: Record<string, unknown>, regions: OnePagerRegions) => Promise<unknown>;
+  const TEAM = [{ name: "Alex Doe", title: "AE", contactInfo: "alex@royal.example.com" }];
+  const BODY_TEMPLATES: Array<{ name: string; keys: string[]; run: BodyGen }> = [
+    {
+      // Executive renders the two-column feature grid (no checklist layout).
+      name: "pilot (executive)",
+      keys: ["bodyHeadline", "intro", "features", "team", "footer"],
+      run: (bodyCfg, regions) =>
+        generatePilotOnePager("Royal Group", "executive", TEAM, "", null, { w: 0, h: 0 },
+          defaultAudienceContent.executive, undefined, undefined,
+          { brand: BRAND, regions, layoutOverrides: { bodyCfg } }),
+    },
+    {
+      // Practice-manager is the only audience with the checklist layout.
+      name: "pilot (practice-manager)",
+      keys: ["bodyHeadline", "checklist", "features", "team", "footer"],
+      run: (bodyCfg, regions) =>
+        generatePilotOnePager("Royal Group", "practice-manager", TEAM, "", null, { w: 0, h: 0 },
+          defaultAudienceContent["practice-manager"], undefined, undefined,
+          { brand: BRAND, regions, layoutOverrides: { bodyCfg } }),
+    },
+    {
+      name: "comparison",
+      keys: ["table", "stats", "team", "footer"],
+      run: (bodyCfg, regions) =>
+        generateComparisonOnePager("Royal Group", TEAM, "", null, { w: 0, h: 0 }, undefined, undefined,
+          { brand: BRAND, regions, layoutOverrides: { bodyCfg } }),
+    },
+    {
+      name: "new-partner",
+      keys: ["bodyHeadline", "intro", "features", "stats", "team", "footer"],
+      run: (bodyCfg, regions) =>
+        generateNewPartnerOnePager("Royal Group", null, { w: 0, h: 0 }, "https://royal.example.com", undefined,
+          { brand: BRAND, regions, teamContacts: TEAM, layoutOverrides: { bodyCfg } }),
+    },
+  ];
+
+  for (const t of BODY_TEMPLATES) {
+    it(`${t.name}: every body region reports and tracks its sectionOffsets entry 1:1`, async () => {
+      const base: OnePagerRegions = {};
+      await t.run({}, base);
+      for (const k of t.keys) expectSaneRegion(base, k);
+
+      // Distinct offsets per section so a cross-wired key would fail loudly.
+      const offsets = Object.fromEntries(t.keys.map((k, i) => [k, { x: 11 + i * 7, y: -9 + i * 6 }]));
+      const nudged: OnePagerRegions = {};
+      await t.run({ sectionOffsets: offsets }, nudged);
+      for (const k of t.keys) {
+        expect(nudged[k].x - base[k].x, `${t.name}.${k}.x`).toBeCloseTo(offsets[k].x, 5);
+        expect(nudged[k].y - base[k].y, `${t.name}.${k}.y`).toBeCloseTo(offsets[k].y, 5);
+      }
+    }, 30_000);
+
+    it(`${t.name}: nudging one section leaves the others in place (flow isolation)`, async () => {
+      const base: OnePagerRegions = {};
+      await t.run({}, base);
+      const firstKey = t.keys[0];
+      const nudged: OnePagerRegions = {};
+      await t.run({ sectionOffsets: { [firstKey]: { x: 0, y: 37 } } }, nudged);
+      expect(nudged[firstKey].y - base[firstKey].y).toBeCloseTo(37, 5);
+      for (const k of t.keys.slice(1)) {
+        expect(nudged[k].y - base[k].y, `${t.name}.${k} must not move`).toBeCloseTo(0, 5);
+      }
+    }, 30_000);
+  }
+});

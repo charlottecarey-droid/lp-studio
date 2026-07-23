@@ -473,6 +473,24 @@ export interface LayoutRegion {
  *  after the generator resolves. */
 export type OnePagerRegions = Record<string, LayoutRegion>;
 
+/**
+ * Per-section free-position nudge (brand-fidelity, July 2026). The template
+ * editor lets a rep drag any body/footer section to reposition it; each drag
+ * writes an {x,y} pt offset into `bodyCfg.sectionOffsets[<key>]`, keyed by the
+ * same region key the generator records. Generators read the offset with this
+ * helper and add it to that section's draw origin (the running `y` cursor is
+ * NOT advanced by the offset, so a nudge shifts only that section — the honest
+ * limit of an imperative flow layout, matching the header-offset knobs). Unset
+ * → {0,0}, so saved layouts render pixel-identically. */
+export function sectionOffset(
+  cfg: Record<string, unknown> | undefined,
+  key: string,
+): { x: number; y: number } {
+  const map = cfg?.sectionOffsets as Record<string, { x?: number; y?: number } | undefined> | undefined;
+  const o = map?.[key];
+  return { x: o?.x ?? 0, y: o?.y ?? 0 };
+}
+
 export interface TeamContact {
   name: string;
   title: string;
@@ -1332,15 +1350,19 @@ export const generatePilotOnePager = async (
     scrubBrand(headlineText, opts?.brand),
     contentW
   );
-  doc.text(headlineLines, w / 2 + offsetX, y, { align: "center", maxWidth: contentW });
+  const oHeadline = sectionOffset(bCfg, "bodyHeadline");
+  doc.text(headlineLines, w / 2 + offsetX + oHeadline.x, y + oHeadline.y, { align: "center", maxWidth: contentW });
+  if (regions) regions.bodyHeadline = { x: margin + offsetX + oHeadline.x, y: y + oHeadline.y - ((bCfg.headlineFontSize as number | undefined) ?? 16), w: contentW, h: headlineLines.length * 20 + 4 };
   y += headlineLines.length * 20 + sectionGap;
 
   if (content.introText) {
+    const oIntro = sectionOffset(bCfg, "intro");
     doc.setFont("helvetica", "normal");
     doc.setFontSize((bCfg.introFontSize as number | undefined) ?? 9.5);
     doc.setTextColor(...textMuted);
     const introLines = doc.splitTextToSize(content.introText, contentW - 40);
-    doc.text(introLines, w / 2 + offsetX, y, { align: "center", maxWidth: contentW - 40 });
+    doc.text(introLines, w / 2 + offsetX + oIntro.x, y + oIntro.y, { align: "center", maxWidth: contentW - 40 });
+    if (regions) regions.intro = { x: margin + offsetX + oIntro.x, y: y + oIntro.y - ((bCfg.introFontSize as number | undefined) ?? 9.5), w: contentW, h: introLines.length * 13 + 4 };
     y += introLines.length * 13 + sectionGap;
   }
 
@@ -1359,48 +1381,60 @@ export const generatePilotOnePager = async (
     const divOffX = (bCfg.dividerOffsetX as number | undefined) ?? 0;
     const divOffY = (bCfg.dividerOffsetY as number | undefined) ?? 0;
 
+    const oChecklist = sectionOffset(bCfg, "checklist");
+    const oFeatures = sectionOffset(bCfg, "features");
+    const clX = margin + oChecklist.x;
+
     const checkHeadingFontSize = (bCfg.checklistHeadingFontSize as number | undefined) ?? 10;
+    const clHeadY = y + oChecklist.y;
     doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(checkHeadingFontSize); doc.setTextColor(...textDark);
     doc.text(
       ((bCfg.checklistHeadingText as string | undefined) ?? "").trim() || "How to get the most out of this pilot:",
-      margin, y,
+      clX, clHeadY,
     );
-    let checkY = y + 20;
+    let checkY = clHeadY + 20;
     content.checklist.forEach((item, idx) => {
       if (checkboxImgData) {
-        try { doc.addImage(checkboxImgData, "PNG", margin + 4, checkY - 9, 11, 11); }
+        try { doc.addImage(checkboxImgData, "PNG", clX + 4, checkY - 9, 11, 11); }
         catch {
           doc.setDrawColor(...checkGreen); doc.setLineWidth(1.2);
-          doc.line(margin + 6, checkY - 2, margin + 8, checkY); doc.line(margin + 8, checkY, margin + 12, checkY - 6);
+          doc.line(clX + 6, checkY - 2, clX + 8, checkY); doc.line(clX + 8, checkY, clX + 12, checkY - 6);
         }
       } else {
         doc.setDrawColor(...checkGreen); doc.setLineWidth(1.2);
-        doc.line(margin + 6, checkY - 2, margin + 8, checkY); doc.line(margin + 8, checkY, margin + 12, checkY - 6);
+        doc.line(clX + 6, checkY - 2, clX + 8, checkY); doc.line(clX + 8, checkY, clX + 12, checkY - 6);
       }
       doc.setFont("helvetica", "normal"); doc.setFontSize(checkFontSize); doc.setTextColor(...textDark);
       const lineH = checkFontSize * 1.35;
       const lines = doc.splitTextToSize(item, leftColW - 40);
-      doc.text(lines, margin + 22, checkY);
+      doc.text(lines, clX + 22, checkY);
       checkY += lines.length * lineH + checkSpacing;
       if (showDividers && idx < content.checklist!.length - 1) {
         const dLen = divLen > 0 ? divLen : leftColW - 20;
-        drawSep(doc, margin + divOffX, checkY - checkSpacing / 2 + divOffY, dLen, lineColor);
+        drawSep(doc, clX + divOffX, checkY - checkSpacing / 2 + divOffY, dLen, lineColor);
       }
     });
-    let featY = y;
-    content.features.forEach((feat, idx) => {
+    if (regions) regions.checklist = { x: clX, y: clHeadY - 12, w: leftColW, h: Math.max(checkY - clHeadY + 8, 24) };
+    const fRightX = rightColX + oFeatures.x;
+    const featStartY = y + oFeatures.y;
+    let featY = featStartY;
+    content.features.forEach((feat) => {
       doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((bCfg.featureTitleFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
-      doc.text(feat.title, rightColX + 28, featY);
+      doc.text(feat.title, fRightX + 28, featY);
       doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.featureDescFontSize as number | undefined) ?? 8.5); doc.setTextColor(...textMuted);
       const descLines = doc.splitTextToSize(feat.description, rightColW - 40);
-      doc.text(descLines, rightColX + 28, featY + titleDescGap);
+      doc.text(descLines, fRightX + 28, featY + titleDescGap);
       featY += titleDescGap + descLines.length * 11 + 18;
     });
-    y = Math.max(checkY, featY) + 4;
+    if (regions) regions.features = { x: fRightX, y: featStartY - 12, w: rightColW, h: Math.max(featY - featStartY + 8, 24) };
+    // Advance the cursor by the un-offset heights so a section nudge never
+    // reflows what follows (matches the header-offset knobs).
+    y = Math.max(checkY - oChecklist.y, featY - oFeatures.y) + 4;
   } else {
     const bx = (bCfg.bulletOffsetX as number | undefined) ?? 0;
     const by = (bCfg.bulletOffsetY as number | undefined) ?? 0;
     y += 4 + by;
+    const oFeatures = sectionOffset(bCfg, "features");
     const colW = contentW / 2;
     const features = content.features;
     const rows = Math.ceil(features.length / 2);
@@ -1410,8 +1444,8 @@ export const generatePilotOnePager = async (
         const idx = row * 2 + col;
         if (idx >= features.length) continue;
         const feat = features[idx];
-        const fx = margin + col * colW + offsetX + bx;
-        const fy = y + row * rowH;
+        const fx = margin + col * colW + offsetX + bx + oFeatures.x;
+        const fy = y + row * rowH + oFeatures.y;
         doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((bCfg.featureTitleFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
         doc.text(feat.title, fx, fy);
         doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.featureDescFontSize as number | undefined) ?? 8.5); doc.setTextColor(...textMuted);
@@ -1419,6 +1453,7 @@ export const generatePilotOnePager = async (
         doc.text(descLines, fx, fy + titleDescGap);
       }
     }
+    if (regions) regions.features = { x: margin + offsetX + bx + oFeatures.x, y: y + oFeatures.y - 12, w: contentW, h: rows * rowH };
     y += rows * rowH + 4;
     if (audience === "clinical") {
       // The built-in fallback quote is a real Dandy customer's dental
@@ -1431,23 +1466,27 @@ export const generatePilotOnePager = async (
         (bCfg.quoteShow as boolean | undefined) !== false &&
         (savedQuote.length > 0 || !pilotNeutral);
       if (quoteShow) {
+        const oQuote = sectionOffset(bCfg, "quote");
+        const qx = oQuote.x, qy = oQuote.y;
         y -= 20;
-        drawSep(doc, margin, y, contentW, lineColor);
+        const quoteTop = y;
+        drawSep(doc, margin + qx, y + qy, contentW, lineColor);
         y += 30;
         doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...pal.accentOnDark);
-        doc.text("\u201C", margin, y + 7);
+        doc.text("\u201C", margin + qx, y + 7 + qy);
         const quoteText = savedQuote || `I've used ${b.labName} for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.`;
         const quoteFontSize = (bCfg.quoteFontSize as number | undefined) ?? 9.5;
         doc.setFont("helvetica", "italic"); doc.setFontSize(quoteFontSize); doc.setTextColor(...textDark);
         const quoteLines = doc.splitTextToSize(quoteText, contentW - 30);
-        doc.text(quoteLines, margin + 18, y);
+        doc.text(quoteLines, margin + 18 + qx, y + qy);
         y += quoteLines.length * 13 + 8;
         if (!pilotNeutral) {
           doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textDark);
-          doc.text("Dr. Tania Arthur", margin + 18, y);
+          doc.text("Dr. Tania Arthur", margin + 18 + qx, y + qy);
           doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textMuted);
-          doc.text("Dentist, Oasis Modern Dentistry, TX US", margin + 18, y + 12);
+          doc.text("Dentist, Oasis Modern Dentistry, TX US", margin + 18 + qx, y + 12 + qy);
         }
+        if (regions) regions.quote = { x: margin + qx, y: quoteTop + qy - 6, w: contentW, h: (y - quoteTop) + 24 };
         y += 30;
       }
     }
@@ -1456,37 +1495,41 @@ export const generatePilotOnePager = async (
   const showTeam = (tCfg.show as boolean | undefined) !== false;
   const filteredContacts = teamContacts.filter(c => c.name.trim());
   if (showTeam && filteredContacts.length > 0) {
-    drawSep(doc, margin, y, contentW, lineColor);
+    const oTeam = sectionOffset(bCfg, "team");
+    const tx = oTeam.x, ty = oTeam.y;
+    const teamTop = y;
+    drawSep(doc, margin + tx, y + ty, contentW, lineColor);
     y += 29;
     doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
-    doc.text("Your dedicated team", w / 2, y, { align: "center" });
+    doc.text("Your dedicated team", w / 2 + tx, y + ty, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
     doc.text(
       isNeutralBrandContext(opts?.brand)
         ? "Meet your contacts for training, support, and pilot check-ins."
         : "Meet your contacts for training, clinical support, and pilot check-ins.",
-      w / 2, y + 15, { align: "center" },
+      w / 2 + tx, y + 15 + ty, { align: "center" },
     );
     y += 44;
     const contactColW = contentW / Math.max(filteredContacts.length, 1);
     let maxContactBottom = y;
     filteredContacts.forEach((contact, i) => {
-      const cx = margin + contactColW * i + contactColW / 2;
+      const cx = margin + contactColW * i + contactColW / 2 + tx;
       doc.setFont("helvetica", "bold"); doc.setFontSize((tCfg.nameFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
-      doc.text(contact.name, cx, y, { align: "center" });
+      doc.text(contact.name, cx, y + ty, { align: "center" });
       let contactY = y + 14;
       if (contact.title) {
         doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
-        doc.text(contact.title, cx, contactY, { align: "center" });
+        doc.text(contact.title, cx, contactY + ty, { align: "center" });
         contactY += 14;
       }
       if (contact.contactInfo) {
         doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...textMuted);
-        doc.text(contact.contactInfo, cx, contactY, { align: "center" });
+        doc.text(contact.contactInfo, cx, contactY + ty, { align: "center" });
         contactY += 12;
       }
       maxContactBottom = Math.max(maxContactBottom, contactY);
     });
+    if (regions) regions.team = { x: margin + tx, y: teamTop + ty - 6, w: contentW, h: (maxContactBottom - teamTop) + 12 };
     y = maxContactBottom + 10;
   }
 
@@ -1497,15 +1540,17 @@ export const generatePilotOnePager = async (
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
+    const oFooter = sectionOffset(bCfg, "footer");
     doc.setFillColor(...pal.primary);
     doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
-    if (footerText) doc.text(footerText, w / 2, footerTextY(footerY, footerH, footerBaseline, hasFooterLink ? 20 : 28), { align: "center" });
+    if (footerText) doc.text(footerText, w / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, hasFooterLink ? 20 : 28) + oFooter.y, { align: "center" });
     if (hasFooterLink) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...pal.onPrimaryMuted);
-      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerTextY(footerY, footerH, footerBaseline, 38), { url: customLinkUrl! });
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, 38) + oFooter.y, { url: customLinkUrl! });
     }
+    if (regions) regions.footer = { x: w / 2 - 120 + oFooter.x, y: footerY + 4 + oFooter.y, w: 240, h: footerH - 8 };
   }
 
   return doc;
@@ -1676,35 +1721,39 @@ export const generateComparisonOnePager = async (
   const col2W = (contentW - col1W) / 2;
   const tableHeaderH = (bCfg.compTableHeaderHeight as number | undefined) ?? 28;
   const tableHeaderFontSize = (bCfg.compTableHeaderFontSize as number | undefined) ?? 8;
-
-  doc.setFillColor(...pal.primary);
-  doc.roundedRect(margin, y, contentW, tableHeaderH, 4, 4, "F");
-  doc.rect(margin, y + 4, contentW, tableHeaderH - 4, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(tableHeaderFontSize); doc.setTextColor(180, 200, 190);
-  doc.text("CAPABILITY", margin + 12, y + tableHeaderH * 0.65);
-  doc.setTextColor(...pal.accentOnDark); doc.text(`${b.productName.toUpperCase()} 2022`, margin + col1W + 12, y + tableHeaderH * 0.65);
-  doc.text(`${b.productName.toUpperCase()} TODAY`, margin + col1W + col2W + 12, y + tableHeaderH * 0.65);
-  y += tableHeaderH;
-
   const rowH = (bCfg.compTableRowHeight as number | undefined) ?? 40;
   const tableFontSize = (bCfg.compTableFontSize as number | undefined) ?? 8;
+
+  const oTable = sectionOffset(bCfg, "table");
+  const tblX = margin + oTable.x, tblYo = oTable.y;
+  const tableTop = y;
+  doc.setFillColor(...pal.primary);
+  doc.roundedRect(tblX, y + tblYo, contentW, tableHeaderH, 4, 4, "F");
+  doc.rect(tblX, y + 4 + tblYo, contentW, tableHeaderH - 4, "F");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(tableHeaderFontSize); doc.setTextColor(180, 200, 190);
+  doc.text("CAPABILITY", tblX + 12, y + tableHeaderH * 0.65 + tblYo);
+  doc.setTextColor(...pal.accentOnDark); doc.text(`${b.productName.toUpperCase()} 2022`, tblX + col1W + 12, y + tableHeaderH * 0.65 + tblYo);
+  doc.text(`${b.productName.toUpperCase()} TODAY`, tblX + col1W + col2W + 12, y + tableHeaderH * 0.65 + tblYo);
+  y += tableHeaderH;
+
   activeRows.forEach((row, i) => {
     const bgColor: [number, number, number] = i % 2 === 0 ? offWhite : white;
     const isLast = i === activeRows.length - 1;
     doc.setFillColor(...bgColor);
-    if (isLast) { doc.roundedRect(margin, y, contentW, rowH, 4, 4, "F"); doc.rect(margin, y, contentW, rowH - 4, "F"); }
-    else { doc.rect(margin, y, contentW, rowH, "F"); }
+    if (isLast) { doc.roundedRect(tblX, y + tblYo, contentW, rowH, 4, 4, "F"); doc.rect(tblX, y + tblYo, contentW, rowH - 4, "F"); }
+    else { doc.rect(tblX, y + tblYo, contentW, rowH, "F"); }
     doc.setFont("helvetica", "bold"); doc.setFontSize(tableFontSize); doc.setTextColor(...pal.primaryOnLight);
     const capLines = doc.splitTextToSize(row.capability, col1W - 24);
-    doc.text(capLines, margin + 12, y + rowH * 0.35);
+    doc.text(capLines, tblX + 12, y + rowH * 0.35 + tblYo);
     doc.setFont("helvetica", "normal"); doc.setFontSize(tableFontSize); doc.setTextColor(...subtleText);
     const thenLines = doc.splitTextToSize(row.then, col2W - 24);
-    doc.text(thenLines, margin + col1W + 12, y + rowH * 0.35);
+    doc.text(thenLines, tblX + col1W + 12, y + rowH * 0.35 + tblYo);
     doc.setFont("helvetica", "normal"); doc.setFontSize(tableFontSize); doc.setTextColor(40, 80, 65);
     const nowLines = doc.splitTextToSize(row.now, col2W - 24);
-    doc.text(nowLines, margin + col1W + col2W + 12, y + rowH * 0.35);
+    doc.text(nowLines, tblX + col1W + col2W + 12, y + rowH * 0.35 + tblYo);
     y += rowH;
   });
+  if (regions) regions.table = { x: tblX, y: tableTop + tblYo - 4, w: contentW, h: tableHeaderH + activeRows.length * rowH + 8 };
   y += (bCfg.compTableBelowSpacing as number | undefined) ?? 24;
 
   const statGap = 14;
@@ -1712,51 +1761,58 @@ export const generateComparisonOnePager = async (
   const statH = (bCfg.compStatCardHeight as number | undefined) ?? 80;
   const statValueSize = (bCfg.compStatValueSize as number | undefined) ?? 22;
   const statLabelSize = (bCfg.compStatLabelSize as number | undefined) ?? 7.5;
+  const oStats = sectionOffset(bCfg, "stats");
   stats.forEach((stat, i) => {
-    const sx = margin + (statW + statGap) * i;
-    doc.setFillColor(...offWhite); doc.roundedRect(sx, y, statW, statH, 6, 6, "F");
-    doc.setFillColor(...pal.accent); doc.roundedRect(sx, y, statW, 3, 3, 3, "F"); doc.rect(sx, y + 2, statW, 2, "F");
+    const sx = margin + (statW + statGap) * i + oStats.x;
+    const sy = y + oStats.y;
+    doc.setFillColor(...offWhite); doc.roundedRect(sx, sy, statW, statH, 6, 6, "F");
+    doc.setFillColor(...pal.accent); doc.roundedRect(sx, sy, statW, 3, 3, 3, "F"); doc.rect(sx, sy + 2, statW, 2, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(statValueSize); doc.setTextColor(...pal.primaryOnLight);
-    doc.text(stat.value, sx + statW / 2, y + statH * 0.4, { align: "center" });
+    doc.text(stat.value, sx + statW / 2, sy + statH * 0.4, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(statLabelSize); doc.setTextColor(...textMuted);
     const labelLines = doc.splitTextToSize(stat.label, statW - 24);
-    doc.text(labelLines, sx + statW / 2, y + statH * 0.6, { align: "center", maxWidth: statW - 24 });
+    doc.text(labelLines, sx + statW / 2, sy + statH * 0.6, { align: "center", maxWidth: statW - 24 });
   });
+  if (regions) regions.stats = { x: margin + oStats.x, y: y + oStats.y - 4, w: contentW, h: statH + 8 };
   y += statH + 20;
 
   const showTeam = (tCfg.show as boolean | undefined) !== false;
   const filteredContacts = teamContacts.filter(c => c.name.trim());
   if (showTeam && filteredContacts.length > 0) {
-    drawSep(doc, margin, y, contentW, lineColor); y += 29;
+    const oTeam = sectionOffset(bCfg, "team");
+    const tx = oTeam.x, ty = oTeam.y;
+    const teamTop = y;
+    drawSep(doc, margin + tx, y + ty, contentW, lineColor); y += 29;
     doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
-    doc.text("Your dedicated team", w / 2, y, { align: "center" });
+    doc.text("Your dedicated team", w / 2 + tx, y + ty, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
     doc.text(
       isNeutralBrandContext(opts?.brand)
         ? "Meet your contacts for training, support, and check-ins."
         : "Meet your contacts for training, clinical support, and check-ins.",
-      w / 2, y + 15, { align: "center" },
+      w / 2 + tx, y + 15 + ty, { align: "center" },
     );
     y += 39;
     const contactColW = contentW / Math.max(filteredContacts.length, 1);
     let maxContactBottom = y;
     filteredContacts.forEach((contact, i) => {
-      const cx = margin + contactColW * i + contactColW / 2;
+      const cx = margin + contactColW * i + contactColW / 2 + tx;
       doc.setFont("helvetica", "bold"); doc.setFontSize((tCfg.nameFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
-      doc.text(contact.name, cx, y, { align: "center" });
+      doc.text(contact.name, cx, y + ty, { align: "center" });
       let contactY = y + 14;
       if (contact.title) {
         doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
-        doc.text(contact.title, cx, contactY, { align: "center" });
+        doc.text(contact.title, cx, contactY + ty, { align: "center" });
         contactY += 14;
       }
       if (contact.contactInfo) {
         doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...textMuted);
-        doc.text(contact.contactInfo, cx, contactY, { align: "center" });
+        doc.text(contact.contactInfo, cx, contactY + ty, { align: "center" });
         contactY += 12;
       }
       maxContactBottom = Math.max(maxContactBottom, contactY);
     });
+    if (regions) regions.team = { x: margin + tx, y: teamTop + ty - 6, w: contentW, h: (maxContactBottom - teamTop) + 12 };
     y = maxContactBottom + 30;
   }
 
@@ -1767,14 +1823,16 @@ export const generateComparisonOnePager = async (
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
+    const oFooter = sectionOffset(bCfg, "footer");
     doc.setFillColor(...pal.primary); doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
-    if (footerText) doc.text(footerText, w / 2, footerTextY(footerY, footerH, footerBaseline, hasFooterLink ? 16 : 24), { align: "center" });
+    if (footerText) doc.text(footerText, w / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, hasFooterLink ? 16 : 24) + oFooter.y, { align: "center" });
     if (hasFooterLink) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...pal.onPrimaryMuted);
-      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerTextY(footerY, footerH, footerBaseline, 28), { url: customLinkUrl! });
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, 28) + oFooter.y, { url: customLinkUrl! });
     }
+    if (regions) regions.footer = { x: w / 2 - 120 + oFooter.x, y: footerY + 4 + oFooter.y, w: 240, h: footerH - 8 };
   }
 
   return doc;
@@ -1978,15 +2036,19 @@ export const generateNewPartnerOnePager = async (
   const sectionExtra = ((bCfg.sectionSpacing as number | undefined) ?? 16) - 16;
   const showIntro = (bCfg.showIntro as boolean | undefined) !== false;
 
+  const oHeadline = sectionOffset(bCfg, "bodyHeadline");
   doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 18); doc.setTextColor(...textDark);
   const headlineLines = doc.splitTextToSize(headline, contentW);
-  doc.text(headlineLines, margin + offsetX, y);
+  doc.text(headlineLines, margin + offsetX + oHeadline.x, y + oHeadline.y);
+  if (regions) regions.bodyHeadline = { x: margin + offsetX + oHeadline.x, y: y + oHeadline.y - ((bCfg.headlineFontSize as number | undefined) ?? 18), w: contentW, h: headlineLines.length * 22 + 4 };
   y += headlineLines.length * 22 + 14;
 
   if (showIntro) {
+    const oIntro = sectionOffset(bCfg, "intro");
     doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.introFontSize as number | undefined) ?? 10); doc.setTextColor(...textMuted);
     const introLines = doc.splitTextToSize(intro, contentW);
-    doc.text(introLines, margin + offsetX, y);
+    doc.text(introLines, margin + offsetX + oIntro.x, y + oIntro.y);
+    if (regions) regions.intro = { x: margin + offsetX + oIntro.x, y: y + oIntro.y - ((bCfg.introFontSize as number | undefined) ?? 10), w: contentW, h: introLines.length * 14 + 4 };
     y += introLines.length * 14 + 24 + sectionExtra;
   } else {
     y += sectionExtra;
@@ -1998,13 +2060,15 @@ export const generateNewPartnerOnePager = async (
   const cardBorderColor: [number, number, number] = pal.accentBorder;
   const cardBorderW = 3;
   const cardOffWhite: [number, number, number] = [240, 240, 236];
+  const oFeatures = sectionOffset(bCfg, "features");
+  const featTop = y;
 
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 2; col++) {
       const idx = row * 2 + col;
       const feat = features[idx];
-      const cx = margin + offsetX + col * (cardW + cardGap);
-      const cy = y + row * (cardH + cardGap);
+      const cx = margin + offsetX + col * (cardW + cardGap) + oFeatures.x;
+      const cy = y + row * (cardH + cardGap) + oFeatures.y;
       doc.setFillColor(...cardOffWhite); doc.roundedRect(cx, cy, cardW, cardH, 4, 4, "F");
       doc.setFillColor(...cardBorderColor); doc.roundedRect(cx, cy, cardBorderW, cardH, 2, 0, "F");
       const featTitleFs = (bCfg.featureTitleFontSize as number | undefined) ?? 11;
@@ -2029,13 +2093,16 @@ export const generateNewPartnerOnePager = async (
       }
     }
   }
+  if (regions) regions.features = { x: margin + offsetX + oFeatures.x, y: featTop + oFeatures.y - 4, w: contentW, h: 2 * (cardH + cardGap) };
   y += 2 * (cardH + cardGap) + 28 + sectionExtra;
 
+  const oStats = sectionOffset(bCfg, "stats");
+  const statsTop = y;
   const testimonialsHeading = content.testimonialsHeading ?? (partnerNeutral
     ? `See what ${b.productName} customers are saying:`
     : `See what ${b.productName} doctors are saying:`);
   doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(16); doc.setTextColor(...pal.primaryOnLight);
-  doc.text(testimonialsHeading, margin + offsetX, y);
+  doc.text(testimonialsHeading, margin + offsetX + oStats.x, y + oStats.y);
   y += 28;
 
   const statGap = 14;
@@ -2045,15 +2112,17 @@ export const generateNewPartnerOnePager = async (
   const statValueFs = (bCfg.statValueFontSize as number | undefined) ?? 36;
   const statDescFs = (bCfg.statDescFontSize as number | undefined) ?? 8.5;
   stats.forEach((stat, i) => {
-    const sx = margin + offsetX + (statW + statGap) * i;
-    doc.setFillColor(...offWhite); doc.roundedRect(sx, y, statW, statH, 6, 6, "F");
+    const sx = margin + offsetX + (statW + statGap) * i + oStats.x;
+    const sy = y + oStats.y;
+    doc.setFillColor(...offWhite); doc.roundedRect(sx, sy, statW, statH, 6, 6, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(statValueFs); doc.setTextColor(...pal.primaryOnLight);
-    doc.text(stat.value, sx + statW / 2, y + 45, { align: "center" });
+    doc.text(stat.value, sx + statW / 2, sy + 45, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(statDescFs); doc.setTextColor(...textMuted);
     const statDesc = stat.desc;
     const statLines = doc.splitTextToSize(statDesc, statW - 24);
-    doc.text(statLines, sx + statW / 2, y + 45 + statValueFs * 0.4 + 6, { align: "center", maxWidth: statW - 24 });
+    doc.text(statLines, sx + statW / 2, sy + 45 + statValueFs * 0.4 + 6, { align: "center", maxWidth: statW - 24 });
   });
+  if (regions) regions.stats = { x: margin + offsetX + oStats.x, y: statsTop + oStats.y - 12, w: contentW, h: (y - statsTop) + statH + 8 };
   y += statH + 30 + sectionExtra;
 
   // ─── Team section ───────────────────────────────────────────────
@@ -2064,37 +2133,41 @@ export const generateNewPartnerOnePager = async (
   const showTeam = (tCfg.show as boolean | undefined) !== false;
   const filteredContacts = teamContacts.filter(c => c.name.trim());
   if (showTeam && filteredContacts.length > 0) {
-    drawSep(doc, margin, y, contentW, lineColor);
+    const oTeam = sectionOffset(bCfg, "team");
+    const tx = oTeam.x, ty = oTeam.y;
+    const teamTop = y;
+    drawSep(doc, margin + tx, y + ty, contentW, lineColor);
     y += 29;
     doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
-    doc.text("Your dedicated team", w / 2, y, { align: "center" });
+    doc.text("Your dedicated team", w / 2 + tx, y + ty, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
     doc.text(
       isNeutralBrandContext(opts?.brand)
         ? "Meet your contacts for training, support, and check-ins."
         : "Meet your contacts for training, clinical support, and check-ins.",
-      w / 2, y + 15, { align: "center" },
+      w / 2 + tx, y + 15 + ty, { align: "center" },
     );
     y += 39;
     const contactColW = contentW / Math.max(filteredContacts.length, 1);
     let maxContactBottom = y;
     filteredContacts.forEach((contact, i) => {
-      const cx = margin + contactColW * i + contactColW / 2;
+      const cx = margin + contactColW * i + contactColW / 2 + tx;
       doc.setFont("helvetica", "bold"); doc.setFontSize((tCfg.nameFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
-      doc.text(contact.name, cx, y, { align: "center" });
+      doc.text(contact.name, cx, y + ty, { align: "center" });
       let contactY = y + 14;
       if (contact.title) {
         doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
-        doc.text(contact.title, cx, contactY, { align: "center" });
+        doc.text(contact.title, cx, contactY + ty, { align: "center" });
         contactY += 14;
       }
       if (contact.contactInfo) {
         doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...textMuted);
-        doc.text(contact.contactInfo, cx, contactY, { align: "center" });
+        doc.text(contact.contactInfo, cx, contactY + ty, { align: "center" });
         contactY += 12;
       }
       maxContactBottom = Math.max(maxContactBottom, contactY);
     });
+    if (regions) regions.team = { x: margin + tx, y: teamTop + ty - 6, w: contentW, h: (maxContactBottom - teamTop) + 12 };
     y = maxContactBottom + 10;
   }
 
@@ -2112,15 +2185,17 @@ export const generateNewPartnerOnePager = async (
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
+    const oFooter = sectionOffset(bCfg, "footer");
     doc.setFillColor(...pal.primary);
     doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : footerLink;
-    if (footerText) doc.text(footerText, w / 2, footerTextY(footerY, footerH, footerBaseline, hasCustomLink ? 20 : 28), { align: "center" });
+    if (footerText) doc.text(footerText, w / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, hasCustomLink ? 20 : 28) + oFooter.y, { align: "center" });
     if (hasCustomLink) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...pal.onPrimaryMuted);
-      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerTextY(footerY, footerH, footerBaseline, 38), { url: customLinkUrl! });
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, 38) + oFooter.y, { url: customLinkUrl! });
     }
+    if (regions) regions.footer = { x: w / 2 - 120 + oFooter.x, y: footerY + 4 + oFooter.y, w: 240, h: footerH - 8 };
   }
 
   return doc;
