@@ -1,0 +1,26 @@
+i think the URI was wrong we should have put https://b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8.janeway.replit.dev
+
+Not quite — the URI we put in was right for the real setup; what happened is you ran the flow from the wrong place. Two different hosts are in play:
+
+https://app.lpstudio.ai — the deployed instance, where you and the team actually use LP Studio. This is confirmed as the production host by the checked-in config (the Google/GitHub OAuth callbacks are pinned to it, and Google sign-in works there today). Connections made here are the ones that matter.
+https://b675546d-….janeway.replit.dev — your Replit dev workspace's preview URL. It only resolves while the workspace is awake, and it's not where anyone uses the app for real.
+If we'd swapped the manifest to the janeway URL, the button would work in your dev preview but break on app.lpstudio.ai — the same "redirect_uri did not match" error, just for everyone in production instead.
+
+The good news: this isn't either/or. Slack apps accept multiple redirect URLs. So:
+
+Keep https://app.lpstudio.ai/api/sales/slack/callback — that one stays, it's the production callback.
+If you also want to test from the dev workspace, go to the Slack app config → OAuth & Permissions → Redirect URLs → Add https://b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8.janeway.replit.dev/api/sales/slack/callback (the full path, ending in /api/sales/slack/callback) → Save.
+For connecting the Dandy workspace for real, though, the simplest path remains: open https://app.lpstudio.ai in a normal tab, log in, /sales/slack, Add to Slack. That avoids both errors you've hit (the session one and the redirect one), and it exercises the exact setup production will use from here on.
+
+no i am in the deployed app tho
+
+Ah — then that's the tell, and it's a different bug than I assumed. The redirect URI Slack complained about doesn't come from your browser at all: the server builds it from its own API_BASE_URL env var (slack.ts:53). If you clicked Add to Slack in the deployed app and Slack was passed the janeway URL, then the deployment's API_BASE_URL secret is literally set to that janeway.replit.dev URL — probably set that way at some point during dev (Replit's agent does this kind of thing when wiring features).
+
+So, in the Replit deployment's secrets:
+
+Change API_BASE_URL to https://app.lpstudio.ai
+Make sure APP_BASE_URL is https://app.lpstudio.ai too (same failure mode would otherwise hit the post-connect redirect — you'd OAuth successfully and then get bounced back to the dev domain).
+Redeploy, then retry Add to Slack from app.lpstudio.ai.
+One caution before you change it: since that secret was apparently set to the dev URL deliberately at some point, it's worth a quick scan of what else reads it. In this codebase API_BASE_URL is only used by the Slack flow, so the change is safe on our side — but if the Replit agent introduced it for something else outside the repo I can see, the secrets panel's other entries (anything else with a janeway URL in it) are worth a glance while you're in there.
+
+If after that Slack still shows a mismatch, paste the new "Passed URI" and we'll see exactly what the server thinks its base is.
