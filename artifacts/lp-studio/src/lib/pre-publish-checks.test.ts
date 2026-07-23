@@ -54,6 +54,27 @@ describe("dead CTA detection", () => {
     expect(findings.filter(f => f.id.startsWith("dead-cta:"))).toEqual([]);
   });
 
+  it("reads the primaryCta* family (primaryCtaUrl / primaryCtaAction), not just ctaUrl", () => {
+    const findings = run([
+      // Working link stored under primaryCtaUrl — must NOT be flagged.
+      { id: "b1", type: "dso-practice-hero", props: { primaryCtaText: "Get pricing", primaryCtaUrl: "/get-pricing/" } },
+      // Form CTA via primaryCtaAction — modal-form is always accepted.
+      { id: "b2", type: "dso-practice-hero", props: { primaryCtaText: "Book", primaryCtaAction: "modal-form", modalFormId: 7 } },
+      // primaryCtaAction ("modal-form") wins over legacy primaryCtaMode ("link"),
+      // matching the renderer's resolveAction precedence — not flagged.
+      { id: "b3", type: "dso-practice-hero", props: { primaryCtaText: "Talk", primaryCtaAction: "modal-form", primaryCtaMode: "link", modalFormId: 9 } },
+    ]);
+    expect(findings.filter(f => f.id.startsWith("dead-cta:"))).toEqual([]);
+  });
+
+  it("still flags a genuinely empty primaryCta* link", () => {
+    const findings = run([
+      { id: "b1", type: "dso-practice-hero", props: { primaryCtaText: "Get pricing", primaryCtaUrl: "" } },
+      LEADFUL_FORM,
+    ]);
+    expect(findings.some(f => f.id === "dead-cta:b1")).toBe(true);
+  });
+
   it("skips blocks that follow an active Page CTA, but not opted-out blocks", () => {
     const pageCta = { label: "Book a demo", action: "url", url: "https://x.com" } as PrePublishInput["pageCta"];
     const follower: CheckableBlock = { id: "b1", type: "hero", props: { ctaText: "Go", ctaUrl: "" } };

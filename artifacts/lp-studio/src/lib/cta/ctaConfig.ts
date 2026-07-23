@@ -132,11 +132,19 @@ export const CTA_LABEL_KEYS = [
 /** Legacy action-mode aliases, in read priority order. `cta1Action` already
  *  uses the renderer vocabulary (the id-* blocks normalize it in-block); the
  *  ctaPrimary and heroPrimaryCta families have no action key — they render
- *  plain links, so only their label/url follow the Page CTA. */
-export const CTA_ACTION_KEYS = ["ctaAction", "ctaMode", "primaryCtaMode", "cta1Action"] as const;
+ *  plain links, so only their label/url follow the Page CTA. The primaryCta*
+ *  family (DSO product/practice heroes, ~19 blocks) uses `primaryCtaAction`
+ *  with a legacy `primaryCtaMode` fallback; `primaryCtaAction` is listed FIRST
+ *  to match the renderers' `resolveAction(primaryCtaAction, primaryCtaMode)`
+ *  precedence on blocks that declare both. */
+export const CTA_ACTION_KEYS = ["ctaAction", "ctaMode", "primaryCtaAction", "primaryCtaMode", "cta1Action"] as const;
 
-/** Per-action destination keys (renderer-level), in read priority order. */
-export const CTA_URL_KEYS = ["ctaUrl", "ctaPrimaryUrl", "heroPrimaryCtaUrl", "cta1Url"] as const;
+/** Per-action destination keys (renderer-level), in read priority order.
+ *  `primaryCtaUrl` (the primaryCta* family) sits right after the canonical
+ *  `ctaUrl`, mirroring `primaryCtaText` in CTA_LABEL_KEYS — without it the
+ *  pre-publish gate falsely flagged those blocks' working links as having "no
+ *  destination". */
+export const CTA_URL_KEYS = ["ctaUrl", "primaryCtaUrl", "ctaPrimaryUrl", "heroPrimaryCtaUrl", "cta1Url"] as const;
 export const CTA_CHILIPIPER_KEYS = ["chilipiperUrl", "cta1ChilipiperUrl"] as const;
 export const CTA_VIDEO_URL_KEYS = ["videoUrl", "cta1VideoUrl"] as const;
 export const CTA_VIDEO_POSTER_KEYS = ["videoPosterUrl"] as const;
