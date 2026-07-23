@@ -24,6 +24,7 @@ import { enforceFactFlagPublishGate } from "./fact-flags";
 import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 import { pickPageStyleOverrides } from "../../lib/page-style-overrides";
+import { tagTeamPhotosFromBlocks } from "../../lib/teamPhotoTagging";
 
 const router = Router();
 
@@ -687,6 +688,10 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     if (page && page.status === "published") {
       triggerPublishedRender({ pageId: page.id, requestHost: getRequestHost(req) });
     }
+    // Reserve any Meet-the-Team headshots picked into this page from AI reuse
+    // (Task #1206 gap: block-level picks never passed through the library tag
+    // path). Fire-and-forget — never blocks or fails the save.
+    if (page) void tagTeamPhotosFromBlocks(page.tenantId, page.blocks);
     res.status(201).json(page);
   } catch (err) {
     if (isUniqueViolation(err)) {
@@ -1162,6 +1167,9 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     if (page.isTemplate && (updates.blocks !== undefined || updates.customCss !== undefined)) {
       triggerTemplateThumbnailCapture({ pageId: page.id, requestHost: getRequestHost(req) });
     }
+    // Reserve any Meet-the-Team headshots on this page from AI reuse (see POST).
+    // Fire-and-forget — never blocks or fails the save.
+    void tagTeamPhotosFromBlocks(page.tenantId, page.blocks);
     res.json(page);
   } catch (err) {
     if (isUniqueViolation(err)) {

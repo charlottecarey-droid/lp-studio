@@ -25,6 +25,7 @@ import { migrate as drizzleMigrate } from "drizzle-orm/node-postgres/migrator";
 import { FULL_PAGE_BLOCK_TYPES } from "@workspace/lp-template-engine";
 import { logger } from "./lib/logger";
 import { DEFAULT_BLOG_WRITING_INSTRUCTIONS } from "./lib/blogAi";
+import { collectTeamPhotoUrls } from "./lib/teamPhotoTagging";
 
 // Schema SQL lives in `lib/db/migrations/*.sql` and is applied via
 // drizzle's tracked migrator (`__drizzle_migrations` table + `meta/_journal.json`)
@@ -2619,6 +2620,44 @@ async function runMigrationsBody(): Promise<void> {
     } catch (backfillErr) {
       logger.error({ err: backfillErr }, "team_photo media backfill failed (non-fatal)");
     }
+    });
+
+    // Task #1206 follow-up — reserve headshots picked DIRECTLY into a
+    // `dso-meet-team` block (not via the team_member library, which the
+    // library backfill above already covers). The block members' `photo`
+    // URLs live inside the page's nested blocks JSON, so match in JS rather
+    // than SQL: scan pages that mention the block type, extract each photo,
+    // and merge the `team-photo` tag onto the matching tenant media row.
+    // Marker-gated + idempotent (`?` guard) — safe to re-run; best-effort.
+    await runStep("team_photo block backfill", async () => {
+      try {
+        const MARKER = "team_photo_block_backfill_v1";
+        const marker = await db.execute<{ exists: number }>(
+          sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${MARKER}`
+        );
+        if (marker.rows.length > 0) return;
+        const pages = await db.execute<{ tenant_id: number; blocks: unknown }>(
+          sql`SELECT tenant_id, blocks FROM lp_pages WHERE blocks::text LIKE '%dso-meet-team%'`
+        );
+        let tagged = 0;
+        for (const row of pages.rows) {
+          for (const url of collectTeamPhotoUrls(row.blocks)) {
+            const r = await db.execute(sql`
+              UPDATE lp_media
+                 SET tags = COALESCE(tags, '[]'::jsonb) || '["team-photo"]'::jsonb
+               WHERE tenant_id = ${row.tenant_id}
+                 AND url = ${url}
+                 AND NOT (COALESCE(tags, '[]'::jsonb) ? 'team-photo')`);
+            tagged += r.rowCount ?? 0;
+          }
+        }
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${MARKER}) ON CONFLICT DO NOTHING`
+        );
+        logger.info({ tagged, pages: pages.rows.length }, "team_photo block backfill applied");
+      } catch (backfillErr) {
+        logger.error({ err: backfillErr }, "team_photo block backfill failed (non-fatal)");
+      }
     });
 
     // One-shot, best-effort backfill so existing campaign engagement signals are
