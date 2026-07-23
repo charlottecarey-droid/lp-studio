@@ -11,6 +11,7 @@ import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { type FormStyling, mergeFormStyling } from "@/lib/form-styling";
+import { buildGlobalFormSubmissionFields, evalCondition } from "@/lib/global-form-submission";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -25,19 +26,6 @@ const API_BASE = "/api";
  * to re-enable Munchkin association + Marketo Smart Campaign triggers.
  */
 const GHOST_SUBMIT_ENABLED = false;
-
-/** Evaluate a StepCondition against the current field values */
-function evalCondition(cond: StepCondition, values: Record<string, string>): boolean {
-  const actual = (values[cond.fieldId] ?? "").trim().toLowerCase();
-  const expected = cond.value.trim().toLowerCase();
-  switch (cond.operator) {
-    case "equals": return actual === expected;
-    case "not_equals": return actual !== expected;
-    case "contains": return actual.includes(expected);
-    case "any_of": return expected.split("|").map(s => s.trim().toLowerCase()).includes(actual);
-    default: return true;
-  }
-}
 
 interface GlobalFormConfig {
   id: number;
@@ -375,60 +363,10 @@ function FieldInput({
   );
 }
 
-// URL-param-backed tokens. The right-hand side is the URL query parameter name.
-// All of these are also persisted in localStorage on first hit so attribution
-// survives page navigation (matches Google Ads / GA's recommended pattern).
-const URL_PARAM_TOKENS: Record<string, string> = {
-  "{{utm_source}}":   "utm_source",
-  "{{utm_medium}}":   "utm_medium",
-  "{{utm_campaign}}": "utm_campaign",
-  "{{utm_content}}":  "utm_content",
-  "{{utm_term}}":     "utm_term",
-  "{{utm_ad_id}}":    "utm_ad_id",
-  "{{gclid}}":        "gclid",
-  "{{fbclid}}":       "fbclid",
-  "{{gbraid}}":       "gbraid",
-  "{{wbraid}}":       "wbraid",
-  "{{msclkid}}":      "msclkid",
-};
-const LS_PREFIX = "lpstudio_attr_";
-
-function readPersistedParam(name: string): string {
-  if (typeof window === "undefined") return "";
-  const live = new URLSearchParams(window.location.search).get(name);
-  if (live) {
-    try { window.localStorage.setItem(LS_PREFIX + name, live); } catch { /* private mode */ }
-    return live;
-  }
-  try { return window.localStorage.getItem(LS_PREFIX + name) ?? ""; } catch { return ""; }
-}
-
-// Read the GA4 client ID from the `_ga` cookie (format: GA1.2.<clientId-2-parts>.<timestamp>).
-function readGaClientId(): string {
-  if (typeof document === "undefined") return "";
-  const m = document.cookie.match(/(?:^|;\s*)_ga=([^;]+)/);
-  if (!m) return "";
-  const parts = decodeURIComponent(m[1]).split(".");
-  // GA1.2.123456789.1700000000 → "123456789.1700000000"
-  if (parts.length >= 4) return `${parts[2]}.${parts[3]}`;
-  return "";
-}
-
-function resolveHiddenValue(template: string): string {
-  if (!template) return "";
-  let result = template;
-  for (const [token, param] of Object.entries(URL_PARAM_TOKENS)) {
-    if (!result.includes(token)) continue;
-    result = result.replaceAll(token, readPersistedParam(param));
-  }
-  if (result.includes("{{ga_client_id}}")) {
-    result = result.replaceAll("{{ga_client_id}}", readGaClientId());
-  }
-  result = result.replaceAll("{{page_url}}",   typeof window !== "undefined" ? window.location.href : "");
-  result = result.replaceAll("{{page_title}}", typeof document !== "undefined" ? document.title : "");
-  result = result.replaceAll("{{referrer}}",   typeof document !== "undefined" ? document.referrer : "");
-  return result;
-}
+// URL-param token resolution, GA client-id cookie read, and the hidden-field
+// resolver moved to @/lib/global-form-submission so the chat-capture block
+// builds byte-identical submissions (Sheets sync is positional — see that
+// module's docstring).
 
 export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, prefill }: Props) {
   const bgStyles: Record<string, string> = {
@@ -583,20 +521,10 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
     setSubmitting(true);
     setSubmitError(null);
 
-    // Submit visible fields + always include hidden fields with resolved values
-    const allFields: Record<string, string> = {};
-    for (const s of allSteps) {
-      for (const field of s.fields) {
-        if (field.type === "hidden") {
-          allFields[field.label] = resolveHiddenValue(field.defaultValue ?? "");
-          continue;
-        }
-        // Skip steps/fields hidden by conditions
-        if (s.condition && !evalCondition(s.condition, fieldValues)) continue;
-        if (field.visibilityCondition && !evalCondition(field.visibilityCondition, fieldValues)) continue;
-        allFields[field.label] = fieldValues[field.id] ?? "";
-      }
-    }
+    // Submit visible fields + always include hidden fields with resolved
+    // values — via the shared builder so chat-capture leads on the same
+    // global form stay byte-compatible.
+    const allFields = buildGlobalFormSubmissionFields(allSteps, fieldValues);
 
     try {
       // Extract UTM params from the current page URL so they are stored as

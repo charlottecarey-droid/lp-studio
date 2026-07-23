@@ -25,11 +25,13 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ChatCaptureBlockProps, ChiliPiperHandoffConfig } from "@/lib/block-types";
+import type { ChatCaptureBlockProps, ChiliPiperHandoffConfig, FormStep } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
+import { buildLinkedFormLeadFields } from "@/lib/global-form-submission";
+import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 import { safeNavigate } from "@/lib/safe-url";
 import {
   streamCopilotChat,
@@ -178,9 +180,17 @@ function ChatCaptureLauncher({
   // posting a duplicate lead (client-side dedupe; POST /lp/leads has no
   // idempotency column).
   const submittedEmailsRef = useRef<Set<string>>(new Set());
-  // Scheduler hand-off config of the linked global form, from the same
-  // public GET /lp/forms/:id BlockForm uses (already sanitised tenant-side).
-  // Fetched lazily on first panel open; null = none configured.
+  // Linked global form, from the same public GET /lp/forms/:id BlockForm
+  // uses (already sanitised tenant-side). Fetched lazily on first panel
+  // open. Its `steps` shape the lead submission (same fields, same order as
+  // a form submission — the Sheets sync is positional), its
+  // chiliPiperConfig drives the in-panel scheduler, and gtmDataLayerConfig
+  // drives the post-capture GTM push.
+  const [linkedForm, setLinkedForm] = useState<{
+    steps?: FormStep[];
+    chiliPiperConfig?: ChiliPiperHandoffConfig | null;
+    gtmDataLayerConfig?: GtmDataLayerConfig | null;
+  } | null>(null);
   const [cpConfig, setCpConfig] = useState<ChiliPiperHandoffConfig | null>(null);
   const cpFetchedRef = useRef(false);
   // Scheduler currently shown inside the panel (replaces the thread).
@@ -192,12 +202,17 @@ function ChatCaptureLauncher({
     cpFetchedRef.current = true;
     fetch(`${API_BASE}/lp/forms/${blockProps.formId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((form: { chiliPiperConfig?: ChiliPiperHandoffConfig | null } | null) => {
+      .then((form: {
+        steps?: FormStep[];
+        chiliPiperConfig?: ChiliPiperHandoffConfig | null;
+        gtmDataLayerConfig?: GtmDataLayerConfig | null;
+      } | null) => {
+        if (form) setLinkedForm(form);
         const cp = form?.chiliPiperConfig;
         if (cp && typeof cp.url === "string" && cp.url.trim() !== "") setCpConfig(cp);
       })
       .catch(() => {
-        /* no scheduler — capture still works */
+        /* no form config — capture still works via the generic-labels path */
       });
   }, [open, blockProps.formId]);
 
@@ -287,28 +302,46 @@ function ChatCaptureLauncher({
       }
       setCapture("sending");
 
-      // When the block is linked to a global form, the bot answers arrive in
-      // formAnswers keyed by the form's OWN field labels — submit under those
-      // labels so the form's integration mappings (Marketo etc.) resolve. The
-      // generic Email/Name/... keys are only added when no form answer
-      // already covers that concept, to avoid duplicate columns on the lead.
-      const fields: Record<string, string> = {};
+      // The bot's answers arrive in formAnswers keyed by the linked form's
+      // OWN field labels (the mode grounds it on them).
       const rawAnswers = action.args?.formAnswers;
+      const answers: Record<string, string> = {};
       if (rawAnswers && typeof rawAnswers === "object" && !Array.isArray(rawAnswers)) {
         for (const [k, v] of Object.entries(rawAnswers as Record<string, unknown>)) {
           const val = str(v);
-          if (k.trim() && val) fields[k.trim()] = val;
+          if (k.trim() && val) answers[k.trim()] = val;
         }
       }
-      const hasKeyLike = (needle: RegExp) => Object.keys(fields).some((k) => needle.test(k));
-      if (!hasKeyLike(/email/i)) fields["Email"] = email;
       const name = str(action.args?.name);
       const company = str(action.args?.company);
       const phone = str(action.args?.phone);
       const notes = str(action.args?.notes);
-      if (name && !hasKeyLike(/name/i)) fields["Name"] = name;
-      if (company && !hasKeyLike(/company|organization|practice/i)) fields["Company"] = company;
-      if (phone && !hasKeyLike(/phone|mobile/i)) fields["Phone"] = phone;
+
+      let fields: Record<string, string>;
+      if (linkedForm?.steps?.length) {
+        // Linked global form: submit EXACTLY the form's fields in definition
+        // order — blanks included, hidden attribution fields (GCLID, GA
+        // client id, UTM tokens…) resolved — so a chat lead is
+        // byte-compatible with a form submission. The Sheets sync appends
+        // values positionally and the CRM payload allowlists by label, so
+        // any other shape lands scrambled. Bot values with no matching form
+        // field are appended under generic labels rather than dropped.
+        const built = buildLinkedFormLeadFields(linkedForm.steps, answers, { email, name, company, phone });
+        fields = built.fields;
+        if (built.leftovers.email) fields["Email"] = built.leftovers.email;
+        if (built.leftovers.name) fields["Name"] = built.leftovers.name;
+        if (built.leftovers.company) fields["Company"] = built.leftovers.company;
+        if (built.leftovers.phone) fields["Phone"] = built.leftovers.phone;
+      } else {
+        // No linked form (or its config didn't load in time): legacy generic
+        // labels, added only when no bot answer already covers the concept.
+        fields = { ...answers };
+        const hasKeyLike = (needle: RegExp) => Object.keys(fields).some((k) => needle.test(k));
+        if (!hasKeyLike(/email/i)) fields["Email"] = email;
+        if (name && !hasKeyLike(/name/i)) fields["Name"] = name;
+        if (company && !hasKeyLike(/company|organization|practice/i)) fields["Company"] = company;
+        if (phone && !hasKeyLike(/phone|mobile/i)) fields["Phone"] = phone;
+      }
       if (notes) fields["Chat Summary"] = notes;
       fields["Source"] = "Page chat";
       // Hidden linkage (underscore keys are excluded from lead-table columns
@@ -347,6 +380,16 @@ function ChatCaptureLauncher({
         if (!resp.ok) throw new Error("Submission failed");
         submittedEmailsRef.current.add(email.toLowerCase());
 
+        // GTM dataLayer push — the same "Marketo Form Submission" signal a
+        // BlockForm submit sends, so marketing's GTM conversion tags fire
+        // for chat leads too. Helper dedupes per page load; tracking must
+        // never break the capture UX.
+        try {
+          pushMarketoSubmissionToDataLayer(linkedForm?.gtmDataLayerConfig ?? null);
+        } catch (err) {
+          console.error("[lp-studio] dataLayer push threw:", err);
+        }
+
         // Scheduler hand-off: prefill from the submitted fields (form labels
         // resolve through the shared default/tenant fieldMap) plus the bot's
         // dedicated args, with a first/last split of the full name for Chili
@@ -358,10 +401,11 @@ function ChatCaptureLauncher({
           if (phone && !prefill["Phone"]) prefill["Phone"] = phone;
           if (company && !prefill["Company"]) prefill["Company"] = company;
           if (name) {
+            const prefillHasKeyLike = (needle: RegExp) => Object.keys(prefill).some((k) => needle.test(k));
             if (!prefill["Name"]) prefill["Name"] = name;
             const [first, ...rest] = name.split(/\s+/);
-            if (first && !hasKeyLike(/first\s*name/i)) prefill["First Name"] = first;
-            if (rest.length > 0 && !hasKeyLike(/last\s*name/i)) prefill["Last Name"] = rest.join(" ");
+            if (first && !prefillHasKeyLike(/first\s*name/i)) prefill["First Name"] = first;
+            if (rest.length > 0 && !prefillHasKeyLike(/last\s*name/i)) prefill["Last Name"] = rest.join(" ");
           }
           bookingUrl = buildChiliPiperHandoffUrl(cpConfig, prefill);
         }
@@ -388,7 +432,7 @@ function ChatCaptureLauncher({
         setCapture("failed");
       }
     },
-    [pageId, testId, variantId, sessionId, blockProps.formId, conversationId, cpConfig],
+    [pageId, testId, variantId, sessionId, blockProps.formId, conversationId, cpConfig, linkedForm],
   );
 
   const send = useCallback(async () => {
