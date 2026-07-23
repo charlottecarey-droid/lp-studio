@@ -41,6 +41,9 @@ connecting the same org gets a duplicate-key insert failure surfaced as the gene
 consumed, so a retry then shows invalid_grant/expired code). Diagnose in api-server logs
 (duplicate key on `sfdc_connections_org_id_key`); unblock by deleting the stale
 disconnected row for that org. The callback upsert only matches same tenant+org.
-Also: redirect_uri is built from global secret `API_BASE_URL` (currently the dev
-janeway.replit.dev domain, shared by dev AND prod), which must be listed in the
-Connected App callback URLs and re-checked whenever the dev domain rotates.
+Also: redirect_uri is built from global secret `API_BASE_URL` (now
+https://app.lpstudio.ai, one GLOBAL secret shared by dev AND prod — so
+dev-initiated Slack/SFDC connect flows bounce through the prod host; acceptable
+with the shared DB). It must be listed in the Connected App callback URLs.
+loadEnv normalizes it (trim + strip trailing slash), see
+base-url-env-normalization.md.
