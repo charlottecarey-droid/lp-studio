@@ -52,7 +52,7 @@ interface Destination {
 function setupLocationLabel(setupPath?: string): string {
   if (!setupPath) return "your workspace settings";
   if (setupPath.startsWith("/sales/sfdc")) return "Sales → Salesforce";
-  if (setupPath.startsWith("/integrations")) return "Integrations";
+  if (setupPath.startsWith("/integrations") || setupPath.startsWith("/settings/integrations")) return "Settings → Integrations";
   return "your workspace settings";
 }
 

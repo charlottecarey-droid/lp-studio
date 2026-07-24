@@ -135,7 +135,6 @@ const SalesSignals = lazy(() => import("@/pages/sales/sales-signals"));
 const SfdcSettings = lazy(() => import("@/pages/sales/sfdc-settings"));
 const MarketoSettings = lazy(() => import("@/pages/sales/marketo-settings"));
 const HubspotSettings = lazy(() => import("@/pages/sales/hubspot-settings"));
-const SalesIntegrations = lazy(() => import("@/pages/sales/sales-integrations"));
 const SlackSettings = lazy(() => import("@/pages/sales/slack-settings"));
 const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages"));
 const SalesCampaignDetail = lazy(() => import("@/pages/sales/sales-campaign-detail"));
@@ -244,7 +243,6 @@ function isMarketingHost(): boolean {
 // Legacy routes (redirect to consolidated pages)
 const LeadsPage = lazy(() => import("@/pages/leads"));
 const FormsPage = lazy(() => import("@/pages/forms"));
-const IntegrationsPage = lazy(() => import("@/pages/integrations"));
 const ContentLibrary = lazy(() => import("@/pages/content-library"));
 const BlockDefaultsPage = lazy(() => import("@/pages/block-defaults"));
 const CustomBlocksPage = lazy(() => import("@/pages/custom-blocks"));
@@ -350,6 +348,7 @@ function AppRouter() {
         <Route path="/settings/notifications" component={SettingsPage} />
         <Route path="/settings/email/recipients" component={SettingsPage} />
         <Route path="/settings/email" component={SettingsPage} />
+        <Route path="/settings/integrations" component={SettingsPage} />
         {/* Task #425 — self-serve billing settings. Open to ANY
             authenticated workspace member in read-only mode so teammates
             can see what plan they're on and the renewal date. The
@@ -371,7 +370,9 @@ function AppRouter() {
         {/* Kept for direct deep-links/tests */}
         <Route path="/leads/legacy" component={LeadsPage} />
         <Route path="/forms/legacy" component={FormsPage} />
-        <Route path="/integrations" component={IntegrationsPage} />
+        {/* Settings consolidation (Phase 1): integrations live in the
+            Settings hub; the old marketing and sales URLs redirect there. */}
+        <Route path="/integrations">{() => <Redirect to="/settings/integrations" />}</Route>
         <Route path="/library" component={ContentLibrary} />
         <Route path="/block-defaults" component={BlockDefaultsPage} />
         <Route path="/custom-blocks">{() => <PermRoute perm="blocks" fallback="/"><CustomBlocksPage /></PermRoute>}</Route>
@@ -401,7 +402,7 @@ function AppRouter() {
         <Route path="/sales/sfdc">{() => <PermRoute perm="settings" fallback="/sales"><SfdcSettings /></PermRoute>}</Route>
         <Route path="/sales/marketo">{() => <PermRoute perm="settings" fallback="/sales"><MarketoSettings /></PermRoute>}</Route>
         <Route path="/sales/hubspot">{() => <PermRoute perm="settings" fallback="/sales"><HubspotSettings /></PermRoute>}</Route>
-        <Route path="/sales/integrations">{() => <PermRoute perm="settings" fallback="/sales"><SalesIntegrations /></PermRoute>}</Route>
+        <Route path="/sales/integrations">{() => <Redirect to="/settings/integrations" />}</Route>
         <Route path="/sales/slack">{() => <PermRoute perm="settings" fallback="/sales"><SlackSettings /></PermRoute>}</Route>
 
         {/* Builder Editor (no app layout — full screen) */}

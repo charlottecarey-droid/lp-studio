@@ -369,7 +369,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
         {showMarketo && (
           <div className="p-3 space-y-3">
             <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-              Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+              Credentials are configured in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
             </p>
             <div>
               <Label className={LABEL_CLS}>Field Mappings (form field → Marketo field)</Label>
@@ -408,7 +408,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
         {showSalesforce && (
           <div className="p-3 space-y-3">
             <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-              Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+              Credentials are configured in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
             </p>
             <div>
               <Label className={LABEL_CLS}>Field Mappings (form field → Salesforce field)</Label>

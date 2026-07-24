@@ -289,7 +289,7 @@ const webhookDestination: ExportDestination = {
   displayName: "Send to a webhook",
   description: "POST every contact and their personalized link as one signed JSON payload to your HTTPS endpoint.",
   resultType: "message",
-  setupPath: "/integrations",
+  setupPath: "/settings/integrations",
   async isConfigured(tenantId) {
     const row = await getIntegration("webhook", tenantId);
     if (!row || !row.enabled) return false;

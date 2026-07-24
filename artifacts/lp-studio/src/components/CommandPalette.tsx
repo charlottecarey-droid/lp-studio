@@ -92,7 +92,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { label: "General settings", icon: <Settings className="w-4 h-4" />, href: "/settings/general", perm: "settings" },
     { label: "Team", icon: <Users className="w-4 h-4" />, href: "/settings/team", perm: "team" },
     { label: "Roles", icon: <Shield className="w-4 h-4" />, href: "/settings/roles", perm: "roles" },
-    { label: "Integrations", icon: <Mail className="w-4 h-4" />, href: "/integrations" },
+    { label: "Integrations", icon: <Mail className="w-4 h-4" />, href: "/settings/integrations" },
   ];
 
   const sales: Item[] = [

@@ -8,7 +8,6 @@ import {
   PlusCircle,
   Globe,
   Paintbrush,
-  Cloud,
   Shield,
   LogOut,
   ChevronDown,
@@ -20,7 +19,6 @@ import {
   Wrench,
   LayoutTemplate,
   BookOpen,
-  Slack,
   Plug,
   Sparkles,
 } from "lucide-react";
@@ -162,43 +160,14 @@ function SettingsDropdown() {
         <DropdownMenuLabel className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground px-2">
           Settings
         </DropdownMenuLabel>
+        {/* Settings consolidation (Phase 1): all integrations (CRM, Slack,
+            lead delivery) live under Settings → Integrations; the individual
+            service pages are reached from its connection cards. */}
         {(hasPerm("settings") || user?.isAdmin) && (
-          <Link href="/sales/integrations">
-            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/integrations") ? "bg-accent" : ""}`}>
+          <Link href="/settings/integrations">
+            <DropdownMenuItem className="gap-2.5 cursor-pointer rounded-md mx-0.5">
               <Plug className="w-4 h-4 text-muted-foreground" />
               <span>Integrations</span>
-            </DropdownMenuItem>
-          </Link>
-        )}
-        {(hasPerm("settings") || user?.isAdmin) && (
-          <Link href="/sales/sfdc">
-            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/sfdc") ? "bg-accent" : ""}`}>
-              <Cloud className="w-4 h-4 text-muted-foreground" />
-              <span>Salesforce</span>
-            </DropdownMenuItem>
-          </Link>
-        )}
-        {(hasPerm("settings") || user?.isAdmin) && (
-          <Link href="/sales/marketo">
-            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketo") ? "bg-accent" : ""}`}>
-              <Cloud className="w-4 h-4 text-muted-foreground" />
-              <span>Marketo</span>
-            </DropdownMenuItem>
-          </Link>
-        )}
-        {(hasPerm("settings") || user?.isAdmin) && (
-          <Link href="/sales/hubspot">
-            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/hubspot") ? "bg-accent" : ""}`}>
-              <Cloud className="w-4 h-4 text-muted-foreground" />
-              <span>HubSpot</span>
-            </DropdownMenuItem>
-          </Link>
-        )}
-        {(hasPerm("settings") || user?.isAdmin) && (
-          <Link href="/sales/slack">
-            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/slack") ? "bg-accent" : ""}`}>
-              <Slack className="w-4 h-4 text-muted-foreground" />
-              <span>Slack</span>
             </DropdownMenuItem>
           </Link>
         )}

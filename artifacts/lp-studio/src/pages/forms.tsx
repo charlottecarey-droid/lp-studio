@@ -617,7 +617,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               {local.sheetsConfig?.enabled && (
                 <div className="p-3 space-y-3">
                   <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-                    Make sure the sheet is shared with the service account email from <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a> (Editor access).
+                    Make sure the sheet is shared with the service account email from <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a> (Editor access).
                   </p>
                   <div>
                     <Label className={LABEL_CLS}>Sheet ID</Label>
@@ -667,7 +667,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               {showMarketo && (
                 <div className="p-3 space-y-3">
                   <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-                    Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+                    Credentials are configured in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
                   </p>
                   <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
                     <div>
@@ -885,7 +885,7 @@ utm_content:uTMContent__c`}</pre>
               {showSalesforce && (
                 <div className="p-3 space-y-3">
                   <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-                    Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+                    Credentials are configured in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
                   </p>
                   <div>
                     <Label className={LABEL_CLS}>Field Mappings</Label>
