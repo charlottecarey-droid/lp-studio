@@ -8,12 +8,13 @@ import { SeoContent } from "./SeoPage";
 import { HeatScoringContent } from "./HeatScoringPage";
 import { NotificationsContent } from "./NotificationsPage";
 import { EmailTemplatesContent } from "./EmailPage";
+import { EmailSendingContent } from "./EmailSendingPage";
 import { AlertRecipientsContent } from "./AlertRecipients";
 import { TemplateSettingsContent } from "./TemplateSettingsPage";
 import { IntegrationsSettingsContent } from "./IntegrationsSettingsPage";
 
 type TabId = "general" | "domain" | "seo" | "scoring" | "templates" | "integrations" | "email";
-type EmailSubTab = "templates" | "recipients" | "preferences";
+type EmailSubTab = "templates" | "sending" | "recipients" | "preferences";
 
 const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string; adminOnly: boolean }[] = [
   { id: "general", label: "General", icon: SettingsIcon, path: "/settings/general", adminOnly: true },
@@ -35,6 +36,7 @@ function resolveRoute(location: string): { tab: TabId; emailSub: EmailSubTab } {
   if (location.startsWith("/settings/templates")) return { tab: "templates", emailSub: "templates" };
   if (location.startsWith("/settings/integrations")) return { tab: "integrations", emailSub: "templates" };
   if (location.startsWith("/settings/notifications")) return { tab: "email", emailSub: "preferences" };
+  if (location.startsWith("/settings/email/sending")) return { tab: "email", emailSub: "sending" };
   if (location.startsWith("/settings/email/recipients")) return { tab: "email", emailSub: "recipients" };
   if (location.startsWith("/settings/email")) return { tab: "email", emailSub: "templates" };
   // /settings and /settings/general both land on General.
@@ -65,6 +67,7 @@ export default function SettingsPage() {
 
   const emailSubTabs: { id: EmailSubTab; label: string; path: string; adminOnly: boolean }[] = [
     { id: "templates", label: "Templates", path: "/settings/email", adminOnly: true },
+    { id: "sending", label: "Sending", path: "/settings/email/sending", adminOnly: true },
     { id: "recipients", label: "Alert recipients", path: "/settings/email/recipients", adminOnly: true },
     { id: "preferences", label: "Preferences", path: "/settings/notifications", adminOnly: false },
   ];
@@ -141,6 +144,7 @@ export default function SettingsPage() {
             </div>
 
             {effectiveEmailSub === "templates" && canManage && <EmailTemplatesContent />}
+            {effectiveEmailSub === "sending" && canManage && <EmailSendingContent />}
             {effectiveEmailSub === "recipients" && canManage && <AlertRecipientsContent />}
             {effectiveEmailSub === "preferences" && <NotificationsContent />}
           </div>

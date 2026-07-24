@@ -5,7 +5,8 @@
 // (api-server/.../branded-email-subdomain.integration.test.ts, which mocks
 // Resend + Cloudflare at the fetch layer). What had NO browser-level coverage
 // is the most visible half of the feature: the BrandedSubdomainCard on
-// Brand Settings → Sales Console that a tenant actually clicks through.
+// Settings → Email → Sending (its home since settings-consolidation Phase 1b
+// moved it off Brand → Sales Console) that a tenant actually clicks through.
 //
 // This spec drives that card from the browser for two tenants:
 //
@@ -72,10 +73,11 @@ async function setSessionCookie(
 }
 
 /**
- * Stub /api/sales/brand-context so SalesConsoleSettings' SetupStatusCard
- * mounts without a live Resend read (RESEND_API_KEY may be present in the
- * e2e api-server's inherited env). Returns a neutral, unconfigured summary —
- * the branded-subdomain card we're testing reads its OWN endpoint, not this.
+ * Stub /api/sales/brand-context so the Sending page's domain-verification
+ * pill mounts without a live Resend read (RESEND_API_KEY may be present in
+ * the e2e api-server's inherited env). Returns a neutral, unconfigured
+ * summary — the branded-subdomain card we're testing reads its OWN endpoint,
+ * not this.
  */
 async function stubBrandContext(ctx: BrowserContext): Promise<void> {
   await ctx.route("**/api/sales/brand-context*", async (route) => {
@@ -157,7 +159,7 @@ test.describe("Branded email subdomain — eligible (Growth) tenant", () => {
 
     const page = await ctx.newPage();
     try {
-      await page.goto("/brand#sales-console", { waitUntil: "domcontentloaded" });
+      await page.goto("/settings/email/sending", { waitUntil: "domcontentloaded" });
 
       const card = page.locator("#sales-console-branded-email-subdomain");
       await expect(card).toBeVisible({ timeout: 30_000 });
@@ -229,10 +231,10 @@ test.describe("Branded email subdomain — ineligible (starter) tenant", () => {
 
     const page = await ctx.newPage();
     try {
-      await page.goto("/brand#sales-console", { waitUntil: "domcontentloaded" });
+      await page.goto("/settings/email/sending", { waitUntil: "domcontentloaded" });
 
-      // The Sales Console tab itself renders for every tier — prove we're on
-      // it via the always-present Sender Identity card.
+      // The Sending page itself renders for every tier — prove we're on it
+      // via the always-present Sender Identity card.
       await expect(page.locator("#sales-console-sender-identity")).toBeVisible({ timeout: 30_000 });
 
       // The Tier-2 self-serve subdomain card is plan-gated → not rendered.

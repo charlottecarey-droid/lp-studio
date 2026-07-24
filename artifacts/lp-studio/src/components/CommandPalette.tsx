@@ -93,6 +93,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { label: "Team", icon: <Users className="w-4 h-4" />, href: "/settings/team", perm: "team" },
     { label: "Roles", icon: <Shield className="w-4 h-4" />, href: "/settings/roles", perm: "roles" },
     { label: "Integrations", icon: <Mail className="w-4 h-4" />, href: "/settings/integrations" },
+    { label: "Email sending", icon: <Mail className="w-4 h-4" />, href: "/settings/email/sending", perm: "settings", keywords: "sender identity sending domain from address" },
   ];
 
   const sales: Item[] = [

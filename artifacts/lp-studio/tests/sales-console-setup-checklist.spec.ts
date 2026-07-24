@@ -13,8 +13,14 @@
 // This spec exercises a fresh tenant end-to-end:
 //   • Empty checklist on a tenant with no salesConsole config (0/5 done,
 //     no green checkmarks, server-summary line lists every missing field).
-//   • Fill in sender identity (name / local part / domain / reply-to) and
-//     a value-prop pair, click Save Changes in the Sales Console tab.
+//     The four sender rows link to Settings → Email → Sending — the home of
+//     sender identity since settings-consolidation Phase 1b moved it off
+//     this page — while the value-prop row still scroll-jumps locally.
+//   • Follow a checklist link to /settings/email/sending, fill in sender
+//     identity (name / local part / domain / reply-to) there, and save via
+//     that page's own fresh-fetch-merge PUT.
+//   • Back on Brand → Sales Console, add a value-prop pair and click Save
+//     Changes in the Sales Console tab.
 //   • Reload the page so both the local config (from PUT /api/lp/brand
 //     round-trip) AND the server summary (from /api/sales/brand-context)
 //     come from persisted state — assert every checklist row flips green
@@ -261,13 +267,16 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       await expect(setupCard).toBeVisible({ timeout: 30_000 });
       await expect(setupCard.getByText("Setup status", { exact: true })).toBeVisible();
 
-      // ── 2. Initial state: 0/5 done, no green "Done" labels, every row
-      //      shows a "Set it →" jump link. The server summary line should
-      //      list every missing field (sender name, sender local part,
-      //      sending domain, reply-to, value-prop pairs). ──
+      // ── 2. Initial state: 0/5 done, no green "Done" labels. The four
+      //      sender rows render "Set it →" LINKS to /settings/email/sending
+      //      (sender identity lives there since Phase 1b); the value-prop
+      //      row keeps its local scroll-jump button. The server summary
+      //      line should list every missing field (sender name, sender
+      //      local part, sending domain, reply-to, value-prop pairs). ──
       await expect(setupCard.getByText("0 / 5", { exact: true })).toBeVisible({ timeout: 15_000 });
       await expect(setupCard.getByText("Done", { exact: true })).toHaveCount(0);
-      await expect(setupCard.getByRole("button", { name: /Set it/ })).toHaveCount(5);
+      await expect(setupCard.getByRole("link", { name: /Set it/ })).toHaveCount(4);
+      await expect(setupCard.getByRole("button", { name: /Set it/ })).toHaveCount(1);
 
       // The server-summary line is the second source of truth (it comes
       // straight from summarizeSalesBrandSetup on the server). On an empty
@@ -282,12 +291,19 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       await expect(savedLine).toContainText("value-prop pairs");
       await expect(savedLine).not.toContainText("all essentials saved");
 
-      // ── 3. Fill in sender identity + add a value-prop pair. ─────────────
+      // ── 3. Follow a checklist link to Settings → Email → Sending and
+      //      fill in sender identity there. Clicking the link (instead of
+      //      a bare goto) proves the checklist actually routes tenants to
+      //      the field's new home. ──
+      await setupCard.getByRole("link", { name: /Set it/ }).first().click();
+      await page.waitForURL("**/settings/email/sending", { timeout: 15_000 });
+
       // The sender-identity card uses <Label> + <Input> pairs without
       // explicit htmlFor/id wiring, so we target by the label text and
       // then walk to the sibling Input — this mirrors how a screen-reader
       // user would navigate the form.
       const senderCard = page.locator("#sales-console-sender-identity");
+      await expect(senderCard).toBeVisible({ timeout: 30_000 });
       await senderCard.scrollIntoViewIfNeeded();
 
       const fillByLabel = async (label: string, value: string) => {
@@ -306,6 +322,20 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       await fillByLabel("Sending domain", "send.royal-test.example");
       await fillByLabel("Reply-to address", "replies@royal-test.example");
 
+      // Save sender identity via the Sending page's own save bar. Its
+      // handleSave re-fetches the freshest config and merges only the
+      // sender fields before the PUT (fresh-fetch-merge contract).
+      const senderSavePromise = page.waitForResponse(
+        r => /\/api\/lp\/brand(\?|$)/.test(r.url()) && r.request().method() === "PUT" && r.ok(),
+        { timeout: 20_000 },
+      );
+      await page.getByRole("button", { name: /Save Changes/ }).click();
+      await senderSavePromise;
+
+      // ── 4. Back on Brand → Sales Console: add a value-prop pair. ────────
+      await page.goto("/brand#sales-console", { waitUntil: "domcontentloaded" });
+      await expect(setupCard).toBeVisible({ timeout: 30_000 });
+
       // Value-prop pair: click "Add pair", fill the theme (which is the
       // field that summarizeSalesBrandSetup actually counts — pairs with
       // empty themes are filtered out server-side).
@@ -319,15 +349,17 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       await expect(themeInput).toBeVisible();
       await themeInput.fill("Margin protection for finance leaders");
 
-      // ── 4. Live (local) checklist should already reflect the edits even
-      //      before we hit Save — it computes off the draft config. The
+      // ── 5. Live (local) checklist should now show 5/5 before the brand
+      //      page's own Save: the four sender rows come from the config the
+      //      page just re-fetched (persisted by the Sending page's PUT —
+      //      the /api/lp/brand GET replay below guarantees read-after-write),
+      //      the value-prop row computes off the local draft, and the
       //      domain-verified row uses the (already verified) stubbed
-      //      `/api/sales/brand-context` response, and now that the
-      //      Sending-domain input matches the stubbed domain the
-      //      `hasSendingDomain` gate flips green too. ──
+      //      `/api/sales/brand-context` response whose domain mirrors the
+      //      one the sender save persisted. ──
       await expect(setupCard.getByText("5 / 5", { exact: true })).toBeVisible({ timeout: 10_000 });
 
-      // ── 5. Save. The Sales Console tab's sticky save bar has its own
+      // ── 6. Save. The Sales Console tab's sticky save bar has its own
       //      "Save Changes" button bound to handleSave(). ──
       // There are now two visible "Save Changes" buttons on this tab —
       // the global page-level sticky save bar AND the Sales-Console
@@ -350,7 +382,7 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       // "all essentials saved" line renders post-reload.
       pretendServerSummaryFull = true;
 
-      // ── 6. Reload so the local config AND the server summary both come
+      // ── 7. Reload so the local config AND the server summary both come
       //      from persisted state, not from the in-memory draft. This is
       //      the assertion that actually proves "the checklist reflects
       //      what's saved". A bare `page.goto` to the same URL with only
@@ -393,6 +425,7 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
       await expect(setupCard.getByText("Done", { exact: true })).toHaveCount(5);
       await expect(setupCard.getByRole("button", { name: /Set it/ })).toHaveCount(0);
+      await expect(setupCard.getByRole("link", { name: /Set it/ })).toHaveCount(0);
 
       // The amber "Sends are blocked until …" banner must be gone.
       await expect(
