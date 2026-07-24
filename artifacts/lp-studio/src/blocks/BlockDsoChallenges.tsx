@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { TrendingDown, BarChart3, Scale, Wallet } from "lucide-react";
 import type { DsoChallengesBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
@@ -45,6 +46,8 @@ const DEFAULT_CHALLENGES = [
 
 export function BlockDsoChallenges({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, backgroundStyle = "muted", layout = "4-col", challenges, backgroundImage, backgroundOverlay, overlayColor = "#000000" } = props;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof DsoChallengesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoChallengesBlockProps[typeof key] }) : undefined;
   const updateChallenge = onFieldChange
@@ -84,12 +87,12 @@ export function BlockDsoChallenges({ props, brand, onFieldChange }: Props) {
       <div style={{ position: "relative", zIndex: 1, maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ maxWidth: 768, marginBottom: "3.5rem" }}>
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 10 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           <motion.h2
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
@@ -117,7 +120,7 @@ export function BlockDsoChallenges({ props, brand, onFieldChange }: Props) {
             return (
               <motion.div
                 key={c.title}
-                initial={{ opacity: 0, y: 30 }}
+                initial={anim({ opacity: 0, y: 30 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.65 }}

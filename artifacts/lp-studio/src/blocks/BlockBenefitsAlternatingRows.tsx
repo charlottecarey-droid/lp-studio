@@ -11,6 +11,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -89,6 +90,8 @@ function DecorativePanel({
 }
 
 export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
@@ -156,7 +159,7 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
               <motion.div
                 key={index}
                 className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-12 lg:gap-16"
-                initial={still ? false : { opacity: 0, y: 28 }}
+                initial={still ? false : anim({ opacity: 0, y: 28 })}
                 whileInView={still ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={still ? undefined : { duration: 0.6, ease: [0.16, 1, 0.3, 1] }}

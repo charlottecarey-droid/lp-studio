@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useScroll, useMotionValueEvent, useInView } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { DsoScrollStoryBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
@@ -54,6 +55,8 @@ interface Props {
 }
 
 export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const {
     eyebrow = "Why teams choose us",
     chapters,
@@ -104,12 +107,12 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
       {/* Section header */}
       <div style={{ textAlign: "center", padding: "5rem 1.5rem 0", maxWidth: 1200, margin: "0 auto" }}>
         {eyebrow && (
-          <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: AW, marginBottom: "1rem", fontFamily: BODY }}>
+          <motion.p initial={anim({ opacity: 0, y: 10 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: AW, marginBottom: "1rem", fontFamily: BODY }}>
             <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
         )}
         <motion.p
-          initial={{ opacity: 0, y: 16 }}
+          initial={anim({ opacity: 0, y: 16 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.06 }}
@@ -283,7 +286,7 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
           {displayChapters.map((ch, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 24 }}
+              initial={anim({ opacity: 0, y: 24 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}

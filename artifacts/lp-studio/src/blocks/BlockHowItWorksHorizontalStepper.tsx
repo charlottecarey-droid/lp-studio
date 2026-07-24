@@ -1,5 +1,6 @@
 import { UserPlus, CheckCircle2, ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -44,6 +45,8 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
   const isBuilder = !!onFieldChange;
   const reduced = useReducedMotion() ?? false;
   const animate = !isBuilder && !reduced;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -117,7 +120,7 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
             <motion.div
               className="h-full w-full origin-left"
               style={{ background: `linear-gradient(90deg, ${accentInk}, color-mix(in srgb, ${accentInk} 35%, transparent))` }}
-              initial={animate ? { scaleX: 0 } : false}
+              initial={animate ? anim({ scaleX: 0 }) : false}
               whileInView={animate ? { scaleX: 1 } : undefined}
               viewport={{ once: true, amount: 0.4 }}
               transition={animate ? { duration: 1.1, ease: [0.22, 1, 0.36, 1] } : undefined} />
@@ -134,7 +137,7 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
               <motion.li
                 key={index}
                 className="relative flex gap-5 md:flex-col md:gap-0"
-                initial={animate ? { opacity: 0, y: 22 } : false}
+                initial={animate ? anim({ opacity: 0, y: 22 }) : false}
                 whileInView={animate ? { opacity: 1, y: 0 } : undefined}
                 viewport={{ once: true, amount: 0.3 }}
                 transition={animate ? { duration: 0.55, delay: index * 0.14, ease: [0.22, 1, 0.36, 1] } : undefined}

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { animate, motion, useInView, useReducedMotion } from "framer-motion";
+import { useAnimInitial, useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import {
   ArrowRight,
   ArrowDown,
@@ -386,10 +387,12 @@ interface Props {
 const Reveal: React.FC<
   React.PropsWithChildren<{ delay?: number; className?: string; disabled?: boolean }>
 > = ({ children, delay = 0, className, disabled }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   if (disabled) return <div className={className}>{children}</div>;
   return (
     <motion.div
-      initial={{ opacity: 0, y: 22 }}
+      initial={anim({ opacity: 0, y: 22 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}
@@ -426,8 +429,12 @@ function parseSbjStat(raw: string): { prefix: string; num: number | null; suffix
 const CountUpStat: React.FC<{ value: string; still: boolean }> = ({ value, still }) => {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
+  // Fail-open reveal + static-render short-circuit — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
+  const staticRender = useStaticRender();
   const parsed = parseSbjStat(value);
-  const animatable = parsed.num !== null && !still;
+  const animatable = parsed.num !== null && !still && !staticRender;
   const [display, setDisplay] = useState(() =>
     animatable ? `${parsed.prefix}${(0).toFixed(parsed.decimals)}${parsed.suffix}` : value,
   );
@@ -436,7 +443,7 @@ const CountUpStat: React.FC<{ value: string; still: boolean }> = ({ value, still
       setDisplay(value);
       return;
     }
-    if (!inView) return;
+    if (!show) return;
     const controls = animate(0, parsed.num as number, {
       duration: 1.3,
       ease: [0.16, 1, 0.3, 1],
@@ -445,7 +452,7 @@ const CountUpStat: React.FC<{ value: string; still: boolean }> = ({ value, still
     });
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animatable, inView, value]);
+  }, [animatable, show, value]);
   return <span ref={ref}>{display}</span>;
 };
 

@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { useRevealFallback } from "@/lib/reveal-fallback";
+import { useAnimInitial, useRevealFallback } from "@/lib/reveal-fallback";
 import type { DsoStatBarBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -35,11 +35,13 @@ const StatItem = ({
   // sections) — the watchdog reveals it anyway.
   const forceVisible = useRevealFallback(inView);
   const show = inView || forceVisible;
+  // Static renders skip the entrance fade entirely — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 10 }}
+      initial={anim({ opacity: 0, y: 10 })}
       animate={show ? { opacity: 1, y: 0 } : {}}
       transition={{ delay: i * 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
       style={{

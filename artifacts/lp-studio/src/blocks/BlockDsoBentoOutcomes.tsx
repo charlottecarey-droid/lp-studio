@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { DsoBentoOutcomesBlockProps, DsoBentoTile } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -33,9 +34,11 @@ const DEFAULT_TILES: DsoBentoTile[] = [
 ];
 
 function StatTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "stat" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "stat" }>>) => void }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={anim({ opacity: 0, y: 20 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay, duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
@@ -85,9 +88,11 @@ function StatTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { typ
 }
 
 function PhotoTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "photo" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "photo" }>>) => void }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
+      initial={anim({ opacity: 0, scale: 0.97 })}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true }}
       transition={{ delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
@@ -111,9 +116,11 @@ function PhotoTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { ty
 }
 
 function FeatureTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "feature" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "feature" }>>) => void }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={anim({ opacity: 0, y: 16 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
@@ -149,9 +156,11 @@ function FeatureTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { 
 }
 
 function QuoteTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "quote" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "quote" }>>) => void }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={anim({ opacity: 0, y: 20 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
@@ -210,6 +219,8 @@ export function BlockDsoBentoOutcomes({ props, brand, onFieldChange }: Props) {
     ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary",
     backgroundStyle = "white",
   } = props;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof DsoBentoOutcomesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoBentoOutcomesBlockProps[typeof key] }) : undefined;
   const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle ?? "white" }, "#ffffff", brand).isDark;
@@ -229,7 +240,7 @@ export function BlockDsoBentoOutcomes({ props, brand, onFieldChange }: Props) {
         <div style={{ marginBottom: "3.5rem" }}>
           {eyebrow && (
             <motion.p
-              initial={{ opacity: 0, y: 10 }}
+              initial={anim({ opacity: 0, y: 10 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem" }}
@@ -238,7 +249,7 @@ export function BlockDsoBentoOutcomes({ props, brand, onFieldChange }: Props) {
             </motion.p>
           )}
           <motion.h2
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
@@ -303,7 +314,7 @@ export function BlockDsoBentoOutcomes({ props, brand, onFieldChange }: Props) {
 
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}

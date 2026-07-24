@@ -11,6 +11,7 @@ import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { SectionDecor } from "@/lib/premium-toolkit";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -38,6 +39,8 @@ function spanFor(index: number): string {
 }
 
 export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
@@ -163,7 +166,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                         ? `color-mix(in srgb, ${accentRaw} ${dark ? 14 : 9}%, transparent)`
                         : undefined,
                   }}
-                  initial={still ? false : { opacity: 0, y: 16 }}
+                  initial={still ? false : anim({ opacity: 0, y: 16 })}
                   whileInView={still ? undefined : { opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
                   transition={still ? undefined : { duration: 0.5, delay: Math.min(i * 0.06, 0.36), ease: [0.16, 1, 0.3, 1] }}
@@ -238,7 +241,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                   spanFor(i),
                 )}
                 style={{ backgroundColor: tintFor(i), boxShadow: `inset 0 0 0 1px ${ring}` }}
-                initial={still ? false : { opacity: 0, y: 20 }}
+                initial={still ? false : anim({ opacity: 0, y: 20 })}
                 whileInView={still ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={still ? undefined : { duration: 0.55, delay: Math.min(i * 0.07, 0.4), ease: [0.16, 1, 0.3, 1] }}

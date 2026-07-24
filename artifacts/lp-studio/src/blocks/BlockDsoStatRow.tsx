@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useStaticRender } from "@/lib/reveal-fallback";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { useEffect, useRef, useState } from "react";
 import type { DsoStatRowBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
@@ -80,6 +80,8 @@ function parseStatValue(value: string): { prefix: string; num: number; suffix: s
 }
 
 export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const { eyebrow, headline, items = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "dark", animateNumbers = true } = props;
   const field = (key: keyof DsoStatRowBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -150,7 +152,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
             return (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 16 }}
+                initial={anim({ opacity: 0, y: 16 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.5 }}
@@ -208,7 +210,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
 
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}

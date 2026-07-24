@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { useRef, useState, useCallback } from "react";
 import { ScanLine, RefreshCw, ShieldCheck } from "lucide-react";
 import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
@@ -59,6 +60,9 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
     ctaUrl,
     ctaMode = "link",
   } = props;
+
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
 
   const field = (key: keyof DsoAiFeatureBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoAiFeatureBlockProps[typeof key] }) : undefined;
@@ -157,7 +161,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
         <div className="grid md:grid-cols-[3fr_2fr] gap-10 items-end mb-10">
           <div>
             {eyebrow && (
-              <motion.p initial={{ opacity: 0, x: -18 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ type: "spring", stiffness: 120, damping: 18 }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem", fontFamily: BODY }}>
+              <motion.p initial={anim({ opacity: 0, x: -18 })} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ type: "spring", stiffness: 120, damping: 18 }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem", fontFamily: BODY }}>
                 <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
               </motion.p>
             )}
@@ -199,7 +203,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
 
           {/* Stats + CTA */}
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={anim({ opacity: 0, y: 15 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.15 }}
@@ -208,7 +212,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
               {stats.map((s, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={anim({ opacity: 0, y: 12 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.1 + i * 0.08, type: "spring", stiffness: 100, damping: 16 }}
@@ -249,7 +253,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
         section just collapses below the header, which reads cleaner. */}
       {(videoUrl || imageUrl) && (
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={anim({ opacity: 0, y: 24 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
@@ -290,7 +294,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
       {bullets.length > 0 && (
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10">
           <motion.ul
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}

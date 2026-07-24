@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { ScanDown, PulseGlow } from "./SectionAmbient";
 import {
   AlertTriangle, BarChart3, Users2, TrendingDown,
@@ -58,6 +59,8 @@ interface Props {
 }
 
 export function BlockDsoProblem({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const {
     eyebrow = "The Problem",
     headline = "Consolidation shouldn't mean compromise.",
@@ -158,7 +161,7 @@ export function BlockDsoProblem({ props, brand, onFieldChange }: Props) {
                 zIndex: 1,
                 outline: "1.5px solid rgba(255,255,255,0.07)",
               }}
-              initial={{ opacity: 0, x: -32 }}
+              initial={anim({ opacity: 0, x: -32 })}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
@@ -190,7 +193,7 @@ export function BlockDsoProblem({ props, brand, onFieldChange }: Props) {
                 rotate: -2,
                 transformOrigin: "bottom right",
               }}
-              initial={{ opacity: 0, x: 28, rotate: -4 }}
+              initial={anim({ opacity: 0, x: 28, rotate: -4 })}
               whileInView={{ opacity: 1, x: 0, rotate: -2 }}
               viewport={{ once: true }}
               transition={{ duration: 0.9, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
@@ -253,7 +256,7 @@ export function BlockDsoProblem({ props, brand, onFieldChange }: Props) {
                 return (
                   <motion.div
                     key={i}
-                    initial={{ opacity: 0, x: 20 }}
+                    initial={anim({ opacity: 0, x: 20 })}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.1, duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
@@ -310,7 +313,7 @@ export function BlockDsoProblem({ props, brand, onFieldChange }: Props) {
 
             {ctaText && (
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
+                initial={anim({ opacity: 0, y: 12 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.25 }}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import {
   ArrowRight,
   Terminal,
@@ -126,6 +127,8 @@ export function BlockSpotlightGlowHero({
   pageId,
   variantId,
 }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const containerRef = useRef<HTMLDivElement>(null);
   const [emailValue, setEmailValue] = useState("");
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -367,7 +370,7 @@ export function BlockSpotlightGlowHero({
         <div className="text-center max-w-3xl mb-14 md:mb-20">
           {(badgeText || isEditor) && (
             <motion.div
-              initial={{ opacity: 0, y: rise(20) }}
+              initial={anim({ opacity: 0, y: rise(20) })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
               className="inline-flex min-h-[36px] items-center gap-2.5 px-4 py-1.5 rounded-full border text-sm font-medium backdrop-blur-md mb-8"
@@ -387,7 +390,7 @@ export function BlockSpotlightGlowHero({
           )}
 
           <motion.h1
-            initial={{ opacity: 0, y: rise(20) }}
+            initial={anim({ opacity: 0, y: rise(20) })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
             className="font-bold mb-6"
@@ -412,7 +415,7 @@ export function BlockSpotlightGlowHero({
 
           {(subheadline || isEditor) && (
             <motion.div
-              initial={{ opacity: 0, y: rise(20) }}
+              initial={anim({ opacity: 0, y: rise(20) })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
             >
@@ -427,7 +430,7 @@ export function BlockSpotlightGlowHero({
           )}
 
           <motion.div
-            initial={{ opacity: 0, y: rise(20) }}
+            initial={anim({ opacity: 0, y: rise(20) })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
@@ -508,7 +511,7 @@ export function BlockSpotlightGlowHero({
         {/* ── Bento Grid Preview ── */}
         {showPreview && (
           <motion.div
-            initial={{ opacity: 0, y: rise(40) }}
+            initial={anim({ opacity: 0, y: rise(40) })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.5, ease: "easeOut" }}
             className="w-full max-w-5xl"

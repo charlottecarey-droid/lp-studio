@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -31,6 +32,8 @@ function Placeholder({ className }: { className?: string }) {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function BlockCaseStudies({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const { headline, subheadline, backgroundStyle } = props;
   const items = props.items ?? [];
   const sectionPy = SECTION_PY[brand.sectionPadding];
@@ -69,7 +72,7 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
             <motion.a
               href={featured.url || "#"}
               className={`group relative ${(props.columns ?? 2) === 2 ? "row-span-2" : ""} rounded-xl overflow-hidden min-h-[400px] md:min-h-[520px] flex flex-col justify-end`}
-              initial={animationsEnabled ? { opacity: 0, y: 24 } : undefined}
+              initial={animationsEnabled ? anim({ opacity: 0, y: 24 }) : undefined}
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.6, ease: EASE } : undefined}
@@ -112,7 +115,7 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               key={i}
               href={item.url || "#"}
               className="group relative rounded-xl overflow-hidden min-h-[250px] flex flex-col justify-end"
-              initial={animationsEnabled ? { opacity: 0, y: 24 } : undefined}
+              initial={animationsEnabled ? anim({ opacity: 0, y: 24 }) : undefined}
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: (i + 1) * 0.07 } : undefined}

@@ -1,4 +1,5 @@
 import { motion, useInView } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { MonitorPlay, Zap, CheckCircle2, Clock, BarChart3 } from "lucide-react";
@@ -40,6 +41,8 @@ interface Props {
 }
 
 export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof DsoSoftwareShowcaseBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoSoftwareShowcaseBlockProps[typeof key] }) : undefined;
   const {
@@ -143,7 +146,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
 
   const renderImage = () => (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={anim({ opacity: 0, y: 24 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.7, delay: 0.1 }}
@@ -272,7 +275,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
 
   const renderFeatures = () => (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={anim({ opacity: 0, y: 16 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.55, delay: 0.25 }}
@@ -318,7 +321,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "4rem", alignItems: "center" }}>
             {/* Text side */}
             <motion.div
-              initial={{ opacity: 0, x: -28 }}
+              initial={anim({ opacity: 0, x: -28 })}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
@@ -355,7 +358,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         {/* Centered header */}
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={anim({ opacity: 0, y: 18 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}

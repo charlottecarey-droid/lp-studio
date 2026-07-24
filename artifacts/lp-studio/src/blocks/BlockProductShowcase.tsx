@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -28,6 +29,8 @@ const GRID_COLS: Record<2 | 3 | 4 | 5, string> = {
 };
 
 export function BlockProductShowcase({ props, brand, onFieldChange, animationsEnabled = true }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const updateCard = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
     const cards = props.cards.map((c, idx) => idx === i ? { ...c, [key]: value } : c);
@@ -59,7 +62,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
             <motion.div
               key={i}
               className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col gap-3 shadow-sm"
-              initial={animationsEnabled ? { opacity: 0, y: 28 } : undefined}
+              initial={animationsEnabled ? anim({ opacity: 0, y: 28 }) : undefined}
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import type { IdGridBlockProps, IdGridCard } from "@/lib/block-types";
 import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
@@ -33,9 +34,12 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
   // intro + 4 cards stagger in (matches the existing hero h1 reveal). In
   // editor mode + reduced-motion we render fully visible from mount.
   const sectionRef = useRef<HTMLElement>(null);
-  const [revealed, setRevealed] = useState(isEditor);
+  // Static renders (template preview, thumbnails, builder) show the final
+  // frame — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
+  const [revealed, setRevealed] = useState(isEditor || staticRender);
   useEffect(() => {
-    if (isEditor || revealed) return;
+    if (isEditor || staticRender || revealed) return;
     if (typeof window === "undefined" || typeof IntersectionObserver === "undefined") {
       setRevealed(true);
       return;
@@ -55,8 +59,10 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
       { rootMargin: "0px 0px -10% 0px", threshold: 0.05 },
     );
     obs.observe(el);
-    return () => obs.disconnect();
-  }, [isEditor, revealed]);
+    // Fail-open watchdog — see lib/reveal-fallback.ts.
+    const fallback = setTimeout(() => setRevealed(true), 2200);
+    return () => { obs.disconnect(); clearTimeout(fallback); };
+  }, [isEditor, staticRender, revealed]);
 
   return (
     <section ref={sectionRef} className={`id-block id-grid${layout !== "grid" ? ` id-grid-${layout}` : ""}${revealed ? " id-grid-revealed" : ""}${props.flushBottom ? " id-grid-flush-bottom" : ""}`}>

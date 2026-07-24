@@ -7,6 +7,7 @@ import {
   useTransform,
   type Variants,
 } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import { ArrowRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import {
@@ -119,6 +120,9 @@ export function BlockLaunchSpotlightHero({
   pageId,
   variantId,
 }: Props) {
+  // Static renders show the final frame, not the staggered entrance.
+  // See lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const field = (key: keyof LaunchSpotlightHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
   const isEditor = !!onFieldChange;
@@ -308,7 +312,7 @@ export function BlockLaunchSpotlightHero({
       <motion.div
         className="relative z-10 mx-auto w-full max-w-6xl px-5 sm:px-8 pt-20 md:pt-28 pb-16 md:pb-24 flex flex-col items-center text-center"
         variants={containerVariants}
-        initial="hidden"
+        initial={staticRender ? false : "hidden"}
         animate="visible"
         style={{ "--lsh-focus": `color-mix(in srgb, ${accent} 70%, ${text})` } as CSSProperties}
       >

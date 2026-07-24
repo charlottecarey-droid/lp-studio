@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { Plus } from "lucide-react";
 import type { DsoFaqBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
@@ -31,6 +32,8 @@ const ITEM_SIZES = {
 
 export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, items = [], itemSize = "md", ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "white" } = props;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const SZ = ITEM_SIZES[itemSize] ?? ITEM_SIZES.md;
   const field = (key: keyof DsoFaqBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoFaqBlockProps[typeof key] }) : undefined;
@@ -58,13 +61,13 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "3rem" }}>
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 10 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           {headline && (
             <motion.h2
-              initial={{ opacity: 0, y: 20 }}
+              initial={anim({ opacity: 0, y: 20 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
@@ -74,7 +77,7 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
             </motion.h2>
           )}
           {subheadline && (
-            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0 })} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, fontFamily: BODY }}>
               <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -84,7 +87,7 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
           {items.map((item, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 12 }}
+              initial={anim({ opacity: 0, y: 12 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
@@ -146,7 +149,7 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
 
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}

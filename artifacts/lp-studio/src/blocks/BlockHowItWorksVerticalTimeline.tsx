@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Palette, ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -45,6 +46,8 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
   const isBuilder = !!onFieldChange;
   const reduced = useReducedMotion() ?? false;
   const animate = !isBuilder && !reduced;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -121,7 +124,7 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
                 <motion.li
                   key={index}
                   className="relative pl-10 lg:grid lg:grid-cols-[1fr_4rem_1fr] lg:items-center lg:pl-0"
-                  initial={animate ? { opacity: 0, y: 24 } : false}
+                  initial={animate ? anim({ opacity: 0, y: 24 }) : false}
                   whileInView={animate ? { opacity: 1, y: 0 } : undefined}
                   viewport={{ once: true, amount: 0.35 }}
                   transition={animate ? { duration: 0.55, delay: 0.05, ease: [0.22, 1, 0.36, 1] } : undefined}

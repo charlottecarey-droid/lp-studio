@@ -7,6 +7,7 @@
 // through when default_props are overridden.
 import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
 import type { DsoLabTourBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
@@ -38,6 +39,8 @@ const LAB_HIGHLIGHTS = [
 ];
 
 export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const {
     eyebrow, headline, body,
     quote, quoteAttribution,
@@ -97,7 +100,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
                 overflow: "hidden",
                 position: "relative",
               }}
-              initial={{ opacity: 0, x: -30 }}
+              initial={anim({ opacity: 0, x: -30 })}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
@@ -205,7 +208,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
             <motion.div style={{ y: textY }}>
               {eyebrow && (
                 <motion.p
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={anim({ opacity: 0, y: 10 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   style={{
@@ -222,7 +225,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
               )}
 
               <motion.h2
-                initial={{ opacity: 0, y: 20 }}
+                initial={anim({ opacity: 0, y: 20 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.7 }}
@@ -240,7 +243,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
 
               {body && (
                 <motion.p
-                  initial={{ opacity: 0, y: 15 }}
+                  initial={anim({ opacity: 0, y: 15 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.1 }}
@@ -257,7 +260,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
 
               {quote && (
                 <motion.blockquote
-                  initial={{ opacity: 0, y: 15 }}
+                  initial={anim({ opacity: 0, y: 15 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.12 }}
@@ -305,7 +308,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
 
               {/* Lab highlight tiles */}
               <motion.div
-                initial={{ opacity: 0, y: 15 }}
+                initial={anim({ opacity: 0, y: 15 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.15 }}
@@ -365,7 +368,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
               {/* CTA */}
               {ctaText && (
                 <motion.button
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={anim({ opacity: 0, y: 10 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.2 }}

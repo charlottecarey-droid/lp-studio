@@ -36,6 +36,7 @@ import type {
 import type { BrandConfig } from "@/lib/brand-config";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 import { InlineText } from "@/components/InlineText";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 type BlogFieldChange = (updated: BlogSeriesBlockProps) => void;
 
@@ -302,6 +303,8 @@ function StickyNav({ p, C }: { p: BlogSeriesBlockProps; C: ResolvedTheme }) {
 // Hero
 // ─────────────────────────────────────────────────────────────────────────────
 function Hero({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedTheme; onFieldChange?: BlogFieldChange }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof BlogSeriesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const eyebrow = p.heroEyebrow ?? "A Series on Attention";
@@ -334,7 +337,7 @@ function Hero({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedThe
         }}
       >
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={anim({ opacity: 0, y: 24 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.7, ease: "easeOut" }}
@@ -451,7 +454,7 @@ function Hero({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedThe
 
         {p.heroImageUrl && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
+            initial={anim({ opacity: 0, scale: 0.97 })}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.8, ease: "easeOut" }}
@@ -586,6 +589,8 @@ function ArticleCard({ a, C }: { a: BlogSeriesArticle; C: ResolvedTheme }) {
 }
 
 function ArchiveSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedTheme; onFieldChange?: BlogFieldChange }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof BlogSeriesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const eyebrow = p.archiveEyebrow ?? "Latest from the archive";
@@ -645,7 +650,7 @@ function ArchiveSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: R
 
       {featured && (
         <motion.article
-          initial={{ opacity: 0, y: 24 }}
+          initial={anim({ opacity: 0, y: 24 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.7, ease: "easeOut" }}
@@ -846,6 +851,8 @@ function TopicsSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: Re
 // Contributors
 // ─────────────────────────────────────────────────────────────────────────────
 function ContributorsSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps; C: ResolvedTheme; onFieldChange?: BlogFieldChange }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof BlogSeriesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
   const contributors = p.contributors ?? [];
@@ -882,7 +889,7 @@ function ContributorsSection({ p, C, onFieldChange }: { p: BlogSeriesBlockProps;
         {contributors.map((a, i) => (
           <motion.div
             key={`${a.name}-${i}`}
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.6, delay: i * 0.08, ease: "easeOut" }}

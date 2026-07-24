@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useInView, useSpring, useTransform, motion } from "framer-motion";
+import { useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import { isLikelyHtml } from "../lib/sanitize-inline-html";
 
 // Stat values can carry inline-color HTML when an editor recolors them with the
@@ -52,6 +53,10 @@ interface StatCounterProps {
 export function StatCounter({ value: raw, style }: StatCounterProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-5%" });
+  // Fail-open reveal + static-render short-circuit — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(isInView);
+  const show = isInView || forceVisible;
+  const staticRender = useStaticRender();
   const html = isLikelyHtml(raw);
   const text = html ? stripHtmlToText(raw) : raw;
   const colorOverride = html ? extractColor(raw) : null;
@@ -64,8 +69,14 @@ export function StatCounter({ value: raw, style }: StatCounterProps) {
   const display = useTransform(spring, (v) => v.toFixed(parsed?.decimals ?? 0));
 
   useEffect(() => {
-    if (isInView && parsed) spring.set(parsed.value);
-  }, [isInView, parsed, spring]);
+    if (!parsed) return;
+    // Static snapshots must show the final number, not a mid-spring frame.
+    if (staticRender) {
+      spring.jump(parsed.value);
+      return;
+    }
+    if (show) spring.set(parsed.value);
+  }, [show, staticRender, parsed, spring]);
 
   if (!parsed) {
     return <span ref={ref} style={mergedStyle}>{text}</span>;

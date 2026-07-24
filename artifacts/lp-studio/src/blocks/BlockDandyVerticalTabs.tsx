@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass } from "@/lib/brand-config";
 import type { DandyVerticalTabsBlockProps } from "@/lib/block-types";
@@ -21,6 +22,8 @@ interface Props {
 }
 
 export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const [active, setActive] = useState(0);
 
   const updateTab = (i: number, key: string, value: string) => {
@@ -86,7 +89,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                     </h3>
                     {i === active && (
                       <motion.div
-                        initial={{ opacity: 0, y: 6 }}
+                        initial={anim({ opacity: 0, y: 6 })}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
                         className="mt-3"
@@ -116,7 +119,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
             <AnimatePresence mode="wait">
               <motion.div
                 key={active}
-                initial={{ opacity: 0, scale: 0.97 }}
+                initial={anim({ opacity: 0, scale: 0.97 })}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}

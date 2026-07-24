@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import {
   ArrowRight,
   Sparkles,
@@ -79,6 +80,9 @@ const DEFAULT_CHIPS: AuroraHeroChip[] = [
 ];
 
 export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
+  // Static renders show the final frame, not the staggered entrance.
+  // See lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const field = (key: keyof AuroraGradientHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
@@ -381,7 +385,7 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
         <motion.div
           className="max-w-4xl mx-auto w-full flex flex-col items-center"
           variants={containerVariants}
-          initial="hidden"
+          initial={staticRender ? false : "hidden"}
           animate="visible"
         >
           {/* Badge */}

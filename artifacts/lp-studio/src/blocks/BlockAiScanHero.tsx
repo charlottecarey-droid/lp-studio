@@ -11,6 +11,7 @@ import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { CtaButton } from "@/components/CtaButton";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 /** Warm editorial beige — the LAST-resort default surface, used only when the
  *  brand has no usable primaryColor (see brandSurface below). */
@@ -58,6 +59,8 @@ export function BlockAiScanHero({
   pageId,
   variantId,
 }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const {
     eyebrow = "AI Scan Review",
     headline = "Every scan, reviewed by AI before it ships.",
@@ -198,7 +201,7 @@ export function BlockAiScanHero({
           <div>
             {(eyebrow || onFieldChange) && (
               <motion.div
-                initial={{ opacity: 0, x: -16 }}
+                initial={anim({ opacity: 0, x: -16 })}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ type: "spring", stiffness: 120, damping: 18 }}
@@ -234,7 +237,7 @@ export function BlockAiScanHero({
               </motion.div>
             )}
             <motion.h1
-              initial={{ opacity: 0, y: 20 }}
+              initial={anim({ opacity: 0, y: 20 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
@@ -260,7 +263,7 @@ export function BlockAiScanHero({
 
           {/* ── Right: body + CTAs ── */}
           <motion.div
-            initial={{ opacity: 0, y: 18 }}
+            initial={anim({ opacity: 0, y: 18 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.12, ease: EASE_OUT_EXPO }}
@@ -372,7 +375,7 @@ export function BlockAiScanHero({
         padding. Always renders — a video when backgroundVideoUrl is set, the
         author/AI-picked photo via imageUrl, or the built-in default photo. */}
       <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={anim({ opacity: 0, y: 24 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, ease: EASE_OUT_EXPO }}

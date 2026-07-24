@@ -15,6 +15,7 @@ import { Reveal } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 /* ----------------------------------------------------------------------------
  * PAS — Before/After: a split comparison with real visual contrast. The
@@ -57,6 +58,8 @@ export function BlockPasBeforeAfter({ props, brand, onFieldChange }: Props) {
   // Entrance reveals render static in the builder and under
   // prefers-reduced-motion (matches the sibling redesigned blocks).
   const still = isBuilder || reduced;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
 
   const update = <K extends keyof PasBeforeAfterBlockProps>(key: K, value: PasBeforeAfterBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -87,14 +90,14 @@ export function BlockPasBeforeAfter({ props, brand, onFieldChange }: Props) {
   };
 
   const itemMotion = (i: number) => ({
-    initial: still ? false : { opacity: 0, y: 10 },
+    initial: still ? false : anim({ opacity: 0, y: 10 }),
     whileInView: still ? undefined : { opacity: 1, y: 0 },
     viewport: { once: true, amount: 0.4 },
     transition: still ? undefined : { duration: 0.4, delay: 0.1 + i * 0.06, ease: EASE },
   });
 
   const cardMotion = (delay: number) => ({
-    initial: still ? false : { opacity: 0, y: 24 },
+    initial: still ? false : anim({ opacity: 0, y: 24 }),
     whileInView: still ? undefined : { opacity: 1, y: 0 },
     viewport: { once: true, amount: 0.2 },
     transition: still ? undefined : { duration: 0.55, delay, ease: EASE },

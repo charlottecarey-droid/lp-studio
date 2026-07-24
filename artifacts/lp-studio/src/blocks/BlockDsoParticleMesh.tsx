@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView } from "framer-motion";
+import { useRevealFallback } from "@/lib/reveal-fallback";
 import type { DsoParticleMeshBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
@@ -58,6 +59,9 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
   const pRef       = useRef<Particle[]>([]);
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: "-5%" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   // Track the resolved brand accent color reactively. The published page sets
   // `--brand-accent` on a [data-lp-page] wrapper *after* React mounts (it's
@@ -241,15 +245,15 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
         {/* Editorial text — always on the side opposite to the image */}
         <motion.div
           initial={{ opacity: 0, x: hasImage ? (imgOnLeft ? 32 : -32) : 0, y: hasImage ? 0 : 20 }}
-          animate={inView ? { opacity: 1, x: 0, y: 0 } : {}}
+          animate={show ? { opacity: 1, x: 0, y: 0 } : {}}
           transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         >
-          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.05 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 10 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.05 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem", fontFamily: BODY }}>
             <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 24 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.65, delay: 0.1 }}
             style={{
               fontFamily: DISPLAY_FONT,
@@ -261,14 +265,14 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
           >
             <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.2 }} style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440, fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.2 }} style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440, fontFamily: BODY }}>
             <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
 
           {/* Stat strip */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.32 }}
             style={{
               display: "flex", gap: "3rem", marginTop: "3.5rem",

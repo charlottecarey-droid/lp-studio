@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent, PropsWithChildren } from "react";
 import { animate, motion, useInView, useReducedMotion } from "framer-motion";
+import { useAnimInitial, useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import { ArrowDown, ArrowRight, Quote } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import {
@@ -376,8 +377,13 @@ function CountUpValue({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
+  // Fail-open reveal — static renders show the final number, live pages get a
+  // watchdog so a never-firing observer can't pin the stat at 0. See lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
+  const staticRender = useStaticRender();
   const parsed = parseStat(value);
-  const animatable = parsed.num !== null && !isStatic;
+  const animatable = parsed.num !== null && !isStatic && !staticRender;
   const [display, setDisplay] = useState(() => (animatable ? formatStat(parsed, 0) : value));
 
   useEffect(() => {
@@ -385,7 +391,7 @@ function CountUpValue({
       setDisplay(value);
       return;
     }
-    if (!inView) return;
+    if (!show) return;
     const controls = animate(0, parsed.num as number, {
       duration: 1.5,
       ease: [0.16, 1, 0.3, 1],
@@ -393,7 +399,7 @@ function CountUpValue({
     });
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animatable, inView, value]);
+  }, [animatable, show, value]);
 
   return (
     <span
@@ -423,10 +429,12 @@ const Reveal: React.FC<
     reduced?: boolean;
   }>
 > = ({ children, delay = 0, className, isStatic, reduced }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   if (isStatic) return <div className={className}>{children}</div>;
   return (
     <motion.div
-      initial={{ opacity: 0, y: reduced ? 0 : 26 }}
+      initial={anim({ opacity: 0, y: reduced ? 0 : 26 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.7, delay, ease: EASE }}
@@ -498,6 +506,8 @@ const ChiAurora: React.FC<{ a: string; b: string; isStatic?: boolean }> = ({ a, 
 
 export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick, onFieldChange }: Props) {
   const prefersReducedMotion = useReducedMotion() ?? false;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   /** Static rendering: builder (no observers) — reveals stay opacity-only
    *  under reduced motion, counters render final values immediately. */
   const isStatic = !!isBuilder;
@@ -1031,7 +1041,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick, on
                         <motion.span
                           className="chi-bar block h-full rounded-full"
                           style={{ width: `${pct}%`, background: accentDisplayDeep }}
-                          initial={countStatic ? false : { scaleX: 0 }}
+                          initial={countStatic ? false : anim({ scaleX: 0 })}
                           whileInView={countStatic ? undefined : { scaleX: 1 }}
                           viewport={{ once: true, margin: "-60px" }}
                           transition={{ duration: 1.1, delay: i * 0.1 + 0.2, ease: [0.16, 1, 0.3, 1] }}

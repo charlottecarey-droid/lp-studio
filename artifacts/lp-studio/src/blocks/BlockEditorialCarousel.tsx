@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "../lib/brand-fonts";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CSSProperties } from "react";
@@ -31,6 +32,8 @@ function alpha(color: string, a: number): string {
 }
 
 export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   // Defaults flow from brand tokens so the block follows brand settings out of
   // the box. Authors can still override per-block via the property panel.
   const bg = props.bgColor || "var(--brand-primary, #0c0f12)";
@@ -169,7 +172,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
       )}
 
       <motion.div
-        initial={{ opacity: 0 }}
+        initial={anim({ opacity: 0 })}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 1 }}

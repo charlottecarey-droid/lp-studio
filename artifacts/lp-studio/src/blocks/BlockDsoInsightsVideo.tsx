@@ -11,6 +11,7 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, useInView } from "framer-motion";
+import { useRevealFallback } from "@/lib/reveal-fallback";
 import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight, ScanLine } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -135,6 +136,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: true, amount: 0 });
+  // Fail-open reveal — see lib/reveal-fallback.ts. (The play-on-scroll video
+  // effect below stays on the raw observer; it is not a content reveal.)
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoMuted, setVideoMuted] = useState(true);
 
@@ -243,7 +248,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             filter: "blur(1px)",
           }}
           initial={{ opacity: 0 }}
-          animate={{ opacity: inView ? 0.055 : 0 }}
+          animate={{ opacity: show ? 0.055 : 0 }}
           transition={{ duration: 2.5, ease: "easeOut" }}
         />
         {/* Secondary bottom-right accent glow */}
@@ -257,7 +262,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             background: "radial-gradient(ellipse at center, var(--brand-accent) 0%, transparent 70%)",
           }}
           initial={{ opacity: 0 }}
-          animate={{ opacity: inView ? 0.03 : 0 }}
+          animate={{ opacity: show ? 0.03 : 0 }}
           transition={{ duration: 3, delay: 0.5, ease: "easeOut" }}
         />
       </div>
@@ -274,7 +279,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
           <motion.div
             className="flex items-center justify-center gap-3 mb-6"
             initial={{ opacity: 0, y: 12 }}
-            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+            animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
             transition={{ duration: 0.7 }}
           >
             <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
@@ -290,7 +295,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#F2EEE3] font-display tracking-tight"
               style={{ lineHeight: 1.12, letterSpacing: "-0.02em", fontFamily: DISPLAY }}
               initial={{ y: 60, opacity: 0 }}
-              animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
+              animate={show ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             >
               <InlineText as="span" value={props.title || "See everything.\nDo anything."} onUpdate={field("title")} multiline style={{ fontFamily: DISPLAY }}/>
@@ -302,7 +307,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             <motion.p
               className="text-lg md:text-xl text-[var(--brand-accent)] font-medium tracking-tight"
               initial={{ y: 30, opacity: 0 }}
-              animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
+              animate={show ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }} style={{ fontFamily: BODY }}>
               <InlineText as="span" value={props.subtitle || "Before it becomes a problem."} onUpdate={field("subtitle")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
@@ -313,7 +318,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             <motion.p
               className="text-sm md:text-base text-[#F2EEE3]/55 max-w-lg mx-auto leading-relaxed"
               initial={{ opacity: 0 }}
-              animate={inView ? { opacity: 1 } : { opacity: 0 }}
+              animate={show ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 1, delay: 0.6 }} style={{ fontFamily: BODY }}>
               <InlineText as="span" value={props.description || "The only analytics platform purpose-built for modern dental groups."} onUpdate={field("description")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
@@ -325,7 +330,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
           <motion.div
             className="w-full rounded-2xl overflow-hidden"
             initial={{ opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
-            animate={inView ? { opacity: 1, y: 0, rotateX: 0, scale: 1 } : { opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
+            animate={show ? { opacity: 1, y: 0, rotateX: 0, scale: 1 } : { opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
             transition={{ duration: 1.3, delay: 0.8, type: "spring", stiffness: 50, damping: 14 }}
             style={{
               boxShadow: "0 50px 120px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07), 0 0 60px rgb(var(--brand-accent-rgb, 199 231 56) / 0.06)",
@@ -436,7 +441,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 boxShadow: "0 24px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
               }}
               initial={{ opacity: 0, y: 36 }}
-              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
+              animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
               transition={{ duration: 0.8, delay, type: "spring", stiffness: 65, damping: 16 }}
             >
               <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.5)] to-transparent" />
@@ -489,7 +494,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             boxShadow: "0 24px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
           }}
           initial={{ opacity: 0, y: 36 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
+          animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
           transition={{ duration: 0.8, delay: 2.75, type: "spring", stiffness: 65, damping: 16 }}
         >
           <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.5)] to-transparent" />
@@ -528,7 +533,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
           <motion.div
             className="w-full mb-12 flex flex-col items-center"
             initial={{ opacity: 0, y: 24 }}
-            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+            animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
             transition={{ duration: 0.9, delay: 2.7 }}
           >
             <div className="w-24 h-px bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.4)] to-transparent mb-10" />
@@ -563,7 +568,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
           <motion.div
             className="w-full flex justify-center"
             initial={{ opacity: 0, y: 16 }}
-            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+            animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
             transition={{ duration: 0.6, delay: 3.0 }}
           >
             {props.ctaMode === "chilipiper" ? (

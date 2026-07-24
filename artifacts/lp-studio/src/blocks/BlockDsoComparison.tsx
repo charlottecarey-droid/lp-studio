@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { Check, Minus, ArrowRight } from "lucide-react";
 import type { DsoComparisonBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -69,12 +70,14 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
   const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const animInitial = useAnimInitial();
   const anim = animationsEnabled;
-  const eyebrowAnim = anim ? { initial: { opacity: 0, y: 10 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } } : {};
-  const headlineAnim = anim ? { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.7 } } : {};
-  const subAnim = anim ? { initial: { opacity: 0, y: 15 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1 } } : {};
-  const tableAnim = anim ? { initial: { opacity: 0, y: 24 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1, duration: 0.7 } } : {};
-  const ctaAnim = anim ? { initial: { opacity: 0, y: 15 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.2 } } : {};
+  const eyebrowAnim = anim ? { initial: animInitial({ opacity: 0, y: 10 }), whileInView: { opacity: 1, y: 0 }, viewport: { once: true } } : {};
+  const headlineAnim = anim ? { initial: animInitial({ opacity: 0, y: 20 }), whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.7 } } : {};
+  const subAnim = anim ? { initial: animInitial({ opacity: 0, y: 15 }), whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1 } } : {};
+  const tableAnim = anim ? { initial: animInitial({ opacity: 0, y: 24 }), whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1, duration: 0.7 } } : {};
+  const ctaAnim = anim ? { initial: animInitial({ opacity: 0, y: 15 }), whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.2 } } : {};
 
   const displayRows = (rows && rows.length > 0) ? rows : DEFAULT_ROWS;
 
@@ -180,7 +183,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
           {displayRows.map((row, i) => (
             <motion.div
               key={row.need}
-              {...(anim ? { initial: { opacity: 0 }, whileInView: { opacity: 1 }, viewport: { once: true }, transition: { delay: i * 0.04 } } : {})}
+              {...(anim ? { initial: animInitial({ opacity: 0 }), whileInView: { opacity: 1 }, viewport: { once: true }, transition: { delay: i * 0.04 } } : {})}
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr 1fr",

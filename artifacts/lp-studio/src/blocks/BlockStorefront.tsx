@@ -5,6 +5,7 @@ const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_FONT;
 
 import { motion } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import {
   ArrowRight,
   Check,
@@ -364,6 +365,8 @@ function iconButtonStyle(C: ResolvedTheme): React.CSSProperties {
 /* ──────────────────────────────────────────────────────────────────────── */
 
 function ProductHero({ p, C, onFieldChange }: { p: StorefrontBlockProps; C: ResolvedTheme; onFieldChange?: (updated: StorefrontBlockProps) => void }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const variants: StorefrontVariant[] = p.heroVariants ?? [];
   const [selected, setSelected] = useState(0);
   const field = (key: keyof StorefrontBlockProps) =>
@@ -391,7 +394,7 @@ function ProductHero({ p, C, onFieldChange }: { p: StorefrontBlockProps; C: Reso
   return (
     <section id="top" className="bsf-section" style={{ position: "relative", overflow: "hidden", backgroundColor: C.altBg, fontFamily: C.bodyFont }}>
       <div className="bsf-hero-grid" style={{ maxWidth: "80rem", margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", gap: "2.5rem", padding: "5rem 1.25rem" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} className="bsf-hero-copy">
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} className="bsf-hero-copy">
           <motion.span variants={fadeUp} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", borderRadius: "999px", border: `1px solid ${C.primaryFaint}`, padding: "0.25rem 0.75rem", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: C.primary }}>
             <span style={{ height: "0.4rem", width: "0.4rem", borderRadius: "999px", backgroundColor: C.primary }} />
             <InlineText as="span" value={eyebrow} onUpdate={field("heroEyebrow")} />

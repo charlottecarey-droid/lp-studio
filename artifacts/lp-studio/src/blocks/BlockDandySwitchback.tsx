@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass } from "@/lib/brand-config";
 import type { DandySwitchbackBlockProps } from "@/lib/block-types";
@@ -21,6 +22,8 @@ interface Props {
 }
 
 export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const isBuilder = !!onFieldChange;
   const [activeIdx, setActiveIdx] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,7 +114,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                     </h3>
                     {isActive && (
                       <motion.div
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={anim({ opacity: 0, y: 8 })}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25 }}
                       >
@@ -138,7 +141,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
             <div className="hidden md:block">
               <motion.div
                 key={activeIdx}
-                initial={{ opacity: 0, scale: 0.97 }}
+                initial={anim({ opacity: 0, scale: 0.97 })}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.35, ease: "easeOut" }}
                 className="rounded-3xl overflow-hidden shadow-2xl aspect-[4/3] bg-slate-100"

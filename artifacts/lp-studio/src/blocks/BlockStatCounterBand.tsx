@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, motion, useInView, useReducedMotion } from "framer-motion";
+import { useAnimInitial, useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
 import { mixHex } from "@/lib/section-ink";
@@ -146,8 +147,12 @@ function StatValue({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
+  // Fail-open reveal + static-render short-circuit — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
+  const staticRender = useStaticRender();
   const parsed = parseStatValue(value);
-  const animatable = parsed.num !== null && !reduced && !onUpdate;
+  const animatable = parsed.num !== null && !reduced && !onUpdate && !staticRender;
   const [display, setDisplay] = useState(() =>
     animatable ? formatStatValue(parsed, 0) : value,
   );
@@ -157,7 +162,7 @@ function StatValue({
       setDisplay(value);
       return;
     }
-    if (!inView) return;
+    if (!show) return;
     const controls = animate(0, parsed.num as number, {
       duration: durationMs / 1000,
       delay,
@@ -166,7 +171,7 @@ function StatValue({
     });
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animatable, inView, value, durationMs, delay]);
+  }, [animatable, show, value, durationMs, delay]);
 
   const style = {
     fontFamily: NUMBERS,
@@ -194,6 +199,8 @@ function StatValue({
 
 export function BlockStatCounterBand({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const background = props.background ?? "brand-dark";
 
   const primary = brand.primaryColor || "#0f172a";
@@ -358,7 +365,7 @@ export function BlockStatCounterBand({ props, brand, onFieldChange }: Props) {
                 key={i}
                 className={wrapperClass}
                 style={wrapperStyle}
-                initial={reduced ? false : { opacity: 0, y: 18 }}
+                initial={reduced ? false : anim({ opacity: 0, y: 18 })}
                 whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.55, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}

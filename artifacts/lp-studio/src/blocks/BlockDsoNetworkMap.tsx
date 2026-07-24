@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView, animate } from "framer-motion";
+import { useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import { useEffect, useState } from "react";
 import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
@@ -138,8 +139,11 @@ function OfficeNode({ node, idx, inView }: {
 function TickStat({ target, suffix, label, delay, inView }: {
   target: number; suffix: string; label: string; delay: number; inView: boolean;
 }) {
-  const [val, setVal] = useState(0);
+  // Static renders show the final number — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
+  const [val, setVal] = useState(staticRender ? target : 0);
   useEffect(() => {
+    if (staticRender) { setVal(target); return; }
     if (!inView) return;
     const controls = animate(0, target, {
       duration: 2.2,
@@ -148,7 +152,7 @@ function TickStat({ target, suffix, label, delay, inView }: {
       onUpdate: v => setVal(Math.round(v)),
     });
     return controls.stop;
-  }, [inView, target, delay]);
+  }, [inView, target, delay, staticRender]);
   return (
     <div style={{ textAlign: "center" }}>
       <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,3.5vw,2.25rem)", fontWeight: 700, color: AW, letterSpacing: "-0.03em", lineHeight: 1 }}>
@@ -184,6 +188,9 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-10%" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   return (
     <section
@@ -213,13 +220,13 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
       >
         {/* ── Left: text ── */}
         <div style={{ padding: "clamp(3rem,8vw,7rem) clamp(1.5rem,5vw,4.5rem)" }}>
-          <motion.p initial={{ opacity: 0, y: 12 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 12 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem", fontFamily: BODY }}>
             <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
 
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.7, delay: 0.08 }}
             style={{
               fontFamily: DISPLAY_FONT,
@@ -235,14 +242,14 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
             <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
 
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.16 }} style={{ fontSize: "clamp(0.9375rem,1.1vw,1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 440, marginBottom: "2.5rem", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.16 }} style={{ fontSize: "clamp(0.9375rem,1.1vw,1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 440, marginBottom: "2.5rem", fontFamily: BODY }}>
             <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
 
           {/* Stats strip */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.24 }}
             style={{
               display: "grid",
@@ -255,15 +262,15 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
               marginBottom: "2.5rem",
             }}
           >
-            <TickStat target={500} suffix="+" label="Locations"        delay={0.5}  inView={inView} />
-            <TickStat target={96}  suffix="%" label="Quality Pass"     delay={0.65} inView={inView} />
-            <TickStat target={4}   suffix="d" label="Avg Turnaround"   delay={0.8}  inView={inView} />
+            <TickStat target={500} suffix="+" label="Locations"        delay={0.5}  inView={show} />
+            <TickStat target={96}  suffix="%" label="Quality Pass"     delay={0.65} inView={show} />
+            <TickStat target={4}   suffix="d" label="Avg Turnaround"   delay={0.8}  inView={show} />
           </motion.div>
 
           {ctaText && (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
+              animate={show ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.32 }}
             >
               {isModalCta ? (
@@ -379,7 +386,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
               cx={CX} cy={CY} r={190}
               fill="url(#ambient)"
               initial={{ scale: 0.5, opacity: 0 }}
-              animate={inView ? { scale: 1, opacity: 1 } : {}}
+              animate={show ? { scale: 1, opacity: 1 } : {}}
               transition={{ duration: 1.4, ease: "easeOut" }}
               style={{ transformOrigin: `${CX}px ${CY}px` }}
             />
@@ -394,7 +401,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
                 strokeWidth={0.4}
                 strokeOpacity={0.07}
                 initial={{ scale: 0, opacity: 0 }}
-                animate={inView ? { scale: 1, opacity: 1 } : {}}
+                animate={show ? { scale: 1, opacity: 1 } : {}}
                 transition={{ duration: 1, delay: 0.2 + i * 0.1 }}
                 style={{ transformOrigin: `${CX}px ${CY}px` }}
               />
@@ -402,16 +409,16 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
 
             {/* Edges (solid gradient lines) */}
             {OFFICES.map((node, i) => (
-              <Edge key={i} node={node} idx={i} inView={inView} />
+              <Edge key={i} node={node} idx={i} inView={show} />
             ))}
 
             {/* Office nodes */}
             {OFFICES.map((node, i) => (
-              <OfficeNode key={i} node={node} idx={i} inView={inView} />
+              <OfficeNode key={i} node={node} idx={i} inView={show} />
             ))}
 
             {/* Single slow ambient pulse on center — restrained */}
-            {inView && (
+            {show && (
               <motion.circle
                 cx={CX} cy={CY}
                 r={36}
@@ -428,7 +435,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
             {/* Center hub */}
             <motion.g
               initial={{ scale: 0, opacity: 0 }}
-              animate={inView ? { scale: 1, opacity: 1 } : {}}
+              animate={show ? { scale: 1, opacity: 1 } : {}}
               transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
               style={{ transformOrigin: `${CX}px ${CY}px` }}
               filter="url(#glow-hub)"
@@ -468,7 +475,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
                 fontFamily="Inter,system-ui,sans-serif"
                 letterSpacing="0.14em"
                 initial={{ opacity: 0 }}
-                animate={inView ? { opacity: 0.6 } : {}}
+                animate={show ? { opacity: 0.6 } : {}}
                 transition={{ duration: 0.6, delay: 1.1 }}
               >
                 {hubLabel}

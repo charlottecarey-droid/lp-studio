@@ -12,6 +12,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 interface Props {
   props: CinematicVideoHeroBlockProps;
@@ -27,6 +28,8 @@ interface Props {
 const HEADLINE_FALLBACK = "'Cinzel', 'Cormorant Garamond', Georgia, serif";
 
 export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof CinematicVideoHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
@@ -378,7 +381,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
       {(props.showNav !== false) && (
         <header className="relative z-20 w-full px-8 py-6 flex items-center justify-between">
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={anim({ opacity: 0, y: -10 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center gap-2"
@@ -411,7 +414,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
           </motion.div>
 
           <motion.nav
-            initial={{ opacity: 0, y: -10 }}
+            initial={anim({ opacity: 0, y: -10 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
             className="hidden md:flex items-center gap-10 text-sm tracking-wide"
@@ -425,7 +428,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
           </motion.nav>
 
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={anim({ opacity: 0, y: -10 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
             className="flex items-center gap-4"
@@ -462,7 +465,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
       >
         {(props.eyebrow || onFieldChange) && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
             className={lowerThird ? "mb-5 flex items-center gap-3" : "mb-6"}
@@ -485,7 +488,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
         )}
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
+          initial={anim({ opacity: 0, scale: 0.95, filter: "blur(10px)" })}
           animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
           transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
           className={lowerThird ? "max-w-4xl" : "max-w-4xl mx-auto"}
@@ -507,7 +510,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
 
         {(props.subheadline || onFieldChange) && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.8 }}
             className={lowerThird ? "max-w-xl mb-9" : "max-w-xl mx-auto mb-11"}
@@ -524,7 +527,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
         )}
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={anim({ opacity: 0, y: 20 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 1 }}
           className={
@@ -541,7 +544,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
       {/* Scroll Cue (centered layout only — the lower-third pins copy there) */}
       {!lowerThird && (props.scrollCueLabel || onFieldChange) && (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={anim({ opacity: 0 })}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 1.5 }}
           className="relative z-20 pb-8 flex flex-col items-center justify-center gap-4"

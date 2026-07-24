@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView, animate } from "framer-motion";
+import { useRevealFallback } from "@/lib/reveal-fallback";
 import type { DsoLiveFeedBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
@@ -167,6 +168,9 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-10%" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   return (
     <section ref={sectionRef} style={{ ...getBgStyle(backgroundStyle), padding: "6rem 1.5rem", position: "relative", overflow: "hidden" }}>
@@ -180,18 +184,18 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
         >
           {/* Left: text */}
           <div style={{ paddingTop: "2rem" }}>
-            <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem", fontFamily: BODY }}>
+            <motion.p initial={{ opacity: 0, y: 10 }} animate={show ? { opacity: 1, y: 0 } : {}} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
+              animate={show ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.08 }}
               style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.875rem,3.5vw,3rem)", fontWeight: 700, color: PFG, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1.5rem", whiteSpace: "pre-line" }}
             >
               <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
             </motion.h2>
-            <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.16 }} style={{ fontSize: "1rem", lineHeight: 1.72, color: "hsla(48,100%,96%,0.5)", fontFamily: BODY }}>
+            <motion.p initial={{ opacity: 0, y: 16 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.16 }} style={{ fontSize: "1rem", lineHeight: 1.72, color: "hsla(48,100%,96%,0.5)", fontFamily: BODY }}>
               <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
 
@@ -200,7 +204,7 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
           {/* Right: terminal */}
           <motion.div
             initial={{ opacity: 0, y: 28 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.7, delay: 0.2 }}
             style={{
               background: CARD,
@@ -241,7 +245,7 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
             {/* Rows */}
             <div>
               {BASE_METRICS.map((m, i) => (
-                <MetricRow key={i} metric={m} idx={i} inView={inView} />
+                <MetricRow key={i} metric={m} idx={i} inView={show} />
               ))}
             </div>
 

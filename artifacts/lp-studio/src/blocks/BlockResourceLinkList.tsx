@@ -6,6 +6,7 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -27,6 +28,8 @@ interface Props {
  *  large set of resources (help articles, guides, docs) as scannable text
  *  links rather than heavy image cards. */
 export function BlockResourceLinkList({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const text = props.textColor ?? surface.color ?? "#171717";
   const accent = props.accentColor ?? brand.primaryColor ?? "#1f7a4d";
@@ -84,7 +87,7 @@ export function BlockResourceLinkList({ props, brand, onFieldChange }: Props) {
           {groups.map((group, gi) => (
             <motion.div
               key={gi}
-              initial={isBuilder ? false : { opacity: 0, y: 24 }}
+              initial={isBuilder ? false : anim({ opacity: 0, y: 24 })}
               whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={isBuilder ? undefined : { duration: 0.5, delay: gi * 0.05, ease: [0.22, 1, 0.36, 1] }}

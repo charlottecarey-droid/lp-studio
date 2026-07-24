@@ -6,6 +6,7 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 import type { BrandConfig } from "../lib/brand-config";
 import { BrandLogo } from "../components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -36,12 +37,14 @@ const Reveal: React.FC<
     isBuilder?: boolean;
   }>
 > = ({ children, delay = 0, y = 24, className, isBuilder }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   if (isBuilder) {
     return <div className={className}>{children}</div>;
   }
   return (
     <motion.div
-      initial={{ opacity: 0, y }}
+      initial={anim({ opacity: 0, y })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
@@ -80,6 +83,8 @@ interface Props {
  * stronger ink contrast).
  */
 export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   /** In the builder, render plain divs and strip framer-motion animation props
    *  so each keystroke doesn't re-create IntersectionObservers + animation state. */
   const M: React.ElementType = isBuilder
@@ -539,7 +544,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
               return (
                 <M
                   key={i}
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={anim({ opacity: 0, y: 16 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.25 }}
                   transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
@@ -615,7 +620,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
               return (
                 <M
                   key={i}
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={anim({ opacity: 0, y: 16 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
                   transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
@@ -654,7 +659,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
               return (
                 <M
                   key={i}
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={anim({ opacity: 0, y: 16 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
                   transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
@@ -688,7 +693,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
             return (
               <M
                 key={i}
-                initial={{ opacity: 0, y: 16 }}
+                initial={anim({ opacity: 0, y: 16 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
@@ -746,7 +751,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
           {props.costItems.map((item, idx) => (
             <M
               key={idx}
-              initial={{ opacity: 0, y: 16 }}
+              initial={anim({ opacity: 0, y: 16 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.25 }}
               transition={{ duration: 0.55, delay: idx * 0.08, ease: [0.22, 1, 0.36, 1] }}
@@ -821,7 +826,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
               return (
                 <M
                   key={idx}
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={anim({ opacity: 0, y: 12 })}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.4 }}
                   transition={{ duration: 0.45, delay: idx * 0.05, ease: [0.22, 1, 0.36, 1] }}

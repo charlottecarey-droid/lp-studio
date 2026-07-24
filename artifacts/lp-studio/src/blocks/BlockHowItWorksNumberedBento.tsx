@@ -1,5 +1,6 @@
 import { Plug, ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -66,6 +67,8 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
   const isBuilder = !!onFieldChange;
   const reduced = useReducedMotion() ?? false;
   const animate = !isBuilder && !reduced;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -80,7 +83,7 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
   };
 
   const tileMotion = (order: number) => ({
-    initial: animate ? { opacity: 0, y: 24 } : (false as const),
+    initial: animate ? anim({ opacity: 0, y: 24 }) : (false as const),
     whileInView: animate ? { opacity: 1, y: 0 } : undefined,
     viewport: { once: true, amount: 0.2 },
     transition: animate

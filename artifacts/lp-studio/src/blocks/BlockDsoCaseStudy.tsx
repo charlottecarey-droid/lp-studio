@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import { useAnimInitial, useRevealFallback } from "@/lib/reveal-fallback";
 import type { DsoCaseStudyBlockProps, DsoCaseStudyBodySection, DsoCaseStudyExtraSection, DsoCaseStudyResultItem } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -69,6 +70,8 @@ const DEFAULT_WHY: DsoCaseStudyBodySection = {
 };
 
 export function BlockDsoCaseStudy({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const fallback = props.backgroundStyle ?? "white";
   const heroBg    = props.heroBackgroundStyle    ?? fallback;
   const bodyBg    = props.bodyBackgroundStyle    ?? fallback;
@@ -164,7 +167,7 @@ export function BlockDsoCaseStudy({ props, brand, onFieldChange }: Props) {
       <section style={{ ...getBgStyle(heroBg), position: "relative" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "4rem 1.5rem 0" }}>
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
@@ -344,12 +347,15 @@ function BodySection({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 24 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
+      animate={show ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
       style={{ marginBottom: "3rem" }}
     >
@@ -435,6 +441,9 @@ function StatCell({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-30px" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
   const showLeftBorder = i > 0 && i % 2 !== 0;
   const showRightBorderSm = i < total - 1;
 
@@ -442,7 +451,7 @@ function StatCell({
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 8 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
+      animate={show ? { opacity: 1, y: 0 } : {}}
       transition={{ delay: i * 0.09, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className={`${showRightBorderSm ? "sm:border-r" : ""} ${showLeftBorder ? "border-l sm:border-l-0" : ""}`}
       style={{
@@ -496,12 +505,15 @@ function PullQuote({
 }) {
   const ref = useRef<HTMLQuoteElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   return (
     <motion.blockquote
       ref={ref}
       initial={{ opacity: 0, y: 24 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
+      animate={show ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       style={{
         marginBottom: "3rem",
@@ -564,6 +576,9 @@ function ResultsGrid({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
   const gridDivider = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
 
   return (
@@ -600,7 +615,7 @@ function ResultsGrid({
       )}
       <motion.h3
         initial={{ opacity: 0, y: 16 }}
-        animate={inView ? { opacity: 1, y: 0 } : {}}
+        animate={show ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         style={{
           fontFamily: DISPLAY_FONT,
@@ -622,7 +637,7 @@ function ResultsGrid({
           <motion.div
             key={i}
             initial={{ opacity: 0, y: 20 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: i * 0.09, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             style={{
               padding: "2rem",

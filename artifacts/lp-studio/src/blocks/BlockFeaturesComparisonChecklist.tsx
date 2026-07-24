@@ -11,6 +11,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -32,6 +33,8 @@ interface Props {
 
 export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
 
@@ -226,7 +229,7 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                       borderColor: rowDivider,
                       backgroundColor: featIndex % 2 === 1 ? zebra : undefined,
                     }}
-                    initial={still ? false : { opacity: 0, y: 10 }}
+                    initial={still ? false : anim({ opacity: 0, y: 10 })}
                     whileInView={still ? undefined : { opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.4 }}
                     transition={still ? undefined : { duration: 0.4, delay: Math.min(featIndex * 0.04, 0.24), ease: [0.16, 1, 0.3, 1] }}

@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { DsoSuccessStoriesBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -50,6 +51,8 @@ const DEFAULT_CASES = [
 ];
 
 export function BlockDsoSuccessStories({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const { eyebrow, headline, cases, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000", ctaText, ctaUrl, ctaMode = "link" } = props;
   const field = (key: keyof DsoSuccessStoriesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoSuccessStoriesBlockProps[typeof key] }) : undefined;
@@ -86,7 +89,7 @@ export function BlockDsoSuccessStories({ props, brand, onFieldChange }: Props) {
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
             <motion.p
-              initial={{ opacity: 0, y: 10 }}
+              initial={anim({ opacity: 0, y: 10 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               style={{
@@ -102,7 +105,7 @@ export function BlockDsoSuccessStories({ props, brand, onFieldChange }: Props) {
             </motion.p>
           )}
           <motion.h2
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
@@ -124,7 +127,7 @@ export function BlockDsoSuccessStories({ props, brand, onFieldChange }: Props) {
           {displayCases.map((s, i) => (
             <motion.div
               key={s.name}
-              initial={{ opacity: 0, y: 24 }}
+              initial={anim({ opacity: 0, y: 24 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12, duration: 0.7 }}
@@ -324,7 +327,7 @@ export function BlockDsoSuccessStories({ props, brand, onFieldChange }: Props) {
 
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}

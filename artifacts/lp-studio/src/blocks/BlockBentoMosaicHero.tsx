@@ -33,6 +33,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { useStaticRender } from "@/lib/reveal-fallback";
 
 /**
  * Bento Mosaic Hero — a light-or-dark switchable split hero. The left ~45%
@@ -115,6 +116,8 @@ export function BlockBentoMosaicHero({
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
   const isEditor = !!onFieldChange;
   const prefersReducedMotion = useReducedMotion();
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
 
   // ── Theme / surface resolution ────────────────────────────────
   const theme = props.theme ?? "dark";
@@ -256,7 +259,7 @@ export function BlockBentoMosaicHero({
         {/* ── Left: editorial type ── */}
         <motion.div
           variants={textVariants}
-          initial="hidden"
+          initial={staticRender ? false : "hidden"}
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
         >
@@ -341,7 +344,7 @@ export function BlockBentoMosaicHero({
         <motion.div
           className="grid grid-cols-2 gap-4"
           variants={mosaicVariants}
-          initial="hidden"
+          initial={staticRender ? false : "hidden"}
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
         >

@@ -11,6 +11,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -163,6 +164,8 @@ function TileMockup({ index, accent }: { index: number; accent: string }) {
 
 export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
 
@@ -255,7 +258,7 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
                   spanFor(i),
                 )}
                 style={{ backgroundColor: cardBg, borderColor: cardBorder, boxShadow: cardShadow }}
-                initial={still ? false : { opacity: 0, y: 20 }}
+                initial={still ? false : anim({ opacity: 0, y: 20 })}
                 whileInView={still ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={still ? undefined : { duration: 0.55, delay: Math.min(i * 0.07, 0.4), ease: [0.16, 1, 0.3, 1] }}

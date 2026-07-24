@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { Quote, User } from "lucide-react";
 import type { DsoTestimonialsBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
@@ -19,6 +20,8 @@ const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_STACK;
 
 export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const { eyebrow, headline, subheadline, testimonials = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "link", backgroundStyle = "dark" } = props;
   const field = (key: keyof DsoTestimonialsBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -66,7 +69,7 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
           {testimonials.map((t, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 20 }}
+              initial={anim({ opacity: 0, y: 20 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.09, duration: 0.55 }}
@@ -124,7 +127,7 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
 
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}

@@ -6,6 +6,7 @@
 // the block is ever surfaced to non-Dandy tenants, no Dandy branding leaks
 // through when default_props are overridden.
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { DsoPracticeHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -40,6 +41,8 @@ const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_STACK;
 
 export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, variantId }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof DsoPracticeHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPracticeHeroBlockProps[typeof key] }) : undefined;
   const {
@@ -142,7 +145,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
 
   const eyebrowEl = eyebrow ? (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={anim({ opacity: 0, y: 10 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       style={{ marginBottom: "1.5rem" }}
@@ -155,7 +158,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
 
   const headlineEl = (
     <motion.h1
-      initial={{ opacity: 0, y: 24 }}
+      initial={anim({ opacity: 0, y: 24 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.65 }}
@@ -174,14 +177,14 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
   );
 
   const subEl = (align: "center" | "left") => subheadline ? (
-    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.12 }} style={{ fontSize: "1.125rem", lineHeight: 1.7, color: subC, marginBottom: "2.25rem", maxWidth: align === "center" ? 600 : undefined, marginLeft: align === "center" ? "auto" : undefined, marginRight: align === "center" ? "auto" : undefined, fontFamily: BODY }}>
+    <motion.p initial={anim({ opacity: 0 })} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.12 }} style={{ fontSize: "1.125rem", lineHeight: 1.7, color: subC, marginBottom: "2.25rem", maxWidth: align === "center" ? 600 : undefined, marginLeft: align === "center" ? "auto" : undefined, marginRight: align === "center" ? "auto" : undefined, fontFamily: BODY }}>
       <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
     </motion.p>
   ) : null;
 
   const ctasEl = (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={anim({ opacity: 0, y: 16 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: 0.18 }}
@@ -226,7 +229,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
   );
 
   const trustEl = trustLine ? (
-    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: BODY }}>
+    <motion.p initial={anim({ opacity: 0 })} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: BODY }}>
       <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />
       <InlineText as="span" value={trustLine} onUpdate={field("trustLine")} style={{ fontFamily: BODY }}/>
       <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />
@@ -307,7 +310,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
 
           {imageUrl && (
             <motion.div
-              initial={{ opacity: 0, x: 30 }}
+              initial={anim({ opacity: 0, x: 30 })}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.7, delay: 0.1 }}
@@ -356,7 +359,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
             {ctasEl}
           </div>
           {trustLine && (
-            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0 })} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontFamily: BODY }}>
               <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />
               {trustLine}
               <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />

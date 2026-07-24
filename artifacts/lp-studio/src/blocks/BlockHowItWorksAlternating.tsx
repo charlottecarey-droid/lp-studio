@@ -1,5 +1,6 @@
 import { LayoutTemplate, CheckCircle2, ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -46,6 +47,8 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
   const isBuilder = !!onFieldChange;
   const reduced = useReducedMotion() ?? false;
   const animate = !isBuilder && !reduced;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -103,7 +106,7 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
                 key={index}
                 className={`flex flex-col items-center gap-10 sm:gap-12 lg:gap-20 ${isReversed ? "lg:flex-row-reverse" : "lg:flex-row"}`}
                 style={{ marginTop: index === 0 ? 0 : isReversed ? "clamp(4.5rem, 9vw, 8rem)" : "clamp(3.5rem, 7vw, 6rem)" }}
-                initial={animate ? { opacity: 0, y: 28 } : false}
+                initial={animate ? anim({ opacity: 0, y: 28 }) : false}
                 whileInView={animate ? { opacity: 1, y: 0 } : undefined}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={animate ? { duration: 0.6, ease: [0.22, 1, 0.36, 1] } : undefined}
@@ -178,7 +181,7 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
                 {/* Visual column — real image with premium frame, graceful fallback */}
                 <motion.div
                   className="w-full lg:w-1/2"
-                  initial={animate ? { opacity: 0, scale: 0.97 } : false}
+                  initial={animate ? anim({ opacity: 0, scale: 0.97 }) : false}
                   whileInView={animate ? { opacity: 1, scale: 1 } : undefined}
                   viewport={{ once: true, amount: 0.2 }}
                   transition={animate ? { duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] } : undefined}

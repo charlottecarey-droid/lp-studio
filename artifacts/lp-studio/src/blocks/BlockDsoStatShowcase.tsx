@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
-import { useRevealFallback } from "@/lib/reveal-fallback";
+import { useAnimInitial, useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import { ScanAcross, PulseGlow } from "./SectionAmbient";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
@@ -65,8 +65,15 @@ function StatCard({
   const show = isInView || forceVisible;
 
   const { prefix, num, suffix, isDecimal } = parseValue(stat.value);
-  const count = useMotionValue(0);
-  const [display, setDisplay] = useState(`${prefix}0${suffix}`);
+  // Static renders show the final number immediately — a t=0 snapshot must
+  // not capture the count-up at 0. See lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
+  const anim = useAnimInitial();
+  const count = useMotionValue(staticRender ? num : 0);
+  const [display, setDisplay] = useState(() => {
+    const v = staticRender ? num : 0;
+    return `${prefix}${isDecimal ? v.toFixed(1) : Math.round(v).toLocaleString()}${suffix}`;
+  });
 
   useMotionValueEvent(count, "change", (latest) => {
     const formatted = isDecimal
@@ -76,6 +83,10 @@ function StatCard({
   });
 
   useEffect(() => {
+    if (staticRender) {
+      count.jump(num);
+      return;
+    }
     if (show) {
       animate(count, num, {
         duration: 1.6,
@@ -83,12 +94,12 @@ function StatCard({
         ease: [0.16, 1, 0.3, 1],
       });
     }
-  }, [show, num, index, count]);
+  }, [staticRender, show, num, index, count]);
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 32 }}
+      initial={anim({ opacity: 0, y: 32 })}
       animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
       transition={{ duration: 0.75, delay: index * 0.09, ease: [0.16, 1, 0.3, 1] }}
       style={{
@@ -132,8 +143,8 @@ function StatCard({
 
       <motion.div
         style={{ height: 2, background: AW, marginBottom: "1rem", borderRadius: 1 }}
-        initial={{ width: "0%" }}
-        animate={isInView ? { width: "2.5rem" } : { width: "0%" }}
+        initial={anim({ width: "0%" })}
+        animate={show ? { width: "2.5rem" } : { width: "0%" }}
         transition={{ duration: 0.6, delay: index * 0.09 + 0.2 }}
       />
 
@@ -200,7 +211,11 @@ export function BlockDsoStatShowcase({ props, brand, onFieldChange }: Props) {
   const borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
 
   const sectionRef = useRef<HTMLElement>(null);
+  const anim = useAnimInitial();
   const headerInView = useInView(sectionRef, { once: true });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const headerForceVisible = useRevealFallback(headerInView);
+  const showHeader = headerInView || headerForceVisible;
 
   return (
     <section
@@ -232,13 +247,13 @@ export function BlockDsoStatShowcase({ props, brand, onFieldChange }: Props) {
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4.5rem" }}>
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} animate={headerInView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: eyebrowFg, marginBottom: "1.25rem", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 10 })} animate={showHeader ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: eyebrowFg, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            animate={headerInView ? { opacity: 1, y: 0 } : {}}
+            initial={anim({ opacity: 0, y: 20 })}
+            animate={showHeader ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.75, delay: 0.06 }}
             style={{
               fontFamily: DISPLAY,
@@ -283,8 +298,8 @@ export function BlockDsoStatShowcase({ props, brand, onFieldChange }: Props) {
 
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={headerInView ? { opacity: 1, y: 0 } : {}}
+            initial={anim({ opacity: 0, y: 16 })}
+            animate={showHeader ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.35 }}
             style={{ textAlign: "center", marginTop: "3rem" }}
           >

@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
 import { VideoModal } from "@/components/VideoModal";
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
@@ -851,6 +852,10 @@ function HeroVideoStage({
 function Hero({ p }: { p: SpatialTourBlockProps }) {
   const ref = useRef<HTMLDivElement>(null);
   const reducedMotion = useStReducedMotion();
+  // Static renders get the final frame, not the entrance fade — the
+  // scroll-driven stage transforms below already start visible.
+  // See lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const [trailerOpen, setTrailerOpen] = useState(false);
   // Trailer falls back to the looping hero b-roll when no dedicated trailer
   // URL is configured. This keeps the "Watch the trailer" CTA functional out
@@ -926,7 +931,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           // strip — so the headline can start much higher in the frame.
           paddingTop: 24,
         }}
-        initial={{ opacity: 0, y: 32 }}
+        initial={anim({ opacity: 0, y: 32 })}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, ease: "easeOut" }}
       >
@@ -1115,6 +1120,8 @@ function Marquee({ p }: { p: SpatialTourBlockProps }) {
 
 // ─── Section: Manifesto ────────────────────────────────────────
 function Manifesto({ p }: { p: SpatialTourBlockProps }) {
+  // Fail-open under static render — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <div style={{ background: CREAM, color: FOREST, padding: "140px 56px", position: "relative" }}>
       <div
@@ -1128,7 +1135,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
         }}
       >
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={anim({ opacity: 0, y: 24 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.7, ease: "easeOut" }}
@@ -1178,7 +1185,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={anim({ opacity: 0, scale: 0.95 })}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8, ease: "easeOut" }}
@@ -1243,6 +1250,8 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
 
 // ─── Section: Tour intro + stations ────────────────────────────
 function StationCard({ station, flip = false, isLast = false }: { station: SpatialTourStation; flip?: boolean; isLast?: boolean }) {
+  // Fail-open under static render — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <div
       style={{
@@ -1264,7 +1273,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
         }}
       >
         <motion.div
-          initial={{ opacity: 0, x: flip ? 40 : -40 }}
+          initial={anim({ opacity: 0, x: flip ? 40 : -40 })}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8, ease: "easeOut" }}
@@ -1369,7 +1378,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, x: flip ? -40 : 40 }}
+          initial={anim({ opacity: 0, x: flip ? -40 : 40 })}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
@@ -1700,6 +1709,8 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
 
 // ─── Section: Four Ways ────────────────────────────────────────
 function FourWays({ p }: { p: SpatialTourBlockProps }) {
+  // Fail-open under static render — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <div style={{ background: WHITE, color: FOREST, padding: "140px 56px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
@@ -1729,7 +1740,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
           {p.ways.map((w, i) => (
             <motion.div
               key={w.number}
-              initial={{ opacity: 0, y: 32 }}
+              initial={anim({ opacity: 0, y: 32 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
@@ -1846,6 +1857,8 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
 
 // ─── Section: Calendar / RSVP ──────────────────────────────────
 function Calendar({ p }: { p: SpatialTourBlockProps }) {
+  // Fail-open under static render — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   return (
     <div
       id="rsvp"
@@ -1992,7 +2005,7 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
               return (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, x: 20 }}
+                  initial={anim({ opacity: 0, x: 20 })}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true, margin: "-50px" }}
                   transition={{ duration: 0.5, delay: i * 0.06, ease: "easeOut" }}

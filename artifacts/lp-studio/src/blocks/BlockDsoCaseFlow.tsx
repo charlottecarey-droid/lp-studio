@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import { useAnimInitial, useRevealFallback } from "@/lib/reveal-fallback";
 import { DSO_CASE_FLOW_DEFAULT_STAGES, type DsoCaseFlowBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface, type BackgroundStyle } from "@/lib/bg-styles";
 import {
@@ -88,42 +89,53 @@ function resolveCaseFlowColors(brand: BrandConfig, style: BackgroundStyle) {
   };
 }
 
+// Fail-open draw-in — the stage icons live in a module-level array where
+// hooks can't run, so these own the useAnimInitial call (see lib/reveal-fallback.ts).
+function DrawPath(props: React.ComponentProps<typeof motion.path>) {
+  const anim = useAnimInitial();
+  return <motion.path {...props} initial={anim({ pathLength: 0 })} animate={{ pathLength: 1 }} />;
+}
+function DrawCircle(props: React.ComponentProps<typeof motion.circle>) {
+  const anim = useAnimInitial();
+  return <motion.circle {...props} initial={anim({ pathLength: 0 })} animate={{ pathLength: 1 }} />;
+}
+
 // Built-in stage icons, applied positionally over the shared text defaults.
 // Custom stages added via the panel reuse these by position (and fall back to
 // the generic circle below for any stage beyond the 4th).
 const STAGE_ICONS: React.ReactNode[] = [
   (
     <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-      <motion.path d="M4 16 C4 9.4 9.4 4 16 4 C22.6 4 28 9.4 28 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.5 }} />
-      <motion.path d="M10 16 L13 21 L16 13 L19 19 L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9, delay: 0.9 }} />
+      <DrawPath d="M4 16 C4 9.4 9.4 4 16 4 C22.6 4 28 9.4 28 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        transition={{ duration: 0.8, delay: 0.5 }} />
+      <DrawPath d="M10 16 L13 21 L16 13 L19 19 L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        transition={{ duration: 0.9, delay: 0.9 }} />
     </svg>
   ),
   (
     <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-      <motion.circle cx="16" cy="16" r="7" stroke="currentColor" strokeWidth="2"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.7, delay: 0.5 }} />
-      <motion.path d="M4 16H9M23 16H28M16 4V9M16 23V28" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.8 }} />
-      <motion.path d="M13 16l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 1.3 }} />
+      <DrawCircle cx="16" cy="16" r="7" stroke="currentColor" strokeWidth="2"
+        transition={{ duration: 0.7, delay: 0.5 }} />
+      <DrawPath d="M4 16H9M23 16H28M16 4V9M16 23V28" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        transition={{ duration: 0.8, delay: 0.8 }} />
+      <DrawPath d="M13 16l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        transition={{ duration: 0.5, delay: 1.3 }} />
     </svg>
   ),
   (
     <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-      <motion.path d="M16 4 L26 10 L26 22 L16 28 L6 22 L6 10 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.0, delay: 0.5 }} />
-      <motion.path d="M16 4 L16 28M6 10 L26 10M6 22 L26 22" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 1.2 }} />
+      <DrawPath d="M16 4 L26 10 L26 22 L16 28 L6 22 L6 10 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"
+        transition={{ duration: 1.0, delay: 0.5 }} />
+      <DrawPath d="M16 4 L16 28M6 10 L26 10M6 22 L26 22" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"
+        transition={{ duration: 0.8, delay: 1.2 }} />
     </svg>
   ),
   (
     <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-      <motion.path d="M6 17 L12 23 L26 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.5 }} />
-      <motion.circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.35"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1, delay: 0.2 }} />
+      <DrawPath d="M6 17 L12 23 L26 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        transition={{ duration: 0.8, delay: 0.5 }} />
+      <DrawCircle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.35"
+        transition={{ duration: 1, delay: 0.2 }} />
     </svg>
   ),
 ];
@@ -172,6 +184,9 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
     : undefined;
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-12%" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   return (
     <section ref={sectionRef} style={{ ...getBgStyle(backgroundStyle), padding: "6rem 1.5rem", overflow: "hidden", position: "relative" }}>
@@ -181,18 +196,18 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
       <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
-          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: colors.accentText, marginBottom: "1rem", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 10 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: colors.accentText, marginBottom: "1rem", fontFamily: BODY }}>
             <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 18 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.65, delay: 0.08 }}
             style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(2rem,4.5vw,3.5rem)", fontWeight: 700, color: colors.heading, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1rem" }}
           >
             <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
-          <motion.p initial={{ opacity: 0, y: 14 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.15 }} style={{ fontSize: "1.0625rem", color: colors.body, lineHeight: 1.68, maxWidth: 540, margin: "0 auto", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 14 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.15 }} style={{ fontSize: "1.0625rem", color: colors.body, lineHeight: 1.68, maxWidth: 540, margin: "0 auto", fontFamily: BODY }}>
             <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
         </div>
@@ -209,7 +224,7 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
                 ? `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), ${ACCENT_DARK}, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376))`
                 : `linear-gradient(90deg, transparent, ${colors.accentDeco}, transparent)`, transformOrigin: "left" }}
               initial={{ scaleX: 0 }}
-              animate={inView ? { scaleX: 1 } : {}}
+              animate={show ? { scaleX: 1 } : {}}
               transition={{ duration: 1.2, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
             />
             {/* Glow overlay */}
@@ -219,7 +234,7 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
           </div>
 
           {/* Data packets on the line */}
-          {inView && (
+          {show && (
             <div className="hidden md:block" style={{ position: "absolute", top: "calc(3.5rem - 4px)", left: "calc(12.5% + 1rem)", right: "calc(12.5% + 1rem)", height: 10, zIndex: 2, overflow: "hidden" }}>
               {[0, 1, 2].map(i => (
                 <motion.div
@@ -246,7 +261,7 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 32 }}
-                animate={inView ? { opacity: 1, y: 0 } : {}}
+                animate={show ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.65, delay: 0.5 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
                 style={{
                   background: colors.card,
@@ -264,7 +279,7 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
                 <motion.div
                   style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: colors.accentDeco, transformOrigin: "left" }}
                   initial={{ scaleX: 0 }}
-                  animate={inView ? { scaleX: 1 } : {}}
+                  animate={show ? { scaleX: 1 } : {}}
                   transition={{ duration: 0.6, delay: 0.8 + i * 0.18, ease: "easeOut" }}
                 />
 

@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { DandyProductHeroBlockProps } from "@/lib/block-types/dso-blocks";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { useBrandConfig } from "@/components/BrandSwatches";
@@ -27,6 +28,8 @@ const DISPLAY = DISPLAY_FONT;
 const SANS_FONT = `${BRAND_BODY_FONT}, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
 export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const p = block.props;
   const field = (key: keyof DandyProductHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v as DandyProductHeroBlockProps[typeof key] }) : undefined;
@@ -393,7 +396,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
       {variant === "split" && imageBleed && (
         <motion.div
           className="dph-image-bleed"
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={anim({ opacity: 0, scale: 0.95 })}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
           style={{
@@ -430,7 +433,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
       >
         {/* ── Left: copy + email capture ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={anim({ opacity: 0, y: 20 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           style={{ minWidth: 0, position: "relative", zIndex: 2 }}
@@ -458,7 +461,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
         {!(variant === "split" && imageBleed) && (
           <motion.div
             className="dph-image"
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={anim({ opacity: 0, scale: 0.95 })}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
             style={{

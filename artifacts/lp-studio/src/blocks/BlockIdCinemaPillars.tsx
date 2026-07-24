@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 import type { IdCinemaPillarsBlockProps, IdCinemaPillar } from "@/lib/block-types";
@@ -129,6 +130,9 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
   useInsideDandyStyles();
   const pillars = props.pillars ?? [];
   const isEditor = !!onFieldChange;
+  // Static renders (template preview, thumbnails, builder) show the final
+  // frame — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const sectionRef = useRef<HTMLElement>(null);
   const spacerRefs = useRef<Array<HTMLDivElement | null>>([]);
   const layerRefs = useRef<Array<HTMLDivElement | null>>([]);
@@ -246,7 +250,7 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
   // only mark a pillar as `near` once its art layer enters the rootMargin
   // window — the PillarArt component then attaches `src` and decodes.
   useEffect(() => {
-    if (isEditor) {
+    if (isEditor || staticRender) {
       setNearSet(new Set(pillars.map((_, i) => i)));
       return;
     }
@@ -270,8 +274,10 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
       { rootMargin: "150% 0px 150% 0px" },
     );
     for (const el of layerRefs.current) if (el) obs.observe(el);
-    return () => obs.disconnect();
-  }, [isEditor, pillars.length]);
+    // Fail-open watchdog — see lib/reveal-fallback.ts.
+    const fallback = setTimeout(() => setNearSet(new Set(pillars.map((_, i) => i))), 2200);
+    return () => { obs.disconnect(); clearTimeout(fallback); };
+  }, [isEditor, staticRender, pillars.length]);
 
   const flatMode = !stackedScroll && !isEditor;
 

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
+import { useAnimInitial, useRevealFallback } from "@/lib/reveal-fallback";
 import { createPortal } from "react-dom";
 import { X, Calendar, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
@@ -88,6 +89,10 @@ export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCom
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-8%" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
+  const anim = useAnimInitial();
 
   const [focused1, setFocused1] = useState(false);
   const [email, setEmail] = useState("");
@@ -221,13 +226,13 @@ export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCom
 
         <motion.div
           initial={{ opacity: 0, x: hasImage ? (imgOnLeft ? 32 : -32) : 0, y: hasImage ? 0 : 20 }}
-          animate={inView ? { opacity: 1, x: 0, y: 0 } : {}}
+          animate={show ? { opacity: 1, x: 0, y: 0 } : {}}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
           {/* Eyebrow */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.45 }}
             style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2rem" }}
           >
@@ -240,7 +245,7 @@ export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCom
           {/* Headline */}
           <motion.h2
             initial={{ opacity: 0, y: 24 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             style={{
               fontFamily: DISPLAY_FONT,
@@ -254,14 +259,14 @@ export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCom
           </motion.h2>
 
           {/* Body */}
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.2 }} style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: muted, maxWidth: 420, marginBottom: "2rem", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.2 }} style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: muted, maxWidth: 420, marginBottom: "2rem", fontFamily: BODY }}>
             <InlineText value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
 
           {/* ── Success state ── */}
           {hideCaptureForm ? null : isSuccess ? (
             <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              initial={anim({ opacity: 0, y: 12, scale: 0.96 })}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               style={{
@@ -302,7 +307,7 @@ export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCom
           ) : (
             /* ── Single-step form: email ── */
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
+              initial={anim({ opacity: 0, x: -20 })}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
               style={{ maxWidth: 480 }}
@@ -381,7 +386,7 @@ export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCom
           {trusts.length > 0 && (
             <motion.div
               initial={{ opacity: 0 }}
-              animate={inView ? { opacity: 1 } : {}}
+              animate={show ? { opacity: 1 } : {}}
               transition={{ duration: 0.5, delay: 0.45 }}
               style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem 2rem", marginTop: "1.75rem", alignItems: "center" }}
             >

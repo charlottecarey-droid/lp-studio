@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { CheckCircle2 } from "lucide-react";
 import type { DsoSplitFeatureBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
@@ -24,6 +25,8 @@ const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_STACK;
 
 export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const {
     eyebrow,
     headline,
@@ -90,7 +93,7 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
 
   const textCol = (
     <motion.div
-      initial={{ opacity: 0, x: imagePosition === "left" ? 30 : -30 }}
+      initial={anim({ opacity: 0, x: imagePosition === "left" ? 30 : -30 })}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.6 }}
@@ -161,7 +164,7 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
 
   const imageCol = (
     <motion.div
-      initial={{ opacity: 0, x: imagePosition === "left" ? -30 : 30 }}
+      initial={anim({ opacity: 0, x: imagePosition === "left" ? -30 : 30 })}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.65 }}

@@ -5,6 +5,7 @@ import { getHeadlineSizeClass } from "../lib/typography";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
@@ -22,6 +23,8 @@ interface Props {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function BlockResources({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const { headline, subheadline, columns, items, backgroundStyle } = props;
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
@@ -64,7 +67,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
               href={item.url || "#"}
               className={`group rounded-xl overflow-hidden ${cardBg} border flex flex-col`}
               style={isDark ? { borderColor: "rgba(255,255,255,0.08)" } : { borderColor: "rgb(241,245,249)" }}
-              initial={animationsEnabled ? { opacity: 0, y: 28 } : undefined}
+              initial={animationsEnabled ? anim({ opacity: 0, y: 28 }) : undefined}
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}

@@ -43,6 +43,7 @@ import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 import { getDtrParams } from "@/lib/dtr";
 import { InlineText } from "@/components/InlineText";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 
 class ContentSeriesErrorBoundary extends Component<
   { children: ReactNode },
@@ -224,6 +225,8 @@ function VideoModal({
   nextEpisode?: { episode: ContentSeriesEpisode; videoId?: string } | null;
   onPlayNext?: () => void;
 }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
@@ -236,7 +239,7 @@ function VideoModal({
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }}
+        initial={anim({ opacity: 0 })}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
@@ -251,7 +254,7 @@ function VideoModal({
         }}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
+          initial={anim({ scale: 0.9, opacity: 0 })}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
@@ -298,7 +301,7 @@ function VideoModal({
           <motion.button
             type="button"
             onClick={e => { e.stopPropagation(); onPlayNext(); }}
-            initial={{ opacity: 0, y: 10 }}
+            initial={anim({ opacity: 0, y: 10 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.3 }}
             whileHover={{ y: -2 }}
@@ -410,6 +413,8 @@ function StickyNav({
   onSubscribe: (initial: Record<string, string>) => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   // onSubscribe is intentionally unused here — the nav Subscribe button anchors to
   // #subscribe instead of opening the modal so visitors land in the bottom CTA section
   // where they can also see all the podcast platform links.
@@ -442,7 +447,7 @@ function StickyNav({
 
   return (
     <motion.nav
-      initial={{ opacity: 0, y: -16 }}
+      initial={anim({ opacity: 0, y: -16 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
       style={{
@@ -611,6 +616,8 @@ function platformIconFor(cta: ContentSeriesCta): { icon: React.ReactNode; label:
 }
 
 function HeroFullBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const Icon = seriesIcon(p.seriesType);
   const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.heroCtaUrl ?? "#episodes";
@@ -673,7 +680,7 @@ function HeroFullBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: Resolve
           textAlign: "center",
         }}
       >
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.p
             variants={fadeUp}
             style={{
@@ -790,6 +797,9 @@ function HeroFullBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: Resolve
 }
 
 function HeroHalfBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
+  const anim = useAnimInitial();
   const Icon = seriesIcon(p.seriesType);
   const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.heroCtaUrl ?? "#episodes";
@@ -828,7 +838,7 @@ function HeroHalfBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: Resolve
         }}
         className="bcs-hero-grid"
       >
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.p
             variants={fadeUp}
             style={{
@@ -937,7 +947,7 @@ function HeroHalfBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: Resolve
 
         {p.heroImageUrl && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
+            initial={anim({ opacity: 0, scale: 0.96 })}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.9, ease: "easeOut" }}
@@ -972,6 +982,8 @@ function HeroHalfBleed({ p, C, field }: { p: ContentSeriesBlockProps; C: Resolve
 }
 
 function HeroTextOnly({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const Icon = seriesIcon(p.seriesType);
   const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.heroCtaUrl ?? "#episodes";
@@ -999,7 +1011,7 @@ function HeroTextOnly({ p, C, field }: { p: ContentSeriesBlockProps; C: Resolved
       />
 
       <div style={{ position: "relative", maxWidth: "52rem", margin: "0 auto", textAlign: "center" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.p
             variants={fadeUp}
             style={{
@@ -1363,6 +1375,8 @@ function CarouselArrow({ direction, onClick, C, disabled }: { direction: "left" 
 }
 
 function EpisodeRow({ episode, C, defaultCta, onPlayVideo }: { episode: ContentSeriesEpisode; C: ResolvedTheme; defaultCta: string; onPlayVideo?: (videoId: string, episode: ContentSeriesEpisode) => void }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const date = formatDate(episode.publishDate);
   const ctaText = episode.ctaText ?? defaultCta;
   const status = episode.status ?? "on-demand";
@@ -1381,7 +1395,7 @@ function EpisodeRow({ episode, C, defaultCta, onPlayVideo }: { episode: ContentS
       className="bcs-episode-row"
       href={hasVideo ? "#" : episode.ctaUrl}
       onClick={handleClick}
-      initial={{ opacity: 0, y: 12 }}
+      initial={anim({ opacity: 0, y: 12 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       style={{
@@ -1462,6 +1476,9 @@ const CAROUSEL_PAGE_SIZE = 3;
 const LIST_PAGE_SIZE = 10;
 
 function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
+  const anim = useAnimInitial();
   const defaultCta = defaultCtaForType(p.seriesType);
   const [carouselIdx, setCarouselIdx] = useState(0);
   const [showFullList, setShowFullList] = useState(false);
@@ -1549,7 +1566,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
     >
       <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
         <motion.div
-          initial="hidden"
+          initial={staticRender ? false : "hidden"}
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
           variants={stagger}
@@ -1581,7 +1598,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
                 {carouselEpisodes.map((ep, idx) => (
                   <motion.div
                     key={`${carouselIdx}-${idx}`}
-                    initial={{ opacity: 0, x: 30 }}
+                    initial={anim({ opacity: 0, x: 30 })}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -30 }}
                     transition={{ duration: 0.35, delay: idx * 0.08 }}
@@ -1631,7 +1648,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
         )}
 
         {showFullList && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+          <motion.div initial={anim({ opacity: 0 })} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {listEpisodes.map((ep, idx) => (
                 <EpisodeRow key={`list-${listPage}-${idx}`} episode={ep} C={C} defaultCta={defaultCta} onPlayVideo={playEpisode} />
@@ -1780,10 +1797,12 @@ function HostCard({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
 }
 
 function SingleHostSpotlight({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   return (
     <section id="guests" className="bcs-section" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "56rem", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem", textAlign: "center" }}>
             Your Host
           </motion.p>
@@ -1838,6 +1857,8 @@ function SingleHostSpotlight({ host, C }: { host: ContentSeriesHost; C: Resolved
 }
 
 function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const hosts = p.hosts ?? [];
   if (!hosts.length) return null;
 
@@ -1848,7 +1869,7 @@ function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   return (
     <section id="guests" className="bcs-section" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} style={{ marginBottom: "3.5rem", textAlign: "center" }}>
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} style={{ marginBottom: "3.5rem", textAlign: "center" }}>
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
             Voices on the Show
           </motion.p>
@@ -1856,7 +1877,7 @@ function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
             Hosts &amp; Recurring Guests
           </motion.h2>
         </motion.div>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 18rem), 1fr))", gap: "1.5rem" }}>
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 18rem), 1fr))", gap: "1.5rem" }}>
           {hosts.map((h, idx) => (
             <HostCard key={`${h.name}-${idx}`} host={h} C={C} />
           ))}
@@ -1867,6 +1888,8 @@ function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
 }
 
 function AboutSection({ p, C, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; field?: FieldUpdater }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const headline = p.aboutHeadline;
   const description = p.aboutDescription;
   const audience = p.aboutAudience;
@@ -1877,7 +1900,7 @@ function AboutSection({ p, C, field }: { p: ContentSeriesBlockProps; C: Resolved
   return (
     <section id="about" className="bcs-section" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "62rem", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
+        <motion.div initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
             About the Series
           </motion.p>
@@ -2185,6 +2208,8 @@ function FormModal({
   pageId?: number;
   sessionId?: string;
 }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const baseSteps = config.steps ?? [];
   // When availability is configured, append a synthetic final step that
   // renders the Google Sheets-backed slot picker (see AvailabilityPicker).
@@ -2354,7 +2379,7 @@ function FormModal({
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }}
+        initial={anim({ opacity: 0 })}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
@@ -2372,7 +2397,7 @@ function FormModal({
         }}
       >
         <motion.div
-          initial={{ scale: 0.96, opacity: 0, y: 12 }}
+          initial={anim({ scale: 0.96, opacity: 0, y: 12 })}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.96, opacity: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
@@ -2676,6 +2701,8 @@ function SectionTransition({ C }: { C: ResolvedTheme }) {
 }
 
 function FormSection({ p, C, onOpenForm, hasFollowingTransition, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: () => void; hasFollowingTransition?: boolean; field?: FieldUpdater }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   // Visibility is controlled solely by the `showForm` toggle (gated at the
   // callsite). An empty `formSteps` array must NOT hide the section — the
   // modal falls back to DEFAULT_GUEST_FORM_STEPS so the apply button always
@@ -2711,7 +2738,7 @@ function FormSection({ p, C, onOpenForm, hasFollowingTransition, field }: { p: C
           }}
         />
         <motion.div
-          initial="hidden"
+          initial={staticRender ? false : "hidden"}
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
           variants={stagger}
@@ -2853,6 +2880,8 @@ function SubscribeForm({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Re
 }
 
 function CtaSection({ p, C, onSubscribe, field }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onSubscribe: (initial: Record<string, string>) => void; field?: FieldUpdater }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const headline = p.ctaSectionHeadline;
   const sub = p.ctaSectionSubheadline;
   const ctas: ContentSeriesCta[] = p.ctas ?? [];
@@ -2872,7 +2901,7 @@ function CtaSection({ p, C, onSubscribe, field }: { p: ContentSeriesBlockProps; 
         style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${rgba(C.primary, 0.18)} 0%, transparent 60%)`, pointerEvents: "none" }}
       />
       <motion.div
-        initial="hidden"
+        initial={staticRender ? false : "hidden"}
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
         variants={stagger}

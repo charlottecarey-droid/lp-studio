@@ -10,6 +10,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -29,6 +30,8 @@ interface Props {
 }
 
 export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
@@ -160,7 +163,7 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
               key={i}
               className={cn("group flex flex-col", itemPlacement(i), divided && "border-b border-r p-6 sm:p-7")}
               style={divided ? { borderColor: hairline } : undefined}
-              initial={still ? false : { opacity: 0, y: 14 }}
+              initial={still ? false : anim({ opacity: 0, y: 14 })}
               whileInView={still ? undefined : { opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={still ? undefined : { duration: 0.45, delay: Math.min(i * 0.06, 0.36), ease: [0.16, 1, 0.3, 1] }}

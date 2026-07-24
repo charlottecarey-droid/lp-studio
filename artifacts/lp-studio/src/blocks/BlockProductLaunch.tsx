@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { ProductLaunchBlockProps, ProductLaunchTheme } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { InlineText } from "@/components/InlineText";
@@ -152,6 +153,8 @@ interface Props {
 }
 
 export function BlockProductLaunch({ props, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const prefersDark = usePrefersDark();
   const mode: "light" | "dark" =
     props.colorScheme === "auto" ? (prefersDark ? "dark" : "light") : props.colorScheme;
@@ -445,7 +448,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
         {/* Mobile chapter menu */}
         {isMobile && menuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={anim({ opacity: 0, y: -8 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
             style={{
@@ -579,7 +582,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={anim({ opacity: 0, y: 30 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9 }}
           style={{ maxWidth: 880, position: "relative" }}
@@ -748,7 +751,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
 
         {/* Bezelled video frame */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: 30 }}
+          initial={anim({ opacity: 0, scale: 0.92, y: 30 })}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 1.1, delay: 0.25 }}
           style={{
@@ -877,7 +880,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
             <motion.div
               key={slab.id || i}
               id={slab.id}
-              initial={{ opacity: 0, y: 50 }}
+              initial={anim({ opacity: 0, y: 50 })}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.85 }}

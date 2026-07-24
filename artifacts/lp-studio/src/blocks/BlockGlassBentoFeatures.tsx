@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { Sparkles } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
@@ -218,6 +219,8 @@ function CardInner({
 
 export function BlockGlassBentoFeatures({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const theme = props.theme ?? "light";
 
   // ── Resolved surfaces. Custom bgColor can flip the effective darkness, so
@@ -342,7 +345,7 @@ export function BlockGlassBentoFeatures({ props, brand, onFieldChange }: Props) 
                 borderColor: cardBorder,
                 boxShadow: restShadow,
               }}
-              initial={reduced ? false : { opacity: 0, y: 24 }}
+              initial={reduced ? false : anim({ opacity: 0, y: 24 })}
               whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.6, delay: Math.min(i * 0.08, 0.5), ease: [0.16, 1, 0.3, 1] }}

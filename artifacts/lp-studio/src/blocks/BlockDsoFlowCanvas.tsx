@@ -1,5 +1,6 @@
 import { useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
+import { useRevealFallback } from "@/lib/reveal-fallback";
 import type { DsoFlowCanvasBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
@@ -53,6 +54,9 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
   const animRef    = useRef<number>(0);
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-10%" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   const canvasBg = BG_COLOR_MAP[backgroundStyle] ?? BG;
 
@@ -177,7 +181,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
         {/* Right (or only) column: editorial content */}
         <motion.div
           initial={{ opacity: 0, x: hasImage ? 32 : 0, y: hasImage ? 0 : 20 }}
-          animate={inView ? { opacity: 1, x: 0, y: 0 } : {}}
+          animate={show ? { opacity: 1, x: 0, y: 0 } : {}}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
           {/* Eyebrow */}
@@ -191,7 +195,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
           }}>
             <motion.p
               initial={{ opacity: 0, y: 16 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
+              animate={show ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.75, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
               style={{
                 fontFamily: DISPLAY_FONT,
@@ -209,7 +213,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
           {/* Quote */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
+            animate={show ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.7, delay: 0.28 }}
           >
             <p style={{

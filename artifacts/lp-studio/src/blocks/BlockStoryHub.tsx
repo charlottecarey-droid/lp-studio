@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { StoryHubBlockProps, StoryHubStory, StoryHubTheme } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
@@ -173,6 +174,8 @@ interface Props {
 }
 
 export function BlockStoryHub({ props, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const prefersDark = usePrefersDark();
   const mode: "light" | "dark" =
     props.colorScheme === "auto" ? (prefersDark ? "dark" : "light") : props.colorScheme;
@@ -336,7 +339,7 @@ export function BlockStoryHub({ props, onFieldChange }: Props) {
         >
           <div>
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={anim({ opacity: 0, y: 10 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
               style={{
@@ -356,7 +359,7 @@ export function BlockStoryHub({ props, onFieldChange }: Props) {
               <span aria-hidden style={{ width: 28, height: 1, background: theme.accent, opacity: 0.5, fontFamily: BODY }} />
             </motion.div>
             <motion.h1
-              initial={{ opacity: 0, y: 10 }}
+              initial={anim({ opacity: 0, y: 10 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.1 }}
               style={{
@@ -372,7 +375,7 @@ export function BlockStoryHub({ props, onFieldChange }: Props) {
               <InlineText as="span" value={props.heroAccent} onUpdate={field("heroAccent")} style={{ fontStyle: "italic", color: theme.accent, fontFamily: DISPLAY }} />
             </motion.h1>
             <motion.p
-              initial={{ opacity: 0, y: 10 }}
+              initial={anim({ opacity: 0, y: 10 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
               style={{ fontSize: "clamp(1rem, 1.35vw, 1.18rem)",
@@ -386,7 +389,7 @@ export function BlockStoryHub({ props, onFieldChange }: Props) {
 
             {/* Reader stats line */}
             <motion.div
-              initial={{ opacity: 0 }}
+              initial={anim({ opacity: 0 })}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.4 }}
               style={{
@@ -425,7 +428,7 @@ export function BlockStoryHub({ props, onFieldChange }: Props) {
 
           {/* Right-side tear sheet — "From this issue" mini panel */}
           <motion.aside
-            initial={{ opacity: 0, x: 20 }}
+            initial={anim({ opacity: 0, x: 20 })}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.25 }}
             style={{
@@ -504,7 +507,7 @@ export function BlockStoryHub({ props, onFieldChange }: Props) {
 
         <motion.a
           href={props.featured.href || "#"}
-          initial={{ opacity: 0 }}
+          initial={anim({ opacity: 0 })}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.3 }}
           className="lp-story-featured"
@@ -1150,6 +1153,8 @@ function StoryCard({
   mode: "light" | "dark";
   view: "grid" | "list";
 }) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const readTime = deriveReadTime(story);
   const editionNo = `No. ${String(index + 2).padStart(2, "0")}`; // featured is No. 01
   const accentStyle = { ["--accent-color" as never]: theme.accent } as React.CSSProperties;
@@ -1158,7 +1163,7 @@ function StoryCard({
     return (
       <motion.a
         href={story.href || "#"}
-        initial={{ opacity: 0, y: 14 }}
+        initial={anim({ opacity: 0, y: 14 })}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
         transition={{ duration: 0.5, delay: Math.min(index * 0.05, 0.3) }}
@@ -1272,7 +1277,7 @@ function StoryCard({
   return (
     <motion.a
       href={story.href || "#"}
-      initial={{ opacity: 0, y: 22 }}
+      initial={anim({ opacity: 0, y: 22 })}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-100px" }}
       transition={{ duration: 0.6, delay: Math.min(index * 0.06, 0.4) }}

@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, AnimatePresence, useInView } from "framer-motion";
+import { useAnimInitial, useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import {
   BarChart3, TrendingUp, Users, MapPin, Activity,
   ChevronRight, ArrowUpRight, ArrowDownRight, ArrowLeft,
@@ -234,10 +235,17 @@ const KPICard = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const inView = useInView(cardRef, { once: true, margin: "-50px" });
-  const count = useCountUp(stat.numericValue, 1400 + index * 200, stat.decimals, inView);
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
+  // Static renders show the final KPI value, not a mid-count frame.
+  const staticRender = useStaticRender();
+  const count = useCountUp(stat.numericValue, 1400 + index * 200, stat.decimals, show);
+  const shownCount = staticRender ? stat.numericValue : count;
   const isExpanded = expandedCard === stat.label;
   const sparkData = kpiSparklines[stat.label];
-  const displayValue = `${stat.prefix}${stat.decimals > 0 ? count.toFixed(stat.decimals) : count.toLocaleString()}${stat.suffix}`;
+  const displayValue = `${stat.prefix}${stat.decimals > 0 ? shownCount.toFixed(stat.decimals) : shownCount.toLocaleString()}${stat.suffix}`;
 
   const [flashing, setFlashing] = useState(false);
   const prevFlash = useRef(flash);
@@ -254,7 +262,7 @@ const KPICard = ({
   return (
     <motion.div
       ref={cardRef}
-      initial={{ opacity: 0, y: 15 }}
+      initial={anim({ opacity: 0, y: 15 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06 }}
       onClick={() => setExpandedCard(isExpanded ? null : stat.label)}
@@ -289,7 +297,7 @@ const KPICard = ({
       <AnimatePresence>
         {isExpanded && sparkData && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
+            initial={anim({ height: 0, opacity: 0 })}
             animate={{ height: 100, opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
@@ -363,8 +371,11 @@ const OverviewView = ({ t, liveOffset = 0 }: { t: Theme; liveOffset?: number }) 
 };
 
 /* ── Location Detail ─────────────────────────────────────── */
-const LocationDetail = ({ loc, onBack, t }: { loc: typeof locationData[0]; onBack: () => void; t: Theme }) => (
-  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+const LocationDetail = ({ loc, onBack, t }: { loc: typeof locationData[0]; onBack: () => void; t: Theme }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  return (
+  <motion.div initial={anim({ opacity: 0, x: 20 })} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
     <button onClick={onBack} className={`flex items-center gap-1.5 text-sm ${t.textAccent} hover:underline`}>
       <ArrowLeft className="w-3.5 h-3.5" /> All locations
     </button>
@@ -415,11 +426,15 @@ const LocationDetail = ({ loc, onBack, t }: { loc: typeof locationData[0]; onBac
       </div>
     </div>
   </motion.div>
-);
+  );
+};
 
 /* ── Provider Detail ─────────────────────────────────────── */
-const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBack: () => void; t: Theme }) => (
-  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBack: () => void; t: Theme }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  return (
+  <motion.div initial={anim({ opacity: 0, x: 20 })} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
     <button onClick={onBack} className={`flex items-center gap-1.5 text-sm ${t.textAccent} hover:underline`}>
       <ArrowLeft className="w-3.5 h-3.5" /> All providers
     </button>
@@ -485,7 +500,7 @@ const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBac
             </div>
             <div className={`h-2 rounded-full ${t.progressBarBg} overflow-hidden`}>
               <motion.div
-                initial={{ width: 0 }}
+                initial={anim({ width: 0 })}
                 animate={{ width: `${typ.value}%` }}
                 transition={{ duration: 0.6, delay: i * 0.1 }}
                 className="h-full rounded-full"
@@ -497,11 +512,15 @@ const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBac
       </div>
     </div>
   </motion.div>
-);
+  );
+};
 
 /* ── Locations List ──────────────────────────────────────── */
-const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Theme }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Theme }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  return (
+  <motion.div initial={anim({ opacity: 0 })} animate={{ opacity: 1 }} className="space-y-2">
     <div className={`grid grid-cols-12 gap-4 px-4 py-2 text-[10px] uppercase tracking-widest ${t.textMuted} font-medium`}>
       <span className="col-span-4" style={{ fontFamily: BODY }}>Location</span>
       <span className="col-span-2 text-center" style={{ fontFamily: BODY }}>Cases</span>
@@ -512,7 +531,7 @@ const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Them
     {locationData.map((loc, i) => (
       <motion.div
         key={loc.name}
-        initial={{ opacity: 0, x: -15 }}
+        initial={anim({ opacity: 0, x: -15 })}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: i * 0.05 }}
         onClick={() => onSelect(i)}
@@ -527,7 +546,7 @@ const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Them
         <div className="col-span-2 flex justify-center">
           <div className={`w-full max-w-[60px] h-1.5 rounded-full ${t.scoreBarBg} overflow-hidden`}>
             <motion.div
-              initial={{ width: 0 }}
+              initial={anim({ width: 0 })}
               animate={{ width: `${loc.score}%` }}
               transition={{ delay: 0.2 + i * 0.06, duration: 0.6 }}
               className={`h-full rounded-full ${loc.score >= 96 ? t.scoreBarFill : t.scoreBarDefault}`}
@@ -545,15 +564,19 @@ const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Them
     ))}
     <p className={`text-[11px] ${t.textMuted} text-center pt-2`} style={{ fontFamily: BODY }}>Click a location to see detailed analytics</p>
   </motion.div>
-);
+  );
+};
 
 /* ── Providers List ──────────────────────────────────────── */
-const ProvidersView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Theme }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+const ProvidersView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Theme }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  return (
+  <motion.div initial={anim({ opacity: 0 })} animate={{ opacity: 1 }} className="space-y-2">
     {providerData.map((doc, i) => (
       <motion.div
         key={doc.name}
-        initial={{ opacity: 0, y: 10 }}
+        initial={anim({ opacity: 0, y: 10 })}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: i * 0.05 }}
         onClick={() => onSelect(i)}
@@ -583,11 +606,15 @@ const ProvidersView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Them
     ))}
     <p className={`text-[11px] ${t.textMuted} text-center pt-2`} style={{ fontFamily: BODY }}>Click a provider to see detailed analytics</p>
   </motion.div>
-);
+  );
+};
 
 /* ── Trends ─────────────────────────────────────────────── */
-const TrendsView = ({ t }: { t: Theme }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+const TrendsView = ({ t }: { t: Theme }) => {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  return (
+  <motion.div initial={anim({ opacity: 0 })} animate={{ opacity: 1 }} className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-5`}>
         <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-4`} style={{ fontFamily: BODY }}>Remake Rate Trend</p>
@@ -634,7 +661,7 @@ const TrendsView = ({ t }: { t: Theme }) => (
       ].map((card, i) => (
         <motion.div
           key={card.title}
-          initial={{ opacity: 0, y: 10 }}
+          initial={anim({ opacity: 0, y: 10 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 + i * 0.08 }}
           className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4`}
@@ -646,7 +673,8 @@ const TrendsView = ({ t }: { t: Theme }) => (
       ))}
     </div>
   </motion.div>
-);
+  );
+};
 
 /* ── Live Event Ticker ───────────────────────────────────── */
 const LiveEventTicker = ({ t }: { t: Theme }) => {
@@ -723,6 +751,8 @@ const DISPLAY = DISPLAY_FONT;
 
 /* ── Main block component ───────────────────────────────── */
 export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const {
     eyebrow, headline, subheadline,
     backgroundStyle,
@@ -829,12 +859,12 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
         {/* Header */}
         <div className="text-center mb-10">
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))", marginBottom: "1.25rem", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 8 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))", marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           <motion.h2
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
@@ -850,7 +880,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
             <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
-            <motion.p initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 12 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)", fontFamily: BODY }}>
               <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -914,7 +944,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
               <AnimatePresence>
                 {dateDropdownOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: -4 }}
+                    initial={anim({ opacity: 0, y: -4 })}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     className={`absolute right-0 top-full mt-1 z-20 rounded-lg border ${t.cardBorder} ${isDark ? "bg-[#1a1f1c]" : "bg-white"} shadow-lg py-1 min-w-[140px]`}
@@ -981,7 +1011,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeTab}-${selectedLocation}-${selectedProvider}`}
-                initial={{ opacity: 0, y: 10 }}
+                initial={anim({ opacity: 0, y: 10 })}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.25 }}

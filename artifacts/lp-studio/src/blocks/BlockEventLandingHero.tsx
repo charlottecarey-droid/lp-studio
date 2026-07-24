@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { ChevronDown } from "lucide-react";
 import type { EventLandingHeroBlockProps, FormBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -124,6 +125,10 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
     ?? (showDetailsSection ? detailsAnchorId : undefined);
 
   const sectionRef = useRef<HTMLElement>(null);
+  // Static renders get the final frame instead of entrance fades — the
+  // scroll-driven contentOpacity below already starts at 1, so it's safe.
+  // See lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
   // Subtle parallax on the bg image and gentle fade on the foreground.
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
@@ -278,13 +283,13 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
           }}
         >
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ margin: 0, fontSize: "clamp(0.75rem, 1.4vw, 0.875rem)", fontStyle: eyebrowItalic ? "italic" : "normal", fontWeight: 500, letterSpacing: "0.04em", color: A, textShadow: "0 1px 12px rgba(0,0,0,0.4)", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ margin: 0, fontSize: "clamp(0.75rem, 1.4vw, 0.875rem)", fontStyle: eyebrowItalic ? "italic" : "normal", fontWeight: 500, letterSpacing: "0.04em", color: A, textShadow: "0 1px 12px rgba(0,0,0,0.4)", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
 
           <motion.h1
-            initial={{ opacity: 0, y: 30 }}
+            initial={anim({ opacity: 0, y: 30 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             style={{
@@ -304,7 +309,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
 
           {(dateText || locationText) && (
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={anim({ opacity: 0, y: 16 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.15 }}
               style={{
@@ -329,7 +334,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
 
           {ctaText && (
             <motion.button
-              initial={{ opacity: 0, y: 16 }}
+              initial={anim({ opacity: 0, y: 16 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
               onClick={handleCtaClick}
@@ -395,7 +400,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
             type="button"
             onClick={handleScrollClick}
             aria-label={scrollLabel}
-            initial={{ opacity: 0 }}
+            initial={anim({ opacity: 0 })}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.6 }}
             style={{

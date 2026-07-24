@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { ScanDown, FlickerDot } from "./SectionAmbient";
 import { Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers } from "lucide-react";
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
@@ -67,6 +68,8 @@ const DEFAULT_STEPS = [
 ];
 
 export function BlockDsoPilotSteps({ props, brand, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const { eyebrow, headline, subheadline, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000", ctaText, ctaUrl, ctaMode = "link" } = props;
   const field = (key: keyof DsoPilotStepsBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPilotStepsBlockProps[typeof key] }) : undefined;
@@ -117,12 +120,12 @@ export function BlockDsoPilotSteps({ props, brand, onFieldChange }: Props) {
       <div style={{ position: "relative", zIndex: 1, maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowColor, marginBottom: "1.25rem", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 10 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowColor, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           <motion.h2
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
@@ -138,7 +141,7 @@ export function BlockDsoPilotSteps({ props, brand, onFieldChange }: Props) {
             <InlineText as="span" value={headline || "Start small. Prove it out.\nThen scale."} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
-            <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: subColor, lineHeight: 1.7, maxWidth: 560, margin: "1.5rem auto 0", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 15 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: subColor, lineHeight: 1.7, maxWidth: 560, margin: "1.5rem auto 0", fontFamily: BODY }}>
               <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -175,7 +178,7 @@ export function BlockDsoPilotSteps({ props, brand, onFieldChange }: Props) {
               return (
                 <motion.div
                   key={step.title}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={anim({ opacity: 0, x: -20 })}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.12, duration: 0.6 }}
@@ -268,7 +271,7 @@ export function BlockDsoPilotSteps({ props, brand, onFieldChange }: Props) {
 
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}

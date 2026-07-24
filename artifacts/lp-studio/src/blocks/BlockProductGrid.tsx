@@ -6,6 +6,7 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { InlineImage } from "@/components/InlineImage";
 import { InlineText } from "@/components/InlineText";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -28,6 +29,8 @@ const GRID_COLS: Record<number, string> = {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export function BlockProductGrid({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const cols = props.columns ?? 3;
   const updateItemImage = (i: number, url: string) => {
@@ -61,7 +64,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
             <motion.div
               key={i}
               className="group rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-white flex flex-col"
-              initial={animationsEnabled ? { opacity: 0, y: 28 } : undefined}
+              initial={animationsEnabled ? anim({ opacity: 0, y: 28 }) : undefined}
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}

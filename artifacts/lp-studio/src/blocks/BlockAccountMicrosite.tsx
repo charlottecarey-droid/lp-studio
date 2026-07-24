@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, motion, useInView, useReducedMotion } from "framer-motion";
+import { useAnimInitial, useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 import { ArrowRight, Check, FileText } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import {
@@ -638,8 +639,13 @@ function CountUpValue({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
+  // Fail-open reveal — static renders show the final number, live pages get a
+  // watchdog so a never-firing observer can't pin the stat at 0. See lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
+  const staticRender = useStaticRender();
   const parsed = parseStatValue(value);
-  const animatable = parsed.num !== null && !reduced && !onUpdate;
+  const animatable = parsed.num !== null && !reduced && !onUpdate && !staticRender;
   const [display, setDisplay] = useState(() =>
     animatable ? formatStatValue(parsed, 0) : value,
   );
@@ -649,7 +655,7 @@ function CountUpValue({
       setDisplay(value);
       return;
     }
-    if (!inView) return;
+    if (!show) return;
     const controls = animate(0, parsed.num as number, {
       duration: durationMs / 1000,
       delay,
@@ -658,7 +664,7 @@ function CountUpValue({
     });
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animatable, inView, value, durationMs, delay]);
+  }, [animatable, show, value, durationMs, delay]);
 
   const style: React.CSSProperties = {
     fontFamily: NUMBERS,
@@ -694,6 +700,8 @@ export function BlockAccountMicrosite({
   variantId,
 }: Props) {
   const reduced = useReducedMotion() ?? false;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
 
   /* — palette (brand-absorbed, contrast-guarded) — */
   const bg =
@@ -823,7 +831,7 @@ export function BlockAccountMicrosite({
   const nextNo = () => String(++sectionNo).padStart(2, "0");
 
   const fadeUp = (delay = 0) => ({
-    initial: reduced ? false : ({ opacity: 0, y: 16 } as const),
+    initial: reduced ? false : anim({ opacity: 0, y: 16 }),
     whileInView: reduced ? undefined : ({ opacity: 1, y: 0 } as const),
     viewport: { once: true, margin: "-60px" },
     transition: { duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] as const },

@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HeroBrandStyleConfig } from "@/lib/block-types";
@@ -144,6 +145,8 @@ function StarRow({ rating, dark }: { rating: number; dark: boolean }) {
 }
 
 export function BlockTestimonialWall({ props, brand, animationsEnabled, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const surface = resolveSectionSurface(props, "#ffffff");
   const dark = surface.isDark;
   const accent = props.accentColor || "var(--brand-accent, #6366f1)";
@@ -339,7 +342,7 @@ export function BlockTestimonialWall({ props, brand, animationsEnabled, onFieldC
               <motion.div
                 key={i}
                 className="mb-5 break-inside-avoid md:mb-6"
-                initial={{ opacity: 0, y: 24 }}
+                initial={anim({ opacity: 0, y: 24 })}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.55, delay: Math.min((i % 3) * 0.08 + Math.floor(i / 3) * 0.04, 0.4), ease: [0.22, 1, 0.36, 1] }}

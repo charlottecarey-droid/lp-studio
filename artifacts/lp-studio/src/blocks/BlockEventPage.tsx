@@ -3,6 +3,7 @@ import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 
 const BODY = BRAND_BODY_FONT;
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import type { EventPageBlockProps, EventPageTheme } from "@/lib/block-types";
@@ -240,6 +241,9 @@ interface Props {
 }
 
 export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  const staticRender = useStaticRender();
   const C = useMemo(() => resolveTheme(p.theme), [p.theme]);
   const field = (key: keyof EventPageBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v }) : undefined;
@@ -485,7 +489,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
 
       {/* Nav */}
       <motion.nav
-        initial={{ opacity: 0, y: -20 }}
+        initial={anim({ opacity: 0, y: -20 })}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.5 }}
         style={{
@@ -576,7 +580,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           }}
         >
           <motion.p
-            initial={{ opacity: 0, filter: "blur(8px)" }}
+            initial={anim({ opacity: 0, filter: "blur(8px)" })}
             animate={{ opacity: 1, filter: "blur(0px)" }}
             transition={{ duration: 1, delay: 0.3 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.heroEyebrow, marginBottom: "2rem" }}
@@ -593,7 +597,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           />
 
           <motion.p
-            initial={{ opacity: 0 }}
+            initial={anim({ opacity: 0 })}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.9 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.75rem", letterSpacing: "0.3em", textTransform: "uppercase", color: "hsl(38 25% 72%)", marginBottom: "1.5rem" }}
@@ -602,14 +606,14 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           </motion.p>
 
           <motion.div
-            initial={{ scaleX: 0 }}
+            initial={anim({ scaleX: 0 })}
             animate={{ scaleX: 1 }}
             transition={{ duration: 1, delay: 1.1 }}
             style={{ width: "3rem", height: "1px", backgroundColor: "rgba(181,154,110,0.4)", margin: "0 auto 2rem", transformOrigin: "center" }}
           />
 
           <motion.p
-            initial={{ opacity: 0 }}
+            initial={anim({ opacity: 0 })}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 1.2 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.heroTagline, maxWidth: "28rem", margin: "0 auto 2rem", lineHeight: 1.7 }}
@@ -618,7 +622,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           </motion.p>
 
           <motion.p
-            initial={{ opacity: 0 }}
+            initial={anim({ opacity: 0 })}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 1.4 }}
             style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.65rem", color: "rgba(122,128,136,0.6)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "3rem" }}
@@ -626,7 +630,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
             <InlineText as="span" value={p.heroLocation} onUpdate={field("heroLocation")} />
           </motion.p>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.6 }}>
+          <motion.div initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.6 }}>
             <motion.a
               href={p.navCtaUrl}
               style={{
@@ -655,7 +659,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
 
         {/* Scroll indicator */}
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={anim({ opacity: 0 })}
           animate={{ opacity: 0.4 }}
           transition={{ delay: 2.5 }}
           style={{ position: "absolute", bottom: "2.5rem", left: "50%", transform: "translateX(-50%)" }}
@@ -672,7 +676,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
       <section id="agenda" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg }}>
         <div style={{ maxWidth: "56rem", margin: "0 auto" }}>
           <motion.div
-            initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }}
+            initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-50px" }}
             variants={stagger} style={{ textAlign: "center", marginBottom: "5rem" }}
           >
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
@@ -689,7 +693,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           {/* Value props */}
           {p.agendaValueProps && p.agendaValueProps.length > 0 && (
             <motion.div
-              initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}
+              initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true }} variants={stagger}
               style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.75rem 2rem", marginBottom: "4rem" }}
             >
               {p.agendaValueProps.map((vp, i) => (
@@ -710,7 +714,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
             {p.agendaDays.map((day, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, x: i % 2 === 0 ? -30 : 30 }}
+                initial={anim({ opacity: 0, x: i % 2 === 0 ? -30 : 30 })}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.8, delay: i * 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -739,7 +743,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
                   />
                   <InlineText as="p" value={day.description} onUpdate={onFieldChange ? (v) => updateDay(i, "description", v) : undefined} multiline style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, lineHeight: 1.7, marginBottom: "1rem" }} />
                   <motion.div
-                    initial={{ width: 0 }} whileInView={{ width: "3rem" }} viewport={{ once: true }}
+                    initial={anim({ width: 0 })} whileInView={{ width: "3rem" }} viewport={{ once: true }}
                     transition={{ duration: 0.8, delay: 0.3 + i * 0.15 }}
                     style={{ height: "1px", backgroundColor: "rgba(181,154,110,0.3)", marginBottom: "1rem" }}
                   />
@@ -756,7 +760,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
       {/* Photo Carousel */}
       <section id="photos" style={{ padding: "5rem 0", backgroundColor: C.bg, overflow: "hidden" }}>
         <motion.div
-          initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          initial={anim({ opacity: 0 })} whileInView={{ opacity: 1 }} viewport={{ once: true }}
           transition={{ duration: 1 }} style={{ position: "relative" }}
         >
           <div className="overflow-hidden cursor-grab active:cursor-grabbing" ref={emblaRef}>
@@ -859,7 +863,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
       <section id="details" style={{ padding: "7rem 1.5rem", backgroundColor: C.card }}>
         <div style={{ maxWidth: "56rem", margin: "0 auto" }}>
           <motion.div
-            initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }}
+            initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-50px" }}
             variants={stagger} style={{ textAlign: "center", marginBottom: "4rem" }}
           >
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
@@ -874,7 +878,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           </motion.div>
 
           <motion.div
-            initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}
+            initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true }} variants={stagger}
             style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", border: `1px solid rgba(38,42,47,0.3)`, backgroundColor: "rgba(38,42,47,0.3)" }}
             className="max-sm:grid-cols-1"
           >
@@ -917,7 +921,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
 
         <div style={{ maxWidth: "36rem", margin: "0 auto", position: "relative", zIndex: 10 }}>
           <motion.div
-            initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }}
+            initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true, margin: "-50px" }}
             variants={stagger} style={{ textAlign: "center", marginBottom: "3.5rem" }}
           >
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
@@ -933,13 +937,13 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
 
           {submitted ? (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={anim({ opacity: 0, scale: 0.95, y: 20 })}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ duration: 0.8 }}
               style={{ textAlign: "center", padding: "4rem 2rem", border: `1px solid rgba(181,154,110,0.3)`, position: "relative", overflow: "hidden" }}
             >
-              <motion.div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(181,154,110,0.05)" }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} />
-              <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 1, delay: 0.5 }} style={{ width: "3rem", height: "1px", backgroundColor: "rgba(181,154,110,0.5)", margin: "0 auto 1.5rem", transformOrigin: "center" }} />
+              <motion.div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(181,154,110,0.05)" }} initial={anim({ opacity: 0 })} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} />
+              <motion.div initial={anim({ scaleX: 0 })} animate={{ scaleX: 1 }} transition={{ duration: 1, delay: 0.5 }} style={{ width: "3rem", height: "1px", backgroundColor: "rgba(181,154,110,0.5)", margin: "0 auto 1.5rem", transformOrigin: "center" }} />
               <p style={{ fontFamily: displayFont, fontStyle: "italic", fontSize: "1.5rem", color: C.heading, marginBottom: "0.75rem", position: "relative", zIndex: 10 }}>
                 Thank you for your interest
               </p>
@@ -950,7 +954,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           ) : (
             <motion.form
               key={step}
-              initial={{ opacity: 0, x: step === 1 ? 0 : 30 }}
+              initial={anim({ opacity: 0, x: step === 1 ? 0 : 30 })}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4 }}
               onSubmit={step < p.formSteps.length ? (e) => { e.preventDefault(); setStep(s => s + 1); } : handleSubmit}
@@ -982,7 +986,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
 
               {/* Error */}
               {error && step === p.formSteps.length && (
-                <motion.p initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} style={{ fontFamily: bodyFont, fontSize: "0.875rem", color: "#ef4444" }}>
+                <motion.p initial={anim({ opacity: 0, x: -10 })} animate={{ opacity: 1, x: 0 }} style={{ fontFamily: bodyFont, fontSize: "0.875rem", color: "#ef4444" }}>
                   {error}
                 </motion.p>
               )}
@@ -1010,7 +1014,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
 
       {/* Footer */}
       <motion.footer
-        initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+        initial={anim({ opacity: 0 })} whileInView={{ opacity: 1 }} viewport={{ once: true }}
         transition={{ duration: 0.8 }}
         style={{ padding: "4rem 1.5rem", borderTop: `1px solid rgba(38,42,47,0.3)`, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem" }}
       >

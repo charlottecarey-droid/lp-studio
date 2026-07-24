@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { ScanAcross, ScanDown, FlickerDot, PulseGlow } from "./SectionAmbient";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
@@ -30,6 +31,8 @@ const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 const DISPLAY = DISPLAY_FONT;
 
 export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, pageId, variantId, sessionId }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const [modalOpen, setModalOpen] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
   const isModalCta = props.primaryCtaMode === "modal-form" || props.primaryCtaMode === "modal-chilipiper";
@@ -171,14 +174,14 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
       >
         {eyebrow && (
           <>
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem", fontFamily: BODY }}>
+            <motion.p initial={anim({ opacity: 0, y: 10 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           </>
         )}
 
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={anim({ opacity: 0, y: 20 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.7 }}
@@ -199,13 +202,13 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
         </motion.h2>
 
         {subheadline && (
-          <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.75rem", fontSize: "1.0625rem", color: dark ? `${PFG}99` : "hsl(152,8%,44%)", lineHeight: 1.7, fontFamily: BODY }}>
+          <motion.p initial={anim({ opacity: 0, y: 15 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.75rem", fontSize: "1.0625rem", color: dark ? `${PFG}99` : "hsl(152,8%,44%)", lineHeight: 1.7, fontFamily: BODY }}>
             <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
         )}
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={anim({ opacity: 0, y: 20 })}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.18 }}

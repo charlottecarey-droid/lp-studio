@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import type { IdReservationPassBlockProps } from "@/lib/block-types";
 import { CtaButton, type CtaActionMode } from "@/components/CtaButton";
 import { useBrandConfig } from "@/components/BrandSwatches";
@@ -72,9 +73,12 @@ export function BlockIdReservationPass({ props: p, onCtaClick, onFieldChange }: 
   // trace-in + headline reveal run on first view, not on mount in
   // pages where the block sits below the fold.
   const sectionRef = useRef<HTMLDivElement | null>(null);
+  // Static renders (template preview, thumbnails, builder) show the final
+  // frame — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const [inView, setInView] = useState(false);
   useEffect(() => {
-    if (prefersReducedMotion) {
+    if (prefersReducedMotion || staticRender) {
       setInView(true);
       return;
     }
@@ -96,8 +100,10 @@ export function BlockIdReservationPass({ props: p, onCtaClick, onFieldChange }: 
       { threshold: 0.18 }
     );
     io.observe(el);
-    return () => io.disconnect();
-  }, [prefersReducedMotion]);
+    // Fail-open watchdog — see lib/reveal-fallback.ts.
+    const fallback = setTimeout(() => setInView(true), 2200);
+    return () => { io.disconnect(); clearTimeout(fallback); };
+  }, [prefersReducedMotion, staticRender]);
 
   const handlePrimaryCtaClick = () => {
     // CtaButton internally owns modal / Chili Piper flows; only fall
@@ -209,7 +215,7 @@ export function BlockIdReservationPass({ props: p, onCtaClick, onFieldChange }: 
 
         <motion.div
           className="id-pass__column"
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
+          initial={prefersReducedMotion || staticRender ? false : { opacity: 0, y: 24 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
@@ -364,6 +370,8 @@ export function BlockIdReservationPass({ props: p, onCtaClick, onFieldChange }: 
 /* ---------- decorative subcomponents ---------- */
 
 function CornerHud({ inView }: { inView: boolean }) {
+  // Static renders show the traced-in final state — see lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const corners: Array<"tl" | "tr" | "bl" | "br"> = ["tl", "tr", "bl", "br"];
   return (
     <div className="id-pass__hud" aria-hidden>
@@ -371,14 +379,14 @@ function CornerHud({ inView }: { inView: boolean }) {
         <div key={c} className={`id-pass__hud-corner id-pass__hud-corner--${c}`}>
           <motion.span
             className="id-pass__hud-line id-pass__hud-line--h"
-            initial={{ scaleX: 0 }}
+            initial={staticRender ? false : { scaleX: 0 }}
             animate={inView ? { scaleX: 1 } : {}}
             transition={{ duration: 0.7, delay: 0.1 + i * 0.07, ease: [0.22, 1, 0.36, 1] }}
             style={{ transformOrigin: c.endsWith("r") ? "right" : "left" }}
           />
           <motion.span
             className="id-pass__hud-line id-pass__hud-line--v"
-            initial={{ scaleY: 0 }}
+            initial={staticRender ? false : { scaleY: 0 }}
             animate={inView ? { scaleY: 1 } : {}}
             transition={{ duration: 0.7, delay: 0.15 + i * 0.07, ease: [0.22, 1, 0.36, 1] }}
             style={{ transformOrigin: c.startsWith("b") ? "bottom" : "top" }}

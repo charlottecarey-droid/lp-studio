@@ -1,6 +1,7 @@
 import { Fragment, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { motion, useScroll, useTransform, useSpring, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { ArrowRight, Menu } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { ParallaxLayersHeroBlockProps } from "@/lib/block-types";
@@ -41,6 +42,8 @@ const DEFAULT_NAV_LINKS = [
 const DEFAULT_MARQUEE_LOGOS = ["LUMINA", "NEXUS", "ELEVATE", "SYNTH", "VERTEX"];
 
 export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChange, pageId, variantId, isBuilder }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof ParallaxLayersHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
@@ -192,7 +195,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
 
   const emailCaptureForm = (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      initial={anim({ opacity: 0, y: 30 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay: 0.5 }}
       style={{ width: "100%", maxWidth: 480 }}
@@ -250,7 +253,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
 
   const ctaButtons = (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      initial={anim({ opacity: 0, y: 30 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay: 0.5 }}
       className="flex flex-col sm:flex-row items-center gap-4"
@@ -488,7 +491,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
         >
           {(props.badgeText || onFieldChange) && (
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={anim({ opacity: 0, y: 30 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
               className="inline-flex min-h-[36px] items-center gap-2.5 px-4 py-1.5 rounded-full text-sm font-medium backdrop-blur-md mb-8"
@@ -505,7 +508,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
           )}
 
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={anim({ opacity: 0, y: 30 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
             className="font-bold mb-6"
@@ -515,7 +518,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
 
           {(props.subheadline || onFieldChange) && (
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={anim({ opacity: 0, y: 30 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
               className="text-lg md:text-xl leading-relaxed mb-10 max-w-2xl"
@@ -531,7 +534,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
         {/* Marquee Band */}
         {props.showMarquee !== false && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={anim({ opacity: 0 })}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.8 }}
             className="w-full pb-12"

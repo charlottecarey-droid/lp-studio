@@ -12,6 +12,7 @@ import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { balancedGridItemClasses } from "@/lib/grid-balance";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -101,6 +102,8 @@ function BuilderMockup({ accent }: { accent: string }) {
 
 export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
 
@@ -280,7 +283,7 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                       : cardRing,
                     boxShadow: cardShadow,
                   } as React.CSSProperties}
-                  initial={still ? false : { opacity: 0, y: 16 }}
+                  initial={still ? false : anim({ opacity: 0, y: 16 })}
                   whileInView={still ? undefined : { opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={still ? undefined : { duration: 0.5, delay: Math.min(i * 0.06, 0.36), ease: [0.16, 1, 0.3, 1] }}

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { ScrollAssemblyBlockProps, ScrollAssemblyPiece } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -74,6 +75,13 @@ function PieceView({
   const blurPx  = useTransform(scrollYProgress, [start, start + (end - start) * 0.75, end], [offset.blur, 0, 0]);
   const filter  = useTransform(blurPx, (b) => (b > 0.2 ? `blur(${b.toFixed(2)}px)` : "none"));
 
+  // The assembly is deliberately scroll-driven on live pages, but a static
+  // render (template preview, thumbnails, builder canvas) never scrolls —
+  // show every piece fully assembled instead of frozen at opacity 0.
+  // See lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
+  const motionStyle = staticRender ? {} : { opacity, x, y, rotate, scale, filter };
+
   if (piece.kind === "image") {
     // Premium image piece: object-contain + no rounded frame so PNGs
     // with transparent backgrounds (product shots, headset, etc.) sit
@@ -84,7 +92,7 @@ function PieceView({
     // floor shadow underneath gives weight without enclosing the cutout.
     return (
       <motion.div
-        style={{ opacity, x, y, rotate, scale, filter, willChange: "transform, opacity, filter" }}
+        style={{ ...motionStyle, willChange: "transform, opacity, filter" }}
         className="relative flex flex-col items-center"
       >
         <img
@@ -102,7 +110,7 @@ function PieceView({
     return (
       <motion.div
         style={{
-          opacity, x, y, rotate, scale, filter,
+          ...motionStyle,
           background: `radial-gradient(circle at 30% 30%, ${c} 0%, ${c} 60%, rgba(0,0,0,0.15) 100%)`,
           boxShadow: `0 20px 60px -10px ${c}55, 0 0 0 1px rgba(0,0,0,0.04) inset`,
           willChange: "transform, opacity, filter",
@@ -143,7 +151,7 @@ function PieceView({
   return (
     <motion.div
       style={{
-        opacity, x, y, rotate, scale, filter,
+        ...motionStyle,
         color: piece.color || defaultColor,
         willChange: "transform, opacity, filter",
       }}
@@ -326,6 +334,9 @@ function MarqueeTags({
   // Marquee speed couples to scroll: it always drifts, but speeds up as you scroll.
   const x = useTransform(scrollYProgress, [0, 1], ["0%", "-50%"]);
   const opacity = useTransform(scrollYProgress, [0, 0.1, 0.9, 1], [0, 1, 1, 0.4]);
+  // Static renders show the tag strip at full strength — it starts at 0 and
+  // only fades in on scroll. See lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   // Duplicate the list so the loop is seamless.
   const doubled = [...tags, ...tags];
   const tagBg = theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
@@ -333,7 +344,7 @@ function MarqueeTags({
   const tagText = theme === "dark" ? "rgba(255,255,255,0.9)" : "rgb(15 23 42)";
   return (
     <motion.div
-      style={{ opacity }}
+      style={staticRender ? undefined : { opacity }}
       className="absolute bottom-6 left-0 right-0 overflow-hidden pointer-events-none"
     >
       <motion.div style={{ x }} className="flex gap-3 whitespace-nowrap">
@@ -367,6 +378,9 @@ function isDarkColor(hex: string): boolean {
 
 export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, pageId, variantId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Static renders can't scroll to the 85% mark that reveals the CTA — pin
+  // it visible there. See lib/reveal-fallback.ts.
+  const staticRender = useStaticRender();
   const [email, setEmail] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const emailCfg = props.email ?? {};
@@ -542,7 +556,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
 
             {props.showEmailCapture ? (
               <motion.div
-                style={{ opacity: ctaOpacity, y: ctaY, width: "100%", display: "flex", justifyContent: "center" }}
+                style={{ ...(staticRender ? {} : { opacity: ctaOpacity, y: ctaY }), width: "100%", display: "flex", justifyContent: "center" }}
                 className="mt-6"
               >
                 <InlineEmailCapture
@@ -587,8 +601,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
               <motion.button
                 onClick={handleButtonCta}
                 style={{
-                  opacity: ctaOpacity,
-                  y: ctaY,
+                  ...(staticRender ? {} : { opacity: ctaOpacity, y: ctaY }),
                   backgroundColor: ctaBg,
                   color: ctaText,
                   // Softer halo (50% → 35% alpha, larger blur, no

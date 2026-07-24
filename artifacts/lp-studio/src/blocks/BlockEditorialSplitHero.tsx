@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { motion } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { ArrowRight, Menu } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { EditorialSplitHeroBlockProps } from "@/lib/block-types";
@@ -40,6 +41,8 @@ export function BlockEditorialSplitHero({
   pageId,
   variantId,
 }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
   const field = (key: keyof EditorialSplitHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
@@ -145,7 +148,7 @@ export function BlockEditorialSplitHero({
 
   const emailPill = (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={anim({ opacity: 0, y: 20 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: EASE_OUT_EXPO, delay: 0.7 }}
       style={{ width: "100%", maxWidth: 480 }}
@@ -307,7 +310,7 @@ export function BlockEditorialSplitHero({
       <div className="max-w-xl mx-auto lg:mx-0 w-full">
         {(props.eyebrow || onFieldChange) && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={anim({ opacity: 0, y: 20 })}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE_OUT_EXPO, delay: 0.2 }}
             className="mb-8 lg:mb-10 flex items-center gap-3"
@@ -337,7 +340,7 @@ export function BlockEditorialSplitHero({
             lineHeight: 1.04,
             letterSpacing: "-0.015em",
           }}
-          initial={{ opacity: 0, y: 30 }}
+          initial={anim({ opacity: 0, y: 30 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: EASE_OUT_EXPO, delay: 0.3 }}
         >
@@ -346,7 +349,7 @@ export function BlockEditorialSplitHero({
 
         {(props.subheadline || onFieldChange) && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={anim({ opacity: 0 })}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.6 }}
           >
@@ -362,7 +365,7 @@ export function BlockEditorialSplitHero({
         )}
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={anim({ opacity: 0, y: 20 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: EASE_OUT_EXPO, delay: 0.7 }}
           style={{ fontFamily: bodyFamily }}
@@ -384,7 +387,7 @@ export function BlockEditorialSplitHero({
   const imageCol = (
     <div className="relative w-full flex p-4 sm:p-6 lg:p-10 xl:p-12">
       <motion.div
-        initial={{ scale: 1.04, opacity: 0 }}
+        initial={anim({ scale: 1.04, opacity: 0 })}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.5, ease: EASE_OUT_EXPO }}
         className="relative w-full h-[46vh] min-h-[320px] lg:h-auto overflow-hidden rounded-2xl"
