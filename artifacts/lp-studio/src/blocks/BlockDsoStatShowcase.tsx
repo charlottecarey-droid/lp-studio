@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
+import { useRevealFallback } from "@/lib/reveal-fallback";
 import { ScanAcross, PulseGlow } from "./SectionAmbient";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
@@ -59,6 +60,9 @@ function StatCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(isInView);
+  const show = isInView || forceVisible;
 
   const { prefix, num, suffix, isDecimal } = parseValue(stat.value);
   const count = useMotionValue(0);
@@ -72,20 +76,20 @@ function StatCard({
   });
 
   useEffect(() => {
-    if (isInView) {
+    if (show) {
       animate(count, num, {
         duration: 1.6,
         delay: index * 0.09,
         ease: [0.16, 1, 0.3, 1],
       });
     }
-  }, [isInView, num, index, count]);
+  }, [show, num, index, count]);
 
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 32 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
+      animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
       transition={{ duration: 0.75, delay: index * 0.09, ease: [0.16, 1, 0.3, 1] }}
       style={{
         padding: "2.25rem 1.75rem",

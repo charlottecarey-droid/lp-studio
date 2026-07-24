@@ -236,6 +236,7 @@ import { BlockStack } from "./BlockStack";
 import type { BlockPath } from "@/lib/block-tree";
 import { BlockErrorBoundary } from "./BlockErrorBoundary";
 import { Reveal } from "@/components/Reveal";
+import { StaticRenderContext } from "@/lib/reveal-fallback";
 import type { ReactNode } from "react";
 import { memo, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -1773,6 +1774,16 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
   const wrapped = wrapWithSettings(inner, outerSettings, animationsEnabled);
   const final = shouldReveal ? <Reveal>{wrapped}</Reveal> : wrapped;
 
+  // On the builder canvas, blocks' own entrance animations (whileInView /
+  // mount fades) must render their FINAL frame — the canvas is the WYSIWYG
+  // reference for what publishes, and half-run animations read as
+  // transparent copy. Blocks consult this via useStaticRender().
+  const body = isBuilder ? (
+    <StaticRenderContext.Provider value={true}>{final}</StaticRenderContext.Provider>
+  ) : (
+    final
+  );
+
   return (
     <PageContextProvider value={{ pageId, testId, variantId, sessionId, pageCta, tenantDefaultCta: brandDefaultCtaConfig(brand) }}>
       <BlockErrorBoundary
@@ -1780,7 +1791,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
         blockType={block.type}
         isEditor={!!isBuilder || !!onBlockChange}
       >
-        {final}
+        {body}
       </BlockErrorBoundary>
     </PageContextProvider>
   );

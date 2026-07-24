@@ -1,4 +1,5 @@
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useAnimInitial } from "@/lib/reveal-fallback";
 import { useRef, useState, useCallback } from "react";
 import { ArrowRight } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
@@ -80,6 +81,10 @@ function buildFullBleedScrim(strength: number): string {
 
 
 export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId, onFieldChange }: Props) {
+  // Static renders (template-library preview, thumbnails, builder) get the
+  // final frame instead of entrance animations — captured screenshots were
+  // freezing the hero copy at opacity 0.
+  const anim = useAnimInitial();
   const submitMode = p.submitMode ?? "navigate";
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
@@ -204,7 +209,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
   const statsBar = p.stats && p.stats.length > 0 && (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={anim({ opacity: 0, y: 10 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.5 }}
       className="dso-stats-row"
@@ -329,7 +334,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     // swallowing submit events (the Dandy Product Hero uses plain <form>
     // and works correctly). Keep entrance animation on a wrapping motion.div.
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
+      initial={anim({ opacity: 0, y: 14 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.35 }}
       style={{ marginTop: "2rem", width: "100%", maxWidth: 480 }}
@@ -406,7 +411,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
   const ctaButtons = ctaStyle === "email-capture" ? emailCaptureForm : (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
+      initial={anim({ opacity: 0, y: 14 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.35 }}
       className="flex flex-col sm:flex-row gap-3"
@@ -465,7 +470,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
   const navBar = p.stickyHeader ? stickyNavBar : (
     <motion.nav
-      initial={{ opacity: 0, y: -8 }}
+      initial={anim({ opacity: 0, y: -8 })}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="absolute top-0 left-0 right-0 z-20"
@@ -609,13 +614,13 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               className="relative z-10 flex flex-col justify-center hl-split-content"
             >
               {(p.eyebrow || onFieldChange) && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                   <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
 
               <motion.h1
-                initial={{ opacity: 0, y: 24 }}
+                initial={anim({ opacity: 0, y: 24 })}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                 style={{
@@ -632,7 +637,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               </motion.h1>
 
               {(p.subheadline || onFieldChange) && (
-                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
                   <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
@@ -737,12 +742,12 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               className="relative z-10 flex flex-col justify-center"
             >
               {(p.eyebrow || onFieldChange) && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                   <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
               <motion.h1
-                initial={{ opacity: 0, y: 24 }}
+                initial={anim({ opacity: 0, y: 24 })}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                 style={{
@@ -758,7 +763,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 {renderHeadline()}
               </motion.h1>
               {(p.subheadline || onFieldChange) && (
-                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
                   <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
@@ -768,7 +773,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
             {/* ── Video column ── */}
             <motion.div
-              initial={{ opacity: 0, x: videoLeft ? -24 : 24 }}
+              initial={anim({ opacity: 0, x: videoLeft ? -24 : 24 })}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
               style={{
@@ -907,13 +912,13 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               }}
             >
               {(p.eyebrow || onFieldChange) && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                   <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
 
               <motion.h1
-                initial={{ opacity: 0, y: 24 }}
+                initial={anim({ opacity: 0, y: 24 })}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                 style={{
@@ -930,14 +935,14 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               </motion.h1>
 
               {(p.subheadline || onFieldChange) && (
-                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
                   <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
 
               {/* CTAs */}
               <motion.div
-                initial={{ opacity: 0, y: 14 }}
+                initial={anim({ opacity: 0, y: 14 })}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.35 }}
                 className="flex flex-col sm:flex-row gap-3 justify-center"
@@ -968,7 +973,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
             {/* ── Large video showcase ── */}
             <motion.div
-              initial={{ opacity: 0, y: 32 }}
+              initial={anim({ opacity: 0, y: 32 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.45 }}
               style={{
@@ -1068,7 +1073,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             {/* ── Stats below video ── */}
             {p.stats && p.stats.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={anim({ opacity: 0, y: 10 })}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.6 }}
                 className="dso-stats-row dso-stats-row--below-video"
@@ -1221,13 +1226,13 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         >
           <div className="max-w-[1200px] mx-auto px-6 md:px-10 w-full">
             {(p.eyebrow || onFieldChange) && (
-              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
+              <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                 <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
               </motion.p>
             )}
 
             <motion.h1
-              initial={{ opacity: 0, y: 24 }}
+              initial={anim({ opacity: 0, y: 24 })}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
               style={{
@@ -1245,7 +1250,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             </motion.h1>
 
             {(p.subheadline || onFieldChange) && (
-              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: 520, fontFamily: BODY }}>
+              <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: 520, fontFamily: BODY }}>
                 <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: fullBleedSubColor, fontFamily: BODY }} />
               </motion.p>
             )}
@@ -1257,7 +1262,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           {/* Scroll indicator */}
           {p.showScrollIndicator !== false && (
             <motion.div
-              initial={{ opacity: 0 }}
+              initial={anim({ opacity: 0 })}
               animate={{ opacity: 1 }}
               transition={{ delay: 1.2, duration: 0.8 }}
               className="flex justify-center mt-12"

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import { useRevealFallback } from "@/lib/reveal-fallback";
 import type { DsoStatBarBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -29,12 +30,17 @@ const StatItem = ({
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
+  // Fail-open: `animate={... : {}}` pins the stat at its hidden initial
+  // state forever if the observer never fires (preview iframes, tall
+  // sections) — the watchdog reveals it anyway.
+  const forceVisible = useRevealFallback(inView);
+  const show = inView || forceVisible;
 
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 10 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
+      animate={show ? { opacity: 1, y: 0 } : {}}
       transition={{ delay: i * 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
       style={{
         display: "flex",

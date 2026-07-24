@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
 import { motion, useInView, type TargetAndTransition } from "framer-motion";
 import { safeNavigate } from "@/lib/safe-url";
+import { useRevealFallback } from "@/lib/reveal-fallback";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
@@ -267,6 +268,9 @@ function ScrollReveal({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, amount: 0.08 });
+  // Fail-open: never leave a section permanently hidden when the observer
+  // can't fire (tall sections, snapshot contexts). See lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(isInView);
 
   if (!enabled || style === "none") return <>{children}</>;
   const { initial, animate } = ANIMATION_VARIANTS[style] ?? ANIMATION_VARIANTS["fade-up"];
@@ -274,7 +278,7 @@ function ScrollReveal({
     <motion.div
       ref={ref}
       initial={initial}
-      animate={isInView ? animate : initial}
+      animate={isInView || forceVisible ? animate : initial}
       transition={{ duration: 0.65, ease: EASE, delay: delay / 1000 }}
     >
       {children}

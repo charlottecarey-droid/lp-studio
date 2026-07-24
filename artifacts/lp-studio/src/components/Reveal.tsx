@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from "react";
 import { motion, useInView } from "framer-motion";
+import { useRevealFallback, useStaticRender } from "@/lib/reveal-fallback";
 
 export type RevealDirection = "up" | "down" | "left" | "right" | "scale" | "fade";
 
@@ -56,8 +57,13 @@ export function Reveal({
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { amount, once });
+  // Fail-open: the observer is not guaranteed to fire (scaled preview
+  // iframes, tall sections vs. the fixed `amount`, thumbnail capture) —
+  // never leave content permanently hidden. See lib/reveal-fallback.ts.
+  const forceVisible = useRevealFallback(inView);
+  const staticRender = useStaticRender();
 
-  if (disabled) {
+  if (disabled || staticRender) {
     return <div ref={ref} className={className}>{children}</div>;
   }
 
@@ -68,7 +74,7 @@ export function Reveal({
       ref={ref}
       className={className}
       initial="hidden"
-      animate={inView ? "visible" : "hidden"}
+      animate={inView || forceVisible ? "visible" : "hidden"}
       variants={variants}
       transition={{ duration, delay, ease: [0.22, 1, 0.36, 1] }}
       style={{ willChange: "transform, opacity" }}

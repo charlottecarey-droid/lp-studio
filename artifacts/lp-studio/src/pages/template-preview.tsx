@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import { LP_TEMPLATES, parseGlobalTemplateId } from "@/lib/templates";
 import { templateToBlocks } from "@/lib/block-types/block-registry";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { StaticRenderContext } from "@/lib/reveal-fallback";
 import { DEFAULT_BRAND, getBrandStyleVars, fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
 
 const API_BASE = `${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}/api`;
@@ -97,11 +98,16 @@ export default function TemplatePreview() {
 
   return (
     <Suspense fallback={null}>
-      <div style={getBrandStyleVars(brand)}>
-        {blocks.map((block, i) => (
-          <BlockRenderer key={(block as { id?: string }).id ?? i} block={block as never} brand={brand} />
-        ))}
-      </div>
+      {/* Static render: this route feeds the template-library preview
+          iframe and thumbnail capture — entrance animations must render
+          their FINAL frame or hero copy is captured at opacity 0. */}
+      <StaticRenderContext.Provider value={true}>
+        <div style={getBrandStyleVars(brand)}>
+          {blocks.map((block, i) => (
+            <BlockRenderer key={(block as { id?: string }).id ?? i} block={block as never} brand={brand} />
+          ))}
+        </div>
+      </StaticRenderContext.Provider>
     </Suspense>
   );
 }

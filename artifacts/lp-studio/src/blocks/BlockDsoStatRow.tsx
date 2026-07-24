@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import { useEffect, useRef, useState } from "react";
 import type { DsoStatRowBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
@@ -30,7 +31,11 @@ function shouldAnimateCount(): boolean {
 }
 
 function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?: string; prefix?: string }) {
-  const animate = shouldAnimateCount();
+  // Static renders (template preview, thumbnails, builder) show the final
+  // number; live pages get a watchdog so a never-firing observer (threshold
+  // 0.5 on a tall/clipped cell) can't pin the stat at 0.
+  const staticRender = useStaticRender();
+  const animate = shouldAnimateCount() && !staticRender;
   const [count, setCount] = useState(animate ? 0 : target);
   const ref = useRef<HTMLSpanElement>(null);
   const started = useRef(false);
@@ -42,25 +47,27 @@ function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?
     }
     const el = ref.current;
     if (!el) return;
+    const startCount = () => {
+      if (started.current) return;
+      started.current = true;
+      const duration = 1400;
+      const start = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        setCount(Math.round(ease * target));
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    };
     const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !started.current) {
-          started.current = true;
-          const duration = 1400;
-          const start = performance.now();
-          const tick = (now: number) => {
-            const p = Math.min((now - start) / duration, 1);
-            const ease = 1 - Math.pow(1 - p, 3);
-            setCount(Math.round(ease * target));
-            if (p < 1) requestAnimationFrame(tick);
-          };
-          requestAnimationFrame(tick);
-        }
-      },
+      ([entry]) => { if (entry.isIntersecting) startCount(); },
       { threshold: 0.5 }
     );
     obs.observe(el);
-    return () => obs.disconnect();
+    // Fail-open watchdog — see lib/reveal-fallback.ts.
+    const fallback = setTimeout(startCount, 2200);
+    return () => { obs.disconnect(); clearTimeout(fallback); };
   }, [target, animate]);
 
   return <span ref={ref} style={{ fontFamily: NUMBERS }}>{prefix}{count}{suffix}</span>;
