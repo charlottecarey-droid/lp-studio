@@ -15,6 +15,7 @@ function moveArr<T>(arr: T[], from: number, to: number): T[] {
 import type { BeforeAfterGalleryBlockProps, BeforeAfterPair } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
   props: BeforeAfterGalleryBlockProps;
@@ -55,6 +56,37 @@ export function BeforeAfterGalleryPanel({ props, onChange }: Props) {
 
       <div className="grid grid-cols-2 gap-2">
         <div>
+          <Label className="text-xs">Layout</Label>
+          <Select
+            value={props.layout ?? "classic"}
+            onValueChange={(v) => update({ layout: v as BeforeAfterGalleryBlockProps["layout"] })}
+          >
+            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="classic">Classic — labeled tiles</SelectItem>
+              <SelectItem value="showcase">Showcase — text beside images</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(props.layout ?? "classic") === "classic" && (
+          <div>
+            <Label className="text-xs">Image fit</Label>
+            <Select
+              value={props.imageFit ?? "cover"}
+              onValueChange={(v) => update({ imageFit: v as BeforeAfterGalleryBlockProps["imageFit"] })}
+            >
+              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cover">Fill (may crop)</SelectItem>
+                <SelectItem value="contain">Contain (show whole image)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
           <Label className="text-xs">Before label</Label>
           <Input value={props.beforeLabel ?? "Before"} onChange={(e) => update({ beforeLabel: e.target.value })} />
         </div>
@@ -83,11 +115,23 @@ export function BeforeAfterGalleryPanel({ props, onChange }: Props) {
               <Label className="text-xs">Before image</Label>
               <ImagePicker value={pair.beforeSrc} onChange={(src) => updatePair(i, { beforeSrc: src })} />
               <Input value={pair.beforeAlt} onChange={(e) => updatePair(i, { beforeAlt: e.target.value })} placeholder="Alt text" className="mt-1" />
+              {(props.layout ?? "classic") === "showcase" && (
+                <div className="mt-1 space-y-1">
+                  <Input value={pair.beforeHeadline ?? ""} onChange={(e) => updatePair(i, { beforeHeadline: e.target.value })} placeholder="Headline (beside image)" />
+                  <Input value={pair.beforeSubheadline ?? ""} onChange={(e) => updatePair(i, { beforeSubheadline: e.target.value })} placeholder="Subheadline (beside image)" />
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs">After image</Label>
               <ImagePicker value={pair.afterSrc} onChange={(src) => updatePair(i, { afterSrc: src })} />
               <Input value={pair.afterAlt} onChange={(e) => updatePair(i, { afterAlt: e.target.value })} placeholder="Alt text" className="mt-1" />
+              {(props.layout ?? "classic") === "showcase" && (
+                <div className="mt-1 space-y-1">
+                  <Input value={pair.afterHeadline ?? ""} onChange={(e) => updatePair(i, { afterHeadline: e.target.value })} placeholder="Headline (beside image)" />
+                  <Input value={pair.afterSubheadline ?? ""} onChange={(e) => updatePair(i, { afterSubheadline: e.target.value })} placeholder="Subheadline (beside image)" />
+                </div>
+              )}
             </div>
             <Input value={pair.caption ?? ""} onChange={(e) => updatePair(i, { caption: e.target.value })} placeholder="Caption (optional)" />
           </div>

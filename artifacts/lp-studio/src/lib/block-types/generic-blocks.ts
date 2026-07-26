@@ -1785,6 +1785,14 @@ export interface BeforeAfterPair {
   afterSrc: string;
   afterAlt: string;
   caption?: string;
+  /** Showcase layout: headline shown beside the "before" image. */
+  beforeHeadline?: string;
+  /** Showcase layout: subheadline shown beside the "before" image. */
+  beforeSubheadline?: string;
+  /** Showcase layout: headline shown beside the "after" image. */
+  afterHeadline?: string;
+  /** Showcase layout: subheadline shown beside the "after" image. */
+  afterSubheadline?: string;
 }
 
 export interface BeforeAfterGalleryBlockProps {
@@ -1799,6 +1807,13 @@ export interface BeforeAfterGalleryBlockProps {
   beforeLabel?: string;
   /** Label for the "after" tile pill. Default "After". */
   afterLabel?: string;
+  /** "cover" (default) crops images to a uniform 4:3 tile; "contain" shows
+   *  the whole image letterboxed inside the tile — nothing gets cut off. */
+  imageFit?: "cover" | "contain";
+  /** "classic" (default) = labeled image tiles. "showcase" = each image
+   *  rendered uncropped with its own headline + subheadline to the side
+   *  (text on the outer edge, mirrored left/right). */
+  layout?: "classic" | "showcase";
 }
 
 /* ------------------------------------------------------------------------- */
