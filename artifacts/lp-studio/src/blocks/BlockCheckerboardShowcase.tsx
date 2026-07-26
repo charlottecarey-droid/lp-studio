@@ -58,8 +58,13 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
     subheadline,
     items = [],
     showRails = true,
+    sidePadding = 40,
     backgroundStyle = "white",
   } = props;
+  // Gutter on md+ screens. The horizontal rules deliberately bleed THROUGH it
+  // (100vw lines clipped by the section's overflow-hidden), while vertical
+  // rules mark the inset content edges — the framed-plate look.
+  const gutter = Math.max(0, Math.min(200, sidePadding));
 
   const dark = resolveSectionSurface({ backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
@@ -157,11 +162,40 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
     </div>
   );
 
+  // Edge-to-edge horizontal rule that crosses the side gutters (clipped by
+  // the section's overflow-hidden).
+  const bleedLine = (edge: "top" | "bottom") => (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute left-1/2 z-[3] h-px -translate-x-1/2"
+      style={{ width: "100vw", background: hairline, [edge]: 0 }}
+    />
+  );
+
   return (
     <section
       style={{ ...sectionBg, borderTop: `1px solid ${hairline}`, borderBottom: `1px solid ${hairline}` }}
-      className="relative"
+      className="relative overflow-hidden"
     >
+      <div
+        className="relative px-0 md:px-[var(--cbs-gutter)]"
+        style={{ "--cbs-gutter": `${gutter}px` } as React.CSSProperties}
+      >
+        {/* Vertical rules at the inset content edges (md+, only when a gutter exists). */}
+        {gutter > 0 && (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 z-[3] hidden w-px md:block"
+              style={{ left: "var(--cbs-gutter)", background: hairline }}
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 z-[3] hidden w-px md:block"
+              style={{ right: "var(--cbs-gutter)", background: hairline }}
+            />
+          </>
+        )}
       {/* Header */}
       {(eyebrow || headline || subheadline || onFieldChange) && (
         <motion.div
@@ -230,7 +264,8 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
       )}
 
       {/* Checkerboard rows */}
-      <div style={{ borderTop: `1px solid ${hairline}` }}>
+      <div className="relative">
+        {bleedLine("top")}
         {items.map((item, i) => {
           const reversed = i % 2 === 1;
           const textTile = (
@@ -301,16 +336,18 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
             </motion.div>
           );
           return (
-            <div key={i} className="relative" style={{ borderBottom: i < items.length - 1 ? `1px solid ${hairline}` : "none" }}>
+            <div key={i} className="relative">
               <div className="grid md:grid-cols-2">
                 {textTile}
                 {mediaTile}
               </div>
               {showRails && rail(item, reversed)}
               {showRails && mobileRail(item)}
+              {i < items.length - 1 && bleedLine("bottom")}
             </div>
           );
         })}
+      </div>
       </div>
     </section>
   );

@@ -91,6 +91,26 @@ export function CheckerboardShowcasePanel({ blockType, props, onChange, brandVoi
       </div>
 
       <div>
+        <Label className="text-xs">Side padding (px)</Label>
+        <Input
+          type="number"
+          min={0}
+          max={200}
+          step={4}
+          value={props.sidePadding ?? 40}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            onChange({ ...props, sidePadding: Number.isFinite(n) ? Math.max(0, Math.min(200, n)) : 40 });
+          }}
+          className="text-sm"
+        />
+        <p className="text-[11px] text-muted-foreground mt-1">
+          Gutters on both sides (desktop). The horizontal rules extend through
+          them, edge to edge; 0 = full bleed.
+        </p>
+      </div>
+
+      <div>
         <Label className="text-xs">Background</Label>
         <Select
           value={props.backgroundStyle ?? "white"}

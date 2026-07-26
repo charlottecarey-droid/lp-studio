@@ -62,6 +62,30 @@ describe("BlockCheckerboardShowcase", () => {
     expect(renderBlock({}, false)).not.toContain("Add image URL in properties");
   });
 
+  it("applies the adjustable gutter with edge rules, and drops them at 0", () => {
+    const framed = renderBlock({ sidePadding: 64 });
+    // The gutter is a CSS var consumed by the md: padding class, and the
+    // vertical rules sit at the inset content edges.
+    expect(framed).toContain("--cbs-gutter:64px");
+    expect(framed).toContain("md:px-[var(--cbs-gutter)]");
+    expect(framed).toContain("left:var(--cbs-gutter)");
+    expect(framed).toContain("right:var(--cbs-gutter)");
+
+    const fullBleed = renderBlock({ sidePadding: 0 });
+    expect(fullBleed).toContain("--cbs-gutter:0px");
+    expect(fullBleed).not.toContain("left:var(--cbs-gutter)");
+
+    // Out-of-range values clamp instead of blowing up the layout.
+    expect(renderBlock({ sidePadding: 9999 })).toContain("--cbs-gutter:200px");
+  });
+
+  it("row separators bleed edge-to-edge through the gutters (100vw lines)", () => {
+    const html = renderBlock();
+    // Three tiles → one top rule + two between-row rules, all viewport-wide.
+    const bleeds = html.match(/width:100vw/g) ?? [];
+    expect(bleeds.length).toBe(3);
+  });
+
   it("renders provided images with object-cover and empty alt", () => {
     const html = renderBlock({
       items: [

@@ -803,6 +803,13 @@ export interface CheckerboardShowcaseBlockProps {
   items: CheckerboardShowcaseItem[];
   /** Show the decorative gradient rails. Defaults to true. */
   showRails?: boolean;
+  /**
+   * Horizontal gutter in px on md+ screens (0–200). The tiles inset by this
+   * amount and pick up vertical hairline rules at the content edges, while
+   * the horizontal rules keep bleeding edge-to-edge through the gutters.
+   * Defaults to 40.
+   */
+  sidePadding?: number;
   backgroundStyle?: string;
 }
 

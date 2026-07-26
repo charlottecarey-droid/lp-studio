@@ -1066,6 +1066,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         },
       ],
       showRails: true,
+      sidePadding: 40,
       backgroundStyle: "white",
     }),
     thumbnail: () => (
