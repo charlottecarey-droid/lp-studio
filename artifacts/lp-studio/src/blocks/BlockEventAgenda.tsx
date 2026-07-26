@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { CalendarPlus } from "lucide-react";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import { usePageContext } from "@/lib/page-context";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -12,9 +13,14 @@ import {
 import { ensureAccentRegisters, mixHex, resolveSectionInk } from "@/lib/section-ink";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
-import type { CtaModalConfig, HeroCtaConfig } from "@/lib/block-types";
+import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
+import type { CtaModalConfig, HeroCtaConfig, FormStep } from "@/lib/block-types";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
-import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import {
+  buildGlobalFormSubmissionFields,
+  evalCondition,
+} from "@/lib/global-form-submission";
+import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "@/lib/brand-fonts";
 import {
   DarkHeroBackdrop,
   MicrositeNavbar,
@@ -26,24 +32,30 @@ import { agendaHasCalendarData, agendaIcsFilename, buildAgendaIcs } from "@/lib/
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
+const NUMBERS = BRAND_NUMBERS_STACK;
 
 /* ----------------------------------------------------------------------------
  * Event Agenda — type "event-agenda"
  *
  * ABM full-page conference agenda: the page a rep publishes per strategic
- * account instead of hand-building a PowerPoint. A dark branded hero with the
- * event lockup and "your agenda is ready" headline, an optional personal note
- * from the account team, a day-by-day schedule of curated session cards (time
- * rail, type/track/room chips, per-account "why this matters" callout,
- * speakers, reserved-slot badge), and a contact close.
+ * account instead of hand-building a PowerPoint. A dark branded hero (optional
+ * editorial image panel; the whole hero can be turned OFF so a page composes
+ * its own hero above the schedule), a personal-note letter, an editorial
+ * day-by-day timeline (ghost day numerals, accent time rail, hairline session
+ * rows — reserved sessions elevated as concierge cards), per-session and
+ * whole-agenda add-to-calendar, an RSVP section that either captures
+ * name+email inline or renders a LINKED GLOBAL FORM (rsvpFormId — submissions
+ * flow through the form's own field definitions, notifications, and
+ * integrations via the shared global-form helpers), and a contact close with
+ * a "prepared by" brand lockup.
  *
- * Concierge register: the page should read like a printed itinerary from a
- * good hotel — calm cream canvas, ink hairlines, one accent. All schedule
- * content is editorial strings assembled server-side by the agenda publish
- * route (routes/sales/events.ts) from the event catalog + the rep's picks;
- * the block renders whatever it's given and guards every optional section.
- * Single h1 (hero). NO_REVEAL — owns its own motion (fail-open per
- * lib/reveal-fallback.ts).
+ * Register: a printed itinerary from a five-star hotel — calm cream canvas,
+ * ink hairlines, one accent, serif display. Editorial rows, not card grids.
+ * All schedule content is editorial strings assembled by the publish route
+ * (routes/sales/events.ts); every optional section is render-guarded so
+ * saved pages keep rendering. Single h1 (hero; a hidden hero promotes nothing
+ * — the schedule heading stays h2 because the composing page brings its own
+ * h1). NO_REVEAL — owns its own motion (fail-open per lib/reveal-fallback.ts).
  * -------------------------------------------------------------------------- */
 
 export interface EvaSpeaker {
@@ -56,7 +68,7 @@ export interface EvaSpeaker {
 export interface EvaSession {
   /** Display time range, e.g. "9:00 AM – 10:30 AM" (editorial string). */
   time?: string;
-  /** Machine start, 24h local "09:00" — powers the .ics download only. */
+  /** Machine start, 24h local "09:00" — powers the .ics downloads only. */
   startTime?: string;
   /** Machine end, 24h local "10:30". Missing → .ics assumes 60 minutes. */
   endTime?: string;
@@ -81,7 +93,7 @@ export interface EvaSession {
 export interface EvaDay {
   /** Day heading, e.g. "Tuesday, Oct 20". */
   label: string;
-  /** Machine calendar date, ISO "2026-10-20" — powers the .ics download only. */
+  /** Machine calendar date, ISO "2026-10-20" — powers the .ics downloads only. */
   date?: string;
   /** Optional one-line summary under the day heading. */
   summary?: string;
@@ -116,6 +128,12 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   logoAlt?: string;
 
   /* ── 1. hero ──────────────────────────────────────────────────────────── */
+  /**
+   * Show the built-in hero band (and navbar). Turn OFF to compose your own
+   * hero above this block and use only the note/schedule/RSVP/close sections.
+   * Default true.
+   */
+  showHero?: boolean;
   /** Event lockup line, e.g. "Summit 2026 · Austin, TX · Mar 10–12, 2026". */
   eyebrow: string;
   /** The page's only h1, e.g. "{{company_name}}, your agenda is ready". */
@@ -129,8 +147,11 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   eventLocation?: string;
   /** Preformatted date range, e.g. "Mar 10–12, 2026". */
   eventDates?: string;
-  /** Session count chip; hidden when 0/absent. */
+  /** Session count for the hero stat strip; hidden when 0/absent. */
   sessionCount?: number;
+  /** Optional editorial hero image (right panel under a brand scrim). */
+  heroImageUrl?: string;
+  heroImageAlt?: string;
 
   /* ── 2. personal note ─────────────────────────────────────────────────── */
   showNote?: boolean;
@@ -148,17 +169,24 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   /** Label on the per-session personalized callout. */
   whyAttendLabel?: string;
   /**
-   * "Add to calendar" (.ics) hero button. Default on, but only rendered when
-   * at least one session carries machine-readable date + start time.
+   * Add-to-calendar (.ics) affordances — the hero button for the whole agenda
+   * AND the per-session buttons. Default on, but each only renders when the
+   * session/agenda carries machine-readable date + start time.
    */
   showAddToCalendar?: boolean;
 
   /* ── 4. RSVP ──────────────────────────────────────────────────────────── */
   /**
-   * Inline RSVP capture (name + email → the standard lead pipeline). Default
-   * OFF for hand-authored pages; the agenda publish route turns it on.
+   * Inline RSVP capture. Default OFF for hand-authored pages; the agenda
+   * publish route turns it on.
    */
   showRsvp?: boolean;
+  /**
+   * Linked global form id. When set, the RSVP section renders THAT form's
+   * fields and submits through its definitions (notifications, sheets, CRM
+   * syncs all managed on the form) instead of the built-in name+email trio.
+   */
+  rsvpFormId?: number;
   rsvpKicker?: string;
   rsvpHeading?: string;
   rsvpSubheadline?: string;
@@ -172,6 +200,8 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   ctaSubheadline?: string;
   /** Close CTA label lives in `ctaText` (HeroCtaConfig); href in `ctaUrl`. */
   footerNote?: string;
+  /** "Prepared by" brand lockup in the close. Default true (hidden if no logo). */
+  showPreparedBy?: boolean;
 }
 
 export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
@@ -191,6 +221,7 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
   navCtaUrl: "#contact",
 
   /* hero */
+  showHero: true,
   eyebrow: "Summit 2026 · Austin, TX · Mar 10–12, 2026",
   headline: "Your team, your agenda",
   subheadline:
@@ -307,6 +338,27 @@ interface Props {
   variantId?: number;
 }
 
+/** Minimal slice of the public /lp/forms/:id payload the RSVP renderer needs. */
+interface LinkedRsvpForm {
+  id: number;
+  steps: FormStep[];
+  submitButtonText?: string;
+  successMessage?: string | null;
+}
+
+function downloadIcsBlob(ics: string, filename: string): void {
+  if (typeof document === "undefined") return;
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
   const reduced = useReducedMotion() ?? false;
   // Fail-open reveal — see lib/reveal-fallback.ts.
@@ -355,6 +407,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const accentText = pickContrastingColor(accentRaw, bg, [brand?.primaryColor, headline], 4.5);
   const accentChrome = ensureAccentRegisters(accentRaw, { base: bg }, 1.6);
   const accentOnCard = pickContrastingColor(accentRaw, cardBg, [brand?.primaryColor, headlineOnCard], 4.5);
+  const primaryHex = brand?.primaryColor && isValidHex(brand.primaryColor) ? brand.primaryColor : "#221E3F";
 
   /* — dark hero / close surface — */
   const heroBg = resolveDarkHeroSurface(brand, props.heroBgColor, isValidHex, "#100E24", "#221E3F");
@@ -405,10 +458,73 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     : undefined;
   const isEditor = !!onFieldChange;
 
-  /* — RSVP capture (standard lead pipeline, mirrors BlockEventPage) — */
+  /* — RSVP: built-in capture or linked global form — */
   const showRsvp = props.showRsvp === true;
   const [rsvp, setRsvp] = useState({ firstName: "", lastName: "", email: "", website: "" });
   const [rsvpStatus, setRsvpStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [linkedForm, setLinkedForm] = useState<LinkedRsvpForm | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!showRsvp || props.rsvpFormId == null) { setLinkedForm(null); return; }
+    let cancelled = false;
+    fetch(`/api/lp/forms/${props.rsvpFormId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: LinkedRsvpForm | null) => { if (!cancelled) setLinkedForm(data); })
+      .catch(() => { /* fall back to the built-in capture */ });
+    return () => { cancelled = true; };
+  }, [showRsvp, props.rsvpFormId]);
+
+  // Linked-form fields, flattened across steps with step/field visibility
+  // conditions honored live (shared evalCondition — never a local re-impl).
+  const linkedVisibleFields = linkedForm
+    ? linkedForm.steps.flatMap((step) =>
+        step.condition && !evalCondition(step.condition, formValues)
+          ? []
+          : step.fields.filter(
+              (f) =>
+                f.type !== "hidden" &&
+                (!f.visibilityCondition || evalCondition(f.visibilityCondition, formValues)),
+            ),
+      )
+    : [];
+
+  const postLead = async (fields: Record<string, string>, formId?: number) => {
+    if (effectivePageId == null || isEditor) return; // builder/preview: confirm without posting
+    const body: Record<string, unknown> = {
+      fields,
+      pageId: effectivePageId,
+      ...(effectiveVariantId != null ? { variantId: effectiveVariantId } : {}),
+      ...(pageCtx.sessionId ? { sessionId: pageCtx.sessionId } : {}),
+    };
+    if (formId != null) body.formId = formId;
+    const resp = await fetch("/api/lp/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error("Submission failed");
+    try {
+      // Omit testId/variantId outside A/B renders — a zero id violates the FK
+      // and silently drops the conversion (BlockEventPage lesson).
+      const trackBody: Record<string, unknown> = {
+        sessionId: pageCtx.sessionId ?? `anon-${Date.now()}`,
+        eventType: "conversion",
+        conversionType: "form_submit",
+        pageId: effectivePageId,
+      };
+      if (pageCtx.testId != null) trackBody.testId = pageCtx.testId;
+      if (effectiveVariantId != null) trackBody.variantId = effectiveVariantId;
+      await fetch("/api/lp/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(trackBody),
+      });
+    } catch (err) {
+      console.error("[event-agenda] RSVP tracking error:", err);
+    }
+  };
+
   const submitRsvp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rsvpStatus === "sending" || rsvpStatus === "done") return;
@@ -426,79 +542,64 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     if (props.eventName?.trim()) fields.Event = props.eventName.trim();
     if (props.accountName?.trim()) fields.Account = props.accountName.trim();
     try {
-      // Builder canvas / preview (no page id) confirms without posting —
-      // same silent-skip contract as BlockEventPage.
-      if (effectivePageId != null && !isEditor) {
-        const resp = await fetch("/api/lp/leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fields,
-            pageId: effectivePageId,
-            ...(effectiveVariantId != null ? { variantId: effectiveVariantId } : {}),
-            ...(pageCtx.sessionId ? { sessionId: pageCtx.sessionId } : {}),
-          }),
-        });
-        if (!resp.ok) throw new Error("Submission failed");
-        try {
-          // Omit testId/variantId outside A/B renders — a zero id violates
-          // the FK and silently drops the conversion (BlockEventPage lesson).
-          const trackBody: Record<string, unknown> = {
-            sessionId: pageCtx.sessionId ?? `anon-${Date.now()}`,
-            eventType: "conversion",
-            conversionType: "form_submit",
-            pageId: effectivePageId,
-          };
-          if (pageCtx.testId != null) trackBody.testId = pageCtx.testId;
-          if (effectiveVariantId != null) trackBody.variantId = effectiveVariantId;
-          await fetch("/api/lp/track", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(trackBody),
-          });
-        } catch (err) {
-          console.error("[event-agenda] RSVP tracking error:", err);
-        }
-      }
+      await postLead(fields);
       setRsvpStatus("done");
     } catch {
       setRsvpStatus("error");
     }
   };
 
+  const submitLinkedRsvp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkedForm || rsvpStatus === "sending" || rsvpStatus === "done") return;
+    if (rsvp.website.trim()) { setRsvpStatus("done"); return; }
+    setRsvpStatus("sending");
+    try {
+      // Canonical payload: EVERY form field in definition order, hidden fields
+      // resolved — byte-compatible with the form's own submissions so sheets/
+      // CRM rows never land scrambled (see lib/global-form-submission.ts).
+      const fields = buildGlobalFormSubmissionFields(linkedForm.steps, formValues);
+      await postLead(fields, linkedForm.id);
+      setRsvpStatus("done");
+    } catch {
+      setRsvpStatus("error");
+    }
+  };
+
+  const showHero = props.showHero !== false;
   const days = props.days.filter((d) => d.sessions.length > 0 || isEditor);
   const sessionTotal =
     typeof props.sessionCount === "number" && props.sessionCount > 0
       ? props.sessionCount
       : props.days.reduce((n, d) => n + d.sessions.length, 0);
+  const reservedTotal = props.days.reduce((n, d) => n + d.sessions.filter((s) => s.isReserved).length, 0);
   const showNote = props.showNote !== false && (!!props.personalNote?.trim() || isEditor);
   const showClose = props.showClose !== false;
+  const hasHeroImage = !!props.heroImageUrl?.trim();
 
   /* — add-to-calendar (.ics) — only when machine schedule data exists — */
-  const calendarReady = props.showAddToCalendar !== false && agendaHasCalendarData(props.days);
-  const downloadIcs = () => {
-    if (typeof document === "undefined") return;
+  const calendarEnabled = props.showAddToCalendar !== false;
+  const calendarReady = calendarEnabled && agendaHasCalendarData(props.days);
+  const downloadAgendaIcs = () => {
     const ics = buildAgendaIcs(
       { eventName: props.eventName, eventLocation: props.eventLocation, days: props.days },
       { uidSeed: [props.accountName, props.eventName].filter(Boolean).join(" ") },
     );
-    if (!ics) return;
-    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = agendaIcsFilename(props.eventName);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (ics) downloadIcsBlob(ics, agendaIcsFilename(props.eventName));
   };
-
-  const metaChips = [
-    sessionTotal > 0 ? `${sessionTotal} session${sessionTotal === 1 ? "" : "s"}` : "",
-    days.length > 0 ? `${days.length} day${days.length === 1 ? "" : "s"}` : "",
-    props.eventLocation ?? "",
-  ].filter(Boolean);
+  const downloadSessionIcs = (day: EvaDay, session: EvaSession) => {
+    const ics = buildAgendaIcs(
+      {
+        eventName: props.eventName,
+        eventLocation: props.eventLocation,
+        days: [{ date: day.date, sessions: [session] }],
+      },
+      { uidSeed: [props.accountName, props.eventName, session.title].filter(Boolean).join(" ") },
+    );
+    if (ics) downloadIcsBlob(ics, agendaIcsFilename(session.title));
+  };
+  const sessionCalendarReady = (day: EvaDay, session: EvaSession) =>
+    calendarEnabled && agendaHasCalendarData([{ date: day.date, sessions: [session] }]);
 
   const fadeUp = (delay = 0) => ({
     initial: reduced ? false : anim({ opacity: 0, y: 16 }),
@@ -517,148 +618,233 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   };
 
-  const chip = (label: string, key: string, emphasized = false) => (
-    <span
-      key={key}
-      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em]"
-      style={
-        emphasized
-          ? { background: mixHex(accentChrome, cardBg, 0.14), color: accentOnCard }
-          : { border: `1px solid ${mixHex(cardInk.text, cardBg, 0.25)}`, color: cardInk.muted }
-      }
-    >
-      {label}
-    </span>
-  );
+  /* — hero stat strip entries (editorial numerals, not pills) — */
+  const heroStats = [
+    sessionTotal > 0 ? { value: String(sessionTotal), label: sessionTotal === 1 ? "session picked for you" : "sessions picked for you" } : null,
+    days.length > 0 ? { value: String(days.length), label: days.length === 1 ? "day" : "days" } : null,
+    reservedTotal > 0 ? { value: String(reservedTotal), label: reservedTotal === 1 ? "reserved just for you" : "reserved just for you" } : null,
+  ].filter((s): s is { value: string; label: string } => s !== null).slice(0, 3);
+
+  const rsvpFieldStyle: React.CSSProperties = {
+    background: mixHex(cardInk.text, cardBg, 0.04),
+    border: `1px solid ${mixHex(cardInk.text, cardBg, 0.25)}`,
+    color: cardInk.text,
+  };
+  const rsvpFieldClass =
+    "w-full rounded-lg px-4 py-3 text-[15px] outline-none transition-shadow focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current";
 
   return (
     <section className="relative w-full" style={{ background: bg, fontFamily: BODY }}>
       {/* ── 1. hero ─────────────────────────────────────────────────────── */}
-      <header className="relative overflow-hidden" style={{ background: heroBg }}>
-        <DarkHeroBackdrop
-          surface={heroBg}
-          accent={accentRaw}
-          primary={brand?.primaryColor && isValidHex(brand.primaryColor) ? brand.primaryColor : "#221E3F"}
-          isStatic={reduced || isEditor}
-          idPrefix="evtag"
-        />
-        {props.showNavbar !== false && (
-          <MicrositeNavbar
-            brand={brand}
-            logoUrl={props.logoUrl}
-            logoAlt={props.logoAlt}
-            accountLogoUrl={props.accountLogoUrl}
-            accountLogoAlt={props.accountLogoAlt || props.accountName}
-            links={props.navLinks ?? EVENT_AGENDA_DEFAULT_PROPS.navLinks ?? []}
-            ctaText={props.navCtaText ?? props.ctaText}
-            ctaUrl={props.navCtaUrl || props.ctaUrl || "#contact"}
-            ctaBg={navCtaBg}
-            ctaText_color={navCtaTextColor}
-            heroSurface={heroBg}
-            isDark
-            ink={heroChrome.ink}
-            inkMuted={heroChrome.muted}
-            accent={heroAccent}
-            onAnchor={handleAnchor}
+      {showHero && (
+        <header className="relative overflow-hidden" style={{ background: heroBg }}>
+          <DarkHeroBackdrop
+            surface={heroBg}
+            accent={accentRaw}
+            primary={primaryHex}
+            isStatic={reduced || isEditor}
+            idPrefix="evtag"
           />
-        )}
-
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-20 pt-14 sm:px-8 sm:pb-24 sm:pt-16 lg:px-10">
-          <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: heroAccent }}>
-            <InlineText as="span" value={props.eyebrow} onUpdate={edit("eyebrow")} />
-          </motion.p>
-          <motion.h1
-            {...fadeUp(0.08)}
-            className="mt-5 max-w-3xl text-balance font-bold"
-            style={{
-              fontFamily: DISPLAY,
-              fontSize: "clamp(2.4rem, 5.4vw, 4rem)",
-              lineHeight: 1.04,
-              letterSpacing: "-0.03em",
-              color: heroHeadline,
-            }}
-          >
-            <InlineText as="span" value={props.headline} onUpdate={edit("headline")} />
-          </motion.h1>
-          {(props.subheadline || isEditor) && (
-            <motion.p
-              {...fadeUp(0.16)}
-              className="mt-5 max-w-2xl text-lg leading-relaxed sm:text-xl"
-              style={{ color: heroInk.muted }}
-            >
-              <InlineText as="span" multiline value={props.subheadline ?? ""} onUpdate={edit("subheadline")} />
-            </motion.p>
+          {props.showNavbar !== false && (
+            <MicrositeNavbar
+              brand={brand}
+              logoUrl={props.logoUrl}
+              logoAlt={props.logoAlt}
+              accountLogoUrl={props.accountLogoUrl}
+              accountLogoAlt={props.accountLogoAlt || props.accountName}
+              links={props.navLinks ?? EVENT_AGENDA_DEFAULT_PROPS.navLinks ?? []}
+              ctaText={props.navCtaText ?? props.ctaText}
+              ctaUrl={props.navCtaUrl || props.ctaUrl || "#contact"}
+              ctaBg={navCtaBg}
+              ctaText_color={navCtaTextColor}
+              heroSurface={heroBg}
+              isDark
+              ink={heroChrome.ink}
+              inkMuted={heroChrome.muted}
+              accent={heroAccent}
+              onAnchor={handleAnchor}
+            />
           )}
-          {metaChips.length > 0 && (
-            <motion.div {...fadeUp(0.22)} className="mt-8 flex flex-wrap items-center gap-2.5">
-              {metaChips.map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold"
+
+          <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:px-10">
+            <div className={hasHeroImage ? "grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]" : ""}>
+              <div>
+                {/* itinerary lockup line */}
+                <motion.div {...fadeUp(0)} className="flex items-center gap-4">
+                  <span aria-hidden className="h-px w-10" style={{ background: heroAccent }} />
+                  <p className="text-[12px] font-bold uppercase tracking-[0.26em]" style={{ color: heroChrome.muted }}>
+                    <InlineText as="span" value={props.eyebrow} onUpdate={edit("eyebrow")} />
+                  </p>
+                </motion.div>
+
+                <motion.h1
+                  {...fadeUp(0.08)}
+                  className="mt-7 max-w-3xl text-balance font-bold"
                   style={{
-                    border: `1px solid ${mixHex(heroInk.text, heroBg, 0.3)}`,
-                    color: heroInk.text,
-                    background: mixHex(heroInk.text, heroBg, 0.06),
+                    fontFamily: DISPLAY,
+                    fontSize: hasHeroImage ? "clamp(2.4rem, 4.6vw, 3.9rem)" : "clamp(2.6rem, 5.8vw, 4.6rem)",
+                    lineHeight: 1.02,
+                    letterSpacing: "-0.032em",
+                    color: heroHeadline,
                   }}
                 >
-                  <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: heroAccent }} />
-                  {label}
-                </span>
-              ))}
-            </motion.div>
-          )}
-          <motion.div {...fadeUp(0.28)} className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-4">
-            <a
-              href="#schedule"
-              onClick={(e) => handleAnchor(e, "#schedule")}
-              className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-              style={{ color: heroAccent }}
-            >
-              See your schedule
-              <span aria-hidden>↓</span>
-            </a>
-            {calendarReady && (
-              <button
-                type="button"
-                onClick={downloadIcs}
-                className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-                style={{
-                  border: `1px solid ${mixHex(heroInk.text, heroBg, 0.35)}`,
-                  color: heroInk.text,
-                  background: mixHex(heroInk.text, heroBg, 0.06),
-                }}
-              >
-                <span aria-hidden>＋</span>
-                Add to calendar
-              </button>
-            )}
-          </motion.div>
-        </div>
-      </header>
+                  <InlineText as="span" value={props.headline} onUpdate={edit("headline")} />
+                </motion.h1>
+
+                {(props.subheadline || isEditor) && (
+                  <motion.p
+                    {...fadeUp(0.16)}
+                    className="mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl"
+                    style={{ color: heroInk.muted }}
+                  >
+                    <InlineText as="span" multiline value={props.subheadline ?? ""} onUpdate={edit("subheadline")} />
+                  </motion.p>
+                )}
+
+                <motion.div {...fadeUp(0.24)} className="mt-10 flex flex-wrap items-center gap-4">
+                  <a
+                    href="#schedule"
+                    onClick={(e) => handleAnchor(e, "#schedule")}
+                    className="inline-flex items-center gap-2.5 rounded-full px-7 py-3 text-[15px] font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                    style={{ background: navCtaBg, color: navCtaTextColor }}
+                  >
+                    See your schedule
+                    <span aria-hidden>↓</span>
+                  </a>
+                  {calendarReady && (
+                    <button
+                      type="button"
+                      onClick={downloadAgendaIcs}
+                      className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[15px] font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                      style={{
+                        border: `1px solid ${mixHex(heroInk.text, heroBg, 0.35)}`,
+                        color: heroInk.text,
+                      }}
+                    >
+                      <CalendarPlus className="h-4 w-4" aria-hidden />
+                      Add all to calendar
+                    </button>
+                  )}
+                </motion.div>
+
+                {/* editorial stat strip */}
+                {heroStats.length > 0 && (
+                  <motion.dl
+                    {...fadeUp(0.3)}
+                    className="mt-12 flex flex-wrap items-stretch gap-x-10 gap-y-6 border-t pt-8"
+                    style={{ borderColor: mixHex(heroInk.text, heroBg, 0.16) }}
+                  >
+                    {heroStats.map((stat) => (
+                      <div key={stat.label} className="min-w-[7rem]">
+                        <dd
+                          className="font-bold tabular-nums"
+                          style={{
+                            fontFamily: NUMBERS,
+                            fontSize: "clamp(2rem, 3.4vw, 2.8rem)",
+                            lineHeight: 1,
+                            letterSpacing: "-0.02em",
+                            color: heroHeadline,
+                          }}
+                        >
+                          {stat.value}
+                        </dd>
+                        <dt className="mt-2 max-w-[11rem] text-[13px] leading-snug" style={{ color: heroInk.muted }}>
+                          {stat.label}
+                        </dt>
+                      </div>
+                    ))}
+                    {props.eventLocation && (
+                      <div className="min-w-[7rem]">
+                        <dd
+                          className="font-bold"
+                          style={{
+                            fontFamily: DISPLAY,
+                            fontSize: "clamp(1.3rem, 2vw, 1.7rem)",
+                            lineHeight: 1.15,
+                            letterSpacing: "-0.015em",
+                            color: heroHeadline,
+                            paddingTop: "0.35rem",
+                          }}
+                        >
+                          {props.eventLocation}
+                        </dd>
+                        <dt className="mt-2 text-[13px] leading-snug" style={{ color: heroInk.muted }}>
+                          {props.eventDates || "on location"}
+                        </dt>
+                      </div>
+                    )}
+                  </motion.dl>
+                )}
+              </div>
+
+              {/* optional editorial image panel */}
+              {hasHeroImage && (
+                <motion.figure
+                  {...fadeUp(0.18)}
+                  className="relative hidden overflow-hidden rounded-2xl lg:block"
+                  style={{ boxShadow: "0 40px 80px -48px rgba(0,0,0,0.65)" }}
+                >
+                  <img
+                    src={props.heroImageUrl}
+                    alt={props.heroImageAlt || props.eventName || "Event"}
+                    className="h-full max-h-[520px] w-full object-cover"
+                    loading="eager"
+                  />
+                  {/* brand duotone scrim so any photo sits in the palette */}
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background: `linear-gradient(160deg, ${mixHex(primaryHex, heroBg, 0.55)}33 0%, transparent 45%), linear-gradient(to top, ${heroBg}E6 0%, transparent 42%)`,
+                    }}
+                  />
+                  <figcaption
+                    className="absolute inset-x-0 bottom-0 px-6 pb-5 text-[12px] font-bold uppercase tracking-[0.22em]"
+                    style={{ color: heroChrome.ink }}
+                  >
+                    {[props.eventName, props.eventDates].filter(Boolean).join(" · ")}
+                  </figcaption>
+                </motion.figure>
+              )}
+            </div>
+          </div>
+        </header>
+      )}
 
       {/* ── 2. personal note ────────────────────────────────────────────── */}
       {showNote && (
-        <div id="note" className="mx-auto w-full max-w-4xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+        <div id="note" className={`mx-auto w-full max-w-4xl px-5 sm:px-8 lg:px-10 ${showHero ? "pt-16 sm:pt-20" : "pt-14 sm:pt-16"}`}>
           <motion.figure
             {...fadeUp(0)}
-            className="rounded-2xl px-7 py-8 sm:px-10 sm:py-10"
+            className="relative rounded-2xl px-7 py-9 sm:px-12 sm:py-11"
             style={{
               background: cardBg,
-              border: `1px solid ${mixHex(cardInk.text, cardBg, 0.15)}`,
-              boxShadow: "0 24px 48px -32px rgba(28, 25, 23, 0.28)",
+              border: `1px solid ${mixHex(cardInk.text, cardBg, 0.12)}`,
+              boxShadow: "0 32px 64px -44px rgba(28, 25, 23, 0.35)",
             }}
           >
-            <figcaption className={kickerClass} style={{ color: accentOnCard }}>
+            {/* oversized serif quote mark — letterpress, not clipart */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-6 top-2 select-none font-bold sm:left-8"
+              style={{ fontFamily: DISPLAY, fontSize: "5.5rem", lineHeight: 1, color: mixHex(accentChrome, cardBg, 0.22) }}
+            >
+              &ldquo;
+            </span>
+            <figcaption className={`${kickerClass} relative`} style={{ color: accentOnCard }}>
               <InlineText as="span" value={props.noteKicker ?? "A note from your account team"} onUpdate={edit("noteKicker")} />
             </figcaption>
             <blockquote
-              className="mt-5 whitespace-pre-line text-lg leading-relaxed sm:text-xl"
-              style={{ color: cardInk.text, fontFamily: DISPLAY }}
+              className="relative mt-6 whitespace-pre-line text-xl leading-relaxed sm:text-[1.45rem] sm:leading-[1.65]"
+              style={{ color: cardInk.text, fontFamily: DISPLAY, letterSpacing: "-0.005em" }}
             >
               <InlineText as="span" multiline value={props.personalNote ?? ""} onUpdate={edit("personalNote")} />
             </blockquote>
             {(props.noteSignature || isEditor) && (
-              <p className="mt-6 text-base font-semibold" style={{ color: cardInk.muted }}>
+              <p
+                className="relative mt-7 border-t pt-5 text-base font-semibold"
+                style={{ color: cardInk.muted, borderColor: mixHex(cardInk.text, cardBg, 0.12) }}
+              >
                 <InlineText as="span" value={props.noteSignature ?? ""} onUpdate={edit("noteSignature")} />
               </p>
             )}
@@ -667,7 +853,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       )}
 
       {/* ── 3. schedule ─────────────────────────────────────────────────── */}
-      <div id="schedule" className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
+      <div id="schedule" className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
         <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
           <InlineText as="span" value={props.scheduleKicker ?? "Your schedule"} onUpdate={edit("scheduleKicker")} />
         </motion.p>
@@ -676,9 +862,9 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           className="mt-4 max-w-2xl font-bold"
           style={{
             fontFamily: DISPLAY,
-            fontSize: "clamp(1.9rem, 3.6vw, 2.8rem)",
-            lineHeight: 1.08,
-            letterSpacing: "-0.02em",
+            fontSize: "clamp(2rem, 4vw, 3rem)",
+            lineHeight: 1.06,
+            letterSpacing: "-0.024em",
             color: headline,
           }}
         >
@@ -690,49 +876,65 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           </motion.p>
         )}
 
-        <div className="mt-12 space-y-14">
+        <div className="mt-14 space-y-16">
           {days.map((day, dayIdx) => (
-            <div key={dayIdx}>
-              {/* Day header */}
-              <motion.div {...fadeUp(0)} className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <span
-                  className="text-[13px] font-bold tabular-nums"
-                  style={{ color: accentText, fontFamily: BODY, letterSpacing: "0.08em" }}
-                >
-                  {String(dayIdx + 1).padStart(2, "0")}
-                </span>
-                <h3
-                  className="font-bold"
-                  style={{ fontFamily: DISPLAY, fontSize: "clamp(1.35rem, 2.4vw, 1.8rem)", letterSpacing: "-0.015em", color: headline }}
-                >
-                  <InlineText as="span" value={day.label} onUpdate={setDay ? (v) => setDay(dayIdx, { label: v }) : undefined} />
-                </h3>
-                {(day.summary || isEditor) && (
-                  <p className="text-base" style={{ color: ink.muted }}>
-                    <InlineText as="span" value={day.summary ?? ""} onUpdate={setDay ? (v) => setDay(dayIdx, { summary: v }) : undefined} />
-                  </p>
-                )}
-              </motion.div>
-              <div aria-hidden className="mt-4 h-px w-full" style={{ background: mixHex(ink.text, bg, 0.18) }} />
+            <div key={dayIdx} className="relative">
+              {/* ghost day numeral */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -top-8 right-0 select-none font-bold tabular-nums sm:-top-10"
+                style={{
+                  fontFamily: NUMBERS,
+                  fontSize: "clamp(4.5rem, 9vw, 7rem)",
+                  lineHeight: 1,
+                  letterSpacing: "-0.04em",
+                  color: mixHex(ink.text, bg, 0.07),
+                }}
+              >
+                {String(dayIdx + 1).padStart(2, "0")}
+              </span>
 
-              {/* Sessions */}
-              <ul className="mt-6 space-y-5">
-                {day.sessions.map((session, i) => (
-                  <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))}>
-                    <article
-                      className="grid gap-x-8 gap-y-3 rounded-2xl px-6 py-6 sm:grid-cols-[9.5rem_1fr] sm:px-8"
-                      style={{
-                        background: cardBg,
-                        border: `1px solid ${
-                          session.isReserved ? mixHex(accentChrome, cardBg, 0.5) : mixHex(cardInk.text, cardBg, 0.14)
-                        }`,
-                      }}
-                    >
+              {/* Day header */}
+              <motion.div {...fadeUp(0)} className="relative">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <h3
+                    className="font-bold"
+                    style={{ fontFamily: DISPLAY, fontSize: "clamp(1.45rem, 2.6vw, 1.95rem)", letterSpacing: "-0.018em", color: headline }}
+                  >
+                    <InlineText as="span" value={day.label} onUpdate={setDay ? (v) => setDay(dayIdx, { label: v }) : undefined} />
+                  </h3>
+                  {(day.summary || isEditor) && (
+                    <p className="text-base" style={{ color: ink.muted }}>
+                      <InlineText as="span" value={day.summary ?? ""} onUpdate={setDay ? (v) => setDay(dayIdx, { summary: v }) : undefined} />
+                    </p>
+                  )}
+                </div>
+                <div aria-hidden className="mt-5 flex items-center gap-0">
+                  <span className="h-px w-14" style={{ background: accentChrome }} />
+                  <span className="h-px flex-1" style={{ background: mixHex(ink.text, bg, 0.14) }} />
+                </div>
+              </motion.div>
+
+              {/* Sessions — timeline rail with editorial rows; reserved = card */}
+              <ul className="relative mt-2">
+                {/* vertical rail */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute bottom-6 left-[5px] top-6 hidden w-px sm:block"
+                  style={{ background: mixHex(ink.text, bg, 0.13) }}
+                />
+                {day.sessions.map((session, i) => {
+                  const rowInk = session.isReserved ? cardInk : ink;
+                  const rowHeadline = session.isReserved ? headlineOnCard : headline;
+                  const rowAccent = session.isReserved ? accentOnCard : accentText;
+                  const rowSurface = session.isReserved ? cardBg : bg;
+                  const body = (
+                    <div className="grid gap-x-10 gap-y-2 sm:grid-cols-[10rem_1fr]">
                       {/* time rail */}
-                      <div className="flex sm:block">
+                      <div>
                         <p
-                          className="text-sm font-bold tabular-nums leading-6"
-                          style={{ color: session.isReserved ? accentOnCard : cardInk.text }}
+                          className="text-[13px] font-bold uppercase tracking-[0.08em] tabular-nums leading-6"
+                          style={{ color: rowAccent, fontFamily: NUMBERS }}
                         >
                           <InlineText
                             as="span"
@@ -741,27 +943,55 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                           />
                         </p>
                         {session.room && (
-                          <p className="ml-3 text-sm leading-6 sm:ml-0 sm:mt-1" style={{ color: cardInk.muted }}>
+                          <p className="mt-1 text-sm leading-5" style={{ color: rowInk.muted }}>
                             {session.room}
                           </p>
+                        )}
+                        {sessionCalendarReady(day, session) && (
+                          <button
+                            type="button"
+                            onClick={() => downloadSessionIcs(day, session)}
+                            aria-label={`Add "${session.title}" to your calendar`}
+                            title="Add to calendar"
+                            className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                            style={{
+                              border: `1px solid ${mixHex(rowInk.text, rowSurface, 0.22)}`,
+                              color: rowInk.muted,
+                            }}
+                          >
+                            <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+                            Calendar
+                          </button>
                         )}
                       </div>
 
                       {/* body */}
                       <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {session.isReserved && chip("Reserved for you", "reserved", true)}
-                          {session.sessionType && !session.isReserved && chip(session.sessionType, "type")}
-                          {session.track && chip(session.track, "track")}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold uppercase tracking-[0.16em]">
+                          {session.isReserved && (
+                            <span className="inline-flex items-center gap-1.5" style={{ color: rowAccent }}>
+                              <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: rowAccent }} />
+                              Reserved for you
+                            </span>
+                          )}
+                          {session.sessionType && !session.isReserved && (
+                            <span style={{ color: rowInk.muted }}>{session.sessionType}</span>
+                          )}
+                          {session.track && (
+                            <span className="flex items-center gap-3" style={{ color: rowInk.muted }}>
+                              <span aria-hidden className="h-3 w-px" style={{ background: mixHex(rowInk.text, rowSurface, 0.3) }} />
+                              {session.track}
+                            </span>
+                          )}
                         </div>
                         <h4
-                          className="mt-2.5 font-bold"
+                          className="mt-2 font-bold"
                           style={{
                             fontFamily: DISPLAY,
-                            fontSize: "clamp(1.1rem, 1.8vw, 1.35rem)",
-                            lineHeight: 1.25,
-                            letterSpacing: "-0.01em",
-                            color: headlineOnCard,
+                            fontSize: "clamp(1.2rem, 2vw, 1.5rem)",
+                            lineHeight: 1.22,
+                            letterSpacing: "-0.014em",
+                            color: rowHeadline,
                           }}
                         >
                           <InlineText
@@ -771,7 +1001,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                           />
                         </h4>
                         {(session.description || isEditor) && (
-                          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed" style={{ color: cardInk.muted }}>
+                          <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed" style={{ color: rowInk.muted }}>
                             <InlineText
                               as="span"
                               multiline
@@ -782,13 +1012,13 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                         )}
                         {(session.whyAttend || isEditor) && (
                           <div
-                            className="mt-4 max-w-2xl rounded-lg px-4 py-3"
-                            style={{ background: mixHex(accentChrome, cardBg, 0.08) }}
+                            className="mt-4 max-w-2xl border-l-2 py-0.5 pl-4"
+                            style={{ borderColor: accentChrome }}
                           >
-                            <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: accentOnCard }}>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: rowAccent }}>
                               {props.whyAttendLabel ?? "Why this matters for you"}
                             </p>
-                            <p className="mt-1.5 text-[15px] leading-relaxed" style={{ color: cardInk.text }}>
+                            <p className="mt-1.5 text-[15px] leading-relaxed" style={{ color: rowInk.text, fontFamily: DISPLAY }}>
                               <InlineText
                                 as="span"
                                 multiline
@@ -799,10 +1029,10 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                           </div>
                         )}
                         {!!session.speakers?.length && (
-                          <p className="mt-3.5 text-sm" style={{ color: cardInk.muted }}>
+                          <p className="mt-3.5 text-sm" style={{ color: rowInk.muted }}>
                             {session.speakers.map((sp, k) => (
                               <span key={k}>
-                                <span className="font-semibold" style={{ color: cardInk.text }}>
+                                <span className="font-semibold" style={{ color: rowInk.text }}>
                                   {sp.name}
                                 </span>
                                 {sp.title ? ` · ${sp.title}` : ""}
@@ -812,9 +1042,42 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                           </p>
                         )}
                       </div>
-                    </article>
-                  </motion.li>
-                ))}
+                    </div>
+                  );
+
+                  return (
+                    <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))} className="relative sm:pl-10">
+                      {/* rail node */}
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-[2.2rem] hidden h-[11px] w-[11px] rounded-full border-2 sm:block"
+                        style={{
+                          borderColor: session.isReserved ? accentChrome : mixHex(ink.text, bg, 0.35),
+                          background: session.isReserved ? accentChrome : bg,
+                        }}
+                      />
+                      {session.isReserved ? (
+                        <article
+                          className="my-5 rounded-2xl px-6 py-6 sm:px-8"
+                          style={{
+                            background: cardBg,
+                            border: `1px solid ${mixHex(accentChrome, cardBg, 0.4)}`,
+                            boxShadow: "0 28px 56px -44px rgba(28, 25, 23, 0.4)",
+                          }}
+                        >
+                          {body}
+                        </article>
+                      ) : (
+                        <article
+                          className="border-b py-7"
+                          style={{ borderColor: mixHex(ink.text, bg, 0.12) }}
+                        >
+                          {body}
+                        </article>
+                      )}
+                    </motion.li>
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -826,11 +1089,11 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         <div id="rsvp" className="mx-auto w-full max-w-4xl px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10">
           <motion.div
             {...fadeUp(0)}
-            className="rounded-2xl px-7 py-8 sm:px-10 sm:py-10"
+            className="rounded-2xl px-7 py-9 sm:px-12 sm:py-11"
             style={{
               background: cardBg,
               border: `1px solid ${mixHex(accentChrome, cardBg, 0.35)}`,
-              boxShadow: "0 24px 48px -32px rgba(28, 25, 23, 0.28)",
+              boxShadow: "0 32px 64px -44px rgba(28, 25, 23, 0.35)",
             }}
           >
             <p className={kickerClass} style={{ color: accentOnCard }}>
@@ -859,9 +1122,98 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                 style={{ background: mixHex(accentChrome, cardBg, 0.1), color: cardInk.text }}
                 role="status"
               >
-                {props.rsvpConfirmation ?? "You're confirmed — we'll see you there."}
+                {props.rsvpConfirmation ?? linkedForm?.successMessage ?? "You're confirmed — we'll see you there."}
               </p>
+            ) : linkedForm ? (
+              /* linked global form — fields render from the form's own definitions */
+              <form onSubmit={submitLinkedRsvp} className="mt-6">
+                <input
+                  type="text"
+                  name="website"
+                  value={rsvp.website}
+                  onChange={(e) => setRsvp((r) => ({ ...r, website: e.target.value }))}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  className="absolute h-0 w-0 overflow-hidden opacity-0"
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {linkedVisibleFields.map((field) => {
+                    const value = formValues[field.id] ?? "";
+                    const onChange = (v: string) => setFormValues((prev) => ({ ...prev, [field.id]: v }));
+                    const spansBoth = field.type === "textarea" || field.type === "checkbox";
+                    return (
+                      <div key={field.id} className={spansBoth ? "sm:col-span-2" : undefined}>
+                        {field.type === "textarea" ? (
+                          <textarea
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            placeholder={field.placeholder || field.label}
+                            aria-label={field.label}
+                            required={field.required}
+                            rows={3}
+                            className={rsvpFieldClass}
+                            style={rsvpFieldStyle}
+                          />
+                        ) : field.type === "select" ? (
+                          <select
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            aria-label={field.label}
+                            required={field.required}
+                            className={rsvpFieldClass}
+                            style={{ ...rsvpFieldStyle, appearance: "auto" }}
+                          >
+                            <option value="">{field.placeholder || field.label}</option>
+                            {(field.options ?? []).map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : field.type === "checkbox" ? (
+                          <label className="flex items-start gap-2.5 text-sm" style={{ color: cardInk.text }}>
+                            <input
+                              type="checkbox"
+                              checked={value === "Yes"}
+                              onChange={(e) => onChange(e.target.checked ? "Yes" : "")}
+                              required={field.required}
+                              className="mt-0.5"
+                            />
+                            <span>{field.label}</span>
+                          </label>
+                        ) : (
+                          <input
+                            type={field.type === "email" ? "email" : field.type === "phone" ? "tel" : "text"}
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            placeholder={field.placeholder || field.label}
+                            aria-label={field.label}
+                            required={field.required}
+                            className={rsvpFieldClass}
+                            style={rsvpFieldStyle}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                  <button
+                    type="submit"
+                    disabled={rsvpStatus === "sending"}
+                    className="inline-flex items-center justify-center rounded-full px-7 py-3 text-base font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:opacity-60"
+                    style={{ background: rsvpBtnBg, color: rsvpBtnText }}
+                  >
+                    {rsvpStatus === "sending" ? "Sending…" : props.rsvpButtonText ?? linkedForm.submitButtonText ?? "Confirm my RSVP"}
+                  </button>
+                  {rsvpStatus === "error" && (
+                    <p className="text-sm font-semibold" role="alert" style={{ color: cardInk.text }}>
+                      Something went wrong — please try again.
+                    </p>
+                  )}
+                </div>
+              </form>
             ) : (
+              /* built-in capture — name + email into the standard lead pipeline */
               <form onSubmit={submitRsvp} className="mt-6">
                 {/* Honeypot — visually hidden, tab-skipped. */}
                 <input
@@ -891,12 +1243,8 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                       aria-label={f.label}
                       required={f.required}
                       autoComplete={f.auto}
-                      className="w-full rounded-lg px-4 py-3 text-[15px] outline-none transition-shadow focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current"
-                      style={{
-                        background: mixHex(cardInk.text, cardBg, 0.04),
-                        border: `1px solid ${mixHex(cardInk.text, cardBg, 0.25)}`,
-                        color: cardInk.text,
-                      }}
+                      className={rsvpFieldClass}
+                      style={rsvpFieldStyle}
                     />
                   ))}
                 </div>
@@ -969,8 +1317,27 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                 </CtaButton>
               </motion.div>
             )}
+            {/* "prepared by" brand lockup — the itinerary's maker's mark */}
+            {props.showPreparedBy !== false && !!brand && brandHasLogo(brand, props.logoUrl) && (
+              <motion.div {...fadeUp(0.18)} className="mt-12 flex flex-col items-center gap-3">
+                <span
+                  className="text-[10px] font-bold uppercase tracking-[0.26em]"
+                  style={{ color: heroChrome.muted }}
+                >
+                  Prepared for {props.accountName} by
+                </span>
+                <BrandLogo
+                  brand={brand}
+                  url={props.logoUrl}
+                  alt={props.logoAlt || brand.brandName || "Logo"}
+                  tone="onDark"
+                  autoContrast
+                  className="h-6 w-auto"
+                />
+              </motion.div>
+            )}
             {(props.footerNote || isEditor) && (
-              <motion.p {...fadeUp(0.2)} className="mt-9 text-sm" style={{ color: heroInk.muted }}>
+              <motion.p {...fadeUp(0.22)} className="mt-8 text-sm" style={{ color: heroInk.muted }}>
                 <InlineText as="span" value={props.footerNote ?? ""} onUpdate={edit("footerNote")} />
               </motion.p>
             )}

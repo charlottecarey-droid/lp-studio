@@ -1,11 +1,15 @@
-import { useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Link2, Link2Off } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { BrandSwatches } from "@/components/BrandSwatches";
+import { ImagePicker } from "@/components/ImagePicker";
 import { CtaActionConfigSection } from "./CtaActionConfigSection";
 import { ApplyCtaToAllButton } from "./ApplyCtaToAllButton";
 import type { CtaSuiteFields } from "@/lib/cta-modal";
@@ -144,6 +148,13 @@ function moveItem<T>(arr: T[], i: number, dir: -1 | 1): T[] {
 const EMPTY_SESSION: EvaSession = { time: "", title: "New session" };
 const EMPTY_DAY: EvaDay = { label: "New day", sessions: [] };
 
+const API_BASE = "/api";
+
+interface GlobalFormSummary {
+  id: number;
+  name: string;
+}
+
 export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
   const [open, setOpen] = useState({
     sections: true,
@@ -158,6 +169,13 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
 
   const set = <K extends keyof EventAgendaBlockProps>(key: K, value: EventAgendaBlockProps[K]) =>
     onChange({ ...props, [key]: value });
+
+  // Global forms for the RSVP "linked form" picker (mirrors ChatCapturePanel).
+  const [globalForms, setGlobalForms] = useState<GlobalFormSummary[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/forms`).then((r) => r.json()).then((data: GlobalFormSummary[]) => setGlobalForms(data)).catch(() => {});
+  }, []);
+  const linkedForm = globalForms.find((f) => f.id === props.rsvpFormId);
 
   const ctaSuite: CtaSuiteFields = props;
   const setCta = (next: CtaSuiteFields) => onChange({ ...props, ...next });
@@ -176,6 +194,17 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
         <SectionHeader label="Sections" open={open.sections} onToggle={() => toggle("sections")} />
         {open.sections && (
           <div className="pt-2.5 space-y-2">
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Hero</Label>
+                <Switch checked={props.showHero !== false} onCheckedChange={(v) => set("showHero", v)} />
+              </div>
+              {props.showHero === false && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Hero and navbar are hidden — add your own hero block above this one and the page starts at the note/schedule.
+                </p>
+              )}
+            </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">Navbar</Label>
               <Switch checked={props.showNavbar !== false} onCheckedChange={(v) => set("showNavbar", v)} />
@@ -230,6 +259,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             </Field>
             <Field label="Account logo URL (navbar co-brand)">
               <Input value={props.accountLogoUrl ?? ""} onChange={(e) => set("accountLogoUrl", e.target.value)} placeholder="https://…/logo.svg" className="text-xs h-8" />
+            </Field>
+            <Field label="Hero image (optional editorial panel)">
+              <ImagePicker
+                value={props.heroImageUrl ?? ""}
+                onChange={(url) => set("heroImageUrl", url)}
+                label="Hero image"
+                placeholder="https://…/venue.jpg"
+              />
             </Field>
           </div>
         )}
@@ -401,9 +438,40 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
         <SectionHeader label="RSVP" open={open.rsvp} onToggle={() => toggle("rsvp")} />
         {open.rsvp && (
           <div className="pt-2.5 space-y-2.5">
-            <div className="text-[11px] text-muted-foreground">
-              Submissions land in Leads with Source "Agenda RSVP". Enable the form under Sections.
-            </div>
+            <Field label="Form">
+              <div className="flex items-center gap-2">
+                <Select
+                  value={props.rsvpFormId != null ? String(props.rsvpFormId) : "__builtin__"}
+                  onValueChange={(v) => set("rsvpFormId", v === "__builtin__" ? undefined : parseInt(v, 10))}
+                >
+                  <SelectTrigger className="h-8 text-xs flex-1">
+                    <SelectValue placeholder="Built-in RSVP (name + email)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__builtin__">
+                      <span className="flex items-center gap-1.5"><Link2Off className="w-3.5 h-3.5" />Built-in RSVP (name + email)</span>
+                    </SelectItem>
+                    {globalForms.map((f) => (
+                      <SelectItem key={f.id} value={String(f.id)}>
+                        <span className="flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5" />{f.name}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <a href="/forms" target="_blank" rel="noopener noreferrer" className="shrink-0">
+                  <Button size="sm" variant="outline" type="button" className="h-8 text-xs">Manage</Button>
+                </a>
+              </div>
+            </Field>
+            {linkedForm ? (
+              <p className="text-[11px] text-green-600 flex items-center gap-1">
+                <Link2 className="w-3 h-3" /> Linked to "{linkedForm.name}" — fields, notifications, and integrations managed on the form.
+              </p>
+            ) : (
+              <div className="text-[11px] text-muted-foreground">
+                Built-in capture: submissions land in Leads with Source "Agenda RSVP". Enable the section under Sections.
+              </div>
+            )}
             <Field label="Kicker">
               <Input value={props.rsvpKicker ?? ""} onChange={(e) => set("rsvpKicker", e.target.value)} placeholder="RSVP" className="text-xs h-8" />
             </Field>

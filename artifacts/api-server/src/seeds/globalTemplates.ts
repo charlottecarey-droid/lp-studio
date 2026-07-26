@@ -4039,6 +4039,7 @@ const EVENT_AGENDA_GENERIC_PROPS = {
   ],
   navCtaText: "Get in touch",
   navCtaUrl: "#contact",
+  showHero: true,
   eyebrow: "Summit 2026 · Austin, TX · Mar 10–12, 2026",
   headline: "{{company_name}}, your agenda is ready",
   subheadline:
