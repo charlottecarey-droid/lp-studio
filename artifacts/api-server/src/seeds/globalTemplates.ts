@@ -4061,10 +4061,13 @@ const EVENT_AGENDA_GENERIC_PROPS = {
   days: [
     {
       label: "Tuesday, Mar 10",
+      date: "2026-03-10",
       summary: "Operations focus + your welcome dinner",
       sessions: [
         {
           time: "9:00 AM – 10:00 AM",
+          startTime: "09:00",
+          endTime: "10:00",
           title: "Opening keynote: the year ahead",
           sessionType: "Keynote",
           room: "Main stage",
@@ -4074,6 +4077,8 @@ const EVENT_AGENDA_GENERIC_PROPS = {
         },
         {
           time: "11:30 AM – 12:30 PM",
+          startTime: "11:30",
+          endTime: "12:30",
           title: "Scaling operations across every location",
           sessionType: "Breakout",
           track: "Operations",
@@ -4083,6 +4088,7 @@ const EVENT_AGENDA_GENERIC_PROPS = {
         },
         {
           time: "6:30 PM",
+          startTime: "18:30",
           title: "Welcome dinner with your account team",
           sessionType: "Reserved",
           room: "The Terrace",
@@ -4092,10 +4098,13 @@ const EVENT_AGENDA_GENERIC_PROPS = {
     },
     {
       label: "Wednesday, Mar 11",
+      date: "2026-03-11",
       summary: "Working sessions + executive time",
       sessions: [
         {
           time: "10:00 AM – 11:00 AM",
+          startTime: "10:00",
+          endTime: "11:00",
           title: "Working session with product leadership",
           sessionType: "Reserved",
           room: "Boardroom 3",
@@ -4104,6 +4113,8 @@ const EVENT_AGENDA_GENERIC_PROPS = {
         },
         {
           time: "2:00 PM – 3:00 PM",
+          startTime: "14:00",
+          endTime: "15:00",
           title: "Executive roundtable: measuring what matters",
           sessionType: "Roundtable",
           track: "Leadership",
@@ -4113,6 +4124,12 @@ const EVENT_AGENDA_GENERIC_PROPS = {
       ],
     },
   ],
+  showRsvp: false,
+  rsvpKicker: "RSVP",
+  rsvpHeading: "Confirm your spot",
+  rsvpSubheadline: "Tell us who's coming and we'll have everything ready — badges, reserved seats, and your dinner table.",
+  rsvpButtonText: "Confirm my RSVP",
+  rsvpConfirmation: "You're confirmed — we'll see you there.",
   showClose: true,
   ctaHeadline: "Questions before the event?",
   ctaSubheadline: "Your account team is one message away — we'll meet you at registration.",

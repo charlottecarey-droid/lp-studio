@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, sql, asc } from "drizzle-orm";
+import { eq, and, desc, sql, asc, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesEventsTable,
@@ -7,11 +7,14 @@ import {
   salesEventAgendasTable,
   salesAccountsTable,
   lpPagesTable,
+  lpPageVisitsTable,
+  lpLeadsTable,
   type SalesEventSession,
   type AgendaSelection,
   type EventSessionTags,
   type EventSessionSpeaker,
 } from "@workspace/db";
+import { fieldAccessor, isTestLead } from "@workspace/lead-utils";
 import { getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import {
@@ -879,10 +882,15 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
     const dayKeys = [...new Set(selections.map((s) => s.session.day ?? ""))].sort();
     const days = dayKeys.map((dayKey) => ({
       label: formatDayLabel(dayKey || null),
+      // Machine date + times ride along for the block's .ics download; the
+      // editorial `time`/`label` strings stay the rendered truth.
+      date: dayKey,
       sessions: selections
         .filter((s) => (s.session.day ?? "") === dayKey)
         .map(({ session, blurb }) => ({
           time: formatTimeRange(session.startTime, session.endTime),
+          startTime: session.startTime ?? "",
+          endTime: session.endTime ?? "",
           title: session.title,
           room: session.room ?? "",
           sessionType: session.sessionType ?? "",
@@ -911,6 +919,10 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
       personalNote: agenda.personalNote ?? "",
       days,
       sessionCount: selections.length,
+      // RSVP is on for published agendas (block default is off for
+      // hand-authored pages); copy comes from the block defaults.
+      showRsvp: true,
+      rsvpHeading: `Confirm your spot at ${event.name}`,
       ctaHeadline: "Questions before the event?",
       ctaSubheadline: "Your account team is one message away.",
       ctaText: "Get in touch",
@@ -974,6 +986,139 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("[sales/events] agenda publish error", err);
     res.status(500).json({ error: "Failed to publish agenda" });
+  }
+});
+
+// ─── Per-event analytics rollup (phase 3) ────────────────────────────────────
+// One call answers "is this event program working": per-agenda page traffic
+// (lp_page_visits — server-stamped on the public serve path), lead + RSVP
+// counts (lp_leads; RSVPs are the event-agenda block's inline form, stamped
+// Source="Agenda RSVP"), and which catalog sessions reps actually pick.
+router.get("/events/:eventId/analytics", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const eventId = parseInt(req.params.eventId, 10);
+    if (isNaN(eventId)) { res.status(400).json({ error: "Invalid eventId" }); return; }
+    const event = await loadEvent(tenantId, eventId);
+    if (!event) { res.status(404).json({ error: "Event not found" }); return; }
+
+    const agendaRows = await db
+      .select({
+        id: salesEventAgendasTable.id,
+        accountId: salesEventAgendasTable.accountId,
+        accountNameSnapshot: salesEventAgendasTable.accountNameSnapshot,
+        selections: salesEventAgendasTable.selections,
+        status: salesEventAgendasTable.status,
+        lpPageId: salesEventAgendasTable.lpPageId,
+        publishedAt: salesEventAgendasTable.publishedAt,
+        accountDisplayName: salesAccountsTable.displayName,
+        accountName: salesAccountsTable.name,
+        slug: lpPagesTable.slug,
+      })
+      .from(salesEventAgendasTable)
+      .leftJoin(
+        salesAccountsTable,
+        and(eq(salesAccountsTable.id, salesEventAgendasTable.accountId), eq(salesAccountsTable.tenantId, tenantId)),
+      )
+      .leftJoin(
+        lpPagesTable,
+        and(eq(lpPagesTable.id, salesEventAgendasTable.lpPageId), eq(lpPagesTable.tenantId, tenantId)),
+      )
+      .where(and(eq(salesEventAgendasTable.tenantId, tenantId), eq(salesEventAgendasTable.eventId, eventId)));
+
+    // Only pages that still exist (lp_page_id is SET NULL on delete, but the
+    // tenant-scoped join is the belt-and-braces guard).
+    const pageIds = agendaRows
+      .filter((a) => a.slug !== null && typeof a.lpPageId === "number")
+      .map((a) => a.lpPageId as number);
+
+    const visitRows = pageIds.length
+      ? await db
+          .select({
+            pageId: lpPageVisitsTable.pageId,
+            visits: sql<number>`count(*)::int`,
+            uniqueVisitors: sql<number>`count(distinct ${lpPageVisitsTable.sessionId})::int`,
+          })
+          .from(lpPageVisitsTable)
+          .where(inArray(lpPageVisitsTable.pageId, pageIds))
+          .groupBy(lpPageVisitsTable.pageId)
+      : [];
+    const visitsByPage = new Map(visitRows.map((r) => [r.pageId, r]));
+
+    // Test-lead filtering is a JS heuristic (isTestLead), so leads are counted
+    // in JS — same pattern as GET /lp/analytics/pages.
+    const leadRows = pageIds.length
+      ? await db
+          .select({ pageId: lpLeadsTable.pageId, fields: lpLeadsTable.fields })
+          .from(lpLeadsTable)
+          .where(and(eq(lpLeadsTable.tenantId, tenantId), inArray(lpLeadsTable.pageId, pageIds)))
+      : [];
+    const leadsByPage = new Map<number, { leads: number; rsvps: number }>();
+    for (const lead of leadRows) {
+      const fields = (lead.fields ?? {}) as Record<string, unknown>;
+      if (isTestLead(fields)) continue;
+      const entry = leadsByPage.get(lead.pageId) ?? { leads: 0, rsvps: 0 };
+      entry.leads++;
+      if (fieldAccessor(fields)("source") === "Agenda RSVP") entry.rsvps++;
+      leadsByPage.set(lead.pageId, entry);
+    }
+
+    const agendas = agendaRows
+      .map((a) => {
+        const pageId = a.slug !== null && typeof a.lpPageId === "number" ? a.lpPageId : null;
+        const visits = pageId !== null ? visitsByPage.get(pageId) : undefined;
+        const leads = pageId !== null ? leadsByPage.get(pageId) : undefined;
+        return {
+          id: a.id,
+          accountName: a.accountDisplayName || a.accountName || a.accountNameSnapshot || "—",
+          status: a.status,
+          pageId,
+          url: a.slug !== null ? `/lp/${a.slug}` : null,
+          publishedAt: a.publishedAt,
+          sessionCount: ((a.selections ?? []) as AgendaSelection[]).length,
+          visits: visits?.visits ?? 0,
+          uniqueVisitors: visits?.uniqueVisitors ?? 0,
+          leads: leads?.leads ?? 0,
+          rsvps: leads?.rsvps ?? 0,
+        };
+      })
+      .sort((x, y) => y.visits - x.visits || y.rsvps - x.rsvps || x.accountName.localeCompare(y.accountName));
+
+    // Which catalog sessions reps actually put on agendas — informs what to
+    // reserve/expand next time.
+    const pickCounts = new Map<number, number>();
+    for (const a of agendaRows) {
+      for (const sel of (a.selections ?? []) as AgendaSelection[]) {
+        pickCounts.set(sel.sessionId, (pickCounts.get(sel.sessionId) ?? 0) + 1);
+      }
+    }
+    const sessions = await loadEventSessions(tenantId, eventId);
+    const topSessions = sessions
+      .filter((s) => pickCounts.has(s.id))
+      .map((s) => ({
+        sessionId: s.id,
+        title: s.title,
+        day: s.day,
+        startTime: s.startTime,
+        isReservedSlot: s.isReservedSlot,
+        pickCount: pickCounts.get(s.id) ?? 0,
+      }))
+      .sort((x, y) => y.pickCount - x.pickCount || x.title.localeCompare(y.title))
+      .slice(0, 10);
+
+    const summary = {
+      agendas: agendaRows.length,
+      published: agendaRows.filter((a) => a.status === "published").length,
+      visits: agendas.reduce((n, a) => n + a.visits, 0),
+      uniqueVisitors: agendas.reduce((n, a) => n + a.uniqueVisitors, 0),
+      leads: agendas.reduce((n, a) => n + a.leads, 0),
+      rsvps: agendas.reduce((n, a) => n + a.rsvps, 0),
+    };
+
+    res.json({ summary, agendas, topSessions });
+  } catch (err) {
+    console.error("[sales/events] analytics error", err);
+    res.status(500).json({ error: "Failed to load event analytics" });
   }
 });
 

@@ -97,6 +97,7 @@ afterAll(async () => {
 describe.skipIf(!dbAvailable)("agenda builder flow", () => {
   let agendaId: number;
   let firstSlug: string;
+  let publishedPageId: number;
 
   it("matches role-tagged sessions, resolves conflicts, pins reserved slots", async () => {
     const res = await inject(app, {
@@ -125,6 +126,7 @@ describe.skipIf(!dbAvailable)("agenda builder flow", () => {
     expect(res.status).toBe(200);
     const { slug, url, pageId } = res.json as { slug: string; url: string; pageId: number };
     firstSlug = slug;
+    publishedPageId = pageId;
     expect(url).toBe(`/lp/${slug}`);
 
     const { rows } = await pool.query<{ blocks: { type: string; props: Record<string, unknown> }[] }>(
@@ -139,13 +141,20 @@ describe.skipIf(!dbAvailable)("agenda builder flow", () => {
     const props = blocks[0].props as {
       headline: string;
       accountName: string;
-      days: { label: string; sessions: { title: string; isReserved?: boolean }[] }[];
+      showRsvp?: boolean;
+      days: { label: string; date?: string; sessions: { title: string; isReserved?: boolean; startTime?: string; endTime?: string }[] }[];
     };
     expect(props.accountName).toBe("Evergreen Dental Group");
     expect(props.headline).toContain("Evergreen Dental Group");
     expect(props.days).toHaveLength(2);
     expect(props.days[0].sessions.map((s) => s.title)).toEqual(["Role and industry", "Welcome dinner"]);
     expect(props.days[0].sessions[1].isReserved).toBe(true);
+    // Phase 3: machine schedule fields power the block's .ics download, and
+    // published agendas opt into the inline RSVP capture.
+    expect(props.days[0].date).toBe("2026-10-20");
+    expect(props.days[0].sessions[0].startTime).toBe("09:30");
+    expect(props.days[0].sessions[0].endTime).toBe("10:30");
+    expect(props.showRsvp).toBe(true);
 
     const agendaRow = await pool.query<{ status: string; lp_page_id: number }>(
       `SELECT status, lp_page_id FROM sales_event_agendas WHERE id = $1`,
@@ -165,6 +174,44 @@ describe.skipIf(!dbAvailable)("agenda builder flow", () => {
       [tenantId],
     );
     expect(Number(rows[0].count)).toBe(1);
+  });
+
+  it("rolls up per-event analytics: visits, RSVPs (test leads excluded), top picks", async () => {
+    // Seed traffic + leads directly: two visits from distinct sessions, one
+    // real RSVP, one form lead, and one test lead the heuristic must drop.
+    await pool.query(
+      `INSERT INTO lp_page_visits (page_id, session_id) VALUES ($1, 'it-visitor-1'), ($1, 'it-visitor-2')`,
+      [publishedPageId],
+    );
+    await pool.query(
+      `INSERT INTO lp_leads (tenant_id, page_id, fields) VALUES
+         ($1, $2, '{"First Name":"Ada","Last Name":"Lovelace","Email":"ada@evergreen.example.com","Source":"Agenda RSVP"}'::jsonb),
+         ($1, $2, '{"First Name":"Grace","Email":"grace@evergreen.example.com"}'::jsonb),
+         ($1, $2, '{"First Name":"Test","Last Name":"User","Email":"test@test.com","Source":"Agenda RSVP"}'::jsonb)`,
+      [tenantId, publishedPageId],
+    );
+
+    const res = await inject(app, { method: "GET", url: `/events/${eventId}/analytics` });
+    expect(res.status).toBe(200);
+    const data = res.json as {
+      summary: { agendas: number; published: number; visits: number; uniqueVisitors: number; leads: number; rsvps: number };
+      agendas: { accountName: string; visits: number; rsvps: number; leads: number; url: string | null }[];
+      topSessions: { title: string; pickCount: number }[];
+    };
+    expect(data.summary.agendas).toBe(1);
+    expect(data.summary.published).toBe(1);
+    expect(data.summary.visits).toBe(2);
+    expect(data.summary.uniqueVisitors).toBe(2);
+    // Test lead excluded everywhere; the RSVP is distinguished from the plain lead.
+    expect(data.summary.leads).toBe(2);
+    expect(data.summary.rsvps).toBe(1);
+    expect(data.agendas[0].accountName).toBe("Evergreen Dental Group");
+    expect(data.agendas[0].url).toBe(`/lp/${firstSlug}`);
+    // Every selected session appears in the pick rollup exactly once.
+    expect(data.topSessions.map((s) => s.title).sort()).toEqual(
+      ["Day two roundtable", "Role and industry", "Welcome dinner"].sort(),
+    );
+    expect(data.topSessions.every((s) => s.pickCount === 1)).toBe(true);
   });
 
   it("re-import upserts by source key and preserves in-app tag edits", async () => {
