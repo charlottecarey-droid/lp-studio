@@ -449,7 +449,9 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const navCtaTextColor = pickContrastingColor(brand?.ctaText, navCtaBg, [contrastTextColor(navCtaBg)], 4.5);
   const closeCtaBg = navCtaBg;
   const closeCtaText = navCtaTextColor;
-  const rsvpBtnBg = pickContrastingColor(brand?.ctaBackground, cardBg, [accentRaw, brand?.primaryColor, "#221E3F"], 3.0);
+  // The RSVP form sits directly on the page surface (no card), so its button
+  // resolves against `bg` — not cardBg.
+  const rsvpBtnBg = pickContrastingColor(brand?.ctaBackground, bg, [accentRaw, brand?.primaryColor, "#221E3F"], 3.0);
   const rsvpBtnText = pickContrastingColor(brand?.ctaText, rsvpBtnBg, [contrastTextColor(rsvpBtnBg)], 4.5);
 
   /* — builder edit plumbing — */
@@ -482,6 +484,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const [rsvpStatus, setRsvpStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [linkedForm, setLinkedForm] = useState<LinkedRsvpForm | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (!showRsvp || props.rsvpFormId == null) { setLinkedForm(null); return; }
@@ -647,13 +650,120 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     reservedTotal > 0 ? { value: String(reservedTotal), label: reservedTotal === 1 ? "reserved just for you" : "reserved just for you" } : null,
   ].filter((s): s is { value: string; label: string } => s !== null).slice(0, 3);
 
-  const rsvpFieldStyle: React.CSSProperties = {
-    background: mixHex(cardInk.text, cardBg, 0.04),
-    border: `1px solid ${mixHex(cardInk.text, cardBg, 0.25)}`,
-    color: cardInk.text,
+  /* — RSVP field rendering: underline-only inputs on the page surface with an
+   *   accent rule that draws in on focus (the Event RSVP invitation register).
+   *   Shared by the built-in capture and the linked-form renderer so the two
+   *   are visually identical. — */
+  const underlineInputStyle: React.CSSProperties = {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    borderBottom: `1px solid ${mixHex(ink.text, bg, 0.22)}`,
+    borderRadius: 0,
+    color: ink.text,
+    fontFamily: BODY,
+    fontSize: "1rem",
+    padding: "0.65rem 0",
+    outline: "none",
   };
-  const rsvpFieldClass =
-    "w-full rounded-lg px-4 py-3 text-[15px] outline-none transition-shadow focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current";
+
+  function renderUnderlineField(f: {
+    id: string;
+    label: string;
+    placeholder?: string;
+    type?: string;
+    required?: boolean;
+    options?: string[];
+    autoComplete?: string;
+    value: string;
+    onChange: (v: string) => void;
+  }) {
+    const focused = focusedField === f.id;
+    const placeholder = f.placeholder || f.label;
+    const common = {
+      name: f.id,
+      required: f.required,
+      "aria-label": f.label,
+      onFocus: () => setFocusedField(f.id),
+      onBlur: () => setFocusedField(null),
+      style: underlineInputStyle,
+      className: "focus:outline-none",
+    };
+
+    if (f.type === "checkbox") {
+      return (
+        <label key={f.id} className="flex items-start gap-3 text-[15px]" style={{ color: ink.text }}>
+          <input
+            type="checkbox"
+            name={f.id}
+            checked={f.value === "Yes"}
+            onChange={(e) => f.onChange(e.target.checked ? "Yes" : "")}
+            required={f.required}
+            className="mt-1"
+          />
+          <span>{f.label}</span>
+        </label>
+      );
+    }
+
+    return (
+      <div key={f.id} className="relative">
+        {/* tiny field label — the itinerary's engraved caption */}
+        <span
+          className="mb-1 block text-[10px] font-bold uppercase"
+          style={{ color: ink.muted, letterSpacing: "0.2em" }}
+        >
+          {f.label}
+          {f.required ? " *" : ""}
+        </span>
+        {f.type === "textarea" ? (
+          <textarea
+            {...common}
+            value={f.value}
+            onChange={(e) => f.onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={3}
+            style={{ ...underlineInputStyle, resize: "none" }}
+          />
+        ) : f.type === "select" ? (
+          <select
+            {...common}
+            value={f.value}
+            onChange={(e) => f.onChange(e.target.value)}
+            style={{ ...underlineInputStyle, appearance: "auto" }}
+          >
+            <option value="">{placeholder}</option>
+            {(f.options ?? []).map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            {...common}
+            type={f.type === "email" ? "email" : f.type === "phone" ? "tel" : "text"}
+            value={f.value}
+            onChange={(e) => f.onChange(e.target.value)}
+            placeholder={placeholder}
+            autoComplete={f.autoComplete}
+          />
+        )}
+        {/* Accent rule draws in from the left on focus. Plain CSS transition,
+            not framer: this is an interaction state (excluded from the reveal
+            contract) and a compositor transition can't be stranded mid-flight
+            the way an rAF-driven animation can. */}
+        <span
+          aria-hidden
+          className="absolute bottom-0 left-0 h-px w-full"
+          style={{
+            background: accentChrome,
+            transformOrigin: "left",
+            transform: `scaleX(${focused ? 1 : 0})`,
+            transition: reduced ? "none" : "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <section className="relative w-full" style={{ background: bg, fontFamily: BODY }}>
@@ -1176,135 +1286,66 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
 
       {/* ── 4. RSVP ─────────────────────────────────────────────────────── */}
       {showRsvp && (
-        <div id="rsvp" className="mx-auto w-full max-w-4xl px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10">
-          <motion.div
-            {...fadeUp(0)}
-            className="rounded-2xl px-7 py-9 sm:px-12 sm:py-11"
-            style={{
-              background: cardBg,
-              border: `1px solid ${mixHex(accentChrome, cardBg, 0.35)}`,
-              boxShadow: "0 32px 64px -44px rgba(28, 25, 23, 0.35)",
-            }}
-          >
-            <p className={kickerClass} style={{ color: accentOnCard }}>
-              <InlineText as="span" value={props.rsvpKicker ?? "RSVP"} onUpdate={edit("rsvpKicker")} />
-            </p>
-            <h2
-              className="mt-4 font-bold"
-              style={{
-                fontFamily: DISPLAY,
-                fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
-                lineHeight: 1.1,
-                letterSpacing: "-0.02em",
-                color: headlineOnCard,
-              }}
-            >
-              <InlineText as="span" value={props.rsvpHeading ?? "Confirm your spot"} onUpdate={edit("rsvpHeading")} />
-            </h2>
-            {(props.rsvpSubheadline || isEditor) && (
-              <p className="mt-3 max-w-2xl text-base leading-relaxed" style={{ color: cardInk.muted }}>
-                <InlineText as="span" multiline value={props.rsvpSubheadline ?? ""} onUpdate={edit("rsvpSubheadline")} />
-              </p>
-            )}
-            {rsvpStatus === "done" ? (
+        <div id="rsvp" className="relative overflow-hidden px-5 pb-20 pt-4 sm:px-8 sm:pb-24 lg:px-10">
+          {/* ambient accent glow — the invitation's warmth, never a card edge */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ background: `radial-gradient(circle, ${mixHex(accentChrome, bg, 0.16)} 0%, transparent 70%)` }}
+          />
+          <motion.div {...fadeUp(0)} className="relative mx-auto w-full max-w-xl">
+            {/* centered editorial header */}
+            <div className="text-center">
               <p
-                className="mt-6 rounded-lg px-4 py-3.5 text-base font-semibold"
-                style={{ background: mixHex(accentChrome, cardBg, 0.1), color: cardInk.text }}
+                className="text-[11px] font-bold uppercase"
+                style={{ color: accentText, letterSpacing: "0.4em" }}
+              >
+                <InlineText as="span" value={props.rsvpKicker ?? "RSVP"} onUpdate={edit("rsvpKicker")} />
+              </p>
+              <h2
+                className="mt-5 font-bold"
+                style={{
+                  fontFamily: DISPLAY,
+                  fontSize: "clamp(1.9rem, 3.6vw, 2.75rem)",
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.022em",
+                  color: headline,
+                }}
+              >
+                <InlineText as="span" value={props.rsvpHeading ?? "Confirm your spot"} onUpdate={edit("rsvpHeading")} />
+              </h2>
+              {(props.rsvpSubheadline || isEditor) && (
+                <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+                  <InlineText as="span" multiline value={props.rsvpSubheadline ?? ""} onUpdate={edit("rsvpSubheadline")} />
+                </p>
+              )}
+              <span
+                aria-hidden
+                className="mx-auto mt-8 block h-px w-12"
+                style={{ background: mixHex(accentChrome, bg, 0.6) }}
+              />
+            </div>
+
+            {rsvpStatus === "done" ? (
+              /* confirmation — a framed acknowledgement, not a green alert bar */
+              <motion.div
+                initial={reduced ? false : anim({ opacity: 0, scale: 0.97 })}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-10 px-6 py-12 text-center"
+                style={{ border: `1px solid ${mixHex(accentChrome, bg, 0.4)}`, background: mixHex(accentChrome, bg, 0.05) }}
                 role="status"
               >
-                {props.rsvpConfirmation ?? linkedForm?.successMessage ?? "You're confirmed — we'll see you there."}
-              </p>
-            ) : linkedForm ? (
-              /* linked global form — fields render from the form's own definitions */
-              <form onSubmit={submitLinkedRsvp} className="mt-6">
-                <input
-                  type="text"
-                  name="website"
-                  value={rsvp.website}
-                  onChange={(e) => setRsvp((r) => ({ ...r, website: e.target.value }))}
-                  tabIndex={-1}
-                  autoComplete="off"
-                  aria-hidden="true"
-                  className="absolute h-0 w-0 overflow-hidden opacity-0"
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {linkedVisibleFields.map((field) => {
-                    const value = formValues[field.id] ?? "";
-                    const onChange = (v: string) => setFormValues((prev) => ({ ...prev, [field.id]: v }));
-                    const spansBoth = field.type === "textarea" || field.type === "checkbox";
-                    return (
-                      <div key={field.id} className={spansBoth ? "sm:col-span-2" : undefined}>
-                        {field.type === "textarea" ? (
-                          <textarea
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            placeholder={field.placeholder || field.label}
-                            aria-label={field.label}
-                            required={field.required}
-                            rows={3}
-                            className={rsvpFieldClass}
-                            style={rsvpFieldStyle}
-                          />
-                        ) : field.type === "select" ? (
-                          <select
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            aria-label={field.label}
-                            required={field.required}
-                            className={rsvpFieldClass}
-                            style={{ ...rsvpFieldStyle, appearance: "auto" }}
-                          >
-                            <option value="">{field.placeholder || field.label}</option>
-                            {(field.options ?? []).map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                        ) : field.type === "checkbox" ? (
-                          <label className="flex items-start gap-2.5 text-sm" style={{ color: cardInk.text }}>
-                            <input
-                              type="checkbox"
-                              checked={value === "Yes"}
-                              onChange={(e) => onChange(e.target.checked ? "Yes" : "")}
-                              required={field.required}
-                              className="mt-0.5"
-                            />
-                            <span>{field.label}</span>
-                          </label>
-                        ) : (
-                          <input
-                            type={field.type === "email" ? "email" : field.type === "phone" ? "tel" : "text"}
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            placeholder={field.placeholder || field.label}
-                            aria-label={field.label}
-                            required={field.required}
-                            className={rsvpFieldClass}
-                            style={rsvpFieldStyle}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-4">
-                  <button
-                    type="submit"
-                    disabled={rsvpStatus === "sending"}
-                    className="inline-flex items-center justify-center rounded-full px-7 py-3 text-base font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:opacity-60"
-                    style={{ background: rsvpBtnBg, color: rsvpBtnText }}
-                  >
-                    {rsvpStatus === "sending" ? "Sending…" : props.rsvpButtonText ?? linkedForm.submitButtonText ?? "Confirm my RSVP"}
-                  </button>
-                  {rsvpStatus === "error" && (
-                    <p className="text-sm font-semibold" role="alert" style={{ color: cardInk.text }}>
-                      Something went wrong — please try again.
-                    </p>
-                  )}
-                </div>
-              </form>
+                <span aria-hidden className="mx-auto mb-6 block h-px w-12" style={{ background: mixHex(accentChrome, bg, 0.6) }} />
+                <p
+                  className="text-2xl italic"
+                  style={{ fontFamily: DISPLAY, color: headline }}
+                >
+                  {props.rsvpConfirmation ?? linkedForm?.successMessage ?? "You're confirmed — we'll see you there."}
+                </p>
+              </motion.div>
             ) : (
-              /* built-in capture — name + email into the standard lead pipeline */
-              <form onSubmit={submitRsvp} className="mt-6">
+              <form onSubmit={linkedForm ? submitLinkedRsvp : submitRsvp} className="mt-10 flex flex-col gap-7">
                 {/* Honeypot — visually hidden, tab-skipped. */}
                 <input
                   type="text"
@@ -1316,43 +1357,62 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                   aria-hidden="true"
                   className="absolute h-0 w-0 overflow-hidden opacity-0"
                 />
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr]">
-                  {(
-                    [
-                      { key: "firstName", label: "First name", type: "text", required: true, auto: "given-name" },
-                      { key: "lastName", label: "Last name", type: "text", required: false, auto: "family-name" },
-                      { key: "email", label: "Work email", type: "email", required: true, auto: "email" },
-                    ] as const
-                  ).map((f) => (
-                    <input
-                      key={f.key}
-                      type={f.type}
-                      value={rsvp[f.key]}
-                      onChange={(e) => setRsvp((r) => ({ ...r, [f.key]: e.target.value }))}
-                      placeholder={f.label}
-                      aria-label={f.label}
-                      required={f.required}
-                      autoComplete={f.auto}
-                      className={rsvpFieldClass}
-                      style={rsvpFieldStyle}
-                    />
-                  ))}
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-4">
-                  <button
-                    type="submit"
-                    disabled={rsvpStatus === "sending"}
-                    className="inline-flex items-center justify-center rounded-full px-7 py-3 text-base font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:opacity-60"
-                    style={{ background: rsvpBtnBg, color: rsvpBtnText }}
-                  >
-                    {rsvpStatus === "sending" ? "Sending…" : props.rsvpButtonText ?? "Confirm my RSVP"}
-                  </button>
-                  {rsvpStatus === "error" && (
-                    <p className="text-sm font-semibold" role="alert" style={{ color: cardInk.text }}>
-                      Something went wrong — please try again.
-                    </p>
-                  )}
-                </div>
+
+                {linkedForm
+                  ? linkedVisibleFields.map((field) =>
+                      renderUnderlineField({
+                        id: field.id,
+                        label: field.label,
+                        placeholder: field.placeholder,
+                        type: field.type,
+                        required: field.required,
+                        options: field.options,
+                        value: formValues[field.id] ?? "",
+                        onChange: (v) => setFormValues((prev) => ({ ...prev, [field.id]: v })),
+                      }),
+                    )
+                  : (
+                      [
+                        { id: "firstName", label: "First name", type: "text", required: true, auto: "given-name" },
+                        { id: "lastName", label: "Last name", type: "text", required: false, auto: "family-name" },
+                        { id: "email", label: "Work email", type: "email", required: true, auto: "email" },
+                      ] as const
+                    ).map((f) =>
+                      renderUnderlineField({
+                        id: f.id,
+                        label: f.label,
+                        type: f.type,
+                        required: f.required,
+                        autoComplete: f.auto,
+                        value: rsvp[f.id],
+                        onChange: (v) => setRsvp((r) => ({ ...r, [f.id]: v })),
+                      }),
+                    )}
+
+                {rsvpStatus === "error" && (
+                  <p className="text-sm font-semibold" role="alert" style={{ color: ink.text }}>
+                    Something went wrong — please try again.
+                  </p>
+                )}
+
+                <motion.button
+                  type="submit"
+                  disabled={rsvpStatus === "sending"}
+                  className="relative mt-1 w-full overflow-hidden py-4 text-[12px] font-bold uppercase disabled:opacity-60"
+                  style={{
+                    background: rsvpBtnBg,
+                    color: rsvpBtnText,
+                    letterSpacing: "0.18em",
+                    cursor: rsvpStatus === "sending" ? "not-allowed" : "pointer",
+                  }}
+                  whileHover={reduced ? undefined : { scale: 1.005 }}
+                  whileTap={reduced ? undefined : { scale: 0.995 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                >
+                  <span className="relative z-10">
+                    {rsvpStatus === "sending" ? "Sending…" : props.rsvpButtonText ?? linkedForm?.submitButtonText ?? "Confirm my RSVP"}
+                  </span>
+                </motion.button>
               </form>
             )}
           </motion.div>
