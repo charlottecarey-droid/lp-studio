@@ -15,6 +15,7 @@ import {
   X,
   Settings,
   Calculator,
+  CalendarDays,
   FileText,
   Wrench,
   LayoutTemplate,
@@ -305,6 +306,13 @@ export function SalesTopNav() {
       icon: <Calculator className="w-4 h-4" />,
       permission: "sales_accounts",
       matchFn: (loc) => loc === "/sales/roi-calculator",
+    },
+    {
+      label: "Events",
+      href: "/sales/events",
+      icon: <CalendarDays className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/events" || loc.startsWith("/sales/events/"),
     },
     {
       label: isDandy ? "One-Pager" : "One-Pager (beta)",

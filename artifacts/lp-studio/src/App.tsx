@@ -127,6 +127,8 @@ const BlocksSettings = lazy(() => import("@/pages/blocks-settings"));
 // Sales Console pages
 const SalesDashboard = lazy(() => import("@/pages/sales/sales-dashboard"));
 const SalesAccounts = lazy(() => import("@/pages/sales/sales-accounts"));
+const SalesEvents = lazy(() => import("@/pages/sales/sales-events"));
+const SalesEventDetail = lazy(() => import("@/pages/sales/sales-event-detail"));
 const SalesContacts = lazy(() => import("@/pages/sales/sales-contacts"));
 const SalesPages = lazy(() => import("@/pages/sales/sales-pages"));
 const SalesOutreach = lazy(() => import("@/pages/sales/sales-outreach"));
@@ -387,6 +389,8 @@ function AppRouter() {
         <Route path="/sales/microsites">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
         <Route path="/sales/accounts/:id">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
         <Route path="/sales/accounts">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
+        <Route path="/sales/events/:id">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesEventDetail /></PermRoute>}</Route>
+        <Route path="/sales/events">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesEvents /></PermRoute>}</Route>
         <Route path="/sales/contacts/:id">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
         <Route path="/sales/contacts">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
         <Route path="/sales/pages">{() => <Redirect to="/sales/microsites" />}</Route>
