@@ -105,6 +105,18 @@ export interface DsoHeartlandHeroBlockProps {
    *  busy or bright footage. 0 (the default) = no dimming, preserving the current
    *  look. Only applies where a real hero image/video is present. */
   assetDimming?: number;
+  /** Full-bleed layout only: softly fades the background image/video into the
+   *  section background at the chosen edge(s). "none" (default) keeps the hard
+   *  edge. Applied via a CSS mask so the asset melts into whatever background
+   *  color/gradient sits behind it. */
+  edgeFade?: "none" | "top" | "bottom" | "both";
+  /** Depth (%) of the edge fade — how far the fade reaches into the asset from
+   *  each faded edge. Default 30. Clamped 5–60. */
+  edgeFadeSize?: number;
+  /** Stacked layout only: what the large showcase below the copy displays.
+   *  "video" (default) keeps the current video player; "image" swaps it for a
+   *  static image (`heroImageUrl`) in the same framed showcase. */
+  stackedMediaType?: "video" | "image";
   layout?: "full-bleed" | "split" | "split-video" | "stacked-video";
   heroImageUrl?: string;
   heroImageSide?: "left" | "right";

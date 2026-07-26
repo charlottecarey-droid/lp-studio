@@ -1,6 +1,6 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useAnimInitial } from "@/lib/reveal-fallback";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, type CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import type { DsoHeartlandHeroBlockProps } from "@/lib/block-types";
@@ -992,7 +992,48 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                   boxShadow: "0 32px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)",
                 }}
               >
-                {p.heroVideoUrl ? (
+                {(p.stackedMediaType ?? "video") === "image" ? (
+                  p.heroImageUrl ? (
+                    <>
+                      <img
+                        src={p.heroImageUrl}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: p.heroImageFit ?? "cover",
+                          objectPosition: p.heroImagePosition ?? "center",
+                          display: "block",
+                        }}
+                      />
+                      {assetDimmerEl}
+                    </>
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexDirection: "column",
+                        gap: "0.75rem",
+                        color: "rgba(255,255,255,0.20)",
+                        fontSize: "0.875rem",
+                        fontFamily: DISPLAY_FONT,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                      Add hero image
+                    </div>
+                  )
+                ) : p.heroVideoUrl ? (
                   <>
                     <video
                       ref={attachHeroVideo}
@@ -1138,6 +1179,22 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   const fullBleedSubColor = hasFullBleedAsset ? "rgba(255,255,255,0.86)" : MUTED_FG;
   // Editor-tunable legibility scrim. Defaults to 100% = the built-in safe scrim.
   const fullBleedScrim = buildFullBleedScrim((p.scrimStrength ?? 100) / 100);
+  // Optional edge fade: melts the background asset (and its overlays) into the
+  // section background via a CSS mask. Only meaningful when a real asset exists.
+  const edgeFade = p.edgeFade ?? "none";
+  // "both" caps at 50 so the top/bottom gradient stops never cross.
+  const edgeFadeSize = Math.min(edgeFade === "both" ? 50 : 60, Math.max(5, p.edgeFadeSize ?? 30));
+  const edgeFadeMask =
+    edgeFade === "top"
+      ? `linear-gradient(to bottom, transparent 0%, black ${edgeFadeSize}%)`
+      : edgeFade === "bottom"
+        ? `linear-gradient(to bottom, black ${100 - edgeFadeSize}%, transparent 100%)`
+        : edgeFade === "both"
+          ? `linear-gradient(to bottom, transparent 0%, black ${edgeFadeSize}%, black ${100 - edgeFadeSize}%, transparent 100%)`
+          : undefined;
+  const edgeFadeMaskStyle: CSSProperties | undefined = edgeFadeMask
+    ? { maskImage: edgeFadeMask, WebkitMaskImage: edgeFadeMask }
+    : undefined;
   return (
     <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
       <section
@@ -1148,26 +1205,28 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         {/* ── Background ──────────────────────────────────── */}
         {p.backgroundVideoUrl ? (
           <div className="absolute inset-0">
-            <video
-              ref={attachBgVideo}
-              src={p.backgroundVideoUrl}
-              autoPlay
-              loop
-              playsInline
-              className="w-full h-full object-cover"
-            />
+            <div className="absolute inset-0" style={edgeFadeMaskStyle}>
+              <video
+                ref={attachBgVideo}
+                src={p.backgroundVideoUrl}
+                autoPlay
+                loop
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
+                  opacity: overlayOpacity,
+                }}
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: fullBleedScrim }}
+              />
+            </div>
             <MuteToggleButton muted={bgVideoMuted} onClick={toggleBgMute} className="absolute bottom-4 right-4 z-20" />
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
-                opacity: overlayOpacity,
-              }}
-            />
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: fullBleedScrim }}
-            />
           </div>
         ) : p.backgroundImageUrl ? (
           (() => {
@@ -1176,7 +1235,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             const fbScale = p.heroImageScale ?? 1;
             const fbPad = p.heroImagePadding ?? 0;
             return (
-          <div className="absolute inset-0" style={{ padding: fbPad }}>
+          <div className="absolute inset-0" style={{ padding: fbPad, ...edgeFadeMaskStyle }}>
             <img
               src={p.backgroundImageUrl}
               alt=""

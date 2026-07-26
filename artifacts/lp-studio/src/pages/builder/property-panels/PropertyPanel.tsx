@@ -3582,6 +3582,35 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                       />
                       <p className="text-[11px] text-muted-foreground">Extra dimming behind the headline and CTAs to keep text readable. Lower it for already-dark photos; raise it for light or busy ones.</p>
                     </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Edge fade</Label>
+                      <div className="flex gap-2">
+                        {([["none", "None"], ["top", "Top"], ["bottom", "Bottom"], ["both", "Both"]] as const).map(([val, label]) => (
+                          <button key={val} onClick={() => onChange({ ...block, props: { ...p, edgeFade: val } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.edgeFade ?? "none") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Softly melts the image/video into the background color at the chosen edge(s).</p>
+                    </div>
+                    {(p.edgeFade ?? "none") !== "none" && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Fade depth</Label>
+                          <span className="text-xs text-muted-foreground tabular-nums">{p.edgeFadeSize ?? 30}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={5}
+                          max={60}
+                          step={5}
+                          value={p.edgeFadeSize ?? 30}
+                          onChange={e => onChange({ ...block, props: { ...p, edgeFadeSize: Number(e.target.value) } })}
+                          className="w-full accent-primary"
+                        />
+                        <p className="text-[11px] text-muted-foreground">How far the fade reaches into the image/video from each faded edge.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -3672,9 +3701,60 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </>
             )}
 
-            {/* Video picker — shown for both split-video and stacked-video */}
+            {/* Media picker — shown for both split-video and stacked-video */}
             {(p.layout === "split-video" || p.layout === "stacked-video") && (
               <>
+                {p.layout === "stacked-video" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Showcase media</Label>
+                    <div className="flex gap-2">
+                      {([["video", "Video"], ["image", "Image"]] as const).map(([val, label]) => (
+                        <button key={val} onClick={() => onChange({ ...block, props: { ...p, stackedMediaType: val } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.stackedMediaType ?? "video") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">What the large showcase below the text displays.</p>
+                  </div>
+                )}
+                {p.layout === "stacked-video" && (p.stackedMediaType ?? "video") === "image" ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Showcase image</Label>
+                      <ImagePicker value={p.heroImageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, heroImageUrl: v } })} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Image fit</Label>
+                      <div className="flex gap-2">
+                        {(["cover", "contain"] as const).map(fit => (
+                          <button key={fit} onClick={() => onChange({ ...block, props: { ...p, heroImageFit: fit } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageFit ?? "cover") === fit ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                            {fit}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-snug"><strong>Cover</strong> crops to fill the 16:9 frame; <strong>contain</strong> shows the whole image.</p>
+                    </div>
+                    {p.heroImageUrl && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Background dimming</Label>
+                          <span className="text-xs text-muted-foreground tabular-nums">{p.assetDimming ?? 0}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={5}
+                          value={p.assetDimming ?? 0}
+                          onChange={e => onChange({ ...block, props: { ...p, assetDimming: Number(e.target.value) } })}
+                          className="w-full accent-primary"
+                        />
+                        <p className="text-[11px] text-muted-foreground">Darkens the showcase image to keep any overlaid text readable. 0% keeps the photo as-is.</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
                 <div className="space-y-1.5">
                   <VideoPicker label="Hero Video" value={p.heroVideoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, heroVideoUrl: v || undefined } })} />
                 </div>
@@ -3711,6 +3791,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     />
                     <p className="text-[11px] text-muted-foreground">Darkens the hero video to keep any text or logos overlaid on it readable. 0% keeps the footage as-is; raise it for bright or busy clips.</p>
                   </div>
+                )}
+                  </>
                 )}
               </>
             )}
