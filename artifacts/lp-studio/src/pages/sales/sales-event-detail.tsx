@@ -379,6 +379,25 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
   return { headers, rows };
 }
 
+/** Header names chosen so autoDetect() maps every column on re-upload. */
+const CSV_TEMPLATE = [
+  "Title,Day,Start Time,End Time,Room,Session Type,Track,Description,Speakers,Roles,Industries,Topics",
+  '"Opening Keynote: The Road Ahead",2026-10-20,09:00,10:00,Main Hall,Keynote,General,"Welcome keynote covering the vision, roadmap, and year ahead.",Jane Smith - CEO; Alex Lee - VP Product,Executive; Owner,Dental,AI; Growth',
+  '"Hands-on Workshop: Digital Workflows",2026-10-20,10:30,12:00,Room 204,Workshop,Clinical,"Small-group workshop; bring a laptop.",Dr. Sam Patel - Clinical Director,Clinician,Dental,Digital workflows',
+].join("\n");
+
+function downloadCsvTemplate() {
+  const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "agenda-sessions-template.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function CsvImportDialog({
   open, onClose, onImported, eventId,
 }: {
@@ -467,21 +486,32 @@ function CsvImportDialog({
           </DialogDescription>
         </DialogHeader>
         {headers.length === 0 ? (
-          <div
-            className="border border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-foreground/40 transition-colors"
-            onClick={() => fileRef.current?.click()}
-          >
-            <FileUp className="w-6 h-6 mx-auto text-muted-foreground" />
-            <p className="mt-2 text-sm">Choose a CSV file</p>
-            <p className="text-xs text-muted-foreground mt-1">One row per session. Headers like Title, Day, Start, Roles are auto-detected.</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }}
-            />
-          </div>
+          <>
+            <div
+              className="border border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-foreground/40 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              <FileUp className="w-6 h-6 mx-auto text-muted-foreground" />
+              <p className="mt-2 text-sm">Choose a CSV file</p>
+              <p className="text-xs text-muted-foreground mt-1">One row per session. Headers like Title, Day, Start, Roles are auto-detected.</p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Not sure about the format? Start from the template — it has the right headers and two example rows.
+              </p>
+              <Button variant="outline" size="sm" className="shrink-0" onClick={downloadCsvTemplate}>
+                <FileDown className="w-3.5 h-3.5 mr-1.5" />
+                CSV template
+              </Button>
+            </div>
+          </>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{rows.length} rows parsed. Map columns:</p>
