@@ -19,6 +19,10 @@ import {
   sessionSourceKey,
   type MatchableSession,
 } from "../../lib/sales/agenda-matching";
+import { importAgendaFromUrl, AgendaImportError } from "../../lib/sales/agenda-import";
+import { generateWhyAttendBlurbs } from "../../lib/sales/agenda-blurbs";
+import { isSafePublicHost } from "../../lib/brand-import/net-guard";
+import { AIChatError } from "../../lib/ai-utils";
 
 const router = Router();
 
@@ -393,65 +397,145 @@ router.post("/events/:eventId/sessions/import", async (req, res): Promise<void> 
       return;
     }
 
-    const existing = await loadEventSessions(tenantId, eventId);
-    const bySourceKey = new Map(existing.filter((s) => s.sourceKey).map((s) => [s.sourceKey as string, s]));
-
-    let created = 0;
-    let updated = 0;
-    const errors: { row: number; error: string }[] = [];
-
-    for (let i = 0; i < rows.length; i++) {
-      const parsed = parseSessionBody((rows[i] ?? {}) as Record<string, unknown>);
-      if (!parsed.title) {
-        errors.push({ row: i + 1, error: "Missing title" });
-        continue;
-      }
-      const sourceKey = sessionSourceKey(parsed.title, parsed.day, parsed.startTime);
-      const prior = bySourceKey.get(sourceKey);
-      if (prior) {
-        await db
-          .update(salesEventSessionsTable)
-          .set({
-            title: parsed.title,
-            description: parsed.description ?? prior.description,
-            day: parsed.day ?? prior.day,
-            startTime: parsed.startTime ?? prior.startTime,
-            endTime: parsed.endTime ?? prior.endTime,
-            room: parsed.room ?? prior.room,
-            sessionType: parsed.sessionType ?? prior.sessionType,
-            track: parsed.track ?? prior.track,
-            speakers: parsed.speakers.length > 0 ? parsed.speakers : prior.speakers,
-            // In-app tag edits win over re-imported values.
-            ...(prior.tagsEditedInApp ? {} : { tags: parsed.tags }),
-          })
-          .where(eq(salesEventSessionsTable.id, prior.id));
-        updated++;
-      } else {
-        const [inserted] = await db.insert(salesEventSessionsTable).values({
-          eventId,
-          tenantId,
-          title: parsed.title,
-          description: parsed.description,
-          day: parsed.day,
-          startTime: parsed.startTime,
-          endTime: parsed.endTime,
-          room: parsed.room,
-          sessionType: parsed.sessionType,
-          track: parsed.track,
-          speakers: parsed.speakers,
-          tags: parsed.tags,
-          isReservedSlot: parsed.isReservedSlot,
-          sourceKey,
-        }).returning();
-        bySourceKey.set(sourceKey, inserted);
-        created++;
-      }
-    }
-
-    res.json({ created, updated, errors });
+    const result = await upsertSessionRows(tenantId, eventId, rows);
+    res.json(result);
   } catch (err) {
     console.error("[sales/events] session import error", err);
     res.status(500).json({ error: "Failed to import sessions" });
+  }
+});
+
+/**
+ * Shared upsert for both import doors (CSV rows and URL extraction). Matches
+ * rows to existing sessions by source_key (title+day+start); updates refresh
+ * source fields but never clobber tags edited in-app.
+ */
+async function upsertSessionRows(
+  tenantId: number,
+  eventId: number,
+  rows: unknown[],
+): Promise<{ created: number; updated: number; errors: { row: number; error: string }[] }> {
+  const existing = await loadEventSessions(tenantId, eventId);
+  const bySourceKey = new Map(existing.filter((s) => s.sourceKey).map((s) => [s.sourceKey as string, s]));
+
+  let created = 0;
+  let updated = 0;
+  const errors: { row: number; error: string }[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const parsed = parseSessionBody((rows[i] ?? {}) as Record<string, unknown>);
+    if (!parsed.title) {
+      errors.push({ row: i + 1, error: "Missing title" });
+      continue;
+    }
+    const sourceKey = sessionSourceKey(parsed.title, parsed.day, parsed.startTime);
+    const prior = bySourceKey.get(sourceKey);
+    if (prior) {
+      await db
+        .update(salesEventSessionsTable)
+        .set({
+          title: parsed.title,
+          description: parsed.description ?? prior.description,
+          day: parsed.day ?? prior.day,
+          startTime: parsed.startTime ?? prior.startTime,
+          endTime: parsed.endTime ?? prior.endTime,
+          room: parsed.room ?? prior.room,
+          sessionType: parsed.sessionType ?? prior.sessionType,
+          track: parsed.track ?? prior.track,
+          speakers: parsed.speakers.length > 0 ? parsed.speakers : prior.speakers,
+          // In-app tag edits win over re-imported values.
+          ...(prior.tagsEditedInApp ? {} : { tags: parsed.tags }),
+        })
+        .where(eq(salesEventSessionsTable.id, prior.id));
+      updated++;
+    } else {
+      const [inserted] = await db.insert(salesEventSessionsTable).values({
+        eventId,
+        tenantId,
+        title: parsed.title,
+        description: parsed.description,
+        day: parsed.day,
+        startTime: parsed.startTime,
+        endTime: parsed.endTime,
+        room: parsed.room,
+        sessionType: parsed.sessionType,
+        track: parsed.track,
+        speakers: parsed.speakers,
+        tags: parsed.tags,
+        isReservedSlot: parsed.isReservedSlot,
+        sourceKey,
+      }).returning();
+      bySourceKey.set(sourceKey, inserted);
+      created++;
+    }
+  }
+
+  return { created, updated, errors };
+}
+
+/**
+ * URL import (phase 2): scrape a public agenda page (JS-rendered via
+ * Firecrawl), LLM-extract sessions, and upsert through the same source_key
+ * path as CSV import — re-running against an updated agenda page refreshes
+ * times/rooms without duplicating or clobbering in-app tag edits.
+ *
+ * SSRF: user-pasted URL — scheme + isSafePublicHost validation is mandatory
+ * here (the firecrawl-lockdown contract for URL-ingest routes).
+ */
+router.post("/events/:eventId/import", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const eventId = parseInt(req.params.eventId, 10);
+    if (isNaN(eventId)) { res.status(400).json({ error: "Invalid eventId" }); return; }
+    const event = await loadEvent(tenantId, eventId);
+    if (!event) { res.status(404).json({ error: "Event not found" }); return; }
+
+    const { url } = req.body as { url?: unknown };
+    if (typeof url !== "string" || !url.trim()) {
+      res.status(400).json({ error: "url is required" });
+      return;
+    }
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url.trim());
+    } catch {
+      res.status(400).json({ error: "That doesn't look like a valid URL" });
+      return;
+    }
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+      res.status(400).json({ error: "Only http(s) URLs can be imported" });
+      return;
+    }
+    if (!(await isSafePublicHost(parsedUrl.hostname))) {
+      res.status(400).json({ error: "That host can't be reached from here" });
+      return;
+    }
+
+    const imported = await importAgendaFromUrl(parsedUrl.toString(), {
+      name: event.name,
+      startDate: event.startDate,
+      endDate: event.endDate,
+    });
+    if (imported.rows.length === 0) {
+      res.status(422).json({ error: "No sessions were found on that page. If the agenda is behind a login or a calendar widget, use the CSV import instead." });
+      return;
+    }
+
+    const result = await upsertSessionRows(tenantId, eventId, imported.rows as unknown[]);
+    await db
+      .update(salesEventsTable)
+      .set({ sourceUrl: parsedUrl.toString() })
+      .where(and(eq(salesEventsTable.tenantId, tenantId), eq(salesEventsTable.id, eventId)));
+
+    res.json({ ...result, extracted: imported.rows.length, truncated: imported.truncated });
+  } catch (err) {
+    if (err instanceof AgendaImportError) {
+      const status = err.code === "scrape_not_configured" ? 503 : err.code === "page_empty" ? 422 : 502;
+      res.status(status).json({ error: err.message });
+      return;
+    }
+    console.error("[sales/events] url import error", err);
+    res.status(500).json({ error: "Failed to import from that URL" });
   }
 });
 
@@ -666,6 +750,88 @@ router.post("/agendas/:agendaId/rematch", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("[sales/events] agenda rematch error", err);
     res.status(500).json({ error: "Failed to rematch agenda" });
+  }
+});
+
+/**
+ * AI why-attend blurbs (phase 2): draft one grounded "why this matters for
+ * {account}" line per selected session. By default only sessions WITHOUT a
+ * blurb are filled (rep edits are never overwritten); pass force:true to
+ * redraft everything. The rep reviews/edits in the agenda editor before
+ * publish — nothing here goes straight to the page.
+ */
+router.post("/agendas/:agendaId/generate-blurbs", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const agendaId = parseInt(req.params.agendaId, 10);
+    if (isNaN(agendaId)) { res.status(400).json({ error: "Invalid agendaId" }); return; }
+    const agenda = await loadAgenda(tenantId, agendaId);
+    if (!agenda) { res.status(404).json({ error: "Agenda not found" }); return; }
+    const force = (req.body as { force?: unknown })?.force === true;
+
+    const account = agenda.accountId
+      ? (await db
+          .select()
+          .from(salesAccountsTable)
+          .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, agenda.accountId))))[0] ?? null
+      : null;
+
+    const sessions = await loadEventSessions(tenantId, agenda.eventId);
+    const byId = new Map(sessions.map((s) => [s.id, s]));
+    const selections = (agenda.selections ?? []) as AgendaSelection[];
+    const targets = selections
+      .filter((sel) => (force || !sel.blurbOverride?.trim()) && byId.has(sel.sessionId))
+      .map((sel) => {
+        const s = byId.get(sel.sessionId) as SalesEventSession;
+        return {
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          sessionType: s.sessionType,
+          track: s.track,
+          roles: ((s.tags ?? {}) as EventSessionTags).roles ?? [],
+        };
+      });
+    if (targets.length === 0) {
+      res.json({ agenda, generated: 0 });
+      return;
+    }
+
+    const blurbs = await generateWhyAttendBlurbs(
+      {
+        name: account?.displayName || account?.name || agenda.accountNameSnapshot || "the account",
+        industry: account?.industry,
+        segment: account?.segment,
+        abmTier: account?.abmTier,
+        numLocations: account?.numLocations,
+        city: account?.city,
+        state: account?.state,
+      },
+      (agenda.attendeeRoles ?? []) as string[],
+      targets,
+    );
+
+    const nextSelections: AgendaSelection[] = selections.map((sel) => {
+      const drafted = blurbs.get(sel.sessionId);
+      if (!drafted) return sel;
+      if (sel.blurbOverride?.trim() && !force) return sel;
+      return { ...sel, blurbOverride: drafted };
+    });
+
+    const [updated] = await db
+      .update(salesEventAgendasTable)
+      .set({ selections: nextSelections })
+      .where(and(eq(salesEventAgendasTable.tenantId, tenantId), eq(salesEventAgendasTable.id, agendaId)))
+      .returning();
+
+    res.json({ agenda: updated, generated: blurbs.size });
+  } catch (err) {
+    if (err instanceof AIChatError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    console.error("[sales/events] generate-blurbs error", err);
+    res.status(500).json({ error: "Failed to draft blurbs" });
   }
 });
 
