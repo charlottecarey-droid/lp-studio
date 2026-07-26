@@ -172,6 +172,7 @@ import type {
   AccountMicrositeBlockProps,
   OnboardingHubBlockProps,
   ValueRenewalReviewBlockProps,
+  EventAgendaBlockProps,
   ChatCaptureBlockProps,
 } from "./generic-blocks";
 // June-2026 modern block wave: the builder agents export curated default props
@@ -192,6 +193,7 @@ import { DEAL_ROOM_DEFAULT_PROPS } from "@/blocks/BlockDealRoom";
 import { ACCOUNT_MICROSITE_DEFAULT_PROPS } from "@/blocks/BlockAccountMicrosite";
 import { ONBOARDING_HUB_DEFAULT_PROPS } from "@/blocks/BlockOnboardingHub";
 import { VALUE_RENEWAL_REVIEW_DEFAULT_PROPS } from "@/blocks/BlockValueRenewalReview";
+import { EVENT_AGENDA_DEFAULT_PROPS } from "@/blocks/BlockEventAgenda";
 import type {
   SectionBlockProps,
   ColumnsBlockProps,
@@ -9168,6 +9170,28 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "event-agenda",
+    label: "Event Agenda — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): EventAgendaBlockProps =>
+      structuredClone(EVENT_AGENDA_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#100E24" rx="4" />
+        <rect x="8" y="8" width="30" height="3" rx="1" fill="#38BDF8" opacity="0.8" />
+        <rect x="8" y="15" width="70" height="6" rx="1.5" fill="#fff" opacity="0.95" />
+        <rect x="8" y="28" width="104" height="36" rx="3" fill="#FBFAF7" />
+        {([0, 1, 2] as const).map(r => (
+          <g key={r}>
+            <rect x="13" y={33 + r * 10} width="14" height="4" rx="1" fill="#4B47E5" opacity="0.7" />
+            <rect x="32" y={33 + r * 10} width="52" height="4" rx="1" fill="#1E1B2E" opacity={0.75 - r * 0.15} />
+            <rect x="90" y={33 + r * 10} width="18" height="4" rx="2" fill="#4B47E5" opacity="0.18" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
 ];
 
 // Attach code-default semantic role tags to every registered block from the
@@ -9225,6 +9249,7 @@ export function createBlock(type: "deal-room"): Extract<PageBlock, { type: "deal
 export function createBlock(type: "account-microsite"): Extract<PageBlock, { type: "account-microsite" }>;
 export function createBlock(type: "onboarding-hub"): Extract<PageBlock, { type: "onboarding-hub" }>;
 export function createBlock(type: "value-renewal-review"): Extract<PageBlock, { type: "value-renewal-review" }>;
+export function createBlock(type: "event-agenda"): Extract<PageBlock, { type: "event-agenda" }>;
 export function createBlock(type: "rating-badges"): Extract<PageBlock, { type: "rating-badges" }>;
 export function createBlock(type: "avatar-social-proof"): Extract<PageBlock, { type: "avatar-social-proof" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
@@ -9580,6 +9605,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "account-microsite": return { id, type: "account-microsite", props: props as AccountMicrositeBlockProps };
     case "onboarding-hub": return { id, type: "onboarding-hub", props: props as OnboardingHubBlockProps };
     case "value-renewal-review": return { id, type: "value-renewal-review", props: props as ValueRenewalReviewBlockProps };
+    case "event-agenda": return { id, type: "event-agenda", props: props as EventAgendaBlockProps };
     case "rating-badges": return { id, type: "rating-badges", props: props as RatingBadgesBlockProps };
     case "avatar-social-proof": return { id, type: "avatar-social-proof", props: props as AvatarSocialProofBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
@@ -9688,6 +9714,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "account-microsite": ["account-microsite"],
     "onboarding-hub": ["onboarding-hub"],
     "value-renewal-review": ["value-renewal-review"],
+    "event-agenda": ["event-agenda"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

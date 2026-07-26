@@ -175,6 +175,7 @@ import type {
   AccountMicrositeBlockProps,
   OnboardingHubBlockProps,
   ValueRenewalReviewBlockProps,
+  EventAgendaBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -367,6 +368,7 @@ export type BlockVariant =
   | { type: "account-microsite"; props: AccountMicrositeBlockProps }
   | { type: "onboarding-hub"; props: OnboardingHubBlockProps }
   | { type: "value-renewal-review"; props: ValueRenewalReviewBlockProps }
+  | { type: "event-agenda"; props: EventAgendaBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "id-hero"; props: IdHeroBlockProps }

@@ -5008,6 +5008,12 @@ export type {
   VrrExpansionItem,
   VrrTermRow,
 } from "@/blocks/BlockValueRenewalReview";
+export type {
+  EventAgendaBlockProps,
+  EvaSpeaker,
+  EvaSession,
+  EvaDay,
+} from "@/blocks/BlockEventAgenda";
 
 /**
  * Final CTA — Video background: a final CTA over a looping background video

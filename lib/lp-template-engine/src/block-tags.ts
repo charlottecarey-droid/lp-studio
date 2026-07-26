@@ -296,6 +296,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "account-microsite": ["content"],
   "onboarding-hub": ["content"],
   "value-renewal-review": ["content"],
+  "event-agenda": ["content"],
 
   // ── Showcase ────────────────────────────────────────────────────────────────
   "sticky-stack": ["features", "media"],
@@ -420,6 +421,7 @@ export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "account-microsite",
   "onboarding-hub",
   "value-renewal-review",
+  "event-agenda",
 ]);
 
 /** True when a block type renders an entire standalone full-page template. */

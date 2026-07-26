@@ -373,6 +373,10 @@ export type {
   VrrWin,
   VrrExpansionItem,
   VrrTermRow,
+  EventAgendaBlockProps,
+  EvaSpeaker,
+  EvaSession,
+  EvaDay,
 } from "./generic-blocks";
 
 // Graduated section-block CTA defaults (value export, used by block-registry).

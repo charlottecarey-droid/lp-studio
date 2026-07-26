@@ -63,6 +63,7 @@ import { BlockDealRoom } from "./BlockDealRoom";
 import { BlockAccountMicrosite } from "./BlockAccountMicrosite";
 import { BlockOnboardingHub } from "./BlockOnboardingHub";
 import { BlockValueRenewalReview } from "./BlockValueRenewalReview";
+import { BlockEventAgenda } from "./BlockEventAgenda";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -464,7 +465,7 @@ export const NO_REVEAL = new Set<string>([
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   "business-case-split", "business-case-centered", "business-case-premium",
   "storybrand-journey", "exec-decision-brief", "challenger-insight",
-  "deal-room", "account-microsite", "onboarding-hub", "value-renewal-review",
+  "deal-room", "account-microsite", "onboarding-hub", "value-renewal-review", "event-agenda",
   "content-series", "blog-series", "storefront", "webinar-hub",
   "event-noir", "event-luminous", "event-split",
   "case-metrics", "case-editorial", "case-modular",
@@ -1311,6 +1312,19 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "value-renewal-review":
         return (
           <BlockValueRenewalReview
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "#") : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "event-agenda":
+        return (
+          <BlockEventAgenda
             props={block.props}
             brand={brand}
             pageId={pageId}

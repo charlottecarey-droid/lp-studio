@@ -4024,6 +4024,101 @@ const VALUE_RENEWAL_REVIEW_GENERIC_PROPS = {
   footerNote: "Prepared for your team. Figures reflect your account data as of this review.",
 } as Record<string, unknown>;
 
+// Seed mirror of EVENT_AGENDA_DEFAULT_PROPS (BlockEventAgenda.tsx) — keep the
+// two in sync per the full-page block contract. {{company_name}} tokens are
+// allowed here (account-var substitution at generation time); no palette keys.
+const EVENT_AGENDA_GENERIC_PROPS = {
+  ctaText: "Get in touch",
+  ctaUrl: "#contact",
+  ctaAction: "url",
+  showNavbar: true,
+  navLinks: [
+    { label: "Your note", href: "#note" },
+    { label: "Schedule", href: "#schedule" },
+    { label: "Contact", href: "#contact" },
+  ],
+  navCtaText: "Get in touch",
+  navCtaUrl: "#contact",
+  eyebrow: "Summit 2026 · Austin, TX · Mar 10–12, 2026",
+  headline: "{{company_name}}, your agenda is ready",
+  subheadline:
+    "A schedule curated for your leadership team — every session below was picked with your goals in mind.",
+  accountName: "{{company_name}}",
+  eventName: "Summit 2026",
+  eventLocation: "Austin, TX",
+  eventDates: "Mar 10–12, 2026",
+  sessionCount: 5,
+  showNote: true,
+  noteKicker: "A note from your account team",
+  personalNote:
+    "We built this agenda around the conversations we've been having with your team this year. The operations track on day one maps to your rollout plans, and we've reserved time on day two for a working session with our product leadership. Come find us at any point — this event is yours.",
+  noteSignature: "— Your account team",
+  scheduleKicker: "Your schedule",
+  scheduleHeading: "Day by day",
+  scheduleIntro:
+    "Reserved sessions are held for your team — everything else is our best recommendation, and you're free to trade.",
+  whyAttendLabel: "Why this matters for you",
+  days: [
+    {
+      label: "Tuesday, Mar 10",
+      summary: "Operations focus + your welcome dinner",
+      sessions: [
+        {
+          time: "9:00 AM – 10:00 AM",
+          title: "Opening keynote: the year ahead",
+          sessionType: "Keynote",
+          room: "Main stage",
+          description: "Where the platform is going and what's shipping this year.",
+          whyAttend: "The roadmap segments cover the capabilities your team asked about last quarter.",
+          speakers: [{ name: "Alex Rivera", title: "CEO" }],
+        },
+        {
+          time: "11:30 AM – 12:30 PM",
+          title: "Scaling operations across every location",
+          sessionType: "Breakout",
+          track: "Operations",
+          room: "Room 204",
+          description: "How multi-site teams standardize workflows without slowing local teams down.",
+          whyAttend: "Directly relevant to your rollout — the presenting team runs a network about your size.",
+        },
+        {
+          time: "6:30 PM",
+          title: "Welcome dinner with your account team",
+          sessionType: "Reserved",
+          room: "The Terrace",
+          isReserved: true,
+        },
+      ],
+    },
+    {
+      label: "Wednesday, Mar 11",
+      summary: "Working sessions + executive time",
+      sessions: [
+        {
+          time: "10:00 AM – 11:00 AM",
+          title: "Working session with product leadership",
+          sessionType: "Reserved",
+          room: "Boardroom 3",
+          description: "A private session on your priorities for the next two quarters.",
+          isReserved: true,
+        },
+        {
+          time: "2:00 PM – 3:00 PM",
+          title: "Executive roundtable: measuring what matters",
+          sessionType: "Roundtable",
+          track: "Leadership",
+          room: "Salon B",
+          whyAttend: "Peer executives comparing the metrics they actually run on — worth your COO's hour.",
+        },
+      ],
+    },
+  ],
+  showClose: true,
+  ctaHeadline: "Questions before the event?",
+  ctaSubheadline: "Your account team is one message away — we'll meet you at registration.",
+  footerNote: "Prepared for your team. Session times subject to the event's final schedule.",
+} as Record<string, unknown>;
+
 const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   {
     slug: "global-business-case-split",
@@ -4324,6 +4419,28 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: "seed-value-renewal-review-1",
         type: "value-renewal-review",
         props: VALUE_RENEWAL_REVIEW_GENERIC_PROPS,
+      },
+    ],
+  },
+  {
+    slug: "global-event-agenda",
+    title: "Event Agenda",
+    templateLabel: "Event Agenda",
+    templateDescription:
+      "Per-account conference agenda page — the PowerPoint replacement for event season. A dark branded hero with the event lockup, a personal note from the account team, a day-by-day schedule of curated session cards with a personalized \"why this matters\" line per session, reserved-slot badges, and a contact close. Assembled automatically from the Sales Console's agenda builder, or hand-edited here. Inherits the tenant brand's colors and logo.",
+    ogImage: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80",
+    industry: null,
+    premiumRank: 37,
+    category: "business-case",
+    keywords: ["event agenda", "conference", "summit", "agenda", "itinerary",
+      "sessions", "schedule", "ABM", "strategic account", "event"],
+    isAllInOne: true,
+    funnelStage: "first-meeting",
+    blocks: [
+      {
+        id: "seed-event-agenda-1",
+        type: "event-agenda",
+        props: EVENT_AGENDA_GENERIC_PROPS,
       },
     ],
   },

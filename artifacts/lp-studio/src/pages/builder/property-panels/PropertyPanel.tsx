@@ -240,6 +240,7 @@ import { DealRoomPanel } from "./DealRoomPanel";
 import { AccountMicrositePanel } from "./AccountMicrositePanel";
 import { OnboardingHubPanel } from "./OnboardingHubPanel";
 import { ValueRenewalReviewPanel } from "./ValueRenewalReviewPanel";
+import { EventAgendaPanel } from "./EventAgendaPanel";
 import { SectionBlockPanel } from "./SectionBlockPanel";
 import { TemplateEventPanel } from "./TemplateEventPanel";
 import { TemplateCaseStudyPanel } from "./TemplateCaseStudyPanel";
@@ -7061,6 +7062,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <OnboardingHubPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "value-renewal-review":
         return <ValueRenewalReviewPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
+      case "event-agenda":
+        return <EventAgendaPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} onApplyCtaToAll={onApplyCtaToAll} />;
       case "event-noir":
       case "event-luminous":
       case "event-split":

@@ -40,6 +40,7 @@ const EXPECTED_ALL_IN_ONE_SLUGS = [
   "global-account-microsite",
   "global-onboarding-hub",
   "global-value-renewal-review",
+  "global-event-agenda",
   "global-flagship-event-rsvp",
   "global-flagship-restaurant",
   "global-flagship-creator-portfolio",
