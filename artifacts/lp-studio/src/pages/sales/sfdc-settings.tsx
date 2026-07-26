@@ -476,8 +476,13 @@ function MicrositeButtonCard() {
             <li>
               Optional dropdowns for audience segment and template can read from{" "}
               <code className="bg-muted px-1 py-0.5 rounded">{contract?.choiceObject ?? "LP_Studio_Choice__c"}</code>.
-              For a &ldquo;Recommended&rdquo; default, simply leave the segment and template fields blank —
-              LP Studio picks the best fit automatically.
+              In each choice set, filter <code className="bg-muted px-1 py-0.5 rounded">Type__c</code> to{" "}
+              <code className="bg-muted px-1 py-0.5 rounded">segment</code> or{" "}
+              <code className="bg-muted px-1 py-0.5 rounded">template</code> (so the two lists don&rsquo;t mix)
+              and <code className="bg-muted px-1 py-0.5 rounded">Active__c</code> to true; the record Name
+              carries the display label, and <code className="bg-muted px-1 py-0.5 rounded">Choice_Id__c</code>{" "}
+              is the value to save on the request. For a &ldquo;Recommended&rdquo; default, simply leave the
+              segment and template fields blank — LP Studio picks the best fit automatically.
             </li>
             <li>
               The finished page link lands on the Account in{" "}

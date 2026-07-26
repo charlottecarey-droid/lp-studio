@@ -12,6 +12,22 @@ description: Design rules for the pull-model Salesforce microsite request poller
 - **Enable/enabled state lives in sfdc_connections.metadata** (readMicrositeButtonState / writeMicrositeButtonState), not a new table; eligibility = connected connection + active tenant + non-null tenantId + enabled flag + plan.
 - **How to apply:** any new trigger surface (webhook, second button, bulk action) must reuse the same claim-first + LIVE-only + plan-gated pattern and record the trigger as a sales signal (type `microsite_requested`).
 
+# Choice object record Name must be Text + label-filled
+
+- Screen Flow record choice sets display record **Name** by default. Any
+  lookup/choice object provisioned with an AutoNumber name makes every admin
+  flow show "R-00010"-style values (user-reported on the choice object).
+- **Rule:** objects whose rows are picked by humans get a Text nameField and
+  the sync writes `Name = label` (cap 80 chars — Salesforce Text Name limit);
+  only queue-style objects (the request object) keep AutoNumber.
+- Existing orgs convert in-place via SOAP `updateMetadata` (same CustomObject
+  XML as create); provision detects a legacy AutoNumber Name via describe
+  (`fields[Name].autoNumber`) — idempotent, failures degrade to status manual.
+- Sync guards Name writes on describe (`autoNumber !== true && createable`) so
+  an unconverted org never gets a rejected write. Once converted, Name is
+  REQUIRED on create — prod must run the new sync code (republish) or new
+  choice rows fail with REQUIRED_FIELD_MISSING.
+
 # Provisioning: Tooling API cannot create custom OBJECTS
 
 - The Tooling REST API's CustomObject describe reports `createable: false`

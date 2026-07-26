@@ -61,6 +61,17 @@ interface SfdcOpportunity {
   IsWon: boolean;
 }
 
+/** Spec for creating/updating a custom object via the SOAP Metadata API. */
+export interface CustomObjectSpec {
+  fullName: string;
+  label: string;
+  pluralLabel: string;
+  nameField:
+    | { type: "AutoNumber"; label: string; displayFormat: string }
+    | { type: "Text"; label: string };
+  sharingModel: "ReadWrite" | "Private" | "Read";
+}
+
 interface SfdcQueryResponse {
   records: SfdcAccount[] | SfdcContact[] | SfdcLead[] | SfdcOpportunity[];
   totalSize: number;
@@ -1141,45 +1152,60 @@ export class SfdcService {
    * exists" surfaces as DUPLICATE_DEVELOPER_NAME in the message for callers'
    * idempotency checks.
    */
-  async metadataCreateCustomObject(
+  async metadataCreateCustomObject(connectionId: number, spec: CustomObjectSpec): Promise<void> {
+    await this.metadataMutateCustomObject(connectionId, "createMetadata", spec);
+  }
+
+  /**
+   * Update a custom OBJECT via the SOAP Metadata API (updateMetadata). Used to
+   * convert an existing object's record-name field (e.g. AutoNumber → Text so
+   * record Name can carry a human-readable label). Same auth/error shape as
+   * metadataCreateCustomObject.
+   */
+  async metadataUpdateCustomObject(connectionId: number, spec: CustomObjectSpec): Promise<void> {
+    await this.metadataMutateCustomObject(connectionId, "updateMetadata", spec);
+  }
+
+  private async metadataMutateCustomObject(
     connectionId: number,
-    spec: {
-      fullName: string;
-      label: string;
-      pluralLabel: string;
-      nameFieldLabel: string;
-      nameFieldDisplayFormat: string;
-      sharingModel: "ReadWrite" | "Private" | "Read";
-    },
+    operation: "createMetadata" | "updateMetadata",
+    spec: CustomObjectSpec,
   ): Promise<void> {
     this.assertApiName(spec.fullName, "Object name");
     const connection = await this.getConnectionWithValidToken(connectionId);
     const esc = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     // Element order inside <metadata> must follow the Metadata API schema
-    // (fullName first, then the CustomObject elements in schema order).
+    // (fullName first, then the CustomObject elements in schema order). Inside
+    // <nameField>, displayFormat (AutoNumber only) precedes label and type.
+    const nameFieldXml =
+      spec.nameField.type === "AutoNumber"
+        ? `<met:displayFormat>${esc(spec.nameField.displayFormat)}</met:displayFormat>
+          <met:label>${esc(spec.nameField.label)}</met:label>
+          <met:type>AutoNumber</met:type>`
+        : `<met:label>${esc(spec.nameField.label)}</met:label>
+          <met:type>Text</met:type>`;
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:met="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <soapenv:Header>
     <met:SessionHeader><met:sessionId>${esc(connection.accessToken)}</met:sessionId></met:SessionHeader>
   </soapenv:Header>
   <soapenv:Body>
-    <met:createMetadata>
+    <met:${operation}>
       <met:metadata xsi:type="met:CustomObject">
         <met:fullName>${esc(spec.fullName)}</met:fullName>
         <met:deploymentStatus>Deployed</met:deploymentStatus>
         <met:label>${esc(spec.label)}</met:label>
         <met:nameField>
-          <met:displayFormat>${esc(spec.nameFieldDisplayFormat)}</met:displayFormat>
-          <met:label>${esc(spec.nameFieldLabel)}</met:label>
-          <met:type>AutoNumber</met:type>
+          ${nameFieldXml}
         </met:nameField>
         <met:pluralLabel>${esc(spec.pluralLabel)}</met:pluralLabel>
         <met:sharingModel>${esc(spec.sharingModel)}</met:sharingModel>
       </met:metadata>
-    </met:createMetadata>
+    </met:${operation}>
   </soapenv:Body>
 </soapenv:Envelope>`;
+    const opLabel = operation === "createMetadata" ? "create" : "update";
     const soapVersion = SFDC_API_VERSION.replace(/^v/, "");
     const response = await fetch(`${connection.instanceUrl}/services/Soap/m/${soapVersion}`, {
       method: "POST",
@@ -1189,12 +1215,12 @@ export class SfdcService {
     if (response.status === 429) throw new Error("SFDC_RATE_LIMIT");
     const text = await response.text();
     if (!response.ok) {
-      throw new Error(`SFDC metadata create ${spec.fullName} failed (${response.status}): ${text.slice(0, 600)}`);
+      throw new Error(`SFDC metadata ${opLabel} ${spec.fullName} failed (${response.status}): ${text.slice(0, 600)}`);
     }
     if (!/<success>true<\/success>/.test(text)) {
       const statusCode = /<statusCode>([\s\S]*?)<\/statusCode>/.exec(text)?.[1] ?? "";
       const message = /<message>([\s\S]*?)<\/message>/.exec(text)?.[1] ?? text.slice(0, 600);
-      throw new Error(`SFDC metadata create ${spec.fullName} failed: ${statusCode} ${message}`.trim());
+      throw new Error(`SFDC metadata ${opLabel} ${spec.fullName} failed: ${statusCode} ${message}`.trim());
     }
   }
 
@@ -1203,7 +1229,7 @@ export class SfdcService {
    * the provisioner uses this to check what still needs creating. Other
    * failures throw.
    */
-  async describeSObject(connectionId: number, objectName: string): Promise<{ name: string; fields: Array<{ name: string; updateable?: boolean }> } | null> {
+  async describeSObject(connectionId: number, objectName: string): Promise<{ name: string; fields: Array<{ name: string; updateable?: boolean; createable?: boolean; autoNumber?: boolean }> } | null> {
     this.assertApiName(objectName, "sObject name");
     const connection = await this.getConnectionWithValidToken(connectionId);
     const response = await fetch(
@@ -1222,7 +1248,7 @@ export class SfdcService {
       const text = await response.text();
       throw new Error(`SFDC describe ${objectName} failed (${response.status}): ${text.slice(0, 600)}`);
     }
-    return await response.json() as { name: string; fields: Array<{ name: string; updateable?: boolean }> };
+    return await response.json() as { name: string; fields: Array<{ name: string; updateable?: boolean; createable?: boolean; autoNumber?: boolean }> };
   }
 
   /**

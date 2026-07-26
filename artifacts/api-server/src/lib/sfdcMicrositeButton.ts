@@ -66,20 +66,37 @@ const CHOICE_FIELDS: FieldSpec[] = [
   { name: "Active__c", metadata: { type: "Checkbox", label: "Active", defaultValue: "true" } },
 ];
 
-const CUSTOM_OBJECTS: Array<{ apiName: string; label: string; pluralLabel: string; fields: FieldSpec[] }> = [
+// Request rows keep an AutoNumber name (R-00001 reads naturally for a queue of
+// requests). Choice rows use a TEXT name that the sync fills with the segment/
+// template label — Screen Flow record choice sets display record Name by
+// default, so an AutoNumber here made the dropdowns show "R-00010" instead of
+// "Orthodontists" (user-reported). Existing orgs are converted in-place by
+// provisionMicrositeButton via the Metadata API.
+const CUSTOM_OBJECTS: Array<{
+  apiName: string;
+  label: string;
+  pluralLabel: string;
+  nameField: { type: "AutoNumber"; label: string; displayFormat: string } | { type: "Text"; label: string };
+  fields: FieldSpec[];
+}> = [
   {
     apiName: REQUEST_OBJECT,
     label: "LP Studio Microsite Request",
     pluralLabel: "LP Studio Microsite Requests",
+    nameField: { type: "AutoNumber", label: "LP Studio Microsite Request #", displayFormat: "R-{00000}" },
     fields: REQUEST_FIELDS,
   },
   {
     apiName: CHOICE_OBJECT,
     label: "LP Studio Choice",
     pluralLabel: "LP Studio Choices",
+    nameField: { type: "Text", label: "Choice Name" },
     fields: CHOICE_FIELDS,
   },
 ];
+
+/** Record Name (Text) is capped at 80 chars by Salesforce. */
+const SFDC_NAME_MAX = 80;
 
 // ── Feature state in sfdc_connections.metadata ────────────────────────────────
 
@@ -210,8 +227,7 @@ export async function provisionMicrositeButton(
           fullName: obj.apiName,
           label: obj.label,
           pluralLabel: obj.pluralLabel,
-          nameFieldLabel: `${obj.label} #`,
-          nameFieldDisplayFormat: "R-{00000}",
+          nameField: obj.nameField,
           sharingModel: "ReadWrite",
         });
       } catch (err) {
@@ -227,8 +243,24 @@ export async function provisionMicrositeButton(
     try {
       const desc = await sfdcService.describeSObject(connectionId, obj.apiName);
       existingFields = new Set((desc?.fields ?? []).map((f) => f.name));
+
+      // Convert a legacy AutoNumber record name to Text where the contract now
+      // wants Text (older provisions created LP_Studio_Choice__c with an
+      // AutoNumber name, which made Screen Flow dropdowns show "R-00010"
+      // instead of the segment/template label). Idempotent: skipped once the
+      // Name field is no longer an AutoNumber.
+      const nameIsAutoNumber = (desc?.fields ?? []).some((f) => f.name === "Name" && f.autoNumber === true);
+      if (obj.nameField.type === "Text" && nameIsAutoNumber) {
+        await sfdcService.metadataUpdateCustomObject(connectionId, {
+          fullName: obj.apiName,
+          label: obj.label,
+          pluralLabel: obj.pluralLabel,
+          nameField: obj.nameField,
+          sharingModel: "ReadWrite",
+        });
+      }
     } catch (err) {
-      problems.push(`Could not list fields on ${obj.apiName}: ${shortErr(err)}`);
+      problems.push(`Could not prepare ${obj.apiName}: ${shortErr(err)}`);
     }
     for (const field of obj.fields) {
       if (existingFields.has(field.name)) continue;
@@ -394,6 +426,7 @@ interface DesiredChoice {
 
 interface RemoteChoice {
   Id: string;
+  Name: string | null;
   Type__c: string | null;
   Choice_Id__c: string | null;
   Label__c: string | null;
@@ -460,9 +493,23 @@ export async function syncMicrositeChoices(
   ];
   const desiredByKey = new Map(desired.map((d) => [`${d.type}\u0000${d.choiceId}`, d]));
 
+  // Record Name is the label the org admin's Screen Flow shows by default.
+  // It is only writable once the object's name field is Text (fresh provisions
+  // and converted orgs); on a legacy AutoNumber name Salesforce rejects the
+  // write, so check first and fall back to leaving Name alone.
+  let nameWritable = false;
+  try {
+    const desc = await sfdcService.describeSObject(connectionId, CHOICE_OBJECT);
+    nameWritable = (desc?.fields ?? []).some(
+      (f) => f.name === "Name" && f.autoNumber !== true && (f.createable === true || f.updateable === true),
+    );
+  } catch {
+    nameWritable = false;
+  }
+
   const remote = await sfdcService.queryRecords<RemoteChoice>(
     connectionId,
-    `SELECT Id, Type__c, Choice_Id__c, Label__c, Sort_Order__c, Active__c FROM ${CHOICE_OBJECT} LIMIT 1000`,
+    `SELECT Id, Name, Type__c, Choice_Id__c, Label__c, Sort_Order__c, Active__c FROM ${CHOICE_OBJECT} LIMIT 1000`,
   );
   const remoteByKey = new Map<string, RemoteChoice>();
   for (const r of remote) {
@@ -475,8 +522,10 @@ export async function syncMicrositeChoices(
 
   for (const [key, d] of desiredByKey) {
     const r = remoteByKey.get(key);
+    const name = d.label.slice(0, SFDC_NAME_MAX);
     if (!r) {
       await sfdcService.createSObject(connectionId, CHOICE_OBJECT, {
+        ...(nameWritable ? { Name: name } : {}),
         Type__c: d.type,
         Choice_Id__c: d.choiceId,
         Label__c: d.label,
@@ -484,8 +533,14 @@ export async function syncMicrositeChoices(
         Active__c: true,
       });
       created++;
-    } else if (r.Label__c !== d.label || r.Sort_Order__c !== d.sortOrder || r.Active__c !== true) {
+    } else if (
+      r.Label__c !== d.label ||
+      r.Sort_Order__c !== d.sortOrder ||
+      r.Active__c !== true ||
+      (nameWritable && r.Name !== name)
+    ) {
       await sfdcService.updateSObject(connectionId, CHOICE_OBJECT, r.Id, {
+        ...(nameWritable ? { Name: name } : {}),
         Label__c: d.label,
         Sort_Order__c: d.sortOrder,
         Active__c: true,
