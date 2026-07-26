@@ -1903,8 +1903,17 @@ async function runMigrationsBody(): Promise<void> {
       // id-reservation-pass with the Inside Dandy event copy) were never in
       // the LEAKY list. Both types now fall back to neutralized
       // BLOCK_REGISTRY defaults after deletion — no replacement seed row.
+      // v7 (2026-07-26): no-dandy-leak-tenant caught three more stale-row
+      // families the earlier passes missed. (a) The business-case-* ABM
+      // full-page blocks and the rest of the id-* Inside-Dandy event family
+      // are Dandy-authored content that was bulk-upserted into the generic
+      // catalog in June — purged like id-reservation-pass, no replacement
+      // rows (their dental-industry rows are untouched). (b) Five dso-*
+      // rows predate the v5 neutral seed (missing the ctaUrl/chilipiperUrl/
+      // imageUrl overrides), so their component fallbacks leak meetdandy
+      // URLs — purged so the current neutral seed rows below can land.
       const marker = await db.execute<{ exists: number }>(
-        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v6'`
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v7'`
       );
       const alreadySeeded = marker.rows.length > 0;
       if (!alreadySeeded) {
@@ -1928,6 +1937,22 @@ async function runMigrationsBody(): Promise<void> {
           // (forest bg / Inside Dandy event copy). Deliberately NOT reseeded:
           // generic tenants fall back to the neutralized registry defaults.
           "grid-cta-tile", "id-reservation-pass",
+          // v7 additions — Dandy-authored ABM full-page templates (dandy
+          // logo URL + Dandy sales copy in default_props). NOT reseeded;
+          // dental-industry rows keep them for Dandy tenants.
+          "business-case-split", "business-case-centered",
+          "business-case-premium",
+          // v7 — the rest of the id-* Inside-Dandy event family (components
+          // hardcode Dandy lime/forest). NOT reseeded, same treatment as
+          // id-reservation-pass in v6.
+          "id-cinema-pillars", "id-form", "id-grid", "id-hero", "id-intro",
+          "id-invitation", "id-marquee", "id-parallax-showcase",
+          "id-spotlight", "id-stats", "id-system-flow",
+          // v7 — stale pre-v5 dso-* rows missing the neutral ctaUrl /
+          // chilipiperUrl / imageUrl overrides the current seed ships; the
+          // reseed below replaces each with its refreshed neutral row.
+          "dso-cta-capture", "dso-flow-canvas", "dso-meet-team",
+          "dso-software-showcase", "dso-split-feature",
         ];
         let removed = 0;
         for (const badType of LEAKY_TYPES_TO_REMOVE) {
@@ -1952,11 +1977,11 @@ async function runMigrationsBody(): Promise<void> {
           if (result.rows.length > 0) inserted++;
         }
         await db.execute(sql`
-          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v6') ON CONFLICT DO NOTHING
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v7') ON CONFLICT DO NOTHING
         `);
         logger.info(
           { removed, inserted, total: GENERIC_BLOCK_CATALOG_SEED.length },
-          "block_catalog generic seed applied (v6: stale grid-cta-tile/id-reservation-pass purge)"
+          "block_catalog generic seed applied (v7: business-case-*/id-* purge + stale dso-* row refresh)"
         );
       }
     } catch (seedErr) {
