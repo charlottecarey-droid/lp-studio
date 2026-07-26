@@ -52,6 +52,7 @@ import extractGuestsRouter from "./extract-guests";
 import podcastAvailabilityRouter from "./podcast-availability";
 import contentSeriesRouter from "./content-series";
 import renderedRouter from "./rendered";
+import exportHtmlRouter from "./export-html";
 import seoFilesRouter from "./seo-files";
 import planConfigRouter from "./plan-config";
 import featuredTemplatesRouter from "./featured-templates";
@@ -111,6 +112,7 @@ router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);
 router.use(brandRouter);
 router.use(performanceRouter); // Must come before pagesRouter to avoid /lp/pages/:pageId catching /lp/pages/performance/batch
+router.use(exportHtmlRouter); // static HTML export of a published page (Task: Export HTML)
 router.use(pagesRouter);
 router.use(collaborationRouter);
 router.use(analyticsRouter);

@@ -4,7 +4,7 @@ import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
   Clock, Megaphone, Users, ChevronDown, X, MoreHorizontal, Loader2,
-  LayoutGrid, SlidersHorizontal, Sparkles, Undo2, Redo2,
+  LayoutGrid, SlidersHorizontal, Sparkles, Undo2, Redo2, FileCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,9 @@ interface BuilderTopBarProps {
   /** Rewrite the whole page's copy with AI. Mirrors the Pages-list "Rewrite
    *  copy with AI" action so it's reachable without leaving the editor. */
   onRewriteCopy?: () => void;
+  /** Export a static HTML copy of the published page for hosting elsewhere.
+   *  Omit to hide the menu item (e.g. catalog mode / unsaved new page). */
+  onExportHtml?: () => void;
   onPublish: () => void;
   onToggleCommentMode: () => void;
   onShareForReview: () => void;
@@ -119,6 +122,7 @@ export function BuilderTopBar({
   onOpenAbTest,
   onOpenAdCopy,
   onRewriteCopy,
+  onExportHtml,
   onPublish,
   onToggleCommentMode,
   onShareForReview,
@@ -449,6 +453,12 @@ export function BuilderTopBar({
             <DropdownMenuItem onClick={onOpenAdCopy} className="gap-2 text-xs" data-testid="open-ad-copy-button">
               <Megaphone className="w-3.5 h-3.5 text-fuchsia-600" />
               Generate Ad Copy
+            </DropdownMenuItem>
+          )}
+          {onExportHtml && (
+            <DropdownMenuItem onClick={onExportHtml} className="gap-2 text-xs" data-testid="export-html-button">
+              <FileCode className="w-3.5 h-3.5 text-emerald-600" />
+              Export HTML
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />

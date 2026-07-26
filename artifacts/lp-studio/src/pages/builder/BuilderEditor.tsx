@@ -59,6 +59,7 @@ import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { OgCharCount, OgDimensionWarning, ShareCardPreview } from "@/components/og-share-card";
 import { AdCopyDialog } from "@/components/builder/AdCopyDialog";
+import { ExportHtmlDialog } from "@/components/builder/ExportHtmlDialog";
 import { LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
 import { isFullPageTemplate } from "@workspace/lp-template-engine";
 import { buildTemplateGroups, type TemplateGroupShape } from "@/lib/template-library";
@@ -1482,6 +1483,7 @@ export default function BuilderEditor() {
   const [error, setError] = useState<string | null>(null);
   const [abTestModalOpen, setAbTestModalOpen] = useState(false);
   const [adCopyDialogOpen, setAdCopyDialogOpen] = useState(false);
+  const [exportHtmlDialogOpen, setExportHtmlDialogOpen] = useState(false);
   const [abTestName, setAbTestName] = useState("");
   const [abTestSlug, setAbTestSlug] = useState("");
   const [abTestCreating, setAbTestCreating] = useState(false);
@@ -3151,6 +3153,7 @@ export default function BuilderEditor() {
         onSaveAsTemplate={() => { setTemplateLabel(templateLabel || title); setShowTemplateDialog(true); }}
         onOpenAbTest={() => setAbTestModalOpen(true)}
         onOpenAdCopy={Number.isFinite(pageIdNum) ? () => setAdCopyDialogOpen(true) : undefined}
+        onExportHtml={Number.isFinite(pageIdNum) ? () => setExportHtmlDialogOpen(true) : undefined}
         onRewriteCopy={pageIdNum > 0 ? () => navigate(`/pages?rewrite=${pageIdNum}`) : undefined}
         onPublish={handlePublish}
         onToggleCommentMode={() => setCommentMode(prev => !prev)}
@@ -3418,6 +3421,14 @@ export default function BuilderEditor() {
           onClose={() => setAdCopyDialogOpen(false)}
           pageId={pageIdNum}
           pageTitle={title}
+        />
+      )}
+
+      {Number.isFinite(pageIdNum) && (
+        <ExportHtmlDialog
+          open={exportHtmlDialogOpen}
+          onClose={() => setExportHtmlDialogOpen(false)}
+          pageId={pageIdNum}
         />
       )}
 
