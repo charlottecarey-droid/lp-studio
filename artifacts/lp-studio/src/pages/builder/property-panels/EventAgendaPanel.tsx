@@ -260,13 +260,32 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Account logo URL (navbar co-brand)">
               <Input value={props.accountLogoUrl ?? ""} onChange={(e) => set("accountLogoUrl", e.target.value)} placeholder="https://…/logo.svg" className="text-xs h-8" />
             </Field>
-            <Field label="Hero image (optional editorial panel)">
+            <Field label="Hero image">
               <ImagePicker
                 value={props.heroImageUrl ?? ""}
                 onChange={(url) => set("heroImageUrl", url)}
                 label="Hero image"
                 placeholder="https://…/venue.jpg"
               />
+            </Field>
+            <Field label="Hero layout">
+              <Select
+                value={props.heroLayout ?? "__auto__"}
+                onValueChange={(v) => set("heroLayout", v === "__auto__" ? undefined : (v as EventAgendaBlockProps["heroLayout"]))}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Auto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__auto__">Auto (split when an image is set)</SelectItem>
+                  <SelectItem value="split">Split — image panel beside the copy</SelectItem>
+                  <SelectItem value="image-overlay">Full-bleed image with overlay</SelectItem>
+                  <SelectItem value="dark">Dark band (no image)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Image layouts need a hero image — without one they fall back to the dark band.
+              </p>
             </Field>
           </div>
         )}
@@ -298,6 +317,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             </Field>
             <Field label="Signature">
               <Input value={props.noteSignature ?? ""} onChange={(e) => set("noteSignature", e.target.value)} placeholder="— Your account team" className="text-xs h-8" />
+            </Field>
+            <Field label="Photo (optional — your team, last year's event)">
+              <ImagePicker
+                value={props.noteImageUrl ?? ""}
+                onChange={(url) => set("noteImageUrl", url)}
+                label="Note photo"
+                placeholder="https://…/team.jpg"
+              />
             </Field>
           </div>
         )}
@@ -342,6 +369,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                     <Input value={day.summary ?? ""} onChange={(e) => setDay(dayIdx, { summary: e.target.value })} className="text-xs h-8" />
                   </Field>
                 </div>
+                <Field label="Day banner image (optional)">
+                  <ImagePicker
+                    value={day.imageUrl ?? ""}
+                    onChange={(url) => setDay(dayIdx, { imageUrl: url })}
+                    label={`${day.label} banner`}
+                    placeholder="https://…/day.jpg"
+                  />
+                </Field>
 
                 {day.sessions.map((session, i) => (
                   <div key={i} className="space-y-2 border rounded-md p-2 bg-muted/30">
@@ -514,6 +549,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               <CtaActionConfigSection value={ctaSuite} onChange={setCta} />
               <ApplyCtaToAllButton onApplyCtaToAll={onApplyCtaToAll} disabled={!props.ctaText && !props.ctaUrl} />
             </div>
+            <Field label="Background image (optional, heavily dimmed)">
+              <ImagePicker
+                value={props.closeImageUrl ?? ""}
+                onChange={(url) => set("closeImageUrl", url)}
+                label="Close background"
+                placeholder="https://…/venue-night.jpg"
+              />
+            </Field>
             <Field label="Footer note">
               <Input value={props.footerNote ?? ""} onChange={(e) => set("footerNote", e.target.value)} className="text-xs h-8" />
             </Field>

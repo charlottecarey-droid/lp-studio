@@ -26,6 +26,8 @@ import {
   MicrositeNavbar,
   heroChromeInk,
   resolveDarkHeroSurface,
+  resolveHeroLayout,
+  type HeroLayout,
   type MicrositeNavLink,
 } from "./microsite-chrome";
 import { agendaHasCalendarData, agendaIcsFilename, buildAgendaIcs } from "@/lib/agenda-ics";
@@ -97,6 +99,9 @@ export interface EvaDay {
   date?: string;
   /** Optional one-line summary under the day heading. */
   summary?: string;
+  /** Optional editorial banner image under the day header (brand-scrimmed). */
+  imageUrl?: string;
+  imageAlt?: string;
   sessions: EvaSession[];
 }
 
@@ -149,9 +154,16 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   eventDates?: string;
   /** Session count for the hero stat strip; hidden when 0/absent. */
   sessionCount?: number;
-  /** Optional editorial hero image (right panel under a brand scrim). */
+  /** Optional hero image. How it renders depends on `heroLayout`. */
   heroImageUrl?: string;
   heroImageAlt?: string;
+  /**
+   * Hero treatment: "split" = editorial image panel beside the copy;
+   * "image-overlay" = full-bleed image behind the copy under a brand scrim;
+   * "dark" = aurora band, image ignored. Defaults to "split" when an image
+   * is set, "dark" otherwise (layouts needing an image fail closed to dark).
+   */
+  heroLayout?: HeroLayout;
 
   /* ── 2. personal note ─────────────────────────────────────────────────── */
   showNote?: boolean;
@@ -160,6 +172,9 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   personalNote?: string;
   /** Signature line, e.g. "— Maya, Jordan, and your account team". */
   noteSignature?: string;
+  /** Optional photo beside the letter (your account team, last year's dinner). */
+  noteImageUrl?: string;
+  noteImageAlt?: string;
 
   /* ── 3. schedule ──────────────────────────────────────────────────────── */
   scheduleKicker?: string;
@@ -202,6 +217,9 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   footerNote?: string;
   /** "Prepared by" brand lockup in the close. Default true (hidden if no logo). */
   showPreparedBy?: boolean;
+  /** Optional close background image (heavily scrimmed toward the dark surface). */
+  closeImageUrl?: string;
+  closeImageAlt?: string;
 }
 
 export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
@@ -576,6 +594,10 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const showNote = props.showNote !== false && (!!props.personalNote?.trim() || isEditor);
   const showClose = props.showClose !== false;
   const hasHeroImage = !!props.heroImageUrl?.trim();
+  // Fail-closed: image layouts without an image fall back to the dark band.
+  const heroLayout = resolveHeroLayout(props.heroLayout, hasHeroImage, "split");
+  const heroIsOverlay = heroLayout === "image-overlay";
+  const heroIsSplit = heroLayout === "split" && hasHeroImage;
 
   /* — add-to-calendar (.ics) — only when machine schedule data exists — */
   const calendarEnabled = props.showAddToCalendar !== false;
@@ -638,13 +660,32 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       {/* ── 1. hero ─────────────────────────────────────────────────────── */}
       {showHero && (
         <header className="relative overflow-hidden" style={{ background: heroBg }}>
-          <DarkHeroBackdrop
-            surface={heroBg}
-            accent={accentRaw}
-            primary={primaryHex}
-            isStatic={reduced || isEditor}
-            idPrefix="evtag"
-          />
+          {heroIsOverlay ? (
+            /* full-bleed image under a brand scrim — left column stays readable,
+               the image breathes on the right */
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <img
+                src={props.heroImageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="eager"
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(to right, ${heroBg}F5 0%, ${heroBg}E0 42%, ${mixHex(heroBg, primaryHex, 0.85)}66 100%), linear-gradient(to top, ${heroBg}F2 0%, transparent 45%)`,
+                }}
+              />
+            </div>
+          ) : (
+            <DarkHeroBackdrop
+              surface={heroBg}
+              accent={accentRaw}
+              primary={primaryHex}
+              isStatic={reduced || isEditor}
+              idPrefix="evtag"
+            />
+          )}
           {props.showNavbar !== false && (
             <MicrositeNavbar
               brand={brand}
@@ -667,7 +708,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           )}
 
           <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:px-10">
-            <div className={hasHeroImage ? "grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]" : ""}>
+            <div className={heroIsSplit ? "grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]" : ""}>
               <div>
                 {/* itinerary lockup line */}
                 <motion.div {...fadeUp(0)} className="flex items-center gap-4">
@@ -682,7 +723,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                   className="mt-7 max-w-3xl text-balance font-bold"
                   style={{
                     fontFamily: DISPLAY,
-                    fontSize: hasHeroImage ? "clamp(2.4rem, 4.6vw, 3.9rem)" : "clamp(2.6rem, 5.8vw, 4.6rem)",
+                    fontSize: heroIsSplit ? "clamp(2.4rem, 4.6vw, 3.9rem)" : "clamp(2.6rem, 5.8vw, 4.6rem)",
                     lineHeight: 1.02,
                     letterSpacing: "-0.032em",
                     color: heroHeadline,
@@ -777,8 +818,8 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                 )}
               </div>
 
-              {/* optional editorial image panel */}
-              {hasHeroImage && (
+              {/* optional editorial image panel (split layout only) */}
+              {heroIsSplit && (
                 <motion.figure
                   {...fadeUp(0.18)}
                   className="relative hidden overflow-hidden rounded-2xl lg:block"
@@ -816,38 +857,58 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         <div id="note" className={`mx-auto w-full max-w-4xl px-5 sm:px-8 lg:px-10 ${showHero ? "pt-16 sm:pt-20" : "pt-14 sm:pt-16"}`}>
           <motion.figure
             {...fadeUp(0)}
-            className="relative rounded-2xl px-7 py-9 sm:px-12 sm:py-11"
+            className="relative overflow-hidden rounded-2xl"
             style={{
               background: cardBg,
               border: `1px solid ${mixHex(cardInk.text, cardBg, 0.12)}`,
               boxShadow: "0 32px 64px -44px rgba(28, 25, 23, 0.35)",
             }}
           >
-            {/* oversized serif quote mark — letterpress, not clipart */}
-            <span
-              aria-hidden
-              className="pointer-events-none absolute left-6 top-2 select-none font-bold sm:left-8"
-              style={{ fontFamily: DISPLAY, fontSize: "5.5rem", lineHeight: 1, color: mixHex(accentChrome, cardBg, 0.22) }}
-            >
-              &ldquo;
-            </span>
-            <figcaption className={`${kickerClass} relative`} style={{ color: accentOnCard }}>
-              <InlineText as="span" value={props.noteKicker ?? "A note from your account team"} onUpdate={edit("noteKicker")} />
-            </figcaption>
-            <blockquote
-              className="relative mt-6 whitespace-pre-line text-xl leading-relaxed sm:text-[1.45rem] sm:leading-[1.65]"
-              style={{ color: cardInk.text, fontFamily: DISPLAY, letterSpacing: "-0.005em" }}
-            >
-              <InlineText as="span" multiline value={props.personalNote ?? ""} onUpdate={edit("personalNote")} />
-            </blockquote>
-            {(props.noteSignature || isEditor) && (
-              <p
-                className="relative mt-7 border-t pt-5 text-base font-semibold"
-                style={{ color: cardInk.muted, borderColor: mixHex(cardInk.text, cardBg, 0.12) }}
-              >
-                <InlineText as="span" value={props.noteSignature ?? ""} onUpdate={edit("noteSignature")} />
-              </p>
-            )}
+            <div className={props.noteImageUrl?.trim() ? "grid sm:grid-cols-[1fr_15rem]" : ""}>
+              <div className="relative px-7 py-9 sm:px-12 sm:py-11">
+                {/* oversized serif quote mark — letterpress, not clipart */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-6 top-2 select-none font-bold sm:left-8"
+                  style={{ fontFamily: DISPLAY, fontSize: "5.5rem", lineHeight: 1, color: mixHex(accentChrome, cardBg, 0.22) }}
+                >
+                  &ldquo;
+                </span>
+                <figcaption className={`${kickerClass} relative`} style={{ color: accentOnCard }}>
+                  <InlineText as="span" value={props.noteKicker ?? "A note from your account team"} onUpdate={edit("noteKicker")} />
+                </figcaption>
+                <blockquote
+                  className="relative mt-6 whitespace-pre-line text-xl leading-relaxed sm:text-[1.45rem] sm:leading-[1.65]"
+                  style={{ color: cardInk.text, fontFamily: DISPLAY, letterSpacing: "-0.005em" }}
+                >
+                  <InlineText as="span" multiline value={props.personalNote ?? ""} onUpdate={edit("personalNote")} />
+                </blockquote>
+                {(props.noteSignature || isEditor) && (
+                  <p
+                    className="relative mt-7 border-t pt-5 text-base font-semibold"
+                    style={{ color: cardInk.muted, borderColor: mixHex(cardInk.text, cardBg, 0.12) }}
+                  >
+                    <InlineText as="span" value={props.noteSignature ?? ""} onUpdate={edit("noteSignature")} />
+                  </p>
+                )}
+              </div>
+              {/* optional team/venue photo — full-bleed column on the letter's edge */}
+              {!!props.noteImageUrl?.trim() && (
+                <div className="relative h-48 sm:h-auto">
+                  <img
+                    src={props.noteImageUrl}
+                    alt={props.noteImageAlt || "Your account team"}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{ background: `linear-gradient(to right, ${cardBg} 0%, transparent 18%)` }}
+                  />
+                </div>
+              )}
+            </div>
           </motion.figure>
         </div>
       )}
@@ -914,6 +975,35 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                   <span className="h-px flex-1" style={{ background: mixHex(ink.text, bg, 0.14) }} />
                 </div>
               </motion.div>
+
+              {/* optional day banner — a wide editorial strip under a brand scrim */}
+              {!!day.imageUrl?.trim() && (
+                <motion.div
+                  {...fadeUp(0.06)}
+                  className="relative mt-6 h-40 overflow-hidden rounded-2xl sm:h-52"
+                  style={{ boxShadow: "0 28px 56px -44px rgba(28, 25, 23, 0.4)" }}
+                >
+                  <img
+                    src={day.imageUrl}
+                    alt={day.imageAlt || day.label}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background: `linear-gradient(165deg, ${mixHex(primaryHex, heroBg, 0.6)}59 0%, transparent 55%), linear-gradient(to top, ${heroBg}B3 0%, transparent 55%)`,
+                    }}
+                  />
+                  <p
+                    className="absolute bottom-4 left-5 text-[11px] font-bold uppercase tracking-[0.22em] sm:left-6"
+                    style={{ color: heroChrome.ink }}
+                  >
+                    {day.label}
+                  </p>
+                </motion.div>
+              )}
 
               {/* Sessions — timeline rail with editorial rows; reserved = card */}
               <ul className="relative mt-2">
@@ -1272,6 +1362,18 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       {/* ── 5. close ────────────────────────────────────────────────────── */}
       {showClose && (
         <div id="contact" className="relative overflow-hidden" style={{ background: heroBg }}>
+          {/* optional close background image — heavily scrimmed toward the dark surface */}
+          {!!props.closeImageUrl?.trim() && (
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <img
+                src={props.closeImageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+              <div className="absolute inset-0" style={{ background: `${heroBg}D9` }} />
+            </div>
+          )}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
