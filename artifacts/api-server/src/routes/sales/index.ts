@@ -24,6 +24,7 @@ import personBriefRouter from "./person-brief";
 import layoutDefaultsRouter from "./layout-defaults";
 import onePagerTemplatesRouter from "./one-pager-templates";
 import webOnePagerRouter from "./web-one-pager";
+import eventsRouter from "./events";
 import resendWebhookRouter from "./resend-webhook";
 import brandContextRouter from "./brand-context";
 import brandFontRouter from "./brand-font";
@@ -87,6 +88,7 @@ router.use(personBriefRouter);
 router.use(layoutDefaultsRouter);
 router.use(onePagerTemplatesRouter);
 router.use(webOnePagerRouter);
+router.use(eventsRouter);
 router.use("/webhooks", resendWebhookRouter);
 router.use(brandContextRouter);
 

@@ -30,6 +30,9 @@ export * from "./salesContactBriefings";
 export * from "./salesInbound";
 export * from "./salesLayoutDefaults";
 export * from "./salesOnePagerTemplates";
+export * from "./salesEvents";
+export * from "./salesEventSessions";
+export * from "./salesEventAgendas";
 
 // Salesforce Integration
 export * from "./sfdcIntegration";
