@@ -1,11 +1,9 @@
 import { createHmac } from "node:crypto";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 import type { BuildLinkRowsResult, LinkExportRow } from "./linkExport";
 import { appendPersonalizedLinkRows, type SheetsConfig } from "./google-sheets";
 import { syncLinksToMarketoStaticList } from "./notifications";
-import { decryptConfigCredentials } from "./encryption";
+import { getIntegration } from "./lpIntegrationsStore";
 import { sfdcService } from "./sfdc-service";
 import { marketoService } from "./marketo-service";
 
@@ -52,22 +50,6 @@ export interface ExportDestination {
   /** True when this destination can run for the tenant (e.g. integration connected). */
   isConfigured(tenantId: number): Promise<boolean>;
   deliver(args: DeliverArgs): Promise<ExportDeliveryResult>;
-}
-
-// ─── Shared integration reader ──────────────────────────────────────────────
-// Returns DECRYPTED config so isConfigured() + the deliver() push paths read
-// the live secret. Legacy plaintext values pass through unchanged.
-async function getIntegration(provider: string, tenantId: number): Promise<{ config: unknown; enabled: boolean } | null> {
-  const rows = await db.execute(sql`
-    SELECT config, enabled FROM lp_integrations WHERE provider = ${provider} AND tenant_id = ${tenantId}
-  `);
-  const row = (rows.rows[0] as { config: unknown; enabled: boolean } | undefined) ?? null;
-  if (!row) return null;
-  const config =
-    row.config && typeof row.config === "object"
-      ? decryptConfigCredentials(provider, row.config as Record<string, unknown>)
-      : row.config;
-  return { config, enabled: row.enabled };
 }
 
 // ─── Outbound webhook helpers ───────────────────────────────────────────────

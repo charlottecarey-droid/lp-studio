@@ -70,25 +70,29 @@ describe("encryption", () => {
     expect(encryptCredential("")).toBe("");
   });
 
-  it("encrypts only credential fields in a marketo config", () => {
+  it("encrypts only credential fields in a google_sheets config", () => {
     const config = {
-      munchkinId: "123-ABC-456",
-      clientId: "abc123",
-      clientSecret: "super-secret",
+      sheetId: "1BxiMVs0XRA",
+      serviceAccountEmail: "bot@proj.iam.gserviceaccount.com",
+      privateKey: "super-secret",
     };
-    const encrypted = encryptConfigCredentials("marketo", config);
-    expect(encrypted.munchkinId).toBe("123-ABC-456");
-    expect(encrypted.clientId).toBe("abc123");
-    expect(encrypted.clientSecret).toMatch(/^v1:/);
+    const encrypted = encryptConfigCredentials("google_sheets", config);
+    expect(encrypted.sheetId).toBe("1BxiMVs0XRA");
+    expect(encrypted.serviceAccountEmail).toBe("bot@proj.iam.gserviceaccount.com");
+    expect(encrypted.privateKey).toMatch(/^v1:/);
 
-    const decrypted = decryptConfigCredentials("marketo", encrypted);
-    expect(decrypted.clientSecret).toBe("super-secret");
+    const decrypted = decryptConfigCredentials("google_sheets", encrypted);
+    expect(decrypted.privateKey).toBe("super-secret");
   });
 
   it("whitelists the right credential field per provider", () => {
-    expect(isCredentialField("marketo", "clientSecret")).toBe(true);
-    expect(isCredentialField("marketo", "clientId")).toBe(false);
-    expect(isCredentialField("salesforce", "clientSecret")).toBe(true);
+    expect(isCredentialField("webhook", "signingSecret")).toBe(true);
+    expect(isCredentialField("webhook", "url")).toBe(false);
+    // Retired providers (salesforce 0088, marketo 0119) are OFF the whitelist:
+    // no code path writes their lp_integrations rows anymore, and a dropped
+    // provider must never silently re-enter the encrypt path.
+    expect(isCredentialField("salesforce", "clientSecret")).toBe(false);
+    expect(isCredentialField("marketo", "clientSecret")).toBe(false);
     expect(isCredentialField("google_sheets", "privateKey")).toBe(true);
     expect(isCredentialField("google_sheets", "serviceAccountEmail")).toBe(false);
     expect(isCredentialField("asana", "pat")).toBe(true);
@@ -98,7 +102,7 @@ describe("encryption", () => {
 
   it("encrypts the whitelisted field for every provider", () => {
     const cases: Array<{ provider: string; field: string; other: Record<string, unknown> }> = [
-      { provider: "salesforce", field: "clientSecret", other: { clientId: "cid", instanceUrl: "https://x" } },
+      { provider: "webhook", field: "signingSecret", other: { url: "https://x.example/hook" } },
       { provider: "google_sheets", field: "privateKey", other: { sheetId: "s", serviceAccountEmail: "a@b.c" } },
       { provider: "asana", field: "pat", other: { projectId: "p", workspaceId: "w" } },
     ];
@@ -118,21 +122,21 @@ describe("encryption", () => {
   });
 
   it("does not double-encrypt an already-encrypted config (v1: skip guard)", () => {
-    const once = encryptConfigCredentials("marketo", { clientSecret: "s", clientId: "c" });
-    const twice = encryptConfigCredentials("marketo", once);
+    const once = encryptConfigCredentials("google_sheets", { privateKey: "s", sheetId: "c" });
+    const twice = encryptConfigCredentials("google_sheets", once);
     // Re-encrypting must NOT wrap a second envelope; the value stays identical
     // and still decrypts to the original plaintext.
-    expect(twice.clientSecret).toBe(once.clientSecret);
-    expect(twice.clientSecret).not.toMatch(/^v1:v1:/);
-    expect(decryptConfigCredentials("marketo", twice).clientSecret).toBe("s");
+    expect(twice.privateKey).toBe(once.privateKey);
+    expect(twice.privateKey).not.toMatch(/^v1:v1:/);
+    expect(decryptConfigCredentials("google_sheets", twice).privateKey).toBe("s");
   });
 
   it("decrypt passes through empty/missing credential fields", () => {
-    expect(decryptConfigCredentials("marketo", { clientSecret: "", clientId: "c" })).toEqual({
-      clientSecret: "",
-      clientId: "c",
+    expect(decryptConfigCredentials("google_sheets", { privateKey: "", sheetId: "c" })).toEqual({
+      privateKey: "",
+      sheetId: "c",
     });
-    expect(decryptConfigCredentials("marketo", { clientId: "c" })).toEqual({ clientId: "c" });
+    expect(decryptConfigCredentials("google_sheets", { sheetId: "c" })).toEqual({ sheetId: "c" });
   });
 
   it("assertEncryptionKeyValid accepts the configured key, rejects a malformed one", () => {
@@ -238,29 +242,29 @@ describe("key rotation", () => {
   it("rotateConfigCredentials rotates only old-key credential fields and is idempotent", () => {
     let oldConfig: Record<string, unknown> = {};
     withKeys(KEY_B, undefined, () => {
-      oldConfig = encryptConfigCredentials("marketo", {
-        munchkinId: "123-ABC",
-        clientId: "cid",
-        clientSecret: "the-secret",
+      oldConfig = encryptConfigCredentials("google_sheets", {
+        sheetId: "123-ABC",
+        serviceAccountEmail: "bot@proj.iam",
+        privateKey: "the-secret",
       });
     });
 
     withKeys(KEY_A, KEY_B, () => {
-      const first = rotateConfigCredentials("marketo", oldConfig);
+      const first = rotateConfigCredentials("google_sheets", oldConfig);
       expect(first.rotated).toBe(1);
       // Non-credential fields untouched.
-      expect(first.config.munchkinId).toBe("123-ABC");
-      expect(first.config.clientId).toBe("cid");
-      expect(first.config.clientSecret).not.toBe(oldConfig.clientSecret);
+      expect(first.config.sheetId).toBe("123-ABC");
+      expect(first.config.serviceAccountEmail).toBe("bot@proj.iam");
+      expect(first.config.privateKey).not.toBe(oldConfig.privateKey);
 
       // Re-running is a clean no-op (resumable / idempotent).
-      const second = rotateConfigCredentials("marketo", first.config);
+      const second = rotateConfigCredentials("google_sheets", first.config);
       expect(second.rotated).toBe(0);
-      expect(second.config.clientSecret).toBe(first.config.clientSecret);
+      expect(second.config.privateKey).toBe(first.config.privateKey);
 
       // Rotated secret decrypts under the active key alone.
       withKeys(KEY_A, undefined, () => {
-        expect(decryptConfigCredentials("marketo", first.config).clientSecret).toBe("the-secret");
+        expect(decryptConfigCredentials("google_sheets", first.config).privateKey).toBe("the-secret");
       });
     });
   });

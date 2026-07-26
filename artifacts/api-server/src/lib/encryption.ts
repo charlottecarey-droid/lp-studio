@@ -184,14 +184,18 @@ export function decryptCredential(value: string | null | undefined): string {
  * so we never accidentally encrypt display labels or non-secret IDs.
  */
 const CREDENTIAL_FIELDS_BY_PROVIDER: Record<string, string[]> = {
-  marketo: ["clientSecret", "accessToken"],
   hubspot: ["accessToken"],
-  salesforce: ["clientSecret"],
   slack: ["accessToken", "incomingWebhookUrl"],
   google_sheets: ["privateKey"],
   asana: ["pat"],
   webhook: ["signingSecret"],
   // Add new providers here as integrations ship.
+  //
+  // Retired (settings consolidation Phase 4): 'salesforce' (OAuth unified
+  // onto sfdc_connections, rows purged by 0088) and 'marketo' (unified onto
+  // marketo_connections, rows migrated + purged by 0119). The dedicated
+  // *_connections tables encrypt via encryptCredential() directly, not this
+  // whitelist — it only governs lp_integrations.config blobs.
 };
 
 export function isCredentialField(provider: string, fieldName: string): boolean {
