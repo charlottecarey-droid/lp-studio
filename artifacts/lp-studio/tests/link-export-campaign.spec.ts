@@ -79,6 +79,7 @@ test.afterEach(async () => {
   await clearSalesRows(tenant.tenantId);
   await pool.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [tenant.tenantId]);
   await pool.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [tenant.tenantId]);
+  await pool.query(`DELETE FROM marketo_connections WHERE tenant_id = $1`, [tenant.tenantId]);
 });
 
 test.afterAll(async () => {
@@ -123,20 +124,23 @@ async function seedPublishedPage(title: string): Promise<number> {
   return rows[0].id;
 }
 
-// Seed an enabled Marketo integration so the "Push to Marketo static list"
-// destination resolves as CONNECTED (isConfigured() only checks these three
-// config fields exist). The api-server webServer config sets MARKETO_FAKE_MODE=1,
-// so the real REST sync is bypassed — these credentials are dummies that never
-// leave the process. Cleared in afterEach via the lp_integrations teardown.
+// Seed a connected marketo_connections row (the unified store, settings
+// consolidation Phase 2) so the "Push to Marketo static list" destination
+// resolves as CONNECTED — isConfigured() requires a status='connected' row.
+// sync_enabled=false on purpose: form/link delivery must not depend on the
+// Sales Console sync flag, and this keeps the poller ineligible. The api-server
+// webServer config sets MARKETO_FAKE_MODE=1, so the real REST sync is bypassed
+// — these credentials are dummies that never leave the process (plaintext is
+// fine: decryptCredential passes non-envelope values through). Cleared in
+// afterEach via the marketo_connections teardown.
 async function seedMarketoIntegration(): Promise<void> {
   await pool.query(
-    `INSERT INTO lp_integrations (tenant_id, provider, config, enabled, updated_at)
-     VALUES ($1, 'marketo', $2::jsonb, true, now())
-     ON CONFLICT (tenant_id, provider) DO UPDATE SET config = EXCLUDED.config, enabled = true`,
-    [
-      tenant.tenantId,
-      JSON.stringify({ munchkinId: "123-ABC-456", clientId: "fake-client", clientSecret: "fake-secret" }),
-    ],
+    `INSERT INTO marketo_connections
+       (tenant_id, munchkin_id, rest_endpoint, identity_endpoint, client_id, client_secret, status, sync_enabled)
+     VALUES ($1, '123-ABC-456', 'https://123-ABC-456.mktorest.example/rest',
+             'https://123-ABC-456.mktorest.example/identity', 'fake-client', 'fake-secret', 'connected', false)
+     ON CONFLICT (tenant_id, munchkin_id) DO UPDATE SET status = 'connected'`,
+    [tenant.tenantId],
   );
 }
 

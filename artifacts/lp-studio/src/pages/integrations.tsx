@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Zap, Cloud, ClipboardCheck, Webhook } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Cloud, ClipboardCheck, Webhook } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const MASKED = "••••••••";
 
 interface SheetsConfig { sheetId: string; serviceAccountEmail: string; privateKey: string; tabName: string; }
-interface MarketoConfig { munchkinId: string; clientId: string; clientSecret: string; }
 interface SalesforceStatus { connected: boolean; status: string | null; orgId: string | null; instanceUrl: string | null; }
 interface AsanaConfig { pat: string; workspaceId: string; projectId: string; defaultAssigneeGid: string; }
 interface WebhookConfig { url: string; signingSecret: string; }
@@ -58,13 +57,6 @@ export function IntegrationsContent() {
   const [sheetsTesting, setSheetsTesting] = useState(false);
   const [sheetsResult, setSheetsResult] = useState<TestResult | null>(null);
 
-  // Marketo state
-  const [marketo, setMarketo] = useState({ enabled: false, config: { munchkinId: "", clientId: "", clientSecret: "" } as MarketoConfig });
-  const [marketoSaving, setMarketoSaving] = useState(false);
-  const [marketoSaved, setMarketoSaved] = useState(false);
-  const [marketoTesting, setMarketoTesting] = useState(false);
-  const [marketoResult, setMarketoResult] = useState<TestResult | null>(null);
-
   // Salesforce state — now an OAuth connection (mirrors the sales console)
   // instead of per-tenant client_credentials config.
   const [sf, setSf] = useState<SalesforceStatus>({ connected: false, status: null, orgId: null, instanceUrl: null });
@@ -92,13 +84,11 @@ export function IntegrationsContent() {
   useEffect(() => {
     Promise.all([
       fetch("/api/lp/integrations/sheets").then(r => r.json()),
-      fetch("/api/lp/integrations/marketo").then(r => r.json()),
       fetch("/api/lp/integrations/salesforce").then(r => r.json()),
       fetch("/api/lp/integrations/asana").then(r => r.ok ? r.json() : { enabled: false, config: {} }).catch(() => ({ enabled: false, config: {} })),
       fetch("/api/lp/integrations/webhook").then(r => r.ok ? r.json() : { enabled: false, config: {} }).catch(() => ({ enabled: false, config: {} })),
-    ]).then(([s, m, sf, a, w]) => {
+    ]).then(([s, sf, a, w]) => {
       setSheets({ enabled: s.enabled ?? false, config: { sheetId: "", serviceAccountEmail: "", privateKey: "", tabName: "Leads", ...(s.config ?? {}) } });
-      setMarketo({ enabled: m.enabled ?? false, config: { munchkinId: "", clientId: "", clientSecret: "", ...(m.config ?? {}) } });
       setSf({ connected: sf.connected ?? false, status: sf.status ?? null, orgId: sf.orgId ?? null, instanceUrl: sf.instanceUrl ?? null });
       setAsana({ enabled: a.enabled ?? false, config: { pat: "", workspaceId: "", projectId: "", defaultAssigneeGid: "", ...(a.config ?? {}) } });
       setWebhook({ enabled: w.enabled ?? false, config: { url: "", signingSecret: "", ...(w.config ?? {}) } });
@@ -137,19 +127,6 @@ export function IntegrationsContent() {
     setSheetsTesting(true); setSheetsResult(null);
     const res = await fetch("/api/lp/integrations/sheets/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config: sheets.config }) });
     setSheetsResult(await res.json()); setSheetsTesting(false);
-  };
-
-  // Marketo handlers
-  const updateMarketo = (field: keyof MarketoConfig, value: string) => { setMarketo(s => ({ ...s, config: { ...s.config, [field]: value } })); setMarketoSaved(false); setMarketoResult(null); };
-  const saveMarketo = async () => {
-    setMarketoSaving(true);
-    await fetch("/api/lp/integrations/marketo", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(marketo) });
-    setMarketoSaving(false); setMarketoSaved(true); setTimeout(() => setMarketoSaved(false), 3000);
-  };
-  const testMarketo = async () => {
-    setMarketoTesting(true); setMarketoResult(null);
-    const res = await fetch("/api/lp/integrations/marketo/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config: marketo.config }) });
-    setMarketoResult(await res.json()); setMarketoTesting(false);
   };
 
   // Salesforce handlers — one-click OAuth (mirrors the sales console). Connect
@@ -212,7 +189,6 @@ export function IntegrationsContent() {
   };
 
   const sheetsReady = !!(sheets.config.sheetId && sheets.config.serviceAccountEmail && sheets.config.privateKey);
-  const marketoReady = !!(marketo.config.munchkinId && marketo.config.clientId && marketo.config.clientSecret);
   const asanaReady = !!(asana.config.pat && asana.config.workspaceId && asana.config.projectId);
   const webhookReady = !!(webhook.config.url);
 
@@ -276,52 +252,10 @@ export function IntegrationsContent() {
           </div>
         </div>
 
-        {/* ── Marketo ── */}
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
-            <div className="w-10 h-10 rounded-xl bg-[#5C4EE5]/10 flex items-center justify-center shrink-0">
-              <Zap className="w-5 h-5 text-[#5C4EE5]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Marketo</p>
-              <p className="text-xs text-muted-foreground">Sync leads to Marketo as new contacts. Field mappings are configured per-form.</p>
-            </div>
-            <Toggle checked={marketo.enabled} onChange={v => { setMarketo(s => ({ ...s, enabled: v })); setMarketoSaved(false); }} />
-          </div>
-          <div className="px-6 py-6 space-y-5">
-            <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">Setup steps</p>
-              <p>1. In Marketo Admin, go to <strong>LaunchPoint</strong> → <strong>New Service</strong> → select <strong>Custom</strong> to create an API-only user. Make sure the API user role has at least <strong>Read-Write Lead</strong> access.</p>
-              <p>2. Under <strong>Admin → Web Services</strong>, find your <strong>Munchkin ID</strong> and the <strong>REST API</strong> client credentials.</p>
-              <p>3. Paste them below. Field mappings (which form fields go to which Marketo fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a> — open the Marketo section there for a full setup guide.</p>
-              <p className="pt-1"><strong className="text-foreground">UTM auto-injection:</strong> when this integration is on, the visitor's <code className="bg-muted px-1 rounded">utm_source / medium / campaign / term / content</code> are sent to Marketo on every submission — no hidden form fields needed. Add per-form mappings to route them to your custom Marketo fields (e.g. <code className="bg-muted px-1 rounded">utm_source:uTMSource__c</code>).</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Munchkin ID</Label>
-              <Input value={marketo.config.munchkinId} onChange={e => updateMarketo("munchkinId", e.target.value)} placeholder="123-ABC-456" className="font-mono text-sm h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Client ID</Label>
-              <Input value={marketo.config.clientId} onChange={e => updateMarketo("clientId", e.target.value)} className="font-mono text-sm h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Client Secret</Label>
-              <Input
-                type={marketo.config.clientSecret === MASKED ? "text" : "password"}
-                value={marketo.config.clientSecret}
-                onChange={e => updateMarketo("clientSecret", e.target.value)}
-                className="font-mono text-sm h-9"
-              />
-            </div>
-            <TestBanner result={marketoResult} />
-            <SaveRow saving={marketoSaving} saved={marketoSaved} onSave={saveMarketo} testEl={
-              <Button variant="outline" size="sm" className="gap-2" disabled={marketoTesting || !marketoReady} onClick={testMarketo}>
-                {marketoTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                Test connection
-              </Button>
-            } />
-          </div>
-        </div>
+        {/* Marketo moved: the connection (credentials + endpoints) lives on the
+            Marketo card in Settings → Integrations → Connections, which opens
+            /sales/marketo. Form-lead sync follows that single connection;
+            per-form field mappings stay in Forms → Notifications. */}
 
         {/* ── Salesforce (one-click OAuth) ── */}
         <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">

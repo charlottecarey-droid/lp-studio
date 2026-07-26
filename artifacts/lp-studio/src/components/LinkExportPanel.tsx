@@ -52,6 +52,7 @@ interface Destination {
 function setupLocationLabel(setupPath?: string): string {
   if (!setupPath) return "your workspace settings";
   if (setupPath.startsWith("/sales/sfdc")) return "Sales → Salesforce";
+  if (setupPath.startsWith("/sales/marketo")) return "Settings → Integrations → Marketo";
   if (setupPath.startsWith("/integrations") || setupPath.startsWith("/settings/integrations")) return "Settings → Integrations";
   return "your workspace settings";
 }

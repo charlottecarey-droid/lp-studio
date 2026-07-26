@@ -3,11 +3,15 @@
  *
  * Phase 1 of the settings consolidation: this tab UNIFIES what used to live
  * on two separate pages — the marketing /integrations page (form-lead
- * delivery: Sheets, Marketo sync, Salesforce, Asana, webhooks) and the Sales
- * Console /sales/integrations hub (CRM connections + Slack). The old URLs
- * redirect here; the deep sales configuration pages (/sales/sfdc, /sales/
- * marketo, /sales/hubspot, /sales/slack — import filters, field mappings,
- * event toggles) remain as detail pages reached from the cards below.
+ * delivery: Sheets, Salesforce, Asana, webhooks) and the Sales Console
+ * /sales/integrations hub (CRM connections + Slack). The old URLs redirect
+ * here; the deep sales configuration pages (/sales/sfdc, /sales/marketo,
+ * /sales/hubspot, /sales/slack — import filters, field mappings, event
+ * toggles) remain as detail pages reached from the cards below.
+ *
+ * Phase 2 unified Marketo onto marketo_connections: the one connection on the
+ * card below now powers BOTH form-lead outbound sync and the Sales Console
+ * bidirectional sync — there is no separate Marketo entry in Lead delivery.
  *
  * Connection endpoints are plan-gated (402 = plan without the Sales
  * Console); those cards render an upgrade hint instead of a status badge.
@@ -52,8 +56,8 @@ const CONNECTIONS: ConnectionDef[] = [
   },
   {
     key: "marketo-sync",
-    name: "Marketo (sales sync)",
-    description: "Import leads and lists and push engagement back to Marketo.",
+    name: "Marketo",
+    description: "Form leads sync to Marketo automatically; the Sales Console can also import leads and lists and push engagement back.",
     href: "/sales/marketo",
     statusEndpoint: `${API_BASE}/sales/marketo/connection`,
     accent: "#5C4C9F",

@@ -667,7 +667,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               {showMarketo && (
                 <div className="p-3 space-y-3">
                   <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-                    Credentials are configured in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+                    The Marketo connection (credentials + endpoints) is managed in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a> — open the Marketo card there.
                   </p>
                   <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
                     <div>
