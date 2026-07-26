@@ -5,10 +5,13 @@
  * pool so the actual upsert/get route handlers + encryption wiring run end to
  * end. Each run seeds + tears down its own growth tenant + admin session.
  *
- * Covers:
- *  1. Writing a Marketo config via PUT persists the clientSecret ENCRYPTED
- *     (`v1:` prefix, plaintext never appears in the row) yet the live config is
- *     usable (the /test path resolves the real secret).
+ * Originally written against the Marketo provider; rewritten onto the webhook
+ * provider when settings consolidation Phase 2 retired lp_integrations'
+ * 'marketo' rows (Marketo credentials now live in marketo_connections, whose
+ * encryption is covered by routes/sales/marketo.integration.test.ts and the
+ * form-sync test). The store-level guarantees under test are unchanged:
+ *  1. Writing a config via PUT persists the whitelisted secret ENCRYPTED
+ *     (`v1:` prefix, plaintext never appears in the row) yet decrypts back.
  *  2. Re-saving with the masked placeholder preserves the secret WITHOUT
  *     double-encrypting it (no `v1:v1:` corruption) — the masked-resave flow.
  */
@@ -24,6 +27,7 @@ import { inject } from "../../test-utils/injectRequest";
 import lpRouter from "./index";
 
 const MASKED = "••••••••";
+const HOOK_URL = "https://example.com/hooks/lp-studio-enc-test";
 
 let app: Express;
 const createdTenantIds: number[] = [];
@@ -75,7 +79,7 @@ function authed(sid: string, method: string, url: string, body?: unknown) {
 
 async function rawStoredSecret(tenantId: number): Promise<string> {
   const r = await pool.query<{ secret: string | null }>(
-    `SELECT config->>'clientSecret' AS secret FROM lp_integrations WHERE provider = 'marketo' AND tenant_id = $1`,
+    `SELECT config->>'signingSecret' AS secret FROM lp_integrations WHERE provider = 'webhook' AND tenant_id = $1`,
     [tenantId],
   );
   return r.rows[0]?.secret ?? "";
@@ -103,14 +107,14 @@ afterAll(async () => {
 });
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("integration credential encryption (Marketo)", () => {
-  it("persists the clientSecret encrypted at rest and reads it back masked", async () => {
+describe.skipIf(!dbAvailable)("integration credential encryption (webhook)", () => {
+  it("persists the signingSecret encrypted at rest and reads it back masked", async () => {
     const { tenantId, sid } = await seedTenant();
-    const secret = "super-secret-marketo-client-secret-xyz789";
+    const secret = "super-secret-webhook-signing-secret-xyz789";
 
-    const putRes = await authed(sid, "PUT", "/lp/integrations/marketo", {
+    const putRes = await authed(sid, "PUT", "/lp/integrations/webhook", {
       enabled: true,
-      config: { munchkinId: "123-ABC-456", clientId: "client-abc", clientSecret: secret },
+      config: { url: HOOK_URL, signingSecret: secret },
     });
     expect(putRes.status).toBe(200);
 
@@ -122,30 +126,29 @@ describe.skipIf(!dbAvailable)("integration credential encryption (Marketo)", () 
     expect(decryptCredential(stored)).toBe(secret);
 
     // GET masks the secret but reports the integration as enabled.
-    const getRes = await authed(sid, "GET", "/lp/integrations/marketo");
+    const getRes = await authed(sid, "GET", "/lp/integrations/webhook");
     expect(getRes.status).toBe(200);
-    const body = getRes.json as { enabled: boolean; config: { munchkinId: string; clientId: string; clientSecret: string } };
+    const body = getRes.json as { enabled: boolean; config: { url: string; signingSecret: string } };
     expect(body.enabled).toBe(true);
-    expect(body.config.munchkinId).toBe("123-ABC-456");
-    expect(body.config.clientId).toBe("client-abc");
-    expect(body.config.clientSecret).toBe(MASKED);
+    expect(body.config.url).toBe(HOOK_URL);
+    expect(body.config.signingSecret).toBe(MASKED);
   });
 
   it("masked re-save preserves the secret without double-encrypting it", async () => {
     const { tenantId, sid } = await seedTenant();
     const secret = "original-secret-do-not-corrupt-001";
 
-    await authed(sid, "PUT", "/lp/integrations/marketo", {
+    await authed(sid, "PUT", "/lp/integrations/webhook", {
       enabled: true,
-      config: { munchkinId: "111-AAA-222", clientId: "cid-1", clientSecret: secret },
+      config: { url: HOOK_URL, signingSecret: secret },
     });
     const firstStored = await rawStoredSecret(tenantId);
     expect(firstStored).toMatch(/^v1:/);
 
     // Re-save sending the MASKED placeholder (UI never returns the real secret).
-    const putRes = await authed(sid, "PUT", "/lp/integrations/marketo", {
+    const putRes = await authed(sid, "PUT", "/lp/integrations/webhook", {
       enabled: true,
-      config: { munchkinId: "111-AAA-222", clientId: "cid-1", clientSecret: MASKED },
+      config: { url: HOOK_URL, signingSecret: MASKED },
     });
     expect(putRes.status).toBe(200);
 

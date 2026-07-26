@@ -3,10 +3,11 @@ import { Router } from "express";
 import { db, sfdcConnectionsTable } from "@workspace/db";
 import { sql, eq, desc } from "drizzle-orm";
 import { testSheetsConnection, type SheetsConfig } from "../../lib/google-sheets";
-import type { MarketoConfig, LeadPayload } from "../../lib/notifications";
+import type { LeadPayload } from "../../lib/notifications";
 import { decryptConfigCredentials, encryptConfigCredentials } from "../../lib/encryption";
 import { assertPublicHttpsUrl } from "../../lib/exportDestinations";
 import { sfdcService } from "../../lib/sfdc-service";
+import { marketoService } from "../../lib/marketo-service";
 import { signSfdcState } from "../../lib/sfdc-oauth-state";
 import { logger } from "../../lib/logger";
 
@@ -103,66 +104,14 @@ router.post("/lp/integrations/sheets/test", async (req, res): Promise<void> => {
 });
 
 // ─── Marketo ──────────────────────────────────────────────────────────────────
-
-router.get("/lp/integrations/marketo", async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const row = await getIntegration("marketo", tenantId);
-  if (!row) {
-    res.json({ enabled: false, config: { munchkinId: "", clientId: "", clientSecret: "" } });
-    return;
-  }
-  const cfg = row.config as MarketoConfig;
-  res.json({
-    enabled: row.enabled,
-    config: {
-      munchkinId: cfg.munchkinId ?? "",
-      clientId: cfg.clientId ?? "",
-      clientSecret: cfg.clientSecret ? MASKED : "",
-    },
-  });
-});
-
-router.put("/lp/integrations/marketo", async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const { enabled, config } = req.body as { enabled: boolean; config: MarketoConfig };
-  const existing = await getIntegration("marketo", tenantId);
-  const existingCfg = (existing?.config ?? {}) as MarketoConfig;
-  const merged: MarketoConfig = {
-    munchkinId: config.munchkinId ?? existingCfg.munchkinId ?? "",
-    clientId: config.clientId ?? existingCfg.clientId ?? "",
-    clientSecret: config.clientSecret && config.clientSecret !== MASKED
-      ? config.clientSecret
-      : (existingCfg.clientSecret ?? ""),
-  };
-  await upsertIntegration("marketo", merged, enabled ?? false, tenantId);
-  res.json({ ok: true });
-});
-
-router.post("/lp/integrations/marketo/test", async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const { config } = req.body as { config: MarketoConfig };
-  const existing = await getIntegration("marketo", tenantId);
-  const existingCfg = (existing?.config ?? {}) as MarketoConfig;
-  const secret = config.clientSecret === MASKED ? existingCfg.clientSecret : config.clientSecret;
-  if (!config.munchkinId || !config.clientId || !secret) {
-    res.json({ ok: false, error: "Munchkin ID, Client ID, and Client Secret are required" });
-    return;
-  }
-  try {
-    const url = `https://${config.munchkinId}.mktorest.com/identity/oauth/token?grant_type=client_credentials&client_id=${encodeURIComponent(config.clientId)}&client_secret=${encodeURIComponent(secret)}`;
-    const resp = await fetch(url);
-    const data = await resp.json() as { access_token?: string; error?: string; error_description?: string };
-    if (data.error) {
-      res.json({ ok: false, error: data.error_description ?? data.error });
-    } else if (data.access_token) {
-      res.json({ ok: true });
-    } else {
-      res.json({ ok: false, error: "No access token returned" });
-    }
-  } catch (err: unknown) {
-    res.json({ ok: false, error: String(err) });
-  }
-});
+//
+// The marketing-side Marketo provider (manual Munchkin ID / Client ID / Secret
+// stored in lp_integrations) is RETIRED — settings consolidation Phase 2. The
+// per-tenant connection lives entirely in marketo_connections, configured on
+// /sales/marketo (reached from the Settings → Integrations connection card)
+// and migrated from the old rows by 0119. Form-lead sync reads it below via
+// marketoService.getFormSyncCredentials; per-form enable + field mappings stay
+// on lp_forms and reference that connection.
 
 // ─── Salesforce ───────────────────────────────────────────────────────────────
 //
@@ -491,12 +440,13 @@ export async function syncLeadToMarketo(
   tenantId = 1,
 ): Promise<void> {
   if (perFormEnabled === false) return;
-  const row = await getIntegration("marketo", tenantId);
-  if (!row || !row.enabled) return;
-  const cfg = row.config as MarketoConfig;
-  if (!cfg.munchkinId || !cfg.clientId || !cfg.clientSecret) return;
+  // Unified store (Phase 2): the tenant's marketo_connections row. Keys off
+  // status = 'connected' only — sync_enabled gates the bidirectional Sales
+  // Console sync, not form-lead delivery.
+  const creds = await marketoService.getFormSyncCredentials(tenantId);
+  if (!creds) return;
   const { syncToMarketo } = await import("../../lib/notifications");
-  await syncToMarketo({ ...cfg, fieldMappings: perFormFieldMappings }, payload);
+  await syncToMarketo({ ...creds, fieldMappings: perFormFieldMappings }, payload);
 }
 
 export default router;

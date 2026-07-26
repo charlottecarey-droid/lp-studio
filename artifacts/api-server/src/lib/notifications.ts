@@ -795,7 +795,20 @@ export interface MarketoConfig {
   munchkinId: string;
   clientId: string;
   clientSecret: string;
+  // Present when the credentials come from marketo_connections (the unified
+  // store — always populated there). Absent in legacy contexts, where both
+  // fall back to the munchkin-derived https://{munchkinId}.mktorest.com/*.
+  restEndpoint?: string;
+  identityEndpoint?: string;
   fieldMappings?: Record<string, string>;
+}
+
+function marketoRestBase(config: MarketoConfig): string {
+  return (config.restEndpoint ?? `https://${config.munchkinId}.mktorest.com/rest`).replace(/\/$/, "");
+}
+
+function marketoIdentityBase(config: MarketoConfig): string {
+  return (config.identityEndpoint ?? `https://${config.munchkinId}.mktorest.com/identity`).replace(/\/$/, "");
 }
 
 export interface SalesforceConfig {
@@ -950,12 +963,13 @@ export async function deliverWebhook(webhookUrl: string, lead: LeadPayload): Pro
 
 const marketoTokenCache = new Map<string, { token: string; expiresAt: number }>();
 
-async function getMarketoToken(munchkinId: string, clientId: string, clientSecret: string): Promise<string> {
-  const cacheKey = `${munchkinId}:${clientId}`;
+async function getMarketoToken(config: MarketoConfig): Promise<string> {
+  const identityBase = marketoIdentityBase(config);
+  const cacheKey = `${identityBase}:${config.clientId}`;
   const cached = marketoTokenCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
 
-  const url = `https://${munchkinId}.mktorest.com/identity/oauth/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+  const url = `${identityBase}/oauth/token?grant_type=client_credentials&client_id=${encodeURIComponent(config.clientId)}&client_secret=${encodeURIComponent(config.clientSecret)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Marketo auth failed: ${res.status}`);
   const data = await res.json() as { access_token: string; expires_in: number };
@@ -966,7 +980,7 @@ async function getMarketoToken(munchkinId: string, clientId: string, clientSecre
 
 export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): Promise<void> {
   try {
-    const token = await getMarketoToken(config.munchkinId, config.clientId, config.clientSecret);
+    const token = await getMarketoToken(config);
     const mappings = config.fieldMappings ?? {};
     const marketoFields: Record<string, unknown> = {};
     for (const [formField, value] of Object.entries(lead.fields)) {
@@ -1009,7 +1023,7 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
     }
 
     const sentFields = Object.keys(marketoFields);
-    const res = await retryFetch(`https://${config.munchkinId}.mktorest.com/rest/v1/leads.json`, {
+    const res = await retryFetch(`${marketoRestBase(config)}/v1/leads.json`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`,
@@ -1073,7 +1087,7 @@ export interface MarketoStaticListResult {
  */
 async function getMarketoLeadFieldNames(config: MarketoConfig, token: string): Promise<Set<string>> {
   const res = await retryFetch(
-    `https://${config.munchkinId}.mktorest.com/rest/v1/leads/describe.json`,
+    `${marketoRestBase(config)}/v1/leads/describe.json`,
     { headers: { "Authorization": `Bearer ${token}` } },
   );
   const body = await res.json().catch(() => null) as {
@@ -1115,7 +1129,7 @@ export async function syncLinksToMarketoStaticList(
     return { created, failed: 0, addedToList: created, reasons: [] };
   }
 
-  const token = await getMarketoToken(config.munchkinId, config.clientId, config.clientSecret);
+  const token = await getMarketoToken(config);
   const linkField = args.linkFieldName.trim();
   if (!linkField) throw new Error("A Marketo field for the personalized link is required.");
 
@@ -1156,7 +1170,7 @@ export async function syncLinksToMarketoStaticList(
       [linkField]: r.link,
     }));
     try {
-      const res = await retryFetch(`https://${config.munchkinId}.mktorest.com/rest/v1/leads.json`, {
+      const res = await retryFetch(`${marketoRestBase(config)}/v1/leads.json`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ action: "createOrUpdate", lookupField: "email", input }),
@@ -1199,7 +1213,7 @@ export async function syncLinksToMarketoStaticList(
     const qs = ids.map(id => `id=${id}`).join("&");
     try {
       const res = await retryFetch(
-        `https://${config.munchkinId}.mktorest.com/rest/v1/lists/${encodeURIComponent(args.listId)}/leads.json?${qs}`,
+        `${marketoRestBase(config)}/v1/lists/${encodeURIComponent(args.listId)}/leads.json?${qs}`,
         { method: "POST", headers: { "Authorization": `Bearer ${token}` } },
       );
       const body = await res.json().catch(() => null) as {

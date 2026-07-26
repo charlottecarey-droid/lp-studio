@@ -4,9 +4,10 @@ import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 import type { BuildLinkRowsResult, LinkExportRow } from "./linkExport";
 import { appendPersonalizedLinkRows, type SheetsConfig } from "./google-sheets";
-import { syncLinksToMarketoStaticList, type MarketoConfig } from "./notifications";
+import { syncLinksToMarketoStaticList } from "./notifications";
 import { decryptConfigCredentials } from "./encryption";
 import { sfdcService } from "./sfdc-service";
+import { marketoService } from "./marketo-service";
 
 /**
  * Pluggable export-destination abstraction.
@@ -180,25 +181,26 @@ const googleSheetDestination: ExportDestination = {
 };
 
 // ─── Marketo static-list destination ────────────────────────────────────────
+// Credentials come from the tenant's marketo_connections row (the unified
+// store, settings consolidation Phase 2) — the same connection the Sales
+// Console and form-lead sync use. Like form-lead sync this keys off
+// status = 'connected' only; sync_enabled gates the bidirectional sales sync.
 const marketoDestination: ExportDestination = {
   id: "marketo",
   displayName: "Push to Marketo static list",
   description: "Create/update each contact in Marketo, store the link on a field, and add them to a static list.",
   resultType: "message",
+  setupPath: "/sales/marketo",
   options: [
     { key: "listId", label: "Marketo static list ID", placeholder: "e.g. 1042", required: true },
     { key: "linkFieldName", label: "Marketo field for the link (REST API name)", placeholder: "e.g. lpMicrositeUrl", required: true },
   ],
   async isConfigured(tenantId) {
-    const row = await getIntegration("marketo", tenantId);
-    if (!row || !row.enabled) return false;
-    const cfg = row.config as Partial<MarketoConfig> | null;
-    return !!(cfg?.munchkinId && cfg?.clientId && cfg?.clientSecret);
+    return !!(await marketoService.getFormSyncCredentials(tenantId));
   },
   async deliver({ tenantId, build, options }) {
-    const row = await getIntegration("marketo", tenantId);
-    if (!row || !row.enabled) throw new Error("Marketo is not connected for this workspace.");
-    const cfg = row.config as MarketoConfig;
+    const cfg = await marketoService.getFormSyncCredentials(tenantId);
+    if (!cfg) throw new Error("Marketo is not connected for this workspace.");
     const listId = String(options.listId ?? "").trim();
     const linkFieldName = String(options.linkFieldName ?? "").trim();
     if (!listId) throw new Error("Enter the Marketo static list ID to push to.");

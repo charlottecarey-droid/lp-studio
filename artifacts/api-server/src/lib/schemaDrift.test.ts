@@ -121,6 +121,7 @@ describe("parseSelfHealedSqlFiles", () => {
       "0077_marketo_integration.sql",
       "0081_hubspot_integration.sql",
       "0085_lp_page_fact_flags.sql",
+      "0119_marketo_unify_form_sync.sql",
     ]) {
       expect(healed.has(f)).toBe(true);
     }

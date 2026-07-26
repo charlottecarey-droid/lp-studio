@@ -1850,6 +1850,35 @@ async function runMigrationsBody(): Promise<void> {
         "lp_integrations salesforce purge left rows behind — aborting release",
     });
 
+    // Durable migrate-then-purge for the legacy Marketo credential store
+    // (settings consolidation Phase 2). Tenants who configured Marketo on the
+    // marketing side have a `provider = 'marketo'` row in lp_integrations;
+    // 0119 copies those credentials into marketo_connections (ciphertext
+    // verbatim — same envelope/key; sync_enabled = false so the Sales Console
+    // poller does NOT activate) and deletes every lp_integrations marketo row.
+    // After 0119 NO code path reads or writes that provider — form-lead sync
+    // and the link-export destination both load marketo_connections via
+    // marketoService — so leftovers are dead data holding an encrypted secret.
+    //
+    // Same high-water-mark hazard as 0088: on a drifted DB drizzle could
+    // record 0119 as applied without running it, which would silently DROP
+    // form-lead Marketo sync for the affected tenants (code reads the new
+    // store; creds never arrived there). Re-running the file here (idempotent:
+    // INSERT … ON CONFLICT DO NOTHING + DELETE) guarantees the copy. Probe per
+    // the >= expected contract: `present = 1` means "no marketo rows remain in
+    // lp_integrations" (migrated — skip), `present = 0` means rows still exist
+    // (apply the file). Fails CLOSED: rows surviving the run abort the release.
+    await runProbedSelfHeal({
+      name: "lp_integrations marketo migrate-to-connections + purge (0119)",
+      applySqlFile: "0119_marketo_unify_form_sync.sql",
+      expected: 1,
+      checkSql: `SELECT (CASE WHEN EXISTS (
+                   SELECT 1 FROM lp_integrations WHERE provider = 'marketo'
+                 ) THEN 0 ELSE 1 END)::int AS present`,
+      shortfall: () =>
+        "lp_integrations marketo migration left rows behind — aborting release",
+    });
+
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.

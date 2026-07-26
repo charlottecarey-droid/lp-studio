@@ -8,7 +8,7 @@ import {
   salesContactsTable,
   type MarketoConnection,
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { logger } from "./logger";
 import { encryptCredential, decryptCredential } from "./encryption";
 
@@ -321,6 +321,50 @@ export class MarketoService {
       return connection || null;
     } catch (err) {
       logger.error({ err, tenantId }, "Error retrieving active Marketo connection");
+      return null;
+    }
+  }
+
+  /**
+   * Decrypted credentials for the OUTBOUND form-lead paths — syncLeadToMarketo
+   * (routes/lp/integrations.ts) and the link-export destination
+   * (lib/exportDestinations.ts). Settings consolidation Phase 2 pointed both at
+   * this table; before that they read the retired lp_integrations 'marketo'
+   * provider (migrated by 0119).
+   *
+   * Deliberately IGNORES sync_enabled: that flag gates the bidirectional Sales
+   * Console sync (poller + engagement/campaign write-backs), while form-lead
+   * delivery follows the connection itself — any connected row keeps receiving
+   * leads, and disconnecting stops it. Newest row wins, matching
+   * GET /sales/marketo/connection.
+   */
+  async getFormSyncCredentials(tenantId: number): Promise<{
+    munchkinId: string;
+    restEndpoint: string;
+    identityEndpoint: string;
+    clientId: string;
+    clientSecret: string;
+  } | null> {
+    try {
+      const [connection] = await db
+        .select({
+          munchkinId: marketoConnectionsTable.munchkinId,
+          restEndpoint: marketoConnectionsTable.restEndpoint,
+          identityEndpoint: marketoConnectionsTable.identityEndpoint,
+          clientId: marketoConnectionsTable.clientId,
+          clientSecret: marketoConnectionsTable.clientSecret,
+        })
+        .from(marketoConnectionsTable)
+        .where(and(
+          eq(marketoConnectionsTable.tenantId, tenantId),
+          eq(marketoConnectionsTable.status, "connected"),
+        ))
+        .orderBy(desc(marketoConnectionsTable.createdAt))
+        .limit(1);
+      if (!connection) return null;
+      return { ...connection, clientSecret: decryptCredential(connection.clientSecret) };
+    } catch (err) {
+      logger.error({ err, tenantId }, "Error retrieving Marketo form-sync credentials");
       return null;
     }
   }

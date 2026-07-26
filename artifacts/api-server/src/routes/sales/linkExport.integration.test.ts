@@ -321,7 +321,10 @@ describe.skipIf(!dbAvailable)("Personalized link export flow", () => {
     expect(csv!.resultType).toBe("file");
     // Sheets + Marketo are present but not configured for a bare tenant.
     expect(body.destinations.some(d => d.id === "google_sheets")).toBe(true);
-    expect(body.destinations.some(d => d.id === "marketo")).toBe(true);
+    const marketo = body.destinations.find(d => d.id === "marketo");
+    expect(marketo).toBeTruthy();
+    expect(marketo!.configured).toBe(false); // no marketo_connections row for a bare tenant
+    expect(marketo!.setupPath).toBe("/sales/marketo");
 
     // Every destination named on the homepage promise is present.
     const salesforce = body.destinations.find(d => d.id === "salesforce");
@@ -334,7 +337,9 @@ describe.skipIf(!dbAvailable)("Personalized link export flow", () => {
     expect(webhook).toBeTruthy();
     expect(webhook!.available).toBe(true);
     expect(webhook!.configured).toBe(false); // no webhook configured for a bare tenant
-    expect(webhook!.setupPath).toBe("/integrations");
+    // "/settings/integrations" since Phase 1 of the settings consolidation
+    // moved the integrations home (the old "/integrations" now redirects).
+    expect(webhook!.setupPath).toBe("/settings/integrations");
 
     // HubSpot is named on the homepage but not shippable yet — gated "coming soon".
     const hubspot = body.destinations.find(d => d.id === "hubspot");
