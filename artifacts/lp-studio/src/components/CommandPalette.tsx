@@ -90,6 +90,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { label: "Brand & content", icon: <Paintbrush className="w-4 h-4" />, href: "/brand", perm: "brand", keywords: "colors fonts logo" },
     { label: "Blocks", icon: <Blocks className="w-4 h-4" />, href: "/blocks", perm: "blocks" },
     { label: "General settings", icon: <Settings className="w-4 h-4" />, href: "/settings/general", perm: "settings" },
+    { label: "Domains", icon: <Settings className="w-4 h-4" />, href: "/settings/domain", perm: "settings", keywords: "custom domain dns cname workspace url slug subdomain" },
     { label: "Team", icon: <Users className="w-4 h-4" />, href: "/settings/team", perm: "team" },
     { label: "Roles", icon: <Shield className="w-4 h-4" />, href: "/settings/roles", perm: "roles" },
     { label: "Integrations", icon: <Mail className="w-4 h-4" />, href: "/settings/integrations" },

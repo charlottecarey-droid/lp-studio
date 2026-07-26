@@ -6,10 +6,12 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Globe, AlertCircle, CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
+import { Link } from "wouter";
+import { Loader2, Globe, AlertCircle, CheckCircle2, RefreshCw, Trash2, Mail, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { MicrositeLinksCard } from "./MicrositeLinksCard";
+import { WorkspaceLoginUrlCard, WorkspaceSlugCard, ActiveRedirectsCard } from "./WorkspaceUrlCards";
 
 // The managed wildcard base. Tenants get a free <label>.lpstudio.ai address
 // with no DNS setup; the label is the editable part. Keep this in sync with
@@ -237,14 +239,23 @@ export function DomainContent() {
   const showCustom = hasCustomDomain || customMode;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Landing page domain</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Domains</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          The address visitors see when viewing your published landing pages. Every
-          workspace gets a free LP Studio address, or you can connect your own domain.
+          Every address this workspace lives at: where published landing pages are
+          served, where teammates sign in, and the domain your emails send from.
         </p>
       </div>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Landing pages</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            The address visitors see when viewing your published landing pages. Every
+            workspace gets a free LP Studio address, or you can connect your own domain.
+          </p>
+        </div>
 
       {loading ? (
         <Card className="p-5">
@@ -520,7 +531,7 @@ export function DomainContent() {
                 <button
                   type="button"
                   onClick={() => { setCustomMode(true); setLabelError(null); }}
-                  className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  className="block text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
                   data-testid="use-custom-domain"
                 >
                   Use your own domain instead →
@@ -532,6 +543,48 @@ export function DomainContent() {
       )}
 
       <MicrositeLinksCard />
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Workspace URL</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            The subdomain teammates use to sign in to this workspace.
+          </p>
+        </div>
+        <WorkspaceLoginUrlCard />
+        <WorkspaceSlugCard />
+        <ActiveRedirectsCard />
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Email sending</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            The domain your notification and campaign emails send from.
+          </p>
+        </div>
+        {/* Link, don't duplicate: the sender identity + sending-domain wizards
+            live under Settings → Email → Sending (Phase 1b home). */}
+        <Link href="/settings/email/sending">
+          <Card
+            className="p-5 border border-border/40 cursor-pointer hover:border-border transition-colors flex items-center gap-4"
+            data-testid="email-sending-domain-link"
+          >
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold">Email sending domain</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-prose">
+                Sender identity, custom sending domains, and DNS verification are
+                managed in Settings → Email → Sending.
+              </p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+          </Card>
+        </Link>
+      </section>
     </div>
   );
 }

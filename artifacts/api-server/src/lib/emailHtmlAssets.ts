@@ -335,7 +335,7 @@ export const MAGAZINE_WELCOME_HTML = `<!DOCTYPE html>
               </tr></table>
             </td></tr>
             <tr><td style="padding:28px 0 0 0;" valign="middle">
-              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#5C5853;">Your landing pages publish to <strong style="color:#1A1815;font-weight:600;">{{landingPageDomain}}</strong>. You can customize your landing-page address anytime in <a href="{{workspaceUrl}}/settings/domain" style="color:#4B47E5;text-decoration:none;font-weight:600;">Settings → Domain</a>.</p>
+              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#5C5853;">Your landing pages publish to <strong style="color:#1A1815;font-weight:600;">{{landingPageDomain}}</strong>. You can customize your landing-page address anytime in <a href="{{workspaceUrl}}/settings/domain" style="color:#4B47E5;text-decoration:none;font-weight:600;">Settings → Domains</a>.</p>
             </td></tr>
           </table>
         </td></tr>

@@ -1266,7 +1266,7 @@ export interface CustomDomainStuckPayload {
   tenantName: string;
   hostname: string;          // e.g. pages.acme.com
   cnameTarget: string;       // e.g. lpstudio.ai
-  settingsUrl: string;       // link back to Settings → Domain
+  settingsUrl: string;       // link back to Settings → Domains
   hoursPending: number;      // for the email body
 }
 
@@ -1299,7 +1299,7 @@ export async function sendCustomDomainActiveEmail(payload: CustomDomainActivePay
                 </tr>
               </table>
               <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
-                You can detach the domain anytime from Settings → Domain.
+                You can detach the domain anytime from Settings → Domains.
               </p>`;
   const html = buildLpEmailShell({
     headline,

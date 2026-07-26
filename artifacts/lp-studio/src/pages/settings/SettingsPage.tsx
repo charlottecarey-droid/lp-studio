@@ -18,7 +18,10 @@ type EmailSubTab = "templates" | "sending" | "recipients" | "preferences";
 
 const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string; adminOnly: boolean }[] = [
   { id: "general", label: "General", icon: SettingsIcon, path: "/settings/general", adminOnly: true },
-  { id: "domain", label: "Domain", icon: Globe, path: "/settings/domain", adminOnly: true },
+  // "Domains" (Phase 3): landing-page domain + workspace URL + email-sending
+  // pointer, one page. Path stays /settings/domain — the userGuide appPath,
+  // poller CTA, and welcome email all link it.
+  { id: "domain", label: "Domains", icon: Globe, path: "/settings/domain", adminOnly: true },
   { id: "seo", label: "SEO", icon: Search, path: "/settings/seo", adminOnly: true },
   { id: "scoring", label: "Lead scoring", icon: Flame, path: "/settings/scoring", adminOnly: true },
   { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/settings/templates", adminOnly: true },
