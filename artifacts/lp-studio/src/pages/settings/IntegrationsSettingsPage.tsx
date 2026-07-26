@@ -15,6 +15,8 @@
  *
  * Connection endpoints are plan-gated (402 = plan without the Sales
  * Console); those cards render an upgrade hint instead of a status badge.
+ * Slack is the exception — ungated for all plans (its lead alerts fire for
+ * every tier, so every tier can configure them), so its card never 402s.
  */
 import { useEffect, useState } from "react";
 import { Link } from "wouter";

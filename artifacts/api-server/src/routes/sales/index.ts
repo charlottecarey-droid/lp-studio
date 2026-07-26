@@ -47,6 +47,15 @@ router.use(templatesRouter);
 // global /sales guard.
 router.use(brandFontRouter);
 
+// Slack is ungated for ALL plans (July 2026 decision): its lead alerts
+// already fire for every tenant's form submissions regardless of tier, so
+// the connect flow + channel/event settings must be reachable on every plan
+// too — the old placement below the gate meant low-tier tenants got alerts
+// they could never configure. Mounted BEFORE the salesConsole gate; every
+// route inside carries its own requireAuth (the OAuth callback is the one
+// deliberate exception — Slack redirects there unauthenticated).
+router.use(slackRouter);
+
 // Everything below this line is gated to plans that include the
 // Sales Console. Mount order matters: gate middleware applies only to
 // routes registered AFTER it. The middleware is a no-op when
@@ -72,7 +81,6 @@ router.use(micrositeExemplarFetchRouter);
 router.use(sfdcRouter);
 router.use(marketoRouter);
 router.use(hubspotRouter);
-router.use(slackRouter);
 router.use("/inbound", inboundRouter);
 router.use(importRouter);
 router.use(personBriefRouter);
