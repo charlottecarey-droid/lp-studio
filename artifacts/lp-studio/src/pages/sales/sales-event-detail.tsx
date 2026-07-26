@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import {
-  CalendarDays, Check, Copy, ExternalLink, FileUp, MapPin, Pencil, Pin,
+  CalendarDays, Check, Copy, ExternalLink, FileUp, Globe, MapPin, Pencil, Pin,
   Plus, RefreshCw, Sparkles, Trash2, Users,
 } from "lucide-react";
 
@@ -484,6 +484,86 @@ function CsvImportDialog({
   );
 }
 
+/* ── URL import dialog ───────────────────────────────────────────────────── */
+
+function UrlImportDialog({
+  open, onClose, onImported, eventId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onImported: () => void;
+  eventId: number;
+}) {
+  const [url, setUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    if (!open) { setUrl(""); setImporting(false); }
+  }, [open]);
+
+  const doImport = async () => {
+    setImporting(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/events/${eventId}/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: "Import failed", description: data.error, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: `Imported ${data.created} new, updated ${data.updated}`,
+        description: data.truncated
+          ? "The page was very long and was truncated — spot-check the catalog and re-run or CSV-import anything missing."
+          : "Review the sessions and add audience-role tags where the page didn't state them — tags drive matching.",
+      });
+      onImported();
+      onClose();
+    } catch {
+      toast({ title: "Import failed", variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && !importing && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Import from an agenda URL</DialogTitle>
+          <DialogDescription>
+            Paste the public agenda page — the sessions are read off the rendered page, so calendar-widget agendas work too. Re-running refreshes times and rooms without duplicating, and keeps tags you've edited here.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label>Agenda page URL</Label>
+          <Input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://example.com/conference/agenda"
+            autoFocus
+            disabled={importing}
+          />
+          {importing && (
+            <p className="text-xs text-muted-foreground pt-1">
+              Rendering the page and extracting sessions — large agendas can take a minute or two. Keep this open.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" disabled={importing} onClick={onClose}>Cancel</Button>
+          <Button variant="brand" disabled={!/^https?:\/\/.+/.test(url.trim()) || importing} onClick={() => void doImport()}>
+            {importing ? "Importing…" : "Import sessions"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── new agenda dialog (account typeahead + attendee roles) ──────────────── */
 
 interface AccountResult {
@@ -656,7 +736,7 @@ function AgendaEditorDialog({
   const [scores, setScores] = useState<Map<number, SessionScore>>(new Map());
   const [personalNote, setPersonalNote] = useState("");
   const [pageUrl, setPageUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"save" | "publish" | "rematch" | null>(null);
+  const [busy, setBusy] = useState<"save" | "publish" | "rematch" | "blurbs" | null>(null);
   const [copied, setCopied] = useState(false);
 
   const load = async () => {
@@ -734,6 +814,33 @@ function AgendaEditorDialog({
       onChanged();
     } catch {
       toast({ title: "Couldn't publish", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const draftBlurbs = async () => {
+    if (!agendaId) return;
+    setBusy("blurbs");
+    try {
+      // Persist the current picks first so the server drafts for exactly what's
+      // checked; only sessions without a blurb are filled — edits are kept.
+      if (!(await persist())) throw new Error("save failed");
+      const res = await fetch(`${API_BASE}/sales/agendas/${agendaId}/generate-blurbs`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: "Couldn't draft blurbs", description: data.error, variant: "destructive" });
+        return;
+      }
+      await load();
+      toast({
+        title: data.generated > 0 ? `Drafted ${data.generated} blurb${data.generated === 1 ? "" : "s"}` : "Nothing to draft",
+        description: data.generated > 0
+          ? "Review each line before publishing — they're grounded on synced account facts only."
+          : "Every selected session already has a blurb.",
+      });
+    } catch {
+      toast({ title: "Couldn't draft blurbs", variant: "destructive" });
     } finally {
       setBusy(null);
     }
@@ -850,9 +957,14 @@ function AgendaEditorDialog({
         )}
 
         <DialogFooter className="gap-2 sm:justify-between">
-          <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => void rematch()}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Re-match
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => void rematch()}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Re-match
+            </Button>
+            <Button variant="outline" size="sm" disabled={busy !== null || selected.size === 0} onClick={() => void draftBlurbs()}>
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {busy === "blurbs" ? "Drafting…" : "Draft blurbs with AI"}
+            </Button>
+          </div>
           <div className="flex gap-2">
             <Button variant="outline" disabled={busy !== null} onClick={() => void save()}>
               {busy === "save" ? "Saving…" : "Save draft"}
@@ -882,6 +994,7 @@ export default function SalesEventDetail() {
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [urlImportOpen, setUrlImportOpen] = useState(false);
   const [newAgendaOpen, setNewAgendaOpen] = useState(false);
   const [editorAgendaId, setEditorAgendaId] = useState<number | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<EventSession | null>(null);
@@ -954,6 +1067,9 @@ export default function SalesEventDetail() {
           back={{ onClick: () => navigate("/sales/events"), label: "Events" }}
           actions={
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setUrlImportOpen(true)}>
+                <Globe className="w-4 h-4 mr-1.5" /> Import from URL
+              </Button>
               <Button variant="outline" onClick={() => setCsvOpen(true)}>
                 <FileUp className="w-4 h-4 mr-1.5" /> Import CSV
               </Button>
@@ -1082,6 +1198,7 @@ export default function SalesEventDetail() {
         editing={editingSession}
       />
       <CsvImportDialog open={csvOpen} onClose={() => setCsvOpen(false)} onImported={() => void load()} eventId={eventId} />
+      <UrlImportDialog open={urlImportOpen} onClose={() => setUrlImportOpen(false)} onImported={() => void load()} eventId={eventId} />
       <NewAgendaDialog
         open={newAgendaOpen}
         onClose={() => setNewAgendaOpen(false)}
