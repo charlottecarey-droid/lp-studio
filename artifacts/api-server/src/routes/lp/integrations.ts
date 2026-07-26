@@ -125,7 +125,7 @@ router.post("/lp/integrations/sheets/test", async (req, res): Promise<void> => {
 // GET status — reflects the OAuth connection, not the deprecated
 // client_credentials config. `enabled` mirrors "connected" because form-lead
 // sync runs whenever the tenant has an active connection (there is no separate
-// per-tenant on/off — opting a single form out is done in Forms → Notifications).
+// per-tenant on/off — opting a single form out is done in Forms → Lead routing).
 router.get("/lp/integrations/salesforce", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const [connection] = await db

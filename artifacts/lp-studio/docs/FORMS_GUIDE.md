@@ -102,20 +102,19 @@ Best practice: keep step 1 to email + name only. Higher friction fields (company
 
 Marketo runs at two levels — set up the brand level **once**, then per-form mappings as needed.
 
-### A. Brand-level (one-time setup)
+### A. Workspace-level (one-time setup)
 
-In the admin go to **Settings → Integrations** (`/integrations`) and fill in:
+In the admin go to **Settings → Integrations** (`/settings/integrations`) and open the **Marketo** connection card (it links to `/sales/marketo`), then connect with:
 
 - **Munchkin ID** — found in Marketo under Admin → Munchkin (e.g. `123-ABC-456`)
-- **REST API Client ID** — created under Admin → LaunchPoint
-- **REST API Client Secret** — same place
-- **REST API Endpoint** — the host portion of your Marketo URL
+- **REST endpoint** and **Identity endpoint** — under Admin → Web Services (e.g. `https://123-ABC-456.mktorest.com/rest` and `…/identity`)
+- **Client ID / Client Secret** — created under Admin → LaunchPoint
 
-Once these are in, every form on every page in this brand can sync to Marketo. You only redo this if the tenant rotates credentials.
+This single connection powers form-lead sync AND the Sales Console's bidirectional sync. Once connected, every form on every page in this workspace can sync to Marketo. You only redo this if the tenant rotates credentials.
 
 ### B. Per-form setup
 
-In the Form Panel → **Notifications** tab:
+In the Form Panel → **Lead routing** tab:
 
 1. Toggle **"Send to Marketo"** on.
 2. Enter the **Marketo Form ID** (a number — find it in Marketo under the form's Embed Code, e.g. `3006`).
@@ -227,7 +226,7 @@ Click **Export CSV** to download a date-ranged dump for your CRM / ops team.
 
 ## 10. Notification emails
 
-In the Form Panel → **Notifications** tab there's also an **Email Notifications** section:
+In the Form Panel → **Lead routing** tab there's also an **Email Notifications** section:
 
 - **Recipients** — comma-separated list of emails to notify on every submission
 - **Subject template** — supports field tokens like `New lead from {{email}} at {{company}}`
@@ -239,15 +238,15 @@ Notifications go out via Resend. If they stop arriving, check the Resend dashboa
 
 ## 10b. Follow-up email to the submitter
 
-The Notifications tab also has a **Follow-up email to submitter** toggle. When enabled and an email template is selected, every successful submission triggers a templated email back to the person who filled out the form.
+The Lead routing tab also has a **Follow-up email to submitter** toggle. When enabled and an email template is selected, every successful submission triggers a templated email back to the person who filled out the form.
 
 **Where it lives**
-- **Forms Library** (`/forms` → pick a form → Notifications tab) — applies to every page that uses the global form
-- **Page Builder** (FormPanel → Notifications tab) — applies to local, page-specific forms
+- **Forms Library** (`/forms` → pick a form → Lead routing tab) — applies to every page that uses the global form
+- **Page Builder** (FormPanel → Lead routing tab) — applies to local, page-specific forms
 
 **Templates**
 - Reuses the same template library as Sales → Outreach (the `sales_email_templates` table)
-- Pick an existing template from the dropdown, or click **New** to draft one inline with the rich-text editor — no need to leave the Notifications tab
+- Pick an existing template from the dropdown, or click **New** to draft one inline with the rich-text editor — no need to leave the Lead routing tab
 - New templates created here are tagged with the `follow-up` category so they're easy to find later
 
 **Merge variables**

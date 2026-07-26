@@ -255,7 +255,7 @@ export function IntegrationsContent() {
         {/* Marketo moved: the connection (credentials + endpoints) lives on the
             Marketo card in Settings → Integrations → Connections, which opens
             /sales/marketo. Form-lead sync follows that single connection;
-            per-form field mappings stay in Forms → Notifications. */}
+            per-form field mappings stay in Forms → Lead routing. */}
 
         {/* ── Salesforce (one-click OAuth) ── */}
         <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
@@ -282,13 +282,13 @@ export function IntegrationsContent() {
               <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
                 <p className="text-foreground">Your Salesforce org is connected. New form submissions create Lead records automatically.</p>
                 {sf.instanceUrl && <p>Org: <code className="bg-muted px-1 rounded">{sf.instanceUrl}</code></p>}
-                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a>.</p>
+                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Lead routing</a>.</p>
               </div>
             ) : (
               <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
                 <p>Click <strong>Connect Salesforce</strong> to authorize LP Studio against your Salesforce org. No Connected App setup or API keys required — you'll sign in to Salesforce and approve access.</p>
                 <p>Already connected from the sales console? Your connection is shared — no need to reconnect here.</p>
-                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a>.</p>
+                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Lead routing</a>.</p>
               </div>
             )}
             <TestBanner result={sfBanner} />

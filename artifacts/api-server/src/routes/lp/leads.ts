@@ -656,7 +656,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       // token refresh handled by sfdcService). Scoped to the page's tenant so a
       // form submit only ever pushes through the acting tenant's own connection.
       // This is the single Salesforce sync path — the legacy client_credentials
-      // path has been retired. A form can still opt out via Forms → Notifications
+      // path has been retired. A form can still opt out via Forms → Lead routing
       // (perFormSalesforce.enabled === false), and its per-form field mappings
       // are layered on top of the structured Lead fields below.
       try {
@@ -702,7 +702,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
             }
           }
 
-          // Per-form field mappings (configured in Forms → Notifications) map a
+          // Per-form field mappings (configured in Forms → Lead routing) map a
           // submitted form field name → SFDC Lead API field. These are layered
           // last so they override the structured fields and UTM defaults below
           // (createLead spreads customFields after its structured fields), which

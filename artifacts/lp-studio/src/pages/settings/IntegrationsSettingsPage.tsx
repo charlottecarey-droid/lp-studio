@@ -152,7 +152,7 @@ export function IntegrationsSettingsContent() {
         <h2 className="text-lg font-semibold">Connections</h2>
         <p className="text-sm text-muted-foreground mt-0.5 mb-4">
           Workspace-level connections to your CRM and alerting tools. Each is set up once here;
-          per-form field mappings live on the form itself under Forms → Notifications.
+          per-form field mappings live on the form itself under Forms → Lead routing.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {CONNECTIONS.map((c) => {
@@ -182,7 +182,7 @@ export function IntegrationsSettingsContent() {
         <h2 className="text-lg font-semibold">Lead delivery</h2>
         <p className="text-sm text-muted-foreground mt-0.5 mb-4">
           Where form and chat leads are sent after each submission. These defaults apply to every
-          form; individual forms can override destinations under Forms → Notifications.
+          form; individual forms can override destinations under Forms → Lead routing.
         </p>
         <IntegrationsContent />
       </section>

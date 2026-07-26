@@ -17,6 +17,7 @@ import { useBrandConfig } from "@/components/BrandSwatches";
 import { mappingsToText, textToMappings } from "@/lib/field-map-text";
 import { MarketoForm } from "@/components/MarketoForm";
 import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
+import { ConnectionStatusNote } from "@/components/ConnectionStatusNote";
 
 const API_BASE = "/api";
 
@@ -518,7 +519,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
             <TabsTrigger value="fields" className="flex-1 text-xs">Fields</TabsTrigger>
             <TabsTrigger value="settings" className="flex-1 text-xs">Settings</TabsTrigger>
             <TabsTrigger value="style" className="flex-1 text-xs">Style</TabsTrigger>
-            <TabsTrigger value="notifications" className="flex-1 text-xs">Notifications</TabsTrigger>
+            <TabsTrigger value="notifications" className="flex-1 text-xs">Lead routing</TabsTrigger>
           </TabsList>
 
           <TabsContent value="style" className="space-y-4 mt-0">
@@ -666,9 +667,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               </div>
               {showMarketo && (
                 <div className="p-3 space-y-3">
-                  <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-                    The Marketo connection (credentials + endpoints) is managed in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a> — open the Marketo card there.
-                  </p>
+                  <ConnectionStatusNote provider="marketo" />
                   <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
                     <div>
                       <Label className={LABEL_CLS}>Forms2 "Ghost" Submit (optional)</Label>
@@ -884,9 +883,7 @@ utm_content:uTMContent__c`}</pre>
               </div>
               {showSalesforce && (
                 <div className="p-3 space-y-3">
-                  <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-                    Credentials are configured in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
-                  </p>
+                  <ConnectionStatusNote provider="salesforce" />
                   <div>
                     <Label className={LABEL_CLS}>Field Mappings</Label>
                     <p className="text-xs text-muted-foreground mb-2">Map form field labels to Salesforce field names — one per line (Label:SalesforceField)</p>

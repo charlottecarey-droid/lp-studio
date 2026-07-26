@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
+import { ConnectionStatusNote } from "@/components/ConnectionStatusNote";
 
 const API_BASE = "/api";
 
@@ -368,9 +369,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
         </div>
         {showMarketo && (
           <div className="p-3 space-y-3">
-            <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-              The Marketo connection (credentials + endpoints) is managed in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a> — open the Marketo card there.
-            </p>
+            <ConnectionStatusNote provider="marketo" />
             <div>
               <Label className={LABEL_CLS}>Field Mappings (form field → Marketo field)</Label>
               <p className="text-xs text-muted-foreground mb-2">One per line: Label:marketoFieldName</p>
@@ -407,9 +406,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
         </div>
         {showSalesforce && (
           <div className="p-3 space-y-3">
-            <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
-              Credentials are configured in <a href="/settings/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
-            </p>
+            <ConnectionStatusNote provider="salesforce" />
             <div>
               <Label className={LABEL_CLS}>Field Mappings (form field → Salesforce field)</Label>
               <p className="text-xs text-muted-foreground mb-2">One per line: Label:SalesforceField</p>
@@ -433,7 +430,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
       </div>
 
       <Button className="w-full" onClick={save} disabled={saving}>
-        {saving ? "Saving…" : saved ? "Saved!" : "Save Notification Settings"}
+        {saving ? "Saving…" : saved ? "Saved!" : "Save Lead Routing"}
       </Button>
     </div>
   );
@@ -520,7 +517,7 @@ export function FormPanel({ props, onChange, pageId, bgOptions }: Props) {
         </div>
         {linkedForm && (
           <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1">
-            <Link2 className="w-3 h-3" /> Linked to "{linkedForm.name}" — fields and notifications managed globally.
+            <Link2 className="w-3 h-3" /> Linked to "{linkedForm.name}" — fields and lead routing managed globally.
           </p>
         )}
       </div>
@@ -529,7 +526,7 @@ export function FormPanel({ props, onChange, pageId, bgOptions }: Props) {
       <TabsList className="w-full mb-4">
         <TabsTrigger value="fields" className="flex-1 text-xs">Fields</TabsTrigger>
         <TabsTrigger value="settings" className="flex-1 text-xs">Settings</TabsTrigger>
-        <TabsTrigger value="notifications" className="flex-1 text-xs">Notifications</TabsTrigger>
+        <TabsTrigger value="notifications" className="flex-1 text-xs">Lead routing</TabsTrigger>
       </TabsList>
 
       <TabsContent value="fields" className="space-y-4 mt-0">
@@ -821,7 +818,7 @@ export function FormPanel({ props, onChange, pageId, bgOptions }: Props) {
       <TabsContent value="notifications" className="mt-0">
         {hasLinkedForm ? (
           <div className="rounded-lg border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-            Notifications are managed in the{" "}
+            Lead routing is managed in the{" "}
             <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a>
             {linkedForm ? <>{" "}under "{linkedForm.name}"</> : null}.
           </div>
@@ -829,7 +826,7 @@ export function FormPanel({ props, onChange, pageId, bgOptions }: Props) {
           <NotificationsTab pageId={pageId} />
         ) : (
           <p className="text-sm text-muted-foreground py-4 text-center">
-            Save the page first to configure notifications.
+            Save the page first to configure lead routing.
           </p>
         )}
       </TabsContent>
