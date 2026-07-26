@@ -152,6 +152,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "rich-text": ["content"],
   "custom-html": ["content"],
   "zigzag-features": ["features", "media"],
+  "checkerboard-showcase": ["features", "media"],
   "product-showcase": ["features", "content"],
   "dandy-versus": ["comparison"],
   "dandy-columns-v2": ["features", "content"],

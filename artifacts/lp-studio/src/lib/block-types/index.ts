@@ -67,6 +67,8 @@ export type {
   FormBlockProps,
   ChatCaptureBlockProps,
   ZigzagFeaturesBlockProps,
+  CheckerboardShowcaseBlockProps,
+  CheckerboardShowcaseItem,
   ProductShowcaseBlockProps,
   FooterBlockProps,
   AiScanHeroBlockProps,

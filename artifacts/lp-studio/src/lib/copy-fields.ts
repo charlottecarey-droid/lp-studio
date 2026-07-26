@@ -18,6 +18,7 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "benefits-grid":      ["headline", "subheadline"],
   "how-it-works":       ["headline", "subheadline"],
   "zigzag-features":    ["headline", "subheadline"],
+  "checkerboard-showcase": ["eyebrow", "headline", "subheadline"],
   "dandy-switchback":   ["eyebrow", "headline", "subheadline"],
   "dandy-vertical-tabs":["headline", "subheadline"],
   "pas-section":        ["headline", "body", "ctaText"],

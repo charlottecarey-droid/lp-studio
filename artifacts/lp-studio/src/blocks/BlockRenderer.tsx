@@ -103,6 +103,7 @@ import {
 } from "./BlockGridPieces";
 import { BlockCustomSchema } from "./BlockCustomSchema";
 import { BlockZigzagFeatures } from "./BlockZigzagFeatures";
+import { BlockCheckerboardShowcase } from "./BlockCheckerboardShowcase";
 import { BlockProductShowcase } from "./BlockProductShowcase";
 import { BlockNavHeader } from "./BlockNavHeader";
 import { BlockCtaButton } from "./BlockCtaButton";
@@ -864,6 +865,16 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             brand={brand}
             onFieldChange={onBlockChange
               ? (updated: ZigzagFeaturesBlockProps) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "checkerboard-showcase":
+        return (
+          <BlockCheckerboardShowcase
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}
           />
         );

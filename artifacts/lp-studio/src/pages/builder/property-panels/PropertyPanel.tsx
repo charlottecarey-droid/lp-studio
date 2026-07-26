@@ -151,6 +151,7 @@ import {
 } from "./GridPiecePanels";
 import { CustomSchemaPanel } from "./CustomSchemaPanel";
 import { ZigzagFeaturesPanel } from "./ZigzagFeaturesPanel";
+import { CheckerboardShowcasePanel } from "./CheckerboardShowcasePanel";
 import { ProductShowcasePanel } from "./ProductShowcasePanel";
 import { NavHeaderPanel } from "./NavHeaderPanel";
 import { CtaButtonPanel } from "./CtaButtonPanel";
@@ -1760,6 +1761,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "zigzag-features":
         return (
           <ZigzagFeaturesPanel
+            blockType={block.type}
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "checkerboard-showcase":
+        return (
+          <CheckerboardShowcasePanel
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}

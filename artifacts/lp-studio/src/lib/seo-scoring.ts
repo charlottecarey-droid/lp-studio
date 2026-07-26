@@ -180,7 +180,7 @@ export const STRUCTURED_TYPES = new Set([
   "value-pillars-headline-badge", "value-pillars-card-columns",
   "feature-photo-cards", "feature-card-grid", "feature-big-features",
   "how-it-works", "benefits-grid", "comparison", "product-grid",
-  "zigzag-features", "product-showcase", "product-launch",
+  "zigzag-features", "checkerboard-showcase", "product-showcase", "product-launch",
   "dandy-columns-v2", "dandy-columns-v3", "dandy-vertical-tabs",
   "dandy-switchback", "dandy-versus", "bento-showcase",
   "dso-ai-feature", "dso-problem", "dso-challenges", "dso-products-grid",

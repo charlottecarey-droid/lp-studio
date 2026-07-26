@@ -46,6 +46,7 @@ import type {
   SpacerBlockProps,
   FormBlockProps,
   ZigzagFeaturesBlockProps,
+  CheckerboardShowcaseBlockProps,
   ProductShowcaseBlockProps,
   FooterBlockProps,
   FullBleedHeroBlockProps,
@@ -1032,6 +1033,62 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="6" y="40" width="52" height="5" rx="1" fill="#C7E738" opacity="0.7" />
         <rect x="6" y="49" width="48" height="3" rx="1" fill="#003A30" opacity="0.6" />
         <rect x="6" y="56" width="44" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+      </svg>
+    ),
+  },
+  {
+    type: "checkerboard-showcase" as const,
+    label: "Checkerboard Showcase",
+    category: "Features" as BlockCategory,
+    defaultProps: (): CheckerboardShowcaseBlockProps => ({
+      eyebrow: "Fully integrated",
+      headline: "Craftsmanship, down to the finest detail",
+      subheadline:
+        "Every piece moves through one precision digital workflow — so what you spec is exactly what ships.",
+      items: [
+        {
+          title: "Edge-to-edge precision",
+          body: "Digital design and precision finishing deliver a fit that reads seamless from every angle.",
+          imageUrl: "",
+          railLabel: "Precision",
+        },
+        {
+          title: "Go ahead, take a closer look",
+          body: "Controlled variation across every surface produces real depth — never a flat, uniform finish.",
+          imageUrl: "",
+          railLabel: "Detail",
+        },
+        {
+          title: "Built to hold up",
+          body: "Materials and process are tuned together, so the result keeps its character long after day one.",
+          imageUrl: "",
+          railLabel: "Durability",
+        },
+      ],
+      showRails: true,
+      backgroundStyle: "white",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        {/* checkerboard: image / text, then text / image */}
+        <rect x="8" y="6" width="52" height="28" fill="#e2e8f0" />
+        <rect x="70" y="15" width="34" height="4" rx="1" fill="#475569" opacity="0.8" />
+        <rect x="70" y="22" width="28" height="2" rx="1" fill="#94a3b8" opacity="0.6" />
+        <rect x="60" y="36" width="52" height="28" fill="#e2e8f0" />
+        <rect x="16" y="45" width="34" height="4" rx="1" fill="#475569" opacity="0.8" />
+        <rect x="16" y="52" width="28" height="2" rx="1" fill="#94a3b8" opacity="0.6" />
+        {/* gradient rails on the outer edges */}
+        <rect x="4" y="6" width="3" height="28" fill="url(#cbsRail)" />
+        <rect x="113" y="36" width="3" height="28" fill="url(#cbsRail)" />
+        <defs>
+          <linearGradient id="cbsRail" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#436743" />
+            <stop offset="35%" stopColor="#e9b848" />
+            <stop offset="70%" stopColor="#79abff" />
+            <stop offset="100%" stopColor="#af6419" />
+          </linearGradient>
+        </defs>
       </svg>
     ),
   },
@@ -9283,6 +9340,7 @@ export function createBlock(type: "grid-logo"): Extract<PageBlock, { type: "grid
 export function createBlock(type: "grid-video"): Extract<PageBlock, { type: "grid-video" }>;
 export function createBlock(type: "custom-schema"): Extract<PageBlock, { type: "custom-schema" }>;
 export function createBlock(type: "zigzag-features"): Extract<PageBlock, { type: "zigzag-features" }>;
+export function createBlock(type: "checkerboard-showcase"): Extract<PageBlock, { type: "checkerboard-showcase" }>;
 export function createBlock(type: "product-showcase"): Extract<PageBlock, { type: "product-showcase" }>;
 export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav-header" }>;
 export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta-button" }>;
@@ -9418,6 +9476,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "grid-video": return { id, type: "grid-video", props: props as GridVideoBlockProps };
     case "custom-schema": return { id, type: "custom-schema", props: props as CustomSchemaBlockProps };
     case "zigzag-features": return { id, type: "zigzag-features", props: props as ZigzagFeaturesBlockProps };
+    case "checkerboard-showcase": return { id, type: "checkerboard-showcase", props: props as CheckerboardShowcaseBlockProps };
     case "product-showcase": return { id, type: "product-showcase", props: props as ProductShowcaseBlockProps };
     case "nav-header": return { id, type: "nav-header", props: props as NavHeaderBlockProps };
     case "cta-button": return { id, type: "cta-button", props: props as CtaButtonBlockProps };

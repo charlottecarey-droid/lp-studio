@@ -781,6 +781,31 @@ export interface ZigzagFeaturesBlockProps {
   headlineAlign?: "left" | "center";
 }
 
+export interface CheckerboardShowcaseItem {
+  title: string;
+  body: string;
+  imageUrl: string;
+  /** Rotated micro-label on the row's decorative gradient rail. */
+  railLabel?: string;
+}
+
+/**
+ * Full-bleed alternating "switchback" squares: image and text tiles flip
+ * sides every row (checkerboard), framed by hairline rules, each row carrying
+ * a thin vertical gradient rail with icon chips + a rotated micro-label.
+ * Distinct from zigzag-features, which is the contained/boxed variant.
+ */
+export interface CheckerboardShowcaseBlockProps {
+  /** Small pill above the headline (e.g. "Fully integrated"). */
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  items: CheckerboardShowcaseItem[];
+  /** Show the decorative gradient rails. Defaults to true. */
+  showRails?: boolean;
+  backgroundStyle?: string;
+}
+
 export interface ProductShowcaseBlockProps {
   headline: string;
   subheadline: string;

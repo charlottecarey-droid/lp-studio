@@ -40,6 +40,7 @@ import type {
   FormBlockProps,
   ChatCaptureBlockProps,
   ZigzagFeaturesBlockProps,
+  CheckerboardShowcaseBlockProps,
   ProductShowcaseBlockProps,
   FooterBlockProps,
   FullBleedHeroBlockProps,
@@ -281,6 +282,7 @@ export type BlockVariant =
   | { type: "grid-video"; props: GridVideoBlockProps }
   | { type: "custom-schema"; props: CustomSchemaBlockProps }
   | { type: "zigzag-features"; props: ZigzagFeaturesBlockProps }
+  | { type: "checkerboard-showcase"; props: CheckerboardShowcaseBlockProps }
   | { type: "product-showcase"; props: ProductShowcaseBlockProps }
   | { type: "nav-header"; props: NavHeaderBlockProps }
   | { type: "cta-button"; props: CtaButtonBlockProps }
