@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useAnimInitial } from "@/lib/reveal-fallback";
+import { usePageContext } from "@/lib/page-context";
 import type { BrandConfig } from "@/lib/brand-config";
 import {
   contrastTextColor,
@@ -20,6 +22,7 @@ import {
   resolveDarkHeroSurface,
   type MicrositeNavLink,
 } from "./microsite-chrome";
+import { agendaHasCalendarData, agendaIcsFilename, buildAgendaIcs } from "@/lib/agenda-ics";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -53,6 +56,10 @@ export interface EvaSpeaker {
 export interface EvaSession {
   /** Display time range, e.g. "9:00 AM – 10:30 AM" (editorial string). */
   time?: string;
+  /** Machine start, 24h local "09:00" — powers the .ics download only. */
+  startTime?: string;
+  /** Machine end, 24h local "10:30". Missing → .ics assumes 60 minutes. */
+  endTime?: string;
   /** Session title (one line). */
   title: string;
   /** Room / location label. */
@@ -74,6 +81,8 @@ export interface EvaSession {
 export interface EvaDay {
   /** Day heading, e.g. "Tuesday, Oct 20". */
   label: string;
+  /** Machine calendar date, ISO "2026-10-20" — powers the .ics download only. */
+  date?: string;
   /** Optional one-line summary under the day heading. */
   summary?: string;
   sessions: EvaSession[];
@@ -138,8 +147,26 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   days: EvaDay[];
   /** Label on the per-session personalized callout. */
   whyAttendLabel?: string;
+  /**
+   * "Add to calendar" (.ics) hero button. Default on, but only rendered when
+   * at least one session carries machine-readable date + start time.
+   */
+  showAddToCalendar?: boolean;
 
-  /* ── 4. close ─────────────────────────────────────────────────────────── */
+  /* ── 4. RSVP ──────────────────────────────────────────────────────────── */
+  /**
+   * Inline RSVP capture (name + email → the standard lead pipeline). Default
+   * OFF for hand-authored pages; the agenda publish route turns it on.
+   */
+  showRsvp?: boolean;
+  rsvpKicker?: string;
+  rsvpHeading?: string;
+  rsvpSubheadline?: string;
+  rsvpButtonText?: string;
+  /** Replaces the form after a successful submit. */
+  rsvpConfirmation?: string;
+
+  /* ── 5. close ─────────────────────────────────────────────────────────── */
   showClose?: boolean;
   ctaHeadline?: string;
   ctaSubheadline?: string;
@@ -189,10 +216,13 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
   days: [
     {
       label: "Tuesday, Mar 10",
+      date: "2026-03-10",
       summary: "Operations focus + your welcome dinner",
       sessions: [
         {
           time: "9:00 AM – 10:00 AM",
+          startTime: "09:00",
+          endTime: "10:00",
           title: "Opening keynote: the year ahead",
           sessionType: "Keynote",
           room: "Main stage",
@@ -202,6 +232,8 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
         },
         {
           time: "11:30 AM – 12:30 PM",
+          startTime: "11:30",
+          endTime: "12:30",
           title: "Scaling operations across every location",
           sessionType: "Breakout",
           track: "Operations",
@@ -211,6 +243,7 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
         },
         {
           time: "6:30 PM",
+          startTime: "18:30",
           title: "Welcome dinner with your account team",
           sessionType: "Reserved",
           room: "The Terrace",
@@ -220,10 +253,13 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
     },
     {
       label: "Wednesday, Mar 11",
+      date: "2026-03-11",
       summary: "Working sessions + executive time",
       sessions: [
         {
           time: "10:00 AM – 11:00 AM",
+          startTime: "10:00",
+          endTime: "11:00",
           title: "Working session with product leadership",
           sessionType: "Reserved",
           room: "Boardroom 3",
@@ -232,6 +268,8 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
         },
         {
           time: "2:00 PM – 3:00 PM",
+          startTime: "14:00",
+          endTime: "15:00",
           title: "Executive roundtable: measuring what matters",
           sessionType: "Roundtable",
           track: "Leadership",
@@ -241,6 +279,14 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
       ],
     },
   ],
+
+  /* rsvp — off by default; the sales publish route opts published agendas in */
+  showRsvp: false,
+  rsvpKicker: "RSVP",
+  rsvpHeading: "Confirm your spot",
+  rsvpSubheadline: "Tell us who's coming and we'll have everything ready — badges, reserved seats, and your dinner table.",
+  rsvpButtonText: "Confirm my RSVP",
+  rsvpConfirmation: "You're confirmed — we'll see you there.",
 
   /* close */
   showClose: true,
@@ -265,6 +311,9 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const reduced = useReducedMotion() ?? false;
   // Fail-open reveal — see lib/reveal-fallback.ts.
   const anim = useAnimInitial();
+  const pageCtx = usePageContext();
+  const effectivePageId = pageId ?? pageCtx.pageId;
+  const effectiveVariantId = variantId ?? pageCtx.variantId;
 
   /* — palette (brand-absorbed, contrast-guarded) — */
   const bg =
@@ -329,6 +378,8 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const navCtaTextColor = pickContrastingColor(brand?.ctaText, navCtaBg, [contrastTextColor(navCtaBg)], 4.5);
   const closeCtaBg = navCtaBg;
   const closeCtaText = navCtaTextColor;
+  const rsvpBtnBg = pickContrastingColor(brand?.ctaBackground, cardBg, [accentRaw, brand?.primaryColor, "#221E3F"], 3.0);
+  const rsvpBtnText = pickContrastingColor(brand?.ctaText, rsvpBtnBg, [contrastTextColor(rsvpBtnBg)], 4.5);
 
   /* — builder edit plumbing — */
   const set = onFieldChange
@@ -354,6 +405,67 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     : undefined;
   const isEditor = !!onFieldChange;
 
+  /* — RSVP capture (standard lead pipeline, mirrors BlockEventPage) — */
+  const showRsvp = props.showRsvp === true;
+  const [rsvp, setRsvp] = useState({ firstName: "", lastName: "", email: "", website: "" });
+  const [rsvpStatus, setRsvpStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const submitRsvp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (rsvpStatus === "sending" || rsvpStatus === "done") return;
+    // Honeypot: bots fill the hidden field — swallow silently.
+    if (rsvp.website.trim()) { setRsvpStatus("done"); return; }
+    const email = rsvp.email.trim();
+    if (!email) return;
+    setRsvpStatus("sending");
+    const fields: Record<string, string> = {
+      "First Name": rsvp.firstName.trim(),
+      "Last Name": rsvp.lastName.trim(),
+      Email: email,
+      Source: "Agenda RSVP",
+    };
+    if (props.eventName?.trim()) fields.Event = props.eventName.trim();
+    if (props.accountName?.trim()) fields.Account = props.accountName.trim();
+    try {
+      // Builder canvas / preview (no page id) confirms without posting —
+      // same silent-skip contract as BlockEventPage.
+      if (effectivePageId != null && !isEditor) {
+        const resp = await fetch("/api/lp/leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fields,
+            pageId: effectivePageId,
+            ...(effectiveVariantId != null ? { variantId: effectiveVariantId } : {}),
+            ...(pageCtx.sessionId ? { sessionId: pageCtx.sessionId } : {}),
+          }),
+        });
+        if (!resp.ok) throw new Error("Submission failed");
+        try {
+          // Omit testId/variantId outside A/B renders — a zero id violates
+          // the FK and silently drops the conversion (BlockEventPage lesson).
+          const trackBody: Record<string, unknown> = {
+            sessionId: pageCtx.sessionId ?? `anon-${Date.now()}`,
+            eventType: "conversion",
+            conversionType: "form_submit",
+            pageId: effectivePageId,
+          };
+          if (pageCtx.testId != null) trackBody.testId = pageCtx.testId;
+          if (effectiveVariantId != null) trackBody.variantId = effectiveVariantId;
+          await fetch("/api/lp/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(trackBody),
+          });
+        } catch (err) {
+          console.error("[event-agenda] RSVP tracking error:", err);
+        }
+      }
+      setRsvpStatus("done");
+    } catch {
+      setRsvpStatus("error");
+    }
+  };
+
   const days = props.days.filter((d) => d.sessions.length > 0 || isEditor);
   const sessionTotal =
     typeof props.sessionCount === "number" && props.sessionCount > 0
@@ -361,6 +473,26 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       : props.days.reduce((n, d) => n + d.sessions.length, 0);
   const showNote = props.showNote !== false && (!!props.personalNote?.trim() || isEditor);
   const showClose = props.showClose !== false;
+
+  /* — add-to-calendar (.ics) — only when machine schedule data exists — */
+  const calendarReady = props.showAddToCalendar !== false && agendaHasCalendarData(props.days);
+  const downloadIcs = () => {
+    if (typeof document === "undefined") return;
+    const ics = buildAgendaIcs(
+      { eventName: props.eventName, eventLocation: props.eventLocation, days: props.days },
+      { uidSeed: [props.accountName, props.eventName].filter(Boolean).join(" ") },
+    );
+    if (!ics) return;
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = agendaIcsFilename(props.eventName);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   const metaChips = [
     sessionTotal > 0 ? `${sessionTotal} session${sessionTotal === 1 ? "" : "s"}` : "",
@@ -475,7 +607,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
               ))}
             </motion.div>
           )}
-          <motion.div {...fadeUp(0.28)} className="mt-10">
+          <motion.div {...fadeUp(0.28)} className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-4">
             <a
               href="#schedule"
               onClick={(e) => handleAnchor(e, "#schedule")}
@@ -485,6 +617,21 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
               See your schedule
               <span aria-hidden>↓</span>
             </a>
+            {calendarReady && (
+              <button
+                type="button"
+                onClick={downloadIcs}
+                className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                style={{
+                  border: `1px solid ${mixHex(heroInk.text, heroBg, 0.35)}`,
+                  color: heroInk.text,
+                  background: mixHex(heroInk.text, heroBg, 0.06),
+                }}
+              >
+                <span aria-hidden>＋</span>
+                Add to calendar
+              </button>
+            )}
           </motion.div>
         </div>
       </header>
@@ -674,7 +821,107 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         </div>
       </div>
 
-      {/* ── 4. close ────────────────────────────────────────────────────── */}
+      {/* ── 4. RSVP ─────────────────────────────────────────────────────── */}
+      {showRsvp && (
+        <div id="rsvp" className="mx-auto w-full max-w-4xl px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10">
+          <motion.div
+            {...fadeUp(0)}
+            className="rounded-2xl px-7 py-8 sm:px-10 sm:py-10"
+            style={{
+              background: cardBg,
+              border: `1px solid ${mixHex(accentChrome, cardBg, 0.35)}`,
+              boxShadow: "0 24px 48px -32px rgba(28, 25, 23, 0.28)",
+            }}
+          >
+            <p className={kickerClass} style={{ color: accentOnCard }}>
+              <InlineText as="span" value={props.rsvpKicker ?? "RSVP"} onUpdate={edit("rsvpKicker")} />
+            </p>
+            <h2
+              className="mt-4 font-bold"
+              style={{
+                fontFamily: DISPLAY,
+                fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
+                color: headlineOnCard,
+              }}
+            >
+              <InlineText as="span" value={props.rsvpHeading ?? "Confirm your spot"} onUpdate={edit("rsvpHeading")} />
+            </h2>
+            {(props.rsvpSubheadline || isEditor) && (
+              <p className="mt-3 max-w-2xl text-base leading-relaxed" style={{ color: cardInk.muted }}>
+                <InlineText as="span" multiline value={props.rsvpSubheadline ?? ""} onUpdate={edit("rsvpSubheadline")} />
+              </p>
+            )}
+            {rsvpStatus === "done" ? (
+              <p
+                className="mt-6 rounded-lg px-4 py-3.5 text-base font-semibold"
+                style={{ background: mixHex(accentChrome, cardBg, 0.1), color: cardInk.text }}
+                role="status"
+              >
+                {props.rsvpConfirmation ?? "You're confirmed — we'll see you there."}
+              </p>
+            ) : (
+              <form onSubmit={submitRsvp} className="mt-6">
+                {/* Honeypot — visually hidden, tab-skipped. */}
+                <input
+                  type="text"
+                  name="website"
+                  value={rsvp.website}
+                  onChange={(e) => setRsvp((r) => ({ ...r, website: e.target.value }))}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  className="absolute h-0 w-0 overflow-hidden opacity-0"
+                />
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr]">
+                  {(
+                    [
+                      { key: "firstName", label: "First name", type: "text", required: true, auto: "given-name" },
+                      { key: "lastName", label: "Last name", type: "text", required: false, auto: "family-name" },
+                      { key: "email", label: "Work email", type: "email", required: true, auto: "email" },
+                    ] as const
+                  ).map((f) => (
+                    <input
+                      key={f.key}
+                      type={f.type}
+                      value={rsvp[f.key]}
+                      onChange={(e) => setRsvp((r) => ({ ...r, [f.key]: e.target.value }))}
+                      placeholder={f.label}
+                      aria-label={f.label}
+                      required={f.required}
+                      autoComplete={f.auto}
+                      className="w-full rounded-lg px-4 py-3 text-[15px] outline-none transition-shadow focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current"
+                      style={{
+                        background: mixHex(cardInk.text, cardBg, 0.04),
+                        border: `1px solid ${mixHex(cardInk.text, cardBg, 0.25)}`,
+                        color: cardInk.text,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                  <button
+                    type="submit"
+                    disabled={rsvpStatus === "sending"}
+                    className="inline-flex items-center justify-center rounded-full px-7 py-3 text-base font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current disabled:opacity-60"
+                    style={{ background: rsvpBtnBg, color: rsvpBtnText }}
+                  >
+                    {rsvpStatus === "sending" ? "Sending…" : props.rsvpButtonText ?? "Confirm my RSVP"}
+                  </button>
+                  {rsvpStatus === "error" && (
+                    <p className="text-sm font-semibold" role="alert" style={{ color: cardInk.text }}>
+                      Something went wrong — please try again.
+                    </p>
+                  )}
+                </div>
+              </form>
+            )}
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── 5. close ────────────────────────────────────────────────────── */}
       {showClose && (
         <div id="contact" className="relative overflow-hidden" style={{ background: heroBg }}>
           <div

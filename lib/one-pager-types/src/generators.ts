@@ -2521,3 +2521,254 @@ export const generateROIOnePager = async (
 
   return doc;
 };
+
+// ── Event Agenda PDF ───────────────────────────────────────────────────
+// The printable twin of the `event-agenda` block: a per-account conference
+// agenda (day-by-day session cards with the personalized "why this matters"
+// lines) exported from the Sales Console agenda editor. Content is entirely
+// caller-supplied — the only generator-owned copy is structural labels, which
+// must stay brand- and industry-neutral (pdf-no-dandy-leak lexicon contract).
+
+export interface AgendaPdfSpeaker {
+  name: string;
+  /** Display title line, e.g. "CEO, Acme". */
+  title?: string;
+}
+
+export interface AgendaPdfSession {
+  /** Editorial time range, e.g. "9:00 AM – 10:30 AM". */
+  time?: string;
+  title: string;
+  room?: string;
+  sessionType?: string;
+  track?: string;
+  description?: string;
+  /** Per-account personalized line. */
+  whyAttend?: string;
+  speakers?: AgendaPdfSpeaker[];
+  isReserved?: boolean;
+}
+
+export interface AgendaPdfDay {
+  /** Day heading, e.g. "Tuesday, Oct 20". */
+  label: string;
+  sessions: AgendaPdfSession[];
+}
+
+export interface AgendaPdfContent {
+  eventName: string;
+  eventLocation?: string;
+  /** Preformatted range, e.g. "Mar 10–12, 2026". */
+  eventDates?: string;
+  accountName: string;
+  personalNote?: string;
+  noteSignature?: string;
+  days: AgendaPdfDay[];
+  /** Label over the personalized callout. Default "Why this matters for you". */
+  whyAttendLabel?: string;
+}
+
+export interface EventAgendaPdfOpts {
+  logoPng?: string | null;
+  brand?: BrandContext;
+}
+
+export const generateEventAgendaPdf = async (
+  rawContent: AgendaPdfContent,
+  opts?: EventAgendaPdfOpts,
+): Promise<jsPDF> => {
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  registerBrandFonts(doc, opts?.brand);
+  const hasBrandHeading = !!(doc.getFontList?.() ?? {})["Bagoss"];
+  const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
+  const headingStyle = (builtin: "normal" | "bold"): string =>
+    hasBrandHeading ? "normal" : builtin;
+  // Main header title only: bundled Bagoss stays Dandy-gated (see ROI/pilot).
+  const headerTitleHasBrand =
+    hasBrandHeading || (opts?.brand?.isDandy === true && ensureBagoss(doc));
+  const headerTitleFont = headerTitleHasBrand ? "Bagoss" : "helvetica";
+  const headerTitleStyle = (builtin: "normal" | "bold"): string =>
+    headerTitleHasBrand ? "normal" : builtin;
+  const w = doc.internal.pageSize.getWidth();
+  const h = doc.internal.pageSize.getHeight();
+  const margin = 48;
+  const contentW = w - margin * 2;
+
+  const logoPng = opts?.logoPng ?? null;
+  const b = resolveBrand(opts?.brand);
+  const pal = resolvePalette(opts?.brand);
+  const content = scrubBrandDeep(rawContent, opts?.brand);
+  const whyLabel = (content.whyAttendLabel?.trim() || "Why this matters for you").toUpperCase();
+
+  const footerBaseline = 36;
+  const footerH = footerBaseline;
+  const bottomLimit = h - footerH - 20;
+
+  // ── page 1 header band ──
+  const headerH = 118;
+  doc.setFillColor(...pal.primary);
+  doc.rect(0, 0, w, headerH, "F");
+  drawBrandLogo(doc, margin, 24, logoPng, 80, 28, b.wordmark);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...pal.accentOnDark);
+  doc.text(`PREPARED FOR ${content.accountName.toUpperCase()}`, w - margin, 38, { align: "right" });
+  const titleSize = content.eventName.length > 34 ? 17 : 22;
+  doc.setFont(headerTitleFont, headerTitleStyle("bold")); doc.setFontSize(titleSize); doc.setTextColor(...white);
+  doc.text(`${content.eventName} — your agenda`, margin, 82);
+  const sessionTotal = content.days.reduce((n, d) => n + d.sessions.length, 0);
+  const lockupParts = [
+    content.eventLocation?.trim(),
+    content.eventDates?.trim(),
+    `${sessionTotal} session${sessionTotal === 1 ? "" : "s"} across ${content.days.length} day${content.days.length === 1 ? "" : "s"}`,
+  ].filter(Boolean) as string[];
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...pal.onPrimaryMuted);
+  doc.text(lockupParts.join("  ·  "), margin, 100);
+
+  let y = headerH + 28;
+
+  // Start a fresh page when `needed` points don't fit above the footer band.
+  const ensureSpace = (needed: number) => {
+    if (y + needed <= bottomLimit) return;
+    doc.addPage();
+    y = margin;
+  };
+
+  // ── personal note ──
+  if (content.personalNote?.trim()) {
+    doc.setFont("helvetica", "italic"); doc.setFontSize(9.5);
+    const noteLines = doc.splitTextToSize(content.personalNote.trim(), contentW - 40);
+    const sigH = content.noteSignature?.trim() ? 16 : 0;
+    const noteH = 34 + noteLines.length * 13 + sigH + 14;
+    ensureSpace(noteH + 8);
+    doc.setFillColor(...offWhite); doc.roundedRect(margin, y, contentW, noteH, 6, 6, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...pal.primaryOnLight);
+    doc.text("A NOTE FROM YOUR ACCOUNT TEAM", margin + 20, y + 20);
+    doc.setFont("helvetica", "italic"); doc.setFontSize(9.5); doc.setTextColor(...textMuted);
+    doc.text(noteLines, margin + 20, y + 38);
+    if (content.noteSignature?.trim()) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...textDark);
+      doc.text(content.noteSignature.trim(), margin + 20, y + 38 + noteLines.length * 13 + 8);
+    }
+    y += noteH + 24;
+  }
+
+  // ── day-by-day schedule ──
+  const timeColW = 92;
+  const bodyX = margin + timeColW + 14;
+  const bodyW = margin + contentW - bodyX - 16;
+
+  content.days.forEach((day, dayIdx) => {
+    ensureSpace(64); // day heading + at least the top of a session card
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...pal.primaryOnLight);
+    doc.text(`DAY ${String(dayIdx + 1).padStart(2, "0")}`, margin, y);
+    doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(14); doc.setTextColor(...textDark);
+    doc.text(day.label, margin + 44, y + 1);
+    y += 10;
+    drawSep(doc, margin, y, contentW, lineColor);
+    y += 14;
+
+    day.sessions.forEach((session) => {
+      // Measure the card before drawing so a session never splits pages.
+      const metaParts = [
+        session.isReserved ? "RESERVED FOR YOU" : session.sessionType?.trim()?.toUpperCase(),
+        session.track?.trim()?.toUpperCase(),
+        session.room?.trim()?.toUpperCase(),
+      ].filter(Boolean) as string[];
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10.5);
+      const titleLines = doc.splitTextToSize(session.title, bodyW);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+      const descLines = session.description?.trim()
+        ? doc.splitTextToSize(session.description.trim(), bodyW)
+        : [];
+      const whyLines = session.whyAttend?.trim()
+        ? doc.splitTextToSize(session.whyAttend.trim(), bodyW - 24)
+        : [];
+      const speakerText = (session.speakers ?? [])
+        .map((sp) => (sp.title ? `${sp.name} · ${sp.title}` : sp.name))
+        .join("   ");
+      doc.setFontSize(8);
+      const speakerLines = speakerText ? doc.splitTextToSize(speakerText, bodyW) : [];
+
+      let cardH = 16; // top padding
+      if (metaParts.length) cardH += 12;
+      cardH += titleLines.length * 13 + 2;
+      if (descLines.length) cardH += 4 + descLines.length * 11;
+      if (whyLines.length) cardH += 12 + 12 + whyLines.length * 11 + 8;
+      if (speakerLines.length) cardH += 8 + speakerLines.length * 10;
+      cardH += 12; // bottom padding
+
+      ensureSpace(cardH + 10);
+
+      doc.setFillColor(...offWhite);
+      doc.roundedRect(margin, y, contentW, cardH, 6, 6, "F");
+      if (session.isReserved) {
+        doc.setFillColor(...pal.accent);
+        doc.roundedRect(margin, y, 3, cardH, 1.5, 1.5, "F");
+      }
+
+      // time rail
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...pal.primaryOnLight);
+      const timeLines = doc.splitTextToSize(session.time?.trim() || "—", timeColW - 6);
+      doc.text(timeLines, margin + 16, y + 24);
+
+      // body
+      let by = y + 16;
+      if (metaParts.length) {
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7);
+        if (session.isReserved) doc.setTextColor(...pal.primaryOnLight); else doc.setTextColor(...subtleText);
+        doc.text(metaParts.join("  ·  "), bodyX, by + 4);
+        by += 12;
+      }
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(...textDark);
+      doc.text(titleLines, bodyX, by + 8);
+      by += titleLines.length * 13 + 2;
+      if (descLines.length) {
+        by += 4;
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textMuted);
+        doc.text(descLines, bodyX, by + 6);
+        by += descLines.length * 11;
+      }
+      if (whyLines.length) {
+        by += 12;
+        doc.setFillColor(...pal.accent);
+        doc.roundedRect(bodyX, by - 4, 2.5, 12 + whyLines.length * 11, 1.25, 1.25, "F");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...pal.primaryOnLight);
+        doc.text(whyLabel, bodyX + 12, by + 2);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textDark);
+        doc.text(whyLines, bodyX + 12, by + 13);
+        by += 12 + whyLines.length * 11 + 8;
+      }
+      if (speakerLines.length) {
+        by += 8;
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...subtleText);
+        doc.text(speakerLines, bodyX, by + 4);
+        by += speakerLines.length * 10;
+      }
+
+      y += cardH + 10;
+    });
+
+    y += 14;
+  });
+
+  // ── footer band on every page ──
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    const footerY = h - footerH;
+    doc.setFillColor(...pal.primary); doc.rect(0, footerY, w, footerH, "F");
+    if (logoPng) {
+      try { doc.addImage(logoPng, "PNG", margin, footerY + 10, 48, 17); } catch {
+        doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, footerY + 24);
+      }
+    } else {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, footerY + 24);
+    }
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...pal.onPrimaryMuted);
+    if (b.footerUrl) doc.text(b.footerUrl, w / 2, footerY + 22, { align: "center" });
+    doc.setTextColor(...pal.accentOnDark);
+    doc.text(`Prepared for ${content.accountName}  •  Page ${p} of ${pageCount}`, w - margin, footerY + 22, { align: "right" });
+  }
+  doc.setPage(pageCount);
+
+  return doc;
+};

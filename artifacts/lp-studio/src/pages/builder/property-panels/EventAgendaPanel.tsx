@@ -151,6 +151,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
     palette: false,
     note: false,
     schedule: true,
+    rsvp: false,
     close: false,
   });
   const toggle = (k: keyof typeof open) => setOpen((o) => ({ ...o, [k]: !o[k] }));
@@ -184,8 +185,16 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               <Switch checked={props.showNote !== false} onCheckedChange={(v) => set("showNote", v)} />
             </div>
             <div className="flex items-center justify-between">
+              <Label className="text-xs">RSVP form</Label>
+              <Switch checked={props.showRsvp === true} onCheckedChange={(v) => set("showRsvp", v)} />
+            </div>
+            <div className="flex items-center justify-between">
               <Label className="text-xs">Contact close</Label>
               <Switch checked={props.showClose !== false} onCheckedChange={(v) => set("showClose", v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Add-to-calendar button</Label>
+              <Switch checked={props.showAddToCalendar !== false} onCheckedChange={(v) => set("showAddToCalendar", v)} />
             </div>
           </div>
         )}
@@ -288,9 +297,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 <Field label="Day label">
                   <Input value={day.label} onChange={(e) => setDay(dayIdx, { label: e.target.value })} placeholder="Tuesday, Mar 10" className="text-xs h-8" />
                 </Field>
-                <Field label="Summary">
-                  <Input value={day.summary ?? ""} onChange={(e) => setDay(dayIdx, { summary: e.target.value })} className="text-xs h-8" />
-                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Calendar date (.ics)">
+                    <Input type="date" value={day.date ?? ""} onChange={(e) => setDay(dayIdx, { date: e.target.value })} className="text-xs h-8" />
+                  </Field>
+                  <Field label="Summary">
+                    <Input value={day.summary ?? ""} onChange={(e) => setDay(dayIdx, { summary: e.target.value })} className="text-xs h-8" />
+                  </Field>
+                </div>
 
                 {day.sessions.map((session, i) => (
                   <div key={i} className="space-y-2 border rounded-md p-2 bg-muted/30">
@@ -308,6 +322,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                       </Field>
                       <Field label="Room">
                         <Input value={session.room ?? ""} onChange={(e) => setSession(dayIdx, i, { room: e.target.value })} className="text-xs h-8" />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Start (.ics)">
+                        <Input type="time" value={session.startTime ?? ""} onChange={(e) => setSession(dayIdx, i, { startTime: e.target.value })} className="text-xs h-8" />
+                      </Field>
+                      <Field label="End (.ics)">
+                        <Input type="time" value={session.endTime ?? ""} onChange={(e) => setSession(dayIdx, i, { endTime: e.target.value })} className="text-xs h-8" />
                       </Field>
                     </div>
                     <Field label="Title">
@@ -370,6 +392,35 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add day
             </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── RSVP ── */}
+      <div>
+        <SectionHeader label="RSVP" open={open.rsvp} onToggle={() => toggle("rsvp")} />
+        {open.rsvp && (
+          <div className="pt-2.5 space-y-2.5">
+            <div className="text-[11px] text-muted-foreground">
+              Submissions land in Leads with Source "Agenda RSVP". Enable the form under Sections.
+            </div>
+            <Field label="Kicker">
+              <Input value={props.rsvpKicker ?? ""} onChange={(e) => set("rsvpKicker", e.target.value)} placeholder="RSVP" className="text-xs h-8" />
+            </Field>
+            <Field label="Heading">
+              <Input value={props.rsvpHeading ?? ""} onChange={(e) => set("rsvpHeading", e.target.value)} placeholder="Confirm your spot" className="text-xs h-8" />
+            </Field>
+            <Field label="Subheadline">
+              <Textarea value={props.rsvpSubheadline ?? ""} onChange={(e) => set("rsvpSubheadline", e.target.value)} rows={2} className="text-xs" />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Button text">
+                <Input value={props.rsvpButtonText ?? ""} onChange={(e) => set("rsvpButtonText", e.target.value)} placeholder="Confirm my RSVP" className="text-xs h-8" />
+              </Field>
+              <Field label="Confirmation">
+                <Input value={props.rsvpConfirmation ?? ""} onChange={(e) => set("rsvpConfirmation", e.target.value)} className="text-xs h-8" />
+              </Field>
+            </div>
           </div>
         )}
       </div>

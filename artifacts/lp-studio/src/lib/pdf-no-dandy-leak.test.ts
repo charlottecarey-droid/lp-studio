@@ -15,10 +15,12 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   generateAgreementSummaryOnePager,
+  generateEventAgendaPdf,
   generatePilotOnePager,
   generateComparisonOnePager,
   generateNewPartnerOnePager,
   generateROIOnePager,
+  type AgendaPdfContent,
   defaultAudienceContent,
   defaultAgreementSummaryContent,
   neutralAudienceContent,
@@ -140,6 +142,49 @@ describe("Shared one-pager generators — no Dandy/DSO/dental-lab leaks for non-
     });
     const text = await extractPdfText(await pdfBytes(doc));
     assertNoLeaks("Agreement Summary", text);
+  }, 30_000);
+
+  it("Event Agenda PDF label copy is brand-neutral AND industry-neutral", async () => {
+    // All agenda content is caller-supplied (event catalog + rep edits), so
+    // the generator-owned surface is just its structural labels ("Prepared
+    // for", "A note from your account team", day/why-attend/footer chrome).
+    // Render with a neutral fixture: every hit is generator copy by
+    // construction and must pass BOTH lexicons.
+    const content: AgendaPdfContent = {
+      eventName: "Summit 2026",
+      eventLocation: "Austin, TX",
+      eventDates: "Mar 10–12, 2026",
+      accountName: "Royal Group",
+      personalNote: "We built this agenda around your goals for the year.",
+      noteSignature: "— Your account team",
+      days: [
+        {
+          label: "Tuesday, Mar 10",
+          sessions: [
+            {
+              time: "9:00 AM – 10:00 AM",
+              title: "Opening keynote",
+              room: "Main stage",
+              sessionType: "Keynote",
+              description: "Where the platform is going this year.",
+              whyAttend: "The roadmap covers what your team asked about.",
+              speakers: [{ name: "Alex Rivera", title: "CEO" }],
+            },
+            { time: "6:30 PM", title: "Welcome dinner", room: "The Terrace", isReserved: true },
+          ],
+        },
+        {
+          label: "Wednesday, Mar 11",
+          sessions: [
+            { time: "2:00 PM – 3:00 PM", title: "Executive roundtable", track: "Leadership" },
+          ],
+        },
+      ],
+    };
+    const doc = await generateEventAgendaPdf(content, { brand: ROYAL_BRAND });
+    const text = await extractPdfText(await pdfBytes(doc));
+    assertNoLeaks("Event Agenda", text);
+    assertNoDentalConcepts("Event Agenda", text);
   }, 30_000);
 
   it("Pilot one-pager PDF (executive, defaults) contains no leaks", async () => {

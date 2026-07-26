@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import {
-  CalendarDays, Check, Copy, ExternalLink, FileUp, Globe, MapPin, Pencil, Pin,
+  BarChart3, CalendarDays, Check, Copy, ExternalLink, FileDown, FileUp, Globe, MapPin, Pencil, Pin,
   Plus, RefreshCw, Sparkles, Trash2, Users,
 } from "lucide-react";
 
@@ -78,6 +78,21 @@ interface SessionScore {
   pinned: boolean;
 }
 
+interface EventAnalytics {
+  summary: { agendas: number; published: number; visits: number; uniqueVisitors: number; leads: number; rsvps: number };
+  agendas: {
+    id: number;
+    accountName: string;
+    status: string;
+    url: string | null;
+    visits: number;
+    uniqueVisitors: number;
+    leads: number;
+    rsvps: number;
+  }[];
+  topSessions: { sessionId: number; title: string; day: string | null; isReservedSlot: boolean; pickCount: number }[];
+}
+
 function formatDay(day: string | null): string {
   if (!day) return "No date";
   const d = new Date(`${day}T12:00:00Z`);
@@ -100,6 +115,21 @@ function timeLabel(s: EventSession): string {
 
 function splitList(v: string): string[] {
   return v.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+}
+
+/** Client twin of the publish route's formatDateRange: "Mar 10–12, 2026". */
+function formatDateRangeLabel(start: string | null, end: string | null): string {
+  if (!start) return "";
+  const s = new Date(`${start}T12:00:00Z`);
+  if (isNaN(s.getTime())) return start;
+  const opts = { month: "short", day: "numeric", timeZone: "UTC" } as const;
+  const sLabel = s.toLocaleDateString("en-US", opts);
+  if (!end || end === start) return `${sLabel}, ${s.getUTCFullYear()}`;
+  const e = new Date(`${end}T12:00:00Z`);
+  if (isNaN(e.getTime())) return `${sLabel}, ${s.getUTCFullYear()}`;
+  const sameMonth = s.getUTCMonth() === e.getUTCMonth() && s.getUTCFullYear() === e.getUTCFullYear();
+  const eLabel = sameMonth ? String(e.getUTCDate()) : e.toLocaleDateString("en-US", opts);
+  return `${sLabel}–${eLabel}, ${e.getUTCFullYear()}`;
 }
 
 /* ── session add/edit dialog ─────────────────────────────────────────────── */
@@ -723,12 +753,13 @@ function NewAgendaDialog({
 /* ── agenda editor dialog ────────────────────────────────────────────────── */
 
 function AgendaEditorDialog({
-  agendaId, onClose, onChanged, sessions,
+  agendaId, onClose, onChanged, sessions, event,
 }: {
   agendaId: number | null;
   onClose: () => void;
   onChanged: () => void;
   sessions: EventSession[];
+  event: EventDetail | null;
 }) {
   const [loading, setLoading] = useState(true);
   const [accountName, setAccountName] = useState("");
@@ -736,7 +767,7 @@ function AgendaEditorDialog({
   const [scores, setScores] = useState<Map<number, SessionScore>>(new Map());
   const [personalNote, setPersonalNote] = useState("");
   const [pageUrl, setPageUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"save" | "publish" | "rematch" | "blurbs" | null>(null);
+  const [busy, setBusy] = useState<"save" | "publish" | "rematch" | "blurbs" | "pdf" | null>(null);
   const [copied, setCopied] = useState(false);
 
   const load = async () => {
@@ -868,6 +899,50 @@ function AgendaEditorDialog({
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const exportPdf = async () => {
+    setBusy("pdf");
+    try {
+      // Same grouping as the publish route: picked sessions by day,
+      // chronologically (the catalog list is already day/start-time ordered).
+      const picked = sessions.filter((s) => selected.has(s.id));
+      if (picked.length === 0) return;
+      const dayKeys = [...new Set(picked.map((s) => s.day ?? ""))].sort();
+      const days = dayKeys.map((dayKey) => ({
+        label: formatDay(dayKey || null),
+        sessions: picked
+          .filter((s) => (s.day ?? "") === dayKey)
+          .map((s) => ({
+            time: timeLabel(s),
+            title: s.title,
+            room: s.room ?? "",
+            sessionType: s.sessionType ?? "",
+            track: s.track ?? "",
+            description: s.description ?? "",
+            whyAttend: selected.get(s.id) || "",
+            speakers: (s.speakers ?? []).map((sp) => ({
+              name: sp.name,
+              title: [sp.title, sp.org].filter(Boolean).join(", "),
+            })),
+            isReserved: s.isReservedSlot,
+          })),
+      }));
+      // Lazy import — the PDF module pulls in jsPDF.
+      const { exportAgendaPdf } = await import("@/lib/agenda-pdf");
+      await exportAgendaPdf({
+        eventName: event?.name || "Event",
+        eventLocation: event?.location,
+        eventDates: formatDateRangeLabel(event?.startDate ?? null, event?.endDate ?? null),
+        accountName: accountName || "Your team",
+        personalNote,
+        days,
+      });
+    } catch {
+      toast({ title: "Couldn't export the PDF", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <Dialog open={agendaId !== null} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
@@ -964,6 +1039,9 @@ function AgendaEditorDialog({
             <Button variant="outline" size="sm" disabled={busy !== null || selected.size === 0} onClick={() => void draftBlurbs()}>
               <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {busy === "blurbs" ? "Drafting…" : "Draft blurbs with AI"}
             </Button>
+            <Button variant="outline" size="sm" disabled={busy !== null || selected.size === 0} onClick={() => void exportPdf()}>
+              <FileDown className="w-3.5 h-3.5 mr-1.5" /> {busy === "pdf" ? "Exporting…" : "Export PDF"}
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" disabled={busy !== null} onClick={() => void save()}>
@@ -989,6 +1067,7 @@ export default function SalesEventDetail() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [agendas, setAgendas] = useState<AgendaRow[]>([]);
+  const [analytics, setAnalytics] = useState<EventAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
@@ -1002,9 +1081,10 @@ export default function SalesEventDetail() {
 
   const load = async () => {
     try {
-      const [eventRes, agendasRes] = await Promise.all([
+      const [eventRes, agendasRes, analyticsRes] = await Promise.all([
         fetch(`${API_BASE}/sales/events/${eventId}`),
         fetch(`${API_BASE}/sales/events/${eventId}/agendas`),
+        fetch(`${API_BASE}/sales/events/${eventId}/analytics`),
       ]);
       if (!eventRes.ok) throw new Error(`HTTP ${eventRes.status}`);
       const eventData = await eventRes.json();
@@ -1014,6 +1094,8 @@ export default function SalesEventDetail() {
         const agendaData = await agendasRes.json();
         setAgendas(agendaData.agendas ?? []);
       }
+      // Analytics are additive — the page works without them.
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
     } catch {
       toast({ title: "Couldn't load the event", variant: "destructive" });
     } finally {
@@ -1051,6 +1133,16 @@ export default function SalesEventDetail() {
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [sessions]);
 
+  const agendaStats = useMemo(
+    () => new Map((analytics?.agendas ?? []).map((a) => [a.id, a])),
+    [analytics],
+  );
+  const statLine = (agendaId: number): string => {
+    const st = agendaStats.get(agendaId);
+    if (!st || (st.visits === 0 && st.leads === 0)) return "";
+    return ` · ${st.visits} view${st.visits === 1 ? "" : "s"} · ${st.rsvps} RSVP${st.rsvps === 1 ? "" : "s"}`;
+  };
+
   return (
     <SalesLayout>
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
@@ -1083,6 +1175,52 @@ export default function SalesEventDetail() {
           }
         />
 
+        {/* ── Engagement (only once something is published) ── */}
+        {analytics && analytics.summary.published > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <BarChart3 className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+              Engagement
+            </h2>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {[
+                { label: "Published pages", value: analytics.summary.published },
+                { label: "Page views", value: analytics.summary.visits },
+                { label: "Unique visitors", value: analytics.summary.uniqueVisitors },
+                { label: "RSVPs", value: analytics.summary.rsvps },
+                { label: "Leads", value: analytics.summary.leads },
+              ].map((t) => (
+                <Card key={t.label} className="px-4 py-3">
+                  <p className="text-2xl font-semibold tabular-nums">{t.value.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t.label}</p>
+                </Card>
+              ))}
+            </div>
+            {analytics.topSessions.length > 0 && (
+              <Card className="px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Most-picked sessions
+                </p>
+                <ul className="space-y-1.5">
+                  {analytics.topSessions.slice(0, 5).map((s) => (
+                    <li key={s.sessionId} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate">
+                        {s.title}
+                        {s.isReservedSlot && (
+                          <Badge variant="secondary" className="ml-2 text-[10px] align-middle">Reserved</Badge>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        on {s.pickCount} agenda{s.pickCount === 1 ? "" : "s"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </section>
+        )}
+
         {/* ── Agendas ── */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1108,6 +1246,7 @@ export default function SalesEventDetail() {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {a.selections.length} session{a.selections.length === 1 ? "" : "s"}
                         {a.attendeeRoles.length > 0 ? ` · ${a.attendeeRoles.join(", ")}` : ""}
+                        {statLine(a.id)}
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -1210,6 +1349,7 @@ export default function SalesEventDetail() {
         onClose={() => setEditorAgendaId(null)}
         onChanged={() => void load()}
         sessions={sessions}
+        event={event}
       />
       <ConfirmDialog
         open={sessionToDelete !== null}
