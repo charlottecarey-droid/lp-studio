@@ -31,6 +31,7 @@ let app: Express;
 
 async function cleanup(): Promise<void> {
   if (tenantId) {
+    await pool.query(`DELETE FROM lp_block_defaults WHERE tenant_id = $1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM sales_event_agendas WHERE tenant_id = $1`, [tenantId]).catch(() => {});
     await pool.query(`DELETE FROM sales_event_sessions WHERE tenant_id = $1`, [tenantId]).catch(() => {});
@@ -212,6 +213,56 @@ describe.skipIf(!dbAvailable)("agenda builder flow", () => {
       ["Day two roundtable", "Role and industry", "Welcome dinner"].sort(),
     );
     expect(data.topSessions.every((s) => s.pickCount === 1)).toBe(true);
+  });
+
+  it("applies the tenant's saved block default on publish — style flows, per-account data wins", async () => {
+    // Governance/Block Defaults saves the WHOLE prop object, sample schedule
+    // included. Publish must layer canned → saved default → per-account: the
+    // palette + toggle survive, the stale sample days/headline never do.
+    await pool.query(
+      `INSERT INTO lp_block_defaults (tenant_id, block_type, props, block_settings, updated_at)
+       VALUES ($1, 'event-agenda', $2::jsonb, $3::jsonb, now())`,
+      [
+        tenantId,
+        JSON.stringify({
+          accentColor: "#0F6E56",
+          heroBgColor: "#04342C",
+          showRsvp: false,
+          showHero: false,
+          rsvpFormId: 4242,
+          headline: "STALE SAMPLE HEADLINE",
+          accountName: "Sample Co",
+          days: [{ label: "Stale day", sessions: [{ title: "Stale session" }] }],
+        }),
+        JSON.stringify({ paddingX: "md" }),
+      ],
+    );
+
+    const res = await inject(app, { method: "POST", url: `/agendas/${agendaId}/publish` });
+    expect(res.status).toBe(200);
+
+    const { rows } = await pool.query<{ blocks: { type: string; props: Record<string, unknown>; blockSettings?: Record<string, unknown> }[] }>(
+      `SELECT blocks FROM lp_pages WHERE id = $1`,
+      [publishedPageId],
+    );
+    const block = rows[0].blocks[0];
+    const props = block.props as {
+      accentColor?: string; heroBgColor?: string; showRsvp?: boolean; showHero?: boolean;
+      rsvpFormId?: number; headline: string; accountName: string;
+      days: { label: string }[];
+    };
+    // Saved style + toggles flow onto the published page…
+    expect(props.accentColor).toBe("#0F6E56");
+    expect(props.heroBgColor).toBe("#04342C");
+    expect(props.showRsvp).toBe(false);   // saved default beats the canned opt-in
+    expect(props.showHero).toBe(false);
+    expect(props.rsvpFormId).toBe(4242);
+    expect(block.blockSettings).toMatchObject({ paddingX: "md" });
+    // …but the per-account data always wins over the stale editor sample.
+    expect(props.headline).toContain("Evergreen Dental Group");
+    expect(props.accountName).toBe("Evergreen Dental Group");
+    expect(props.days.map((d) => d.label)).not.toContain("Stale day");
+    expect(props.days).toHaveLength(2);
   });
 
   it("re-import upserts by source key and preserves in-app tag edits", async () => {

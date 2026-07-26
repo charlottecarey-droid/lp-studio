@@ -908,10 +908,56 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
     const brandCtx = await getSalesBrandContext(tenantId);
     const eyebrowParts = [event.name, event.location, formatDateRange(event.startDate, event.endDate)].filter(Boolean);
 
+    // Tenant's saved block default for event-agenda (Block Defaults /
+    // governance editor writes lp_block_defaults). Publish layers props as
+    // canned fallbacks → SAVED DEFAULT → per-account fields, so a tenant's
+    // saved palette, section toggles, linked RSVP form, and house copy apply
+    // to every published agenda, while the per-account data (headline, days,
+    // note, counts) always wins. Best-effort: a missing row changes nothing.
+    let savedDefaultProps: Record<string, unknown> = {};
+    let savedDefaultSettings: Record<string, unknown> = {};
+    try {
+      const defaults = await db.execute(
+        sql`SELECT props, block_settings FROM lp_block_defaults
+            WHERE tenant_id = ${tenantId} AND block_type = 'event-agenda'`,
+      );
+      const row = defaults.rows[0] as { props?: unknown; block_settings?: unknown } | undefined;
+      if (row?.props && typeof row.props === "object") {
+        // The Block Defaults editor snapshots the WHOLE prop object, sample
+        // schedule included — strip the per-account/per-event fields so stale
+        // sample content can never shadow the published agenda's own data.
+        const {
+          days: _days, eyebrow: _eyebrow, headline: _headline, accountName: _accountName,
+          eventName: _eventName, eventLocation: _eventLocation, eventDates: _eventDates,
+          personalNote: _personalNote, sessionCount: _sessionCount,
+          accountLogoUrl: _accountLogoUrl, accountLogoAlt: _accountLogoAlt,
+          ...styleAndSettings
+        } = row.props as Record<string, unknown>;
+        savedDefaultProps = styleAndSettings;
+      }
+      if (row?.block_settings && typeof row.block_settings === "object") {
+        savedDefaultSettings = row.block_settings as Record<string, unknown>;
+      }
+    } catch (defaultsErr) {
+      console.warn("[sales/events] block-defaults lookup failed (publishing without)", String(defaultsErr));
+    }
+
     const blockProps = {
+      // Canned fallbacks — a saved default overrides any of these.
+      subheadline: `A schedule curated for your team — every session picked for ${accountName}.`,
+      showRsvp: true,
+      rsvpHeading: `Confirm your spot at ${event.name}`,
+      ctaHeadline: "Questions before the event?",
+      ctaSubheadline: "Your account team is one message away.",
+      ctaText: "Get in touch",
+      ctaUrl: brandCtx.chilipiperUrl || brandCtx.defaultCtaUrl || "#",
+
+      // Tenant governance default (colors, toggles, rsvpFormId, house copy).
+      ...savedDefaultProps,
+
+      // Per-account data — always wins.
       eyebrow: eyebrowParts.join(" · "),
       headline: `${accountName}, your agenda is ready`,
-      subheadline: `A schedule curated for your team — every session picked for ${accountName}.`,
       accountName,
       eventName: event.name,
       eventLocation: event.location ?? "",
@@ -919,20 +965,12 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
       personalNote: agenda.personalNote ?? "",
       days,
       sessionCount: selections.length,
-      // RSVP is on for published agendas (block default is off for
-      // hand-authored pages); copy comes from the block defaults.
-      showRsvp: true,
-      rsvpHeading: `Confirm your spot at ${event.name}`,
-      ctaHeadline: "Questions before the event?",
-      ctaSubheadline: "Your account team is one message away.",
-      ctaText: "Get in touch",
-      ctaUrl: brandCtx.chilipiperUrl || brandCtx.defaultCtaUrl || "#",
     };
 
     const block = {
       id: `event-agenda-${makeId()}`,
       type: "event-agenda",
-      blockSettings: {},
+      blockSettings: savedDefaultSettings,
       props: blockProps,
     };
 

@@ -767,6 +767,7 @@ function AgendaEditorDialog({
   const [scores, setScores] = useState<Map<number, SessionScore>>(new Map());
   const [personalNote, setPersonalNote] = useState("");
   const [pageUrl, setPageUrl] = useState<string | null>(null);
+  const [lpPageId, setLpPageId] = useState<number | null>(null);
   const [busy, setBusy] = useState<"save" | "publish" | "rematch" | "blurbs" | "pdf" | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -784,6 +785,7 @@ function AgendaEditorDialog({
       setScores(new Map((data.scores ?? []).map((s: SessionScore) => [s.sessionId, s])));
       setPersonalNote(data.agenda.personalNote ?? "");
       setPageUrl(data.pageUrl ?? null);
+      setLpPageId(data.agenda.lpPageId ?? null);
     } catch {
       toast({ title: "Couldn't load the agenda", variant: "destructive" });
       onClose();
@@ -841,6 +843,7 @@ function AgendaEditorDialog({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setPageUrl(data.url);
+      setLpPageId(data.pageId ?? null);
       toast({ title: "Agenda page published" });
       onChanged();
     } catch {
@@ -966,6 +969,16 @@ function AgendaEditorDialog({
                 <a href={pageUrl} target="_blank" rel="noreferrer">
                   <Button variant="ghost" size="sm"><ExternalLink className="w-3.5 h-3.5" /></Button>
                 </a>
+                {lpPageId != null && (
+                  /* Full page editor — hand-tune the published page (palette,
+                     sections, extra blocks). Republish here overwrites blocks,
+                     so deep design edits are best made after content is final. */
+                  <a href={`/builder/${lpPageId}`} target="_blank" rel="noreferrer">
+                    <Button variant="outline" size="sm">
+                      <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit in builder
+                    </Button>
+                  </a>
+                )}
               </div>
             )}
 
