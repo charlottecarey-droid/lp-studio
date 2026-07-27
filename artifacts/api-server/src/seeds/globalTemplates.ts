@@ -4059,6 +4059,10 @@ const EVENT_AGENDA_GENERIC_PROPS = {
   scheduleIntro:
     "Reserved sessions are held for your team — everything else is our best recommendation, and you're free to trade.",
   whyAttendLabel: "Why this matters for you",
+  descriptionLines: "3",
+  bioLines: "3",
+  showWhyAttend: true,
+  showSessionMeta: true,
   days: [
     {
       label: "Tuesday, Mar 10",

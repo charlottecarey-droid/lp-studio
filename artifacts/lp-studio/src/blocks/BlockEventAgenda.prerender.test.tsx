@@ -263,7 +263,7 @@ describe("BlockEventAgenda — per-section backgrounds and spacing", () => {
     expect(renderProps({ teamPortraitShape: "circle" })).toContain("border-radius:9999px");
   });
 
-  it("rounded portraits follow the PAGE corner radius", () => {
+  it("rounded portraits follow the PAGE corner radius (regression)", () => {
     const squarePage = renderToStaticMarkup(
       createElement(
         StaticRenderContext.Provider,
@@ -275,5 +275,68 @@ describe("BlockEventAgenda — per-section backgrounds and spacing", () => {
       ),
     );
     expect(squarePage).toContain("border-radius:0px");
+  });
+});
+
+/* ── readability: clamping + optional per-session chrome ───────────────── */
+
+describe("BlockEventAgenda — readability", () => {
+  it("clamps session descriptions and bios by default", () => {
+    const html = renderProps({});
+    expect(html).toMatch(/-webkit-line-clamp:3/);
+  });
+
+  it("clamping HIDES text without REMOVING it — export and search keep the copy", () => {
+    const full = renderProps({ descriptionLines: "full" });
+    const clamped = renderProps({ descriptionLines: "2" });
+    const sentence = "Where the platform is going and what&#x27;s shipping this year.";
+    // Present either way; only the CSS differs.
+    expect(full).toContain(sentence);
+    expect(clamped).toContain(sentence);
+    expect(full).not.toMatch(/-webkit-line-clamp:2/);
+    expect(clamped).toMatch(/-webkit-line-clamp:2/);
+  });
+
+  it('"Show in full" turns the clamp off entirely', () => {
+    const html = renderProps({ descriptionLines: "full", bioLines: "full" });
+    expect(html).not.toMatch(/-webkit-line-clamp/);
+  });
+
+  it("the why-this-matters callout can be switched off", () => {
+    const on = renderProps({});
+    const off = renderProps({ showWhyAttend: false });
+    expect(on).toContain("Why this matters for you");
+    expect(off).not.toContain("Why this matters for you");
+  });
+
+  it("session type and track labels can be switched off — but never the reserved flag", () => {
+    const on = renderProps({});
+    const off = renderProps({ showSessionMeta: false });
+    // "Breakout"/"Roundtable" are session types only — unlike "Keynote", which
+    // also appears in the speakers section's kicker.
+    expect(on).toContain("Breakout");
+    expect(on).toContain("Roundtable");
+    expect(off).not.toContain("Breakout");
+    expect(off).not.toContain("Roundtable");
+    // The personalization the page exists for always survives.
+    expect(off).toContain("Reserved for you");
+  });
+});
+
+describe("BlockEventAgenda — meta row does not leave a gap when emptied", () => {
+  it("omits the meta row entirely for a session with no reserved flag", () => {
+    const html = renderProps({
+      showSessionMeta: false,
+      days: [{ label: "Day one", sessions: [{ time: "9:00 AM", title: "A session", sessionType: "Breakout" }] }],
+    });
+    expect(html).not.toContain("gap-x-3 gap-y-1 text-[11px]");
+  });
+
+  it("keeps the row when the session IS reserved", () => {
+    const html = renderProps({
+      showSessionMeta: false,
+      days: [{ label: "Day one", sessions: [{ time: "9:00 AM", title: "A session", isReserved: true }] }],
+    });
+    expect(html).toContain("Reserved for you");
   });
 });

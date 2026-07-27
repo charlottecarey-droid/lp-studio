@@ -19,6 +19,7 @@ import type {
   EvaDay,
   EvaSession,
   EvaSectionId,
+  EvaClamp,
   EvaPerson,
   EvaSponsor,
   EvaResource,
@@ -216,6 +217,7 @@ interface GlobalFormSummary {
 export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
   const [open, setOpen] = useState({
     sections: true,
+    readability: false,
     hero: true,
     palette: false,
     note: false,
@@ -343,6 +345,64 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               <Label className="text-xs">Add-to-calendar button</Label>
               <Switch checked={props.showAddToCalendar !== false} onCheckedChange={(v) => set("showAddToCalendar", v)} />
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Readability ──
+          A 30-session agenda with full abstracts is a wall of text. These trim
+          what a reader wades through without deleting anything: the clamps are
+          CSS-only, so export, print and search engines still get the full copy,
+          and the toggles are reversible. Clamping is suspended while you're in
+          the builder so you can always see what you're editing. */}
+      <div>
+        <SectionHeader label="Readability" open={open.readability} onToggle={() => toggle("readability")} />
+        {open.readability && (
+          <div className="pt-2.5 space-y-2.5">
+            <Field label="Session descriptions">
+              <Select
+                value={props.descriptionLines ?? "3"}
+                onValueChange={(v) => set("descriptionLines", v as EvaClamp)}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">Trim to 2 lines</SelectItem>
+                  <SelectItem value="3">Trim to 3 lines</SelectItem>
+                  <SelectItem value="4">Trim to 4 lines</SelectItem>
+                  <SelectItem value="full">Show in full</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Bios (team &amp; speakers)">
+              <Select
+                value={props.bioLines ?? "3"}
+                onValueChange={(v) => set("bioLines", v as EvaClamp)}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">Trim to 2 lines</SelectItem>
+                  <SelectItem value="3">Trim to 3 lines</SelectItem>
+                  <SelectItem value="4">Trim to 4 lines</SelectItem>
+                  <SelectItem value="full">Show in full</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Trimming only affects what's shown — the full text still ships in the
+              page for export, print and search. You'll see it in full while editing.
+            </p>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">&ldquo;Why this matters&rdquo; callout</Label>
+              <Switch checked={props.showWhyAttend !== false} onCheckedChange={(v) => set("showWhyAttend", v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Session type &amp; track labels</Label>
+              <Switch checked={props.showSessionMeta !== false} onCheckedChange={(v) => set("showSessionMeta", v)} />
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              &ldquo;Reserved for you&rdquo; always stays — it's the personalization the
+              page exists for.
+            </p>
           </div>
         )}
       </div>

@@ -160,7 +160,21 @@ export function InlineText({
     }
   }, [value, isEditing]);
 
+  // Latest value, readable from the seeding effect without making it a
+  // dependency (see below).
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
   // Place the cursor at the end on entering edit mode, and seed the editor.
+  //
+  // Deps are [isEditing] ONLY, deliberately. While editing, the DOM — not
+  // React — owns the text, so re-running this on a `value` change would
+  // overwrite whatever the user has typed since and collapse the caret to the
+  // end. The prop legitimately changes mid-edit (an autosave round-trip, a
+  // sibling field committing, a canvas refresh), and each one used to eat
+  // in-flight keystrokes. Seed on the transition into edit mode and then keep
+  // hands off until the user commits.
+  //
   // SECURITY: never assign raw value to innerHTML. If the value is HTML, run
   // it through the allowlist sanitizer first; otherwise seed via textContent
   // so that stored payloads like `<img onerror=...>` cannot be instantiated.
@@ -168,10 +182,11 @@ export function InlineText({
     if (!isEditing) return;
     const el = editableRef.current;
     if (!el) return;
-    if (isLikelyHtml(value)) {
-      el.innerHTML = sanitizeInlineHtml(value);
+    const seed = valueRef.current;
+    if (isLikelyHtml(seed)) {
+      el.innerHTML = sanitizeInlineHtml(seed);
     } else {
-      el.textContent = value;
+      el.textContent = seed;
     }
     el.focus();
     const range = document.createRange();
@@ -180,7 +195,7 @@ export function InlineText({
     const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
-  }, [isEditing, value]);
+  }, [isEditing]);
 
   const updateToolbarFromSelection = useCallback(() => {
     const el = editableRef.current;

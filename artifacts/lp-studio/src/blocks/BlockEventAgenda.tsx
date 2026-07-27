@@ -117,6 +117,9 @@ export type EvaHeadingSize = "sm" | "md" | "lg" | "xl";
  */
 export type EvaPortraitShape = "circle" | "rounded" | "square";
 
+/** How many lines of a long paragraph to show before clamping. */
+export type EvaClamp = "full" | "2" | "3" | "4";
+
 /** A person — the account team and the keynote speakers share this shape. */
 export interface EvaPerson {
   name: string;
@@ -254,6 +257,23 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   days: EvaDay[];
   /** Label on the per-session personalized callout. */
   whyAttendLabel?: string;
+
+  /* ── readability ──────────────────────────────────────────────────────
+   * A real conference agenda is 25–40 sessions, and scraped abstracts run
+   * long, so the honest default page is a wall of prose. These trim what a
+   * reader has to wade through WITHOUT deleting anything: the clamps are pure
+   * CSS, so the full text stays in the DOM for export, print, search engines
+   * and screen readers, and every control is reversible.
+   */
+  /** Clamp session descriptions to N lines. "full" = no clamp. */
+  descriptionLines?: EvaClamp;
+  /** Clamp team + speaker bios to N lines. */
+  bioLines?: EvaClamp;
+  /** The per-session "Why this matters for you" callout — visually the
+   *  heaviest element in a row, and repeated on every single session. */
+  showWhyAttend?: boolean;
+  /** The uppercase session-type / track micro-labels above each title. */
+  showSessionMeta?: boolean;
   /**
    * Add-to-calendar (.ics) affordances — the hero button for the whole agenda
    * AND the per-session buttons. Default on, but each only renders when the
@@ -411,6 +431,10 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
   scheduleHeading: "Day by day",
   scheduleIntro: "Reserved sessions are held for your team — everything else is our best recommendation, and you're free to trade.",
   whyAttendLabel: "Why this matters for you",
+  descriptionLines: "3",
+  bioLines: "3",
+  showWhyAttend: true,
+  showSessionMeta: true,
   days: [
     {
       label: "Tuesday, Mar 10",
@@ -957,6 +981,30 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   };
   const sectionPy = SECTION_PY_SCALE[brand?.sectionPadding ?? "comfortable"] ?? SECTION_PY_SCALE.comfortable;
 
+  /**
+   * Line clamp for long prose. CSS-only on purpose: the full text stays in the
+   * DOM, so the prerendered snapshot, the HTML export, print and assistive
+   * tech all keep the complete copy — only the on-screen height is capped.
+   *
+   * Never clamps in the builder. An author editing a description has to see
+   * the whole thing, and an inline editor whose overflow is hidden is a trap.
+   */
+  const clampLines = (setting: EvaClamp | undefined): React.CSSProperties => {
+    if (isEditor) return {};
+    const n = Number(setting);
+    if (!Number.isFinite(n) || n < 1) return {};
+    return {
+      display: "-webkit-box",
+      WebkitBoxOrient: "vertical",
+      WebkitLineClamp: n,
+      overflow: "hidden",
+    };
+  };
+  const descriptionClamp = clampLines(props.descriptionLines ?? "3");
+  const bioClamp = clampLines(props.bioLines ?? "3");
+  const showWhyAttend = props.showWhyAttend ?? true;
+  const showSessionMeta = props.showSessionMeta ?? true;
+
   /** Everything a section needs to draw on its own surface. */
   type SectionPalette = {
     bg: string;
@@ -1113,7 +1161,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           </p>
         )}
         {(person.bio || isEditor) && (
-          <p className="mx-auto mt-4 max-w-[22rem] text-[15px] leading-relaxed" style={{ color: sf.ink.muted }}>
+          <p className="mx-auto mt-4 max-w-[22rem] text-[15px] leading-relaxed" style={{ color: sf.ink.muted, ...bioClamp }}>
             <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
           </p>
         )}
@@ -1170,7 +1218,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           </p>
         )}
         {(person.bio || isEditor) && (
-          <p className="mt-2 text-[15px] leading-relaxed" style={{ color: sf.ink.muted }}>
+          <p className="mt-2 text-[15px] leading-relaxed" style={{ color: sf.ink.muted, ...bioClamp }}>
             <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
           </p>
         )}
@@ -1226,7 +1274,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           {(person.bio || isEditor) && (
             <p
               className="mt-4 max-w-2xl text-[17px] leading-relaxed"
-              style={{ color: sf.ink.text, fontFamily: DISPLAY }}
+              style={{ color: sf.ink.text, fontFamily: DISPLAY, ...bioClamp }}
             >
               <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { bio: v }) : undefined} />
             </p>
@@ -1597,6 +1645,12 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
 
                       {/* body */}
                       <div className="min-w-0">
+                        {/* Only mount the meta row when something will land in
+                            it — otherwise switching the labels off leaves an
+                            empty flex row nudging the title down. "Reserved for
+                            you" is the personalization the page exists for, so
+                            it survives even when the labels are off. */}
+                        {(session.isReserved || (showSessionMeta && (session.sessionType || session.track))) && (
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold uppercase tracking-[0.16em]">
                           {session.isReserved && (
                             <span className="inline-flex items-center gap-1.5" style={{ color: rowAccent }}>
@@ -1604,16 +1658,17 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                               Reserved for you
                             </span>
                           )}
-                          {session.sessionType && !session.isReserved && (
+                          {showSessionMeta && session.sessionType && !session.isReserved && (
                             <span style={{ color: rowInk.muted }}>{session.sessionType}</span>
                           )}
-                          {session.track && (
+                          {showSessionMeta && session.track && (
                             <span className="flex items-center gap-3" style={{ color: rowInk.muted }}>
                               <span aria-hidden className="h-3 w-px" style={{ background: mixHex(rowInk.text, rowSurface, 0.3) }} />
                               {session.track}
                             </span>
                           )}
                         </div>
+                        )}
                         <h4
                           className="mt-2 font-bold"
                           style={{
@@ -1631,7 +1686,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                           />
                         </h4>
                         {(session.description || isEditor) && (
-                          <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed" style={{ color: rowInk.muted }}>
+                          <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed" style={{ color: rowInk.muted, ...descriptionClamp }}>
                             <InlineText
                               as="span"
                               multiline
@@ -1640,7 +1695,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                             />
                           </p>
                         )}
-                        {(session.whyAttend || isEditor) && (
+                        {showWhyAttend && (session.whyAttend || isEditor) && (
                           <div
                             className="mt-4 max-w-2xl border-l-2 py-0.5 pl-4"
                             style={{ borderColor: accentChrome }}
