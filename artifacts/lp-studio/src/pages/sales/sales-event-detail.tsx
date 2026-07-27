@@ -690,7 +690,7 @@ interface AccountResult {
 }
 
 function NewAgendaDialog({
-  open, onClose, eventId, onCreated, roleOptions,
+  open, onClose, eventId, onCreated, roleOptions, presetAccountId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -698,6 +698,8 @@ function NewAgendaDialog({
   onCreated: (agendaId: number) => void;
   /** Roles this catalog actually tags, most-used first, with session counts. */
   roleOptions: RoleOption[];
+  /** Account to preselect (the assistant's "build an agenda for X" deep link). */
+  presetAccountId?: number | null;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AccountResult[]>([]);
@@ -713,6 +715,25 @@ function NewAgendaDialog({
   useEffect(() => {
     if (!open) { setQuery(""); setResults([]); setPicked(null); setRoles([]); setRoleInput(""); }
   }, [open]);
+
+  // Resolve a deep-linked account into a real picked row, so the rep sees WHO
+  // the agenda is for rather than an id they have to trust.
+  useEffect(() => {
+    if (!open || presetAccountId == null || picked) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/sales/accounts/${presetAccountId}`);
+        if (!res.ok) return;
+        const a = await res.json();
+        if (cancelled || !a?.id) return;
+        setPicked({ id: a.id, name: a.displayName || a.name, domain: a.domain, source: "local" });
+      } catch {
+        // Fall back to the typeahead — the rep can still pick manually.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, presetAccountId, picked]);
 
   useEffect(() => {
     if (picked || query.trim().length < 2) { setResults([]); return; }
@@ -1186,6 +1207,7 @@ export default function SalesEventDetail() {
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [agendas, setAgendas] = useState<AgendaRow[]>([]);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+  const [tagging, setTagging] = useState(false);
   const [analytics, setAnalytics] = useState<EventAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -1227,6 +1249,52 @@ export default function SalesEventDetail() {
     if (!isNaN(eventId)) void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
+
+  /**
+   * `?newAgendaFor=<accountId>` — the Sales Console assistant's deep link for
+   * "build an agenda for X". Opens the New-agenda dialog with that account
+   * preselected, then strips the param so a refresh doesn't reopen it.
+   */
+  const [presetAccountId, setPresetAccountId] = useState<number | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("newAgendaFor");
+    const id = raw ? parseInt(raw, 10) : NaN;
+    if (!Number.isFinite(id) || id <= 0) return;
+    setPresetAccountId(id);
+    setNewAgendaOpen(true);
+    params.delete("newAgendaFor");
+    const qs = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }, []);
+
+  /**
+   * Ask the AI to infer audience roles for sessions that have none. Seeded
+   * with the vocabulary already in use, so suggestions land on the same chips
+   * the builder offers rather than inventing a parallel set.
+   */
+  const suggestTags = async () => {
+    setTagging(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/events/${eventId}/suggest-tags`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: "Couldn't suggest tags", description: data.error, variant: "destructive" });
+        return;
+      }
+      await load();
+      toast({
+        title: data.tagged > 0 ? `Tagged ${data.tagged} session${data.tagged === 1 ? "" : "s"}` : "Nothing to tag",
+        description: data.tagged > 0
+          ? `${data.leftOpen ?? 0} left open to everyone. Review the tags below — they drive matching.`
+          : "Every session already has roles, or they're all open to everyone.",
+      });
+    } catch {
+      toast({ title: "Couldn't suggest tags", variant: "destructive" });
+    } finally {
+      setTagging(false);
+    }
+  };
 
   const deleteSession = async () => {
     if (!sessionToDelete) return;
@@ -1284,6 +1352,14 @@ export default function SalesEventDetail() {
               </Button>
               <Button variant="outline" onClick={() => setCsvOpen(true)}>
                 <FileUp className="w-4 h-4 mr-1.5" /> Import CSV
+              </Button>
+              <Button
+                variant="outline"
+                disabled={sessions.length === 0 || tagging}
+                onClick={() => void suggestTags()}
+                title="Infer audience roles for untagged sessions"
+              >
+                <Sparkles className="w-4 h-4 mr-1.5" /> {tagging ? "Tagging…" : "Suggest role tags"}
               </Button>
               <Button variant="outline" onClick={() => { setEditingSession(null); setSessionDialogOpen(true); }}>
                 <Plus className="w-4 h-4 mr-1.5" /> Add session
@@ -1460,7 +1536,8 @@ export default function SalesEventDetail() {
       <UrlImportDialog open={urlImportOpen} onClose={() => setUrlImportOpen(false)} onImported={() => void load()} eventId={eventId} />
       <NewAgendaDialog
         open={newAgendaOpen}
-        onClose={() => setNewAgendaOpen(false)}
+        onClose={() => { setNewAgendaOpen(false); setPresetAccountId(null); }}
+        presetAccountId={presetAccountId}
         eventId={eventId}
         onCreated={(id) => { void load(); setEditorAgendaId(id); }}
         roleOptions={roleOptions}

@@ -9,6 +9,7 @@ import {
   lpPagesTable,
   lpPageVisitsTable,
   lpLeadsTable,
+  lpBrandSettingsTable,
   type SalesEventSession,
   type AgendaSelection,
   type EventSessionTags,
@@ -25,6 +26,7 @@ import {
 } from "../../lib/sales/agenda-matching";
 import { importAgendaFromUrl, AgendaImportError } from "../../lib/sales/agenda-import";
 import { generateWhyAttendBlurbs } from "../../lib/sales/agenda-blurbs";
+import { suggestSessionRoleTags } from "../../lib/sales/agenda-tagging";
 import { isSafePublicHost } from "../../lib/brand-import/net-guard";
 import { AIChatError } from "../../lib/ai-utils";
 
@@ -108,6 +110,39 @@ function toMatchable(s: SalesEventSession): MatchableSession {
     tags: (s.tags ?? {}) as MatchableSession["tags"],
     sessionType: s.sessionType,
   };
+}
+
+/**
+ * Buyer-persona roles from brand settings, used only to SEED the AI tagger's
+ * vocabulary (the catalog's own roles come first). Best-effort: a tenant with
+ * no personas just gets a smaller vocabulary. Reads both config shapes —
+ * top-level and nested under "brand" — like getSalesBrandContext does.
+ */
+async function loadBrandPersonaRoles(tenantId: number): Promise<string[]> {
+  try {
+    const [row] = await db
+      .select({ config: lpBrandSettingsTable.config })
+      .from(lpBrandSettingsTable)
+      .where(eq(lpBrandSettingsTable.tenantId, tenantId))
+      .limit(1);
+    const config = (row?.config ?? {}) as Record<string, unknown>;
+    const nested = (config["brand"] ?? {}) as Record<string, unknown>;
+    const segments = (nested["segments"] ?? config["segments"]) as unknown;
+    const roles: string[] = [];
+    if (Array.isArray(segments)) {
+      for (const seg of segments) {
+        const personas = (seg as { personas?: unknown })?.personas;
+        if (!Array.isArray(personas)) continue;
+        for (const p of personas) {
+          const role = (p as { role?: unknown })?.role;
+          if (typeof role === "string" && role.trim()) roles.push(role.trim());
+        }
+      }
+    }
+    return roles;
+  } catch {
+    return [];
+  }
 }
 
 async function loadEvent(tenantId: number, eventId: number) {
@@ -768,6 +803,91 @@ router.post("/agendas/:agendaId/rematch", async (req, res): Promise<void> => {
  * redraft everything. The rep reviews/edits in the agenda editor before
  * publish — nothing here goes straight to the page.
  */
+/**
+ * AI role tagging for a catalog (phase 2 follow-up). Most imported agendas
+ * arrive untagged, which left role matching with nothing to intersect. This
+ * infers each session's audience from its own title/description/track and
+ * writes `tags.roles`.
+ *
+ * Only sessions WITHOUT roles are tagged by default, and rows whose tags were
+ * edited in-app are never touched unless `force` is set — the same authorship
+ * rule the CSV/URL import upsert follows. The model is seeded with the roles
+ * already in use (catalog first, then brand personas) so it reuses that
+ * vocabulary instead of inventing a competing one.
+ */
+router.post("/events/:eventId/suggest-tags", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const eventId = parseInt(req.params.eventId, 10);
+    if (isNaN(eventId)) { res.status(400).json({ error: "Invalid eventId" }); return; }
+    const event = await loadEvent(tenantId, eventId);
+    if (!event) { res.status(404).json({ error: "Event not found" }); return; }
+    const force = (req.body as { force?: unknown })?.force === true;
+
+    const sessions = await loadEventSessions(tenantId, eventId);
+    const targets = sessions.filter((s) => {
+      if (!force && s.tagsEditedInApp) return false;
+      const roles = ((s.tags ?? {}) as EventSessionTags).roles ?? [];
+      return force || roles.length === 0;
+    });
+    if (targets.length === 0) {
+      res.json({ tagged: 0, skipped: sessions.length, roleOptions: catalogRoleOptions(sessions.map(toMatchable)) });
+      return;
+    }
+
+    // Vocabulary the tenant already uses: the catalog's own roles first (those
+    // are what the builder offers as chips), then brand personas.
+    const catalogRoles = catalogRoleOptions(sessions.map(toMatchable)).map((r) => r.role);
+    const brandRoles = await loadBrandPersonaRoles(tenantId);
+    const vocabulary = [...new Set([...catalogRoles, ...brandRoles])].slice(0, 30);
+
+    const suggestions = await suggestSessionRoleTags(
+      targets.map((s) => ({
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        sessionType: s.sessionType,
+        track: s.track,
+      })),
+      vocabulary,
+    );
+
+    let tagged = 0;
+    let leftOpen = 0;
+    for (const [sessionId, roles] of suggestions) {
+      if (roles.length === 0) { leftOpen++; continue; }
+      const prior = targets.find((t) => t.id === sessionId);
+      if (!prior) continue;
+      const priorTags = (prior.tags ?? {}) as EventSessionTags;
+      await db
+        .update(salesEventSessionsTable)
+        // NOT tagsEditedInApp — these are machine suggestions, so a later
+        // re-import may still refresh them; a human edit locks them.
+        .set({ tags: { ...priorTags, roles } })
+        .where(and(
+          eq(salesEventSessionsTable.tenantId, tenantId),
+          eq(salesEventSessionsTable.id, sessionId),
+        ));
+      tagged++;
+    }
+
+    const refreshed = await loadEventSessions(tenantId, eventId);
+    res.json({
+      tagged,
+      leftOpen,
+      considered: targets.length,
+      roleOptions: catalogRoleOptions(refreshed.map(toMatchable)),
+    });
+  } catch (err) {
+    if (err instanceof AIChatError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    console.error("[sales/events] suggest-tags error", err);
+    res.status(500).json({ error: "Failed to suggest tags" });
+  }
+});
+
 router.post("/agendas/:agendaId/generate-blurbs", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
