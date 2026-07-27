@@ -6,7 +6,7 @@ import {
   gradientToCss,
   isValidGradient,
 } from "./button-gradient";
-import { getBrandButtonCss, DEFAULT_BRAND } from "./brand-config";
+import { getBrandButtonCss, getBrandSurfaceCss, DEFAULT_BRAND } from "./brand-config";
 
 const G = { from: "#4B47E5", to: "#8B5CF6", angle: 90 };
 
@@ -69,5 +69,28 @@ describe("gradientFromOverrides", () => {
     expect(gradientFromOverrides({
       buttonStyleRaw: { ...gradientButtonStyleRaw(G, "#fff"), background: { type: "solid", value: "#4B47E5" } },
     })).toBeNull();
+  });
+});
+
+/* ── page-level surface radius (sections + images) ─────────────────────── */
+
+describe("getBrandSurfaceCss — page radius reaches images", () => {
+  it("squaring the page squares rounded cards AND rounded media", () => {
+    const css = getBrandSurfaceCss({ ...DEFAULT_BRAND, cardRadius: "square" });
+    // Cards (the pre-existing behaviour).
+    expect(css).toContain('[data-lp-page] .rounded-2xl:not(.lp-btn){border-radius:0px !important}');
+    // Media that opted into rounding now follows too.
+    expect(css).toContain("[data-lp-page] img.rounded-2xl");
+    expect(css).toContain("[data-lp-page] figure.rounded-2xl");
+    expect(css).toContain("[data-lp-page] video.rounded-2xl");
+  });
+
+  it("leaves rounded-full alone so avatars and pills stay circular", () => {
+    const css = getBrandSurfaceCss({ ...DEFAULT_BRAND, cardRadius: "square" });
+    expect(css).not.toContain("rounded-full");
+  });
+
+  it("emits nothing for the brand-default radius", () => {
+    expect(getBrandSurfaceCss({ ...DEFAULT_BRAND, cardRadius: "rounded" })).not.toContain("border-radius");
   });
 });

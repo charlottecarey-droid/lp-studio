@@ -1700,6 +1700,15 @@ export function getBrandSurfaceCss(brand: BrandConfig): string {
   };
   if (brand.cardRadius && brand.cardRadius !== "rounded") {
     remap(CARD_RADIUS_REMAP[brand.cardRadius], "border-radius", true);
+    // Images and media wrappers that OPT IN to rounding (they carry a
+    // `rounded-*` utility) follow the page radius too — otherwise a squared
+    // page kept soft photo corners and a soft page kept hard ones. Scoped to
+    // elements already rounded on purpose, so logos, icons and deliberately
+    // square art are untouched, and `rounded-full` avatars/pills keep their
+    // circle (it isn't in CARD_RADIUS_REMAP).
+    for (const [util, value] of Object.entries(CARD_RADIUS_REMAP[brand.cardRadius])) {
+      rules.push(`[data-lp-page] img.${util},[data-lp-page] figure.${util},[data-lp-page] video.${util}{border-radius:${value} !important}`);
+    }
   }
   if (brand.cardShadow && brand.cardShadow !== "md") {
     remap(SHADOW_LADDER[brand.cardShadow], "box-shadow", true);

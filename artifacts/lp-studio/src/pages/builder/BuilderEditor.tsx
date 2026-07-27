@@ -74,6 +74,7 @@ import { PrePublishDialog } from "./PrePublishDialog";
 import { PageCtaSection } from "@/pages/builder/property-panels/PageCtaSection";
 import { PageStyleSection } from "@/pages/builder/property-panels/PageStyleSection";
 import { PageButtonStyleSection } from "@/pages/builder/property-panels/PageButtonStyleSection";
+import { PageSurfaceStyleSection } from "@/pages/builder/property-panels/PageSurfaceStyleSection";
 import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
 import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
@@ -3963,6 +3964,16 @@ export default function BuilderEditor() {
                     the URL match above, persisted by its own PATCH route. */}
                 <div className="border-t border-border pt-3">
                   <PageButtonStyleSection
+                    pageId={pageIdNum}
+                    value={pageStyleOverrides}
+                    onSaved={(overrides) => setPageStyleOverrides(overrides)}
+                  />
+                </div>
+
+                {/* Page-level surface shape/spacing — same storage + route as
+                    the button overrides above. */}
+                <div className="border-t border-border pt-3">
+                  <PageSurfaceStyleSection
                     pageId={pageIdNum}
                     value={pageStyleOverrides}
                     onSaved={(overrides) => setPageStyleOverrides(overrides)}
