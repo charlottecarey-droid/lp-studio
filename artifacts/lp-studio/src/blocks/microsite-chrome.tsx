@@ -55,6 +55,12 @@ interface NavbarProps {
   /** Optional co-brand / account logo shown left of the tenant mark. */
   accountLogoUrl?: string;
   accountLogoAlt?: string;
+  /**
+   * Height utility for the lockup marks (BOTH the account and tenant logos, so
+   * a co-branded pair stays balanced). Must be a literal Tailwind class so the
+   * JIT emits it. Defaults to `h-7` — the size every existing caller renders.
+   */
+  logoHeightClass?: string;
   /** 0–4 anchor links rendered between the lockup and the CTA. */
   links?: MicrositeNavLink[];
   /** Primary CTA label. Hidden when empty. */
@@ -94,6 +100,7 @@ export function MicrositeNavbar({
   logoAlt,
   accountLogoUrl,
   accountLogoAlt,
+  logoHeightClass = "h-7",
   links = [],
   ctaText,
   ctaUrl = "#",
@@ -131,7 +138,7 @@ export function MicrositeNavbar({
               <img
                 src={accountLogoUrl}
                 alt={accountLogoAlt || "Account logo"}
-                className={`h-7 w-auto shrink-0 ${isDark ? "brightness-0 invert" : ""}`}
+                className={`${logoHeightClass} w-auto shrink-0 ${isDark ? "brightness-0 invert" : ""}`}
                 loading="eager"
               />
               <span aria-hidden className="h-5 w-px shrink-0" style={{ background: inkMuted }} />
@@ -144,7 +151,7 @@ export function MicrositeNavbar({
               alt={logoAlt || brand.brandName || "Logo"}
               tone={isDark ? "onDark" : "onLight"}
               autoContrast
-              className="h-7 w-auto shrink-0"
+              className={`${logoHeightClass} w-auto shrink-0`}
             />
           ) : wordmark ? (
             <span

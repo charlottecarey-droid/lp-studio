@@ -260,6 +260,22 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Account logo URL (navbar co-brand)">
               <Input value={props.accountLogoUrl ?? ""} onChange={(e) => set("accountLogoUrl", e.target.value)} placeholder="https://…/logo.svg" className="text-xs h-8" />
             </Field>
+            <Field label="Logo size (header + footer)">
+              <Select
+                value={props.logoSize ?? "md"}
+                onValueChange={(v) => set("logoSize", v as EventAgendaBlockProps["logoSize"])}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sm">Small</SelectItem>
+                  <SelectItem value="md">Medium (default)</SelectItem>
+                  <SelectItem value="lg">Large</SelectItem>
+                  <SelectItem value="xl">Extra large</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <Field label="Hero image">
               <ImagePicker
                 value={props.heroImageUrl ?? ""}

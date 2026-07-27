@@ -131,6 +131,12 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   /** Tenant logo override (falls back to the brand logo). */
   logoUrl?: string;
   logoAlt?: string;
+  /**
+   * Size of the brand marks in the header lockup and the "prepared by" footer.
+   * Scales both together (and the co-brand account logo with them, so a paired
+   * lockup stays balanced). Defaults to "md" — the original sizing.
+   */
+  logoSize?: "sm" | "md" | "lg" | "xl";
 
   /* ── 1. hero ──────────────────────────────────────────────────────────── */
   /**
@@ -364,6 +370,18 @@ interface LinkedRsvpForm {
   successMessage?: string | null;
 }
 
+/**
+ * Logo heights per size token. Literal Tailwind classes (never interpolated)
+ * so the JIT emits them. The footer mark runs one notch smaller than the
+ * header — it's a sign-off, not the lockup.
+ */
+const LOGO_HEIGHTS: Record<NonNullable<EventAgendaBlockProps["logoSize"]>, { header: string; footer: string }> = {
+  sm: { header: "h-5", footer: "h-4" },
+  md: { header: "h-7", footer: "h-6" },
+  lg: { header: "h-10", footer: "h-8" },
+  xl: { header: "h-14", footer: "h-11" },
+};
+
 function downloadIcsBlob(ics: string, filename: string): void {
   if (typeof document === "undefined") return;
   const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
@@ -587,6 +605,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     }
   };
 
+  const logoHeights = LOGO_HEIGHTS[props.logoSize ?? "md"] ?? LOGO_HEIGHTS.md;
   const showHero = props.showHero !== false;
   const days = props.days.filter((d) => d.sessions.length > 0 || isEditor);
   const sessionTotal =
@@ -803,6 +822,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
               logoAlt={props.logoAlt}
               accountLogoUrl={props.accountLogoUrl}
               accountLogoAlt={props.accountLogoAlt || props.accountName}
+              logoHeightClass={logoHeights.header}
               links={props.navLinks ?? EVENT_AGENDA_DEFAULT_PROPS.navLinks ?? []}
               ctaText={props.navCtaText ?? props.ctaText}
               ctaUrl={props.navCtaUrl || props.ctaUrl || "#contact"}
@@ -1494,7 +1514,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                   alt={props.logoAlt || brand.brandName || "Logo"}
                   tone="onDark"
                   autoContrast
-                  className="h-6 w-auto"
+                  className={`${logoHeights.footer} w-auto`}
                 />
               </motion.div>
             )}

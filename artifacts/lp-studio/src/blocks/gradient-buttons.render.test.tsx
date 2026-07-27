@@ -16,6 +16,7 @@ import { DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import { gradientButtonStyleRaw } from "@/lib/button-gradient";
 import { BlockDsoHeartlandHero } from "./BlockDsoHeartlandHero";
 import { BlockBottomCta } from "./BlockBottomCta";
+import { BlockEventAgenda } from "./BlockEventAgenda";
 import { getBlockDef } from "@/lib/block-types";
 
 const GRADIENT_CSS = "linear-gradient(90deg, #4b47e5 0%, #8b5cf6 100%)";
@@ -121,5 +122,37 @@ describe("BlockDsoHeartlandHero — inline headline editing", () => {
     // Decorated: the token is split into its own styled span, braces stripped.
     expect(html).not.toContain("{every}");
     expect(html).toContain("every");
+  });
+});
+
+describe("BlockEventAgenda — tenant logo sizing", () => {
+  const brandWithLogo: BrandConfig = { ...DEFAULT_BRAND, logoUrl: "https://cdn.example.com/mark.svg" };
+  const agendaProps = (logoSize?: "sm" | "md" | "lg" | "xl") => ({
+    ...defaultsFor("event-agenda"),
+    ...(logoSize ? { logoSize } : {}),
+  });
+
+  const renderAgenda = (logoSize?: "sm" | "md" | "lg" | "xl") =>
+    renderToStaticMarkup(
+      createElement(BlockEventAgenda as never, { props: agendaProps(logoSize), brand: brandWithLogo }),
+    );
+
+  it("defaults to the original sizing (header h-7 / footer h-6)", () => {
+    const html = renderAgenda();
+    expect(html).toContain("h-7 w-auto");
+    expect(html).toContain("h-6 w-auto");
+  });
+
+  it("scales BOTH the header lockup and the prepared-by footer mark", () => {
+    const xl = renderAgenda("xl");
+    expect(xl).toContain("h-14 w-auto"); // header
+    expect(xl).toContain("h-11 w-auto"); // footer
+    expect(xl).not.toContain("h-7 w-auto");
+  });
+
+  it("small shrinks both", () => {
+    const sm = renderAgenda("sm");
+    expect(sm).toContain("h-5 w-auto");
+    expect(sm).toContain("h-4 w-auto");
   });
 });
