@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { CalendarPlus } from "lucide-react";
 import { useAnimInitial } from "@/lib/reveal-fallback";
@@ -105,6 +105,54 @@ export interface EvaDay {
   sessions: EvaSession[];
 }
 
+/** A person card — used by both the account team and the keynote speakers. */
+export interface EvaPerson {
+  name: string;
+  /** Role line, e.g. "Enterprise Account Executive" or "CEO, Northwind". */
+  title?: string;
+  /** Headshot. Falls back to initials on a brand-tinted disc. */
+  imageUrl?: string;
+  /** One or two sentences — a bio for a speaker, a "how I help" for the team. */
+  bio?: string;
+  /** Speakers only: the session they're presenting, shown as a linking line. */
+  sessionTitle?: string;
+  /** Optional contact/booking link (account team). */
+  linkUrl?: string;
+  linkLabel?: string;
+}
+
+/** A sponsor / partner logo with an optional tier label and link. */
+export interface EvaSponsor {
+  name: string;
+  logoUrl?: string;
+  /** e.g. "Founding partner" — groups the wall visually. */
+  tier?: string;
+  url?: string;
+}
+
+/** A downloadable or linkable resource. */
+export interface EvaResource {
+  title: string;
+  /** Short description of what it is. */
+  description?: string;
+  url?: string;
+  /** Small type chip, e.g. "PDF", "Deck", "Recording". */
+  kind?: string;
+}
+
+/**
+ * The reorderable body sections, in render order. Any section omitted from a
+ * saved order still renders (appended in canonical order) so adding a section
+ * later can never silently hide it on existing pages. The hero and close are
+ * NOT reorderable — they bookend the page by definition.
+ */
+export type EvaSectionId = "note" | "team" | "speakers" | "schedule" | "sponsors" | "resources" | "rsvp";
+
+/** Canonical order: the two intro sections, the schedule, then the follow-ups. */
+export const EVA_SECTION_ORDER: readonly EvaSectionId[] = [
+  "note", "team", "speakers", "schedule", "sponsors", "resources", "rsvp",
+];
+
 export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   /* ── palette overrides (all optional; brand-derived defaults) ─────────── */
   /** Page surface. Defaults to the brand page background (or warm cream). */
@@ -195,6 +243,40 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
    * session/agenda carries machine-readable date + start time.
    */
   showAddToCalendar?: boolean;
+
+  /* ── account team (before the schedule by default) ────────────────────── */
+  showTeam?: boolean;
+  teamKicker?: string;
+  teamHeading?: string;
+  teamSubheadline?: string;
+  team?: EvaPerson[];
+
+  /* ── keynote speakers (before the schedule by default) ────────────────── */
+  showSpeakers?: boolean;
+  speakersKicker?: string;
+  speakersHeading?: string;
+  speakersSubheadline?: string;
+  speakers?: EvaPerson[];
+
+  /* ── sponsors / partners (after the schedule by default) ──────────────── */
+  showSponsors?: boolean;
+  sponsorsKicker?: string;
+  sponsorsHeading?: string;
+  sponsorsSubheadline?: string;
+  sponsors?: EvaSponsor[];
+
+  /* ── resources (after the schedule by default) ────────────────────────── */
+  showResources?: boolean;
+  resourcesKicker?: string;
+  resourcesHeading?: string;
+  resourcesSubheadline?: string;
+  resources?: EvaResource[];
+
+  /**
+   * Body-section render order. Unlisted sections append in canonical order, so
+   * a page saved before a section existed still shows it. Hero/close are fixed.
+   */
+  sectionOrder?: EvaSectionId[];
 
   /* ── 4. RSVP ──────────────────────────────────────────────────────────── */
   /**
@@ -333,6 +415,74 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
         },
       ],
     },
+  ],
+
+  /* account team */
+  showTeam: true,
+  teamKicker: "Your account team",
+  teamHeading: "The people looking after you",
+  teamSubheadline: "Find any of us during the event — we've built the week around your priorities.",
+  team: [
+    {
+      name: "Maya Chen",
+      title: "Enterprise Account Executive",
+      bio: "Your day-to-day partner on strategy and anything you need on site.",
+      linkLabel: "Book time",
+      linkUrl: "#contact",
+    },
+    {
+      name: "Jordan Ellis",
+      title: "Solutions Architect",
+      bio: "Bring him your hardest technical questions — he'll have answers or find them.",
+    },
+    {
+      name: "Priya Raman",
+      title: "Customer Success Director",
+      bio: "Owns your rollout plan and the milestones we set together this year.",
+    },
+  ],
+
+  /* keynote speakers */
+  showSpeakers: true,
+  speakersKicker: "Keynotes",
+  speakersHeading: "Who you'll hear from",
+  speakersSubheadline: "The sessions we think are worth your leadership team's time.",
+  speakers: [
+    {
+      name: "Alex Rivera",
+      title: "Chief Executive Officer",
+      bio: "Opens the event with where the platform is going and what ships this year.",
+      sessionTitle: "Opening keynote: the year ahead",
+    },
+    {
+      name: "Dr. Simone Vaughn",
+      title: "Head of Research",
+      bio: "On what the last twelve months of data changed about how teams operate at scale.",
+      sessionTitle: "What the data says about scaling",
+    },
+  ],
+
+  /* sponsors / partners */
+  showSponsors: true,
+  sponsorsKicker: "Partners",
+  sponsorsHeading: "Who's making it happen",
+  sponsorsSubheadline: "The partners joining us on site — several will be running hands-on stations.",
+  sponsors: [
+    { name: "Northwind Systems", tier: "Founding partner" },
+    { name: "Atlas Logistics", tier: "Founding partner" },
+    { name: "Beacon Analytics", tier: "Supporting partner" },
+    { name: "Harbor Consulting", tier: "Supporting partner" },
+  ],
+
+  /* resources */
+  showResources: true,
+  resourcesKicker: "Before you go",
+  resourcesHeading: "Take the week with you",
+  resourcesSubheadline: "Everything referenced in your sessions, in one place.",
+  resources: [
+    { title: "Event guide", description: "Venue maps, dining, and the full schedule at a glance.", kind: "PDF" },
+    { title: "Session recordings", description: "Posted within 48 hours of each session ending.", kind: "Video" },
+    { title: "Your roadmap summary", description: "The commitments and dates from your working session.", kind: "Deck" },
   ],
 
   /* rsvp — off by default; the sales publish route opts published agendas in */
@@ -494,6 +644,20 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           ),
         )
     : undefined;
+  /** Patch one entry of a person/sponsor/resource array prop. */
+  const setItem = set
+    ? <K extends "team" | "speakers" | "sponsors" | "resources">(
+        key: K,
+        i: number,
+        patch: Partial<NonNullable<EventAgendaBlockProps[K]>[number]>,
+      ) =>
+        set(
+          key,
+          ((props[key] ?? []) as NonNullable<EventAgendaBlockProps[K]>).map((item, j) =>
+            j === i ? { ...item, ...patch } : item,
+          ) as EventAgendaBlockProps[K],
+        )
+    : undefined;
   const isEditor = !!onFieldChange;
 
   /* — RSVP: built-in capture or linked global form — */
@@ -615,6 +779,16 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const reservedTotal = props.days.reduce((n, d) => n + d.sessions.filter((s) => s.isReserved).length, 0);
   const showNote = props.showNote !== false && (!!props.personalNote?.trim() || isEditor);
   const showClose = props.showClose !== false;
+  // Each optional section needs content to render (or the editor, so an author
+  // can see and fill an empty one) — never an empty headline on a live page.
+  const team = props.team ?? [];
+  const speakers = props.speakers ?? [];
+  const sponsors = props.sponsors ?? [];
+  const resources = props.resources ?? [];
+  const showTeam = props.showTeam !== false && (team.length > 0 || isEditor);
+  const showSpeakers = props.showSpeakers !== false && (speakers.length > 0 || isEditor);
+  const showSponsors = props.showSponsors !== false && (sponsors.length > 0 || isEditor);
+  const showResources = props.showResources !== false && (resources.length > 0 || isEditor);
   const hasHeroImage = !!props.heroImageUrl?.trim();
   // Fail-closed: image layouts without an image fall back to the dark band.
   const heroLayout = resolveHeroLayout(props.heroLayout, hasHeroImage, "split");
@@ -653,6 +827,140 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   });
 
   const kickerClass = "text-[11px] font-bold uppercase tracking-[0.22em]";
+
+  /**
+   * Shared kicker / headline / subheadline lockup so every body section reads
+   * as one system with the schedule's own header (same type ramp, same rhythm).
+   */
+  const sectionHeader = (
+    kickerKey: keyof EventAgendaBlockProps,
+    headingKey: keyof EventAgendaBlockProps,
+    subKey: keyof EventAgendaBlockProps,
+    fallbacks: { kicker: string; heading: string },
+  ) => (
+    <>
+      <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
+        <InlineText as="span" value={(props[kickerKey] as string) ?? fallbacks.kicker} onUpdate={edit(kickerKey)} />
+      </motion.p>
+      <motion.h2
+        {...fadeUp(0.06)}
+        className="mt-4 max-w-2xl font-bold"
+        style={{
+          fontFamily: DISPLAY,
+          fontSize: "clamp(2rem, 4vw, 3rem)",
+          lineHeight: 1.06,
+          letterSpacing: "-0.024em",
+          color: headline,
+        }}
+      >
+        <InlineText as="span" value={(props[headingKey] as string) ?? fallbacks.heading} onUpdate={edit(headingKey)} />
+      </motion.h2>
+      {(props[subKey] || isEditor) && (
+        <motion.p {...fadeUp(0.12)} className="mt-4 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: ink.muted }}>
+          <InlineText as="span" multiline value={(props[subKey] as string) ?? ""} onUpdate={edit(subKey)} />
+        </motion.p>
+      )}
+    </>
+  );
+
+  /** Initials disc — the headshot fallback (never a broken image icon). */
+  const initials = (name: string) =>
+    name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+
+  /** Person card, shared by the account team and the keynote speakers. */
+  const personCard = (
+    person: EvaPerson,
+    i: number,
+    key: "team" | "speakers",
+  ) => (
+    <motion.li key={i} {...fadeUp(Math.min(i * 0.06, 0.24))}>
+      <article
+        className="flex h-full flex-col rounded-2xl p-6 sm:p-7"
+        style={{
+          background: cardBg,
+          border: `1px solid ${mixHex(cardInk.text, cardBg, 0.12)}`,
+          boxShadow: "0 28px 56px -46px rgba(28, 25, 23, 0.34)",
+        }}
+      >
+        <div className="flex items-center gap-4">
+          {person.imageUrl?.trim() ? (
+            <img
+              src={person.imageUrl}
+              alt={person.name}
+              className="h-14 w-14 shrink-0 rounded-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-bold"
+              style={{ background: mixHex(accentChrome, cardBg, 0.14), color: accentOnCard }}
+            >
+              {initials(person.name)}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p
+              className="font-bold"
+              style={{ fontFamily: DISPLAY, fontSize: "1.05rem", lineHeight: 1.25, color: headlineOnCard }}
+            >
+              <InlineText
+                as="span"
+                value={person.name}
+                onUpdate={setItem ? (v) => setItem(key, i, { name: v }) : undefined}
+              />
+            </p>
+            {(person.title || isEditor) && (
+              <p className="mt-0.5 text-[13px]" style={{ color: cardInk.muted }}>
+                <InlineText
+                  as="span"
+                  value={person.title ?? ""}
+                  onUpdate={setItem ? (v) => setItem(key, i, { title: v }) : undefined}
+                />
+              </p>
+            )}
+          </div>
+        </div>
+        {(person.bio || isEditor) && (
+          <p className="mt-4 text-[15px] leading-relaxed" style={{ color: cardInk.muted }}>
+            <InlineText
+              as="span"
+              multiline
+              value={person.bio ?? ""}
+              onUpdate={setItem ? (v) => setItem(key, i, { bio: v }) : undefined}
+            />
+          </p>
+        )}
+        {(person.sessionTitle || person.linkUrl || isEditor) && (
+          <div
+            className="mt-5 border-t pt-4 text-[13px]"
+            style={{ borderColor: mixHex(cardInk.text, cardBg, 0.12) }}
+          >
+            {(person.sessionTitle || isEditor) && (
+              <p style={{ color: accentOnCard }}>
+                <InlineText
+                  as="span"
+                  value={person.sessionTitle ?? ""}
+                  onUpdate={setItem ? (v) => setItem(key, i, { sessionTitle: v }) : undefined}
+                />
+              </p>
+            )}
+            {person.linkUrl?.trim() && (
+              <a
+                href={person.linkUrl}
+                className="mt-1 inline-flex items-center gap-1.5 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                style={{ color: accentOnCard }}
+                onClick={(e) => handleAnchor(e, person.linkUrl ?? "")}
+              >
+                {person.linkLabel?.trim() || "Get in touch"}
+                <span aria-hidden>→</span>
+              </a>
+            )}
+          </div>
+        )}
+      </article>
+    </motion.li>
+  );
 
   const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (!href.startsWith("#") || href.length < 2) return;
@@ -784,206 +1092,10 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     );
   }
 
-  return (
-    <section className="relative w-full" style={{ background: bg, fontFamily: BODY }}>
-      {/* ── 1. hero ─────────────────────────────────────────────────────── */}
-      {showHero && (
-        <header className="relative overflow-hidden" style={{ background: heroBg }}>
-          {heroIsOverlay ? (
-            /* full-bleed image under a brand scrim — left column stays readable,
-               the image breathes on the right */
-            <div aria-hidden className="pointer-events-none absolute inset-0">
-              <img
-                src={props.heroImageUrl}
-                alt=""
-                className="h-full w-full object-cover"
-                loading="eager"
-              />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(to right, ${heroBg}F5 0%, ${heroBg}E0 42%, ${mixHex(heroBg, primaryHex, 0.85)}66 100%), linear-gradient(to top, ${heroBg}F2 0%, transparent 45%)`,
-                }}
-              />
-            </div>
-          ) : (
-            <DarkHeroBackdrop
-              surface={heroBg}
-              accent={accentRaw}
-              primary={primaryHex}
-              isStatic={reduced || isEditor}
-              idPrefix="evtag"
-            />
-          )}
-          {props.showNavbar !== false && (
-            <MicrositeNavbar
-              brand={brand}
-              logoUrl={props.logoUrl}
-              logoAlt={props.logoAlt}
-              accountLogoUrl={props.accountLogoUrl}
-              accountLogoAlt={props.accountLogoAlt || props.accountName}
-              logoHeightClass={logoHeights.header}
-              links={props.navLinks ?? EVENT_AGENDA_DEFAULT_PROPS.navLinks ?? []}
-              ctaText={props.navCtaText ?? props.ctaText}
-              ctaUrl={props.navCtaUrl || props.ctaUrl || "#contact"}
-              ctaBg={navCtaBg}
-              ctaText_color={navCtaTextColor}
-              heroSurface={heroBg}
-              isDark
-              ink={heroChrome.ink}
-              inkMuted={heroChrome.muted}
-              accent={heroAccent}
-              onAnchor={handleAnchor}
-            />
-          )}
-
-          <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:px-10">
-            <div className={heroIsSplit ? "grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]" : ""}>
-              <div>
-                {/* itinerary lockup line */}
-                <motion.div {...fadeUp(0)} className="flex items-center gap-4">
-                  <span aria-hidden className="h-px w-10" style={{ background: heroAccent }} />
-                  <p className="text-[12px] font-bold uppercase tracking-[0.26em]" style={{ color: heroChrome.muted }}>
-                    <InlineText as="span" value={props.eyebrow} onUpdate={edit("eyebrow")} />
-                  </p>
-                </motion.div>
-
-                <motion.h1
-                  {...fadeUp(0.08)}
-                  className="mt-7 max-w-3xl text-balance font-bold"
-                  style={{
-                    fontFamily: DISPLAY,
-                    fontSize: heroIsSplit ? "clamp(2.4rem, 4.6vw, 3.9rem)" : "clamp(2.6rem, 5.8vw, 4.6rem)",
-                    lineHeight: 1.02,
-                    letterSpacing: "-0.032em",
-                    color: heroHeadline,
-                  }}
-                >
-                  <InlineText as="span" value={props.headline} onUpdate={edit("headline")} />
-                </motion.h1>
-
-                {(props.subheadline || isEditor) && (
-                  <motion.p
-                    {...fadeUp(0.16)}
-                    className="mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl"
-                    style={{ color: heroInk.muted }}
-                  >
-                    <InlineText as="span" multiline value={props.subheadline ?? ""} onUpdate={edit("subheadline")} />
-                  </motion.p>
-                )}
-
-                <motion.div {...fadeUp(0.24)} className="mt-10 flex flex-wrap items-center gap-4">
-                  <a
-                    href="#schedule"
-                    onClick={(e) => handleAnchor(e, "#schedule")}
-                    className="inline-flex items-center gap-2.5 rounded-full px-7 py-3 text-[15px] font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-                    style={{ background: navCtaBg, color: navCtaTextColor }}
-                  >
-                    See your schedule
-                    <span aria-hidden>↓</span>
-                  </a>
-                  {calendarReady && (
-                    <button
-                      type="button"
-                      onClick={downloadAgendaIcs}
-                      className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[15px] font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-                      style={{
-                        border: `1px solid ${mixHex(heroInk.text, heroBg, 0.35)}`,
-                        color: heroInk.text,
-                      }}
-                    >
-                      <CalendarPlus className="h-4 w-4" aria-hidden />
-                      Add all to calendar
-                    </button>
-                  )}
-                </motion.div>
-
-                {/* editorial stat strip */}
-                {heroStats.length > 0 && (
-                  <motion.dl
-                    {...fadeUp(0.3)}
-                    className="mt-12 flex flex-wrap items-stretch gap-x-10 gap-y-6 border-t pt-8"
-                    style={{ borderColor: mixHex(heroInk.text, heroBg, 0.16) }}
-                  >
-                    {heroStats.map((stat) => (
-                      <div key={stat.label} className="min-w-[7rem]">
-                        <dd
-                          className="font-bold tabular-nums"
-                          style={{
-                            fontFamily: NUMBERS,
-                            fontSize: "clamp(2rem, 3.4vw, 2.8rem)",
-                            lineHeight: 1,
-                            letterSpacing: "-0.02em",
-                            color: heroHeadline,
-                          }}
-                        >
-                          {stat.value}
-                        </dd>
-                        <dt className="mt-2 max-w-[11rem] text-[13px] leading-snug" style={{ color: heroInk.muted }}>
-                          {stat.label}
-                        </dt>
-                      </div>
-                    ))}
-                    {props.eventLocation && (
-                      <div className="min-w-[7rem]">
-                        <dd
-                          className="font-bold"
-                          style={{
-                            fontFamily: DISPLAY,
-                            fontSize: "clamp(1.3rem, 2vw, 1.7rem)",
-                            lineHeight: 1.15,
-                            letterSpacing: "-0.015em",
-                            color: heroHeadline,
-                            paddingTop: "0.35rem",
-                          }}
-                        >
-                          {props.eventLocation}
-                        </dd>
-                        <dt className="mt-2 text-[13px] leading-snug" style={{ color: heroInk.muted }}>
-                          {props.eventDates || "on location"}
-                        </dt>
-                      </div>
-                    )}
-                  </motion.dl>
-                )}
-              </div>
-
-              {/* optional editorial image panel (split layout only) */}
-              {heroIsSplit && (
-                <motion.figure
-                  {...fadeUp(0.18)}
-                  className="relative hidden overflow-hidden rounded-2xl lg:block"
-                  style={{ boxShadow: "0 40px 80px -48px rgba(0,0,0,0.65)" }}
-                >
-                  <img
-                    src={props.heroImageUrl}
-                    alt={props.heroImageAlt || props.eventName || "Event"}
-                    className="h-full max-h-[520px] w-full object-cover"
-                    loading="eager"
-                  />
-                  {/* brand duotone scrim so any photo sits in the palette */}
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                      background: `linear-gradient(160deg, ${mixHex(primaryHex, heroBg, 0.55)}33 0%, transparent 45%), linear-gradient(to top, ${heroBg}E6 0%, transparent 42%)`,
-                    }}
-                  />
-                  <figcaption
-                    className="absolute inset-x-0 bottom-0 px-6 pb-5 text-[12px] font-bold uppercase tracking-[0.22em]"
-                    style={{ color: heroChrome.ink }}
-                  >
-                    {[props.eventName, props.eventDates].filter(Boolean).join(" · ")}
-                  </figcaption>
-                </motion.figure>
-              )}
-            </div>
-          </div>
-        </header>
-      )}
-
-      {/* ── 2. personal note ────────────────────────────────────────────── */}
-      {showNote && (
+  /* ── body sections ─────────────────────────────────────────────────────
+     Each is a value so `sectionOrder` can arrange them; the hero and close
+     bookend the page and are rendered directly. ── */
+  const noteSection = showNote ? (
         <div id="note" className={`mx-auto w-full max-w-4xl px-5 sm:px-8 lg:px-10 ${showHero ? "pt-16 sm:pt-20" : "pt-14 sm:pt-16"}`}>
           <motion.figure
             {...fadeUp(0)}
@@ -1041,9 +1153,9 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
             </div>
           </motion.figure>
         </div>
-      )}
+  ) : null;
 
-      {/* ── 3. schedule ─────────────────────────────────────────────────── */}
+  const scheduleSection = (
       <div id="schedule" className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
         <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
           <InlineText as="span" value={props.scheduleKicker ?? "Your schedule"} onUpdate={edit("scheduleKicker")} />
@@ -1303,9 +1415,185 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           ))}
         </div>
       </div>
+  );
 
-      {/* ── 4. RSVP ─────────────────────────────────────────────────────── */}
-      {showRsvp && (
+  /* People sections — account team and keynote speakers. Same card system,
+     different emphasis: the team is a 3-up on the page surface, the speakers
+     a 2-up so the bios can breathe. */
+  const teamSection = showTeam ? (
+    <div id="team" className="mx-auto w-full max-w-5xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+      {sectionHeader("teamKicker", "teamHeading", "teamSubheadline", {
+        kicker: "Your account team",
+        heading: "The people looking after you",
+      })}
+      <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {team.map((person, i) => personCard(person, i, "team"))}
+      </ul>
+    </div>
+  ) : null;
+
+  const speakersSection = showSpeakers ? (
+    <div id="speakers" className="mx-auto w-full max-w-5xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+      {sectionHeader("speakersKicker", "speakersHeading", "speakersSubheadline", {
+        kicker: "Keynotes",
+        heading: "Who you'll hear from",
+      })}
+      <ul className="mt-10 grid gap-5 sm:grid-cols-2">
+        {speakers.map((person, i) => personCard(person, i, "speakers"))}
+      </ul>
+    </div>
+  ) : null;
+
+  /* Sponsor wall — logo plates on a tinted band, wordmark fallback so a
+     missing asset still reads as a partner rather than a broken image. */
+  const sponsorsSection = showSponsors ? (
+    <div id="sponsors" className="mt-16 sm:mt-20" style={{ background: mixHex(accentChrome, bg, 0.05) }}>
+      <div className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
+        {sectionHeader("sponsorsKicker", "sponsorsHeading", "sponsorsSubheadline", {
+          kicker: "Partners",
+          heading: "Who's making it happen",
+        })}
+        <ul className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {sponsors.map((sponsor, i) => {
+            const plate = (
+              <>
+                {sponsor.logoUrl?.trim() ? (
+                  <img
+                    src={sponsor.logoUrl}
+                    alt={sponsor.name}
+                    className="max-h-10 w-auto max-w-[80%] object-contain"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span
+                    className="text-center text-[15px] font-bold"
+                    style={{ fontFamily: DISPLAY, color: headlineOnCard, letterSpacing: "-0.01em" }}
+                  >
+                    <InlineText
+                      as="span"
+                      value={sponsor.name}
+                      onUpdate={setItem ? (v) => setItem("sponsors", i, { name: v }) : undefined}
+                    />
+                  </span>
+                )}
+                {(sponsor.tier || isEditor) && (
+                  <span
+                    className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em]"
+                    style={{ color: cardInk.muted }}
+                  >
+                    <InlineText
+                      as="span"
+                      value={sponsor.tier ?? ""}
+                      onUpdate={setItem ? (v) => setItem("sponsors", i, { tier: v }) : undefined}
+                    />
+                  </span>
+                )}
+              </>
+            );
+            const plateClass = "flex h-28 flex-col items-center justify-center rounded-xl px-4 text-center";
+            const plateStyle = {
+              background: cardBg,
+              border: `1px solid ${mixHex(cardInk.text, cardBg, 0.1)}`,
+            } as React.CSSProperties;
+            return (
+              <motion.li key={i} {...fadeUp(Math.min(i * 0.04, 0.2))}>
+                {sponsor.url?.trim() && !isEditor ? (
+                  <a
+                    href={sponsor.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`${plateClass} transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current`}
+                    style={plateStyle}
+                  >
+                    {plate}
+                  </a>
+                ) : (
+                  <div className={plateClass} style={plateStyle}>{plate}</div>
+                )}
+              </motion.li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  ) : null;
+
+  /* Resources — hairline rows with a kind chip, matching the schedule's
+     editorial-row language rather than another card grid. */
+  const resourcesSection = showResources ? (
+    <div id="resources" className="mx-auto w-full max-w-5xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+      {sectionHeader("resourcesKicker", "resourcesHeading", "resourcesSubheadline", {
+        kicker: "Before you go",
+        heading: "Take the week with you",
+      })}
+      <ul className="mt-10">
+        {resources.map((resource, i) => {
+          const body = (
+            <>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="font-bold"
+                  style={{ fontFamily: DISPLAY, fontSize: "clamp(1.05rem, 1.7vw, 1.25rem)", lineHeight: 1.25, color: headline }}
+                >
+                  <InlineText
+                    as="span"
+                    value={resource.title}
+                    onUpdate={setItem ? (v) => setItem("resources", i, { title: v }) : undefined}
+                  />
+                </p>
+                {(resource.description || isEditor) && (
+                  <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+                    <InlineText
+                      as="span"
+                      multiline
+                      value={resource.description ?? ""}
+                      onUpdate={setItem ? (v) => setItem("resources", i, { description: v }) : undefined}
+                    />
+                  </p>
+                )}
+              </div>
+              {(resource.kind || isEditor) && (
+                <span
+                  className="shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
+                  style={{ border: `1px solid ${mixHex(ink.text, bg, 0.22)}`, color: ink.muted }}
+                >
+                  <InlineText
+                    as="span"
+                    value={resource.kind ?? ""}
+                    onUpdate={setItem ? (v) => setItem("resources", i, { kind: v }) : undefined}
+                  />
+                </span>
+              )}
+              {resource.url?.trim() && !isEditor && (
+                <span aria-hidden className="shrink-0 text-lg" style={{ color: accentText }}>→</span>
+              )}
+            </>
+          );
+          const rowClass = "flex items-center gap-5 border-b py-6";
+          const rowStyle = { borderColor: mixHex(ink.text, bg, 0.12) } as React.CSSProperties;
+          return (
+            <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))}>
+              {resource.url?.trim() && !isEditor ? (
+                <a
+                  href={resource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${rowClass} transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current`}
+                  style={rowStyle}
+                >
+                  {body}
+                </a>
+              ) : (
+                <div className={rowClass} style={rowStyle}>{body}</div>
+              )}
+            </motion.li>
+          );
+        })}
+      </ul>
+    </div>
+  ) : null;
+
+  const rsvpSection = showRsvp ? (
         <div id="rsvp" className="relative overflow-hidden px-5 pb-20 pt-4 sm:px-8 sm:pb-24 lg:px-10">
           {/* ambient accent glow — the invitation's warmth, never a card edge */}
           <div
@@ -1437,8 +1725,240 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
             )}
           </motion.div>
         </div>
+  ) : null;
+
+  /**
+   * Resolve the render order: the author's `sectionOrder` first (unknown ids
+   * dropped, duplicates ignored), then any canonical section they didn't list
+   * appended in its default position. That last part matters — a page saved
+   * before a section existed must not silently hide it, and it's what lets a
+   * partial order like ["schedule"] mean "schedule first, rest as usual".
+   */
+  const sectionNodes: Record<EvaSectionId, React.ReactNode> = {
+    note: noteSection,
+    team: teamSection,
+    speakers: speakersSection,
+    schedule: scheduleSection,
+    sponsors: sponsorsSection,
+    resources: resourcesSection,
+    rsvp: rsvpSection,
+  };
+  const requested = (props.sectionOrder ?? []).filter((id) => id in sectionNodes);
+  const seenSections = new Set<EvaSectionId>();
+  const resolvedOrder: EvaSectionId[] = [];
+  for (const id of requested) {
+    if (seenSections.has(id)) continue;
+    seenSections.add(id);
+    resolvedOrder.push(id);
+  }
+  for (const id of EVA_SECTION_ORDER) {
+    if (!seenSections.has(id)) resolvedOrder.push(id);
+  }
+  const orderedBody = resolvedOrder.map((id) =>
+    sectionNodes[id] ? <Fragment key={id}>{sectionNodes[id]}</Fragment> : null,
+  );
+
+  return (
+    <section className="relative w-full" style={{ background: bg, fontFamily: BODY }}>
+      {/* ── 1. hero ─────────────────────────────────────────────────────── */}
+      {showHero && (
+        <header className="relative overflow-hidden" style={{ background: heroBg }}>
+          {heroIsOverlay ? (
+            /* full-bleed image under a brand scrim — left column stays readable,
+               the image breathes on the right */
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <img
+                src={props.heroImageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="eager"
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(to right, ${heroBg}F5 0%, ${heroBg}E0 42%, ${mixHex(heroBg, primaryHex, 0.85)}66 100%), linear-gradient(to top, ${heroBg}F2 0%, transparent 45%)`,
+                }}
+              />
+            </div>
+          ) : (
+            <DarkHeroBackdrop
+              surface={heroBg}
+              accent={accentRaw}
+              primary={primaryHex}
+              isStatic={reduced || isEditor}
+              idPrefix="evtag"
+            />
+          )}
+          {props.showNavbar !== false && (
+            <MicrositeNavbar
+              brand={brand}
+              logoUrl={props.logoUrl}
+              logoAlt={props.logoAlt}
+              accountLogoUrl={props.accountLogoUrl}
+              accountLogoAlt={props.accountLogoAlt || props.accountName}
+              logoHeightClass={logoHeights.header}
+              links={props.navLinks ?? EVENT_AGENDA_DEFAULT_PROPS.navLinks ?? []}
+              ctaText={props.navCtaText ?? props.ctaText}
+              ctaUrl={props.navCtaUrl || props.ctaUrl || "#contact"}
+              ctaBg={navCtaBg}
+              ctaText_color={navCtaTextColor}
+              heroSurface={heroBg}
+              isDark
+              ink={heroChrome.ink}
+              inkMuted={heroChrome.muted}
+              accent={heroAccent}
+              onAnchor={handleAnchor}
+            />
+          )}
+
+          <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:px-10">
+            <div className={heroIsSplit ? "grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]" : ""}>
+              <div>
+                {/* itinerary lockup line */}
+                <motion.div {...fadeUp(0)} className="flex items-center gap-4">
+                  <span aria-hidden className="h-px w-10" style={{ background: heroAccent }} />
+                  <p className="text-[12px] font-bold uppercase tracking-[0.26em]" style={{ color: heroChrome.muted }}>
+                    <InlineText as="span" value={props.eyebrow} onUpdate={edit("eyebrow")} />
+                  </p>
+                </motion.div>
+
+                <motion.h1
+                  {...fadeUp(0.08)}
+                  className="mt-7 max-w-3xl text-balance font-bold"
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontSize: heroIsSplit ? "clamp(2.4rem, 4.6vw, 3.9rem)" : "clamp(2.6rem, 5.8vw, 4.6rem)",
+                    lineHeight: 1.02,
+                    letterSpacing: "-0.032em",
+                    color: heroHeadline,
+                  }}
+                >
+                  <InlineText as="span" value={props.headline} onUpdate={edit("headline")} />
+                </motion.h1>
+
+                {(props.subheadline || isEditor) && (
+                  <motion.p
+                    {...fadeUp(0.16)}
+                    className="mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl"
+                    style={{ color: heroInk.muted }}
+                  >
+                    <InlineText as="span" multiline value={props.subheadline ?? ""} onUpdate={edit("subheadline")} />
+                  </motion.p>
+                )}
+
+                <motion.div {...fadeUp(0.24)} className="mt-10 flex flex-wrap items-center gap-4">
+                  <a
+                    href="#schedule"
+                    onClick={(e) => handleAnchor(e, "#schedule")}
+                    className="inline-flex items-center gap-2.5 rounded-full px-7 py-3 text-[15px] font-bold transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                    style={{ background: navCtaBg, color: navCtaTextColor }}
+                  >
+                    See your schedule
+                    <span aria-hidden>↓</span>
+                  </a>
+                  {calendarReady && (
+                    <button
+                      type="button"
+                      onClick={downloadAgendaIcs}
+                      className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[15px] font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                      style={{
+                        border: `1px solid ${mixHex(heroInk.text, heroBg, 0.35)}`,
+                        color: heroInk.text,
+                      }}
+                    >
+                      <CalendarPlus className="h-4 w-4" aria-hidden />
+                      Add all to calendar
+                    </button>
+                  )}
+                </motion.div>
+
+                {/* editorial stat strip */}
+                {heroStats.length > 0 && (
+                  <motion.dl
+                    {...fadeUp(0.3)}
+                    className="mt-12 flex flex-wrap items-stretch gap-x-10 gap-y-6 border-t pt-8"
+                    style={{ borderColor: mixHex(heroInk.text, heroBg, 0.16) }}
+                  >
+                    {heroStats.map((stat) => (
+                      <div key={stat.label} className="min-w-[7rem]">
+                        <dd
+                          className="font-bold tabular-nums"
+                          style={{
+                            fontFamily: NUMBERS,
+                            fontSize: "clamp(2rem, 3.4vw, 2.8rem)",
+                            lineHeight: 1,
+                            letterSpacing: "-0.02em",
+                            color: heroHeadline,
+                          }}
+                        >
+                          {stat.value}
+                        </dd>
+                        <dt className="mt-2 max-w-[11rem] text-[13px] leading-snug" style={{ color: heroInk.muted }}>
+                          {stat.label}
+                        </dt>
+                      </div>
+                    ))}
+                    {props.eventLocation && (
+                      <div className="min-w-[7rem]">
+                        <dd
+                          className="font-bold"
+                          style={{
+                            fontFamily: DISPLAY,
+                            fontSize: "clamp(1.3rem, 2vw, 1.7rem)",
+                            lineHeight: 1.15,
+                            letterSpacing: "-0.015em",
+                            color: heroHeadline,
+                            paddingTop: "0.35rem",
+                          }}
+                        >
+                          {props.eventLocation}
+                        </dd>
+                        <dt className="mt-2 text-[13px] leading-snug" style={{ color: heroInk.muted }}>
+                          {props.eventDates || "on location"}
+                        </dt>
+                      </div>
+                    )}
+                  </motion.dl>
+                )}
+              </div>
+
+              {/* optional editorial image panel (split layout only) */}
+              {heroIsSplit && (
+                <motion.figure
+                  {...fadeUp(0.18)}
+                  className="relative hidden overflow-hidden rounded-2xl lg:block"
+                  style={{ boxShadow: "0 40px 80px -48px rgba(0,0,0,0.65)" }}
+                >
+                  <img
+                    src={props.heroImageUrl}
+                    alt={props.heroImageAlt || props.eventName || "Event"}
+                    className="h-full max-h-[520px] w-full object-cover"
+                    loading="eager"
+                  />
+                  {/* brand duotone scrim so any photo sits in the palette */}
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background: `linear-gradient(160deg, ${mixHex(primaryHex, heroBg, 0.55)}33 0%, transparent 45%), linear-gradient(to top, ${heroBg}E6 0%, transparent 42%)`,
+                    }}
+                  />
+                  <figcaption
+                    className="absolute inset-x-0 bottom-0 px-6 pb-5 text-[12px] font-bold uppercase tracking-[0.22em]"
+                    style={{ color: heroChrome.ink }}
+                  >
+                    {[props.eventName, props.eventDates].filter(Boolean).join(" · ")}
+                  </figcaption>
+                </motion.figure>
+              )}
+            </div>
+          </div>
+        </header>
       )}
 
+      {/* ── body: note / team / speakers / schedule / sponsors / resources / rsvp,
+             ordered by `sectionOrder` (hero + close bookend the page) ── */}
+      {orderedBody}
       {/* ── 5. close ────────────────────────────────────────────────────── */}
       {showClose && (
         <div id="contact" className="relative overflow-hidden" style={{ background: heroBg }}>

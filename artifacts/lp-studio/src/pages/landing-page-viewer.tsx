@@ -336,9 +336,9 @@ function deepApplyVars(value: unknown, vars: Record<string, string>): unknown {
  * published snapshot — the file the edge serves to scrapers AND the source of
  * the "Export HTML" download.
  *
- * That capture NEVER SCROLLS: it waits for [data-lp-page], settles ~500ms, and
- * snapshots. So every section that reveals on `whileInView` was frozen with
- * framer's `initial` still applied (inline `opacity: 0`) — the copy was in the
+ * That capture NEVER SCROLLS: it waits for the rendered page wrapper, settles
+ * ~500ms, and snapshots. So every section that reveals on `whileInView` was
+ * frozen with framer's `initial` still applied (inline `opacity: 0`) — the copy was in the
  * HTML but invisible, which is why an exported agenda showed only its nav and
  * hero band while the schedule, note, RSVP and close "disappeared".
  *

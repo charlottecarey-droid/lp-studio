@@ -17,7 +17,12 @@ import type {
   EventAgendaBlockProps,
   EvaDay,
   EvaSession,
+  EvaSectionId,
+  EvaPerson,
+  EvaSponsor,
+  EvaResource,
 } from "@/blocks/BlockEventAgenda";
+import { EVA_SECTION_ORDER } from "@/blocks/BlockEventAgenda";
 
 /* ----------------------------------------------------------------------------
  * Property panel for the "event-agenda" full-page block. Collapsible sections
@@ -162,6 +167,11 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
     palette: false,
     note: false,
     schedule: true,
+    team: false,
+    speakers: false,
+    sponsors: false,
+    resources: false,
+    order: false,
     rsvp: false,
     close: false,
   });
@@ -186,6 +196,45 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
     setDay(dayIdx, {
       sessions: props.days[dayIdx].sessions.map((s, j) => (j === i ? { ...s, ...patch } : s)),
     });
+
+  /* ── list helpers for the four content sections ── */
+  type ListKey = "team" | "speakers" | "sponsors" | "resources";
+  const list = <K extends ListKey>(key: K): NonNullable<EventAgendaBlockProps[K]> =>
+    (props[key] ?? []) as NonNullable<EventAgendaBlockProps[K]>;
+  const setList = <K extends ListKey>(key: K, next: NonNullable<EventAgendaBlockProps[K]>) =>
+    set(key, next as EventAgendaBlockProps[K]);
+  const patchItem = <K extends ListKey>(
+    key: K,
+    i: number,
+    patch: Partial<NonNullable<EventAgendaBlockProps[K]>[number]>,
+  ) =>
+    setList(key, list(key).map((item, j) => (j === i ? { ...item, ...patch } : item)) as NonNullable<EventAgendaBlockProps[K]>);
+  const removeItem = (key: ListKey, i: number) =>
+    setList(key, list(key).filter((_, j) => j !== i) as never);
+  const moveListItem = (key: ListKey, i: number, dir: -1 | 1) =>
+    setList(key, moveItem(list(key) as unknown[], i, dir) as never);
+
+  /**
+   * Section order shown in the panel: the author's saved order first, then any
+   * section they haven't placed yet — mirrors the block's own resolution so the
+   * list always matches what renders.
+   */
+  const orderedSections: EvaSectionId[] = (() => {
+    const saved = (props.sectionOrder ?? []).filter((id) => EVA_SECTION_ORDER.includes(id));
+    const seen = new Set(saved);
+    return [...saved, ...EVA_SECTION_ORDER.filter((id) => !seen.has(id))];
+  })();
+  const SECTION_LABELS: Record<EvaSectionId, string> = {
+    note: "Personal note",
+    team: "Account team",
+    speakers: "Keynote speakers",
+    schedule: "Schedule",
+    sponsors: "Sponsors",
+    resources: "Resources",
+    rsvp: "RSVP",
+  };
+  const moveSection = (i: number, dir: -1 | 1) =>
+    set("sectionOrder", moveItem(orderedSections, i, dir));
 
   return (
     <div className="space-y-3">
@@ -212,6 +261,22 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <div className="flex items-center justify-between">
               <Label className="text-xs">Personal note</Label>
               <Switch checked={props.showNote !== false} onCheckedChange={(v) => set("showNote", v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Account team</Label>
+              <Switch checked={props.showTeam !== false} onCheckedChange={(v) => set("showTeam", v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Keynote speakers</Label>
+              <Switch checked={props.showSpeakers !== false} onCheckedChange={(v) => set("showSpeakers", v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Sponsors</Label>
+              <Switch checked={props.showSponsors !== false} onCheckedChange={(v) => set("showSponsors", v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Resources</Label>
+              <Switch checked={props.showResources !== false} onCheckedChange={(v) => set("showResources", v)} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">RSVP form</Label>
@@ -479,6 +544,268 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               onClick={() => set("days", [...props.days, { ...EMPTY_DAY }])}
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add day
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section order ── */}
+      <div>
+        <SectionHeader label="Section order" open={open.order} onToggle={() => toggle("order")} />
+        {open.order && (
+          <div className="pt-2.5 space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              Drag-free reordering of the page body. The hero and contact close always bookend the page.
+            </p>
+            {orderedSections.map((id, i) => (
+              <div key={id} className="flex items-center gap-2 border rounded-md px-2.5 py-1.5">
+                <span className="text-[11px] tabular-nums text-muted-foreground w-4">{i + 1}</span>
+                <span className="text-xs flex-1">{SECTION_LABELS[id]}</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6" disabled={i === 0} onClick={() => moveSection(i, -1)}>
+                  <ArrowUp className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={i === orderedSections.length - 1}
+                  onClick={() => moveSection(i, 1)}
+                >
+                  <ArrowDown className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+            {props.sectionOrder && props.sectionOrder.length > 0 && (
+              <Button variant="outline" size="sm" className="h-7 text-xs w-full" onClick={() => set("sectionOrder", undefined)}>
+                Reset to default order
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Account team ── */}
+      <div>
+        <SectionHeader label="Account team" open={open.team} onToggle={() => toggle("team")} />
+        {open.team && (
+          <div className="pt-2.5 space-y-2.5">
+            <Field label="Kicker">
+              <Input value={props.teamKicker ?? ""} onChange={(e) => set("teamKicker", e.target.value)} placeholder="Your account team" className="text-xs h-8" />
+            </Field>
+            <Field label="Headline">
+              <Input value={props.teamHeading ?? ""} onChange={(e) => set("teamHeading", e.target.value)} className="text-xs h-8" />
+            </Field>
+            <Field label="Subheadline">
+              <Textarea value={props.teamSubheadline ?? ""} onChange={(e) => set("teamSubheadline", e.target.value)} rows={2} className="text-xs" />
+            </Field>
+            {list("team").map((person, i) => (
+              <div key={i} className="space-y-2 border rounded-md p-2.5">
+                <ArrayItemHeader
+                  label="Person"
+                  index={i}
+                  total={list("team").length}
+                  onMoveUp={() => moveListItem("team", i, -1)}
+                  onMoveDown={() => moveListItem("team", i, 1)}
+                  onRemove={() => removeItem("team", i)}
+                />
+                <Field label="Name">
+                  <Input value={person.name} onChange={(e) => patchItem("team", i, { name: e.target.value })} className="text-xs h-8" />
+                </Field>
+                <Field label="Role">
+                  <Input value={person.title ?? ""} onChange={(e) => patchItem("team", i, { title: e.target.value })} className="text-xs h-8" />
+                </Field>
+                <Field label="Bio">
+                  <Textarea value={person.bio ?? ""} onChange={(e) => patchItem("team", i, { bio: e.target.value })} rows={2} className="text-xs" />
+                </Field>
+                <Field label="Headshot">
+                  <ImagePicker
+                    value={person.imageUrl ?? ""}
+                    onChange={(url) => patchItem("team", i, { imageUrl: url })}
+                    label={`${person.name || "Team member"} headshot`}
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Link label">
+                    <Input value={person.linkLabel ?? ""} onChange={(e) => patchItem("team", i, { linkLabel: e.target.value })} placeholder="Book time" className="text-xs h-8" />
+                  </Field>
+                  <Field label="Link URL">
+                    <Input value={person.linkUrl ?? ""} onChange={(e) => patchItem("team", i, { linkUrl: e.target.value })} placeholder="#contact" className="text-xs h-8" />
+                  </Field>
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => setList("team", [...list("team"), { name: "New person" } as EvaPerson])}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add person
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Keynote speakers ── */}
+      <div>
+        <SectionHeader label="Keynote speakers" open={open.speakers} onToggle={() => toggle("speakers")} />
+        {open.speakers && (
+          <div className="pt-2.5 space-y-2.5">
+            <Field label="Kicker">
+              <Input value={props.speakersKicker ?? ""} onChange={(e) => set("speakersKicker", e.target.value)} placeholder="Keynotes" className="text-xs h-8" />
+            </Field>
+            <Field label="Headline">
+              <Input value={props.speakersHeading ?? ""} onChange={(e) => set("speakersHeading", e.target.value)} className="text-xs h-8" />
+            </Field>
+            <Field label="Subheadline">
+              <Textarea value={props.speakersSubheadline ?? ""} onChange={(e) => set("speakersSubheadline", e.target.value)} rows={2} className="text-xs" />
+            </Field>
+            {list("speakers").map((person, i) => (
+              <div key={i} className="space-y-2 border rounded-md p-2.5">
+                <ArrayItemHeader
+                  label="Speaker"
+                  index={i}
+                  total={list("speakers").length}
+                  onMoveUp={() => moveListItem("speakers", i, -1)}
+                  onMoveDown={() => moveListItem("speakers", i, 1)}
+                  onRemove={() => removeItem("speakers", i)}
+                />
+                <Field label="Name">
+                  <Input value={person.name} onChange={(e) => patchItem("speakers", i, { name: e.target.value })} className="text-xs h-8" />
+                </Field>
+                <Field label="Title">
+                  <Input value={person.title ?? ""} onChange={(e) => patchItem("speakers", i, { title: e.target.value })} className="text-xs h-8" />
+                </Field>
+                <Field label="Bio">
+                  <Textarea value={person.bio ?? ""} onChange={(e) => patchItem("speakers", i, { bio: e.target.value })} rows={2} className="text-xs" />
+                </Field>
+                <Field label="Their session">
+                  <Input value={person.sessionTitle ?? ""} onChange={(e) => patchItem("speakers", i, { sessionTitle: e.target.value })} className="text-xs h-8" />
+                </Field>
+                <Field label="Headshot">
+                  <ImagePicker
+                    value={person.imageUrl ?? ""}
+                    onChange={(url) => patchItem("speakers", i, { imageUrl: url })}
+                    label={`${person.name || "Speaker"} headshot`}
+                  />
+                </Field>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => setList("speakers", [...list("speakers"), { name: "New speaker" } as EvaPerson])}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add speaker
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Sponsors ── */}
+      <div>
+        <SectionHeader label="Sponsors" open={open.sponsors} onToggle={() => toggle("sponsors")} />
+        {open.sponsors && (
+          <div className="pt-2.5 space-y-2.5">
+            <Field label="Kicker">
+              <Input value={props.sponsorsKicker ?? ""} onChange={(e) => set("sponsorsKicker", e.target.value)} placeholder="Partners" className="text-xs h-8" />
+            </Field>
+            <Field label="Headline">
+              <Input value={props.sponsorsHeading ?? ""} onChange={(e) => set("sponsorsHeading", e.target.value)} className="text-xs h-8" />
+            </Field>
+            <Field label="Subheadline">
+              <Textarea value={props.sponsorsSubheadline ?? ""} onChange={(e) => set("sponsorsSubheadline", e.target.value)} rows={2} className="text-xs" />
+            </Field>
+            {list("sponsors").map((sponsor, i) => (
+              <div key={i} className="space-y-2 border rounded-md p-2.5">
+                <ArrayItemHeader
+                  label="Sponsor"
+                  index={i}
+                  total={list("sponsors").length}
+                  onMoveUp={() => moveListItem("sponsors", i, -1)}
+                  onMoveDown={() => moveListItem("sponsors", i, 1)}
+                  onRemove={() => removeItem("sponsors", i)}
+                />
+                <Field label="Name">
+                  <Input value={sponsor.name} onChange={(e) => patchItem("sponsors", i, { name: e.target.value })} className="text-xs h-8" />
+                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Tier">
+                    <Input value={sponsor.tier ?? ""} onChange={(e) => patchItem("sponsors", i, { tier: e.target.value })} placeholder="Founding partner" className="text-xs h-8" />
+                  </Field>
+                  <Field label="Link">
+                    <Input value={sponsor.url ?? ""} onChange={(e) => patchItem("sponsors", i, { url: e.target.value })} placeholder="https://…" className="text-xs h-8" />
+                  </Field>
+                </div>
+                <Field label="Logo (falls back to the name)">
+                  <ImagePicker
+                    value={sponsor.logoUrl ?? ""}
+                    onChange={(url) => patchItem("sponsors", i, { logoUrl: url })}
+                    label={`${sponsor.name || "Sponsor"} logo`}
+                  />
+                </Field>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => setList("sponsors", [...list("sponsors"), { name: "New sponsor" } as EvaSponsor])}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add sponsor
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Resources ── */}
+      <div>
+        <SectionHeader label="Resources" open={open.resources} onToggle={() => toggle("resources")} />
+        {open.resources && (
+          <div className="pt-2.5 space-y-2.5">
+            <Field label="Kicker">
+              <Input value={props.resourcesKicker ?? ""} onChange={(e) => set("resourcesKicker", e.target.value)} placeholder="Before you go" className="text-xs h-8" />
+            </Field>
+            <Field label="Headline">
+              <Input value={props.resourcesHeading ?? ""} onChange={(e) => set("resourcesHeading", e.target.value)} className="text-xs h-8" />
+            </Field>
+            <Field label="Subheadline">
+              <Textarea value={props.resourcesSubheadline ?? ""} onChange={(e) => set("resourcesSubheadline", e.target.value)} rows={2} className="text-xs" />
+            </Field>
+            {list("resources").map((resource, i) => (
+              <div key={i} className="space-y-2 border rounded-md p-2.5">
+                <ArrayItemHeader
+                  label="Resource"
+                  index={i}
+                  total={list("resources").length}
+                  onMoveUp={() => moveListItem("resources", i, -1)}
+                  onMoveDown={() => moveListItem("resources", i, 1)}
+                  onRemove={() => removeItem("resources", i)}
+                />
+                <Field label="Title">
+                  <Input value={resource.title} onChange={(e) => patchItem("resources", i, { title: e.target.value })} className="text-xs h-8" />
+                </Field>
+                <Field label="Description">
+                  <Textarea value={resource.description ?? ""} onChange={(e) => patchItem("resources", i, { description: e.target.value })} rows={2} className="text-xs" />
+                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Kind">
+                    <Input value={resource.kind ?? ""} onChange={(e) => patchItem("resources", i, { kind: e.target.value })} placeholder="PDF" className="text-xs h-8" />
+                  </Field>
+                  <Field label="Link">
+                    <Input value={resource.url ?? ""} onChange={(e) => patchItem("resources", i, { url: e.target.value })} placeholder="https://…" className="text-xs h-8" />
+                  </Field>
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => setList("resources", [...list("resources"), { title: "New resource" } as EvaResource])}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add resource
             </Button>
           </div>
         )}
