@@ -930,15 +930,59 @@ export function resolveQuoteCardBg(
  * Threshold 3.0 matches WCAG AA for non-text UI components; text on the
  * chosen bg is then resolved with the stricter 4.5 (AA normal text).
  */
+/**
+ * The brand's primary-button GRADIENT fill, when one is configured (page-level
+ * button overrides or a URL import that measured a gradient CTA). Returned as
+ * a ready-to-use CSS `background` value plus the hex of its first stop, which
+ * is what label contrast must be measured against.
+ *
+ * Gradients can't ride `ctaBackground` (that's a hex every caller may feed to
+ * contrast math), so they live on `buttonStyleRaw.background` — see
+ * lib/button-gradient.ts.
+ */
+function brandCtaGradient(brand: BrandConfig): { css: string; firstStop: string | null } | null {
+  const bg = brand.buttonStyleRaw?.background;
+  if (!bg || bg.type !== "gradient" || typeof bg.value !== "string") return null;
+  const css = sanitizeCssValue(bg.value);
+  if (!css || !/gradient/i.test(css)) return null;
+  return { css, firstStop: cssColorToHex(css) };
+}
+
+/**
+ * Resolve the fill + label a PRIMARY (filled) button should use on a given
+ * section background.
+ *
+ * When the brand carries a gradient primary fill, `bg` is the gradient's CSS
+ * — hand-rolled buttons across the library assign it straight to
+ * `style.background`, which is how the DSO family, the final-CTA blocks, and
+ * the sticky site header pick up a gradient without each needing a marker
+ * class (a CSS rule can't reach an inline-styled button that carries no hook).
+ * Callers that feed `bg` to colour math must guard with `isValidHex` — it is
+ * NOT a hex in gradient mode; use the returned `text`, which is already
+ * contrast-resolved against the gradient's first stop.
+ */
 export function pickCtaButtonColors(
   brand: BrandConfig,
   sectionBg: string | undefined | null,
 ): { bg: string; text: string } {
   const accent = isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor;
   const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const ctaTextPref = isValidHex(brand.ctaText ?? "") ? (brand.ctaText as string) : undefined;
+
+  const gradient = brandCtaGradient(brand);
+  if (gradient) {
+    // Contrast is measured against the first stop — the only part of the ramp
+    // we can evaluate — so a label that fails there is replaced, exactly as
+    // getBrandButtonCss does for the stylesheet path.
+    const anchor = gradient.firstStop ?? accent;
+    return {
+      bg: gradient.css,
+      text: pickContrastingColor(ctaTextPref, anchor, [contrastTextColor(anchor)], 4.5),
+    };
+  }
+
   const ctaBgPref = isValidHex(brand.ctaBackground ?? "") ? (brand.ctaBackground as string) : accent;
   const bg = pickContrastingColor(ctaBgPref, sectionBg, [accent, primary], 3.0);
-  const ctaTextPref = isValidHex(brand.ctaText ?? "") ? (brand.ctaText as string) : undefined;
   const text = pickContrastingColor(ctaTextPref, bg, [contrastTextColor(bg)], 4.5);
   return { bg, text };
 }

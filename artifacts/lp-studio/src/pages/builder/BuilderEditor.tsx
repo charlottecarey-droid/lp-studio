@@ -3799,9 +3799,13 @@ export default function BuilderEditor() {
                   .animate-marquee { animation: marquee 40s linear infinite; }
                   .animate-marquee:hover { animation-play-state: paused; }
                 `}</style>
-                {getBrandButtonCss(brand) && <style>{getBrandButtonCss(brand)}</style>}
-                <style>{getBrandButtonShapeCss(brand)}</style>
-                {getBrandSurfaceCss(brand) && <style>{getBrandSurfaceCss(brand)}</style>}
+                {/* These MUST read `effectiveBrand` — the same brand the canvas
+                    renders with. Reading raw `brand` here meant page-level style
+                    overrides (URL-matched button CSS, manual button overrides,
+                    gradients) never showed on the canvas at all. */}
+                {getBrandButtonCss(effectiveBrand) && <style>{getBrandButtonCss(effectiveBrand)}</style>}
+                <style>{getBrandButtonShapeCss(effectiveBrand)}</style>
+                {getBrandSurfaceCss(effectiveBrand) && <style>{getBrandSurfaceCss(effectiveBrand)}</style>}
                 <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
                     {!catalogMode && <InsertionBar onClick={() => openInsertAt(0)} />}
                     {blocks.map((block, index) => (

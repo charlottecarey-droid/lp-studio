@@ -167,11 +167,24 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   const ACCENT_FG = pickContrastingColor(accentHex, HERO_DARK_SURFACE, ["#ffffff"], 4.5);
   const ctaButtonColors = pickCtaButtonColors(brand, HERO_DARK_SURFACE);
   const CTA_BG = p.buttonColor || ctaButtonColors.bg;
+  // The resolved fill can be a GRADIENT (brand/page-level gradient buttons), so
+  // only run contrast math on a real hex; otherwise take the helper's label,
+  // which is already resolved against the gradient's first stop.
   const CTA_TEXT =
-    p.buttonTextColor || contrastTextColor(isValidHex(CTA_BG) ? CTA_BG : ctaButtonColors.bg);
+    p.buttonTextColor || (isValidHex(CTA_BG) ? contrastTextColor(CTA_BG) : ctaButtonColors.text);
 
   const renderHeadline = () => {
     const text = p.headline ?? "";
+
+    // In the builder the headline is click-to-edit. The read-only paths below
+    // decorate it (accent-colouring `{tokens}` / the company name) by splitting
+    // it into styled spans, which can't host an editable text node — so edit
+    // mode shows the RAW string instead, braces and all. That's also the only
+    // way to author or remove a token; the decoration returns on the canvas the
+    // moment focus leaves. Shared by all four hero layouts.
+    if (onFieldChange) {
+      return <InlineText as="span" value={text} onUpdate={field("headline")} />;
+    }
 
     if (text.includes("{") && text.includes("}")) {
       const parts: React.ReactNode[] = [];
