@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
 import { motion, useInView, type TargetAndTransition } from "framer-motion";
 import { safeNavigate } from "@/lib/safe-url";
-import { useRevealFallback } from "@/lib/reveal-fallback";
+import { StaticRenderContext, useRevealFallback } from "@/lib/reveal-fallback";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
@@ -331,7 +331,35 @@ function deepApplyVars(value: unknown, vars: Record<string, string>): unknown {
   return value;
 }
 
+/**
+ * `?prerender=1` is set by lib/prerenderLpPage.ts when Playwright captures the
+ * published snapshot — the file the edge serves to scrapers AND the source of
+ * the "Export HTML" download.
+ *
+ * That capture NEVER SCROLLS: it waits for [data-lp-page], settles ~500ms, and
+ * snapshots. So every section that reveals on `whileInView` was frozen with
+ * framer's `initial` still applied (inline `opacity: 0`) — the copy was in the
+ * HTML but invisible, which is why an exported agenda showed only its nav and
+ * hero band while the schedule, note, RSVP and close "disappeared".
+ *
+ * Entering the existing static-render contract fixes it for EVERY block, not
+ * just the agenda: reveals render their final frame with no entrance
+ * animation — the same guarantee template previews and thumbnails rely on —
+ * deterministically, with no scrolling or animation-timing races.
+ * See lib/reveal-fallback.ts.
+ */
 export default function LandingPageViewer() {
+  const isPrerender =
+    typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("prerender") === "1";
+  return (
+    <StaticRenderContext.Provider value={isPrerender}>
+      <LandingPageViewerInner />
+    </StaticRenderContext.Provider>
+  );
+}
+
+function LandingPageViewerInner() {
   const [, paramsLp] = useRoute("/lp/:slug");
   const [, paramsPreview] = useRoute("/preview/:slug");
   const [, paramsShort] = useRoute("/:slug");
