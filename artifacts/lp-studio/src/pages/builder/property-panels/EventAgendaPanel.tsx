@@ -150,6 +150,58 @@ function moveItem<T>(arr: T[], i: number, dir: -1 | 1): T[] {
   return next;
 }
 
+/** Headline alignment + scale + layout pickers, shared by the content sections
+ *  so each one can be tuned without them all looking alike. */
+function SectionStyleRow({
+  align, onAlign, size, onSize, layout,
+}: {
+  align: "left" | "center" | undefined;
+  onAlign: (v: "left" | "center") => void;
+  size: "sm" | "md" | "lg" | "xl" | undefined;
+  onSize: (v: "sm" | "md" | "lg" | "xl") => void;
+  layout?: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label?: string };
+}) {
+  return (
+    <div className="space-y-2 border rounded-md p-2.5">
+      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Style</div>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Headline align">
+          <Select value={align ?? "left"} onValueChange={(v) => onAlign(v as "left" | "center")}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="left">Left</SelectItem>
+              <SelectItem value="center">Center</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Headline size">
+          <Select value={size ?? "lg"} onValueChange={(v) => onSize(v as "sm" | "md" | "lg" | "xl")}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sm">Small</SelectItem>
+              <SelectItem value="md">Medium</SelectItem>
+              <SelectItem value="lg">Large</SelectItem>
+              <SelectItem value="xl">Extra large</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+      {layout && (
+        <Field label={layout.label ?? "Layout"}>
+          <Select value={layout.value} onValueChange={layout.onChange}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {layout.options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+    </div>
+  );
+}
+
 const EMPTY_SESSION: EvaSession = { time: "", title: "New session" };
 const EMPTY_DAY: EvaDay = { label: "New day", sessions: [] };
 
@@ -598,6 +650,32 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Subheadline">
               <Textarea value={props.teamSubheadline ?? ""} onChange={(e) => set("teamSubheadline", e.target.value)} rows={2} className="text-xs" />
             </Field>
+            <SectionStyleRow
+              align={props.teamAlign ?? "center"}
+              onAlign={(v) => set("teamAlign", v)}
+              size={props.teamHeadingSize}
+              onSize={(v) => set("teamHeadingSize", v)}
+              layout={{
+                value: props.teamLayout ?? "roster",
+                onChange: (v) => set("teamLayout", v as NonNullable<EventAgendaBlockProps["teamLayout"]>),
+                options: [
+                  { value: "roster", label: "Roster — large portraits, contact underneath" },
+                  { value: "compact", label: "Compact — portrait beside the copy" },
+                ],
+              }}
+            />
+            <Field label="Portrait shape">
+              <Select
+                value={props.teamPortraitShape ?? "circle"}
+                onValueChange={(v) => set("teamPortraitShape", v as NonNullable<EventAgendaBlockProps["teamPortraitShape"]>)}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="circle">Circle</SelectItem>
+                  <SelectItem value="square">Rounded square</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             {list("team").map((person, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader
@@ -614,6 +692,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 <Field label="Role">
                   <Input value={person.title ?? ""} onChange={(e) => patchItem("team", i, { title: e.target.value })} className="text-xs h-8" />
                 </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Email">
+                    <Input value={person.email ?? ""} onChange={(e) => patchItem("team", i, { email: e.target.value })} placeholder="name@company.com" className="text-xs h-8" />
+                  </Field>
+                  <Field label="Phone">
+                    <Input value={person.phone ?? ""} onChange={(e) => patchItem("team", i, { phone: e.target.value })} placeholder="+1 (415) 555-0142" className="text-xs h-8" />
+                  </Field>
+                </div>
                 <Field label="Bio">
                   <Textarea value={person.bio ?? ""} onChange={(e) => patchItem("team", i, { bio: e.target.value })} rows={2} className="text-xs" />
                 </Field>
@@ -660,6 +746,20 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Subheadline">
               <Textarea value={props.speakersSubheadline ?? ""} onChange={(e) => set("speakersSubheadline", e.target.value)} rows={2} className="text-xs" />
             </Field>
+            <SectionStyleRow
+              align={props.speakersAlign}
+              onAlign={(v) => set("speakersAlign", v)}
+              size={props.speakersHeadingSize ?? "xl"}
+              onSize={(v) => set("speakersHeadingSize", v)}
+              layout={{
+                value: props.speakersLayout ?? "feature",
+                onChange: (v) => set("speakersLayout", v as NonNullable<EventAgendaBlockProps["speakersLayout"]>),
+                options: [
+                  { value: "feature", label: "Feature rows — alternating, big bios" },
+                  { value: "grid", label: "Grid — 3-up for long line-ups" },
+                ],
+              }}
+            />
             {list("speakers").map((person, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader
@@ -717,6 +817,24 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Subheadline">
               <Textarea value={props.sponsorsSubheadline ?? ""} onChange={(e) => set("sponsorsSubheadline", e.target.value)} rows={2} className="text-xs" />
             </Field>
+            <SectionStyleRow
+              align={props.sponsorsAlign ?? "center"}
+              onAlign={(v) => set("sponsorsAlign", v)}
+              size={props.sponsorsHeadingSize ?? "md"}
+              onSize={(v) => set("sponsorsHeadingSize", v)}
+              layout={{
+                value: props.sponsorsLayout ?? "wall",
+                onChange: (v) => set("sponsorsLayout", v as NonNullable<EventAgendaBlockProps["sponsorsLayout"]>),
+                options: [
+                  { value: "wall", label: "Wall — grouped by tier, no plates" },
+                  { value: "plates", label: "Plates — bordered tiles" },
+                ],
+              }}
+            />
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Tinted band</Label>
+              <Switch checked={props.sponsorsBand !== false} onCheckedChange={(v) => set("sponsorsBand", v)} />
+            </div>
             {list("sponsors").map((sponsor, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader
@@ -773,6 +891,20 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Subheadline">
               <Textarea value={props.resourcesSubheadline ?? ""} onChange={(e) => set("resourcesSubheadline", e.target.value)} rows={2} className="text-xs" />
             </Field>
+            <SectionStyleRow
+              align={props.resourcesAlign}
+              onAlign={(v) => set("resourcesAlign", v)}
+              size={props.resourcesHeadingSize ?? "md"}
+              onSize={(v) => set("resourcesHeadingSize", v)}
+              layout={{
+                value: props.resourcesLayout ?? "index",
+                onChange: (v) => set("resourcesLayout", v as NonNullable<EventAgendaBlockProps["resourcesLayout"]>),
+                options: [
+                  { value: "index", label: "Index — numbered contents list" },
+                  { value: "cards", label: "Cards — 2-up grid" },
+                ],
+              }}
+            />
             {list("resources").map((resource, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader

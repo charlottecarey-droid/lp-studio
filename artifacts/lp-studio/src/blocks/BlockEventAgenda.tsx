@@ -105,7 +105,11 @@ export interface EvaDay {
   sessions: EvaSession[];
 }
 
-/** A person card — used by both the account team and the keynote speakers. */
+/** Per-section headline alignment + scale, so sections don't all read alike. */
+export type EvaAlign = "left" | "center";
+export type EvaHeadingSize = "sm" | "md" | "lg" | "xl";
+
+/** A person — the account team and the keynote speakers share this shape. */
 export interface EvaPerson {
   name: string;
   /** Role line, e.g. "Enterprise Account Executive" or "CEO, Northwind". */
@@ -116,7 +120,10 @@ export interface EvaPerson {
   bio?: string;
   /** Speakers only: the session they're presenting, shown as a linking line. */
   sessionTitle?: string;
-  /** Optional contact/booking link (account team). */
+  /** Contact details shown UNDER the name on the team roster (plain text, no pills). */
+  email?: string;
+  phone?: string;
+  /** Optional contact/booking link. */
   linkUrl?: string;
   linkLabel?: string;
 }
@@ -249,6 +256,15 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   teamKicker?: string;
   teamHeading?: string;
   teamSubheadline?: string;
+  teamAlign?: EvaAlign;
+  teamHeadingSize?: EvaHeadingSize;
+  /**
+   * "roster" (default) = large portraits with the name and contact details
+   * underneath. "compact" = smaller portrait beside the copy for long lists.
+   */
+  teamLayout?: "roster" | "compact";
+  /** Portrait shape on the roster layout. Default "circle". */
+  teamPortraitShape?: "circle" | "square";
   team?: EvaPerson[];
 
   /* ── keynote speakers (before the schedule by default) ────────────────── */
@@ -256,6 +272,14 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   speakersKicker?: string;
   speakersHeading?: string;
   speakersSubheadline?: string;
+  speakersAlign?: EvaAlign;
+  speakersHeadingSize?: EvaHeadingSize;
+  /**
+   * "feature" (default) = full-width alternating rows, portrait beside a
+   * generous bio — deliberately unlike the team grid. "grid" = a tighter
+   * 3-up when there are many speakers.
+   */
+  speakersLayout?: "feature" | "grid";
   speakers?: EvaPerson[];
 
   /* ── sponsors / partners (after the schedule by default) ──────────────── */
@@ -263,6 +287,15 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   sponsorsKicker?: string;
   sponsorsHeading?: string;
   sponsorsSubheadline?: string;
+  sponsorsAlign?: EvaAlign;
+  sponsorsHeadingSize?: EvaHeadingSize;
+  /**
+   * "wall" (default) = logos grouped under a plain tier label, no plates or
+   * pills — how a real sponsor wall reads. "plates" = bordered tiles.
+   */
+  sponsorsLayout?: "wall" | "plates";
+  /** Tint the sponsors band to separate it from its neighbours. Default true. */
+  sponsorsBand?: boolean;
   sponsors?: EvaSponsor[];
 
   /* ── resources (after the schedule by default) ────────────────────────── */
@@ -270,6 +303,13 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   resourcesKicker?: string;
   resourcesHeading?: string;
   resourcesSubheadline?: string;
+  resourcesAlign?: EvaAlign;
+  resourcesHeadingSize?: EvaHeadingSize;
+  /**
+   * "index" (default) = a numbered editorial index, kind set as plain small
+   * caps. "cards" = a 2-up card grid when the descriptions run long.
+   */
+  resourcesLayout?: "index" | "cards";
   resources?: EvaResource[];
 
   /**
@@ -427,6 +467,8 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
       name: "Maya Chen",
       title: "Enterprise Account Executive",
       bio: "Your day-to-day partner on strategy and anything you need on site.",
+      email: "maya.chen@example.com",
+      phone: "+1 (415) 555-0142",
       linkLabel: "Book time",
       linkUrl: "#contact",
     },
@@ -434,11 +476,14 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
       name: "Jordan Ellis",
       title: "Solutions Architect",
       bio: "Bring him your hardest technical questions — he'll have answers or find them.",
+      email: "jordan.ellis@example.com",
     },
     {
       name: "Priya Raman",
       title: "Customer Success Director",
       bio: "Owns your rollout plan and the milestones we set together this year.",
+      email: "priya.raman@example.com",
+      phone: "+1 (415) 555-0188",
     },
   ],
 
@@ -832,136 +877,268 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
    * Shared kicker / headline / subheadline lockup so every body section reads
    * as one system with the schedule's own header (same type ramp, same rhythm).
    */
+  /** Headline scale per section — authors size sections against each other. */
+  const HEADING_SIZES: Record<EvaHeadingSize, string> = {
+    sm: "clamp(1.4rem, 2.4vw, 1.85rem)",
+    md: "clamp(1.7rem, 3.2vw, 2.4rem)",
+    lg: "clamp(2rem, 4vw, 3rem)",
+    xl: "clamp(2.4rem, 5vw, 3.75rem)",
+  };
+
   const sectionHeader = (
     kickerKey: keyof EventAgendaBlockProps,
     headingKey: keyof EventAgendaBlockProps,
     subKey: keyof EventAgendaBlockProps,
     fallbacks: { kicker: string; heading: string },
-  ) => (
-    <>
-      <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
-        <InlineText as="span" value={(props[kickerKey] as string) ?? fallbacks.kicker} onUpdate={edit(kickerKey)} />
-      </motion.p>
-      <motion.h2
-        {...fadeUp(0.06)}
-        className="mt-4 max-w-2xl font-bold"
-        style={{
-          fontFamily: DISPLAY,
-          fontSize: "clamp(2rem, 4vw, 3rem)",
-          lineHeight: 1.06,
-          letterSpacing: "-0.024em",
-          color: headline,
-        }}
-      >
-        <InlineText as="span" value={(props[headingKey] as string) ?? fallbacks.heading} onUpdate={edit(headingKey)} />
-      </motion.h2>
-      {(props[subKey] || isEditor) && (
-        <motion.p {...fadeUp(0.12)} className="mt-4 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: ink.muted }}>
-          <InlineText as="span" multiline value={(props[subKey] as string) ?? ""} onUpdate={edit(subKey)} />
+    opts?: { align?: EvaAlign; size?: EvaHeadingSize },
+  ) => {
+    const centered = opts?.align === "center";
+    const size = HEADING_SIZES[opts?.size ?? "lg"] ?? HEADING_SIZES.lg;
+    return (
+      <div className={centered ? "text-center" : undefined}>
+        <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
+          <InlineText as="span" value={(props[kickerKey] as string) ?? fallbacks.kicker} onUpdate={edit(kickerKey)} />
         </motion.p>
-      )}
-    </>
-  );
+        <motion.h2
+          {...fadeUp(0.06)}
+          className={`mt-4 font-bold ${centered ? "mx-auto max-w-3xl" : "max-w-2xl"}`}
+          style={{
+            fontFamily: DISPLAY,
+            fontSize: size,
+            lineHeight: 1.06,
+            letterSpacing: "-0.024em",
+            color: headline,
+          }}
+        >
+          <InlineText as="span" value={(props[headingKey] as string) ?? fallbacks.heading} onUpdate={edit(headingKey)} />
+        </motion.h2>
+        {(props[subKey] || isEditor) && (
+          <motion.p
+            {...fadeUp(0.12)}
+            className={`mt-4 text-base leading-relaxed sm:text-lg ${centered ? "mx-auto max-w-2xl" : "max-w-2xl"}`}
+            style={{ color: ink.muted }}
+          >
+            <InlineText as="span" multiline value={(props[subKey] as string) ?? ""} onUpdate={edit(subKey)} />
+          </motion.p>
+        )}
+        {/* Centered headers get a hairline instead of relying on whitespace. */}
+        {centered && (
+          <span aria-hidden className="mx-auto mt-7 block h-px w-12" style={{ background: mixHex(accentChrome, bg, 0.6) }} />
+        )}
+      </div>
+    );
+  };
 
   /** Initials disc — the headshot fallback (never a broken image icon). */
   const initials = (name: string) =>
     name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 
-  /** Person card, shared by the account team and the keynote speakers. */
-  const personCard = (
+  /**
+   * Portrait at an arbitrary size, with an initials fallback. Used large on the
+   * team roster and speaker features — the small-avatar-in-a-card look is what
+   * made every section read the same.
+   */
+  const portrait = (
     person: EvaPerson,
-    i: number,
-    key: "team" | "speakers",
-  ) => (
-    <motion.li key={i} {...fadeUp(Math.min(i * 0.06, 0.24))}>
-      <article
-        className="flex h-full flex-col rounded-2xl p-6 sm:p-7"
+    opts: { size: string; shape: "circle" | "square"; surface: string; ink: { text: string; muted: string } },
+  ) => {
+    const radius = opts.shape === "circle" ? "9999px" : "1rem";
+    return person.imageUrl?.trim() ? (
+      <img
+        src={person.imageUrl}
+        alt={person.name}
+        className="shrink-0 object-cover"
+        style={{ width: opts.size, height: opts.size, borderRadius: radius }}
+        loading="lazy"
+      />
+    ) : (
+      <span
+        aria-hidden
+        className="flex shrink-0 items-center justify-center font-bold"
         style={{
-          background: cardBg,
-          border: `1px solid ${mixHex(cardInk.text, cardBg, 0.12)}`,
-          boxShadow: "0 28px 56px -46px rgba(28, 25, 23, 0.34)",
+          width: opts.size,
+          height: opts.size,
+          borderRadius: radius,
+          background: mixHex(accentChrome, opts.surface, 0.13),
+          color: pickContrastingColor(accentRaw, mixHex(accentChrome, opts.surface, 0.13), [opts.ink.text], 4.5),
+          fontFamily: DISPLAY,
+          fontSize: `calc(${opts.size} / 3)`,
+          letterSpacing: "-0.02em",
         }}
       >
-        <div className="flex items-center gap-4">
-          {person.imageUrl?.trim() ? (
-            <img
-              src={person.imageUrl}
-              alt={person.name}
-              className="h-14 w-14 shrink-0 rounded-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <span
-              aria-hidden
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-bold"
-              style={{ background: mixHex(accentChrome, cardBg, 0.14), color: accentOnCard }}
-            >
-              {initials(person.name)}
-            </span>
-          )}
-          <div className="min-w-0">
-            <p
-              className="font-bold"
-              style={{ fontFamily: DISPLAY, fontSize: "1.05rem", lineHeight: 1.25, color: headlineOnCard }}
-            >
-              <InlineText
-                as="span"
-                value={person.name}
-                onUpdate={setItem ? (v) => setItem(key, i, { name: v }) : undefined}
-              />
-            </p>
-            {(person.title || isEditor) && (
-              <p className="mt-0.5 text-[13px]" style={{ color: cardInk.muted }}>
-                <InlineText
-                  as="span"
-                  value={person.title ?? ""}
-                  onUpdate={setItem ? (v) => setItem(key, i, { title: v }) : undefined}
-                />
-              </p>
-            )}
-          </div>
+        {initials(person.name)}
+      </span>
+    );
+  };
+
+  /** Person card, shared by the account team and the keynote speakers. */
+  /**
+   * ROSTER entry — the account team's default. A large portrait with the name,
+   * role and contact details stacked UNDERNEATH it. No card, no chrome: the
+   * portrait is the anchor and the contact lines are plain text, because a
+   * "who to find" list shouldn't read like a pricing table.
+   */
+  const rosterEntry = (person: EvaPerson, i: number) => {
+    const shape = props.teamPortraitShape ?? "circle";
+    return (
+      <motion.li key={i} {...fadeUp(Math.min(i * 0.07, 0.28))} className="text-center">
+        <div className="flex justify-center">
+          {portrait(person, { size: "clamp(8.5rem, 15vw, 11.5rem)", shape, surface: bg, ink })}
         </div>
-        {(person.bio || isEditor) && (
-          <p className="mt-4 text-[15px] leading-relaxed" style={{ color: cardInk.muted }}>
-            <InlineText
-              as="span"
-              multiline
-              value={person.bio ?? ""}
-              onUpdate={setItem ? (v) => setItem(key, i, { bio: v }) : undefined}
-            />
+        <p
+          className="mt-6 font-bold"
+          style={{ fontFamily: DISPLAY, fontSize: "clamp(1.25rem, 2.1vw, 1.55rem)", lineHeight: 1.2, letterSpacing: "-0.015em", color: headline }}
+        >
+          <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("team", i, { name: v }) : undefined} />
+        </p>
+        {(person.title || isEditor) && (
+          <p className="mt-1.5 text-[13px] font-bold uppercase tracking-[0.16em]" style={{ color: accentText }}>
+            <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { title: v }) : undefined} />
           </p>
         )}
-        {(person.sessionTitle || person.linkUrl || isEditor) && (
+        {(person.bio || isEditor) && (
+          <p className="mx-auto mt-4 max-w-[22rem] text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+            <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
+          </p>
+        )}
+        {/* Contact details — plain lines under the name, deliberately not pills. */}
+        {(person.email || person.phone || person.linkUrl || isEditor) && (
           <div
-            className="mt-5 border-t pt-4 text-[13px]"
-            style={{ borderColor: mixHex(cardInk.text, cardBg, 0.12) }}
+            className="mx-auto mt-5 max-w-[22rem] space-y-1 border-t pt-4 text-[14px]"
+            style={{ borderColor: mixHex(ink.text, bg, 0.14) }}
           >
-            {(person.sessionTitle || isEditor) && (
-              <p style={{ color: accentOnCard }}>
-                <InlineText
-                  as="span"
-                  value={person.sessionTitle ?? ""}
-                  onUpdate={setItem ? (v) => setItem(key, i, { sessionTitle: v }) : undefined}
-                />
+            {(person.email || isEditor) && (
+              <p>
+                {person.email?.trim() && !isEditor ? (
+                  <a href={`mailto:${person.email.trim()}`} className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" style={{ color: ink.text }}>
+                    {person.email}
+                  </a>
+                ) : (
+                  <InlineText as="span" value={person.email ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { email: v }) : undefined} />
+                )}
+              </p>
+            )}
+            {(person.phone || isEditor) && (
+              <p style={{ color: ink.muted }}>
+                <InlineText as="span" value={person.phone ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { phone: v }) : undefined} />
               </p>
             )}
             {person.linkUrl?.trim() && (
               <a
                 href={person.linkUrl}
-                className="mt-1 inline-flex items-center gap-1.5 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-                style={{ color: accentOnCard }}
                 onClick={(e) => handleAnchor(e, person.linkUrl ?? "")}
+                className="inline-flex items-center gap-1.5 pt-1 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                style={{ color: accentText }}
               >
-                {person.linkLabel?.trim() || "Get in touch"}
+                {person.linkLabel?.trim() || "Book time"}
                 <span aria-hidden>→</span>
               </a>
             )}
           </div>
         )}
-      </article>
+      </motion.li>
+    );
+  };
+
+  /** COMPACT team entry — portrait beside the copy, for longer rosters. */
+  const compactEntry = (person: EvaPerson, i: number) => (
+    <motion.li key={i} {...fadeUp(Math.min(i * 0.06, 0.24))} className="flex gap-5">
+      {portrait(person, { size: "5rem", shape: props.teamPortraitShape ?? "circle", surface: bg, ink })}
+      <div className="min-w-0 pt-1">
+        <p className="font-bold" style={{ fontFamily: DISPLAY, fontSize: "1.15rem", lineHeight: 1.25, color: headline }}>
+          <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("team", i, { name: v }) : undefined} />
+        </p>
+        {(person.title || isEditor) && (
+          <p className="mt-0.5 text-[12px] font-bold uppercase tracking-[0.16em]" style={{ color: accentText }}>
+            <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { title: v }) : undefined} />
+          </p>
+        )}
+        {(person.bio || isEditor) && (
+          <p className="mt-2 text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+            <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
+          </p>
+        )}
+        {(person.email || person.phone) && (
+          <p className="mt-2 text-[14px]" style={{ color: ink.text }}>
+            {person.email?.trim() && (
+              <a href={`mailto:${person.email.trim()}`} style={{ color: ink.text }}>{person.email}</a>
+            )}
+            {person.email?.trim() && person.phone?.trim() ? <span style={{ color: ink.muted }}>{"  ·  "}</span> : null}
+            {person.phone?.trim() && <span style={{ color: ink.muted }}>{person.phone}</span>}
+          </p>
+        )}
+      </div>
     </motion.li>
   );
 
+  /**
+   * SPEAKER FEATURE row — full width, portrait beside a generous bio, sides
+   * alternating down the page. Nothing like the team grid, which is the point:
+   * two people-sections in a row must not look like one repeated component.
+   */
+  const speakerFeature = (person: EvaPerson, i: number) => {
+    const flip = i % 2 === 1;
+    return (
+      <motion.li
+        key={i}
+        {...fadeUp(Math.min(i * 0.08, 0.3))}
+        className={`flex flex-col gap-7 border-t pt-10 sm:flex-row sm:items-center sm:gap-10 ${flip ? "sm:flex-row-reverse" : ""}`}
+        style={{ borderColor: mixHex(ink.text, bg, 0.14) }}
+      >
+        {portrait(person, { size: "clamp(9rem, 17vw, 13rem)", shape: "square", surface: bg, ink })}
+        <div className="min-w-0 flex-1">
+          {(person.sessionTitle || isEditor) && (
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: accentText }}>
+              <InlineText
+                as="span"
+                value={person.sessionTitle ?? ""}
+                onUpdate={setItem ? (v) => setItem("speakers", i, { sessionTitle: v }) : undefined}
+              />
+            </p>
+          )}
+          <p
+            className="mt-3 font-bold"
+            style={{ fontFamily: DISPLAY, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", lineHeight: 1.14, letterSpacing: "-0.02em", color: headline }}
+          >
+            <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("speakers", i, { name: v }) : undefined} />
+          </p>
+          {(person.title || isEditor) && (
+            <p className="mt-1.5 text-[15px]" style={{ color: ink.muted }}>
+              <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { title: v }) : undefined} />
+            </p>
+          )}
+          {(person.bio || isEditor) && (
+            <p
+              className="mt-4 max-w-2xl text-[17px] leading-relaxed"
+              style={{ color: ink.text, fontFamily: DISPLAY }}
+            >
+              <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { bio: v }) : undefined} />
+            </p>
+          )}
+        </div>
+      </motion.li>
+    );
+  };
+
+  /** SPEAKER GRID entry — tighter 3-up for long line-ups. */
+  const speakerGridEntry = (person: EvaPerson, i: number) => (
+    <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))}>
+      {portrait(person, { size: "100%", shape: "square", surface: bg, ink })}
+      <p className="mt-4 font-bold" style={{ fontFamily: DISPLAY, fontSize: "1.2rem", lineHeight: 1.2, color: headline }}>
+        <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("speakers", i, { name: v }) : undefined} />
+      </p>
+      {(person.title || isEditor) && (
+        <p className="mt-1 text-[13px]" style={{ color: ink.muted }}>
+          <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { title: v }) : undefined} />
+        </p>
+      )}
+      {(person.sessionTitle || isEditor) && (
+        <p className="mt-2 text-[13px]" style={{ color: accentText }}>
+          <InlineText as="span" value={person.sessionTitle ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { sessionTitle: v }) : undefined} />
+        </p>
+      )}
+    </motion.li>
+  );
   const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (!href.startsWith("#") || href.length < 2) return;
     const target = typeof document !== "undefined" ? document.getElementById(href.slice(1)) : null;
@@ -1417,18 +1594,24 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       </div>
   );
 
-  /* People sections — account team and keynote speakers. Same card system,
-     different emphasis: the team is a 3-up on the page surface, the speakers
-     a 2-up so the bios can breathe. */
+  /* Four sections, four different shapes — a roster of portraits, alternating
+     speaker features, a plain grouped sponsor wall, and a numbered resource
+     index. They deliberately share only the header lockup. */
   const teamSection = showTeam ? (
     <div id="team" className="mx-auto w-full max-w-5xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
       {sectionHeader("teamKicker", "teamHeading", "teamSubheadline", {
         kicker: "Your account team",
         heading: "The people looking after you",
-      })}
-      <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {team.map((person, i) => personCard(person, i, "team"))}
-      </ul>
+      }, { align: props.teamAlign ?? "center", size: props.teamHeadingSize })}
+      {(props.teamLayout ?? "roster") === "roster" ? (
+        <ul className="mt-12 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
+          {team.map((person, i) => rosterEntry(person, i))}
+        </ul>
+      ) : (
+        <ul className="mt-10 grid gap-8 sm:grid-cols-2">
+          {team.map((person, i) => compactEntry(person, i))}
+        </ul>
+      )}
     </div>
   ) : null;
 
@@ -1437,103 +1620,226 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       {sectionHeader("speakersKicker", "speakersHeading", "speakersSubheadline", {
         kicker: "Keynotes",
         heading: "Who you'll hear from",
-      })}
-      <ul className="mt-10 grid gap-5 sm:grid-cols-2">
-        {speakers.map((person, i) => personCard(person, i, "speakers"))}
-      </ul>
+      }, { align: props.speakersAlign, size: props.speakersHeadingSize ?? "xl" })}
+      {(props.speakersLayout ?? "feature") === "feature" ? (
+        <ul className="mt-12 space-y-10">
+          {speakers.map((person, i) => speakerFeature(person, i))}
+        </ul>
+      ) : (
+        <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {speakers.map((person, i) => speakerGridEntry(person, i))}
+        </ul>
+      )}
     </div>
   ) : null;
 
-  /* Sponsor wall — logo plates on a tinted band, wordmark fallback so a
-     missing asset still reads as a partner rather than a broken image. */
+  /* Sponsor wall: logos grouped under a plain tier label. No plates, no pills —
+     tiers are set as small caps over a hairline, which is how a real sponsor
+     wall reads and keeps the page from looking like a dashboard. */
+  const sponsorTiers = (() => {
+    const groups = new Map<string, { sponsor: EvaSponsor; i: number }[]>();
+    sponsors.forEach((sponsor, i) => {
+      const tier = (sponsor.tier ?? "").trim();
+      groups.set(tier, [...(groups.get(tier) ?? []), { sponsor, i }]);
+    });
+    return [...groups.entries()];
+  })();
+
+  const sponsorMark = (sponsor: EvaSponsor, i: number, plated: boolean) => {
+    const mark = sponsor.logoUrl?.trim() ? (
+      <img
+        src={sponsor.logoUrl}
+        alt={sponsor.name}
+        className="max-h-12 w-auto max-w-full object-contain"
+        loading="lazy"
+      />
+    ) : (
+      <span
+        className="text-center font-bold"
+        style={{ fontFamily: DISPLAY, fontSize: "clamp(1.05rem, 1.8vw, 1.35rem)", color: headline, letterSpacing: "-0.015em" }}
+      >
+        <InlineText
+          as="span"
+          value={sponsor.name}
+          onUpdate={setItem ? (v) => setItem("sponsors", i, { name: v }) : undefined}
+        />
+      </span>
+    );
+    const inner = plated ? (
+      <span
+        className="flex h-24 items-center justify-center rounded-xl px-5"
+        style={{ background: cardBg, border: `1px solid ${mixHex(cardInk.text, cardBg, 0.1)}` }}
+      >
+        {mark}
+      </span>
+    ) : (
+      <span className="flex h-20 items-center justify-center px-2">{mark}</span>
+    );
+    return sponsor.url?.trim() && !isEditor ? (
+      <a
+        href={sponsor.url}
+        target="_blank"
+        rel="noreferrer"
+        className="block transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      >
+        {inner}
+      </a>
+    ) : (
+      inner
+    );
+  };
+
   const sponsorsSection = showSponsors ? (
-    <div id="sponsors" className="mt-16 sm:mt-20" style={{ background: mixHex(accentChrome, bg, 0.05) }}>
+    <div
+      id="sponsors"
+      className="mt-16 sm:mt-20"
+      style={props.sponsorsBand === false ? undefined : { background: mixHex(accentChrome, bg, 0.05) }}
+    >
       <div className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
         {sectionHeader("sponsorsKicker", "sponsorsHeading", "sponsorsSubheadline", {
           kicker: "Partners",
           heading: "Who's making it happen",
-        })}
-        <ul className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {sponsors.map((sponsor, i) => {
-            const plate = (
-              <>
-                {sponsor.logoUrl?.trim() ? (
-                  <img
-                    src={sponsor.logoUrl}
-                    alt={sponsor.name}
-                    className="max-h-10 w-auto max-w-[80%] object-contain"
-                    loading="lazy"
-                  />
-                ) : (
-                  <span
-                    className="text-center text-[15px] font-bold"
-                    style={{ fontFamily: DISPLAY, color: headlineOnCard, letterSpacing: "-0.01em" }}
-                  >
-                    <InlineText
-                      as="span"
-                      value={sponsor.name}
-                      onUpdate={setItem ? (v) => setItem("sponsors", i, { name: v }) : undefined}
-                    />
-                  </span>
+        }, { align: props.sponsorsAlign ?? "center", size: props.sponsorsHeadingSize ?? "md" })}
+        {(props.sponsorsLayout ?? "wall") === "wall" ? (
+          <div className="mt-12 space-y-12">
+            {sponsorTiers.map(([tier, entries], t) => (
+              <motion.div key={tier || `tier-${t}`} {...fadeUp(Math.min(t * 0.08, 0.24))}>
+                {tier && (
+                  <div className="flex items-center gap-4">
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-[0.26em]"
+                      style={{ color: ink.muted }}
+                    >
+                      {tier}
+                    </span>
+                    <span aria-hidden className="h-px flex-1" style={{ background: mixHex(ink.text, bg, 0.14) }} />
+                  </div>
                 )}
+                <ul className="mt-6 grid grid-cols-2 items-center gap-x-10 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+                  {entries.map(({ sponsor, i }) => (
+                    <li key={i}>{sponsorMark(sponsor, i, false)}</li>
+                  ))}
+                </ul>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <ul className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {sponsors.map((sponsor, i) => (
+              <motion.li key={i} {...fadeUp(Math.min(i * 0.04, 0.2))}>
+                {sponsorMark(sponsor, i, true)}
                 {(sponsor.tier || isEditor) && (
-                  <span
-                    className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em]"
-                    style={{ color: cardInk.muted }}
-                  >
+                  <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: ink.muted }}>
                     <InlineText
                       as="span"
                       value={sponsor.tier ?? ""}
                       onUpdate={setItem ? (v) => setItem("sponsors", i, { tier: v }) : undefined}
                     />
+                  </p>
+                )}
+              </motion.li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  /* Resources: a numbered index. The kind is small-caps text in the number
+     column, not a chip — reads like a contents page, not a tag cloud. */
+  const resourcesSection = showResources ? (
+    <div id="resources" className="mx-auto w-full max-w-4xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+      {sectionHeader("resourcesKicker", "resourcesHeading", "resourcesSubheadline", {
+        kicker: "Before you go",
+        heading: "Take the week with you",
+      }, { align: props.resourcesAlign, size: props.resourcesHeadingSize ?? "md" })}
+      {(props.resourcesLayout ?? "index") === "index" ? (
+        <ul className="mt-10">
+          {resources.map((resource, i) => {
+            const body = (
+              <>
+                <div className="w-16 shrink-0 pt-1">
+                  <span
+                    className="block text-[13px] font-bold tabular-nums"
+                    style={{ fontFamily: NUMBERS, color: accentText, letterSpacing: "0.04em" }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
                   </span>
+                  {(resource.kind || isEditor) && (
+                    <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: ink.muted }}>
+                      <InlineText
+                        as="span"
+                        value={resource.kind ?? ""}
+                        onUpdate={setItem ? (v) => setItem("resources", i, { kind: v }) : undefined}
+                      />
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="font-bold"
+                    style={{ fontFamily: DISPLAY, fontSize: "clamp(1.15rem, 2vw, 1.45rem)", lineHeight: 1.22, letterSpacing: "-0.014em", color: headline }}
+                  >
+                    <InlineText
+                      as="span"
+                      value={resource.title}
+                      onUpdate={setItem ? (v) => setItem("resources", i, { title: v }) : undefined}
+                    />
+                  </p>
+                  {(resource.description || isEditor) && (
+                    <p className="mt-2 text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+                      <InlineText
+                        as="span"
+                        multiline
+                        value={resource.description ?? ""}
+                        onUpdate={setItem ? (v) => setItem("resources", i, { description: v }) : undefined}
+                      />
+                    </p>
+                  )}
+                </div>
+                {resource.url?.trim() && !isEditor && (
+                  <span aria-hidden className="shrink-0 self-center text-xl" style={{ color: accentText }}>→</span>
                 )}
               </>
             );
-            const plateClass = "flex h-28 flex-col items-center justify-center rounded-xl px-4 text-center";
-            const plateStyle = {
-              background: cardBg,
-              border: `1px solid ${mixHex(cardInk.text, cardBg, 0.1)}`,
-            } as React.CSSProperties;
+            const rowClass = "flex gap-6 border-b py-7";
+            const rowStyle = { borderColor: mixHex(ink.text, bg, 0.12) } as React.CSSProperties;
             return (
-              <motion.li key={i} {...fadeUp(Math.min(i * 0.04, 0.2))}>
-                {sponsor.url?.trim() && !isEditor ? (
+              <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))}>
+                {resource.url?.trim() && !isEditor ? (
                   <a
-                    href={sponsor.url}
+                    href={resource.url}
                     target="_blank"
                     rel="noreferrer"
-                    className={`${plateClass} transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current`}
-                    style={plateStyle}
+                    className={`${rowClass} transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current`}
+                    style={rowStyle}
                   >
-                    {plate}
+                    {body}
                   </a>
                 ) : (
-                  <div className={plateClass} style={plateStyle}>{plate}</div>
+                  <div className={rowClass} style={rowStyle}>{body}</div>
                 )}
               </motion.li>
             );
           })}
         </ul>
-      </div>
-    </div>
-  ) : null;
-
-  /* Resources — hairline rows with a kind chip, matching the schedule's
-     editorial-row language rather than another card grid. */
-  const resourcesSection = showResources ? (
-    <div id="resources" className="mx-auto w-full max-w-5xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
-      {sectionHeader("resourcesKicker", "resourcesHeading", "resourcesSubheadline", {
-        kicker: "Before you go",
-        heading: "Take the week with you",
-      })}
-      <ul className="mt-10">
-        {resources.map((resource, i) => {
-          const body = (
-            <>
-              <div className="min-w-0 flex-1">
+      ) : (
+        <ul className="mt-10 grid gap-5 sm:grid-cols-2">
+          {resources.map((resource, i) => {
+            const inner = (
+              <>
+                {(resource.kind || isEditor) && (
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: accentOnCard }}>
+                    <InlineText
+                      as="span"
+                      value={resource.kind ?? ""}
+                      onUpdate={setItem ? (v) => setItem("resources", i, { kind: v }) : undefined}
+                    />
+                  </span>
+                )}
                 <p
-                  className="font-bold"
-                  style={{ fontFamily: DISPLAY, fontSize: "clamp(1.05rem, 1.7vw, 1.25rem)", lineHeight: 1.25, color: headline }}
+                  className="mt-3 font-bold"
+                  style={{ fontFamily: DISPLAY, fontSize: "1.25rem", lineHeight: 1.24, color: headlineOnCard }}
                 >
                   <InlineText
                     as="span"
@@ -1542,7 +1848,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                   />
                 </p>
                 {(resource.description || isEditor) && (
-                  <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+                  <p className="mt-2 text-[15px] leading-relaxed" style={{ color: cardInk.muted }}>
                     <InlineText
                       as="span"
                       multiline
@@ -1551,45 +1857,25 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                     />
                   </p>
                 )}
-              </div>
-              {(resource.kind || isEditor) && (
-                <span
-                  className="shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
-                  style={{ border: `1px solid ${mixHex(ink.text, bg, 0.22)}`, color: ink.muted }}
-                >
-                  <InlineText
-                    as="span"
-                    value={resource.kind ?? ""}
-                    onUpdate={setItem ? (v) => setItem("resources", i, { kind: v }) : undefined}
-                  />
-                </span>
-              )}
-              {resource.url?.trim() && !isEditor && (
-                <span aria-hidden className="shrink-0 text-lg" style={{ color: accentText }}>→</span>
-              )}
-            </>
-          );
-          const rowClass = "flex items-center gap-5 border-b py-6";
-          const rowStyle = { borderColor: mixHex(ink.text, bg, 0.12) } as React.CSSProperties;
-          return (
-            <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))}>
-              {resource.url?.trim() && !isEditor ? (
-                <a
-                  href={resource.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`${rowClass} transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current`}
-                  style={rowStyle}
-                >
-                  {body}
-                </a>
-              ) : (
-                <div className={rowClass} style={rowStyle}>{body}</div>
-              )}
-            </motion.li>
-          );
-        })}
-      </ul>
+              </>
+            );
+            const cardClass = "flex h-full flex-col rounded-2xl p-6";
+            const cardStyle = {
+              background: cardBg,
+              border: `1px solid ${mixHex(cardInk.text, cardBg, 0.12)}`,
+            } as React.CSSProperties;
+            return (
+              <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))}>
+                {resource.url?.trim() && !isEditor ? (
+                  <a href={resource.url} target="_blank" rel="noreferrer" className={cardClass} style={cardStyle}>{inner}</a>
+                ) : (
+                  <div className={cardClass} style={cardStyle}>{inner}</div>
+                )}
+              </motion.li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   ) : null;
 

@@ -150,3 +150,80 @@ describe("BlockEventAgenda — team / speakers / sponsors / resources", () => {
     expect(sectionAt(html, "speakers")).toBeGreaterThan(-1);
   });
 });
+
+/* ── section diversity + per-section controls ──────────────────────────── */
+
+function renderProps(extra: Partial<typeof EVENT_AGENDA_DEFAULT_PROPS>): string {
+  return renderToStaticMarkup(
+    createElement(
+      StaticRenderContext.Provider,
+      { value: true },
+      createElement(BlockEventAgenda, {
+        props: { ...EVENT_AGENDA_DEFAULT_PROPS, ...extra },
+        brand: DEFAULT_BRAND,
+      }),
+    ),
+  );
+}
+
+describe("BlockEventAgenda — section diversity", () => {
+  it("the team roster shows contact details under the name, not in pills", () => {
+    const html = renderProps({});
+    expect(html).toContain("maya.chen@example.com");
+    expect(html).toContain("+1 (415) 555-0142");
+    expect(html).toContain("mailto:maya.chen@example.com");
+  });
+
+  it("team portraits are far larger than the old avatar", () => {
+    // The roster portrait is a clamp()-sized square/circle, not a 3.5rem avatar.
+    expect(renderProps({})).toContain("clamp(8.5rem, 15vw, 11.5rem)");
+  });
+
+  it("team and speakers use DIFFERENT layouts by default", () => {
+    const html = renderProps({});
+    // Speakers default to alternating feature rows; the team does not.
+    expect(html).toContain("sm:flex-row-reverse");
+    // Speaker portraits are their own (larger, square) size.
+    expect(html).toContain("clamp(9rem, 17vw, 13rem)");
+  });
+
+  it("sponsors default to a plain grouped wall — no plates", () => {
+    const html = renderProps({});
+    expect(html).toContain("Founding partner");
+    // The plated variant's tile chrome must be absent by default.
+    expect(html).not.toContain("flex h-24 items-center justify-center rounded-xl");
+  });
+
+  it("sponsors can opt into plates and drop the tinted band", () => {
+    const html = renderProps({ sponsorsLayout: "plates", sponsorsBand: false });
+    expect(html).toContain("flex h-24 items-center justify-center rounded-xl");
+  });
+
+  it("resources default to a numbered index with plain kind labels", () => {
+    const html = renderProps({});
+    expect(html).toContain("01");
+    expect(html).toContain("PDF");
+    // No pill/border chrome around the kind in index mode.
+    expect(html).not.toContain("rounded-full px-3 py-1 text-[10px]");
+  });
+
+  it("headline alignment and size are per-section", () => {
+    const centered = renderProps({ resourcesAlign: "center", resourcesHeadingSize: "xl" });
+    expect(centered).toContain("clamp(2.4rem, 5vw, 3.75rem)");
+    const small = renderProps({ resourcesHeadingSize: "sm" });
+    expect(small).toContain("clamp(1.4rem, 2.4vw, 1.85rem)");
+  });
+
+  it("alternate layouts render without losing content", () => {
+    const html = renderProps({
+      teamLayout: "compact",
+      speakersLayout: "grid",
+      resourcesLayout: "cards",
+    });
+    expect(html).toContain("Maya Chen");
+    expect(html).toContain("Alex Rivera");
+    expect(html).toContain("Event guide");
+    // Compact team drops the oversized roster portrait.
+    expect(html).not.toContain("clamp(8.5rem, 15vw, 11.5rem)");
+  });
+});
