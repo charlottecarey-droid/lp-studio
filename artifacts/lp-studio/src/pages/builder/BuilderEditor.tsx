@@ -73,6 +73,7 @@ import { runPrePublishChecks, type PrePublishFinding, type CheckableBlock, type 
 import { PrePublishDialog } from "./PrePublishDialog";
 import { PageCtaSection } from "@/pages/builder/property-panels/PageCtaSection";
 import { PageStyleSection } from "@/pages/builder/property-panels/PageStyleSection";
+import { PageButtonStyleSection } from "@/pages/builder/property-panels/PageButtonStyleSection";
 import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
 import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
@@ -3951,6 +3952,16 @@ export default function BuilderEditor() {
                     value={pageStyleOverrides}
                     onApplied={(overrides) => setPageStyleOverrides(overrides)}
                     onCleared={() => setPageStyleOverrides(null)}
+                  />
+                </div>
+
+                {/* Hand-authored button overrides — same storage + whitelist as
+                    the URL match above, persisted by its own PATCH route. */}
+                <div className="border-t border-border pt-3">
+                  <PageButtonStyleSection
+                    pageId={pageIdNum}
+                    value={pageStyleOverrides}
+                    onSaved={(overrides) => setPageStyleOverrides(overrides)}
                   />
                 </div>
 

@@ -113,9 +113,13 @@ const IMPORTED_BRAND: BrandConfig = {
 };
 
 describe("getBrandButtonCss import gating", () => {
-  it("emits a single .lp-brand-btn rule when a brand has an imported button style", () => {
+  it("emits a single rule covering both primary-button markers", () => {
     const css = getBrandButtonCss(IMPORTED_BRAND);
-    expect(css).toContain(".lp-brand-btn{");
+    // `.lp-cta-filled` (shared CtaButtons given an opaque inline fill) joined
+    // `.lp-brand-btn` so a page-level fill reaches CtaButton primaries too;
+    // outline/secondary CtaButtons never carry the marker.
+    expect(css).toContain(".lp-brand-btn,.lp-cta-filled{");
+    expect(css.match(/\{/g) ?? []).toHaveLength(1);
     expect(css).toContain("background:#ff0066 !important");
     expect(css).toContain("border-radius:999px !important");
   });

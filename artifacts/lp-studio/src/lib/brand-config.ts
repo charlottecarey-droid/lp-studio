@@ -1527,7 +1527,13 @@ export function getBrandButtonCss(brand: BrandConfig): string {
   const tt = raw.textTransform ? sanitizeCssValue(raw.textTransform) : null;
   if (tt) decls.push(`text-transform:${tt} !important`);
   if (decls.length === 0) return "";
-  return `.lp-brand-btn{${decls.join(";")}}`;
+  // `.lp-brand-btn` = primary CTAs built through getButtonClasses (~17 blocks).
+  // `.lp-cta-filled` = shared <CtaButton>s the caller gave an opaque inline
+  // fill, i.e. that block's PRIMARY button — see CtaButton, which withholds the
+  // marker from the transparent/outline (secondary) ones. Without the second
+  // selector a page-level fill (notably a gradient) would repaint a handful of
+  // blocks and skip the ~96 CtaButton primaries.
+  return `.lp-brand-btn,.lp-cta-filled{${decls.join(";")}}`;
 }
 
 /** Concrete border-radius per ButtonRadius token for the page-wide button

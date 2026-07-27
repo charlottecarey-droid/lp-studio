@@ -113,7 +113,20 @@ export function CtaButton({
   // `[class*="px-"]` selector can't reach them. Tag every CtaButton with a stable
   // marker so the page-wide shape rule can force the brand radius here too — the
   // rule uses `!important`, so it overrides a block's inline `borderRadius`.
-  const btnClass = ["lp-cta-btn", className].filter(Boolean).join(" ");
+  // A caller that passes an opaque inline fill is rendering this block's
+  // PRIMARY button (secondary/outline CTAs pass no background at all — they
+  // rely on a border). Mark those so a brand/page-level primary-button fill
+  // (getBrandButtonCss, incl. gradients) can reach them without ever
+  // repainting an outline button. Deliberately a SEPARATE marker from
+  // `lp-brand-btn`, which is excluded from the page-wide radius rule.
+  const inlineFill = style?.background ?? style?.backgroundColor;
+  const hasOpaqueFill =
+    typeof inlineFill === "string"
+    && inlineFill.trim() !== ""
+    && !/^(transparent|none|inherit|initial|unset)$/i.test(inlineFill.trim());
+  const btnClass = ["lp-cta-btn", hasOpaqueFill ? "lp-cta-filled" : "", className]
+    .filter(Boolean)
+    .join(" ");
 
   // ── Unified CTA inheritance (Phase 1, backward-compatible) ─────────────────
   // A button that ALREADY has its own action/destination keeps it verbatim

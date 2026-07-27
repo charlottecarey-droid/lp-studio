@@ -54,9 +54,12 @@ function checkRate(key: string): boolean {
 import { pickPageStyleOverrides } from "../../lib/page-style-overrides";
 export { pickPageStyleOverrides };
 
-async function loadTenantPage(pageId: number, tenantId: number): Promise<{ id: number } | null> {
+async function loadTenantPage(
+  pageId: number,
+  tenantId: number,
+): Promise<{ id: number; styleOverrides: unknown } | null> {
   const rows = await db
-    .select({ id: lpPagesTable.id })
+    .select({ id: lpPagesTable.id, styleOverrides: lpPagesTable.styleOverrides })
     .from(lpPagesTable)
     .where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId)))
     .limit(1);
@@ -144,6 +147,62 @@ router.post(
       logger.error({ err: String(err), pageId, tenantId }, "[page-style-from-url] failed");
       res.status(500).json({ error: "failed to extract style from URL" });
     }
+  },
+);
+
+/**
+ * Manual page style overrides — the hand-authored sibling of the URL match.
+ *
+ *   PATCH /lp/pages/:pageId/style-overrides  { overrides: {...} }
+ *
+ * The body is MERGED over whatever the page already carries (so editing the
+ * button fill doesn't wipe a font matched from a URL), then filtered through
+ * the SAME whitelist the URL path uses — a manual write can never store a key
+ * the renderer wouldn't honor. An explicit `null` value removes that one key,
+ * which is how the editor resets a single control without clearing the page.
+ * Storing an empty result nulls the column so `hasPageStyleOverrides` and the
+ * "back to my brand" affordance stay truthful.
+ */
+router.patch(
+  "/lp/pages/:pageId/style-overrides",
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    const pageId = Number(req.params.pageId);
+    if (!Number.isInteger(pageId) || pageId <= 0) {
+      res.status(400).json({ error: "invalid page id" });
+      return;
+    }
+    const incoming = (req.body as { overrides?: unknown })?.overrides;
+    if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+      res.status(400).json({ error: "overrides object is required" });
+      return;
+    }
+    const page = await loadTenantPage(pageId, tenantId);
+    if (!page) {
+      res.status(404).json({ error: "page not found" });
+      return;
+    }
+
+    const current =
+      page.styleOverrides && typeof page.styleOverrides === "object" && !Array.isArray(page.styleOverrides)
+        ? (page.styleOverrides as Record<string, unknown>)
+        : {};
+    const merged: Record<string, unknown> = { ...current };
+    for (const [key, value] of Object.entries(incoming as Record<string, unknown>)) {
+      if (value === null) delete merged[key];
+      else merged[key] = value;
+    }
+
+    const styleOverrides = pickPageStyleOverrides(merged);
+    const next = Object.keys(styleOverrides).length > 0 ? styleOverrides : null;
+    await db
+      .update(lpPagesTable)
+      .set({ styleOverrides: next, updatedAt: new Date() })
+      .where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId)));
+
+    res.json({ styleOverrides: next });
   },
 );
 
