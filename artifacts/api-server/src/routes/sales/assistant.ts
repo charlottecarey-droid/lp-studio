@@ -28,6 +28,7 @@ import {
   type SalesAssistantContext,
   type AssistantAccount,
   type AssistantContact,
+  type AssistantEvent,
 } from "../../lib/conversation/modes/salesAssistant";
 import {
   resumeOrCreateConversation,
@@ -150,6 +151,34 @@ async function matchEntities(
   return { accounts, contacts, accountsTotal };
 }
 
+/**
+ * The tenant's events with catalog sizes, so the assistant can aim an agenda
+ * at a named one. Small and unfiltered — a workspace has a handful of events,
+ * not thousands, and the bot needs to see them all to disambiguate.
+ * Best-effort: a failure just means the bot omits eventId and the rep picks.
+ */
+async function loadAssistantEvents(tenantId: number): Promise<AssistantEvent[]> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT e.id, e.name, e.start_date, e.end_date,
+        (SELECT COUNT(*)::int FROM sales_event_sessions s WHERE s.event_id = e.id) AS session_count
+      FROM sales_events e
+      WHERE e.tenant_id = ${tenantId} AND e.status <> 'archived'
+      ORDER BY e.start_date DESC NULLS LAST, e.created_at DESC
+      LIMIT 20
+    `);
+    return (rows.rows as { id: number; name: string; start_date: string | null; end_date: string | null; session_count: number }[])
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        dates: [r.start_date, r.end_date].filter(Boolean).join(" – "),
+        sessionCount: r.session_count ?? 0,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 router.post("/assistant/chat", assistantChatLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
@@ -198,6 +227,7 @@ router.post("/assistant/chat", assistantChatLimiter, async (req, res): Promise<v
     pageId: null,
     userMessage,
     ...entities,
+    events: await loadAssistantEvents(tenantId),
   };
 
   try {

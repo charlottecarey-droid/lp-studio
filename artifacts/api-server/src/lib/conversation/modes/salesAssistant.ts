@@ -41,6 +41,17 @@ export interface SalesAssistantContext extends ConversationContext {
   /** Total account count for the tenant — so the bot knows an empty match
    *  list doesn't mean an empty console. */
   accountsTotal: number;
+  /** The tenant's events, so the bot can target an agenda at a named one.
+   *  Small list — events are rare compared with accounts. */
+  events?: AssistantEvent[];
+}
+
+export interface AssistantEvent {
+  id: number;
+  name: string;
+  /** "Mar 10–12, 2026" or "" — helps the bot disambiguate repeat events. */
+  dates: string;
+  sessionCount: number;
 }
 
 /** Words that describe the ACTION rather than an entity — excluded from
@@ -78,6 +89,7 @@ export const SALES_CONSOLE_MAP: ReadonlyArray<{ path: string; purpose: string }>
   { path: "/sales/signals", purpose: "Live engagement feed — opens, visits, clicks in real time." },
   { path: "/sales/draft-email", purpose: "AI email drafting (works from a specific contact)." },
   { path: "/sales/one-pager", purpose: "One-pager generator for an account." },
+  { path: "/sales/events", purpose: "Events — conference session catalogs and per-account event agenda pages." },
   { path: "/sales/one-pager-templates", purpose: "One-pager template management." },
   { path: "/sales/roi-calculator", purpose: "ROI calculator to run before discovery calls." },
   { path: "/sales/marketplace", purpose: "Template library — clone and customize page templates." },
@@ -120,6 +132,17 @@ export const SALES_ASSISTANT_ACTIONS: AllowedActionDef[] = [
       contactName: { type: "string", description: "The contact's name." },
     },
     required: ["contactId", "contactName"],
+  },
+  {
+    type: "create_event_agenda",
+    description:
+      "Start a personalized conference AGENDA page for an account — for 'build an agenda for X', 'what should Acme attend at the summit', 'event agenda for X'. accountId MUST come from MATCHED ACCOUNTS. Pass eventId only when the rep named an event that appears in EVENTS; otherwise omit it and they'll pick from the list.",
+    properties: {
+      accountId: { type: "number", description: "The account id, copied from MATCHED ACCOUNTS." },
+      accountName: { type: "string", description: "The account's display name." },
+      eventId: { type: "number", description: "Optional event id, copied from EVENTS. Omit if the rep didn't name one." },
+    },
+    required: ["accountId", "accountName"],
   },
   {
     type: "open_page",
@@ -171,7 +194,14 @@ export const salesAssistantMode: ConversationMode = {
             .map((p) => `${p.id} — ${p.name} @ ${p.accountName}`)
             .join("\n")}`
         : "MATCHED CONTACTS: none matched the message.";
-    return [buildConsoleMapSection(), accountSection, contactSection].join("\n\n");
+    const events = c.events ?? [];
+    const eventSection =
+      events.length > 0
+        ? `EVENTS (id — name — sessions in catalog):\n${events
+            .map((e) => `${e.id} — ${e.name}${e.dates ? ` (${e.dates})` : ""} — ${e.sessionCount} sessions`)
+            .join("\n")}`
+        : "EVENTS: none set up yet — an agenda needs an event with a session catalog first (/sales/events).";
+    return [buildConsoleMapSection(), accountSection, contactSection, eventSection].join("\n\n");
   },
   allowedActions: SALES_ASSISTANT_ACTIONS,
 };

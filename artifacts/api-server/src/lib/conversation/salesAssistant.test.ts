@@ -49,14 +49,47 @@ describe("console map", () => {
 });
 
 describe("salesAssistantMode", () => {
-  it("is tagged sales_assistant with the four executable actions", () => {
+  it("is tagged sales_assistant with its executable actions", () => {
     expect(salesAssistantMode.id).toBe("sales_assistant");
     expect(SALES_ASSISTANT_ACTIONS.map((a) => a.type).sort()).toEqual([
+      "create_event_agenda",
       "create_one_pager",
       "draft_email",
       "generate_microsite",
       "open_page",
     ]);
+  });
+
+  it("the event-agenda action requires an account and treats the event as optional", () => {
+    const action = SALES_ASSISTANT_ACTIONS.find((a) => a.type === "create_event_agenda");
+    expect(action).toBeDefined();
+    // An account is mandatory (the agenda is FOR someone); the event is not,
+    // so the bot can hand off to the events list instead of guessing which
+    // conference the rep meant.
+    expect(action!.required).toEqual(["accountId", "accountName"]);
+    expect(Object.keys(action!.properties)).toContain("eventId");
+  });
+
+  it("grounding lists the tenant's events so the bot can pass a real eventId", () => {
+    const grounding = salesAssistantMode.groundingBuilder!({
+      tenantId: 1,
+      pageId: null,
+      userMessage: "agenda for acme",
+      accounts: [],
+      contacts: [],
+      accountsTotal: 0,
+      events: [{ id: 7, name: "Summit 2026", dates: "2026-03-10 – 2026-03-12", sessionCount: 42 }],
+    } as never);
+    expect(grounding).toContain("EVENTS");
+    expect(grounding).toContain("7 — Summit 2026");
+    expect(grounding).toContain("42 sessions");
+  });
+
+  it("grounding says so when no events exist, instead of implying one", () => {
+    const grounding = salesAssistantMode.groundingBuilder!({
+      tenantId: 1, pageId: null, userMessage: "agenda", accounts: [], contacts: [], accountsTotal: 0, events: [],
+    } as never);
+    expect(grounding).toContain("EVENTS: none set up yet");
   });
 
   it("grounding lists matched accounts/contacts with their ids", () => {

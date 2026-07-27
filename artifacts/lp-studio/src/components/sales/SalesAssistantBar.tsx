@@ -22,6 +22,7 @@ import {
   FileText,
   Mail,
   ArrowRight,
+  CalendarDays,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -165,6 +166,20 @@ export function SalesAssistantBar() {
         case "create_one_pager": {
           const accountId = posInt(a.accountId);
           if (accountId != null) setLocation(`/sales/one-pager?accountId=${accountId}`);
+          break;
+        }
+        case "create_event_agenda": {
+          // With an event: open it and let the page auto-start the agenda for
+          // this account. Without one: the events list, so the rep picks the
+          // event rather than us guessing which conference they meant.
+          const accountId = posInt(a.accountId);
+          const eventId = posInt(a.eventId);
+          if (accountId == null) break;
+          setLocation(
+            eventId != null
+              ? `/sales/events/${eventId}?newAgendaFor=${accountId}`
+              : `/sales/events?agendaFor=${accountId}`,
+          );
           break;
         }
         case "draft_email": {
@@ -314,6 +329,7 @@ export function SalesAssistantBar() {
 const ACTION_ICON: Record<string, typeof Globe> = {
   generate_microsite: Globe,
   create_one_pager: FileText,
+  create_event_agenda: CalendarDays,
   draft_email: Mail,
   open_page: ArrowRight,
 };
@@ -325,6 +341,7 @@ function AssistantActionButton({ action, onRun }: { action: CopilotAction; onRun
   const valid =
     (action.type === "generate_microsite" && posInt(a.accountId) != null) ||
     (action.type === "create_one_pager" && posInt(a.accountId) != null) ||
+    (action.type === "create_event_agenda" && posInt(a.accountId) != null) ||
     (action.type === "draft_email" && posInt(a.contactId) != null) ||
     (action.type === "open_page" && isSafeSalesPath(a.path));
   if (!valid) return null;
