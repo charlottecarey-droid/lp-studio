@@ -17,6 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { fetchBrandConfig } from "@/lib/brand-config";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { toast } from "@/hooks/use-toast";
@@ -201,6 +202,46 @@ function formToBody(f: SessionForm) {
   };
 }
 
+/**
+ * Attendee/audience roles taken from THIS tenant's brand settings: the buyer
+ * personas defined per audience segment, plus any roles named on the Sales
+ * Console value-prop pairs. These are the same roles the rest of the console
+ * personalizes against, so the agenda builder matches on vocabulary the tenant
+ * actually uses — no hardcoded list (a dental "Clinical Director" chip means
+ * nothing to another tenant). Empty when brand settings define none; every
+ * caller keeps a free-text path.
+ */
+function useBrandRoleSuggestions(active: boolean): string[] {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const brand = await fetchBrandConfig();
+        if (cancelled) return;
+        const fromPersonas = (brand.segments ?? []).flatMap((s) => (s.personas ?? []).map((p) => p.role));
+        const fromValueProps = (brand.salesConsole?.valuePropPairs ?? []).flatMap((p) => p.roles ?? []);
+        const seen = new Set<string>();
+        const unique: string[] = [];
+        for (const raw of [...fromPersonas, ...fromValueProps]) {
+          const role = (raw ?? "").trim();
+          if (!role) continue;
+          const key = role.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          unique.push(role);
+        }
+        setSuggestions(unique.slice(0, 12));
+      } catch {
+        // Brand unreachable — callers fall back to free text.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [active]);
+  return suggestions;
+}
+
 function SessionDialog({
   open, onClose, onSaved, eventId, editing,
 }: {
@@ -212,6 +253,7 @@ function SessionDialog({
 }) {
   const [form, setForm] = useState<SessionForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const brandRoles = useBrandRoleSuggestions(open);
 
   useEffect(() => {
     if (open) setForm(editing ? sessionToForm(editing) : EMPTY_FORM);
@@ -290,7 +332,11 @@ function SessionDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Audience roles (comma-separated — drives matching)</Label>
-            <Input value={form.roles} onChange={(e) => set({ roles: e.target.value })} placeholder="COO, Clinical Director, Operations" />
+            <Input
+              value={form.roles}
+              onChange={(e) => set({ roles: e.target.value })}
+              placeholder={brandRoles.length > 0 ? brandRoles.slice(0, 3).join(", ") : "Add roles this session is for"}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -379,11 +425,15 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
   return { headers, rows };
 }
 
-/** Header names chosen so autoDetect() maps every column on re-upload. */
+/** Header names chosen so autoDetect() maps every column on re-upload.
+ *  Sample rows stay industry-neutral — this file ships to every tenant, and
+ *  the Roles/Industries values should come from their own vocabulary (see
+ *  useBrandRoleSuggestions). Industries is left blank rather than guessing a
+ *  vertical; the header alone teaches the format. */
 const CSV_TEMPLATE = [
   "Title,Day,Start Time,End Time,Room,Session Type,Track,Description,Speakers,Roles,Industries,Topics",
-  '"Opening Keynote: The Road Ahead",2026-10-20,09:00,10:00,Main Hall,Keynote,General,"Welcome keynote covering the vision, roadmap, and year ahead.",Jane Smith - CEO; Alex Lee - VP Product,Executive; Owner,Dental,AI; Growth',
-  '"Hands-on Workshop: Digital Workflows",2026-10-20,10:30,12:00,Room 204,Workshop,Clinical,"Small-group workshop; bring a laptop.",Dr. Sam Patel - Clinical Director,Clinician,Dental,Digital workflows',
+  '"Opening Keynote: The Road Ahead",2026-10-20,09:00,10:00,Main Hall,Keynote,General,"Welcome keynote covering the vision, roadmap, and year ahead.",Jane Smith - CEO; Alex Lee - VP Product,Executive; Owner,,AI; Growth',
+  '"Hands-on Workshop: Getting More from the Platform",2026-10-20,10:30,12:00,Room 204,Workshop,Operations,"Small-group workshop; bring a laptop.",Sam Patel - Director of Operations,Operations,,Workflows',
 ].join("\n");
 
 function downloadCsvTemplate() {
@@ -647,6 +697,7 @@ function NewAgendaDialog({
   const [roles, setRoles] = useState<string[]>([]);
   const [roleInput, setRoleInput] = useState("");
   const [creating, setCreating] = useState(false);
+  const roleSuggestions = useBrandRoleSuggestions(open);
 
   useEffect(() => {
     if (!open) { setQuery(""); setResults([]); setPicked(null); setRoles([]); setRoleInput(""); }
@@ -693,8 +744,6 @@ function NewAgendaDialog({
       setCreating(false);
     }
   };
-
-  const ROLE_SUGGESTIONS = ["CEO", "COO", "CFO", "Operations", "Clinical Director", "IT", "Marketing"];
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -754,18 +803,30 @@ function NewAgendaDialog({
                 placeholder="Add a role and press Enter"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5 pt-0.5">
-              {ROLE_SUGGESTIONS.filter((s) => !roles.includes(s)).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className="text-xs border rounded-full px-2.5 py-0.5 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                  onClick={() => setRoles([...roles, s])}
-                >
-                  + {s}
-                </button>
-              ))}
-            </div>
+            {roleSuggestions.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {roleSuggestions
+                  .filter((s) => !roles.some((r) => r.toLowerCase() === s.toLowerCase()))
+                  .map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="text-xs border rounded-full px-2.5 py-0.5 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                      onClick={() => setRoles([...roles, s])}
+                    >
+                      + {s}
+                    </button>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground pt-0.5">
+                Type any role above. To get one-click chips, add buyer personas in{" "}
+                <a href="/brand" target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                  brand settings
+                </a>
+                .
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>
