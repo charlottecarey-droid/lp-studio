@@ -72,6 +72,12 @@ interface AgendaRow {
   pageUrl: string | null;
 }
 
+/** A role the catalog actually tags, with how many sessions carry it. */
+interface RoleOption {
+  role: string;
+  count: number;
+}
+
 interface SessionScore {
   sessionId: number;
   score: number;
@@ -684,12 +690,14 @@ interface AccountResult {
 }
 
 function NewAgendaDialog({
-  open, onClose, eventId, onCreated,
+  open, onClose, eventId, onCreated, roleOptions,
 }: {
   open: boolean;
   onClose: () => void;
   eventId: number;
   onCreated: (agendaId: number) => void;
+  /** Roles this catalog actually tags, most-used first, with session counts. */
+  roleOptions: RoleOption[];
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AccountResult[]>([]);
@@ -697,7 +705,10 @@ function NewAgendaDialog({
   const [roles, setRoles] = useState<string[]>([]);
   const [roleInput, setRoleInput] = useState("");
   const [creating, setCreating] = useState(false);
-  const roleSuggestions = useBrandRoleSuggestions(open);
+  // Chips come from the CATALOG's own tags — picking a role that no session
+  // carries can only ever return an empty match. Brand personas are a
+  // different vocabulary, written by different people.
+  const roleSuggestions = roleOptions;
 
   useEffect(() => {
     if (!open) { setQuery(""); setResults([]); setPicked(null); setRoles([]); setRoleInput(""); }
@@ -804,27 +815,30 @@ function NewAgendaDialog({
               />
             </div>
             {roleSuggestions.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {roleSuggestions
-                  .filter((s) => !roles.some((r) => r.toLowerCase() === s.toLowerCase()))
-                  .map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className="text-xs border rounded-full px-2.5 py-0.5 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                      onClick={() => setRoles([...roles, s])}
-                    >
-                      + {s}
-                    </button>
-                  ))}
-              </div>
+              <>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {roleSuggestions
+                    .filter((o) => !roles.some((r) => r.toLowerCase() === o.role.toLowerCase()))
+                    .map((o) => (
+                      <button
+                        key={o.role}
+                        type="button"
+                        className="text-xs border rounded-full px-2.5 py-0.5 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                        onClick={() => setRoles([...roles, o.role])}
+                        title={`${o.count} session${o.count === 1 ? "" : "s"} tagged ${o.role}`}
+                      >
+                        + {o.role} <span className="tabular-nums opacity-60">{o.count}</span>
+                      </button>
+                    ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  From this event's session tags — the number is how many sessions carry each role.
+                </p>
+              </>
             ) : (
               <p className="text-[11px] text-muted-foreground pt-0.5">
-                Type any role above. To get one-click chips, add buyer personas in{" "}
-                <a href="/brand" target="_blank" rel="noreferrer" className="underline hover:text-foreground">
-                  brand settings
-                </a>
-                .
+                No sessions carry audience-role tags yet, so matching will fall back to keynotes and
+                untagged sessions. Add roles to a few sessions in the catalog below for sharper picks.
               </p>
             )}
           </div>
@@ -1171,6 +1185,7 @@ export default function SalesEventDetail() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [agendas, setAgendas] = useState<AgendaRow[]>([]);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [analytics, setAnalytics] = useState<EventAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -1194,6 +1209,7 @@ export default function SalesEventDetail() {
       const eventData = await eventRes.json();
       setEvent(eventData.event);
       setSessions(eventData.sessions ?? []);
+      setRoleOptions(eventData.roleOptions ?? []);
       if (agendasRes.ok) {
         const agendaData = await agendasRes.json();
         setAgendas(agendaData.agendas ?? []);
@@ -1447,6 +1463,7 @@ export default function SalesEventDetail() {
         onClose={() => setNewAgendaOpen(false)}
         eventId={eventId}
         onCreated={(id) => { void load(); setEditorAgendaId(id); }}
+        roleOptions={roleOptions}
       />
       <AgendaEditorDialog
         agendaId={editorAgendaId}

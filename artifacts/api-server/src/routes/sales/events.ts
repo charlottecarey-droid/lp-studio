@@ -19,6 +19,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import {
   matchAgendaSessions,
+  catalogRoleOptions,
   sessionSourceKey,
   type MatchableSession,
 } from "../../lib/sales/agenda-matching";
@@ -105,6 +106,7 @@ function toMatchable(s: SalesEventSession): MatchableSession {
     endTime: s.endTime,
     isReservedSlot: s.isReservedSlot,
     tags: (s.tags ?? {}) as MatchableSession["tags"],
+    sessionType: s.sessionType,
   };
 }
 
@@ -177,7 +179,10 @@ router.get("/events/:eventId", async (req, res): Promise<void> => {
     const event = await loadEvent(tenantId, eventId);
     if (!event) { res.status(404).json({ error: "Event not found" }); return; }
     const sessions = await loadEventSessions(tenantId, eventId);
-    res.json({ event, sessions });
+    // roleOptions = the role vocabulary this catalog actually uses, most-used
+    // first. The builder offers these as chips so a picked role can genuinely
+    // match something (brand personas often use different words entirely).
+    res.json({ event, sessions, roleOptions: catalogRoleOptions(sessions.map(toMatchable)) });
   } catch (err) {
     console.error("[sales/events] get error", err);
     res.status(500).json({ error: "Failed to load event" });
