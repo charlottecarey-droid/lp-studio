@@ -12,6 +12,7 @@ import { BrandSwatches } from "@/components/BrandSwatches";
 import { ImagePicker } from "@/components/ImagePicker";
 import { CtaActionConfigSection } from "./CtaActionConfigSection";
 import { ApplyCtaToAllButton } from "./ApplyCtaToAllButton";
+import { SectionBackgroundControl } from "./SectionBackgroundControl";
 import type { CtaSuiteFields } from "@/lib/cta-modal";
 import type {
   EventAgendaBlockProps,
@@ -664,6 +665,20 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 ],
               }}
             />
+
+            <SectionBackgroundControl
+              backgroundStyle={props.teamBackgroundStyle}
+              bgColor={props.teamBgColor}
+              defaultBgColor="#F7F4EC"
+              label="Section background"
+              onChange={(patch) =>
+                onChange({
+                  ...props,
+                  ...("backgroundStyle" in patch ? { teamBackgroundStyle: patch.backgroundStyle } : {}),
+                  ...("bgColor" in patch ? { teamBgColor: patch.bgColor } : {}),
+                })
+              }
+            />
             <Field label="Portrait shape">
               <Select
                 value={props.teamPortraitShape ?? "circle"}
@@ -672,7 +687,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="circle">Circle</SelectItem>
-                  <SelectItem value="square">Rounded square</SelectItem>
+                  <SelectItem value="rounded">Rounded — follows the page corner radius</SelectItem>
+                  <SelectItem value="square">Square — hard corners</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -760,6 +776,33 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 ],
               }}
             />
+
+            <SectionBackgroundControl
+              backgroundStyle={props.speakersBackgroundStyle}
+              bgColor={props.speakersBgColor}
+              defaultBgColor="#F7F4EC"
+              label="Section background"
+              onChange={(patch) =>
+                onChange({
+                  ...props,
+                  ...("backgroundStyle" in patch ? { speakersBackgroundStyle: patch.backgroundStyle } : {}),
+                  ...("bgColor" in patch ? { speakersBgColor: patch.bgColor } : {}),
+                })
+              }
+            />
+            <Field label="Portrait shape">
+              <Select
+                value={props.speakersPortraitShape ?? "rounded"}
+                onValueChange={(v) => set("speakersPortraitShape", v as NonNullable<EventAgendaBlockProps["speakersPortraitShape"]>)}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="circle">Circle</SelectItem>
+                  <SelectItem value="rounded">Rounded — follows the page corner radius</SelectItem>
+                  <SelectItem value="square">Square — hard corners</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             {list("speakers").map((person, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader
@@ -830,6 +873,20 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   { value: "plates", label: "Plates — bordered tiles" },
                 ],
               }}
+            />
+
+            <SectionBackgroundControl
+              backgroundStyle={props.sponsorsBackgroundStyle}
+              bgColor={props.sponsorsBgColor}
+              defaultBgColor="#F7F4EC"
+              label="Section background"
+              onChange={(patch) =>
+                onChange({
+                  ...props,
+                  ...("backgroundStyle" in patch ? { sponsorsBackgroundStyle: patch.backgroundStyle } : {}),
+                  ...("bgColor" in patch ? { sponsorsBgColor: patch.bgColor } : {}),
+                })
+              }
             />
             <div className="flex items-center justify-between">
               <Label className="text-xs">Tinted band</Label>
@@ -904,6 +961,20 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   { value: "cards", label: "Cards — 2-up grid" },
                 ],
               }}
+            />
+
+            <SectionBackgroundControl
+              backgroundStyle={props.resourcesBackgroundStyle}
+              bgColor={props.resourcesBgColor}
+              defaultBgColor="#F7F4EC"
+              label="Section background"
+              onChange={(patch) =>
+                onChange({
+                  ...props,
+                  ...("backgroundStyle" in patch ? { resourcesBackgroundStyle: patch.backgroundStyle } : {}),
+                  ...("bgColor" in patch ? { resourcesBgColor: patch.bgColor } : {}),
+                })
+              }
             />
             {list("resources").map((resource, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">

@@ -19,7 +19,7 @@ import {
 const API_BASE = "/api";
 
 /** Keys this editor owns — the reset clears exactly these. */
-const OWNED_KEYS = ["cardRadius", "cardShadow", "layoutDensity"] as const;
+const OWNED_KEYS = ["cardRadius", "cardShadow", "layoutDensity", "sectionPadding"] as const;
 
 const CONTROLS: {
   key: (typeof OWNED_KEYS)[number];
@@ -50,6 +50,17 @@ const CONTROLS: {
       { value: "sm", label: "Subtle" },
       { value: "md", label: "Medium (brand default)" },
       { value: "lg", label: "Pronounced" },
+    ],
+  },
+  {
+    key: "sectionPadding",
+    label: "Section spacing",
+    hint: "Vertical breathing room between sections.",
+    fallback: "comfortable",
+    options: [
+      { value: "compact", label: "Compact" },
+      { value: "comfortable", label: "Comfortable (brand default)" },
+      { value: "spacious", label: "Spacious — extra room" },
     ],
   },
   {

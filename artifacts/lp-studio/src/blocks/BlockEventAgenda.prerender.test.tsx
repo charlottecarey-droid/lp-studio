@@ -227,3 +227,53 @@ describe("BlockEventAgenda — section diversity", () => {
     expect(html).not.toContain("clamp(8.5rem, 15vw, 11.5rem)");
   });
 });
+
+/* ── section surfaces, spacing, and portrait shapes ────────────────────── */
+
+describe("BlockEventAgenda — per-section backgrounds and spacing", () => {
+  it("a section given a dark background inverts its own text", () => {
+    const html = renderProps({ speakersBackgroundStyle: "dark" });
+    // The speakers heading must not stay near-black on a dark surface. Grab
+    // the section and assert it carries a light ink somewhere in its markup.
+    const section = /<div id="speakers"[\s\S]*?<\/div>\s*<\/div>/.exec(html)?.[0] ?? "";
+    expect(section).toMatch(/color:#(f|e|d)[0-9a-f]{5}/i);
+    expect(section).not.toMatch(/color:#221E3F/i);
+  });
+
+  it("leaves the page background alone when no section background is set", () => {
+    const html = renderProps({});
+    // No inline background on the section wrapper — it inherits the page.
+    expect(html).toMatch(/<div id="team"><div class="mx-auto/);
+  });
+
+  it("every body section carries padding on BOTH sides", () => {
+    // The cut-off bug: sections had padding-top only, so the last item sat
+    // flush against the next section.
+    const html = renderProps({});
+    for (const id of ["team", "speakers", "resources"]) {
+      const idx = html.indexOf(`id="${id}"`);
+      const slice = html.slice(idx, idx + 400);
+      expect(slice).toMatch(/py-\d+/);
+      expect(slice).not.toMatch(/\spt-16\b/);
+    }
+  });
+
+  it("portrait shape square renders hard corners; circle stays round", () => {
+    expect(renderProps({ teamPortraitShape: "square" })).toContain("border-radius:0px");
+    expect(renderProps({ teamPortraitShape: "circle" })).toContain("border-radius:9999px");
+  });
+
+  it("rounded portraits follow the PAGE corner radius", () => {
+    const squarePage = renderToStaticMarkup(
+      createElement(
+        StaticRenderContext.Provider,
+        { value: true },
+        createElement(BlockEventAgenda, {
+          props: { ...EVENT_AGENDA_DEFAULT_PROPS, teamPortraitShape: "rounded" },
+          brand: { ...DEFAULT_BRAND, cardRadius: "square" },
+        }),
+      ),
+    );
+    expect(squarePage).toContain("border-radius:0px");
+  });
+});

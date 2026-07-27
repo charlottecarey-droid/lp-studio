@@ -24,7 +24,7 @@ const STYLE_OVERRIDE_KEYS: readonly string[] = [
   "buttonRadius", "buttonShadow", "buttonPaddingX", "buttonPaddingY",
   "buttonFontWeight", "buttonTextCase", "secondaryButtonStyle", "buttonStyleRaw",
   // cards + layout
-  "cardRadius", "cardShadow", "layoutDensity",
+  "cardRadius", "cardShadow", "layoutDensity", "sectionPadding",
 ];
 
 /** Filter an orchestrator `proposed` map down to the style-override payload.

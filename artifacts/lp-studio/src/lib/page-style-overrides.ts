@@ -32,6 +32,7 @@ const ENUMS: Record<string, readonly string[]> = {
   cardRadius: ["square", "slight", "rounded", "soft"],
   cardShadow: ["none", "sm", "md", "lg"],
   layoutDensity: ["compact", "regular", "spacious"],
+  sectionPadding: ["compact", "comfortable", "spacious"],
 };
 
 const COLOR_KEYS = [

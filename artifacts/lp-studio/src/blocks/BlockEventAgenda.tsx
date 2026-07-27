@@ -11,6 +11,7 @@ import {
   relativeLuminance,
 } from "@/lib/brand-config";
 import { ensureAccentRegisters, mixHex, resolveSectionInk } from "@/lib/section-ink";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
@@ -108,6 +109,13 @@ export interface EvaDay {
 /** Per-section headline alignment + scale, so sections don't all read alike. */
 export type EvaAlign = "left" | "center";
 export type EvaHeadingSize = "sm" | "md" | "lg" | "xl";
+
+/**
+ * Portrait corner treatment. "rounded" follows the PAGE's corner-radius
+ * setting (Page Settings → Sections & images), so squaring a page squares the
+ * headshots with everything else; "circle" and "square" are absolute.
+ */
+export type EvaPortraitShape = "circle" | "rounded" | "square";
 
 /** A person — the account team and the keynote speakers share this shape. */
 export interface EvaPerson {
@@ -241,6 +249,8 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   scheduleKicker?: string;
   scheduleHeading?: string;
   scheduleIntro?: string;
+  scheduleBackgroundStyle?: string;
+  scheduleBgColor?: string;
   days: EvaDay[];
   /** Label on the per-session personalized callout. */
   whyAttendLabel?: string;
@@ -258,13 +268,16 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   teamSubheadline?: string;
   teamAlign?: EvaAlign;
   teamHeadingSize?: EvaHeadingSize;
+  /** Section background preset (brand + contrast aware) or a custom hex. */
+  teamBackgroundStyle?: string;
+  teamBgColor?: string;
   /**
    * "roster" (default) = large portraits with the name and contact details
    * underneath. "compact" = smaller portrait beside the copy for long lists.
    */
   teamLayout?: "roster" | "compact";
   /** Portrait shape on the roster layout. Default "circle". */
-  teamPortraitShape?: "circle" | "square";
+  teamPortraitShape?: EvaPortraitShape;
   team?: EvaPerson[];
 
   /* ── keynote speakers (before the schedule by default) ────────────────── */
@@ -274,6 +287,10 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   speakersSubheadline?: string;
   speakersAlign?: EvaAlign;
   speakersHeadingSize?: EvaHeadingSize;
+  speakersBackgroundStyle?: string;
+  speakersBgColor?: string;
+  /** Portrait shape for speaker features/grid. Default "rounded". */
+  speakersPortraitShape?: EvaPortraitShape;
   /**
    * "feature" (default) = full-width alternating rows, portrait beside a
    * generous bio — deliberately unlike the team grid. "grid" = a tighter
@@ -289,6 +306,8 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   sponsorsSubheadline?: string;
   sponsorsAlign?: EvaAlign;
   sponsorsHeadingSize?: EvaHeadingSize;
+  sponsorsBackgroundStyle?: string;
+  sponsorsBgColor?: string;
   /**
    * "wall" (default) = logos grouped under a plain tier label, no plates or
    * pills — how a real sponsor wall reads. "plates" = bordered tiles.
@@ -305,6 +324,8 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   resourcesSubheadline?: string;
   resourcesAlign?: EvaAlign;
   resourcesHeadingSize?: EvaHeadingSize;
+  resourcesBackgroundStyle?: string;
+  resourcesBgColor?: string;
   /**
    * "index" (default) = a numbered editorial index, kind set as plain small
    * caps. "cards" = a 2-up card grid when the descriptions run long.
@@ -877,6 +898,79 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
    * Shared kicker / headline / subheadline lockup so every body section reads
    * as one system with the schedule's own header (same type ramp, same rhythm).
    */
+  /**
+   * Resolve a body section's own surface. A section may keep the page
+   * background (the default) or take a brand-aware preset / custom colour —
+   * and everything drawn on it (headings, body ink, hairlines, cards, the
+   * accent) has to be re-resolved against THAT surface, or a dark section gets
+   * dark text. Returns the same shape the page-level palette uses so a section
+   * can be swapped onto it without touching its markup.
+   */
+  const pagePalette: SectionPalette = {
+    bg, ink, headline, cardBg, cardInk, headlineOnCard,
+    accentText, accentChrome, accentOnCard, isOwnSurface: false,
+  };
+
+  const sectionSurface = (backgroundStyle?: string, bgColorProp?: string): SectionPalette => {
+    const custom = !backgroundStyle && !bgColorProp;
+    if (custom) return pagePalette;
+    const resolved = resolveSectionSurface(
+      { backgroundStyle, bgColor: bgColorProp },
+      bg,
+      { primaryColor: brand?.primaryColor, backgroundPresetColors: brand?.backgroundPresetColors },
+    );
+    const base = isValidHex(resolved.base) ? resolved.base : bg;
+    const sInk = resolveSectionInk({ textColor: resolved.color }, { base });
+    const sHeadline = pickContrastingColor(
+      resolved.isDark ? brand?.headingOnDarkColor : props.headlineColor ?? brand?.headingOnLightColor,
+      base,
+      resolved.isDark ? [sInk.text, "#FFFFFF"] : [brand?.primaryColor, "#221E3F", sInk.text],
+      4.5,
+    );
+    const sCardBg = resolved.isDark ? mixHex("#FFFFFF", base, 0.08) : (cardBg === bg ? "#FFFFFF" : cardBg);
+    const sCardInk = resolveSectionInk({}, { base: sCardBg });
+    return {
+      bg: resolved.background,
+      ink: sInk,
+      headline: sHeadline,
+      cardBg: sCardBg,
+      cardInk: sCardInk,
+      headlineOnCard: pickContrastingColor(undefined, sCardBg, [brand?.primaryColor, "#221E3F", sCardInk.text], 4.5),
+      accentText: pickContrastingColor(accentRaw, base, [brand?.primaryColor, sHeadline], 4.5),
+      accentChrome: ensureAccentRegisters(accentRaw, { base }, 1.6),
+      accentOnCard: pickContrastingColor(accentRaw, sCardBg, [brand?.primaryColor], 4.5),
+      isOwnSurface: true,
+    };
+  };
+
+  /**
+   * Vertical rhythm for the body sections. Every section gets padding on BOTH
+   * sides — relying on the next section's top padding left the last item
+   * flush against the boundary (a tall speaker portrait read as "cut off"),
+   * and it broke entirely once sections could be reordered. Scales with the
+   * page's spacing setting so "more room between sections" is one control.
+   */
+  const SECTION_PY_SCALE: Record<string, string> = {
+    compact: "py-10 sm:py-12",
+    comfortable: "py-14 sm:py-20",
+    spacious: "py-20 sm:py-28",
+  };
+  const sectionPy = SECTION_PY_SCALE[brand?.sectionPadding ?? "comfortable"] ?? SECTION_PY_SCALE.comfortable;
+
+  /** Everything a section needs to draw on its own surface. */
+  type SectionPalette = {
+    bg: string;
+    ink: { text: string; muted: string };
+    headline: string;
+    cardBg: string;
+    cardInk: { text: string; muted: string };
+    headlineOnCard: string;
+    accentText: string;
+    accentChrome: string;
+    accentOnCard: string;
+    isOwnSurface: boolean;
+  };
+
   /** Headline scale per section — authors size sections against each other. */
   const HEADING_SIZES: Record<EvaHeadingSize, string> = {
     sm: "clamp(1.4rem, 2.4vw, 1.85rem)",
@@ -890,13 +984,21 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     headingKey: keyof EventAgendaBlockProps,
     subKey: keyof EventAgendaBlockProps,
     fallbacks: { kicker: string; heading: string },
-    opts?: { align?: EvaAlign; size?: EvaHeadingSize },
+    opts?: { align?: EvaAlign; size?: EvaHeadingSize; surface?: SectionPalette },
   ) => {
     const centered = opts?.align === "center";
     const size = HEADING_SIZES[opts?.size ?? "lg"] ?? HEADING_SIZES.lg;
+    // Draw against the SECTION's surface, not the page's — a section that
+    // takes a dark background must not keep the page's near-black ink.
+    const sf = opts?.surface;
+    const sAccent = sf?.accentText ?? accentText;
+    const sHeadline = sf?.headline ?? headline;
+    const sMuted = sf?.ink.muted ?? ink.muted;
+    const sChrome = sf?.accentChrome ?? accentChrome;
+    const sBg = sf?.bg ?? bg;
     return (
       <div className={centered ? "text-center" : undefined}>
-        <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
+        <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: sAccent }}>
           <InlineText as="span" value={(props[kickerKey] as string) ?? fallbacks.kicker} onUpdate={edit(kickerKey)} />
         </motion.p>
         <motion.h2
@@ -907,7 +1009,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
             fontSize: size,
             lineHeight: 1.06,
             letterSpacing: "-0.024em",
-            color: headline,
+            color: sHeadline,
           }}
         >
           <InlineText as="span" value={(props[headingKey] as string) ?? fallbacks.heading} onUpdate={edit(headingKey)} />
@@ -916,14 +1018,14 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           <motion.p
             {...fadeUp(0.12)}
             className={`mt-4 text-base leading-relaxed sm:text-lg ${centered ? "mx-auto max-w-2xl" : "max-w-2xl"}`}
-            style={{ color: ink.muted }}
+            style={{ color: sMuted }}
           >
             <InlineText as="span" multiline value={(props[subKey] as string) ?? ""} onUpdate={edit(subKey)} />
           </motion.p>
         )}
         {/* Centered headers get a hairline instead of relying on whitespace. */}
         {centered && (
-          <span aria-hidden className="mx-auto mt-7 block h-px w-12" style={{ background: mixHex(accentChrome, bg, 0.6) }} />
+          <span aria-hidden className="mx-auto mt-7 block h-px w-12" style={{ background: mixHex(sChrome, sBg, 0.6) }} />
         )}
       </div>
     );
@@ -938,11 +1040,25 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
    * team roster and speaker features — the small-avatar-in-a-card look is what
    * made every section read the same.
    */
+  /** Page corner setting → a concrete radius for "rounded" portraits, so
+   *  squaring the page (Sections & images) squares the headshots too. */
+  const PORTRAIT_ROUNDED: Record<string, string> = {
+    square: "0px",
+    slight: "0.375rem",
+    rounded: "1rem",
+    soft: "1.5rem",
+  };
+  const portraitRadius = (shape: EvaPortraitShape): string => {
+    if (shape === "circle") return "9999px";
+    if (shape === "square") return "0px";
+    return PORTRAIT_ROUNDED[brand?.cardRadius ?? "rounded"] ?? "1rem";
+  };
+
   const portrait = (
     person: EvaPerson,
-    opts: { size: string; shape: "circle" | "square"; surface: string; ink: { text: string; muted: string } },
+    opts: { size: string; shape: EvaPortraitShape; surface: string; ink: { text: string; muted: string } },
   ) => {
-    const radius = opts.shape === "circle" ? "9999px" : "1rem";
+    const radius = portraitRadius(opts.shape);
     return person.imageUrl?.trim() ? (
       <img
         src={person.imageUrl}
@@ -978,26 +1094,26 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
    * portrait is the anchor and the contact lines are plain text, because a
    * "who to find" list shouldn't read like a pricing table.
    */
-  const rosterEntry = (person: EvaPerson, i: number) => {
+  const rosterEntry = (person: EvaPerson, i: number, sf: SectionPalette = pagePalette) => {
     const shape = props.teamPortraitShape ?? "circle";
     return (
       <motion.li key={i} {...fadeUp(Math.min(i * 0.07, 0.28))} className="text-center">
         <div className="flex justify-center">
-          {portrait(person, { size: "clamp(8.5rem, 15vw, 11.5rem)", shape, surface: bg, ink })}
+          {portrait(person, { size: "clamp(8.5rem, 15vw, 11.5rem)", shape, surface: sf.bg, ink: sf.ink })}
         </div>
         <p
           className="mt-6 font-bold"
-          style={{ fontFamily: DISPLAY, fontSize: "clamp(1.25rem, 2.1vw, 1.55rem)", lineHeight: 1.2, letterSpacing: "-0.015em", color: headline }}
+          style={{ fontFamily: DISPLAY, fontSize: "clamp(1.25rem, 2.1vw, 1.55rem)", lineHeight: 1.2, letterSpacing: "-0.015em", color: sf.headline }}
         >
           <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("team", i, { name: v }) : undefined} />
         </p>
         {(person.title || isEditor) && (
-          <p className="mt-1.5 text-[13px] font-bold uppercase tracking-[0.16em]" style={{ color: accentText }}>
+          <p className="mt-1.5 text-[13px] font-bold uppercase tracking-[0.16em]" style={{ color: sf.accentText }}>
             <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { title: v }) : undefined} />
           </p>
         )}
         {(person.bio || isEditor) && (
-          <p className="mx-auto mt-4 max-w-[22rem] text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+          <p className="mx-auto mt-4 max-w-[22rem] text-[15px] leading-relaxed" style={{ color: sf.ink.muted }}>
             <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
           </p>
         )}
@@ -1005,12 +1121,12 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         {(person.email || person.phone || person.linkUrl || isEditor) && (
           <div
             className="mx-auto mt-5 max-w-[22rem] space-y-1 border-t pt-4 text-[14px]"
-            style={{ borderColor: mixHex(ink.text, bg, 0.14) }}
+            style={{ borderColor: mixHex(sf.ink.text, sf.bg, 0.14) }}
           >
             {(person.email || isEditor) && (
               <p>
                 {person.email?.trim() && !isEditor ? (
-                  <a href={`mailto:${person.email.trim()}`} className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" style={{ color: ink.text }}>
+                  <a href={`mailto:${person.email.trim()}`} className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" style={{ color: sf.ink.text }}>
                     {person.email}
                   </a>
                 ) : (
@@ -1019,7 +1135,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
               </p>
             )}
             {(person.phone || isEditor) && (
-              <p style={{ color: ink.muted }}>
+              <p style={{ color: sf.ink.muted }}>
                 <InlineText as="span" value={person.phone ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { phone: v }) : undefined} />
               </p>
             )}
@@ -1028,7 +1144,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                 href={person.linkUrl}
                 onClick={(e) => handleAnchor(e, person.linkUrl ?? "")}
                 className="inline-flex items-center gap-1.5 pt-1 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-                style={{ color: accentText }}
+                style={{ color: sf.accentText }}
               >
                 {person.linkLabel?.trim() || "Book time"}
                 <span aria-hidden>→</span>
@@ -1041,30 +1157,30 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   };
 
   /** COMPACT team entry — portrait beside the copy, for longer rosters. */
-  const compactEntry = (person: EvaPerson, i: number) => (
+  const compactEntry = (person: EvaPerson, i: number, sf: SectionPalette = pagePalette) => (
     <motion.li key={i} {...fadeUp(Math.min(i * 0.06, 0.24))} className="flex gap-5">
-      {portrait(person, { size: "5rem", shape: props.teamPortraitShape ?? "circle", surface: bg, ink })}
+      {portrait(person, { size: "5rem", shape: props.teamPortraitShape ?? "circle", surface: sf.bg, ink: sf.ink })}
       <div className="min-w-0 pt-1">
-        <p className="font-bold" style={{ fontFamily: DISPLAY, fontSize: "1.15rem", lineHeight: 1.25, color: headline }}>
+        <p className="font-bold" style={{ fontFamily: DISPLAY, fontSize: "1.15rem", lineHeight: 1.25, color: sf.headline }}>
           <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("team", i, { name: v }) : undefined} />
         </p>
         {(person.title || isEditor) && (
-          <p className="mt-0.5 text-[12px] font-bold uppercase tracking-[0.16em]" style={{ color: accentText }}>
+          <p className="mt-0.5 text-[12px] font-bold uppercase tracking-[0.16em]" style={{ color: sf.accentText }}>
             <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { title: v }) : undefined} />
           </p>
         )}
         {(person.bio || isEditor) && (
-          <p className="mt-2 text-[15px] leading-relaxed" style={{ color: ink.muted }}>
+          <p className="mt-2 text-[15px] leading-relaxed" style={{ color: sf.ink.muted }}>
             <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
           </p>
         )}
         {(person.email || person.phone) && (
-          <p className="mt-2 text-[14px]" style={{ color: ink.text }}>
+          <p className="mt-2 text-[14px]" style={{ color: sf.ink.text }}>
             {person.email?.trim() && (
-              <a href={`mailto:${person.email.trim()}`} style={{ color: ink.text }}>{person.email}</a>
+              <a href={`mailto:${person.email.trim()}`} style={{ color: sf.ink.text }}>{person.email}</a>
             )}
-            {person.email?.trim() && person.phone?.trim() ? <span style={{ color: ink.muted }}>{"  ·  "}</span> : null}
-            {person.phone?.trim() && <span style={{ color: ink.muted }}>{person.phone}</span>}
+            {person.email?.trim() && person.phone?.trim() ? <span style={{ color: sf.ink.muted }}>{"  ·  "}</span> : null}
+            {person.phone?.trim() && <span style={{ color: sf.ink.muted }}>{person.phone}</span>}
           </p>
         )}
       </div>
@@ -1076,19 +1192,19 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
    * alternating down the page. Nothing like the team grid, which is the point:
    * two people-sections in a row must not look like one repeated component.
    */
-  const speakerFeature = (person: EvaPerson, i: number) => {
+  const speakerFeature = (person: EvaPerson, i: number, sf: SectionPalette = pagePalette) => {
     const flip = i % 2 === 1;
     return (
       <motion.li
         key={i}
         {...fadeUp(Math.min(i * 0.08, 0.3))}
         className={`flex flex-col gap-7 border-t pt-10 sm:flex-row sm:items-center sm:gap-10 ${flip ? "sm:flex-row-reverse" : ""}`}
-        style={{ borderColor: mixHex(ink.text, bg, 0.14) }}
+        style={{ borderColor: mixHex(sf.ink.text, sf.bg, 0.14) }}
       >
-        {portrait(person, { size: "clamp(9rem, 17vw, 13rem)", shape: "square", surface: bg, ink })}
+        {portrait(person, { size: "clamp(9rem, 17vw, 13rem)", shape: props.speakersPortraitShape ?? "rounded", surface: sf.bg, ink: sf.ink })}
         <div className="min-w-0 flex-1">
           {(person.sessionTitle || isEditor) && (
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: accentText }}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: sf.accentText }}>
               <InlineText
                 as="span"
                 value={person.sessionTitle ?? ""}
@@ -1098,19 +1214,19 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           )}
           <p
             className="mt-3 font-bold"
-            style={{ fontFamily: DISPLAY, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", lineHeight: 1.14, letterSpacing: "-0.02em", color: headline }}
+            style={{ fontFamily: DISPLAY, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", lineHeight: 1.14, letterSpacing: "-0.02em", color: sf.headline }}
           >
             <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("speakers", i, { name: v }) : undefined} />
           </p>
           {(person.title || isEditor) && (
-            <p className="mt-1.5 text-[15px]" style={{ color: ink.muted }}>
+            <p className="mt-1.5 text-[15px]" style={{ color: sf.ink.muted }}>
               <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { title: v }) : undefined} />
             </p>
           )}
           {(person.bio || isEditor) && (
             <p
               className="mt-4 max-w-2xl text-[17px] leading-relaxed"
-              style={{ color: ink.text, fontFamily: DISPLAY }}
+              style={{ color: sf.ink.text, fontFamily: DISPLAY }}
             >
               <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { bio: v }) : undefined} />
             </p>
@@ -1121,19 +1237,19 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   };
 
   /** SPEAKER GRID entry — tighter 3-up for long line-ups. */
-  const speakerGridEntry = (person: EvaPerson, i: number) => (
+  const speakerGridEntry = (person: EvaPerson, i: number, sf: SectionPalette = pagePalette) => (
     <motion.li key={i} {...fadeUp(Math.min(i * 0.05, 0.2))}>
-      {portrait(person, { size: "100%", shape: "square", surface: bg, ink })}
-      <p className="mt-4 font-bold" style={{ fontFamily: DISPLAY, fontSize: "1.2rem", lineHeight: 1.2, color: headline }}>
+      {portrait(person, { size: "100%", shape: props.speakersPortraitShape ?? "rounded", surface: sf.bg, ink: sf.ink })}
+      <p className="mt-4 font-bold" style={{ fontFamily: DISPLAY, fontSize: "1.2rem", lineHeight: 1.2, color: sf.headline }}>
         <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("speakers", i, { name: v }) : undefined} />
       </p>
       {(person.title || isEditor) && (
-        <p className="mt-1 text-[13px]" style={{ color: ink.muted }}>
+        <p className="mt-1 text-[13px]" style={{ color: sf.ink.muted }}>
           <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { title: v }) : undefined} />
         </p>
       )}
       {(person.sessionTitle || isEditor) && (
-        <p className="mt-2 text-[13px]" style={{ color: accentText }}>
+        <p className="mt-2 text-[13px]" style={{ color: sf.accentText }}>
           <InlineText as="span" value={person.sessionTitle ?? ""} onUpdate={setItem ? (v) => setItem("speakers", i, { sessionTitle: v }) : undefined} />
         </p>
       )}
@@ -1332,8 +1448,13 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         </div>
   ) : null;
 
+  const scheduleSurface = sectionSurface(props.scheduleBackgroundStyle, props.scheduleBgColor);
   const scheduleSection = (
-      <div id="schedule" className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
+      <div
+        id="schedule"
+        style={scheduleSurface.isOwnSurface ? { background: scheduleSurface.bg } : undefined}
+      >
+        <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
         <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
           <InlineText as="span" value={props.scheduleKicker ?? "Your schedule"} onUpdate={edit("scheduleKicker")} />
         </motion.p>
@@ -1591,45 +1712,58 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
             </div>
           ))}
         </div>
+        </div>
       </div>
   );
 
   /* Four sections, four different shapes — a roster of portraits, alternating
      speaker features, a plain grouped sponsor wall, and a numbered resource
      index. They deliberately share only the header lockup. */
+  const teamSurface = sectionSurface(props.teamBackgroundStyle, props.teamBgColor);
   const teamSection = showTeam ? (
-    <div id="team" className="mx-auto w-full max-w-5xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+    <div
+      id="team"
+      style={teamSurface.isOwnSurface ? { background: teamSurface.bg } : undefined}
+    >
+      <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
       {sectionHeader("teamKicker", "teamHeading", "teamSubheadline", {
         kicker: "Your account team",
         heading: "The people looking after you",
-      }, { align: props.teamAlign ?? "center", size: props.teamHeadingSize })}
+      }, { align: props.teamAlign ?? "center", size: props.teamHeadingSize, surface: teamSurface })}
       {(props.teamLayout ?? "roster") === "roster" ? (
         <ul className="mt-12 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
-          {team.map((person, i) => rosterEntry(person, i))}
+          {team.map((person, i) => rosterEntry(person, i, teamSurface))}
         </ul>
       ) : (
         <ul className="mt-10 grid gap-8 sm:grid-cols-2">
-          {team.map((person, i) => compactEntry(person, i))}
+          {team.map((person, i) => compactEntry(person, i, teamSurface))}
         </ul>
       )}
+      </div>
     </div>
   ) : null;
 
+  const speakersSurface = sectionSurface(props.speakersBackgroundStyle, props.speakersBgColor);
   const speakersSection = showSpeakers ? (
-    <div id="speakers" className="mx-auto w-full max-w-5xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+    <div
+      id="speakers"
+      style={speakersSurface.isOwnSurface ? { background: speakersSurface.bg } : undefined}
+    >
+      <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
       {sectionHeader("speakersKicker", "speakersHeading", "speakersSubheadline", {
         kicker: "Keynotes",
         heading: "Who you'll hear from",
-      }, { align: props.speakersAlign, size: props.speakersHeadingSize ?? "xl" })}
+      }, { align: props.speakersAlign, size: props.speakersHeadingSize ?? "xl", surface: speakersSurface })}
       {(props.speakersLayout ?? "feature") === "feature" ? (
         <ul className="mt-12 space-y-10">
-          {speakers.map((person, i) => speakerFeature(person, i))}
+          {speakers.map((person, i) => speakerFeature(person, i, speakersSurface))}
         </ul>
       ) : (
         <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {speakers.map((person, i) => speakerGridEntry(person, i))}
+          {speakers.map((person, i) => speakerGridEntry(person, i, speakersSurface))}
         </ul>
       )}
+      </div>
     </div>
   ) : null;
 
@@ -1689,17 +1823,23 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     );
   };
 
+  const sponsorsSurface = sectionSurface(props.sponsorsBackgroundStyle, props.sponsorsBgColor);
   const sponsorsSection = showSponsors ? (
     <div
       id="sponsors"
-      className="mt-16 sm:mt-20"
-      style={props.sponsorsBand === false ? undefined : { background: mixHex(accentChrome, bg, 0.05) }}
+      style={
+        sponsorsSurface.isOwnSurface
+          ? { background: sponsorsSurface.bg }
+          // Legacy default: a whisper of accent so the wall separates from its
+          // neighbours without needing an explicit background.
+          : props.sponsorsBand === false ? undefined : { background: mixHex(accentChrome, bg, 0.05) }
+      }
     >
-      <div className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
+      <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
         {sectionHeader("sponsorsKicker", "sponsorsHeading", "sponsorsSubheadline", {
           kicker: "Partners",
           heading: "Who's making it happen",
-        }, { align: props.sponsorsAlign ?? "center", size: props.sponsorsHeadingSize ?? "md" })}
+        }, { align: props.sponsorsAlign ?? "center", size: props.sponsorsHeadingSize ?? "md", surface: sponsorsSurface })}
         {(props.sponsorsLayout ?? "wall") === "wall" ? (
           <div className="mt-12 space-y-12">
             {sponsorTiers.map(([tier, entries], t) => (
@@ -1747,12 +1887,17 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
 
   /* Resources: a numbered index. The kind is small-caps text in the number
      column, not a chip — reads like a contents page, not a tag cloud. */
+  const resourcesSurface = sectionSurface(props.resourcesBackgroundStyle, props.resourcesBgColor);
   const resourcesSection = showResources ? (
-    <div id="resources" className="mx-auto w-full max-w-4xl px-5 pt-16 sm:px-8 sm:pt-20 lg:px-10">
+    <div
+      id="resources"
+      style={resourcesSurface.isOwnSurface ? { background: resourcesSurface.bg } : undefined}
+    >
+      <div className={`mx-auto w-full max-w-4xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
       {sectionHeader("resourcesKicker", "resourcesHeading", "resourcesSubheadline", {
         kicker: "Before you go",
         heading: "Take the week with you",
-      }, { align: props.resourcesAlign, size: props.resourcesHeadingSize ?? "md" })}
+      }, { align: props.resourcesAlign, size: props.resourcesHeadingSize ?? "md", surface: resourcesSurface })}
       {(props.resourcesLayout ?? "index") === "index" ? (
         <ul className="mt-10">
           {resources.map((resource, i) => {
@@ -1876,6 +2021,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           })}
         </ul>
       )}
+      </div>
     </div>
   ) : null;
 
