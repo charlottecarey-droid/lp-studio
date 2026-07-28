@@ -435,6 +435,47 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Dates label">
               <Input value={props.eventDates ?? ""} onChange={(e) => set("eventDates", e.target.value)} placeholder="Mar 10–12, 2026" className="text-xs h-8" />
             </Field>
+
+            {/* ── hero stat strip ──
+                The numerals are computed from the agenda, so they can't be
+                typed over — but each can be switched off and its label
+                rewritten. Turn all three off and the location stands alone. */}
+            <div className="space-y-2 border rounded-md p-2.5">
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Hero stats
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Counts come from the agenda itself. Switch them all off to show just
+                the location. Clear the location or dates field to drop those too.
+              </p>
+              {([
+                ["showStatSessions", "statSessionsLabel", "Session count", "sessions picked for you"],
+                ["showStatDays", "statDaysLabel", "Day count", "days"],
+                ["showStatReserved", "statReservedLabel", "Reserved count", "reserved just for you"],
+              ] as const).map(([showKey, labelKey, title, placeholder]) => (
+                <div key={showKey} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">{title}</Label>
+                    <Switch
+                      checked={props[showKey] !== false}
+                      onCheckedChange={(v) => set(showKey, v)}
+                    />
+                  </div>
+                  {props[showKey] !== false && (
+                    <Input
+                      value={props[labelKey] ?? ""}
+                      onChange={(e) => set(labelKey, e.target.value || undefined)}
+                      placeholder={placeholder}
+                      className="text-xs h-8"
+                    />
+                  )}
+                </div>
+              ))}
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Leave a label empty to keep the built-in wording, which follows the
+                count (&ldquo;1 day&rdquo; vs &ldquo;3 days&rdquo;).
+              </p>
+            </div>
             <Field label="Account logo URL (navbar co-brand)">
               <Input value={props.accountLogoUrl ?? ""} onChange={(e) => set("accountLogoUrl", e.target.value)} placeholder="https://…/logo.svg" className="text-xs h-8" />
             </Field>

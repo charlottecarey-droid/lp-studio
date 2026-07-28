@@ -222,6 +222,19 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   /** Event name (used in meta chips + close). */
   eventName?: string;
   eventLocation?: string;
+  /* ── hero stat strip ──────────────────────────────────────────────────
+   * The three numerals are COMPUTED from the agenda, so they can't be typed
+   * over — but they can each be switched off, and their labels rewritten.
+   * Switching all three off leaves the location standing on its own, which is
+   * the "just show where it is" hero. */
+  showStatSessions?: boolean;
+  showStatDays?: boolean;
+  showStatReserved?: boolean;
+  /** Label overrides. Deliberately UNSET by default so the built-in labels stay
+   *  count-aware ("1 day" / "3 days"); once set, your text is used verbatim. */
+  statSessionsLabel?: string;
+  statDaysLabel?: string;
+  statReservedLabel?: string;
   /** Preformatted date range, e.g. "Mar 10–12, 2026". */
   eventDates?: string;
   /** Session count for the hero stat strip; hidden when 0/absent. */
@@ -424,6 +437,9 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
   eventName: "Summit 2026",
   eventLocation: "Austin, TX",
   eventDates: "Mar 10–12, 2026",
+  showStatSessions: true,
+  showStatDays: true,
+  showStatReserved: true,
   sessionCount: 5,
 
   /* note */
@@ -1338,11 +1354,37 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   };
 
   /* — hero stat strip entries (editorial numerals, not pills) — */
-  const heroStats = [
-    sessionTotal > 0 ? { value: String(sessionTotal), label: sessionTotal === 1 ? "session picked for you" : "sessions picked for you" } : null,
-    days.length > 0 ? { value: String(days.length), label: days.length === 1 ? "day" : "days" } : null,
-    reservedTotal > 0 ? { value: String(reservedTotal), label: reservedTotal === 1 ? "reserved just for you" : "reserved just for you" } : null,
-  ].filter((s): s is { value: string; label: string } => s !== null).slice(0, 3);
+  type HeroStat = { key: string; value: string; label: string; field: keyof EventAgendaBlockProps };
+  const heroStats: HeroStat[] = ([
+    props.showStatSessions !== false && sessionTotal > 0
+      ? {
+          key: "sessions",
+          value: String(sessionTotal),
+          label: props.statSessionsLabel ?? (sessionTotal === 1 ? "session picked for you" : "sessions picked for you"),
+          field: "statSessionsLabel",
+        }
+      : null,
+    props.showStatDays !== false && days.length > 0
+      ? {
+          key: "days",
+          value: String(days.length),
+          label: props.statDaysLabel ?? (days.length === 1 ? "day" : "days"),
+          field: "statDaysLabel",
+        }
+      : null,
+    props.showStatReserved !== false && reservedTotal > 0
+      ? {
+          key: "reserved",
+          value: String(reservedTotal),
+          label: props.statReservedLabel ?? "reserved just for you",
+          field: "statReservedLabel",
+        }
+      : null,
+  ] as (HeroStat | null)[]).filter((x): x is HeroStat => x !== null);
+  /** The location stands on its own — it is NOT one of the computed stats, so
+   *  it survives switching all three off. Empty + published = gone; empty in
+   *  the builder still offers a click target so it can be put back. */
+  const showLocationCell = !!props.eventLocation?.trim() || isEditor;
 
   /* — RSVP field rendering: underline-only inputs on the page surface with an
    *   accent rule that draws in on focus (the Event RSVP invitation register).
@@ -2430,14 +2472,14 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                 </motion.div>
 
                 {/* editorial stat strip */}
-                {heroStats.length > 0 && (
+                {(heroStats.length > 0 || showLocationCell) && (
                   <motion.dl
                     {...fadeUp(0.3)}
                     className="mt-12 flex flex-wrap items-stretch gap-x-10 gap-y-6 border-t pt-8"
                     style={{ borderColor: mixHex(heroInk.text, heroBg, 0.16) }}
                   >
                     {heroStats.map((stat) => (
-                      <div key={stat.label} className="min-w-[7rem]">
+                      <div key={stat.key} className="min-w-[7rem]">
                         <dd
                           className="font-bold tabular-nums"
                           style={{
@@ -2451,11 +2493,15 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                           {stat.value}
                         </dd>
                         <dt className="mt-2 max-w-[11rem] text-[13px] leading-snug" style={{ color: heroInk.muted }}>
-                          {stat.label}
+                          <InlineText
+                            as="span"
+                            value={stat.label}
+                            onUpdate={edit(stat.field)}
+                          />
                         </dt>
                       </div>
                     ))}
-                    {props.eventLocation && (
+                    {showLocationCell && (
                       <div className="min-w-[7rem]">
                         <dd
                           className="font-bold"
@@ -2468,11 +2514,16 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                             paddingTop: "0.35rem",
                           }}
                         >
-                          {props.eventLocation}
+                          <InlineText as="span" value={props.eventLocation ?? ""} onUpdate={edit("eventLocation")} />
                         </dd>
-                        <dt className="mt-2 text-[13px] leading-snug" style={{ color: heroInk.muted }}>
-                          {props.eventDates || "on location"}
-                        </dt>
+                        {/* No fallback copy. A hardcoded "on location" here meant
+                            clearing the dates field left a phantom line behind
+                            instead of removing it. */}
+                        {(props.eventDates?.trim() || isEditor) && (
+                          <dt className="mt-2 text-[13px] leading-snug" style={{ color: heroInk.muted }}>
+                            <InlineText as="span" value={props.eventDates ?? ""} onUpdate={edit("eventDates")} />
+                          </dt>
+                        )}
                       </div>
                     )}
                   </motion.dl>

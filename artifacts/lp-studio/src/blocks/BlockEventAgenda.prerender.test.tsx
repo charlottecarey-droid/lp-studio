@@ -385,3 +385,63 @@ describe("BlockEventAgenda — sponsors", () => {
     expect(section).not.toMatch(/color:#1A1815/i);
   });
 });
+
+/* ── hero stat strip: per-stat hide, editable labels, deletable location ── */
+
+describe("BlockEventAgenda — hero stats", () => {
+  const strip = (html: string) => {
+    const i = html.indexOf("<dl");
+    return i === -1 ? "" : html.slice(i, html.indexOf("</dl>", i));
+  };
+
+  it("shows the computed counts by default", () => {
+    const s = strip(renderProps({}));
+    expect(s).toContain("sessions picked for you");
+    expect(s).toContain("days");
+    expect(s).toContain("reserved just for you");
+    expect(s).toContain("Austin, TX");
+  });
+
+  it("each stat can be hidden independently", () => {
+    expect(strip(renderProps({ showStatSessions: false }))).not.toContain("sessions picked for you");
+    expect(strip(renderProps({ showStatReserved: false }))).not.toContain("reserved just for you");
+    // Hiding one leaves the others standing.
+    expect(strip(renderProps({ showStatReserved: false }))).toContain("sessions picked for you");
+  });
+
+  it("with EVERY stat off the location still shows — the point of the option", () => {
+    const s = strip(renderProps({
+      showStatSessions: false, showStatDays: false, showStatReserved: false,
+    }));
+    expect(s).toContain("Austin, TX");
+    expect(s).toContain("Mar 10");
+    expect(s).not.toContain("picked for you");
+  });
+
+  it("labels are overridable and used verbatim", () => {
+    const s = strip(renderProps({ statSessionsLabel: "talks on your list" }));
+    expect(s).toContain("talks on your list");
+    expect(s).not.toContain("sessions picked for you");
+  });
+
+  it("clearing the location removes it — no phantom fallback copy", () => {
+    const s = strip(renderProps({ eventLocation: "" }));
+    expect(s).not.toContain("Austin");
+    // The old hardcoded "on location" fallback must not resurface.
+    expect(s).not.toContain("on location");
+  });
+
+  it("clearing the dates drops the sub-line rather than substituting for it", () => {
+    const s = strip(renderProps({ eventDates: "" }));
+    expect(s).toContain("Austin, TX");
+    expect(s).not.toContain("on location");
+  });
+
+  it("everything off and nothing to say — the whole strip is gone", () => {
+    const html = renderProps({
+      showStatSessions: false, showStatDays: false, showStatReserved: false,
+      eventLocation: "", eventDates: "",
+    });
+    expect(html).not.toContain("<dl");
+  });
+});
