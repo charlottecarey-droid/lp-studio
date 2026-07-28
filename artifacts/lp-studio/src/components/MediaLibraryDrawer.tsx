@@ -62,6 +62,12 @@ export interface MediaLibraryDrawerProps {
    */
   multiSelect?: boolean;
   onSelectMany?: (urls: string[]) => void;
+  /**
+   * Restrict the Images tab to a single tag (e.g. "logo"). Used by pickers
+   * that only ever want one kind of asset — a sponsor slot should open onto
+   * logos, not the whole photo library.
+   */
+  onlyTag?: string;
 }
 
 const DRAWER_PAGE_SIZE = 24;
@@ -124,12 +130,14 @@ function dedupeBySourceImage(items: MediaItem[]): MediaItem[] {
 
 // ─── Images tab ─────────────────────────────────────────────────────────────
 
-function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle }: {
+function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle, onlyTag }: {
   onSelect: (url: string) => void;
   /** Multi-select mode: tiles toggle selection instead of selecting+closing. */
   selectable?: boolean;
   selectedUrls?: Set<string>;
   onToggle?: (url: string) => void;
+  /** Restrict the list to one tag (see MediaLibraryDrawerProps.onlyTag). */
+  onlyTag?: string;
 }) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
@@ -155,6 +163,7 @@ function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle }: {
       params.set("page", String(pg ?? page));
       params.set("limit", String(DRAWER_PAGE_SIZE));
       params.set("excludeTag", "og-image");
+      if (onlyTag) params.set("onlyTag", onlyTag);
       const res = await fetch(`/api/lp/media/images?${params}`);
       if (!res.ok) throw new Error("Failed to load");
       const data = (await res.json()) as { items: MediaItem[]; tagCounts: TagCount[]; total: number; page: number; totalPages: number };
@@ -168,7 +177,7 @@ function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle }: {
     } finally {
       setLoading(false);
     }
-  }, [query, activeTag, page]);
+  }, [query, activeTag, page, onlyTag]);
 
   useEffect(() => { fetchImages(page); }, [fetchImages]);
 
@@ -939,7 +948,7 @@ function PdfsTab({ onSelect }: { onSelect: (url: string) => void }) {
 
 // ─── Main drawer ─────────────────────────────────────────────────────────────
 
-export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = "images", multiSelect = false, onSelectMany }: MediaLibraryDrawerProps) {
+export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = "images", multiSelect = false, onSelectMany, onlyTag }: MediaLibraryDrawerProps) {
   const handleSelect = (url: string) => {
     onSelect(url);
     onOpenChange(false);
@@ -967,7 +976,7 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = 
             <SheetDescription className="text-xs">Tap images to add several at once.</SheetDescription>
           </SheetHeader>
           <div className="flex-1 flex flex-col min-h-0">
-            <ImagesTab onSelect={handleSelect} selectable selectedUrls={selected} onToggle={toggle} />
+            <ImagesTab onSelect={handleSelect} selectable selectedUrls={selected} onToggle={toggle} onlyTag={onlyTag} />
           </div>
           <div className="border-t border-border px-6 py-3 flex items-center justify-between shrink-0">
             <span className="text-xs text-muted-foreground">{selected.size} selected</span>
@@ -1000,7 +1009,7 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = 
           </TabsList>
 
           <TabsContent value="images" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
-            <ImagesTab onSelect={handleSelect} />
+            <ImagesTab onSelect={handleSelect} onlyTag={onlyTag} />
           </TabsContent>
 
           <TabsContent value="og-images" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">

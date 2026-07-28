@@ -85,6 +85,17 @@ export interface RawScrapeResult {
    *  `<img>`, lazy-load attrs, CSS backgrounds), using the same heuristics as
    *  Brand Import. Empty when HTML was unavailable or yielded nothing. */
   imageUrls: string[];
+  /**
+   * The page's rendered HTML, for callers that need to run their OWN DOM
+   * extraction (the partner-logo importer wants logo walls, which
+   * `imageUrls`' content-photo heuristics deliberately drop).
+   *
+   * DELIBERATELY NOT CACHED — `cachedFirecrawlScrape` strips this before
+   * storing, because 200 cache entries × a multi-MB document would dwarf
+   * everything else in the process. Only a direct `firecrawlScrape` call, or
+   * the cache-miss return value, carries it.
+   */
+  html?: string;
 }
 
 /** Low-level wrapper around Firecrawl's /v1/scrape. */
@@ -160,6 +171,7 @@ export async function firecrawlScrape(
       screenshotUrl: data?.data?.screenshot,
       truncated: raw.length > MARKDOWN_MAX_CHARS,
       imageUrls,
+      html,
     };
   } catch { return null; }
 }
@@ -236,6 +248,13 @@ function consumeScrapeBudget(tenantId: number): boolean {
   return true;
 }
 
+/** Consume one unit of the tenant's daily scrape budget. Exported for callers
+ *  that must bypass `cachedFirecrawlScrape` (e.g. the partner-logo importer,
+ *  which needs the uncached `html`) but must still pay for the scrape. */
+export function consumeTenantScrapeBudget(tenantId: number): boolean {
+  return consumeScrapeBudget(tenantId);
+}
+
 /** Test-only: reset the in-memory daily scrape budget between cases. */
 export function resetScrapeBudget(): void {
   scrapeBudget.clear();
@@ -266,7 +285,10 @@ export async function cachedFirecrawlScrape(
   if (!consumeScrapeBudget(tenantId)) return null;
   const fresh = await firecrawlScrape(apiKey, url, opts);
   if (!fresh) return null;
-  scrapeCache.set(key, { at: now, value: fresh });
+  // Strip `html` on the way into the cache (see RawScrapeResult.html): the
+  // caller still gets it on this call, but it must not be retained for 24h
+  // across 200 entries.
+  scrapeCache.set(key, { at: now, value: { ...fresh, html: undefined } });
   while (scrapeCache.size > SCRAPE_CACHE_MAX) {
     const oldestKey = scrapeCache.keys().next().value;
     if (oldestKey === undefined) break;

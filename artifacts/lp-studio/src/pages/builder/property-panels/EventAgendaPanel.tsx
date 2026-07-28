@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Link2, Link2Off } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Link2, Link2Off, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { CtaActionConfigSection } from "./CtaActionConfigSection";
 import { ApplyCtaToAllButton } from "./ApplyCtaToAllButton";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
+import { LibraryPicker } from "@/components/LibraryPicker";
 import type { CtaSuiteFields } from "@/lib/cta-modal";
 import type {
   EventAgendaBlockProps,
@@ -237,6 +238,9 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
     onChange({ ...props, [key]: value });
 
   // Global forms for the RSVP "linked form" picker (mirrors ChatCapturePanel).
+  /** Sales Reps library picker for the account team (same library the
+   *  dso-meet-team block uses — one directory, not a second copy). */
+  const [teamPickerOpen, setTeamPickerOpen] = useState(false);
   const [globalForms, setGlobalForms] = useState<GlobalFormSummary[]>([]);
   useEffect(() => {
     fetch(`${API_BASE}/lp/forms`).then((r) => r.json()).then((data: GlobalFormSummary[]) => setGlobalForms(data)).catch(() => {});
@@ -935,6 +939,14 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add person
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => setTeamPickerOpen(true)}
+            >
+              <Users className="w-3.5 h-3.5 mr-1.5" /> Add from Sales Reps library
+            </Button>
           </div>
         )}
       </div>
@@ -1206,6 +1218,9 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                     value={sponsor.logoUrl ?? ""}
                     onChange={(url) => patchItem("sponsors", i, { logoUrl: url })}
                     label={`${sponsor.name || "Sponsor"} logo`}
+                    /* Browse opens straight onto the Logos library rather than
+                       the whole photo library. */
+                    libraryTag="logo"
                   />
                 </Field>
               </div>
@@ -1397,6 +1412,50 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
           </div>
         )}
       </div>
+
+      {/*
+        The account team comes from the SAME Sales Reps library the
+        dso-meet-team block uses, so a rep is maintained in one place. The
+        library's shape is close but not identical to EvaPerson — `role` is our
+        `title`, `photo` is our `imageUrl`, and `chilipiperUrl` is a booking
+        link, so it becomes `linkUrl` with a sensible default label.
+      */}
+      <LibraryPicker
+        open={teamPickerOpen}
+        onClose={() => setTeamPickerOpen(false)}
+        type="team_member"
+        title="Sales Reps Library"
+        onSelect={(items) => {
+          const added = items.map((c) => {
+            const booking = String(c.chilipiperUrl ?? c.calendlyUrl ?? "").trim();
+            const person: EvaPerson = { name: String(c.name ?? "").trim() || "New person" };
+            const title = String(c.role ?? "").trim();
+            const email = String(c.email ?? "").trim();
+            const phone = String(c.phone ?? "").trim();
+            const photo = String(c.photo ?? "").trim();
+            if (title) person.title = title;
+            if (email) person.email = email;
+            if (phone) person.phone = phone;
+            if (photo) person.imageUrl = photo;
+            if (booking) {
+              person.linkUrl = booking;
+              person.linkLabel = "Book time";
+            }
+            return person;
+          });
+          setList("team", [...list("team"), ...added]);
+        }}
+        renderPreview={(item) => {
+          const c = item.content as { role?: string; email?: string };
+          return (
+            <div className="text-xs text-muted-foreground">
+              {c.role && <span className="font-medium text-foreground/70">{c.role}</span>}
+              {c.role && c.email && <span className="mx-1">·</span>}
+              {c.email && <span>{c.email}</span>}
+            </div>
+          );
+        }}
+      />
     </div>
   );
 }

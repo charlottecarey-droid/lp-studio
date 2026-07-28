@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw, Globe, FileText, Wand2, GripVertical } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Image as ImageIcon, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw, Globe, FileText, Wand2, GripVertical } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -201,12 +201,15 @@ function ResourceForm({
 }
 
 function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
-  const v = value as { name?: string; role?: string; email?: string; chilipiperUrl?: string; photo?: string };
+  const v = value as { name?: string; role?: string; email?: string; phone?: string; chilipiperUrl?: string; photo?: string };
   return (
     <div className="space-y-2">
       <Input placeholder="Full name" value={v.name ?? ""} onChange={e => onChange({ ...v, name: e.target.value })} className="text-xs h-7" />
       <Input placeholder="Role / Title (e.g. Enterprise AE)" value={v.role ?? ""} onChange={e => onChange({ ...v, role: e.target.value })} className="text-xs h-7" />
       <Input placeholder="email@example.com" value={v.email ?? ""} onChange={e => onChange({ ...v, email: e.target.value })} className="text-xs h-7" />
+      {/* Optional — the event-agenda account-team roster prints a phone line;
+          without this the rep has to be retyped there. */}
+      <Input placeholder="Phone (optional)" value={v.phone ?? ""} onChange={e => onChange({ ...v, phone: e.target.value })} className="text-xs h-7" />
       <Input placeholder="Chili Piper URL" value={v.chilipiperUrl ?? ""} onChange={e => onChange({ ...v, chilipiperUrl: e.target.value })} className="text-xs h-7" />
       <ImagePicker label="Headshot" value={v.photo ?? ""} onChange={url => onChange({ ...v, photo: url })} />
     </div>
@@ -217,7 +220,7 @@ function getDefaultContent(type: LibraryType): Record<string, unknown> {
   if (type === "product_showcase") return { name: "", description: "", badge: "", image: "" };
   if (type === "product_grid") return { title: "", description: "", image: "" };
   if (type === "case_study") return { title: "", categories: "", url: "#", image: "", logoUrl: "", quote: "", author: "", stat: "", statLabel: "", locationCount: "", segment: "" };
-  if (type === "team_member") return { name: "", role: "", email: "", chilipiperUrl: "", photo: "" };
+  if (type === "team_member") return { name: "", role: "", email: "", phone: "", chilipiperUrl: "", photo: "" };
   return { title: "", description: "", category: "Article", url: "#", image: "" };
 }
 
@@ -458,6 +461,224 @@ const referenceHostOf = (tags: string[]): string => {
   const t = tags.find(x => typeof x === "string" && x.startsWith("refhost:"));
   return t ? t.slice("refhost:".length) : "";
 };
+
+/* ── Logos ────────────────────────────────────────────────────────────────
+ * Partner / sponsor / client marks. NOT a new store: these are lp_media rows
+ * tagged "logo" — the same tag brand-import writes for the tenant's own mark —
+ * so anything already imported shows up here, and anything added here is
+ * immediately reachable from every ImagePicker with libraryTag="logo".
+ *
+ * The scrape is review-then-import on purpose: the server returns candidates
+ * and writes nothing until you tick the ones you want, so a bad guess at a
+ * partners page can't litter the library.
+ */
+interface LogoCandidate { url: string; name: string }
+
+function LogosTab() {
+  const [items, setItems] = useState<MediaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [scrapeOpen, setScrapeOpen] = useState(false);
+  const [scrapeUrl, setScrapeUrl] = useState("");
+  const [scraping, setScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<LogoCandidate[] | null>(null);
+  const [truncated, setTruncated] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/lp/media/images?onlyTag=logo&limit=200");
+      if (!res.ok) throw new Error("failed");
+      const data = (await res.json()) as { items: MediaItem[] };
+      setItems(data.items ?? []);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const uploadLogos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        // Field name and tag param are the /lp/upload contract: multer reads
+        // "file", and `folderTags` is the comma-separated tag list that gets
+        // merged with whatever the background auto-tagger infers.
+        fd.append("file", file);
+        fd.append("folderTags", "logo");
+        await fetch("/api/lp/upload", { method: "POST", body: fd });
+      }
+      await load();
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const runScrape = async () => {
+    setScraping(true);
+    setScrapeError(null);
+    setCandidates(null);
+    setImportNote(null);
+    try {
+      const res = await fetch("/api/lp/media/logos/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: scrapeUrl.trim() }),
+      });
+      const data = (await res.json()) as { candidates?: LogoCandidate[]; truncated?: boolean; error?: string };
+      if (!res.ok) { setScrapeError(data.error ?? "Couldn't read that page."); return; }
+      setCandidates(data.candidates ?? []);
+      setTruncated(Boolean(data.truncated));
+      setPicked(new Set((data.candidates ?? []).map(c => c.url)));
+    } catch {
+      setScrapeError("Couldn't reach the server.");
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  const importPicked = async () => {
+    if (!candidates) return;
+    const chosen = candidates.filter(c => picked.has(c.url));
+    if (chosen.length === 0) return;
+    setImporting(true);
+    try {
+      const res = await fetch("/api/lp/media/logos/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: chosen, sourceUrl: scrapeUrl.trim() }),
+      });
+      const data = (await res.json()) as {
+        imported?: { id: number }[]; failed?: { url: string; reason: string }[]; skippedForCap?: number; error?: string;
+      };
+      if (!res.ok) { setScrapeError(data.error ?? "Import failed."); return; }
+      const ok = data.imported?.length ?? 0;
+      const bad = data.failed?.length ?? 0;
+      const capped = data.skippedForCap ?? 0;
+      // Always report partials — a silent "done" that dropped half the marks
+      // is worse than a slower honest one.
+      setImportNote(
+        `Added ${ok} logo${ok === 1 ? "" : "s"}` +
+        (bad ? ` · ${bad} couldn't be fetched` : "") +
+        (capped ? ` · ${capped} over the per-import limit were skipped` : ""),
+      );
+      setCandidates(null);
+      await load();
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const toggle = (url: string) =>
+    setPicked(prev => { const n = new Set(prev); if (n.has(url)) n.delete(url); else n.add(url); return n; });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+          onChange={e => void uploadLogos(e.target.files)} />
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+          onClick={() => fileRef.current?.click()} disabled={uploading}>
+          {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+          Upload logos
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+          onClick={() => { setScrapeOpen(o => !o); setScrapeError(null); }}>
+          <Globe className="w-3.5 h-3.5" /> Add from a page
+        </Button>
+        <span className="text-xs text-slate-500 ml-auto">{items.length} logo{items.length === 1 ? "" : "s"}</span>
+      </div>
+
+      {scrapeOpen && (
+        <div className="rounded-lg border p-3 space-y-3 bg-slate-50">
+          <div className="flex gap-2">
+            <Input
+              value={scrapeUrl}
+              onChange={e => setScrapeUrl(e.target.value)}
+              placeholder="https://conference.com/partners"
+              className="text-xs h-8"
+              onKeyDown={e => { if (e.key === "Enter" && scrapeUrl.trim()) void runScrape(); }}
+            />
+            <Button size="sm" className="h-8 text-xs" disabled={scraping || !scrapeUrl.trim()} onClick={() => void runScrape()}>
+              {scraping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Find logos"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Point this at a partners, sponsors or &ldquo;trusted by&rdquo; page. Nothing is
+            saved until you pick.
+          </p>
+          {scrapeError && <p className="text-[11px] text-destructive">{scrapeError}</p>}
+
+          {candidates && candidates.length === 0 && (
+            <p className="text-[11px] text-slate-500">No logos found on that page.</p>
+          )}
+          {candidates && candidates.length > 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {candidates.map(c => (
+                  <button
+                    key={c.url}
+                    type="button"
+                    onClick={() => toggle(c.url)}
+                    className={`rounded-md border p-2 bg-white text-left transition-colors ${
+                      picked.has(c.url) ? "border-primary ring-1 ring-primary" : "border-slate-200"
+                    }`}
+                    title={c.url}
+                  >
+                    <img src={c.url} alt={c.name} className="h-10 w-full object-contain" />
+                    <div className="mt-1 truncate text-[10px] text-slate-600">{c.name}</div>
+                  </button>
+                ))}
+              </div>
+              {truncated && (
+                <p className="text-[11px] text-amber-700">
+                  That page had more marks than we show here — import these, then run it again.
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <Button size="sm" className="h-8 text-xs" disabled={importing || picked.size === 0} onClick={() => void importPicked()}>
+                  {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                  Add {picked.size} to library
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setCandidates(null)}>Cancel</Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {importNote && <p className="text-xs text-slate-600">{importNote}</p>}
+
+      {loading ? (
+        <div className="py-10 text-center"><Loader2 className="w-4 h-4 animate-spin inline" /></div>
+      ) : items.length === 0 ? (
+        <p className="py-10 text-center text-xs text-slate-500">
+          No logos yet. Upload some, or pull them off a partners page.
+        </p>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {items.map(m => (
+            <div key={m.id} className="rounded-md border p-2 bg-white">
+              <img src={m.url} alt={m.title ?? ""} className="h-12 w-full object-contain" />
+              <div className="mt-1 truncate text-[10px] text-slate-600" title={m.title ?? ""}>{m.title}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MediaTab() {
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -2115,7 +2336,7 @@ function ProofPointsTab() {
   );
 }
 
-type ActiveTab = LibraryType | "media" | "proof_points";
+type ActiveTab = LibraryType | "media" | "logos" | "proof_points";
 
 const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: React.ReactNode }[] = [
   { id: "product_showcase", label: "Product Showcase", description: "Cards used in Product Showcase blocks" },
@@ -2124,6 +2345,7 @@ const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: Reac
   { id: "resource", label: "Resources", description: "Articles, guides, and resources" },
   { id: "team_member", label: "Sales Reps", description: "Sales reps and their booking links — pick from this list when building Meet the Team blocks.", icon: <Users className="w-3.5 h-3.5" /> },
   { id: "proof_points", label: "Proof Points", description: "Reusable, dated, sourced stats. One approval flows through every page and segment that uses the same number — no more re-typing the same stat in every segment.", icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { id: "logos", label: "Logos", description: "Partner, sponsor and client marks. Upload them, or scrape a partners page and pick which ones to keep — then pull them into any logo wall or the event agenda's partners section.", icon: <ImageIcon className="w-3.5 h-3.5" /> },
   { id: "media", label: "Media", description: "Upload and manage images. AI auto-tags on upload — subfolders become tags when uploading a folder.", icon: <Image className="w-3.5 h-3.5" /> },
 ];
 
@@ -2155,7 +2377,9 @@ export function ContentLibraryContent() {
           <p className="text-xs text-slate-500">{activeTabMeta.description}</p>
         </div>
 
-        {activeTab === "media"
+        {activeTab === "logos"
+          ? <LogosTab />
+          : activeTab === "media"
           ? <MediaTab />
           : activeTab === "proof_points"
             ? <ProofPointsTab />

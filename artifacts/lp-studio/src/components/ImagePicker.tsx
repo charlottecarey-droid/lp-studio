@@ -33,6 +33,12 @@ interface ImagePickerProps {
    * cropped to a thin strip.
    */
   previewClassName?: string;
+  /**
+   * Restrict "browse library" to one tag (e.g. "logo"). Use where a field only
+   * ever wants one kind of asset — a sponsor slot opening onto the whole photo
+   * library is noise.
+   */
+  libraryTag?: string;
 }
 
 export async function uploadImage(file: File): Promise<string> {
@@ -51,7 +57,7 @@ export async function uploadImage(file: File): Promise<string> {
   return `/api/storage${url}`;
 }
 
-export function ImagePicker({ value, onChange, label, placeholder, className, aiHint, allowAiGenerate = true, previewClassName = "w-full h-24 object-cover" }: ImagePickerProps) {
+export function ImagePicker({ value, onChange, label, placeholder, className, aiHint, allowAiGenerate = true, previewClassName = "w-full h-24 object-cover", libraryTag }: ImagePickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +221,7 @@ export function ImagePicker({ value, onChange, label, placeholder, className, ai
         open={libraryOpen}
         onOpenChange={setLibraryOpen}
         onSelect={(url) => onChange(url)}
+        onlyTag={libraryTag}
       />
     </div>
   );
