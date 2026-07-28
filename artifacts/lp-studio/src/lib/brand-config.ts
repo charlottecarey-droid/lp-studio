@@ -35,6 +35,11 @@ export type CardShadow = "none" | "sm" | "md" | "lg";
  *  utilities page-wide (tight vs spaced brands). Unset/"regular" → blocks
  *  keep their designed gaps. */
 export type LayoutDensity = "compact" | "regular" | "spacious";
+/** Page-wide tenant-logo scale. Proportional, not absolute: every block keeps
+ *  its designed logo hierarchy (a nav mark stays larger than a footer
+ *  sign-off), the whole set just grows or shrinks together. "md" is the
+ *  library's own scale and emits nothing. */
+export type LogoSize = "sm" | "md" | "lg" | "xl";
 export type HeadingWeight = "semibold" | "bold" | "extrabold" | "black";
 export type HeadingLetterSpacing = "tight" | "normal" | "wide";
 export type BodyTextSize = "sm" | "md" | "lg";
@@ -272,6 +277,11 @@ export interface BrandConfig {
    *  utilities page-wide. Optional; "regular" (or unset) emits nothing so
    *  existing pages are pixel-identical. */
   layoutDensity?: LayoutDensity;
+  /** Tenant-logo scale, applied page-wide via the same utility-remap
+   *  mechanism as cardRadius/cardShadow — see getBrandSurfaceCss. Scoped to
+   *  elements BrandLogo renders, so partner/account/sponsor marks are
+   *  untouched. */
+  logoSize?: LogoSize;
   displayFont: string;
   bodyFont: string;
   /** Optional override URL for the display font's stylesheet (advanced
@@ -1670,6 +1680,25 @@ const DENSITY_GAP_REMAP: Record<Exclude<LayoutDensity, "regular">, Record<string
 };
 
 /**
+ * Tenant-logo scale factors. Deliberately PROPORTIONAL rather than a fixed
+ * height: blocks size their marks on purpose (a nav lockup is bigger than a
+ * footer sign-off, a hero mark bigger still), and pinning them all to one
+ * height would flatten that hierarchy. Multiplying preserves it.
+ *
+ * The remap covers the height utilities logos actually use across the library
+ * (h-4 … h-16). A logo sized on its WIDTH (`w-40 h-auto`, one case today) is
+ * not scaled — there's no height utility to remap, and inventing one would
+ * fight the block's intent.
+ */
+const LOGO_SCALE: Record<Exclude<LogoSize, "md">, number> = {
+  sm: 0.72,
+  lg: 1.35,
+  xl: 1.75,
+};
+/** Tailwind height utilities logos are sized with. `h-N` === N × 0.25rem. */
+const LOGO_HEIGHT_STEPS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16] as const;
+
+/**
  * Stylesheet form of the brand's card/layout tokens (brand-fidelity, July
  * 2026). Rather than tagging ~230 block components, this overrides the
  * Tailwind utilities the blocks already use — `[data-lp-page] .rounded-2xl
@@ -1715,6 +1744,16 @@ export function getBrandSurfaceCss(brand: BrandConfig): string {
   }
   if (brand.layoutDensity && brand.layoutDensity !== "regular") {
     remap(DENSITY_GAP_REMAP[brand.layoutDensity], "gap", false);
+  }
+  if (brand.logoSize && brand.logoSize !== "md") {
+    // Scoped to `[data-brand-logo]`, which ONLY BrandLogo stamps — so this
+    // scales the tenant's own mark and never a partner, sponsor or account
+    // co-brand logo sitting beside it in the same lockup.
+    const scale = LOGO_SCALE[brand.logoSize];
+    for (const step of LOGO_HEIGHT_STEPS) {
+      const px = step * 0.25 * scale;
+      rules.push(`[data-lp-page] [data-brand-logo].h-${step}{height:${+px.toFixed(4)}rem !important}`);
+    }
   }
   return rules.join("");
 }

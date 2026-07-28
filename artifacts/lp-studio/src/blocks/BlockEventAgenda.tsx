@@ -335,6 +335,13 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   sponsorsLayout?: "wall" | "plates";
   /** Tint the sponsors band to separate it from its neighbours. Default true. */
   sponsorsBand?: boolean;
+  /** ONE size for every sponsor mark. Sponsor logos arrive at wildly different
+   *  intrinsic sizes; per-sponsor sizing is the fiddly work this removes. */
+  sponsorLogoSize?: "sm" | "md" | "lg" | "xl";
+  /** Print each sponsor's name under its logo. Off by default — a sponsor wall
+   *  is usually marks alone. Ignored for a sponsor with NO logo, where the name
+   *  already IS the mark. */
+  showSponsorNames?: boolean;
   sponsors?: EvaSponsor[];
 
   /* ── resources (after the schedule by default) ────────────────────────── */
@@ -556,6 +563,8 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
   showSponsors: true,
   sponsorsKicker: "Partners",
   sponsorsHeading: "Who's making it happen",
+  sponsorLogoSize: "md",
+  showSponsorNames: false,
   sponsorsSubheadline: "The partners joining us on site — several will be running hands-on stations.",
   sponsors: [
     { name: "Northwind Systems", tier: "Founding partner" },
@@ -959,10 +968,27 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       headline: sHeadline,
       cardBg: sCardBg,
       cardInk: sCardInk,
-      headlineOnCard: pickContrastingColor(undefined, sCardBg, [brand?.primaryColor, "#221E3F", sCardInk.text], 4.5),
+      // Candidates must match the CARD's darkness, not the library's
+      // light-surface defaults. pickContrastingColor falls back to its first
+      // candidate when none clear the ratio, so handing a dark card only dark
+      // candidates (brand primary, #221E3F) silently returns near-black ON
+      // near-black — measured at 1.24:1 before this.
+      headlineOnCard: pickContrastingColor(
+        undefined,
+        sCardBg,
+        resolved.isDark
+          ? [sCardInk.text, "#FFFFFF"]
+          : [brand?.primaryColor, "#221E3F", sCardInk.text],
+        4.5,
+      ),
       accentText: pickContrastingColor(accentRaw, base, [brand?.primaryColor, sHeadline], 4.5),
       accentChrome: ensureAccentRegisters(accentRaw, { base }, 1.6),
-      accentOnCard: pickContrastingColor(accentRaw, sCardBg, [brand?.primaryColor], 4.5),
+      accentOnCard: pickContrastingColor(
+        accentRaw,
+        sCardBg,
+        resolved.isDark ? [sCardInk.text, "#FFFFFF"] : [brand?.primaryColor],
+        4.5,
+      ),
       isOwnSurface: true,
     };
   };
@@ -1497,13 +1523,17 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   ) : null;
 
   const scheduleSurface = sectionSurface(props.scheduleBackgroundStyle, props.scheduleBgColor);
+  /* Short alias — the schedule is the longest section and every ink in it must
+     resolve against ITS surface, not the page's. Painting the background alone
+     left the rail, ghost numerals, day labels and reserved cards in page ink. */
+  const sch = scheduleSurface;
   const scheduleSection = (
       <div
         id="schedule"
         style={scheduleSurface.isOwnSurface ? { background: scheduleSurface.bg } : undefined}
       >
         <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
-        <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: accentText }}>
+        <motion.p {...fadeUp(0)} className={kickerClass} style={{ color: sch.accentText }}>
           <InlineText as="span" value={props.scheduleKicker ?? "Your schedule"} onUpdate={edit("scheduleKicker")} />
         </motion.p>
         <motion.h2
@@ -1514,13 +1544,13 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
             fontSize: "clamp(2rem, 4vw, 3rem)",
             lineHeight: 1.06,
             letterSpacing: "-0.024em",
-            color: headline,
+            color: sch.headline,
           }}
         >
           <InlineText as="span" value={props.scheduleHeading ?? "Day by day"} onUpdate={edit("scheduleHeading")} />
         </motion.h2>
         {(props.scheduleIntro || isEditor) && (
-          <motion.p {...fadeUp(0.12)} className="mt-4 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: ink.muted }}>
+          <motion.p {...fadeUp(0.12)} className="mt-4 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: sch.ink.muted }}>
             <InlineText as="span" multiline value={props.scheduleIntro ?? ""} onUpdate={edit("scheduleIntro")} />
           </motion.p>
         )}
@@ -1537,7 +1567,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                   fontSize: "clamp(4.5rem, 9vw, 7rem)",
                   lineHeight: 1,
                   letterSpacing: "-0.04em",
-                  color: mixHex(ink.text, bg, 0.07),
+                  color: mixHex(sch.ink.text, sch.bg, 0.07),
                 }}
               >
                 {String(dayIdx + 1).padStart(2, "0")}
@@ -1548,19 +1578,19 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                   <h3
                     className="font-bold"
-                    style={{ fontFamily: DISPLAY, fontSize: "clamp(1.45rem, 2.6vw, 1.95rem)", letterSpacing: "-0.018em", color: headline }}
+                    style={{ fontFamily: DISPLAY, fontSize: "clamp(1.45rem, 2.6vw, 1.95rem)", letterSpacing: "-0.018em", color: sch.headline }}
                   >
                     <InlineText as="span" value={day.label} onUpdate={setDay ? (v) => setDay(dayIdx, { label: v }) : undefined} />
                   </h3>
                   {(day.summary || isEditor) && (
-                    <p className="text-base" style={{ color: ink.muted }}>
+                    <p className="text-base" style={{ color: sch.ink.muted }}>
                       <InlineText as="span" value={day.summary ?? ""} onUpdate={setDay ? (v) => setDay(dayIdx, { summary: v }) : undefined} />
                     </p>
                   )}
                 </div>
                 <div aria-hidden className="mt-5 flex items-center gap-0">
-                  <span className="h-px w-14" style={{ background: accentChrome }} />
-                  <span className="h-px flex-1" style={{ background: mixHex(ink.text, bg, 0.14) }} />
+                  <span className="h-px w-14" style={{ background: sch.accentChrome }} />
+                  <span className="h-px flex-1" style={{ background: mixHex(sch.ink.text, sch.bg, 0.14) }} />
                 </div>
               </motion.div>
 
@@ -1599,13 +1629,15 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                 <span
                   aria-hidden
                   className="pointer-events-none absolute bottom-6 left-[5px] top-6 hidden w-px sm:block"
-                  style={{ background: mixHex(ink.text, bg, 0.13) }}
+                  style={{ background: mixHex(sch.ink.text, sch.bg, 0.13) }}
                 />
                 {day.sessions.map((session, i) => {
-                  const rowInk = session.isReserved ? cardInk : ink;
-                  const rowHeadline = session.isReserved ? headlineOnCard : headline;
-                  const rowAccent = session.isReserved ? accentOnCard : accentText;
-                  const rowSurface = session.isReserved ? cardBg : bg;
+                  // Reserved rows are cards, so they re-resolve against the
+                  // card surface; everything else against the section's own.
+                  const rowInk = session.isReserved ? sch.cardInk : sch.ink;
+                  const rowHeadline = session.isReserved ? sch.headlineOnCard : sch.headline;
+                  const rowAccent = session.isReserved ? sch.accentOnCard : sch.accentText;
+                  const rowSurface = session.isReserved ? sch.cardBg : sch.bg;
                   const body = (
                     <div className="grid gap-x-10 gap-y-2 sm:grid-cols-[10rem_1fr]">
                       {/* time rail */}
@@ -1698,7 +1730,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                         {showWhyAttend && (session.whyAttend || isEditor) && (
                           <div
                             className="mt-4 max-w-2xl border-l-2 py-0.5 pl-4"
-                            style={{ borderColor: accentChrome }}
+                            style={{ borderColor: sch.accentChrome }}
                           >
                             <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: rowAccent }}>
                               {props.whyAttendLabel ?? "Why this matters for you"}
@@ -1737,16 +1769,16 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                         aria-hidden
                         className="absolute left-0 top-[2.2rem] hidden h-[11px] w-[11px] rounded-full border-2 sm:block"
                         style={{
-                          borderColor: session.isReserved ? accentChrome : mixHex(ink.text, bg, 0.35),
-                          background: session.isReserved ? accentChrome : bg,
+                          borderColor: session.isReserved ? sch.accentChrome : mixHex(sch.ink.text, sch.bg, 0.35),
+                          background: session.isReserved ? sch.accentChrome : sch.bg,
                         }}
                       />
                       {session.isReserved ? (
                         <article
                           className="my-5 rounded-2xl px-6 py-6 sm:px-8"
                           style={{
-                            background: cardBg,
-                            border: `1px solid ${mixHex(accentChrome, cardBg, 0.4)}`,
+                            background: sch.cardBg,
+                            border: `1px solid ${mixHex(sch.accentChrome, sch.cardBg, 0.4)}`,
                             boxShadow: "0 28px 56px -44px rgba(28, 25, 23, 0.4)",
                           }}
                         >
@@ -1755,7 +1787,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                       ) : (
                         <article
                           className="border-b py-7"
-                          style={{ borderColor: mixHex(ink.text, bg, 0.12) }}
+                          style={{ borderColor: mixHex(sch.ink.text, sch.bg, 0.12) }}
                         >
                           {body}
                         </article>
@@ -1834,18 +1866,41 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     return [...groups.entries()];
   })();
 
+  const sponsorsSurface = sectionSurface(props.sponsorsBackgroundStyle, props.sponsorsBgColor);
+
+  /**
+   * ONE size for every sponsor mark — sponsor logos arrive at wildly different
+   * intrinsic sizes, and sizing them individually is exactly the fiddly work
+   * this is meant to remove. The cap scales with its container so a larger
+   * setting can't clip the mark against a fixed-height box.
+   */
+  const SPONSOR_SIZES: Record<NonNullable<EventAgendaBlockProps["sponsorLogoSize"]>, {
+    mark: string; row: string; plate: string;
+  }> = {
+    sm: { mark: "max-h-8", row: "h-14", plate: "h-20" },
+    md: { mark: "max-h-12", row: "h-20", plate: "h-24" },
+    lg: { mark: "max-h-16", row: "h-24", plate: "h-28" },
+    xl: { mark: "max-h-24", row: "h-32", plate: "h-36" },
+  };
+  const sponsorSize = SPONSOR_SIZES[props.sponsorLogoSize ?? "md"] ?? SPONSOR_SIZES.md;
+  const showSponsorNames = props.showSponsorNames ?? false;
+
   const sponsorMark = (sponsor: EvaSponsor, i: number, plated: boolean) => {
-    const mark = sponsor.logoUrl?.trim() ? (
+    const sf = sponsorsSurface;
+    const hasLogo = !!sponsor.logoUrl?.trim();
+    const mark = hasLogo ? (
       <img
         src={sponsor.logoUrl}
         alt={sponsor.name}
-        className="max-h-12 w-auto max-w-full object-contain"
+        className={`${sponsorSize.mark} w-auto max-w-full object-contain`}
         loading="lazy"
       />
     ) : (
+      // No logo — the NAME is the mark. Rendering a name line underneath it
+      // too would just print it twice, so `showSponsorNames` is ignored here.
       <span
         className="text-center font-bold"
-        style={{ fontFamily: DISPLAY, fontSize: "clamp(1.05rem, 1.8vw, 1.35rem)", color: headline, letterSpacing: "-0.015em" }}
+        style={{ fontFamily: DISPLAY, fontSize: "clamp(1.05rem, 1.8vw, 1.35rem)", color: plated ? sf.headlineOnCard : sf.headline, letterSpacing: "-0.015em" }}
       >
         <InlineText
           as="span"
@@ -1854,15 +1909,32 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         />
       </span>
     );
-    const inner = plated ? (
+    const box = plated ? (
       <span
-        className="flex h-24 items-center justify-center rounded-xl px-5"
-        style={{ background: cardBg, border: `1px solid ${mixHex(cardInk.text, cardBg, 0.1)}` }}
+        className={`flex ${sponsorSize.plate} items-center justify-center rounded-xl px-5`}
+        style={{ background: sf.cardBg, border: `1px solid ${mixHex(sf.cardInk.text, sf.cardBg, 0.1)}` }}
       >
         {mark}
       </span>
     ) : (
-      <span className="flex h-20 items-center justify-center px-2">{mark}</span>
+      <span className={`flex ${sponsorSize.row} items-center justify-center px-2`}>{mark}</span>
+    );
+    const inner = hasLogo && showSponsorNames ? (
+      <span className="flex flex-col items-center gap-2.5">
+        {box}
+        <span
+          className="text-center text-[11px] font-bold uppercase tracking-[0.16em]"
+          style={{ color: sf.ink.muted }}
+        >
+          <InlineText
+            as="span"
+            value={sponsor.name}
+            onUpdate={setItem ? (v) => setItem("sponsors", i, { name: v }) : undefined}
+          />
+        </span>
+      </span>
+    ) : (
+      box
     );
     return sponsor.url?.trim() && !isEditor ? (
       <a
@@ -1877,8 +1949,6 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
       inner
     );
   };
-
-  const sponsorsSurface = sectionSurface(props.sponsorsBackgroundStyle, props.sponsorsBgColor);
   const sponsorsSection = showSponsors ? (
     <div
       id="sponsors"
@@ -1903,11 +1973,11 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                   <div className="flex items-center gap-4">
                     <span
                       className="text-[10px] font-bold uppercase tracking-[0.26em]"
-                      style={{ color: ink.muted }}
+                      style={{ color: sponsorsSurface.ink.muted }}
                     >
                       {tier}
                     </span>
-                    <span aria-hidden className="h-px flex-1" style={{ background: mixHex(ink.text, bg, 0.14) }} />
+                    <span aria-hidden className="h-px flex-1" style={{ background: mixHex(sponsorsSurface.ink.text, sponsorsSurface.bg, 0.14) }} />
                   </div>
                 )}
                 <ul className="mt-6 grid grid-cols-2 items-center gap-x-10 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
@@ -1924,7 +1994,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
               <motion.li key={i} {...fadeUp(Math.min(i * 0.04, 0.2))}>
                 {sponsorMark(sponsor, i, true)}
                 {(sponsor.tier || isEditor) && (
-                  <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: ink.muted }}>
+                  <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: sponsorsSurface.ink.muted }}>
                     <InlineText
                       as="span"
                       value={sponsor.tier ?? ""}

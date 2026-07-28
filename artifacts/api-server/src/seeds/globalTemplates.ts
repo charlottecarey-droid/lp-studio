@@ -4155,6 +4155,8 @@ const EVENT_AGENDA_GENERIC_PROPS = {
   showSponsors: true,
   sponsorsKicker: "Partners",
   sponsorsHeading: "Who's making it happen",
+  sponsorLogoSize: "md",
+  showSponsorNames: false,
   sponsorsSubheadline: "The partners joining us on site — several will be running hands-on stations.",
   sponsors: [
     { name: "Northwind Systems", tier: "Founding partner" },

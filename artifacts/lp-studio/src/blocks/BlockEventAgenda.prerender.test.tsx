@@ -340,3 +340,48 @@ describe("BlockEventAgenda — meta row does not leave a gap when emptied", () =
     expect(html).toContain("Reserved for you");
   });
 });
+
+/* ── sponsor logo sizing + optional names ──────────────────────────────── */
+
+describe("BlockEventAgenda — sponsors", () => {
+  const withLogos = {
+    sponsors: [
+      { name: "Northwind", tier: "Founding partner", logoUrl: "https://x/nw.svg" },
+      { name: "Acme", tier: "Founding partner" }, // no logo — name IS the mark
+    ],
+  };
+
+  it("one size setting drives every sponsor mark", () => {
+    expect(renderProps({ ...withLogos })).toContain("max-h-12");
+    expect(renderProps({ ...withLogos, sponsorLogoSize: "xl" })).toContain("max-h-24");
+    expect(renderProps({ ...withLogos, sponsorLogoSize: "sm" })).toContain("max-h-8");
+  });
+
+  it("the container grows with the mark so a bigger logo is never clipped", () => {
+    // Cap must stay below its box: max-h-24 (6rem) inside h-32 (8rem).
+    const xl = renderProps({ ...withLogos, sponsorLogoSize: "xl" });
+    expect(xl).toContain("max-h-24");
+    expect(xl).toContain("h-32");
+  });
+
+  it("names under logos are off by default and opt-in", () => {
+    const off = renderProps({ ...withLogos });
+    const on = renderProps({ ...withLogos, showSponsorNames: true });
+    // "Northwind" has a logo, so by default only its <img alt> carries the name.
+    expect(off).not.toContain("tracking-[0.16em]\">Northwind");
+    expect(on).toContain("Northwind");
+    expect(on).toContain("tracking-[0.16em]");
+  });
+
+  it("a sponsor with NO logo never prints its name twice", () => {
+    const on = renderProps({ ...withLogos, showSponsorNames: true });
+    // Acme is the wordmark fallback — exactly one occurrence of the name.
+    expect(on.split("Acme").length - 1).toBe(1);
+  });
+
+  it("a dark sponsors background re-inks the tier labels (not page ink)", () => {
+    const html = renderProps({ ...withLogos, sponsorsBackgroundStyle: "dark" });
+    const section = /<div id="sponsors"[\s\S]*?<\/div>\s*<\/div>/.exec(html)?.[0] ?? "";
+    expect(section).not.toMatch(/color:#1A1815/i);
+  });
+});

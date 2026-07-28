@@ -108,7 +108,11 @@ interface Props {
  *   - `onAccent`   → contrast color of brand accent (logo on an accent tile)
  *
  * Sizing: pass standard Tailwind size classes (`h-9 w-auto`, `w-40 h-auto`,
- * etc.) via `className`. We discover the SVG's natural aspect ratio from a
+ * etc.) via `className`. Every rendered mark carries `data-brand-logo`, which
+ * is what the page-level "Logo size" control keys off (getBrandSurfaceCss
+ * proportionally remaps the `h-*` utility on those elements) — so a page can
+ * rescale the tenant's mark everywhere without any block being aware of it,
+ * while partner/sponsor/account logos rendered as plain <img> stay put. We discover the SVG's natural aspect ratio from a
  * hidden `<img>` and apply it as `aspect-ratio` on the masked element so the
  * `auto` axis resolves correctly.
  */
@@ -258,6 +262,7 @@ export function BrandLogo({
       <img
         src={src}
         alt={alt}
+        data-brand-logo=""
         className={className}
         style={plainFilter ? { ...style, filter: plainFilter } : style}
       />
@@ -274,6 +279,7 @@ export function BrandLogo({
     <span
       role="img"
       aria-label={alt}
+      data-brand-logo=""
       className={className}
       style={{
         display: "inline-block",

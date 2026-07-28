@@ -952,6 +952,31 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               <Label className="text-xs">Tinted band</Label>
               <Switch checked={props.sponsorsBand !== false} onCheckedChange={(v) => set("sponsorsBand", v)} />
             </div>
+            {/* One size for ALL sponsor marks — sponsor logos come in at wildly
+                different intrinsic sizes and per-sponsor sizing is the fiddly
+                work this replaces. */}
+            <Field label="Logo size (all sponsors)">
+              <Select
+                value={props.sponsorLogoSize ?? "md"}
+                onValueChange={(v) => set("sponsorLogoSize", v as NonNullable<EventAgendaBlockProps["sponsorLogoSize"]>)}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sm">Small</SelectItem>
+                  <SelectItem value="md">Medium (default)</SelectItem>
+                  <SelectItem value="lg">Large</SelectItem>
+                  <SelectItem value="xl">Extra large</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Names under logos</Label>
+              <Switch checked={props.showSponsorNames === true} onCheckedChange={(v) => set("showSponsorNames", v)} />
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              A sponsor with no logo already shows its name as the mark, so it
+              won&rsquo;t be printed twice.
+            </p>
             {list("sponsors").map((sponsor, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader

@@ -19,7 +19,7 @@ import {
 const API_BASE = "/api";
 
 /** Keys this editor owns — the reset clears exactly these. */
-const OWNED_KEYS = ["cardRadius", "cardShadow", "layoutDensity", "sectionPadding"] as const;
+const OWNED_KEYS = ["cardRadius", "cardShadow", "layoutDensity", "sectionPadding", "logoSize"] as const;
 
 const CONTROLS: {
   key: (typeof OWNED_KEYS)[number];
@@ -61,6 +61,18 @@ const CONTROLS: {
       { value: "compact", label: "Compact" },
       { value: "comfortable", label: "Comfortable (brand default)" },
       { value: "spacious", label: "Spacious — extra room" },
+    ],
+  },
+  {
+    key: "logoSize",
+    label: "Logo size",
+    hint: "Scales your logo everywhere on this page — nav, footer, sign-offs. Partner and sponsor logos are unaffected.",
+    fallback: "md",
+    options: [
+      { value: "sm", label: "Small" },
+      { value: "md", label: "Medium (brand default)" },
+      { value: "lg", label: "Large" },
+      { value: "xl", label: "Extra large" },
     ],
   },
   {
