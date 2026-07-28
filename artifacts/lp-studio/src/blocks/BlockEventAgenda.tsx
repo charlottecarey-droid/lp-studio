@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarPlus } from "lucide-react";
-import { useAnimInitial } from "@/lib/reveal-fallback";
+import { CalendarPlus, PlayCircle } from "lucide-react";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { usePageContext } from "@/lib/page-context";
 import type { BrandConfig } from "@/lib/brand-config";
 import {
@@ -14,6 +14,7 @@ import { ensureAccentRegisters, mixHex, resolveSectionInk } from "@/lib/section-
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
+import { VideoModal } from "@/components/VideoModal";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import type { CtaModalConfig, HeroCtaConfig, FormStep } from "@/lib/block-types";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
@@ -164,11 +165,11 @@ export interface EvaResource {
  * later can never silently hide it on existing pages. The hero and close are
  * NOT reorderable — they bookend the page by definition.
  */
-export type EvaSectionId = "note" | "team" | "speakers" | "schedule" | "sponsors" | "resources" | "rsvp";
+export type EvaSectionId = "note" | "team" | "speakers" | "guest" | "schedule" | "sponsors" | "resources" | "rsvp";
 
 /** Canonical order: the two intro sections, the schedule, then the follow-ups. */
 export const EVA_SECTION_ORDER: readonly EvaSectionId[] = [
-  "note", "team", "speakers", "schedule", "sponsors", "resources", "rsvp",
+  "note", "team", "speakers", "guest", "schedule", "sponsors", "resources", "rsvp",
 ];
 
 export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
@@ -227,6 +228,16 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
    * over — but they can each be switched off, and their labels rewritten.
    * Switching all three off leaves the location standing on its own, which is
    * the "just show where it is" hero. */
+  /**
+   * The hero's SECOND button. "calendar" (default) is the .ics download and
+   * still only appears when the agenda carries real dates. "video" opens a
+   * trailer in the shared lightbox, "link" goes anywhere, "none" leaves the
+   * primary CTA on its own.
+   */
+  heroSecondaryAction?: "calendar" | "video" | "link" | "none";
+  heroSecondaryLabel?: string;
+  heroSecondaryVideoUrl?: string;
+  heroSecondaryUrl?: string;
   showStatSessions?: boolean;
   showStatDays?: boolean;
   showStatReserved?: boolean;
@@ -270,6 +281,14 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   days: EvaDay[];
   /** Label on the per-session personalized callout. */
   whyAttendLabel?: string;
+  /**
+   * Day navigation for a multi-day agenda. "anchors" adds a sticky bar that
+   * jumps to a day; "tabs" additionally shows one day at a time. Only ever
+   * active with 2+ days, and never in the builder or a static snapshot — an
+   * export or a scraper must still receive every day (see the prerender
+   * contract in this file's test).
+   */
+  dayNav?: "off" | "anchors" | "tabs";
 
   /* ── readability ──────────────────────────────────────────────────────
    * A real conference agenda is 25–40 sessions, and scraped abstracts run
@@ -309,6 +328,9 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
    * underneath. "compact" = smaller portrait beside the copy for long lists.
    */
   teamLayout?: "roster" | "compact";
+  /** Roster columns. An account team is usually 3–8 people and the names are
+   *  reference information, not headlines — 4 across keeps it a directory. */
+  teamColumns?: 2 | 3 | 4;
   /** Portrait shape on the roster layout. Default "circle". */
   teamPortraitShape?: EvaPortraitShape;
   team?: EvaPerson[];
@@ -356,6 +378,30 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
    *  already IS the mark. */
   showSponsorNames?: boolean;
   sponsors?: EvaSponsor[];
+
+  /* ── special guest / musical act ──────────────────────────────────────
+   * Deliberately its OWN shape rather than another speaker row: the headline
+   * act of an event is a poster, not a directory entry. */
+  showGuest?: boolean;
+  guestKicker?: string;
+  guestHeading?: string;
+  guestSubheadline?: string;
+  guestAlign?: EvaAlign;
+  guestHeadingSize?: EvaHeadingSize;
+  guestBackgroundStyle?: string;
+  guestBgColor?: string;
+  /** The act. No name = no section (unless you're in the builder). */
+  guestName?: string;
+  /** "Grammy-winning duo", "Special guest", "Live from Nashville"… */
+  guestRole?: string;
+  guestImageUrl?: string;
+  guestBio?: string;
+  /** When and where — "Wednesday, 8:00 PM · The Rooftop". */
+  guestMeta?: string;
+  guestLinkUrl?: string;
+  guestLinkLabel?: string;
+  /** Play the link in the video lightbox instead of navigating away. */
+  guestVideoUrl?: string;
 
   /* ── resources (after the schedule by default) ────────────────────────── */
   showResources?: boolean;
@@ -534,7 +580,6 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
     {
       name: "Maya Chen",
       title: "Enterprise Account Executive",
-      bio: "Your day-to-day partner on strategy and anything you need on site.",
       email: "maya.chen@example.com",
       phone: "+1 (415) 555-0142",
       linkLabel: "Book time",
@@ -543,13 +588,11 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
     {
       name: "Jordan Ellis",
       title: "Solutions Architect",
-      bio: "Bring him your hardest technical questions — he'll have answers or find them.",
       email: "jordan.ellis@example.com",
     },
     {
       name: "Priya Raman",
       title: "Customer Success Director",
-      bio: "Owns your rollout plan and the milestones we set together this year.",
       email: "priya.raman@example.com",
       phone: "+1 (415) 555-0188",
     },
@@ -578,6 +621,19 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
   /* sponsors / partners */
   showSponsors: true,
   sponsorsKicker: "Partners",
+  teamColumns: 3,
+  dayNav: "off",
+  heroSecondaryAction: "calendar",
+  showGuest: true,
+  guestKicker: "After hours",
+  guestHeading: "Your special guest",
+  guestSubheadline: "The evening is on us — dinner, then the main event.",
+  guestName: "The Northern Sound",
+  guestRole: "Live from Nashville",
+  guestMeta: "Wednesday, 8:00 PM · The Rooftop",
+  guestBio:
+    "A four-piece who spent the last two years selling out rooms a tenth of this size. Dinner runs until eight; the set starts right after.",
+  guestLinkLabel: "Listen",
   sponsorsHeading: "Who's making it happen",
   sponsorLogoSize: "md",
   showSponsorNames: false,
@@ -782,6 +838,11 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   const [linkedForm, setLinkedForm] = useState<LinkedRsvpForm | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  /** One lightbox for the whole block — the hero trailer and the special
+   *  guest's clip both open it. Empty string = closed. */
+  const [videoUrl, setVideoUrl] = useState<string>("");
+  const [activeDay, setActiveDay] = useState(0);
+  const staticRender = useStaticRender();
 
   useEffect(() => {
     if (!showRsvp || props.rsvpFormId == null) { setLinkedForm(null); return; }
@@ -1177,23 +1238,44 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     );
   };
 
+  /**
+   * Roster scale. The account team is REFERENCE information — who to grab in a
+   * hallway — so the names are set at body-copy weight, not headline size, and
+   * the portrait shrinks as the columns get tighter. Speakers keep their own
+   * (much larger) treatment; that section is the billing, this one is a
+   * directory.
+   */
+  const teamColumns = props.teamColumns ?? 3;
+  const ROSTER_SCALE: Record<2 | 3 | 4, { portrait: string; name: string; grid: string }> = {
+    2: { portrait: "clamp(8rem, 14vw, 10.5rem)", name: "clamp(1.1rem, 1.7vw, 1.3rem)", grid: "sm:grid-cols-2" },
+    3: { portrait: "clamp(7rem, 11vw, 9rem)", name: "clamp(1.05rem, 1.5vw, 1.2rem)", grid: "sm:grid-cols-2 lg:grid-cols-3" },
+    4: { portrait: "clamp(6rem, 9vw, 7.5rem)", name: "clamp(0.98rem, 1.3vw, 1.1rem)", grid: "grid-cols-2 lg:grid-cols-4" },
+  };
+  const rosterScale = ROSTER_SCALE[teamColumns] ?? ROSTER_SCALE[3];
+  const rosterPortrait = rosterScale.portrait;
+  const rosterNameSize = rosterScale.name;
+
   /** Person card, shared by the account team and the keynote speakers. */
   /**
-   * ROSTER entry — the account team's default. A large portrait with the name,
-   * role and contact details stacked UNDERNEATH it. No card, no chrome: the
+   * ROSTER entry — the account team's default. A portrait with the name, role
+   * and contact details stacked UNDERNEATH it. No card, no chrome: the
    * portrait is the anchor and the contact lines are plain text, because a
    * "who to find" list shouldn't read like a pricing table.
+   *
+   * NO BIO, deliberately: the reader already knows their own account team —
+   * they need to recognise a face and reach someone, not read an
+   * introduction. Keynote speakers DO keep bios; that section is billing.
    */
   const rosterEntry = (person: EvaPerson, i: number, sf: SectionPalette = pagePalette) => {
     const shape = props.teamPortraitShape ?? "circle";
     return (
       <motion.li key={i} {...fadeUp(Math.min(i * 0.07, 0.28))} className="text-center">
         <div className="flex justify-center">
-          {portrait(person, { size: "clamp(8.5rem, 15vw, 11.5rem)", shape, surface: sf.bg, ink: sf.ink })}
+          {portrait(person, { size: rosterPortrait, shape, surface: sf.bg, ink: sf.ink })}
         </div>
         <p
-          className="mt-6 font-bold"
-          style={{ fontFamily: DISPLAY, fontSize: "clamp(1.25rem, 2.1vw, 1.55rem)", lineHeight: 1.2, letterSpacing: "-0.015em", color: sf.headline }}
+          className="mt-5 font-bold"
+          style={{ fontFamily: DISPLAY, fontSize: rosterNameSize, lineHeight: 1.25, letterSpacing: "-0.01em", color: sf.headline }}
         >
           <InlineText as="span" value={person.name} onUpdate={setItem ? (v) => setItem("team", i, { name: v }) : undefined} />
         </p>
@@ -1202,17 +1284,14 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
             <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { title: v }) : undefined} />
           </p>
         )}
-        {(person.bio || isEditor) && (
-          <p className="mx-auto mt-4 max-w-[22rem] text-[15px] leading-relaxed" style={{ color: sf.ink.muted, ...bioClamp }}>
-            <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
-          </p>
-        )}
         {/* Contact details — plain lines under the name, deliberately not pills. */}
         {(person.email || person.phone || person.linkUrl || isEditor) && (
-          <div
-            className="mx-auto mt-5 max-w-[22rem] space-y-1 border-t pt-4 text-[14px]"
-            style={{ borderColor: mixHex(sf.ink.text, sf.bg, 0.14) }}
-          >
+          /* Top-anchored, and no divider rule. With bios gone the only height
+             variance above this is whether the role wraps, so anchoring to the
+             top keeps the contact lines near-level; bottom-aligning instead
+             staggered them by however many contact lines each person has. A
+             border would just draw attention to the residual half-line. */
+          <div className="mx-auto mt-6 w-full max-w-[22rem] space-y-1 text-[14px]">
             {(person.email || isEditor) && (
               <p>
                 {person.email?.trim() && !isEditor ? (
@@ -1257,11 +1336,6 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         {(person.title || isEditor) && (
           <p className="mt-0.5 text-[12px] font-bold uppercase tracking-[0.16em]" style={{ color: sf.accentText }}>
             <InlineText as="span" value={person.title ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { title: v }) : undefined} />
-          </p>
-        )}
-        {(person.bio || isEditor) && (
-          <p className="mt-2 text-[15px] leading-relaxed" style={{ color: sf.ink.muted, ...bioClamp }}>
-            <InlineText as="span" multiline value={person.bio ?? ""} onUpdate={setItem ? (v) => setItem("team", i, { bio: v }) : undefined} />
           </p>
         )}
         {(person.email || person.phone) && (
@@ -1381,6 +1455,49 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         }
       : null,
   ] as (HeroStat | null)[]).filter((x): x is HeroStat => x !== null);
+  /**
+   * Hero secondary button. Same chrome in every mode so the hero doesn't
+   * change shape when you switch what it does. "calendar" stays fail-closed —
+   * it only renders when the agenda actually carries dates, because an .ics
+   * with no times is worse than no button.
+   */
+  const heroSecondary = (() => {
+    const action = props.heroSecondaryAction ?? "calendar";
+    if (action === "none") return null;
+    const cls =
+      "inline-flex items-center gap-2 rounded-full px-6 py-3 text-[15px] font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
+    const style = {
+      border: `1px solid ${mixHex(heroInk.text, heroBg, 0.35)}`,
+      color: heroInk.text,
+    };
+    if (action === "video") {
+      const url = props.heroSecondaryVideoUrl?.trim();
+      if (!url && !isEditor) return null;
+      return (
+        <button type="button" onClick={() => url && setVideoUrl(url)} className={cls} style={style}>
+          <PlayCircle className="h-4 w-4" aria-hidden />
+          {props.heroSecondaryLabel || "Watch the trailer"}
+        </button>
+      );
+    }
+    if (action === "link") {
+      const url = props.heroSecondaryUrl?.trim();
+      if (!url) return null;
+      return (
+        <a href={url} target="_blank" rel="noreferrer" className={cls} style={style}>
+          {props.heroSecondaryLabel || "Learn more"}
+        </a>
+      );
+    }
+    if (!calendarReady) return null;
+    return (
+      <button type="button" onClick={downloadAgendaIcs} className={cls} style={style}>
+        <CalendarPlus className="h-4 w-4" aria-hidden />
+        {props.heroSecondaryLabel || "Add all to calendar"}
+      </button>
+    );
+  })();
+
   /** The location stands on its own — it is NOT one of the computed stats, so
    *  it survives switching all three off. Empty + published = gone; empty in
    *  the builder still offers a click target so it can be put back. */
@@ -1564,6 +1681,18 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         </div>
   ) : null;
 
+  /**
+   * Day navigation. "tabs" shows one day at a time, which is the real answer
+   * to a 3-day, 40-session agenda — but it is DISABLED under a static render
+   * and in the builder. A snapshot never clicks, so tabbing a prerender would
+   * ship a page whose days 2 and 3 are invisible (the same class of bug as the
+   * scroll-reveal export failure), and an author has to be able to edit every
+   * day. Even when tabs ARE live, non-active days stay in the DOM behind
+   * `hidden` rather than being unmounted.
+   */
+  const dayNavMode = props.dayNav ?? "off";
+  const dayTabs = dayNavMode === "tabs" && !staticRender && !isEditor && days.length > 1;
+
   const scheduleSurface = sectionSurface(props.scheduleBackgroundStyle, props.scheduleBgColor);
   /* Short alias — the schedule is the longest section and every ink in it must
      resolve against ITS surface, not the page's. Painting the background alone
@@ -1597,9 +1726,59 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           </motion.p>
         )}
 
+        {dayNavMode !== "off" && days.length > 1 && (
+          <div
+            className="sticky top-0 z-30 -mx-5 mt-10 overflow-x-auto px-5 py-3 sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10"
+            style={{
+              background: sch.bg,
+              borderBottom: `1px solid ${mixHex(sch.ink.text, sch.bg, 0.12)}`,
+            }}
+            role={dayTabs ? "tablist" : undefined}
+            aria-label="Days"
+          >
+            <div className="flex gap-2">
+              {days.map((day, i) => {
+                const active = dayTabs && i === activeDay;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    role={dayTabs ? "tab" : undefined}
+                    aria-selected={dayTabs ? active : undefined}
+                    aria-controls={dayTabs ? `agenda-day-${i}` : undefined}
+                    onClick={() => {
+                      if (dayTabs) { setActiveDay(i); return; }
+                      document.getElementById(`agenda-day-${i}`)?.scrollIntoView({
+                        behavior: reduced ? "auto" : "smooth", block: "start",
+                      });
+                    }}
+                    className="shrink-0 rounded-full px-4 py-2 text-[12px] font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                    style={
+                      active
+                        ? { background: sch.accentChrome, color: contrastTextColor(sch.accentChrome) }
+                        : { border: `1px solid ${mixHex(sch.ink.text, sch.bg, 0.2)}`, color: sch.ink.muted }
+                    }
+                  >
+                    {day.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="mt-14 space-y-16">
           {days.map((day, dayIdx) => (
-            <div key={dayIdx} className="relative">
+            <div
+              key={dayIdx}
+              id={`agenda-day-${dayIdx}`}
+              className="relative scroll-mt-24"
+              role={dayTabs ? "tabpanel" : undefined}
+              /* `hidden` rather than unmounting: the copy stays in the DOM for
+                 the HTML export, scrapers and in-page search even when a
+                 visitor is looking at one day. */
+              hidden={dayTabs && dayIdx !== activeDay}
+            >
               {/* ghost day numeral */}
               <span
                 aria-hidden
@@ -1860,7 +2039,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         heading: "The people looking after you",
       }, { align: props.teamAlign ?? "center", size: props.teamHeadingSize, surface: teamSurface })}
       {(props.teamLayout ?? "roster") === "roster" ? (
-        <ul className="mt-12 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className={`mt-12 grid gap-x-8 gap-y-12 ${rosterScale.grid}`}>
           {team.map((person, i) => rosterEntry(person, i, teamSurface))}
         </ul>
       ) : (
@@ -1892,6 +2071,130 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           {speakers.map((person, i) => speakerGridEntry(person, i, speakersSurface))}
         </ul>
       )}
+      </div>
+    </div>
+  ) : null;
+
+  /* Special guest / musical act: a POSTER, not another directory row. The
+     headline act of an event gets billing — one large image with the name set
+     over it — which is also what stops this section reading as "speakers
+     again". Falls back to a typographic band when there's no image. */
+  const guestSurface = sectionSurface(props.guestBackgroundStyle, props.guestBgColor);
+  const showGuest = props.showGuest !== false && (!!props.guestName?.trim() || isEditor);
+  const guestHasImage = !!props.guestImageUrl?.trim();
+  const guestBilling = (onImage: boolean) => {
+    const nameColor = onImage ? "#FFFFFF" : guestSurface.headline;
+    const metaColor = onImage ? "rgba(255,255,255,0.78)" : guestSurface.ink.muted;
+    const roleColor = onImage ? "rgba(255,255,255,0.9)" : guestSurface.accentText;
+    return (
+      <>
+        {(props.guestRole || isEditor) && (
+          <p className="text-[11px] font-bold uppercase tracking-[0.26em]" style={{ color: roleColor }}>
+            <InlineText as="span" value={props.guestRole ?? ""} onUpdate={edit("guestRole")} />
+          </p>
+        )}
+        <p
+          className="mt-3 font-bold"
+          style={{
+            fontFamily: DISPLAY,
+            fontSize: "clamp(2.1rem, 5.5vw, 4rem)",
+            lineHeight: 1.02,
+            letterSpacing: "-0.03em",
+            color: nameColor,
+          }}
+        >
+          <InlineText as="span" value={props.guestName ?? ""} onUpdate={edit("guestName")} />
+        </p>
+        {(props.guestMeta || isEditor) && (
+          <p className="mt-4 text-[13px] font-bold uppercase tracking-[0.18em]" style={{ color: metaColor }}>
+            <InlineText as="span" value={props.guestMeta ?? ""} onUpdate={edit("guestMeta")} />
+          </p>
+        )}
+      </>
+    );
+  };
+  const guestSection = showGuest ? (
+    <div
+      id="guest"
+      style={guestSurface.isOwnSurface ? { background: guestSurface.bg } : undefined}
+    >
+      <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
+        {sectionHeader("guestKicker", "guestHeading", "guestSubheadline", {
+          kicker: "After hours",
+          heading: "Your special guest",
+        }, { align: props.guestAlign ?? "left", size: props.guestHeadingSize ?? "lg", surface: guestSurface })}
+
+        <motion.div {...fadeUp(0.1)} className="mt-10">
+          {guestHasImage ? (
+            <div className="relative overflow-hidden rounded-2xl">
+              <img
+                src={props.guestImageUrl}
+                alt={props.guestName || "Special guest"}
+                className="h-[22rem] w-full object-cover sm:h-[28rem]"
+                loading="lazy"
+              />
+              {/* Scrim so the billing reads on any photograph. */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.35) 42%, rgba(0,0,0,0.05) 75%)" }}
+              />
+              <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">{guestBilling(true)}</div>
+            </div>
+          ) : (
+            <div
+              className="rounded-2xl border px-6 py-10 sm:px-10 sm:py-14"
+              style={{
+                background: guestSurface.cardBg,
+                borderColor: mixHex(guestSurface.cardInk.text, guestSurface.cardBg, 0.12),
+              }}
+            >
+              {guestBilling(false)}
+            </div>
+          )}
+        </motion.div>
+
+        {(props.guestBio || isEditor) && (
+          <motion.p
+            {...fadeUp(0.16)}
+            className="mt-8 max-w-2xl text-[17px] leading-relaxed"
+            style={{ color: guestSurface.ink.text, fontFamily: DISPLAY }}
+          >
+            <InlineText as="span" multiline value={props.guestBio ?? ""} onUpdate={edit("guestBio")} />
+          </motion.p>
+        )}
+
+        {(props.guestVideoUrl?.trim() || props.guestLinkUrl?.trim()) && (
+          <motion.div {...fadeUp(0.2)} className="mt-7">
+            {props.guestVideoUrl?.trim() ? (
+              <button
+                type="button"
+                onClick={() => setVideoUrl(props.guestVideoUrl ?? "")}
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                style={{
+                  border: `1px solid ${mixHex(guestSurface.ink.text, guestSurface.bg, 0.3)}`,
+                  color: guestSurface.ink.text,
+                }}
+              >
+                <PlayCircle className="h-4 w-4" aria-hidden />
+                {props.guestLinkLabel || "Watch"}
+              </button>
+            ) : (
+              <a
+                href={props.guestLinkUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                style={{
+                  border: `1px solid ${mixHex(guestSurface.ink.text, guestSurface.bg, 0.3)}`,
+                  color: guestSurface.ink.text,
+                }}
+              >
+                {props.guestLinkLabel || "Listen"}
+              </a>
+            )}
+          </motion.div>
+        )}
       </div>
     </div>
   ) : null;
@@ -2337,6 +2640,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     note: noteSection,
     team: teamSection,
     speakers: speakersSection,
+    guest: guestSection,
     schedule: scheduleSection,
     sponsors: sponsorsSection,
     resources: resourcesSection,
@@ -2455,20 +2759,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                     See your schedule
                     <span aria-hidden>↓</span>
                   </a>
-                  {calendarReady && (
-                    <button
-                      type="button"
-                      onClick={downloadAgendaIcs}
-                      className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[15px] font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-                      style={{
-                        border: `1px solid ${mixHex(heroInk.text, heroBg, 0.35)}`,
-                        color: heroInk.text,
-                      }}
-                    >
-                      <CalendarPlus className="h-4 w-4" aria-hidden />
-                      Add all to calendar
-                    </button>
-                  )}
+                  {heroSecondary}
                 </motion.div>
 
                 {/* editorial stat strip */}
@@ -2654,6 +2945,14 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
           </div>
         </div>
       )}
+
+      {/* Shared lightbox for the hero trailer and the special guest's clip. */}
+      <VideoModal
+        open={!!videoUrl}
+        onClose={() => setVideoUrl("")}
+        videoUrl={videoUrl}
+        ariaLabel={props.eventName ? `${props.eventName} video` : "Video"}
+      />
     </section>
   );
 }

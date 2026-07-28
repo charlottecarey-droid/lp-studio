@@ -174,9 +174,17 @@ describe("BlockEventAgenda — section diversity", () => {
     expect(html).toContain("mailto:maya.chen@example.com");
   });
 
-  it("team portraits are far larger than the old avatar", () => {
-    // The roster portrait is a clamp()-sized square/circle, not a 3.5rem avatar.
-    expect(renderProps({})).toContain("clamp(8.5rem, 15vw, 11.5rem)");
+  it("the roster portrait scales with the column count", () => {
+    // An account team is reference information, so the portrait tightens as
+    // the columns get denser rather than every layout using one hero size.
+    expect(renderProps({ teamColumns: 2 })).toContain("clamp(8rem, 14vw, 10.5rem)");
+    expect(renderProps({})).toContain("clamp(7rem, 11vw, 9rem)");
+    expect(renderProps({ teamColumns: 4 })).toContain("clamp(6rem, 9vw, 7.5rem)");
+  });
+
+  it("four-across is available and changes the grid, not just the size", () => {
+    expect(renderProps({ teamColumns: 4 })).toContain("lg:grid-cols-4");
+    expect(renderProps({})).toContain("lg:grid-cols-3");
   });
 
   it("team and speakers use DIFFERENT layouts by default", () => {
@@ -223,8 +231,8 @@ describe("BlockEventAgenda — section diversity", () => {
     expect(html).toContain("Maya Chen");
     expect(html).toContain("Alex Rivera");
     expect(html).toContain("Event guide");
-    // Compact team drops the oversized roster portrait.
-    expect(html).not.toContain("clamp(8.5rem, 15vw, 11.5rem)");
+    // Compact team drops the roster portrait entirely.
+    expect(html).not.toContain("clamp(7rem, 11vw, 9rem)");
   });
 });
 
@@ -443,5 +451,148 @@ describe("BlockEventAgenda — hero stats", () => {
       eventLocation: "", eventDates: "",
     });
     expect(html).not.toContain("<dl");
+  });
+});
+
+/* ── sticky day nav ─────────────────────────────────────────────────────── */
+
+describe("BlockEventAgenda — day navigation", () => {
+  const threeDays = {
+    days: [
+      { label: "Tue", sessions: [{ time: "9:00", title: "Day one session" }] },
+      { label: "Wed", sessions: [{ time: "9:00", title: "Day two session" }] },
+      { label: "Thu", sessions: [{ time: "9:00", title: "Day three session" }] },
+    ],
+  };
+
+  it("is off by default — existing pages are untouched", () => {
+    expect(renderProps(threeDays)).not.toContain('role="tablist"');
+    expect(renderProps(threeDays)).not.toContain("sticky top-0");
+  });
+
+  it("anchors mode adds a sticky bar that is NOT a tablist", () => {
+    const html = renderProps({ ...threeDays, dayNav: "anchors" });
+    expect(html).toContain("sticky top-0");
+    expect(html).not.toContain('role="tablist"');
+    expect(html).toContain('id="agenda-day-0"');
+    expect(html).toContain('id="agenda-day-2"');
+  });
+
+  it("a single-day agenda never shows the bar, whatever the setting", () => {
+    const html = renderProps({
+      dayNav: "tabs",
+      days: [{ label: "Tue", sessions: [{ time: "9:00", title: "Only session" }] }],
+    });
+    expect(html).not.toContain("sticky top-0");
+  });
+
+  it("TABS NEVER HIDE A DAY IN A STATIC RENDER — the export contract", () => {
+    // A prerender never clicks. Tabbing a snapshot would ship days 2 and 3
+    // invisible, which is the scroll-reveal export bug all over again.
+    const html = renderProps({ ...threeDays, dayNav: "tabs" });
+    expect(html).toContain("Day one session");
+    expect(html).toContain("Day two session");
+    expect(html).toContain("Day three session");
+    // No day panel may carry `hidden` (`aria-hidden` on decorative chrome is
+    // unrelated, so match the day wrapper specifically), and a static render
+    // shouldn't be pretending to be a tab UI at all.
+    expect(html).not.toMatch(/id="agenda-day-\d"[^>]*hidden/);
+    expect(html).not.toContain('role="tabpanel"');
+  });
+});
+
+/* ── hero secondary button ──────────────────────────────────────────────── */
+
+describe("BlockEventAgenda — hero secondary button", () => {
+  it("defaults to the calendar download", () => {
+    expect(renderProps({})).toContain("Add all to calendar");
+  });
+
+  it("can play a video instead", () => {
+    const html = renderProps({
+      heroSecondaryAction: "video",
+      heroSecondaryVideoUrl: "https://youtu.be/abc123",
+    });
+    expect(html).toContain("Watch the trailer");
+    expect(html).not.toContain("Add all to calendar");
+  });
+
+  it("can link out, with a custom label", () => {
+    const html = renderProps({
+      heroSecondaryAction: "link",
+      heroSecondaryUrl: "https://example.com/venue",
+      heroSecondaryLabel: "Venue &amp; travel",
+    });
+    expect(html).toContain('href="https://example.com/venue"');
+    expect(html).toContain("Venue");
+  });
+
+  it("a video action with no URL renders nothing rather than a dead button", () => {
+    const html = renderProps({ heroSecondaryAction: "video" });
+    expect(html).not.toContain("Watch the trailer");
+  });
+
+  it("can be switched off entirely", () => {
+    const html = renderProps({ heroSecondaryAction: "none" });
+    expect(html).not.toContain("Add all to calendar");
+  });
+});
+
+/* ── special guest / musical act ────────────────────────────────────────── */
+
+describe("BlockEventAgenda — special guest", () => {
+  it("renders the billing as a poster, not another speaker row", () => {
+    const html = renderProps({});
+    expect(html).toContain("The Northern Sound");
+    expect(html).toContain("Live from Nashville");
+    expect(html).toContain("Wednesday, 8:00 PM");
+    expect(sectionAt(html, "guest")).toBeGreaterThan(-1);
+  });
+
+  it("sits between the speakers and the schedule by default", () => {
+    const html = renderProps({});
+    expect(sectionAt(html, "guest")).toBeGreaterThan(sectionAt(html, "speakers"));
+    expect(sectionAt(html, "guest")).toBeLessThan(sectionAt(html, "schedule"));
+  });
+
+  it("an image gets the scrimmed poster treatment; without one it's typographic", () => {
+    const withImg = renderProps({ guestImageUrl: "https://x/band.jpg" });
+    expect(withImg).toContain("band.jpg");
+    expect(withImg).toContain("linear-gradient(to top, rgba(0,0,0,0.82)");
+    expect(renderProps({})).not.toContain("linear-gradient(to top, rgba(0,0,0,0.82)");
+  });
+
+  it("no name means no section on a published page", () => {
+    expect(sectionAt(renderProps({ guestName: "" }), "guest")).toBe(-1);
+    expect(sectionAt(renderProps({ showGuest: false }), "guest")).toBe(-1);
+  });
+
+  it("is reorderable like every other body section", () => {
+    const html = renderProps({ sectionOrder: ["guest", "note", "team"] });
+    expect(sectionAt(html, "guest")).toBeLessThan(sectionAt(html, "note"));
+  });
+});
+
+describe("BlockEventAgenda — the account team is a directory, not profiles", () => {
+  const withBios = {
+    team: [{ name: "Maya Chen", title: "AE", bio: "Fifteen years in dental ops.", email: "m@x.com" }],
+    speakers: [{ name: "Alex Rivera", title: "CTO", bio: "Runs the platform group." }],
+  };
+
+  it("does not render a bio for the account team — the reader knows them", () => {
+    const html = renderProps(withBios);
+    expect(html).toContain("Maya Chen");
+    expect(html).toContain("m@x.com");
+    expect(html).not.toContain("Fifteen years in dental ops.");
+  });
+
+  it("keynote speakers DO keep their bios — that section is billing", () => {
+    expect(renderProps(withBios)).toContain("Runs the platform group.");
+  });
+
+  it("holds for the compact team layout too", () => {
+    const html = renderProps({ ...withBios, teamLayout: "compact" });
+    expect(html).toContain("Maya Chen");
+    expect(html).not.toContain("Fifteen years in dental ops.");
   });
 });

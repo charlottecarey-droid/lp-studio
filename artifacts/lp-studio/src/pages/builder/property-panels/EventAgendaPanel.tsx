@@ -224,6 +224,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
     schedule: true,
     team: false,
     speakers: false,
+    guest: false,
     sponsors: false,
     resources: false,
     order: false,
@@ -283,6 +284,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
     note: "Personal note",
     team: "Account team",
     speakers: "Keynote speakers",
+    guest: "Special guest",
     schedule: "Schedule",
     sponsors: "Sponsors",
     resources: "Resources",
@@ -373,7 +375,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Bios (team &amp; speakers)">
+            <Field label="Speaker bios">
               <Select
                 value={props.bioLines ?? "3"}
                 onValueChange={(v) => set("bioLines", v as EvaClamp)}
@@ -435,6 +437,65 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Dates label">
               <Input value={props.eventDates ?? ""} onChange={(e) => set("eventDates", e.target.value)} placeholder="Mar 10–12, 2026" className="text-xs h-8" />
             </Field>
+
+            {/* ── hero secondary button ── */}
+            <div className="space-y-2 border rounded-md p-2.5">
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Second hero button
+              </div>
+              <Field label="Action">
+                <Select
+                  value={props.heroSecondaryAction ?? "calendar"}
+                  onValueChange={(v) => set("heroSecondaryAction", v as NonNullable<EventAgendaBlockProps["heroSecondaryAction"]>)}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="calendar">Add all to calendar (default)</SelectItem>
+                    <SelectItem value="video">Play a video</SelectItem>
+                    <SelectItem value="link">Link somewhere else</SelectItem>
+                    <SelectItem value="none">No second button</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {(props.heroSecondaryAction ?? "calendar") !== "none" && (
+                <Field label="Button label">
+                  <Input
+                    value={props.heroSecondaryLabel ?? ""}
+                    onChange={(e) => set("heroSecondaryLabel", e.target.value || undefined)}
+                    placeholder={
+                      props.heroSecondaryAction === "video" ? "Watch the trailer"
+                      : props.heroSecondaryAction === "link" ? "Learn more"
+                      : "Add all to calendar"
+                    }
+                    className="text-xs h-8"
+                  />
+                </Field>
+              )}
+              {props.heroSecondaryAction === "video" && (
+                <Field label="Video URL">
+                  <Input
+                    value={props.heroSecondaryVideoUrl ?? ""}
+                    onChange={(e) => set("heroSecondaryVideoUrl", e.target.value)}
+                    placeholder="YouTube, Vimeo or an .mp4"
+                    className="text-xs h-8"
+                  />
+                </Field>
+              )}
+              {props.heroSecondaryAction === "link" && (
+                <Field label="Link URL">
+                  <Input
+                    value={props.heroSecondaryUrl ?? ""}
+                    onChange={(e) => set("heroSecondaryUrl", e.target.value)}
+                    placeholder="https://…"
+                    className="text-xs h-8"
+                  />
+                </Field>
+              )}
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                The calendar button only appears when your agenda has real dates and
+                times on it.
+              </p>
+            </div>
 
             {/* ── hero stat strip ──
                 The numerals are computed from the agenda, so they can't be
@@ -582,6 +643,23 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label='"Why this matters" label'>
               <Input value={props.whyAttendLabel ?? ""} onChange={(e) => set("whyAttendLabel", e.target.value)} placeholder="Why this matters for you" className="text-xs h-8" />
             </Field>
+            <Field label="Day navigation">
+              <Select
+                value={props.dayNav ?? "off"}
+                onValueChange={(v) => set("dayNav", v as NonNullable<EventAgendaBlockProps["dayNav"]>)}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">None (default)</SelectItem>
+                  <SelectItem value="anchors">Sticky bar — jumps to a day</SelectItem>
+                  <SelectItem value="tabs">Sticky tabs — one day at a time</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Only appears on a multi-day agenda. You&rsquo;ll still see every day here
+              in the builder, and the exported HTML always contains all of them.
+            </p>
 
             {props.days.map((day, dayIdx) => (
               <div key={dayIdx} className="space-y-2 border rounded-md p-2.5">
@@ -780,6 +858,19 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 })
               }
             />
+            <Field label="Columns">
+              <Select
+                value={String(props.teamColumns ?? 3)}
+                onValueChange={(v) => set("teamColumns", Number(v) as 2 | 3 | 4)}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 across</SelectItem>
+                  <SelectItem value="3">3 across (default)</SelectItem>
+                  <SelectItem value="4">4 across</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <Field label="Portrait shape">
               <Select
                 value={props.teamPortraitShape ?? "circle"}
@@ -817,9 +908,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                     <Input value={person.phone ?? ""} onChange={(e) => patchItem("team", i, { phone: e.target.value })} placeholder="+1 (415) 555-0142" className="text-xs h-8" />
                   </Field>
                 </div>
-                <Field label="Bio">
-                  <Textarea value={person.bio ?? ""} onChange={(e) => patchItem("team", i, { bio: e.target.value })} rows={2} className="text-xs" />
-                </Field>
+                {/* No bio field: the reader knows their own account team. Keynote
+                    speakers keep theirs. */}
                 <Field label="Headshot">
                   <ImagePicker
                     value={person.imageUrl ?? ""}
@@ -943,6 +1033,78 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add speaker
             </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Special guest ── */}
+      <div>
+        <SectionHeader label="Special guest" open={open.guest} onToggle={() => toggle("guest")} />
+        {open.guest && (
+          <div className="pt-2.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Show section</Label>
+              <Switch checked={props.showGuest !== false} onCheckedChange={(v) => set("showGuest", v)} />
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              The musical act, comedian or surprise headliner. Leave the name empty
+              and the section stays off your published page.
+            </p>
+            <Field label="Kicker">
+              <Input value={props.guestKicker ?? ""} onChange={(e) => set("guestKicker", e.target.value)} placeholder="After hours" className="text-xs h-8" />
+            </Field>
+            <Field label="Heading">
+              <Input value={props.guestHeading ?? ""} onChange={(e) => set("guestHeading", e.target.value)} placeholder="Your special guest" className="text-xs h-8" />
+            </Field>
+            <Field label="Subheadline">
+              <Textarea value={props.guestSubheadline ?? ""} onChange={(e) => set("guestSubheadline", e.target.value)} rows={2} className="text-xs" />
+            </Field>
+            <SectionStyleRow
+              align={props.guestAlign ?? "left"}
+              onAlign={(v) => set("guestAlign", v)}
+              size={props.guestHeadingSize}
+              onSize={(v) => set("guestHeadingSize", v)}
+            />
+            <SectionBackgroundControl
+              backgroundStyle={props.guestBackgroundStyle}
+              bgColor={props.guestBgColor}
+              onChange={(patch) =>
+                onChange({
+                  ...props,
+                  ...("backgroundStyle" in patch ? { guestBackgroundStyle: patch.backgroundStyle } : {}),
+                  ...("bgColor" in patch ? { guestBgColor: patch.bgColor } : {}),
+                })
+              }
+            />
+            <Field label="Name (the act)">
+              <Input value={props.guestName ?? ""} onChange={(e) => set("guestName", e.target.value)} placeholder="The Northern Sound" className="text-xs h-8" />
+            </Field>
+            <Field label="Billing line">
+              <Input value={props.guestRole ?? ""} onChange={(e) => set("guestRole", e.target.value)} placeholder="Grammy-winning duo" className="text-xs h-8" />
+            </Field>
+            <Field label="When &amp; where">
+              <Input value={props.guestMeta ?? ""} onChange={(e) => set("guestMeta", e.target.value)} placeholder="Wednesday, 8:00 PM · The Rooftop" className="text-xs h-8" />
+            </Field>
+            <Field label="Photo">
+              <ImagePicker
+                value={props.guestImageUrl ?? ""}
+                onChange={(url) => set("guestImageUrl", url)}
+              />
+            </Field>
+            <Field label="Bio">
+              <Textarea value={props.guestBio ?? ""} onChange={(e) => set("guestBio", e.target.value)} rows={3} className="text-xs" />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Link label">
+                <Input value={props.guestLinkLabel ?? ""} onChange={(e) => set("guestLinkLabel", e.target.value)} placeholder="Listen" className="text-xs h-8" />
+              </Field>
+              <Field label="Link URL">
+                <Input value={props.guestLinkUrl ?? ""} onChange={(e) => set("guestLinkUrl", e.target.value)} placeholder="https://…" className="text-xs h-8" />
+              </Field>
+            </div>
+            <Field label="Video URL (plays in a lightbox instead)">
+              <Input value={props.guestVideoUrl ?? ""} onChange={(e) => set("guestVideoUrl", e.target.value)} placeholder="YouTube, Vimeo or an .mp4" className="text-xs h-8" />
+            </Field>
           </div>
         )}
       </div>
