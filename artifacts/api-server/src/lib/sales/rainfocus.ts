@@ -350,3 +350,126 @@ export function rainfocusVocabulary(rows: ImportedSessionRow[]): {
     [...new Set(rows.flatMap((r) => r.tags?.[key] ?? []))].sort();
   return { roles: pick("roles"), industries: pick("industries"), topics: pick("topics") };
 }
+
+
+/* ── speakers + exhibitors ─────────────────────────────────────────────────
+ * An agenda page is more than its schedule: the block has a keynote-speakers
+ * section and a sponsors wall, and RainFocus already holds both. Mapping them
+ * here means one paste fills the whole template instead of the schedule only.
+ */
+
+/** Matches the block's EvaPerson (speakers section). */
+export interface RainfocusSpeaker {
+  name: string;
+  title?: string;
+  bio?: string;
+  imageUrl?: string;
+}
+
+/** Matches the block's EvaSponsor. */
+export interface RainfocusSponsor {
+  name: string;
+  tier?: string;
+  logoUrl?: string;
+  url?: string;
+}
+
+/**
+ * Map a speaker-catalog item.
+ *
+ * `photoURL` is only used when the mark is actually published — RainFocus
+ * serves a grey "no headshot" placeholder otherwise, and a wall of identical
+ * placeholders looks worse than initials, which the block already renders.
+ */
+export function mapRainfocusSpeaker(item: Record<string, unknown>): RainfocusSpeaker | null {
+  const name = str(item.fullName) || [str(item.firstName), str(item.lastName)].filter(Boolean).join(" ");
+  if (!name) return null;
+  const jobTitle = str(item.jobTitle) || str(item.globalJobtitle);
+  const company = str(item.companyName) || str(item.globalCompany);
+  const titleParts = [jobTitle, company].filter(Boolean);
+  const photo = str(item.photoURL);
+  const published = str(item["Speaker-Photo-Published"]).toLowerCase() === "published";
+  const usablePhoto = published && photo && !/no[-%20\s]*headshot/i.test(photo) ? photo : "";
+
+  const out: RainfocusSpeaker = { name };
+  if (titleParts.length) out.title = titleParts.join(", ");
+  const bio = htmlToText(str(item.bio));
+  if (bio) out.bio = bio;
+  if (usablePhoto) out.imageUrl = usablePhoto;
+  return out;
+}
+
+/**
+ * Which speakers are worth featuring.
+ *
+ * A 137-person catalog is not a keynote section. Ranked by how prominent the
+ * speaker is (a real headshot and a bio are the signals RainFocus gives us)
+ * and capped, because the point of the section is billing, not a directory.
+ */
+export function pickFeaturedSpeakers(items: Record<string, unknown>[], limit = 8): RainfocusSpeaker[] {
+  const mapped = items.map(mapRainfocusSpeaker).filter((s): s is RainfocusSpeaker => s !== null);
+  const score = (s: RainfocusSpeaker): number => (s.imageUrl ? 2 : 0) + (s.bio ? 1 : 0);
+  return [...mapped]
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => score(b.s) - score(a.s) || a.i - b.i) // stable within a score
+    .slice(0, limit)
+    .map((x) => x.s);
+}
+
+export function mapRainfocusSponsor(item: Record<string, unknown>): RainfocusSponsor | null {
+  const name = str(item.name);
+  if (!name) return null;
+  const out: RainfocusSponsor = { name };
+  // Exhibitor "type" is the closest thing RainFocus has to a sponsorship tier.
+  const tier = attrValues(item, "ExhibitorType")[0] || attrValues(item, "SponsorLevel")[0] || "";
+  if (tier) out.tier = tier;
+  const url = str(item.externalLink) || str(item.url);
+  if (url) out.url = url;
+  const logo = str(item.logoURL) || str(item.logo);
+  if (logo) out.logoUrl = logo;
+  return out;
+}
+
+export function mapRainfocusSponsors(items: Record<string, unknown>[]): RainfocusSponsor[] {
+  return items.map(mapRainfocusSponsor).filter((s): s is RainfocusSponsor => s !== null);
+}
+
+/**
+ * Event-level details inferred from the session catalog.
+ *
+ * RainFocus has no "event" endpoint on a widget token, but every session
+ * carries the event name and a date, so the span and title can be derived —
+ * which is enough to fill the hero without the rep retyping it.
+ */
+export interface RainfocusEventDetails {
+  eventName: string;
+  startDate: string;
+  endDate: string;
+  /** Distinct room/venue names, most frequent first — a hint for "location". */
+  venues: string[];
+}
+
+export function deriveEventDetails(items: Record<string, unknown>[]): RainfocusEventDetails {
+  const dates = new Set<string>();
+  const names = new Map<string, number>();
+  const venues = new Map<string, number>();
+  for (const item of items) {
+    const n = str(item.eventName);
+    if (n) names.set(n, (names.get(n) ?? 0) + 1);
+    const times = Array.isArray(item.times) ? (item.times as Record<string, unknown>[]) : [];
+    for (const t of times) {
+      const d = str(t.date);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) dates.add(d);
+      const room = str(t.room);
+      if (room) venues.set(room, (venues.get(room) ?? 0) + 1);
+    }
+  }
+  const sorted = [...dates].sort();
+  const topName = [...names.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+  return {
+    eventName: topName,
+    startDate: sorted[0] ?? "",
+    endDate: sorted[sorted.length - 1] ?? "",
+    venues: [...venues.entries()].sort((a, b) => b[1] - a[1]).map(([v]) => v).slice(0, 5),
+  };
+}

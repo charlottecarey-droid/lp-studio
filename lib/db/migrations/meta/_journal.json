@@ -848,6 +848,13 @@
       "when": 1757400000000,
       "tag": "0120_sales_events_agenda_builder",
       "breakpoints": false
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1757500000000,
+      "tag": "0121_sales_events_catalog_extras",
+      "breakpoints": false
     }
   ]
 }

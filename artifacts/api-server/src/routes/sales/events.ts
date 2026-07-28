@@ -6,6 +6,7 @@ import {
   salesEventSessionsTable,
   salesEventAgendasTable,
   salesAccountsTable,
+  salesContactsTable,
   lpPagesTable,
   lpPageVisitsTable,
   lpLeadsTable,
@@ -18,9 +19,11 @@ import {
 import { fieldAccessor, isTestLead } from "@workspace/lead-utils";
 import { getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
+import { personalizeAgendaProps } from "../../lib/sales/agenda-tokens";
 import {
   matchAgendaSessions,
   catalogRoleOptions,
+  labelsMatch,
   sessionSourceKey,
   type MatchableSession,
 } from "../../lib/sales/agenda-matching";
@@ -30,6 +33,9 @@ import {
   fetchRainfocusCatalog,
   mapRainfocusSessions,
   rainfocusVocabulary,
+  pickFeaturedSpeakers,
+  mapRainfocusSponsors,
+  deriveEventDetails,
 } from "../../lib/sales/rainfocus";
 import { generateWhyAttendBlurbs } from "../../lib/sales/agenda-blurbs";
 import { suggestSessionRoleTags } from "../../lib/sales/agenda-tagging";
@@ -631,6 +637,20 @@ router.post("/events/:eventId/import-rainfocus", async (req, res): Promise<void>
     if ("error" in catalog) { res.status(502).json({ error: catalog.error }); return; }
 
     const { rows, skipped } = mapRainfocusSessions(catalog.items);
+
+    /**
+     * An agenda page is more than its schedule, so pull the keynote speakers
+     * and sponsors too. Both are best-effort: a widget scoped to sessions
+     * only will refuse these, which must NOT fail the session import that
+     * already succeeded.
+     */
+    const [speakerCat, exhibitorCat] = await Promise.all([
+      fetchRainfocusCatalog(creds, "speaker").catch(() => ({ error: "unavailable" })),
+      fetchRainfocusCatalog(creds, "exhibitor").catch(() => ({ error: "unavailable" })),
+    ]);
+    const featuredSpeakers = "error" in speakerCat ? [] : pickFeaturedSpeakers(speakerCat.items);
+    const sponsors = "error" in exhibitorCat ? [] : mapRainfocusSponsors(exhibitorCat.items);
+    const derived = deriveEventDetails(catalog.items);
     if (rows.length === 0) {
       res.status(422).json({
         error: "That widget returned no sessions. A speaker-only catalog widget won't carry the agenda — use the session catalog widget.",
@@ -639,6 +659,24 @@ router.post("/events/:eventId/import-rainfocus", async (req, res): Promise<void>
     }
 
     const result = await upsertSessionRows(tenantId, eventId, rows as unknown[]);
+
+    // Fill event fields the user hasn't set, and stash the non-session catalog
+    // for the publish route. Never overwrite something already entered by hand.
+    const eventPatch: Record<string, unknown> = {
+      catalogExtras: {
+        speakers: featuredSpeakers,
+        sponsors,
+        derived,
+        importedAt: new Date().toISOString(),
+      },
+    };
+    if (!event.startDate && derived.startDate) eventPatch.startDate = derived.startDate;
+    if (!event.endDate && derived.endDate) eventPatch.endDate = derived.endDate;
+    await db
+      .update(salesEventsTable)
+      .set(eventPatch)
+      .where(and(eq(salesEventsTable.tenantId, tenantId), eq(salesEventsTable.id, eventId)));
+
     res.json({
       ...result,
       extracted: rows.length,
@@ -646,10 +684,73 @@ router.post("/events/:eventId/import-rainfocus", async (req, res): Promise<void>
       skipped,
       truncated: catalog.truncated,
       vocabulary: rainfocusVocabulary(rows),
+      speakers: featuredSpeakers.length,
+      sponsors: sponsors.length,
+      derived,
     });
   } catch (err) {
     console.error("[sales/events] rainfocus import error", err);
     res.status(500).json({ error: "Failed to import from RainFocus" });
+  }
+});
+
+/**
+ * Suggest which of the event's audience-role chips fit an account, based on
+ * who we actually have contacts for there.
+ *
+ * The two vocabularies don't line up on their own — a RainFocus catalog says
+ * "Executive" / "Precon/Planning" while the CRM says "COO / VP of Operations"
+ * — so this reuses `labelsMatch`, the same fuzzy comparison the session
+ * matcher uses (acronym expansion, stemming, generic-rank-word stripping).
+ * That keeps one definition of "these two job labels mean the same thing"
+ * rather than a second, subtly different one here.
+ *
+ * Returns WHY each chip was suggested, so a rep can see it came from real
+ * contacts and drop it if their attendee list differs.
+ */
+router.get("/events/:eventId/accounts/:accountId/suggested-roles", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const eventId = parseInt(req.params.eventId, 10);
+    const accountId = parseInt(req.params.accountId, 10);
+    if (isNaN(eventId) || isNaN(accountId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const sessions = await loadEventSessions(tenantId, eventId);
+    const catalog = catalogRoleOptions(sessions.map(toMatchable));
+
+    const contacts = await db
+      .select({
+        role: salesContactsTable.role,
+        contactRole: salesContactsTable.contactRole,
+        title: salesContactsTable.title,
+        titleLevel: salesContactsTable.titleLevel,
+        department: salesContactsTable.department,
+      })
+      .from(salesContactsTable)
+      .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, accountId)));
+
+    // Every label the CRM gives us for this account's people. Job title is
+    // included last: it's the noisiest field, but for accounts whose contacts
+    // were never role-coded it's the only signal there is.
+    const contactLabels = new Set<string>();
+    for (const c of contacts) {
+      for (const v of [c.role, c.contactRole, c.titleLevel, c.department, c.title]) {
+        const t = (v ?? "").trim();
+        if (t) contactLabels.add(t);
+      }
+    }
+
+    const suggested = catalog
+      .map(({ role, count }) => {
+        const from = [...contactLabels].filter((label) => labelsMatch(label, role));
+        return { role, sessionCount: count, from };
+      })
+      .filter((s) => s.from.length > 0);
+
+    res.json({ suggested, contactCount: contacts.length, catalogSize: catalog.length });
+  } catch (err) {
+    console.error("[sales/events] suggested-roles error", err);
+    res.status(500).json({ error: "Failed to suggest roles" });
   }
 });
 
@@ -1122,8 +1223,12 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
         // The Block Defaults editor snapshots the WHOLE prop object, sample
         // schedule included — strip the per-account/per-event fields so stale
         // sample content can never shadow the published agenda's own data.
+        // `headline` is deliberately NOT stripped: an author's governance
+        // headline is now personalised by token substitution below, so keeping
+        // it is the whole point. Everything here is stale SAMPLE data that
+        // would shadow the real agenda.
         const {
-          days: _days, eyebrow: _eyebrow, headline: _headline, accountName: _accountName,
+          days: _days, eyebrow: _eyebrow, accountName: _accountName,
           eventName: _eventName, eventLocation: _eventLocation, eventDates: _eventDates,
           personalNote: _personalNote, sessionCount: _sessionCount,
           accountLogoUrl: _accountLogoUrl, accountLogoAlt: _accountLogoAlt,
@@ -1138,9 +1243,18 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
       console.warn("[sales/events] block-defaults lookup failed (publishing without)", String(defaultsErr));
     }
 
+    /** Non-session catalog data stashed by the RainFocus import, if any. */
+    const extras = (event.catalogExtras ?? {}) as {
+      speakers?: unknown[];
+      sponsors?: unknown[];
+    };
+    const catalogSpeakers = Array.isArray(extras.speakers) ? extras.speakers : [];
+    const catalogSponsors = Array.isArray(extras.sponsors) ? extras.sponsors : [];
+
     const blockProps = {
       // Canned fallbacks — a saved default overrides any of these.
       subheadline: `A schedule curated for your team — every session picked for ${accountName}.`,
+      headline: `${accountName}, your agenda is ready`,
       showRsvp: true,
       rsvpHeading: `Confirm your spot at ${event.name}`,
       ctaHeadline: "Questions before the event?",
@@ -1153,7 +1267,6 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
 
       // Per-account data — always wins.
       eyebrow: eyebrowParts.join(" · "),
-      headline: `${accountName}, your agenda is ready`,
       accountName,
       eventName: event.name,
       eventLocation: event.location ?? "",
@@ -1161,13 +1274,33 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
       personalNote: agenda.personalNote ?? "",
       days,
       sessionCount: selections.length,
+
+      // Keynote speakers and sponsors captured by the catalog import. Spread
+      // conditionally so an event with no import — or an author who curated
+      // these by hand in Block Defaults — keeps whatever is already there.
+      ...(catalogSpeakers.length ? { speakers: catalogSpeakers } : {}),
+      ...(catalogSponsors.length ? { sponsors: catalogSponsors } : {}),
     };
+
+    /**
+     * Personalise EVERY string in the props, not just the three fields the
+     * publish route happens to write. An author who types {{company_name}} in
+     * a section headline, a note or a resource title gets the account name
+     * there too. Unknown tokens are left intact so DTR can still resolve
+     * {{keyword}} and friends from the visitor's URL at runtime.
+     */
+    const { props: personalizedProps, report: tokenReport } = personalizeAgendaProps(blockProps, {
+      accountName,
+      eventName: event.name,
+      eventLocation: event.location ?? undefined,
+      eventDates: formatDateRange(event.startDate, event.endDate) || undefined,
+    });
 
     const block = {
       id: `event-agenda-${makeId()}`,
       type: "event-agenda",
       blockSettings: savedDefaultSettings,
-      props: blockProps,
+      props: personalizedProps,
     };
 
     const title = `${accountName} — ${event.name} Agenda`;
@@ -1183,7 +1316,10 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
           .update(salesEventAgendasTable)
           .set({ status: "published", publishedAt: new Date() })
           .where(eq(salesEventAgendasTable.id, agenda.id));
-        res.json({ pageId: page.id, slug: page.slug, url: `/lp/${page.slug}` });
+        res.json({
+          pageId: page.id, slug: page.slug, url: `/lp/${page.slug}`,
+          tokens: { replaced: tokenReport.replaced, unfilled: tokenReport.unknown },
+        });
         return;
       }
       // Page was deleted out from under us (lp_page_id is SET NULL on delete,
@@ -1216,7 +1352,10 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
       .set({ status: "published", publishedAt: new Date(), lpPageId: page.id })
       .where(eq(salesEventAgendasTable.id, agenda.id));
 
-    res.json({ pageId: page.id, slug: page.slug, url: `/lp/${page.slug}` });
+    res.json({
+          pageId: page.id, slug: page.slug, url: `/lp/${page.slug}`,
+          tokens: { replaced: tokenReport.replaced, unfilled: tokenReport.unknown },
+        });
   } catch (err) {
     console.error("[sales/events] agenda publish error", err);
     res.status(500).json({ error: "Failed to publish agenda" });

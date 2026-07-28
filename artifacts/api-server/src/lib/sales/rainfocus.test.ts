@@ -258,3 +258,70 @@ describe("fetchRainfocusCatalog", () => {
     expect(out).toHaveProperty("error");
   });
 });
+
+/* ── speakers, sponsors, event details ──────────────────────────────────── */
+
+import { pickFeaturedSpeakers, mapRainfocusSponsors, deriveEventDetails } from "./rainfocus";
+
+describe("speakers", () => {
+  const withPhoto = {
+    fullName: "Tony Leopold", jobTitle: "CTO", companyName: "United Rentals",
+    bio: "Leads technology.", photoURL: "https://x/tony.jpg", "Speaker-Photo-Published": "Published",
+  };
+  const noPhoto = { firstName: "Nick", lastName: "Errigo", jobTitle: "Consultant", companyName: "Procore" };
+  const placeholder = {
+    fullName: "Jane Doe", photoURL: "https://x/No%20Headshot-Stone%20Shovel.jpg",
+    "Speaker-Photo-Published": "Published",
+  };
+  const unpublishedPhoto = { fullName: "Sam Ray", photoURL: "https://x/sam.jpg", "Speaker-Photo-Published": "No" };
+
+  it("folds job title and company into one line", () => {
+    expect(pickFeaturedSpeakers([withPhoto])[0]).toMatchObject({
+      name: "Tony Leopold", title: "CTO, United Rentals", imageUrl: "https://x/tony.jpg",
+    });
+  });
+
+  it("ignores the RainFocus 'no headshot' placeholder — initials beat a grey block", () => {
+    expect(pickFeaturedSpeakers([placeholder])[0].imageUrl).toBeUndefined();
+  });
+
+  it("ignores an unpublished photo", () => {
+    expect(pickFeaturedSpeakers([unpublishedPhoto])[0].imageUrl).toBeUndefined();
+  });
+
+  it("RANKS by prominence and CAPS — a 137-person catalog is not a keynote section", () => {
+    const many = [noPhoto, noPhoto, withPhoto, noPhoto];
+    const out = pickFeaturedSpeakers(many, 2);
+    expect(out).toHaveLength(2);
+    expect(out[0].name).toBe("Tony Leopold"); // has photo + bio
+  });
+
+  it("drops entries with no usable name", () => {
+    expect(pickFeaturedSpeakers([{ firstName: "", lastName: "" }, withPhoto])).toHaveLength(1);
+  });
+});
+
+describe("sponsors", () => {
+  it("maps name, tier and link", () => {
+    const out = mapRainfocusSponsors([
+      { name: "Platinum Co", externalLink: "https://p.example", attributevalues: [{ attribute_id: "ExhibitorType", value: "Platinum", displayorder: 1 }] },
+      { name: "" },
+    ]);
+    expect(out).toEqual([{ name: "Platinum Co", tier: "Platinum", url: "https://p.example" }]);
+  });
+});
+
+describe("deriveEventDetails", () => {
+  it("derives the name and the real date span from the sessions themselves", () => {
+    const s = (date: string, room: string) => ({
+      eventName: "Groundbreak 2026", times: [{ date, daySort: date.replace(/-/g, ""), room }],
+    });
+    const out = deriveEventDetails([s("2026-10-21", "Room 4"), s("2026-10-20", "Room 4"), s("2026-10-22", "Hall")]);
+    expect(out).toMatchObject({ eventName: "Groundbreak 2026", startDate: "2026-10-20", endDate: "2026-10-22" });
+    expect(out.venues[0]).toBe("Room 4"); // most frequent first
+  });
+
+  it("survives sessions with no times", () => {
+    expect(deriveEventDetails([{ eventName: "X" }])).toMatchObject({ eventName: "X", startDate: "", endDate: "" });
+  });
+});

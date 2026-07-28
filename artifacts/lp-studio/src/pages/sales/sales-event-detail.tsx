@@ -1067,7 +1067,19 @@ function AgendaEditorDialog({
       const data = await res.json();
       setPageUrl(data.url);
       setLpPageId(data.pageId ?? null);
-      toast({ title: "Agenda page published" });
+      // Tokens that filled vs. tokens left on the page verbatim. A typo like
+      // {{compnay}} is deliberately not blanked, so it has to be surfaced or it
+      // ships unnoticed. DTR tokens ({{keyword}}, {{city}}) show up here too and
+      // are fine — they resolve from the visitor's URL.
+      const unfilled: string[] = data.tokens?.unfilled ?? [];
+      toast({
+        title: "Agenda page published",
+        description: unfilled.length
+          ? `Heads up — nothing filled in ${unfilled.map((t: string) => `{{${t}}}`).join(", ")}. That's expected for dynamic-text tokens, otherwise check the spelling.`
+          : data.tokens?.replaced
+            ? `Personalized ${data.tokens.replaced} token${data.tokens.replaced === 1 ? "" : "s"} with the account name.`
+            : undefined,
+      });
       onChanged();
     } catch {
       toast({ title: "Couldn't publish", variant: "destructive" });

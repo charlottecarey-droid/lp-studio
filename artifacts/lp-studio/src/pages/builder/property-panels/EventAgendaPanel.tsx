@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Link2, Link2Off, Users } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Link2, Link2Off, Users, Check, Loader2, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -241,6 +241,47 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
   /** Sales Reps library picker for the account team (same library the
    *  dso-meet-team block uses — one directory, not a second copy). */
   const [teamPickerOpen, setTeamPickerOpen] = useState(false);
+  /** Index of the person currently being saved back to the library, then the
+   *  index that just saved (for the tick). */
+  const [savingRep, setSavingRep] = useState<number | null>(null);
+  const [savedRep, setSavedRep] = useState<number | null>(null);
+
+  /**
+   * Push a person BACK into the Sales Reps library, so a rep typed here once
+   * becomes reusable everywhere instead of being re-keyed per page. Mirrors the
+   * dso-meet-team panel's save, and writes the library's own field names
+   * (`role`, `photo`, `chilipiperUrl`) rather than ours.
+   */
+  const saveRepToLibrary = async (i: number) => {
+    const person = list("team")[i];
+    if (!person?.name?.trim()) return;
+    setSavingRep(i);
+    try {
+      const res = await fetch(`${API_BASE}/lp/library/team_member`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: person.name.trim(),
+          content: {
+            name: person.name.trim(),
+            role: person.title ?? "",
+            email: person.email ?? "",
+            phone: person.phone ?? "",
+            chilipiperUrl: person.linkUrl ?? "",
+            photo: person.imageUrl ?? "",
+          },
+          is_default: false,
+        }),
+      });
+      if (!res.ok) return;
+      setSavedRep(i);
+      setTimeout(() => setSavedRep(null), 2500);
+    } catch {
+      /* leave the button as-is; nothing was lost from the page */
+    } finally {
+      setSavingRep(null);
+    }
+  };
   const [globalForms, setGlobalForms] = useState<GlobalFormSummary[]>([]);
   useEffect(() => {
     fetch(`${API_BASE}/lp/forms`).then((r) => r.json()).then((data: GlobalFormSummary[]) => setGlobalForms(data)).catch(() => {});
@@ -929,6 +970,20 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                     <Input value={person.linkUrl ?? ""} onChange={(e) => patchItem("team", i, { linkUrl: e.target.value })} placeholder="#contact" className="text-xs h-8" />
                   </Field>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full text-xs"
+                  disabled={!person.name?.trim() || savingRep === i}
+                  onClick={() => void saveRepToLibrary(i)}
+                  title="Add this person to the Sales Reps library so you can reuse them"
+                >
+                  {savedRep === i
+                    ? <><Check className="w-3.5 h-3.5 mr-1.5" /> Saved to library</>
+                    : savingRep === i
+                      ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving…</>
+                      : <><BookmarkPlus className="w-3.5 h-3.5 mr-1.5" /> Save to Sales Reps library</>}
+                </Button>
               </div>
             ))}
             <Button
