@@ -162,6 +162,36 @@ router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
   }
 });
 
+/**
+ * Flip an item's `is_default` star.
+ *
+ * The client has always called this (`useLibrary().toggleDefault`), but the
+ * route never existed — so the star appeared to toggle, the optimistic reload
+ * quietly put it back, and nobody's "default" ever persisted. Toggling
+ * server-side (rather than having the client PUT the whole row) keeps it a
+ * one-field write and avoids clobbering content with a stale copy.
+ *
+ * `is_default` is a plain per-item flag, not a radio: several items of a type
+ * may be defaults at once, which is what "Load Defaults" expects.
+ */
+router.patch("/lp/library/:type/:id/default", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { type, id } = req.params;
+  if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
+  try {
+    const result = await db.execute(
+      sql`UPDATE lp_library_items
+          SET is_default = NOT COALESCE(is_default, false), updated_at = now()
+          WHERE id = ${Number(id)} AND type = ${type} AND tenant_id = ${tenantId}
+          RETURNING *`
+    );
+    if (!result.rows.length) { res.status(404).json({ error: "Item not found" }); return; }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 router.delete("/lp/library/:type/:id", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type, id } = req.params;

@@ -81,7 +81,11 @@ function useLibrary(type: LibraryType) {
   };
 
   const toggleDefault = async (id: number) => {
-    await fetch(`${API_BASE}/lp/library/${type}/${id}/default`, { method: "PATCH" });
+    // Optimistic-then-reload hid a missing route here for a long time: the
+    // star flipped, the reload put it back, and nothing said why. Skip the
+    // reload on failure so the UI doesn't quietly undo the user's click.
+    const res = await fetch(`${API_BASE}/lp/library/${type}/${id}/default`, { method: "PATCH" });
+    if (!res.ok) return;
     reload();
   };
 
@@ -1039,14 +1043,25 @@ function MediaTab() {
 
   const closeModal = () => { setModalImage(null); setModalTagEdit(false); };
 
+  const [modalTagError, setModalTagError] = useState<string | null>(null);
+
   const handleModalSaveTags = async () => {
     if (!modalImage) return;
     const newTags = modalTagValue.split(",").map(t => t.trim()).filter(Boolean);
-    await fetch(`/api/lp/media/images/${modalImage.id}/tags`, {
+    setModalTagError(null);
+    // The path here used to be `/lp/media/images/:id/tags`, which doesn't
+    // exist — every save 404'd while the optimistic update below made it look
+    // like it had worked, so edited tags silently reverted on reload. Check
+    // the response rather than assuming, so a future mismatch is visible.
+    const res = await fetch(`/api/lp/media/${modalImage.id}/tags`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tags: newTags }),
     });
+    if (!res.ok) {
+      setModalTagError("Couldn't save those tags.");
+      return;
+    }
     const updated = { ...modalImage, tags: newTags };
     setModalImage(updated);
     setItems(prev => prev.map(i => i.id === modalImage.id ? updated : i));
@@ -1644,8 +1659,9 @@ function MediaTab() {
                   />
                   <div className="flex gap-1.5">
                     <Button size="sm" className="h-7 text-xs flex-1" onClick={handleModalSaveTags}>Save</Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setModalTagEdit(false)}>Cancel</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setModalTagError(null); setModalTagEdit(false); }}>Cancel</Button>
                   </div>
+                  {modalTagError && <p className="text-[11px] text-destructive">{modalTagError}</p>}
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1">
