@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarPlus, PlayCircle } from "lucide-react";
+import { CalendarPlus, PlayCircle, ExternalLink } from "lucide-react";
 import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { usePageContext } from "@/lib/page-context";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -312,6 +312,23 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
    * session/agenda carries machine-readable date + start time.
    */
   showAddToCalendar?: boolean;
+  /**
+   * What the per-session button does.
+   *
+   * "calendar" (default) downloads a one-session .ics. "register" links out to
+   * the event's own registration/catalog instead — the right choice for a
+   * RainFocus event, where seats are held in RainFocus and a calendar file
+   * doesn't reserve anything.
+   *
+   * NOTE we can't show live seat counts: a public RainFocus widget token
+   * returns `capacity` but not current registrations or a sold-out flag —
+   * that's per-attendee state behind an authenticated token. Linking out sends
+   * the reader to the one place that DOES know.
+   */
+  sessionCtaMode?: "calendar" | "register" | "none";
+  /** Registration/catalog URL, shared by every session row. */
+  sessionRegisterUrl?: string;
+  sessionRegisterLabel?: string;
 
   /* ── account team (before the schedule by default) ────────────────────── */
   showTeam?: boolean;
@@ -973,6 +990,18 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
 
   /* — add-to-calendar (.ics) — only when machine schedule data exists — */
   const calendarEnabled = props.showAddToCalendar !== false;
+  /** `showAddToCalendar: false` still means "no per-session button", so it
+   *  keeps working as the master switch alongside the newer mode. */
+  const sessionCtaMode = !calendarEnabled ? "none" : (props.sessionCtaMode ?? "calendar");
+  /**
+   * Per-session registration link.
+   *
+   * One URL for every row, deliberately: `sales_event_sessions` doesn't store
+   * the catalog's own session code, so there's nothing to deep-link WITH.
+   * Adding that column is the prerequisite for per-session links — until then
+   * a fake `{code}` placeholder would just produce broken URLs.
+   */
+  const sessionRegisterHref = (): string => props.sessionRegisterUrl?.trim() ?? "";
   const calendarReady = calendarEnabled && agendaHasCalendarData(props.days);
   const downloadAgendaIcs = () => {
     const ics = buildAgendaIcs(
@@ -1878,7 +1907,24 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                             {session.room}
                           </p>
                         )}
-                        {sessionCalendarReady(day, session) && (
+                        {sessionCtaMode === "register" ? (
+                          sessionRegisterHref() && (
+                            <a
+                              href={sessionRegisterHref()}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Register for "${session.title}"`}
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                              style={{
+                                border: `1px solid ${mixHex(rowInk.text, rowSurface, 0.22)}`,
+                                color: rowInk.muted,
+                              }}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                              {props.sessionRegisterLabel || "Register"}
+                            </a>
+                          )
+                        ) : sessionCtaMode === "calendar" && sessionCalendarReady(day, session) ? (
                           <button
                             type="button"
                             onClick={() => downloadSessionIcs(day, session)}
@@ -1893,7 +1939,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
                             <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
                             Calendar
                           </button>
-                        )}
+                        ) : null}
                       </div>
 
                       {/* body */}

@@ -392,6 +392,48 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               <Label className="text-xs">Add-to-calendar button</Label>
               <Switch checked={props.showAddToCalendar !== false} onCheckedChange={(v) => set("showAddToCalendar", v)} />
             </div>
+            {props.showAddToCalendar !== false && (
+              <div className="space-y-2 border rounded-md p-2.5">
+                <Field label="Per-session button">
+                  <Select
+                    value={props.sessionCtaMode ?? "calendar"}
+                    onValueChange={(v) => set("sessionCtaMode", v as NonNullable<EventAgendaBlockProps["sessionCtaMode"]>)}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="calendar">Add to calendar (default)</SelectItem>
+                      <SelectItem value="register">Register on the event site</SelectItem>
+                      <SelectItem value="none">No per-session button</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {props.sessionCtaMode === "register" && (
+                  <>
+                    <Field label="Registration URL">
+                      <Input
+                        value={props.sessionRegisterUrl ?? ""}
+                        onChange={(e) => set("sessionRegisterUrl", e.target.value)}
+                        placeholder="https://events.rainfocus.com/…/catalog"
+                        className="text-xs h-8"
+                      />
+                    </Field>
+                    <Field label="Button label">
+                      <Input
+                        value={props.sessionRegisterLabel ?? ""}
+                        onChange={(e) => set("sessionRegisterLabel", e.target.value)}
+                        placeholder="Register"
+                        className="text-xs h-8"
+                      />
+                    </Field>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Every session links to this one page. For a RainFocus event this is
+                      the better button — seats live there, and a calendar file
+                      doesn&rsquo;t hold one.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
