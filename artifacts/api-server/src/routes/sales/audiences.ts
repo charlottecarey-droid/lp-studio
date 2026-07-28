@@ -3,6 +3,11 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 import { eq, and, or, not, isNotNull, inArray, ilike, sql } from "drizzle-orm";
+import {
+  parseAccountList,
+  matchAccountList,
+  matchedAccountIds,
+} from "../../lib/sales/account-list-match";
 
 const router = Router();
 
@@ -140,6 +145,76 @@ router.post("/audiences/preview", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("POST /sales/audiences/preview error:", err);
     res.status(500).json({ error: "Failed to preview audience" });
+  }
+});
+
+/**
+ * Match an uploaded/pasted account list against this tenant's accounts.
+ *
+ * Review-then-create, like the other importers: this returns what matched and
+ * what didn't and writes NOTHING. The client then creates the audience through
+ * the existing POST /audiences with `filters.accountIds`, so an uploaded list
+ * becomes an ordinary audience with no new storage concept behind it.
+ *
+ * The contact count comes back too — for an email campaign, "142 accounts" is
+ * far less useful than "142 accounts, 0 of which have a mailable contact".
+ */
+router.post("/audiences/match-accounts", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const { text } = req.body as { text?: unknown };
+    if (typeof text !== "string" || !text.trim()) {
+      res.status(400).json({ error: "Paste or upload a list of accounts first." });
+      return;
+    }
+    // Guard against someone pasting a whole CRM export into memory.
+    const MAX_CHARS = 1_000_000;
+    const truncatedInput = text.length > MAX_CHARS;
+    const rows = parseAccountList(text.slice(0, MAX_CHARS));
+    if (rows.length === 0) {
+      res.status(422).json({ error: "Couldn't read any accounts out of that. Expect a column of names, domains, or both." });
+      return;
+    }
+
+    const accounts = await db
+      .select({
+        id: salesAccountsTable.id,
+        name: salesAccountsTable.name,
+        displayName: salesAccountsTable.displayName,
+        domain: salesAccountsTable.domain,
+      })
+      .from(salesAccountsTable)
+      .where(eq(salesAccountsTable.tenantId, tenantId));
+
+    const result = matchAccountList(rows, accounts);
+    const accountIds = matchedAccountIds(result);
+
+    // How many of those accounts actually have a mailable contact.
+    const contacts = accountIds.length > 0
+      ? await resolveContacts({ accountIds }, tenantId)
+      : [];
+    const accountsWithContacts = new Set(contacts.map((c) => c.accountId)).size;
+
+    res.json({
+      ...result,
+      accountIds,
+      counts: {
+        rows: rows.length,
+        matched: result.matched.length,
+        ambiguous: result.ambiguous.length,
+        conflicts: result.conflicts.length,
+        unmatched: result.unmatched.length,
+        duplicates: result.duplicates.length,
+        contacts: contacts.length,
+        accountsWithContacts,
+        // Matched, but nobody to email — the number that quietly ruins a send.
+        accountsWithNoContact: accountIds.length - accountsWithContacts,
+      },
+      truncatedInput,
+    });
+  } catch (err) {
+    console.error("POST /sales/audiences/match-accounts error:", err);
+    res.status(500).json({ error: "Failed to match that account list" });
   }
 });
 

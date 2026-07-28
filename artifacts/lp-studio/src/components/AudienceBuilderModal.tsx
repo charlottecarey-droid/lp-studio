@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X, Users, Building2, Briefcase, Tag, Search, Check, Loader2,
-  Plus, ChevronDown, ChevronUp, RefreshCw,
+  Plus, ChevronDown, ChevronUp, RefreshCw, Upload, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -198,6 +198,209 @@ function AccountMultiSelect({
   );
 }
 
+/* ── upload an account list ───────────────────────────────────────────────
+ * Turn a target list from a spreadsheet into the audience's account filter.
+ * Matching happens server-side on domain first (the only identifier in a
+ * target list that's genuinely unique) then on name.
+ *
+ * Review-then-add on purpose: this feeds EMAIL. Anything the matcher isn't
+ * sure about — a name shared by two accounts, a row whose domain and name
+ * disagree — is shown for you to resolve rather than guessed at.
+ */
+interface MatchCandidate { accountId: number; accountName: string; method: string }
+interface MatchRow { raw: string; name?: string; domain?: string }
+interface MatchResponse {
+  matched: { input: MatchRow; accountId: number; accountName: string; method: string }[];
+  ambiguous: { input: MatchRow; candidates: MatchCandidate[] }[];
+  conflicts: { input: MatchRow; byDomain: MatchCandidate; byName: MatchCandidate }[];
+  unmatched: MatchRow[];
+  duplicates: { input: MatchRow; accountId: number; accountName: string }[];
+  accountIds: number[];
+  counts: {
+    rows: number; matched: number; ambiguous: number; conflicts: number;
+    unmatched: number; duplicates: number; contacts: number;
+    accountsWithContacts: number; accountsWithNoContact: number;
+  };
+  truncatedInput?: boolean;
+  error?: string;
+}
+
+function AccountListUpload({ onAdd }: { onAdd: (ids: number[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<MatchResponse | null>(null);
+  /** Per-row resolutions the user made for ambiguous / conflicting rows. */
+  const [resolved, setResolved] = useState<Record<string, number>>({});
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const reset = () => { setText(""); setResult(null); setError(null); setResolved({}); };
+
+  const runMatch = async () => {
+    setBusy(true); setError(null); setResolved({});
+    try {
+      const res = await fetch(`${API_BASE}/sales/audiences/match-accounts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = (await res.json()) as MatchResponse;
+      if (!res.ok) { setError(data.error ?? "Couldn't match that list."); return; }
+      setResult(data);
+    } catch {
+      setError("Couldn't reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    setText(await f.text());
+    setResult(null);
+  };
+
+  const extraIds = Object.values(resolved).filter((v) => v > 0);
+  const totalToAdd = result ? [...new Set([...result.accountIds, ...extraIds])] : [];
+
+  return (
+    <div className="rounded-md border bg-muted/30 p-2.5 space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-xs font-medium"
+      >
+        <span className="flex items-center gap-1.5"><Upload className="w-3 h-3" /> Upload an account list</span>
+        {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+      </button>
+
+      {open && (
+        <div className="space-y-2">
+          {!result && (
+            <>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={5}
+                placeholder={"Paste account names, domains, or both:\n\nAccount,Domain\nAcme Dental,acme.com\nNorthwind,northwind.io"}
+                className="w-full rounded-md border bg-background p-2 font-mono text-[11px]"
+                disabled={busy}
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt,text/csv,text/plain"
+                  className="hidden"
+                  onChange={(e) => void onFile(e.target.files?.[0])}
+                />
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => fileRef.current?.click()} disabled={busy}>
+                  Choose a file
+                </Button>
+                <Button size="sm" className="h-7 text-xs" onClick={() => void runMatch()} disabled={busy || !text.trim()}>
+                  {busy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                  Match to accounts
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Matches on domain first, then account name. Nothing is added until you confirm.
+              </p>
+            </>
+          )}
+
+          {error && <p className="text-[11px] text-destructive">{error}</p>}
+
+          {result && (
+            <div className="space-y-2 text-[11px]">
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                <span className="font-medium text-foreground">{result.counts.matched} of {result.counts.rows} matched</span>
+                {result.counts.unmatched > 0 && <span className="text-muted-foreground">{result.counts.unmatched} not found</span>}
+                {result.counts.duplicates > 0 && <span className="text-muted-foreground">{result.counts.duplicates} duplicate</span>}
+              </div>
+
+              <p className="text-muted-foreground">
+                {result.counts.contacts} mailable contact{result.counts.contacts === 1 ? "" : "s"} across{" "}
+                {result.counts.accountsWithContacts} account{result.counts.accountsWithContacts === 1 ? "" : "s"}.
+                {result.counts.accountsWithNoContact > 0 && (
+                  <> {result.counts.accountsWithNoContact} matched account{result.counts.accountsWithNoContact === 1 ? " has" : "s have"} nobody to email.</>
+                )}
+              </p>
+
+              {result.truncatedInput && (
+                <p className="text-amber-700">That list was very long and was cut off — split it and run again.</p>
+              )}
+
+              {/* Rows the matcher refuses to guess at. */}
+              {(result.ambiguous.length > 0 || result.conflicts.length > 0) && (
+                <div className="space-y-1.5 rounded border border-amber-300 bg-amber-50 p-2">
+                  <p className="flex items-center gap-1.5 font-medium text-amber-900">
+                    <AlertTriangle className="w-3 h-3" /> Needs a decision
+                  </p>
+                  {result.ambiguous.map((a, i) => (
+                    <div key={`amb${i}`} className="flex items-center gap-2">
+                      <span className="flex-1 truncate" title={a.input.raw}>{a.input.name ?? a.input.domain}</span>
+                      <select
+                        className="rounded border bg-background px-1 py-0.5 text-[11px]"
+                        value={resolved[a.input.raw] ?? 0}
+                        onChange={(e) => setResolved((r) => ({ ...r, [a.input.raw]: Number(e.target.value) }))}
+                      >
+                        <option value={0}>Skip — more than one match</option>
+                        {a.candidates.map((c) => (
+                          <option key={c.accountId} value={c.accountId}>{c.accountName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  {result.conflicts.map((c, i) => (
+                    <div key={`con${i}`} className="flex items-center gap-2">
+                      <span className="flex-1 truncate" title={c.input.raw}>{c.input.name ?? c.input.domain}</span>
+                      <select
+                        className="rounded border bg-background px-1 py-0.5 text-[11px]"
+                        value={resolved[c.input.raw] ?? 0}
+                        onChange={(e) => setResolved((r) => ({ ...r, [c.input.raw]: Number(e.target.value) }))}
+                      >
+                        <option value={0}>Skip — name and domain disagree</option>
+                        <option value={c.byDomain.accountId}>{c.byDomain.accountName} (by domain)</option>
+                        <option value={c.byName.accountId}>{c.byName.accountName} (by name)</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {result.unmatched.length > 0 && (
+                <details>
+                  <summary className="cursor-pointer text-muted-foreground">
+                    {result.unmatched.length} row{result.unmatched.length === 1 ? "" : "s"} matched nothing
+                  </summary>
+                  <ul className="mt-1 max-h-28 overflow-y-auto pl-3">
+                    {result.unmatched.map((u, i) => (
+                      <li key={i} className="truncate text-muted-foreground">{u.name ?? u.domain ?? u.raw}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
+              <div className="flex items-center gap-2 pt-0.5">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={totalToAdd.length === 0}
+                  onClick={() => { onAdd(totalToAdd); reset(); setOpen(false); }}
+                >
+                  Add {totalToAdd.length} account{totalToAdd.length === 1 ? "" : "s"}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={reset}>Start over</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AudienceBuilderModal({ audience, onClose, onSaved }: Props) {
   const [name, setName] = useState(audience?.name ?? "");
   const [description, setDescription] = useState(audience?.description ?? "");
@@ -353,6 +556,14 @@ export default function AudienceBuilderModal({ audience, onClose, onSaved }: Pro
                   onChange={ids => updateFilters({ accountIds: ids })}
                 />
               )}
+              {/* Merges into the selection above rather than replacing it, so an
+                  uploaded list composes with the other filters (e.g. "these 200
+                  accounts, but only VP and above"). */}
+              <AccountListUpload
+                onAdd={(ids) =>
+                  updateFilters({ accountIds: [...new Set([...(filters.accountIds ?? []), ...ids])] })
+                }
+              />
             </div>
 
             {/* Title Keywords */}
