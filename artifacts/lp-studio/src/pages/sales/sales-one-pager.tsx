@@ -1035,14 +1035,13 @@ const SalesOnePager = () => {
         doc.save(`${brandSlug}_for_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       }
 
-      await fetch("/api/sales/pdf-submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dso_name: dsoName.trim(),
-          practice_count: numPractices,
-        }),
-      }).catch(() => { });
+      // (No download tracking here. This used to POST /api/sales/pdf-submissions,
+      // which has never existed on the sales router — it targeted the
+      // `dso_pdf_submissions` table behind /api/dso/*, a surface deliberately
+      // left unmounted because it has no per-tenant scoping. The call 404'd on
+      // every generate and the .catch swallowed it. Removed rather than
+      // reinstated: rebuilding it means a tenant-scoped table and a real route,
+      // which is a product decision, not a repair.)
     } finally {
       setGenerating(false);
     }
