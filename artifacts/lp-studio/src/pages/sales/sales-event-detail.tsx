@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import {
   BarChart3, CalendarDays, Check, Copy, ExternalLink, FileDown, FileUp, Globe, MapPin, Pencil, Pin,
-  Plus, RefreshCw, Sparkles, Trash2, Users,
-} from "lucide-react";
+  Plus, RefreshCw, Sparkles, Trash2, Users, Zap } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -680,6 +679,104 @@ function UrlImportDialog({
   );
 }
 
+/* ── RainFocus import ────────────────────────────────────────────────────
+ * Most large conferences run their catalog on RainFocus. The embed's apiToken
+ * and widgetId are public (they ship in client-side HTML), so pasting the
+ * snippet lets us query the catalog API directly — which returns session type,
+ * track, Role and Audience as TYPED fields rather than something a model had
+ * to infer from rendered HTML, plus real dates for calendar links.
+ */
+function RainfocusImportDialog({ open, onClose, onImported, eventId }: {
+  open: boolean;
+  onClose: () => void;
+  onImported: () => void;
+  eventId: number;
+}) {
+  const [embed, setEmbed] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    if (!open) { setEmbed(""); setImporting(false); }
+  }, [open]);
+
+  // Enough to be worth a round-trip; the server does the real validation.
+  const looksLikeEmbed = /apiToken/i.test(embed) && /widgetId/i.test(embed);
+
+  const doImport = async () => {
+    setImporting(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/events/${eventId}/import-rainfocus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ embed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: "Import failed", description: data.error, variant: "destructive" });
+        return;
+      }
+      const roles: string[] = data.vocabulary?.roles ?? [];
+      const parts = [
+        `${data.created} new, ${data.updated} updated`,
+        roles.length ? `Audience roles came through: ${roles.slice(0, 5).join(", ")}${roles.length > 5 ? "…" : ""} — matching will work without hand-tagging.` : "No audience roles on these sessions — add tags or use Suggest role tags.",
+        data.skipped ? `${data.skipped} item(s) had no title and were skipped.` : "",
+        data.truncated ? "The catalog was larger than one import — re-run to pick up the rest." : "",
+      ].filter(Boolean);
+      toast({ title: `Imported ${data.extracted} of ${data.total} sessions`, description: parts.join(" ") });
+      onImported();
+      onClose();
+    } catch {
+      toast({ title: "Import failed", variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && !importing && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Import from RainFocus</DialogTitle>
+          <DialogDescription>
+            Paste the event&rsquo;s RainFocus widget embed. This reads the catalog
+            directly, so session types, tracks and audience roles come through as
+            real data instead of being guessed — no hand-tagging needed. Re-running
+            refreshes times and rooms without duplicating, and keeps tags you&rsquo;ve
+            edited here.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label>Widget embed snippet</Label>
+          <Textarea
+            value={embed}
+            onChange={(e) => setEmbed(e.target.value)}
+            placeholder={"<script>\n  window.widget = new Rainfocus.Widget({\n    apiToken: '…',\n    widgetId: '…',\n    env: 'prod'\n  })\n</script>"}
+            rows={7}
+            className="font-mono text-[11px]"
+            disabled={importing}
+            autoFocus
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Use the <strong>session</strong> catalog widget — a speaker-only widget
+            has no agenda in it.
+          </p>
+          {importing && (
+            <p className="text-xs text-muted-foreground pt-1">
+              Reading the catalog — a few hundred sessions take a moment. Keep this open.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" disabled={importing} onClick={onClose}>Cancel</Button>
+          <Button variant="brand" disabled={!looksLikeEmbed || importing} onClick={() => void doImport()}>
+            {importing ? "Importing…" : "Import sessions"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── new agenda dialog (account typeahead + attendee roles) ──────────────── */
 
 interface AccountResult {
@@ -1215,6 +1312,7 @@ export default function SalesEventDetail() {
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
   const [urlImportOpen, setUrlImportOpen] = useState(false);
+  const [rfImportOpen, setRfImportOpen] = useState(false);
   const [newAgendaOpen, setNewAgendaOpen] = useState(false);
   const [editorAgendaId, setEditorAgendaId] = useState<number | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<EventSession | null>(null);
@@ -1347,6 +1445,9 @@ export default function SalesEventDetail() {
           back={{ onClick: () => navigate("/sales/events"), label: "Events" }}
           actions={
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setRfImportOpen(true)} title="Paste a RainFocus widget embed — best quality import">
+                <Zap className="w-4 h-4 mr-1.5" /> Import from RainFocus
+              </Button>
               <Button variant="outline" onClick={() => setUrlImportOpen(true)}>
                 <Globe className="w-4 h-4 mr-1.5" /> Import from URL
               </Button>
@@ -1534,6 +1635,7 @@ export default function SalesEventDetail() {
       />
       <CsvImportDialog open={csvOpen} onClose={() => setCsvOpen(false)} onImported={() => void load()} eventId={eventId} />
       <UrlImportDialog open={urlImportOpen} onClose={() => setUrlImportOpen(false)} onImported={() => void load()} eventId={eventId} />
+      <RainfocusImportDialog open={rfImportOpen} onClose={() => setRfImportOpen(false)} onImported={() => void load()} eventId={eventId} />
       <NewAgendaDialog
         open={newAgendaOpen}
         onClose={() => { setNewAgendaOpen(false); setPresetAccountId(null); }}
