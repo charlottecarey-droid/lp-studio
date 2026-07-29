@@ -258,6 +258,30 @@ function attrValues(item: Record<string, unknown>, attribute: string): string[] 
   return [...new Set(out.map((o) => o.value))];
 }
 
+/**
+ * Strip a catalog's "repeat offering" bookkeeping off a session title.
+ *
+ * Procore's catalog runs the same workshop in several slots and appends
+ * "OFFERING 2" / "OFFERING 3" to distinguish the rows. That's internal
+ * scheduling detail — on a customer-facing agenda it reads like a typo.
+ *
+ * Only a TRAILING marker is removed, so a title that genuinely contains the
+ * word ("What Your Offering Says About You") is untouched. A title that is
+ * nothing BUT the marker is left alone rather than emptied.
+ */
+// "offering" only. `session` was tempting and wrong: "Breakout Session 2" is a
+// real title, and stripping it would rename someone's session. `offering` in
+// trailing position is unambiguous scheduling bookkeeping.
+const OFFERING_SUFFIX_RE =
+  /[\s\u2013\u2014\-:,(\[]*\boffering\s*#?\s*\d+\s*[)\]]*\s*$/i;
+
+export function cleanSessionTitle(raw: string): string {
+  const title = raw.trim();
+  const stripped = title.replace(OFFERING_SUFFIX_RE, "").replace(/\s{2,}/g, " ").trim();
+  // Don't hand back an empty title, and don't strip everything meaningful.
+  return stripped.length >= 3 ? stripped : title;
+}
+
 /** Earliest scheduled time — a session can recur, and the agenda wants the
  *  slot it actually sits in. */
 function firstTime(item: Record<string, unknown>): Record<string, unknown> | null {
@@ -274,8 +298,9 @@ function firstTime(item: Record<string, unknown>): Record<string, unknown> | nul
  * for free.
  */
 export function mapRainfocusSession(item: Record<string, unknown>): ImportedSessionRow | null {
-  const title = str(item.title);
-  if (!title) return null;
+  const rawTitle = str(item.title);
+  if (!rawTitle) return null;
+  const title = cleanSessionTitle(rawTitle);
 
   const t = firstTime(item);
   const { description } = splitAbstract(str(item.abstract));
@@ -333,12 +358,34 @@ export interface RainfocusMapResult {
 
 export function mapRainfocusSessions(items: Record<string, unknown>[]): RainfocusMapResult {
   const rows: ImportedSessionRow[] = [];
+  const originals: string[] = [];
   let skipped = 0;
   for (const item of items) {
     const row = mapRainfocusSession(item);
-    if (row) rows.push(row);
-    else skipped += 1;
+    if (row) {
+      rows.push(row);
+      originals.push(str(item.title));
+    } else skipped += 1;
   }
+
+  /**
+   * Put the offering marker BACK on any row whose cleaned title would collide.
+   *
+   * The stored source key is (title, day, startTime), so two offerings that
+   * happen to share a slot would become one row once the suffix is gone —
+   * silently losing a session. Two offerings normally run at DIFFERENT times,
+   * which is the whole point of them, so this is a rare guard rather than the
+   * common path; it just must not lose data when it fires.
+   */
+  const keyOf = (r: ImportedSessionRow) => `${r.title.toLowerCase()}|${r.day ?? ""}|${r.startTime ?? ""}`;
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(keyOf(r), (counts.get(keyOf(r)) ?? 0) + 1);
+  for (let i = 0; i < rows.length; i += 1) {
+    if ((counts.get(keyOf(rows[i])) ?? 0) > 1 && originals[i]) {
+      rows[i] = { ...rows[i], title: originals[i].trim() };
+    }
+  }
+
   return { rows, skipped };
 }
 

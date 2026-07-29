@@ -36,6 +36,7 @@ import {
   type MatchableSession,
 } from "../../lib/sales/agenda-matching";
 import { importAgendaFromUrl, AgendaImportError } from "../../lib/sales/agenda-import";
+import { cleanSessionTitle } from "../../lib/sales/rainfocus";
 import {
   parseRainfocusEmbed,
   fetchRainfocusCatalog,
@@ -499,6 +500,27 @@ async function upsertSessionRows(
   const existing = await loadEventSessions(tenantId, eventId);
   const bySourceKey = new Map(existing.filter((s) => s.sourceKey).map((s) => [s.sourceKey as string, s]));
 
+  /**
+   * Fallback index for rows stored BEFORE session titles were cleaned.
+   *
+   * The source key is derived from the title, so dropping a catalog's trailing
+   * "OFFERING 2" changes it. Without this, the first re-import after that change
+   * would insert a duplicate of every affected session instead of updating it.
+   * Ambiguous cleaned titles are skipped rather than guessed at.
+   */
+  const cleanedKey = (title: string, day: string | null, startTime: string | null) =>
+    sessionSourceKey(cleanSessionTitle(title), day, startTime);
+  const cleanedCounts = new Map<string, number>();
+  for (const row of existing) {
+    const k = cleanedKey(row.title, row.day, row.startTime);
+    cleanedCounts.set(k, (cleanedCounts.get(k) ?? 0) + 1);
+  }
+  const byCleanedTitle = new Map<string, (typeof existing)[number]>();
+  for (const row of existing) {
+    const k = cleanedKey(row.title, row.day, row.startTime);
+    if ((cleanedCounts.get(k) ?? 0) === 1) byCleanedTitle.set(k, row);
+  }
+
   let created = 0;
   let updated = 0;
   const errors: { row: number; error: string }[] = [];
@@ -510,12 +532,16 @@ async function upsertSessionRows(
       continue;
     }
     const sourceKey = sessionSourceKey(parsed.title, parsed.day, parsed.startTime);
-    const prior = bySourceKey.get(sourceKey);
+    // Exact key first, then the pre-cleaning fallback above.
+    const prior = bySourceKey.get(sourceKey) ?? byCleanedTitle.get(sourceKey);
     if (prior) {
       await db
         .update(salesEventSessionsTable)
         .set({
           title: parsed.title,
+          // Adopt the key derived from the cleaned title, so a row matched via
+          // the fallback stops needing the fallback on the next import.
+          sourceKey,
           description: parsed.description ?? prior.description,
           day: parsed.day ?? prior.day,
           startTime: parsed.startTime ?? prior.startTime,

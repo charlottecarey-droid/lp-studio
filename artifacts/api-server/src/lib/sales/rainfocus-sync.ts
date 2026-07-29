@@ -23,6 +23,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, salesEventsTable, salesEventSessionsTable } from "@workspace/db";
 import type { RainfocusConfig } from "@workspace/db";
 import {
+  cleanSessionTitle,
   fetchRainfocusCatalog,
   mapRainfocusSessions,
   pickFeaturedSpeakers,
@@ -90,6 +91,31 @@ export async function syncRainfocusEvent(
 
   const bySourceKey = new Map(existing.filter((s) => s.sourceKey).map((s) => [s.sourceKey as string, s]));
 
+  /**
+   * Fallback index for rows imported BEFORE titles were cleaned.
+   *
+   * The source key is derived from the title, so stripping "OFFERING 2" changes
+   * it. Without this, the first sync after that change would treat all 168
+   * sessions as new — inserting duplicates AND flagging every original as
+   * "missing". Matching a cleaned incoming title against a cleaned STORED title
+   * migrates the row in place instead.
+   *
+   * Only unambiguous cleaned titles are indexed; if two stored rows clean to the
+   * same key we leave them to the normal path rather than guess which is which.
+   */
+  const cleanedKey = (title: string, day: string | null, startTime: string | null) =>
+    sessionSourceKey(cleanSessionTitle(title), day, startTime);
+  const cleanedCounts = new Map<string, number>();
+  for (const row of existing) {
+    const k = cleanedKey(row.title, row.day, row.startTime);
+    cleanedCounts.set(k, (cleanedCounts.get(k) ?? 0) + 1);
+  }
+  const byCleanedTitle = new Map<string, (typeof existing)[number]>();
+  for (const row of existing) {
+    const k = cleanedKey(row.title, row.day, row.startTime);
+    if ((cleanedCounts.get(k) ?? 0) === 1) byCleanedTitle.set(k, row);
+  }
+
   let created = 0;
   let updated = 0;
   let restored = 0;
@@ -98,7 +124,9 @@ export async function syncRainfocusEvent(
   for (const row of rows) {
     const key = sessionSourceKey(row.title, row.day ?? null, row.startTime ?? null);
     seen.add(key);
-    const prior = bySourceKey.get(key);
+    // Exact key first; then the pre-cleaning fallback above.
+    const prior = bySourceKey.get(key) ?? byCleanedTitle.get(key);
+    if (prior?.sourceKey && prior.sourceKey !== key) seen.add(prior.sourceKey);
 
     if (!prior) {
       await db.insert(salesEventSessionsTable).values({
@@ -124,6 +152,8 @@ export async function syncRainfocusEvent(
     // Only write when something actually differs — an unchanged catalog
     // shouldn't bump updatedAt on 168 rows every hour.
     const changed =
+      prior.title !== row.title ||
+      (prior.sourceKey ?? null) !== key ||
       (prior.endTime ?? null) !== (row.endTime ?? null) ||
       (prior.room ?? null) !== (row.room ?? null) ||
       (prior.description ?? null) !== (row.description ?? null);
@@ -133,6 +163,10 @@ export async function syncRainfocusEvent(
       await db
         .update(salesEventSessionsTable)
         .set({
+          // Adopt the cleaned title and its key, so a row matched via the
+          // fallback stops needing the fallback next time.
+          title: row.title,
+          sourceKey: key,
           endTime: row.endTime ?? null,
           room: row.room ?? null,
           description: row.description ?? null,

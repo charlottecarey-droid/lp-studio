@@ -325,3 +325,75 @@ describe("deriveEventDetails", () => {
     expect(deriveEventDetails([{ eventName: "X" }])).toMatchObject({ eventName: "X", startDate: "", endDate: "" });
   });
 });
+
+/* ── title cleaning ─────────────────────────────────────────────────────── */
+
+import { cleanSessionTitle } from "./rainfocus";
+
+describe("cleanSessionTitle", () => {
+  it("strips a trailing OFFERING marker", () => {
+    expect(cleanSessionTitle("Building a Flexible WBS OFFERING 2")).toBe("Building a Flexible WBS");
+    expect(cleanSessionTitle("Master the Timeline OFFERING 3")).toBe("Master the Timeline");
+    expect(cleanSessionTitle("Every Team, Every Asset Offering 2")).toBe("Every Team, Every Asset");
+  });
+
+  it("handles the punctuation people wrap it in", () => {
+    for (const t of [
+      "Advanced Budgeting (Offering 2)",
+      "Advanced Budgeting - Offering 2",
+      "Advanced Budgeting: Offering 2",
+      "Advanced Budgeting [OFFERING 2]",
+      "Advanced Budgeting offering #2",
+    ]) {
+      expect(cleanSessionTitle(t)).toBe("Advanced Budgeting");
+    }
+  });
+
+  it("leaves a title that merely CONTAINS the word alone", () => {
+    expect(cleanSessionTitle("What Your Offering Says About You"))
+      .toBe("What Your Offering Says About You");
+    expect(cleanSessionTitle("Offering 2 Ways to Scale")).toBe("Offering 2 Ways to Scale");
+  });
+
+  it("does NOT strip a legitimate 'Session N' title", () => {
+    // `session` was deliberately left out of the pattern.
+    expect(cleanSessionTitle("Breakout Session 2")).toBe("Breakout Session 2");
+  });
+
+  it("never returns an empty or stub title", () => {
+    expect(cleanSessionTitle("OFFERING 2")).toBe("OFFERING 2");
+  });
+
+  it("leaves ordinary titles untouched", () => {
+    expect(cleanSessionTitle("Construction Suicide Prevention Competency Certification"))
+      .toBe("Construction Suicide Prevention Competency Certification");
+  });
+});
+
+describe("mapRainfocusSessions — offering collisions", () => {
+  const at = (title: string, date: string, startTime: string) => ({
+    title, times: [{ date, daySort: date.replace(/-/g, ""), startTime, endTime: "10:00" }],
+  });
+
+  it("cleans titles when the offerings are in different slots (the normal case)", () => {
+    const { rows } = mapRainfocusSessions([
+      at("Advanced Budgeting OFFERING 2", "2026-10-20", "09:00"),
+      at("Advanced Budgeting OFFERING 3", "2026-10-21", "09:00"),
+    ]);
+    expect(rows.map((r) => r.title)).toEqual(["Advanced Budgeting", "Advanced Budgeting"]);
+    expect(rows[0].day).not.toBe(rows[1].day);
+  });
+
+  it("KEEPS the marker when cleaning would merge two sessions in the SAME slot", () => {
+    // The stored key is (title, day, startTime): cleaning both would collapse
+    // them into one row and silently lose a session.
+    const { rows } = mapRainfocusSessions([
+      at("Advanced Budgeting OFFERING 2", "2026-10-20", "09:00"),
+      at("Advanced Budgeting OFFERING 3", "2026-10-20", "09:00"),
+    ]);
+    expect(rows.map((r) => r.title)).toEqual([
+      "Advanced Budgeting OFFERING 2",
+      "Advanced Budgeting OFFERING 3",
+    ]);
+  });
+});
