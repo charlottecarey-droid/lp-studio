@@ -195,6 +195,16 @@ export async function fetchRainfocusCatalog(
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 
+/**
+ * RainFocus flags placeholder rows with `testRecord` — "Platinum Company Test"
+ * and friends, created while an event team sets the catalog up. Verified live
+ * on Groundbreak: its only two exhibitors are both test records. They must
+ * never reach a customer-facing page, so every mapper drops them.
+ * (Sometimes a boolean, sometimes the string "true" — accept both.)
+ */
+const isTestRecord = (item: Record<string, unknown>): boolean =>
+  item.testRecord === true || str(item.testRecord).toLowerCase() === "true";
+
 /** RainFocus abstracts are HTML fragments (`<br/>`, entities, occasional tags). */
 export function htmlToText(html: string): string {
   return html
@@ -361,6 +371,7 @@ export function mapRainfocusSessions(items: Record<string, unknown>[]): Rainfocu
   const originals: string[] = [];
   let skipped = 0;
   for (const item of items) {
+    if (isTestRecord(item)) { skipped += 1; continue; }
     const row = mapRainfocusSession(item);
     if (row) {
       rows.push(row);
@@ -454,7 +465,10 @@ export function mapRainfocusSpeaker(item: Record<string, unknown>): RainfocusSpe
  * and capped, because the point of the section is billing, not a directory.
  */
 export function pickFeaturedSpeakers(items: Record<string, unknown>[], limit = 8): RainfocusSpeaker[] {
-  const mapped = items.map(mapRainfocusSpeaker).filter((s): s is RainfocusSpeaker => s !== null);
+  const mapped = items
+    .filter((item) => !isTestRecord(item))
+    .map(mapRainfocusSpeaker)
+    .filter((s): s is RainfocusSpeaker => s !== null);
   const score = (s: RainfocusSpeaker): number => (s.imageUrl ? 2 : 0) + (s.bio ? 1 : 0);
   return [...mapped]
     .map((s, i) => ({ s, i }))
@@ -478,7 +492,10 @@ export function mapRainfocusSponsor(item: Record<string, unknown>): RainfocusSpo
 }
 
 export function mapRainfocusSponsors(items: Record<string, unknown>[]): RainfocusSponsor[] {
-  return items.map(mapRainfocusSponsor).filter((s): s is RainfocusSponsor => s !== null);
+  return items
+    .filter((item) => !isTestRecord(item))
+    .map(mapRainfocusSponsor)
+    .filter((s): s is RainfocusSponsor => s !== null);
 }
 
 /**

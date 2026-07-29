@@ -397,3 +397,31 @@ describe("mapRainfocusSessions — offering collisions", () => {
     ]);
   });
 });
+
+/* ── test records ───────────────────────────────────────────────────────── */
+
+describe("testRecord filtering", () => {
+  it("drops test sponsors — verified live: Groundbreak's only 2 exhibitors are test rows", () => {
+    const out = mapRainfocusSponsors([
+      { name: "Platinum Company Test", testRecord: true },
+      { name: "Test Gold Sponsor", testRecord: "true" },
+      { name: "Real Sponsor Co" },
+    ]);
+    expect(out.map((s) => s.name)).toEqual(["Real Sponsor Co"]);
+  });
+
+  it("drops test speakers and sessions too — same flag, same risk", () => {
+    expect(pickFeaturedSpeakers([{ fullName: "Test Person", testRecord: true }, { fullName: "Real Person" }])
+      .map((s) => s.name)).toEqual(["Real Person"]);
+    const { rows, skipped } = mapRainfocusSessions([
+      { title: "Test Session", testRecord: true },
+      { title: "Real Session" },
+    ]);
+    expect(rows.map((r) => r.title)).toEqual(["Real Session"]);
+    expect(skipped).toBe(1);
+  });
+
+  it("testRecord: false is a real record", () => {
+    expect(mapRainfocusSponsors([{ name: "Kept", testRecord: false }])).toHaveLength(1);
+  });
+});

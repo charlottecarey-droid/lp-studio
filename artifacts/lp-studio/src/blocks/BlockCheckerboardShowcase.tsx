@@ -88,7 +88,7 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
   const rail = (item: CheckerboardShowcaseItem, reversed: boolean) => (
     <div
       aria-hidden="true"
-      className="absolute inset-y-0 z-[2] hidden w-5 md:flex flex-col"
+      className="absolute inset-y-0 z-[2] hidden w-5 lg:flex flex-col"
       style={{
         [reversed ? "right" : "left"]: 0,
         background: `linear-gradient(to bottom, ${RAIL_GRADIENT_STOPS})`,
@@ -134,7 +134,7 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
   const mobileRail = (item: CheckerboardShowcaseItem) => (
     <div
       aria-hidden="true"
-      className="flex h-5 items-center md:hidden"
+      className="flex h-5 items-center lg:hidden"
       style={{
         background: `linear-gradient(to right, ${RAIL_GRADIENT_STOPS})`,
         borderTop: `1px solid ${hairline}`,
@@ -178,7 +178,7 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
       className="relative overflow-hidden"
     >
       <div
-        className="relative px-0 md:px-[var(--cbs-gutter)]"
+        className="relative px-0 lg:px-[var(--cbs-gutter)]"
         style={{ "--cbs-gutter": `${gutter}px` } as React.CSSProperties}
       >
         {/* Vertical rules at the inset content edges (md+, only when a gutter exists). */}
@@ -186,12 +186,12 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
           <>
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 z-[3] hidden w-px md:block"
+              className="pointer-events-none absolute inset-y-0 z-[3] hidden w-px lg:block"
               style={{ left: "var(--cbs-gutter)", background: hairline }}
             />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 z-[3] hidden w-px md:block"
+              className="pointer-events-none absolute inset-y-0 z-[3] hidden w-px lg:block"
               style={{ right: "var(--cbs-gutter)", background: hairline }}
             />
           </>
@@ -203,7 +203,7 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
           whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="mx-auto flex flex-col items-center px-5 pt-14 pb-12 text-center md:pt-16"
+          className="mx-auto flex flex-col items-center px-5 pt-14 pb-12 text-center lg:pt-16"
           style={{ maxWidth: 670 }}
         >
           {(eyebrow || onFieldChange) && (
@@ -274,8 +274,8 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
               whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
-              className={`flex flex-col justify-center px-6 py-12 text-center md:py-0 md:text-left ${
-                reversed ? "md:order-2 md:pr-[110px] md:pl-[100px]" : "md:pl-[110px] md:pr-[100px]"
+              className={`flex flex-col justify-center px-6 py-12 text-center lg:py-0 lg:text-left ${
+                reversed ? "lg:order-2 lg:pr-[110px] lg:pl-[100px]" : "lg:pl-[110px] lg:pr-[100px]"
               }`}
             >
               <InlineText
@@ -315,7 +315,7 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.7, ease: "easeOut" }}
-              className={`relative aspect-[4/3] md:aspect-square ${reversed ? "md:order-1" : ""}`}
+              className={`relative aspect-[4/3] lg:aspect-square ${reversed ? "lg:order-1" : ""}`}
               style={{ background: imgBg }}
             >
               {item.imageUrl ? (
@@ -337,7 +337,14 @@ export function BlockCheckerboardShowcase({ props, brand, onFieldChange }: Props
           );
           return (
             <div key={i} className="relative">
-              <div className="grid md:grid-cols-2">
+              {/* Side-by-side only from lg (1024px). This was md: (768px),
+                  which handed a portrait tablet the two-column cells and their
+                  ~110px desktop gutters — squeezing the copy into a sliver.
+                  Tablets now get the stacked mobile layout, whose paddings are
+                  designed for narrow widths. Every other lg: in this file
+                  (rails, gutter, hairlines, order flips, aspect) is part of the
+                  same presentation and must move with this breakpoint. */}
+              <div className="grid lg:grid-cols-2">
                 {textTile}
                 {mediaTile}
               </div>
