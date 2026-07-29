@@ -869,6 +869,13 @@
       "when": 1757700000000,
       "tag": "0123_rainfocus_autosync",
       "breakpoints": false
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1757800000000,
+      "tag": "0124_tenants_trial_tier",
+      "breakpoints": false
     }
   ]
 }

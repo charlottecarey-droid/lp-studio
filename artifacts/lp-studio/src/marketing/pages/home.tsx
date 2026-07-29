@@ -3,6 +3,7 @@ import AnnouncementBanner from "../components/AnnouncementBanner";
 import { normalizeBannerBg } from "@/lib/banner-color";
 import HeroScene from "../components/HeroScene";
 import PromptCard from "../components/PromptCard";
+import BetaOfferCallout from "../components/BetaOfferCallout";
 import { BuildSection } from "../components/BuildSection";
 import UseCases from "../components/UseCases";
 import IdentityWedge from "../components/IdentityWedge";
@@ -198,6 +199,9 @@ export default function Home() {
         {/* 1 — v3 editorial hero + Mad Libs prompt card */}
         <HeroScene />
         <PromptCard />
+        {/* Founding-beta spots — live numbers from /api/lp/beta-offer, the same
+            source the signup cap enforces. Hidden when the offer is off. */}
+        <BetaOfferCallout />
 
         {/* 2 — Watch a page assemble: the Lovable scroll-saga pinned
             scrollytelling (BuildSection) — page assembles inside a browser

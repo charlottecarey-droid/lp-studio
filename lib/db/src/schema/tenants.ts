@@ -57,6 +57,9 @@ export const tenantsTable = pgTable("tenants", {
   // going-forward-only default for accounts that existed before launch).
   // `effectivePlan` grants the trial tier while now() < trial_expires_at and
   // the stored `plan` is the floor users fall back to after expiry.
+  /** Per-tenant trial tier (founding-beta grants "scale"). NULL = the
+   *  standard TRIAL_TIER constant — existing rows behave exactly as before. */
+  trialTier: text("trial_tier"),
   trialStartedAt: timestamp("trial_started_at", { withTimezone: true }),
   trialExpiresAt: timestamp("trial_expires_at", { withTimezone: true }),
   // Flips true once a trial has elapsed (set lazily on read) so a tenant

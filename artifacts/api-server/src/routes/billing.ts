@@ -25,7 +25,7 @@ import type Stripe from "stripe";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getPriceIdForLookupKey, getStripe, StripeNotConfiguredError } from "../lib/stripeClient";
-import { normalizePlan, getTenantPlan, computeTrialState, isDandyTenant, CLOSE_TRIAL_ON_FREE_SQL, type Plan } from "../lib/planFeatures";
+import { normalizePlan, getTenantPlan, computeTrialState, isDandyTenant, CLOSE_TRIAL_ON_FREE_SQL, type Plan, normalizeTrialTier, TRIAL_TIER } from "../lib/planFeatures";
 import { getPlanFeatures } from "../lib/planConfig";
 import {
   ALL_LOOKUP_KEYS,
@@ -60,6 +60,7 @@ interface TenantBillingRow {
   stripe_payment_brand: string | null;
   stripe_payment_last4: string | null;
   trial_started_at: string | Date | null;
+  trial_tier: string | null;
   trial_expires_at: string | Date | null;
   has_trialed_before: boolean | null;
   domain: string | null;
@@ -73,7 +74,7 @@ const TENANT_COLUMNS = `
   stripe_cancel_at_period_end, stripe_price_lookup_key,
   stripe_cadence, stripe_unit_amount, stripe_currency,
   stripe_payment_brand, stripe_payment_last4,
-  trial_started_at, trial_expires_at, has_trialed_before,
+  trial_started_at, trial_expires_at, trial_tier, has_trialed_before,
   domain, slug
 `;
 
@@ -182,6 +183,10 @@ router.get("/billing/summary", async (req: Request, res: Response): Promise<void
       startedAt: trial.startedAt ? trial.startedAt.toISOString() : null,
       expiresAt: trial.expiresAt ? trial.expiresAt.toISOString() : null,
       hasTrialedBefore: tenant.has_trialed_before ?? false,
+      // Which tier this trial grants — "scale" for founding-beta tenants,
+      // otherwise the standard TRIAL_TIER. Drives the banner copy so a beta
+      // tenant isn't told they're "on the Growth trial" for a year.
+      tier: normalizeTrialTier(tenant.trial_tier) ?? TRIAL_TIER,
     },
     stripe: {
       configured: stripeConfigured,

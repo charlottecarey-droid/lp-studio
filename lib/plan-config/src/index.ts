@@ -314,6 +314,24 @@ export function configForPlan(plan: Plan): PlanConfigEntry {
 export const TRIAL_TIER: Plan = "growth";
 export const TRIAL_DURATION_DAYS = 14;
 
+/**
+ * Founding-beta offer: the first N self-serve signups get a long trial at a
+ * higher tier. N lives in the server env (BETA_SCALE_OFFER_CAP) so the cap can
+ * be raised without a deploy; these constants define WHAT the offer grants.
+ * The public /lp/beta-offer endpoint reports cap + remaining from the same
+ * values, so the number shown on the site can never disagree with the number
+ * enforced at signup.
+ */
+export const BETA_OFFER_TIER: Plan = "scale";
+
+/** Parse a stored trial_tier column value. Anything but a canonical tier
+ *  (including null and legacy junk) → null, i.e. the standard TRIAL_TIER. */
+export function normalizeTrialTier(v: unknown): Plan | null {
+  return typeof v === "string" && (PLANS as readonly string[]).includes(v) ? (v as Plan) : null;
+}
+
+export const BETA_OFFER_DURATION_DAYS = 365;
+
 /** Tier ladder position (low -> high). Used to compare two plans. */
 export function planRank(plan: Plan): number {
   return PLAN_CONFIG[plan].sortOrder;
@@ -342,13 +360,19 @@ function toDateOrNull(v: Date | string | number | null | undefined): Date | null
 export function effectivePlan(args: {
   storedPlan: Plan;
   trialExpiresAt: Date | string | number | null | undefined;
+  /**
+   * Per-tenant trial tier (tenants.trial_tier). Null/omitted = the standard
+   * TRIAL_TIER, so every existing caller and row behaves exactly as before.
+   * Set to "scale" by the founding-beta signup path.
+   */
+  trialTier?: Plan | null;
   now?: Date;
 }): Plan {
   const expiry = toDateOrNull(args.trialExpiresAt);
   if (!expiry) return args.storedPlan;
   const now = args.now ?? new Date();
   return expiry.getTime() > now.getTime()
-    ? higherPlan(args.storedPlan, TRIAL_TIER)
+    ? higherPlan(args.storedPlan, args.trialTier ?? TRIAL_TIER)
     : args.storedPlan;
 }
 

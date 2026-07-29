@@ -8,6 +8,7 @@ import {
   type Plan,
   type PlanFeatures,
   type TrialState,
+  normalizeTrialTier,
 } from "@workspace/plan-config";
 import { getPlanFeatures } from "./planConfig";
 
@@ -39,6 +40,9 @@ export {
   featuresForPlan,
   effectivePlan,
   computeTrialState,
+  normalizeTrialTier,
+  BETA_OFFER_TIER,
+  BETA_OFFER_DURATION_DAYS,
 } from "@workspace/plan-config";
 export type { Plan, PlanFeatures, PlanLimits, PlanConfigEntry, TrialState } from "@workspace/plan-config";
 
@@ -92,8 +96,9 @@ export async function getTenantPlan(tenantId: number | null | undefined): Promis
     slug: string | null;
     trial_expires_at: Date | string | null;
     has_trialed_before: boolean | null;
-  }>(
-    `SELECT plan, slug, trial_expires_at, has_trialed_before FROM tenants WHERE id = $1`,
+  
+    trial_tier: string | null;}>(
+    `SELECT plan, slug, trial_expires_at, trial_tier, has_trialed_before FROM tenants WHERE id = $1`,
     [tenantId],
   );
   const row = r.rows[0];
@@ -112,7 +117,7 @@ export async function getTenantPlan(tenantId: number | null | undefined): Promis
     if (expired) void markTrialConsumed(tenantId);
   }
 
-  return effectivePlan({ storedPlan: stored, trialExpiresAt });
+  return effectivePlan({ storedPlan: stored, trialExpiresAt, trialTier: normalizeTrialTier(row?.trial_tier) });
 }
 
 /**

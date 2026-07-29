@@ -43,11 +43,15 @@ import {
   TRIAL_DURATION_DAYS,
   effectivePlan,
   computeTrialState,
+  normalizeTrialTier,
+  BETA_OFFER_TIER,
+  BETA_OFFER_DURATION_DAYS,
   isProtectedEnterpriseSlug,
   getTenantPlan,
   type Plan,
 } from "../lib/planFeatures";
 import { getPlanFeaturesMap, getPlanConfig } from "../lib/planConfig";
+import { betaOfferCap } from "../lib/betaOffer";
 import { featureUpgradeBody } from "../lib/planGate";
 import { isRootSuperadminEmail } from "../lib/rootSuperadmin";
 
@@ -894,7 +898,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     if (sess.tenantId) {
       const tenantResult = await pool.query(
         `SELECT onboarding_completed_at, settings, slug, domain, plan,
-                trial_started_at, trial_expires_at, has_trialed_before
+                trial_started_at, trial_expires_at, trial_tier, has_trialed_before
            FROM tenants WHERE id = $1`,
         [sess.tenantId]
       );
@@ -922,6 +926,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
           : effectivePlan({
               storedPlan: normalizePlan(tenantPlan),
               trialExpiresAt: row.trial_expires_at,
+              trialTier: normalizeTrialTier(row.trial_tier),
             });
         aiImageGenAvailable = (await getPlanFeaturesMap())[effectiveTier].aiImageGen;
         aiImageGenEnabled = aiImageGenAvailable && settings.aiImageGenEnabled === true;
@@ -1830,14 +1835,40 @@ async function provisionWorkspaceTx(
 ): Promise<{ id: number; name: string; slug: string }> {
   const { name, slugClean, userId, email, grantTrial } = opts;
 
+  /**
+   * Founding-beta claim — the first N trial signups get a 365-day trial at
+   * Scale instead of the standard 14-day Growth trial. N comes from
+   * BETA_SCALE_OFFER_CAP (0/unset = off), the same value the public
+   * /lp/beta-offer endpoint reports, so the site can't advertise spots that
+   * don't exist.
+   *
+   * The advisory xact lock serialises concurrent signups through the count:
+   * without it two simultaneous signups both read claimed=24 and both take
+   * the 25th spot. Held until the caller's COMMIT.
+   */
+  let trialTier: string | null = null;
+  let trialDays = TRIAL_DURATION_DAYS;
+  const capNow = betaOfferCap(process.env.BETA_SCALE_OFFER_CAP);
+  if (grantTrial && capNow > 0) {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('beta_scale_offer'))`);
+    const claimedRes = await client.query(
+      `SELECT count(*)::int AS claimed FROM tenants WHERE trial_tier = $1`,
+      [BETA_OFFER_TIER],
+    );
+    if ((claimedRes.rows[0]?.claimed ?? 0) < capNow) {
+      trialTier = BETA_OFFER_TIER;
+      trialDays = BETA_OFFER_DURATION_DAYS;
+    }
+  }
+
   const tenantResult = grantTrial
     ? await client.query(
-        `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
+        `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at, trial_tier)
          VALUES ($1, $2, 'free', 'active',
                  '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
-                 now(), now() + make_interval(days => $3))
+                 now(), now() + make_interval(days => $3), $4)
          RETURNING id, name, slug`,
-        [name, slugClean, TRIAL_DURATION_DAYS]
+        [name, slugClean, trialDays, trialTier]
       )
     : await client.query(
         `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)

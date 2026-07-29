@@ -58,6 +58,8 @@ interface BillingSummary {
     startedAt: string | null;
     expiresAt: string | null;
     hasTrialedBefore: boolean;
+    /** Which tier the trial grants — "scale" for founding-beta tenants. */
+    tier?: string;
   };
   stripe: {
     configured: boolean;
@@ -453,6 +455,7 @@ export default function BillingPage() {
             canEndTrial={isAdmin && summary.trial.active && !hasActiveSub}
             ending={actionInFlight === "downgrade-free"}
             onEndTrial={() => setDowngradeOpen(true)}
+            tier={summary.trial.tier}
           />
         )}
 
@@ -556,7 +559,7 @@ function CadenceToggle({ cadence, onChange }: { cadence: Cadence; onChange: (c: 
 // There is no "add payment method" action — self-serve trials convert through
 // the Checkout buttons in the plans grid, not a Stripe trial.
 function TrialBanner({
-  active, daysRemaining, expiresAt, canEndTrial, ending, onEndTrial,
+  active, daysRemaining, expiresAt, canEndTrial, ending, onEndTrial, tier,
 }: {
   active: boolean;
   daysRemaining: number;
@@ -564,7 +567,14 @@ function TrialBanner({
   canEndTrial: boolean;
   ending: boolean;
   onEndTrial: () => void;
+  /** Trial tier from the billing API; founding-beta tenants are "scale". */
+  tier?: string;
 }) {
+  // Copy uses the REAL trial tier — a founding-beta tenant is on Scale for a
+  // year, and telling them they're "on the Growth trial" would be wrong for
+  // all 365 days of it.
+  const tierName = tier === "scale" ? "Scale" : tier === "enterprise" ? "Enterprise" : "Growth";
+  const isBeta = tier === "scale";
   const endMs = expiresAt ? Date.parse(expiresAt) : null;
   const tone = active
     ? daysRemaining <= 3 ? "border-amber-300 bg-amber-50" : "border-primary/30 bg-primary/5"
@@ -581,15 +591,15 @@ function TrialBanner({
           {active ? (
             <>
               <p className="font-medium text-foreground">
-                You're on the Growth trial
+                {isBeta ? "You're in the founding beta — Scale, free" : `You're on the ${tierName} trial`}
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                   · {daysRemaining} {dayLabel} left
                 </span>
               </p>
               <p className="text-sm text-muted-foreground">
                 {endMs
-                  ? `Your trial ends on ${formatDate(endMs / 1000)}. Upgrade below any time to keep your Growth features.`
-                  : "Upgrade below any time to keep your Growth features."}
+                  ? `Your trial ends on ${formatDate(endMs / 1000)}. Upgrade below any time to keep your ${tierName} features.`
+                  : `Upgrade below any time to keep your ${tierName} features.`}
               </p>
               {canEndTrial && (
                 <button
@@ -606,10 +616,10 @@ function TrialBanner({
             </>
           ) : (
             <>
-              <p className="font-medium text-foreground">Your Growth trial has ended</p>
+              <p className="font-medium text-foreground">Your {tierName} trial has ended</p>
               <p className="text-sm text-muted-foreground">
                 You've been downgraded to Free. Upgrade below to restore the Sales Console, unlimited
-                pages, and the rest of your Growth features.
+                pages, and the rest of your {tierName} features.
               </p>
             </>
           )}
