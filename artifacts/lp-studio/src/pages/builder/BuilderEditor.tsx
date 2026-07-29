@@ -20,8 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus, ArrowLeft,
-  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye, Monitor, Tablet, Smartphone, Copy,
-} from "lucide-react";
+  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye, Monitor, Tablet, Smartphone, Copy, Building2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -4272,6 +4271,10 @@ export default function BuilderEditor() {
             </div>
           )}
           </div>
+          <PageAccountNameSection
+            variables={pageVariables}
+            onChange={vars => { setPageVariables(vars); setTimeout(handleSave, 50); }}
+          />
           <LinkedFormStylePanel
             variables={pageVariables}
             onChange={vars => { setPageVariables(vars); setTimeout(handleSave, 50); }}
@@ -4354,6 +4357,77 @@ const KNOWN_MICROSITE_VARS: Record<string, string> = {
   company_name: "Company Name",
   practice_count: "Practice Count",
 };
+
+/**
+ * Page-level account name.
+ *
+ * Sets the value that `{{company_name}}` resolves to, so personalization works
+ * on ANY page — not only ones published through the Sales Console's agenda flow,
+ * which was the confusing part: the token substituted at publish there and did
+ * nothing anywhere else.
+ *
+ * Writes several spellings to one value. The app has two token conventions in
+ * play — DTR uses `{{double}}` braces, the older programmatic-pages variables
+ * panel detects `{single}` — and people type `company`, `company_name` or
+ * `account_name` interchangeably. Storing all of them means whichever the author
+ * typed resolves, instead of silently rendering nothing.
+ *
+ * Tokens stay LITERAL while editing on purpose: substituting in the canvas would
+ * make inline editing save the resolved text and destroy the token. They resolve
+ * on the live page.
+ */
+const ACCOUNT_NAME_KEYS = ["company_name", "company", "account_name", "customer"] as const;
+
+function PageAccountNameSection({
+  variables,
+  onChange,
+}: {
+  variables: Record<string, string>;
+  onChange: (vars: Record<string, string>) => void;
+}) {
+  const current = ACCOUNT_NAME_KEYS.map(k => variables[k]).find(v => v?.trim()) ?? "";
+  const [value, setValue] = useState(current);
+  const [saved, setSaved] = useState(false);
+
+  const commit = () => {
+    const next = { ...variables };
+    for (const k of ACCOUNT_NAME_KEYS) {
+      if (value.trim()) next[k] = value.trim();
+      else delete next[k];
+    }
+    onChange(next);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="border-t border-border">
+      <div className="px-4 py-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Account name
+          </span>
+        </div>
+        <Input
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === "Enter") commit(); }}
+          placeholder="Pacific Dental Alliance"
+          className="h-8 text-xs"
+        />
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Fills <code className="font-mono">{"{{company_name}}"}</code> anywhere on this
+          page. <code className="font-mono">{"{{company}}"}</code> and{" "}
+          <code className="font-mono">{"{{account_name}}"}</code> work too.
+          Tokens stay as-is while you edit and resolve on the live page.
+        </p>
+        {saved && <p className="text-[10px] text-emerald-600">Saved</p>}
+      </div>
+    </div>
+  );
+}
 
 function VariablesPanel({
   blocks,
