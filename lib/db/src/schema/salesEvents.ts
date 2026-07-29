@@ -64,6 +64,9 @@ export const salesEventsTable = pgTable("sales_events", {
    *  derived event details. Copied onto the agenda block at publish time; not
    *  queried or joined, hence one jsonb rather than more tables. */
   catalogExtras: jsonb("catalog_extras").$type<EventCatalogExtras>().notNull().default({}),
+  /** One page whose event-agenda styling every agenda of this event inherits
+   *  at publish. NULL = tenant defaults. FK ON DELETE SET NULL. */
+  styleTemplatePageId: integer("style_template_page_id"),
   /** RainFocus credentials + auto-sync state. Token redacted by the API. */
   rainfocusConfig: jsonb("rainfocus_config").$type<RainfocusConfig>().notNull().default({}),
   description: text("description"),

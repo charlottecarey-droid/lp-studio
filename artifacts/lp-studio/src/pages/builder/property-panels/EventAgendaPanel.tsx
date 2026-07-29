@@ -21,6 +21,7 @@ import type {
   EvaSession,
   EvaSectionId,
   EvaClamp,
+  EvaMeeting,
   EvaPerson,
   EvaSponsor,
   EvaResource,
@@ -153,20 +154,37 @@ function moveItem<T>(arr: T[], i: number, dir: -1 | 1): T[] {
   return next;
 }
 
-/** Headline alignment + scale + layout pickers, shared by the content sections
- *  so each one can be tuned without them all looking alike. */
+/**
+ * Headline alignment + scale + layout pickers, shared by the content sections.
+ *
+ * COLLAPSED by default: most edits are content edits, and six sections each
+ * showing three style selects was most of what made the panel overwhelming.
+ * Extra style controls (background, portrait shape, columns) nest as children
+ * so each section has ONE style disclosure, not a stack of boxes.
+ */
 function SectionStyleRow({
-  align, onAlign, size, onSize, layout,
+  align, onAlign, size, onSize, layout, children,
 }: {
   align: "left" | "center" | undefined;
   onAlign: (v: "left" | "center") => void;
   size: "sm" | "md" | "lg" | "xl" | undefined;
   onSize: (v: "sm" | "md" | "lg" | "xl") => void;
   layout?: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label?: string };
+  children?: React.ReactNode;
 }) {
+  const [styleOpen, setStyleOpen] = useState(false);
   return (
-    <div className="space-y-2 border rounded-md p-2.5">
-      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Style</div>
+    <div className="border rounded-md">
+      <button
+        type="button"
+        onClick={() => setStyleOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-2.5 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider"
+      >
+        Section style
+        {styleOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+      </button>
+      {!styleOpen ? null : (
+    <div className="space-y-2 p-2.5 pt-0">
       <div className="grid grid-cols-2 gap-2">
         <Field label="Headline align">
           <Select value={align ?? "left"} onValueChange={(v) => onAlign(v as "left" | "center")}>
@@ -201,6 +219,9 @@ function SectionStyleRow({
           </Select>
         </Field>
       )}
+      {children}
+    </div>
+      )}
     </div>
   );
 }
@@ -216,19 +237,22 @@ interface GlobalFormSummary {
 }
 
 export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
+  // Everything starts CLOSED except the Sections hub. Fourteen open groups of
+  // controls was the overwhelm; the hub shows the page's shape and each group
+  // opens on demand.
   const [open, setOpen] = useState({
     sections: true,
     readability: false,
-    hero: true,
+    hero: false,
     palette: false,
     note: false,
-    schedule: true,
+    schedule: false,
+    meetings: false,
     team: false,
     speakers: false,
     guest: false,
     sponsors: false,
     resources: false,
-    order: false,
     rsvp: false,
     close: false,
   });
@@ -298,6 +322,9 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
       sessions: props.days[dayIdx].sessions.map((s, j) => (j === i ? { ...s, ...patch } : s)),
     });
 
+  const patchMeeting = (i: number, patch: Partial<EvaMeeting>) =>
+    set("meetings", (props.meetings ?? []).map((m, j) => (j === i ? { ...m, ...patch } : m)));
+
   /* ── list helpers for the four content sections ── */
   type ListKey = "team" | "speakers" | "sponsors" | "resources";
   const list = <K extends ListKey>(key: K): NonNullable<EventAgendaBlockProps[K]> =>
@@ -325,8 +352,22 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
     const seen = new Set(saved);
     return [...saved, ...EVA_SECTION_ORDER.filter((id) => !seen.has(id))];
   })();
+  /** Which prop toggles each body section. `rsvp` is opt-IN (=== true); the
+   *  rest are opt-OUT (!== false); `schedule` has no toggle at all. */
+  const SECTION_SHOW_KEYS: Record<EvaSectionId, keyof EventAgendaBlockProps> = {
+    note: "showNote",
+    meetings: "showMeetings",
+    team: "showTeam",
+    speakers: "showSpeakers",
+    guest: "showGuest",
+    schedule: "showHero", // unused — schedule renders no switch
+    sponsors: "showSponsors",
+    resources: "showResources",
+    rsvp: "showRsvp",
+  };
   const SECTION_LABELS: Record<EvaSectionId, string> = {
     note: "Personal note",
+    meetings: "Private meetings",
     team: "Account team",
     speakers: "Keynote speakers",
     guest: "Special guest",
@@ -360,29 +401,41 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               <Label className="text-xs">Navbar</Label>
               <Switch checked={props.showNavbar !== false} onCheckedChange={(v) => set("showNavbar", v)} />
             </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Personal note</Label>
-              <Switch checked={props.showNote !== false} onCheckedChange={(v) => set("showNote", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Account team</Label>
-              <Switch checked={props.showTeam !== false} onCheckedChange={(v) => set("showTeam", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Keynote speakers</Label>
-              <Switch checked={props.showSpeakers !== false} onCheckedChange={(v) => set("showSpeakers", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Sponsors</Label>
-              <Switch checked={props.showSponsors !== false} onCheckedChange={(v) => set("showSponsors", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Resources</Label>
-              <Switch checked={props.showResources !== false} onCheckedChange={(v) => set("showResources", v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">RSVP form</Label>
-              <Switch checked={props.showRsvp === true} onCheckedChange={(v) => set("showRsvp", v)} />
+            {/* One list: what's on the page AND in what order. The separate
+                "Section order" group duplicated these labels; showing the
+                toggle and the position together halves the controls. */}
+            <div className="space-y-1.5">
+              {orderedSections.map((id, i) => (
+                <div key={id} className="flex items-center gap-1.5 border rounded-md px-2 py-1.5">
+                  <span className="text-[11px] tabular-nums text-muted-foreground w-4">{i + 1}</span>
+                  <span className="text-xs flex-1">{SECTION_LABELS[id]}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" disabled={i === 0} onClick={() => moveSection(i, -1)}>
+                    <ArrowUp className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={i === orderedSections.length - 1}
+                    onClick={() => moveSection(i, 1)}
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </Button>
+                  {id === "schedule" ? (
+                    <span className="w-9 text-center text-[10px] text-muted-foreground" title="The schedule is the page — it can't be turned off">—</span>
+                  ) : (
+                    <Switch
+                      checked={id === "rsvp" ? props.showRsvp === true : props[SECTION_SHOW_KEYS[id]] !== false}
+                      onCheckedChange={(v) => set(SECTION_SHOW_KEYS[id], v)}
+                    />
+                  )}
+                </div>
+              ))}
+              {props.sectionOrder && props.sectionOrder.length > 0 && (
+                <Button variant="outline" size="sm" className="h-7 text-xs w-full" onClick={() => set("sectionOrder", undefined)}>
+                  Reset to default order
+                </Button>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">Contact close</Label>
@@ -886,37 +939,85 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
         )}
       </div>
 
-      {/* ── Section order ── */}
+      {/* ── Private meetings (1:1s) ── */}
       <div>
-        <SectionHeader label="Section order" open={open.order} onToggle={() => toggle("order")} />
-        {open.order && (
-          <div className="pt-2.5 space-y-1.5">
-            <p className="text-[11px] text-muted-foreground">
-              Drag-free reordering of the page body. The hero and contact close always bookend the page.
+        <SectionHeader label="Private meetings" open={open.meetings} onToggle={() => toggle("meetings")} />
+        {open.meetings && (
+          <div className="pt-2.5 space-y-2.5">
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              The 1:1s reserved for this account — a working session with product
+              leadership, dinner with the AE. These render as concierge cards, the
+              most personal thing on the page.
             </p>
-            {orderedSections.map((id, i) => (
-              <div key={id} className="flex items-center gap-2 border rounded-md px-2.5 py-1.5">
-                <span className="text-[11px] tabular-nums text-muted-foreground w-4">{i + 1}</span>
-                <span className="text-xs flex-1">{SECTION_LABELS[id]}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" disabled={i === 0} onClick={() => moveSection(i, -1)}>
-                  <ArrowUp className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  disabled={i === orderedSections.length - 1}
-                  onClick={() => moveSection(i, 1)}
-                >
-                  <ArrowDown className="h-3 w-3" />
-                </Button>
+            <Field label="Kicker">
+              <Input value={props.meetingsKicker ?? ""} onChange={(e) => set("meetingsKicker", e.target.value)} placeholder="Reserved for you" className="text-xs h-8" />
+            </Field>
+            <Field label="Heading">
+              <Input value={props.meetingsHeading ?? ""} onChange={(e) => set("meetingsHeading", e.target.value)} placeholder="Your private meetings" className="text-xs h-8" />
+            </Field>
+            <Field label="Subheadline">
+              <Textarea value={props.meetingsSubheadline ?? ""} onChange={(e) => set("meetingsSubheadline", e.target.value)} rows={2} className="text-xs" />
+            </Field>
+            <SectionStyleRow
+              align={props.meetingsAlign ?? "left"}
+              onAlign={(v) => set("meetingsAlign", v)}
+              size={props.meetingsHeadingSize}
+              onSize={(v) => set("meetingsHeadingSize", v)}
+            >
+              <SectionBackgroundControl
+                backgroundStyle={props.meetingsBackgroundStyle}
+                bgColor={props.meetingsBgColor}
+                onChange={(patch) =>
+                  onChange({
+                    ...props,
+                    ...("backgroundStyle" in patch ? { meetingsBackgroundStyle: patch.backgroundStyle } : {}),
+                    ...("bgColor" in patch ? { meetingsBgColor: patch.bgColor } : {}),
+                  })
+                }
+              />
+            </SectionStyleRow>
+            {(props.meetings ?? []).map((meeting, i) => (
+              <div key={i} className="space-y-2 border rounded-md p-2.5">
+                <ArrayItemHeader
+                  label="Meeting"
+                  index={i}
+                  total={(props.meetings ?? []).length}
+                  onMoveUp={() => set("meetings", moveItem(props.meetings ?? [], i, -1))}
+                  onMoveDown={() => set("meetings", moveItem(props.meetings ?? [], i, 1))}
+                  onRemove={() => set("meetings", (props.meetings ?? []).filter((_, j) => j !== i))}
+                />
+                <Field label="Title">
+                  <Input value={meeting.title} onChange={(e) => patchMeeting(i, { title: e.target.value })} placeholder="Roadmap working session" className="text-xs h-8" />
+                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="When">
+                    <Input value={meeting.time ?? ""} onChange={(e) => patchMeeting(i, { time: e.target.value })} placeholder="Tue 2:00 PM" className="text-xs h-8" />
+                  </Field>
+                  <Field label="Where">
+                    <Input value={meeting.location ?? ""} onChange={(e) => patchMeeting(i, { location: e.target.value })} placeholder="Suite 4" className="text-xs h-8" />
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="With">
+                    <Input value={meeting.host ?? ""} onChange={(e) => patchMeeting(i, { host: e.target.value })} placeholder="Maya Chen" className="text-xs h-8" />
+                  </Field>
+                  <Field label="Their title">
+                    <Input value={meeting.hostTitle ?? ""} onChange={(e) => patchMeeting(i, { hostTitle: e.target.value })} placeholder="Enterprise AE" className="text-xs h-8" />
+                  </Field>
+                </div>
+                <Field label="Note (optional)">
+                  <Textarea value={meeting.note ?? ""} onChange={(e) => patchMeeting(i, { note: e.target.value })} rows={2} className="text-xs" />
+                </Field>
               </div>
             ))}
-            {props.sectionOrder && props.sectionOrder.length > 0 && (
-              <Button variant="outline" size="sm" className="h-7 text-xs w-full" onClick={() => set("sectionOrder", undefined)}>
-                Reset to default order
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => set("meetings", [...(props.meetings ?? []), { title: "New meeting" }])}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add meeting
+            </Button>
           </div>
         )}
       </div>
@@ -948,9 +1049,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   { value: "compact", label: "Compact — portrait beside the copy" },
                 ],
               }}
-            />
-
-            <SectionBackgroundControl
+            >
+              <SectionBackgroundControl
               backgroundStyle={props.teamBackgroundStyle}
               bgColor={props.teamBgColor}
               defaultBgColor="#F7F4EC"
@@ -962,7 +1062,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   ...("bgColor" in patch ? { teamBgColor: patch.bgColor } : {}),
                 })
               }
-            />
+              />
             <Field label="Columns">
               <Select
                 value={String(props.teamColumns ?? 3)}
@@ -989,6 +1089,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 </SelectContent>
               </Select>
             </Field>
+            </SectionStyleRow>
             {list("team").map((person, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader
@@ -1093,9 +1194,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   { value: "grid", label: "Grid — 3-up for long line-ups" },
                 ],
               }}
-            />
-
-            <SectionBackgroundControl
+            >
+              <SectionBackgroundControl
               backgroundStyle={props.speakersBackgroundStyle}
               bgColor={props.speakersBgColor}
               defaultBgColor="#F7F4EC"
@@ -1107,7 +1207,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   ...("bgColor" in patch ? { speakersBgColor: patch.bgColor } : {}),
                 })
               }
-            />
+              />
             <Field label="Portrait shape">
               <Select
                 value={props.speakersPortraitShape ?? "rounded"}
@@ -1121,6 +1221,7 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 </SelectContent>
               </Select>
             </Field>
+            </SectionStyleRow>
             {list("speakers").map((person, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader
@@ -1191,8 +1292,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
               onAlign={(v) => set("guestAlign", v)}
               size={props.guestHeadingSize}
               onSize={(v) => set("guestHeadingSize", v)}
-            />
-            <SectionBackgroundControl
+            >
+              <SectionBackgroundControl
               backgroundStyle={props.guestBackgroundStyle}
               bgColor={props.guestBgColor}
               onChange={(patch) =>
@@ -1202,7 +1303,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   ...("bgColor" in patch ? { guestBgColor: patch.bgColor } : {}),
                 })
               }
-            />
+              />
+            </SectionStyleRow>
             <Field label="Name (the act)">
               <Input value={props.guestName ?? ""} onChange={(e) => set("guestName", e.target.value)} placeholder="The Northern Sound" className="text-xs h-8" />
             </Field>
@@ -1263,9 +1365,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   { value: "plates", label: "Plates — bordered tiles" },
                 ],
               }}
-            />
-
-            <SectionBackgroundControl
+            >
+              <SectionBackgroundControl
               backgroundStyle={props.sponsorsBackgroundStyle}
               bgColor={props.sponsorsBgColor}
               defaultBgColor="#F7F4EC"
@@ -1277,7 +1378,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   ...("bgColor" in patch ? { sponsorsBgColor: patch.bgColor } : {}),
                 })
               }
-            />
+              />
+            </SectionStyleRow>
             <div className="flex items-center justify-between">
               <Label className="text-xs">Tinted band</Label>
               <Switch checked={props.sponsorsBand !== false} onCheckedChange={(v) => set("sponsorsBand", v)} />
@@ -1379,9 +1481,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   { value: "cards", label: "Cards — 2-up grid" },
                 ],
               }}
-            />
-
-            <SectionBackgroundControl
+            >
+              <SectionBackgroundControl
               backgroundStyle={props.resourcesBackgroundStyle}
               bgColor={props.resourcesBgColor}
               defaultBgColor="#F7F4EC"
@@ -1393,7 +1494,8 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                   ...("bgColor" in patch ? { resourcesBgColor: patch.bgColor } : {}),
                 })
               }
-            />
+              />
+            </SectionStyleRow>
             {list("resources").map((resource, i) => (
               <div key={i} className="space-y-2 border rounded-md p-2.5">
                 <ArrayItemHeader

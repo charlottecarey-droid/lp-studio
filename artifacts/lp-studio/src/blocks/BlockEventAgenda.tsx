@@ -121,6 +121,21 @@ export type EvaPortraitShape = "circle" | "rounded" | "square";
 /** How many lines of a long paragraph to show before clamping. */
 export type EvaClamp = "full" | "2" | "3" | "4";
 
+/**
+ * A private 1:1 — the meetings reserved specifically for this account, as
+ * opposed to catalog sessions anyone can attend. Time/location are editorial
+ * strings (what the rep typed), like the schedule's `time`.
+ */
+export interface EvaMeeting {
+  title: string;
+  time?: string;
+  location?: string;
+  /** Who they're meeting — "Maya Chen" / "Enterprise AE". */
+  host?: string;
+  hostTitle?: string;
+  note?: string;
+}
+
 /** A person — the account team and the keynote speakers share this shape. */
 export interface EvaPerson {
   name: string;
@@ -165,11 +180,11 @@ export interface EvaResource {
  * later can never silently hide it on existing pages. The hero and close are
  * NOT reorderable — they bookend the page by definition.
  */
-export type EvaSectionId = "note" | "team" | "speakers" | "guest" | "schedule" | "sponsors" | "resources" | "rsvp";
+export type EvaSectionId = "note" | "meetings" | "team" | "speakers" | "guest" | "schedule" | "sponsors" | "resources" | "rsvp";
 
 /** Canonical order: the two intro sections, the schedule, then the follow-ups. */
 export const EVA_SECTION_ORDER: readonly EvaSectionId[] = [
-  "note", "team", "speakers", "guest", "schedule", "sponsors", "resources", "rsvp",
+  "note", "meetings", "team", "speakers", "guest", "schedule", "sponsors", "resources", "rsvp",
 ];
 
 export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
@@ -329,6 +344,17 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   /** Registration/catalog URL, shared by every session row. */
   sessionRegisterUrl?: string;
   sessionRegisterLabel?: string;
+
+  /* ── special meetings (private 1:1s for this account) ─────────────────── */
+  showMeetings?: boolean;
+  meetingsKicker?: string;
+  meetingsHeading?: string;
+  meetingsSubheadline?: string;
+  meetingsAlign?: EvaAlign;
+  meetingsHeadingSize?: EvaHeadingSize;
+  meetingsBackgroundStyle?: string;
+  meetingsBgColor?: string;
+  meetings?: EvaMeeting[];
 
   /* ── account team (before the schedule by default) ────────────────────── */
   showTeam?: boolean;
@@ -641,6 +667,26 @@ export const EVENT_AGENDA_DEFAULT_PROPS: EventAgendaBlockProps = {
   teamColumns: 3,
   dayNav: "off",
   heroSecondaryAction: "calendar",
+  showMeetings: true,
+  meetingsKicker: "Reserved for you",
+  meetingsHeading: "Your private meetings",
+  meetingsSubheadline: "Time we've set aside for your team alone.",
+  meetings: [
+    {
+      title: "Roadmap working session",
+      time: "Wednesday · 2:00 PM",
+      location: "Executive Suite 4",
+      host: "Maya Chen",
+      hostTitle: "Enterprise Account Executive",
+      note: "Bring the rollout questions from your ops review — product leadership will be in the room.",
+    },
+    {
+      title: "Welcome dinner",
+      time: "Tuesday · 7:00 PM",
+      location: "The Rooftop",
+      host: "Your account team",
+    },
+  ],
   showGuest: true,
   guestKicker: "After hours",
   guestHeading: "Your special guest",
@@ -2090,6 +2136,83 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
   /* Four sections, four different shapes — a roster of portraits, alternating
      speaker features, a plain grouped sponsor wall, and a numbered resource
      index. They deliberately share only the header lockup. */
+  /* Special meetings: the private 1:1s reserved for THIS account — the most
+     personalized thing on the page, so they get the concierge-card register
+     (accent rule, card surface), matching how reserved sessions read in the
+     schedule. Deliberately not another hairline list. */
+  const meetingsSurface = sectionSurface(props.meetingsBackgroundStyle, props.meetingsBgColor);
+  const meetingsList = props.meetings ?? [];
+  const showMeetings = props.showMeetings !== false && (meetingsList.length > 0 || isEditor);
+  const setMeeting = set
+    ? (i: number, patch: Partial<EvaMeeting>) =>
+        set("meetings", meetingsList.map((m, j) => (j === i ? { ...m, ...patch } : m)))
+    : undefined;
+  const meetingsSection = showMeetings ? (
+    <div
+      id="meetings"
+      style={meetingsSurface.isOwnSurface ? { background: meetingsSurface.bg } : undefined}
+    >
+      <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-10 ${sectionPy}`}>
+        {sectionHeader("meetingsKicker", "meetingsHeading", "meetingsSubheadline", {
+          kicker: "Reserved for you",
+          heading: "Your private meetings",
+        }, { align: props.meetingsAlign ?? "left", size: props.meetingsHeadingSize ?? "md", surface: meetingsSurface })}
+        <ul className="mt-10 grid gap-5 lg:grid-cols-2">
+          {meetingsList.map((meeting, i) => (
+            <motion.li
+              key={i}
+              {...fadeUp(Math.min(i * 0.06, 0.24))}
+              className="rounded-2xl border-l-4 p-6 sm:p-7"
+              style={{
+                background: meetingsSurface.cardBg,
+                borderLeftColor: meetingsSurface.accentOnCard,
+                border: `1px solid ${mixHex(meetingsSurface.cardInk.text, meetingsSurface.cardBg, 0.1)}`,
+                borderLeft: `4px solid ${meetingsSurface.accentOnCard}`,
+                boxShadow: "0 20px 44px -36px rgba(28, 25, 23, 0.35)",
+              }}
+            >
+              {(meeting.time || isEditor) && (
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: meetingsSurface.accentOnCard }}>
+                  <InlineText as="span" value={meeting.time ?? ""} onUpdate={setMeeting ? (v) => setMeeting(i, { time: v }) : undefined} />
+                </p>
+              )}
+              <p
+                className="mt-2 font-bold"
+                style={{ fontFamily: DISPLAY, fontSize: "clamp(1.15rem, 1.9vw, 1.4rem)", lineHeight: 1.25, letterSpacing: "-0.012em", color: meetingsSurface.headlineOnCard }}
+              >
+                <InlineText as="span" value={meeting.title} onUpdate={setMeeting ? (v) => setMeeting(i, { title: v }) : undefined} />
+              </p>
+              {(meeting.host || isEditor) && (
+                <p className="mt-2 text-[14px]" style={{ color: meetingsSurface.cardInk.text }}>
+                  {"with "}
+                  <span className="font-semibold">
+                    <InlineText as="span" value={meeting.host ?? ""} onUpdate={setMeeting ? (v) => setMeeting(i, { host: v }) : undefined} />
+                  </span>
+                  {(meeting.hostTitle || isEditor) && (
+                    <span style={{ color: meetingsSurface.cardInk.muted }}>
+                      {" · "}
+                      <InlineText as="span" value={meeting.hostTitle ?? ""} onUpdate={setMeeting ? (v) => setMeeting(i, { hostTitle: v }) : undefined} />
+                    </span>
+                  )}
+                </p>
+              )}
+              {(meeting.location || isEditor) && (
+                <p className="mt-1 text-[13px]" style={{ color: meetingsSurface.cardInk.muted }}>
+                  <InlineText as="span" value={meeting.location ?? ""} onUpdate={setMeeting ? (v) => setMeeting(i, { location: v }) : undefined} />
+                </p>
+              )}
+              {(meeting.note || isEditor) && (
+                <p className="mt-3 text-[14px] leading-relaxed" style={{ color: meetingsSurface.cardInk.muted, fontFamily: DISPLAY }}>
+                  <InlineText as="span" multiline value={meeting.note ?? ""} onUpdate={setMeeting ? (v) => setMeeting(i, { note: v }) : undefined} />
+                </p>
+              )}
+            </motion.li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  ) : null;
+
   const teamSurface = sectionSurface(props.teamBackgroundStyle, props.teamBgColor);
   const teamSection = showTeam ? (
     <div
@@ -2701,6 +2824,7 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
    */
   const sectionNodes: Record<EvaSectionId, React.ReactNode> = {
     note: noteSection,
+    meetings: meetingsSection,
     team: teamSection,
     speakers: speakersSection,
     guest: guestSection,

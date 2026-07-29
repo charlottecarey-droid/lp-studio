@@ -631,3 +631,39 @@ describe("BlockEventAgenda — grid portraits size from their own width", () => 
     expect(html).toContain("clamp(1.75rem, 4vw, 2.75rem)");
   });
 });
+
+/* ── private meetings (1:1s) ────────────────────────────────────────────── */
+
+describe("BlockEventAgenda — private meetings", () => {
+  it("renders the 1:1s as their own section with host and place", () => {
+    const html = unescapeHtml(renderProps({}));
+    expect(sectionAt(html, "meetings")).toBeGreaterThan(-1);
+    expect(html).toContain("Roadmap working session");
+    expect(html).toContain("Maya Chen");
+    expect(html).toContain("Executive Suite 4");
+    expect(html).toContain("Your private meetings");
+  });
+
+  it("sits right after the personal note by default — it's the most personal section", () => {
+    const html = renderProps({});
+    expect(sectionAt(html, "meetings")).toBeGreaterThan(sectionAt(html, "note"));
+    expect(sectionAt(html, "meetings")).toBeLessThan(sectionAt(html, "team"));
+  });
+
+  it("no meetings = no section on a published page", () => {
+    expect(sectionAt(renderProps({ meetings: [] }), "meetings")).toBe(-1);
+    expect(sectionAt(renderProps({ showMeetings: false }), "meetings")).toBe(-1);
+  });
+
+  it("is reorderable like every other body section", () => {
+    const html = renderProps({ sectionOrder: ["schedule", "meetings"] });
+    expect(sectionAt(html, "meetings")).toBeGreaterThan(sectionAt(html, "schedule"));
+  });
+
+  it("a dark meetings background re-inks the cards (section palette, not page)", () => {
+    const html = renderProps({ meetingsBackgroundStyle: "dark" });
+    const section = /<div id="meetings"[\s\S]*?<\/ul>/.exec(html)?.[0] ?? "";
+    expect(section.length).toBeGreaterThan(100);
+    expect(section).not.toMatch(/color:#1A1815/i);
+  });
+});

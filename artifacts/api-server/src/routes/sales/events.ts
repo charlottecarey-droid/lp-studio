@@ -181,6 +181,26 @@ async function loadEvent(tenantId: number, eventId: number) {
  * read — `connected` is what the UI actually needs. Applied to EVERY response
  * that returns an event, so a new endpoint can't leak it by omission.
  */
+/**
+ * Strip the per-account / per-event CONTENT fields off a saved event-agenda
+ * prop object, leaving only styling and house copy. Used for both the tenant
+ * governance default and the per-event style template, so the two can never
+ * disagree about what counts as "style". `headline` is deliberately KEPT — it
+ * is token-aware ({{company_name}}) and part of the authored look.
+ * `team` is stripped because it auto-fills from the account at publish.
+ */
+function stripPerAccountAgendaFields(props: Record<string, unknown>): Record<string, unknown> {
+  const {
+    days: _days, eyebrow: _eyebrow, accountName: _accountName,
+    eventName: _eventName, eventLocation: _eventLocation, eventDates: _eventDates,
+    personalNote: _personalNote, sessionCount: _sessionCount,
+    accountLogoUrl: _accountLogoUrl, accountLogoAlt: _accountLogoAlt,
+    team: _team,
+    ...styleAndSettings
+  } = props;
+  return styleAndSettings;
+}
+
 function forApi<T extends { rainfocusConfig?: unknown }>(event: T) {
   return { ...event, rainfocusConfig: redactRainfocusConfig(event.rainfocusConfig as never) };
 }
@@ -277,6 +297,28 @@ router.patch("/events/:eventId", async (req, res): Promise<void> => {
     if (description !== undefined) patch.description = typeof description === "string" ? description : null;
     if (sourceUrl !== undefined) patch.sourceUrl = typeof sourceUrl === "string" ? sourceUrl : null;
     if (typeof status === "string" && ["draft", "active", "archived"].includes(status)) patch.status = status;
+    const { styleTemplatePageId } = req.body as { styleTemplatePageId?: unknown };
+    if (styleTemplatePageId !== undefined) {
+      if (styleTemplatePageId === null) {
+        patch.styleTemplatePageId = null;
+      } else {
+        const pageId = Number(styleTemplatePageId);
+        // Validate ownership AND that the page actually carries an
+        // event-agenda block — pointing an event at an arbitrary page would
+        // silently publish agendas with no styling source.
+        const [page] = await db
+          .select({ id: lpPagesTable.id, blocks: lpPagesTable.blocks })
+          .from(lpPagesTable)
+          .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
+        const hasAgendaBlock = Array.isArray(page?.blocks)
+          && (page.blocks as { type?: string }[]).some((b) => b?.type === "event-agenda");
+        if (!page || !hasAgendaBlock) {
+          res.status(400).json({ error: "That page doesn't contain an event-agenda block." });
+          return;
+        }
+        patch.styleTemplatePageId = pageId;
+      }
+    }
     if (Object.keys(patch).length === 0) { res.status(400).json({ error: "No valid fields to update" }); return; }
     const [event] = await db
       .update(salesEventsTable)
@@ -1340,24 +1382,34 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
         // The Block Defaults editor snapshots the WHOLE prop object, sample
         // schedule included — strip the per-account/per-event fields so stale
         // sample content can never shadow the published agenda's own data.
-        // `headline` is deliberately NOT stripped: an author's governance
-        // headline is now personalised by token substitution below, so keeping
-        // it is the whole point. Everything here is stale SAMPLE data that
-        // would shadow the real agenda.
-        const {
-          days: _days, eyebrow: _eyebrow, accountName: _accountName,
-          eventName: _eventName, eventLocation: _eventLocation, eventDates: _eventDates,
-          personalNote: _personalNote, sessionCount: _sessionCount,
-          accountLogoUrl: _accountLogoUrl, accountLogoAlt: _accountLogoAlt,
-          ...styleAndSettings
-        } = row.props as Record<string, unknown>;
-        savedDefaultProps = styleAndSettings;
+        savedDefaultProps = stripPerAccountAgendaFields(row.props as Record<string, unknown>);
       }
       if (row?.block_settings && typeof row.block_settings === "object") {
         savedDefaultSettings = row.block_settings as Record<string, unknown>;
       }
     } catch (defaultsErr) {
       console.warn("[sales/events] block-defaults lookup failed (publishing without)", String(defaultsErr));
+    }
+
+    /**
+     * Per-event style template: the look of ONE chosen agenda page, applied to
+     * every agenda published for this event. Sits ABOVE tenant governance
+     * (event-specific beats tenant-wide) and BELOW per-account data. Content
+     * fields are stripped by the same helper governance uses, so "style" means
+     * the same thing in both layers. A deleted/emptied template degrades to {}.
+     */
+    let eventTemplateProps: Record<string, unknown> = {};
+    if (event.styleTemplatePageId) {
+      const [tpl] = await db
+        .select({ blocks: lpPagesTable.blocks })
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, event.styleTemplatePageId)));
+      const agendaBlock = Array.isArray(tpl?.blocks)
+        ? (tpl.blocks as { type?: string; props?: Record<string, unknown> }[]).find((b) => b?.type === "event-agenda")
+        : undefined;
+      if (agendaBlock?.props) {
+        eventTemplateProps = stripPerAccountAgendaFields(agendaBlock.props);
+      }
     }
 
     /** Non-session catalog data stashed by the RainFocus import, if any. */
@@ -1421,6 +1473,11 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
 
       // Tenant governance default (colors, toggles, rsvpFormId, house copy).
       ...savedDefaultProps,
+
+      // This event's style template — one page's look shared by every agenda
+      // of the event, so Groundbreak pages match while an executive event can
+      // run premium styling. Beats tenant governance, loses to account data.
+      ...eventTemplateProps,
 
       // Per-account data — always wins.
       eyebrow: eyebrowParts.join(" · "),

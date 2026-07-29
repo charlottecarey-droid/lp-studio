@@ -2,10 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import {
   BarChart3, CalendarDays, Check, Copy, ExternalLink, FileDown, FileUp, Globe, MapPin, Pencil, Pin,
-  Plus, RefreshCw, Sparkles, Trash2, Users, Zap, Loader2, AlertTriangle } from "lucide-react";
+  Plus, RefreshCw, Sparkles, Trash2, Users, Zap, Loader2, AlertTriangle, Download, ChevronDown, Palette } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +67,8 @@ interface EventDetail {
   startDate: string | null;
   endDate: string | null;
   status: string;
+  /** Page whose event-agenda styling every agenda of this event inherits. */
+  styleTemplatePageId?: number | null;
   /** Token-free RainFocus state (the API redacts apiToken). */
   rainfocusConfig?: {
     connected?: boolean;
@@ -82,6 +90,7 @@ interface AgendaRow {
   attendeeRoles: string[];
   personalNote: string | null;
   pageUrl: string | null;
+  lpPageId?: number | null;
 }
 
 /** A role the catalog actually tags, with how many sessions carry it. */
@@ -689,6 +698,63 @@ function UrlImportDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Which page styles this event's agendas.
+ *
+ * A rep styles ONE agenda in the builder, points the event at it here, and
+ * every agenda published for the event inherits that look — Groundbreak pages
+ * all match; an executive event can run premium styling. Content stays
+ * per-account; only styling and house copy carry over. Takes effect on the
+ * next publish/republish of each agenda.
+ */
+function AgendaStyleSelect({ eventId, value, agendas, onChanged }: {
+  eventId: number;
+  value: number | null | undefined;
+  agendas: AgendaRow[];
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const candidates = agendas.filter((a) => a.lpPageId);
+  if (candidates.length === 0 && !value) return null;
+
+  const save = async (raw: string) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/events/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ styleTemplatePageId: raw === "default" ? null : Number(raw) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast({ title: "Couldn't set the styling", description: data.error, variant: "destructive" }); return; }
+      toast({
+        title: raw === "default" ? "Back to tenant default styling" : "Event styling set",
+        description: raw === "default" ? undefined : "Every agenda picks this up the next time it's published.",
+      });
+      onChanged();
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 ml-auto" title="One page's styling, applied to every agenda of this event when it publishes">
+      <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+      <Select value={value ? String(value) : "default"} onValueChange={(v) => void save(v)} disabled={busy}>
+        <SelectTrigger className="h-8 w-52 text-xs">
+          <SelectValue placeholder="Agenda styling" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="default">Styling: tenant default</SelectItem>
+          {candidates.map((a) => (
+            <SelectItem key={a.id} value={String(a.lpPageId)}>
+              Style like: {a.accountName ?? "agenda"}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -1575,40 +1641,64 @@ export default function SalesEventDetail() {
           }
           back={{ onClick: () => navigate("/sales/events"), label: "Events" }}
           actions={
-            <div className="flex gap-2">
-              {event?.rainfocusConfig?.connected && (
-                <RainfocusSyncControls
-                  eventId={eventId}
-                  config={event.rainfocusConfig}
-                  onChanged={() => void load()}
-                />
-              )}
-              <Button variant="outline" onClick={() => setRfImportOpen(true)} title="Paste a RainFocus widget embed — best quality import">
-                <Zap className="w-4 h-4 mr-1.5" /> Import from RainFocus
-              </Button>
-              <Button variant="outline" onClick={() => setUrlImportOpen(true)}>
-                <Globe className="w-4 h-4 mr-1.5" /> Import from URL
-              </Button>
-              <Button variant="outline" onClick={() => setCsvOpen(true)}>
-                <FileUp className="w-4 h-4 mr-1.5" /> Import CSV
-              </Button>
-              <Button
-                variant="outline"
-                disabled={sessions.length === 0 || tagging}
-                onClick={() => void suggestTags()}
-                title="Infer audience roles for untagged sessions"
-              >
-                <Sparkles className="w-4 h-4 mr-1.5" /> {tagging ? "Tagging…" : "Suggest role tags"}
-              </Button>
-              <Button variant="outline" onClick={() => { setEditingSession(null); setSessionDialogOpen(true); }}>
-                <Plus className="w-4 h-4 mr-1.5" /> Add session
-              </Button>
-              <Button variant="brand" disabled={sessions.length === 0} onClick={() => setNewAgendaOpen(true)}>
-                <Sparkles className="w-4 h-4 mr-1.5" /> New account agenda
-              </Button>
-            </div>
+            <Button variant="brand" disabled={sessions.length === 0} onClick={() => setNewAgendaOpen(true)}>
+              <Sparkles className="w-4 h-4 mr-1.5" /> New account agenda
+            </Button>
           }
         />
+
+        {/* Toolbar on its own row — six buttons beside the title crushed it
+            into a one-word-per-line column and overlapped the dates/location.
+            The three import doors collapse into one menu; the primary action
+            stays up in the header. */}
+        <div className="flex flex-wrap items-center gap-2 -mt-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8">
+                <Download className="w-3.5 h-3.5 mr-1.5" /> Import sessions
+                <ChevronDown className="w-3.5 h-3.5 ml-1.5 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => setRfImportOpen(true)}>
+                <Zap className="w-4 h-4 mr-2" /> From RainFocus
+                <span className="ml-2 text-[10px] text-muted-foreground">best quality</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setUrlImportOpen(true)}>
+                <Globe className="w-4 h-4 mr-2" /> From an agenda URL
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCsvOpen(true)}>
+                <FileUp className="w-4 h-4 mr-2" /> From a CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="outline" size="sm" className="h-8" onClick={() => { setEditingSession(null); setSessionDialogOpen(true); }}>
+            <Plus className="w-3.5 h-3.5 mr-1.5" /> Add session
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            disabled={sessions.length === 0 || tagging}
+            onClick={() => void suggestTags()}
+            title="Infer audience roles for untagged sessions"
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {tagging ? "Tagging…" : "Suggest role tags"}
+          </Button>
+          {event?.rainfocusConfig?.connected && (
+            <RainfocusSyncControls
+              eventId={eventId}
+              config={event.rainfocusConfig}
+              onChanged={() => void load()}
+            />
+          )}
+          <AgendaStyleSelect
+            eventId={eventId}
+            value={event?.styleTemplatePageId}
+            agendas={agendas}
+            onChanged={() => void load()}
+          />
+        </div>
 
         {/* ── Engagement (only once something is published) ── */}
         {analytics && analytics.summary.published > 0 && (

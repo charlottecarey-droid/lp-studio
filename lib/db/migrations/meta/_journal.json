@@ -876,6 +876,13 @@
       "when": 1757800000000,
       "tag": "0124_tenants_trial_tier",
       "breakpoints": false
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1757900000000,
+      "tag": "0125_sales_events_style_template",
+      "breakpoints": false
     }
   ]
 }
