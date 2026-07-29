@@ -2510,15 +2510,27 @@ function AccountTeamCard({ accountId, team, onSaved }: {
       {!editing ? (
         members.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No one recorded yet. Sync from Salesforce, or add people by hand — they flow onto event agendas built for this account.
+            No one recorded yet. Sync from Salesforce, or add people by hand — they flow onto event agendas built for this account. Headshots come from each rep's Sales Reps library record.
           </p>
         ) : (
           <ul className="space-y-2">
             {members.map((m, i) => (
-              <li key={i} className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-foreground">
-                  {m.name}
-                  {(m.title || m.role) && <span className="text-muted-foreground"> · {m.title || m.role}</span>}
+              <li key={i} className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2.5 text-sm text-foreground">
+                  {/* Headshot comes from this rep's Sales Reps library record.
+                      A Salesforce photo URL is never used — it needs a
+                      Salesforce session and would render broken. */}
+                  {m.photoUrl ? (
+                    <img src={m.photoUrl} alt="" className="h-7 w-7 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                      {m.name.split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase()}
+                    </span>
+                  )}
+                  <span className="truncate">
+                    {m.name}
+                    {(m.title || m.role) && <span className="text-muted-foreground"> · {m.title || m.role}</span>}
+                  </span>
                 </span>
                 <span className="text-xs text-muted-foreground shrink-0">
                   {m.email}

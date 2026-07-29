@@ -510,7 +510,25 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Field label="Subheadline">
               <Textarea value={props.subheadline ?? ""} onChange={(e) => set("subheadline", e.target.value)} rows={2} className="text-xs" />
             </Field>
-            <Field label="Account name">
+                        {/* Authors kept typing a bare `company_name`, which is just text —
+                the braces are what makes it a token. Spell it out where they'd
+                look for it. */}
+            <div className="rounded-md border bg-muted/30 p-2.5">
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Personalization tokens
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">
+                Type these <strong>with the double braces</strong> in any headline or
+                copy on this page — they&rsquo;re replaced with this agenda&rsquo;s account
+                when it publishes. Without the braces it stays literal text.
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {["{{company_name}}", "{{event_name}}", "{{event_location}}", "{{event_dates}}"].map((t) => (
+                  <code key={t} className="rounded bg-background border px-1.5 py-0.5 text-[10px] font-mono">{t}</code>
+                ))}
+              </div>
+            </div>
+<Field label="Account name">
               <Input value={props.accountName} onChange={(e) => set("accountName", e.target.value)} className="text-xs h-8" />
             </Field>
             <div className="grid grid-cols-2 gap-2">

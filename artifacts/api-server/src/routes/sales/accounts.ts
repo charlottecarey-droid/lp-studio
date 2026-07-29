@@ -15,6 +15,7 @@ import {
 import { restoreRows } from "../../lib/restoreRows";
 import { SfdcService } from "../../lib/sfdc-service";
 import type { AccountTeamMember } from "@workspace/db";
+import { loadHeadshotIndex, attachHeadshots } from "../../lib/sales/rep-headshots";
 import {
   rankAndDedupeAccounts,
   type AccountSearchCandidate,
@@ -202,6 +203,28 @@ router.get("/accounts/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Account not found" });
       return;
     }
+
+    /**
+     * Borrow account-team headshots from the Sales Reps library.
+     *
+     * Salesforce gives us SmallPhotoUrl, which needs a Salesforce session to
+     * fetch and renders broken anywhere public. The library photo lives in our
+     * own object storage, so one headshot per rep serves the account page,
+     * event agendas and the microsite meet-the-team block alike.
+     */
+    const members = (account.accountTeam?.members ?? []) as AccountTeamMember[];
+    if (members.length > 0) {
+      const index = await loadHeadshotIndex(tenantId);
+      const resolved = attachHeadshots(
+        members.map((m) => ({ name: m.name, email: m.email, imageUrl: undefined })),
+        index,
+      );
+      account.accountTeam = {
+        ...(account.accountTeam ?? {}),
+        members: members.map((m, i) => ({ ...m, photoUrl: resolved[i].imageUrl ?? m.photoUrl })),
+      };
+    }
+
     res.json(account);
   } catch (err) {
     console.error("GET /sales/accounts/:id error:", err);

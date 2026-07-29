@@ -596,3 +596,38 @@ describe("BlockEventAgenda — the account team is a directory, not profiles", (
     expect(html).not.toContain("Fifteen years in dental ops.");
   });
 });
+
+describe("BlockEventAgenda — grid portraits size from their own width", () => {
+  const withPhotos = {
+    speakersLayout: "grid" as const,
+    speakers: [
+      { name: "Nick Vargo", title: "Director", imageUrl: "https://x/nick.jpg" },
+      { name: "Amanda King Dalman", title: "Director", imageUrl: "https://x/amanda.jpg" },
+    ],
+  };
+
+  it("uses aspect-ratio, NEVER height:100% (the overlapping-names bug)", () => {
+    // A percentage height in a grid item resolves against the row, so the image
+    // grew to the full cell and the name spilled into the next row.
+    const html = renderProps(withPhotos);
+    expect(html).toContain("aspect-ratio:1 / 1");
+    expect(html).not.toMatch(/height:100%/);
+  });
+
+  it("fixed-size portraits still set both axes", () => {
+    // The roster's clamp() portraits are square by definition — unchanged.
+    const html = renderProps({ teamColumns: 3 });
+    expect(html).toContain("height:clamp(7rem, 11vw, 9rem)");
+  });
+
+  it("the initials fallback is legible in a filling portrait", () => {
+    // `calc(100% / 3)` as a font-size resolves against the inherited size, not
+    // the box, and rendered the initials tiny.
+    const html = renderProps({
+      speakersLayout: "grid" as const,
+      speakers: [{ name: "No Photo" }],
+    });
+    expect(html).not.toContain("font-size:calc(100% / 3)");
+    expect(html).toContain("clamp(1.75rem, 4vw, 2.75rem)");
+  });
+});

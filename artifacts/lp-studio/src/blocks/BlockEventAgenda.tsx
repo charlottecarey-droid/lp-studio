@@ -1239,12 +1239,31 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
     opts: { size: string; shape: EvaPortraitShape; surface: string; ink: { text: string; muted: string } },
   ) => {
     const radius = portraitRadius(opts.shape);
+    /**
+     * A "100%" portrait fills its column (the speakers grid), and its height
+     * MUST come from its own width via aspect-ratio — not `height: 100%`.
+     *
+     * In a grid item, a percentage height resolves against the grid AREA, whose
+     * height is set by the tallest cell. The image therefore grew to the full
+     * row and the name underneath spilled into the next row. That was the
+     * overlapping-names bug.
+     *
+     * Fixed rem/clamp sizes are square by definition, so they keep both axes.
+     */
+    const fills = opts.size === "100%";
+    const box: React.CSSProperties = fills
+      ? { width: "100%", aspectRatio: "1 / 1", borderRadius: radius }
+      : { width: opts.size, height: opts.size, borderRadius: radius };
+    // `calc(100% / 3)` as a font-size resolves against the INHERITED font size,
+    // not the box — it rendered the initials tiny. Use a viewport-aware clamp
+    // for the filling case.
+    const initialsSize = fills ? "clamp(1.75rem, 4vw, 2.75rem)" : `calc(${opts.size} / 3)`;
     return person.imageUrl?.trim() ? (
       <img
         src={person.imageUrl}
         alt={person.name}
         className="shrink-0 object-cover"
-        style={{ width: opts.size, height: opts.size, borderRadius: radius }}
+        style={box}
         loading="lazy"
       />
     ) : (
@@ -1252,13 +1271,11 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
         aria-hidden
         className="flex shrink-0 items-center justify-center font-bold"
         style={{
-          width: opts.size,
-          height: opts.size,
-          borderRadius: radius,
+          ...box,
           background: mixHex(accentChrome, opts.surface, 0.13),
           color: pickContrastingColor(accentRaw, mixHex(accentChrome, opts.surface, 0.13), [opts.ink.text], 4.5),
           fontFamily: DISPLAY,
-          fontSize: `calc(${opts.size} / 3)`,
+          fontSize: initialsSize,
           letterSpacing: "-0.02em",
         }}
       >

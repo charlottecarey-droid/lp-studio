@@ -793,7 +793,24 @@ function RainfocusImportDialog({ open, onClose, onImported, eventId }: {
   }, [open]);
 
   // Enough to be worth a round-trip; the server does the real validation.
-  const looksLikeEmbed = /apiToken/i.test(embed) && /widgetId/i.test(embed);
+  const hasToken = /apiToken/i.test(embed);
+  const hasWidget = /widgetId/i.test(embed);
+  const looksLikeEmbed = hasToken && hasWidget;
+  /**
+   * Why the button is disabled, in words.
+   *
+   * The most common paste is the LOADER half of the embed — the <link> and
+   * <script src> tags — which contains no credentials at all. Greying the
+   * button out without saying that just looks broken.
+   */
+  const blockedReason = (): string | null => {
+    if (!embed.trim()) return null;
+    if (looksLikeEmbed) return null;
+    if (!hasToken && !hasWidget) {
+      return "That's the loader part of the embed (the <link> and <script src> tags). Scroll down in RainFocus to the block that says new Rainfocus.Widget({ apiToken: '…', widgetId: '…' }) and paste that too — or just those two lines.";
+    }
+    return `Missing ${!hasToken ? "apiToken" : "widgetId"} — paste the whole new Rainfocus.Widget({ … }) block.`;
+  };
 
   const doImport = async () => {
     setImporting(true);
@@ -849,10 +866,14 @@ function RainfocusImportDialog({ open, onClose, onImported, eventId }: {
             disabled={importing}
             autoFocus
           />
-          <p className="text-[11px] text-muted-foreground">
-            Use the <strong>session</strong> catalog widget — a speaker-only widget
-            has no agenda in it.
-          </p>
+          {blockedReason() ? (
+            <p className="text-[11px] text-amber-700 leading-relaxed">{blockedReason()}</p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              Use the <strong>session</strong> catalog widget — a speaker-only widget
+              has no agenda in it.
+            </p>
+          )}
           {importing && (
             <p className="text-xs text-muted-foreground pt-1">
               Reading the catalog — a few hundred sessions take a moment. Keep this open.

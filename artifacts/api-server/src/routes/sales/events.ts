@@ -21,6 +21,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import { personalizeAgendaProps } from "../../lib/sales/agenda-tokens";
 import type { AccountTeamMember, RainfocusConfig } from "@workspace/db";
+import { loadHeadshotIndex, attachHeadshots } from "../../lib/sales/rep-headshots";
 import {
   credsFromConfig,
   syncRainfocusEvent,
@@ -1355,16 +1356,31 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
      * Executive" tells the reader who they're talking to; "Account Manager"
      * describes our internal coverage model.
      */
-    const accountTeamPeople = ((account?.accountTeam?.members ?? []) as AccountTeamMember[])
+    const accountTeamRaw = ((account?.accountTeam?.members ?? []) as AccountTeamMember[])
       .filter((m) => m.name?.trim())
       .map((m) => {
-        const person: Record<string, string> = { name: m.name.trim() };
+        const person: { name: string; title?: string; email?: string; phone?: string; imageUrl?: string } = {
+          name: m.name.trim(),
+        };
         const title = (m.title || m.role || "").trim();
         if (title) person.title = title;
         if (m.email?.trim()) person.email = m.email.trim();
         if (m.phone?.trim()) person.phone = m.phone.trim();
         return person;
       });
+
+    /**
+     * Borrow each rep's headshot from the Sales Reps library.
+     *
+     * The library record already holds a photo in our own storage; a
+     * Salesforce-synced team member has a name and email but no usable image.
+     * Matching is email-first — two people share a name, nobody shares a work
+     * email — and an ambiguous name is skipped rather than guessed, because the
+     * wrong face on a named person is worse than initials.
+     */
+    const accountTeamPeople = accountTeamRaw.length
+      ? attachHeadshots(accountTeamRaw, await loadHeadshotIndex(tenantId))
+      : accountTeamRaw;
 
     const blockProps = {
       // Canned fallbacks — a saved default overrides any of these.
