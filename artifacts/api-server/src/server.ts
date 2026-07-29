@@ -26,6 +26,7 @@ import { initNotificationStreamBroker } from "./lib/notificationStream";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { startEmailDomainPoller } from "./lib/emailDomainPoller";
 import { startBrandedSubdomainReconcilePoller } from "./lib/brandedSubdomainReconcilePoller";
+import { startRainfocusSyncPoller } from "./lib/rainfocusSyncPoller";
 import { startBrandedEmailSubdomainPoller } from "./lib/brandedEmailSubdomainPoller";
 import { startMarketoSyncPoller } from "./lib/marketoSyncPoller";
 import { startHubspotSyncPoller } from "./lib/hubspotSyncPoller";
@@ -616,6 +617,13 @@ const httpServer = app.listen(port, (err) => {
   // re-publishes any missing/changed records, self-healing deliverability.
   // Production-only (dev shares the prod CF zone — see poller).
   startBrandedSubdomainReconcilePoller();
+
+  // Periodic RainFocus catalog re-import for events opted into auto-sync.
+  // A conference catalog changes up to the doors — sessions get added, moved
+  // and cancelled after an agenda has already been sent — so a page built in
+  // July would otherwise be silently stale in October. Scoped to active events
+  // that haven't finished, and production-only (see poller).
+  startRainfocusSyncPoller();
 
   // Task #787 — periodic branded email-subdomain retirement sweep. Refreshes
   // every provisioned Tier 2 subdomain's verification status out-of-band (so it

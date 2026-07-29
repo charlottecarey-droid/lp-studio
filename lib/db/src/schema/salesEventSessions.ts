@@ -39,6 +39,13 @@ export const salesEventSessionsTable = pgTable("sales_event_sessions", {
   track: text("track"),
   speakers: jsonb("speakers").$type<EventSessionSpeaker[]>().default([]),
   tags: jsonb("tags").$type<EventSessionTags>().default({}),
+  /**
+   * 'active' | 'missing'. A session that vanishes from the catalog is MARKED,
+   * not deleted: a published agenda may reference it, and dropping the row
+   * would silently change a page already sent to a customer.
+   */
+  catalogStatus: text("catalog_status").notNull().default("active"),
+  missingSince: timestamp("missing_since", { withTimezone: true }),
   tagsEditedInApp: boolean("tags_edited_in_app").notNull().default(false), // re-import must not clobber manual tag edits
   isReservedSlot: boolean("is_reserved_slot").notNull().default(false),    // pinned slots (account-team 1:1, dinner) always make the agenda
   sourceKey: text("source_key"),             // dedupe key for re-import (slug of title+day+start_time)

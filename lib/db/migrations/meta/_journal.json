@@ -862,6 +862,13 @@
       "when": 1757600000000,
       "tag": "0122_sales_accounts_account_team",
       "breakpoints": false
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1757700000000,
+      "tag": "0123_rainfocus_autosync",
+      "breakpoints": false
     }
   ]
 }

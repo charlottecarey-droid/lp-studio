@@ -20,7 +20,13 @@ import { fieldAccessor, isTestLead } from "@workspace/lead-utils";
 import { getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import { personalizeAgendaProps } from "../../lib/sales/agenda-tokens";
-import type { AccountTeamMember } from "@workspace/db";
+import type { AccountTeamMember, RainfocusConfig } from "@workspace/db";
+import {
+  credsFromConfig,
+  syncRainfocusEvent,
+  recordSyncOutcome,
+  redactRainfocusConfig,
+} from "../../lib/sales/rainfocus-sync";
 import {
   matchAgendaSessions,
   catalogRoleOptions,
@@ -166,6 +172,17 @@ async function loadEvent(tenantId: number, eventId: number) {
   return event ?? null;
 }
 
+/**
+ * Shape an event for the API.
+ *
+ * The RainFocus token is public by design but must not be echoed back on every
+ * read — `connected` is what the UI actually needs. Applied to EVERY response
+ * that returns an event, so a new endpoint can't leak it by omission.
+ */
+function forApi<T extends { rainfocusConfig?: unknown }>(event: T) {
+  return { ...event, rainfocusConfig: redactRainfocusConfig(event.rainfocusConfig as never) };
+}
+
 async function loadEventSessions(tenantId: number, eventId: number): Promise<SalesEventSession[]> {
   return db
     .select()
@@ -187,7 +204,14 @@ router.get("/events", async (req, res): Promise<void> => {
       WHERE e.tenant_id = ${tenantId}
       ORDER BY e.start_date DESC NULLS LAST, e.created_at DESC
     `);
-    res.json({ events: rows.rows });
+    // `SELECT e.*` includes rainfocus_config, so redact here too — this list
+    // is the easiest place for the token to leak by accident.
+    res.json({
+      events: (rows.rows as Record<string, unknown>[]).map((r) => ({
+        ...r,
+        rainfocus_config: redactRainfocusConfig(r.rainfocus_config as never),
+      })),
+    });
   } catch (err) {
     console.error("[sales/events] list error", err);
     res.status(500).json({ error: "Failed to list events" });
@@ -212,7 +236,7 @@ router.post("/events", async (req, res): Promise<void> => {
       sourceUrl: typeof sourceUrl === "string" ? sourceUrl : null,
       createdBy: (req as { authUser?: { email?: string } }).authUser?.email ?? null,
     }).returning();
-    res.json({ event });
+    res.json({ event: forApi(event) });
   } catch (err) {
     console.error("[sales/events] create error", err);
     res.status(500).json({ error: "Failed to create event" });
@@ -230,7 +254,7 @@ router.get("/events/:eventId", async (req, res): Promise<void> => {
     // roleOptions = the role vocabulary this catalog actually uses, most-used
     // first. The builder offers these as chips so a picked role can genuinely
     // match something (brand personas often use different words entirely).
-    res.json({ event, sessions, roleOptions: catalogRoleOptions(sessions.map(toMatchable)) });
+    res.json({ event: forApi(event), sessions, roleOptions: catalogRoleOptions(sessions.map(toMatchable)) });
   } catch (err) {
     console.error("[sales/events] get error", err);
     res.status(500).json({ error: "Failed to load event" });
@@ -258,7 +282,7 @@ router.patch("/events/:eventId", async (req, res): Promise<void> => {
       .where(and(eq(salesEventsTable.tenantId, tenantId), eq(salesEventsTable.id, eventId)))
       .returning();
     if (!event) { res.status(404).json({ error: "Event not found" }); return; }
-    res.json({ event });
+    res.json({ event: forApi(event) });
   } catch (err) {
     console.error("[sales/events] patch error", err);
     res.status(500).json({ error: "Failed to update event" });
@@ -664,6 +688,14 @@ router.post("/events/:eventId/import-rainfocus", async (req, res): Promise<void>
     // Fill event fields the user hasn't set, and stash the non-session catalog
     // for the publish route. Never overwrite something already entered by hand.
     const eventPatch: Record<string, unknown> = {
+      // Keep the connection so auto-sync can re-run unattended. The token is
+      // redacted whenever the event is read back.
+      rainfocusConfig: {
+        ...((event.rainfocusConfig ?? {}) as Record<string, unknown>),
+        apiToken: creds.apiToken,
+        widgetId: creds.widgetId,
+        env: creds.env,
+      },
       catalogExtras: {
         speakers: featuredSpeakers,
         sponsors,
@@ -752,6 +784,63 @@ router.get("/events/:eventId/accounts/:accountId/suggested-roles", async (req, r
   } catch (err) {
     console.error("[sales/events] suggested-roles error", err);
     res.status(500).json({ error: "Failed to suggest roles" });
+  }
+});
+
+/**
+ * Turn auto-sync on/off for an event.
+ *
+ * Requires a stored connection: enabling a schedule with no credentials would
+ * produce a toggle that silently never runs.
+ */
+router.patch("/events/:eventId/rainfocus", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const eventId = parseInt(req.params.eventId, 10);
+    if (isNaN(eventId)) { res.status(400).json({ error: "Invalid eventId" }); return; }
+    const event = await loadEvent(tenantId, eventId);
+    if (!event) { res.status(404).json({ error: "Event not found" }); return; }
+
+    const config = (event.rainfocusConfig ?? {}) as RainfocusConfig;
+    const autoSync = Boolean((req.body as { autoSync?: unknown })?.autoSync);
+    if (autoSync && !credsFromConfig(config)) {
+      res.status(400).json({ error: "Import from RainFocus once first — auto-sync needs the widget connection." });
+      return;
+    }
+    const next: RainfocusConfig = { ...config, autoSync };
+    await db
+      .update(salesEventsTable)
+      .set({ rainfocusConfig: next })
+      .where(and(eq(salesEventsTable.tenantId, tenantId), eq(salesEventsTable.id, eventId)));
+    res.json(redactRainfocusConfig(next));
+  } catch (err) {
+    console.error("[sales/events] rainfocus config error", err);
+    res.status(500).json({ error: "Failed to update auto-sync" });
+  }
+});
+
+/** Re-sync now, using the stored connection. Same engine as the poller. */
+router.post("/events/:eventId/rainfocus/sync", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const eventId = parseInt(req.params.eventId, 10);
+    if (isNaN(eventId)) { res.status(400).json({ error: "Invalid eventId" }); return; }
+    const event = await loadEvent(tenantId, eventId);
+    if (!event) { res.status(404).json({ error: "Event not found" }); return; }
+
+    const config = (event.rainfocusConfig ?? {}) as RainfocusConfig;
+    const creds = credsFromConfig(config);
+    if (!creds) {
+      res.status(400).json({ error: "No RainFocus connection stored for this event yet." });
+      return;
+    }
+    const result = await syncRainfocusEvent(tenantId, eventId, creds);
+    await recordSyncOutcome(tenantId, eventId, config, result);
+    if (!result.ok) { res.status(502).json({ error: result.error }); return; }
+    res.json(result.summary);
+  } catch (err) {
+    console.error("[sales/events] rainfocus sync error", err);
+    res.status(500).json({ error: "Failed to sync from RainFocus" });
   }
 });
 

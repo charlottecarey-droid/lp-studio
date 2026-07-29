@@ -18,6 +18,28 @@ export interface EventCatalogSponsor {
   url?: string;
 }
 
+/**
+ * RainFocus connection + schedule for an event.
+ *
+ * `apiToken` is the widget's public client-side token. Public or not, it is
+ * REDACTED by the API on read — a token echoed back in every GET is a habit
+ * worth not forming.
+ */
+export interface RainfocusConfig {
+  apiToken?: string;
+  widgetId?: string;
+  env?: string;
+  /** Re-import on a schedule to catch added / cancelled / rescheduled sessions. */
+  autoSync?: boolean;
+  lastSyncAt?: string;
+  lastSyncStatus?: "ok" | "error";
+  lastSyncMessage?: string;
+  /** Last run's counts, for the UI to show what changed. */
+  lastSyncSummary?: {
+    created?: number; updated?: number; missing?: number; restored?: number; total?: number;
+  };
+}
+
 /** Everything an import found that isn't a session. */
 export interface EventCatalogExtras {
   speakers?: EventCatalogSpeaker[];
@@ -42,6 +64,8 @@ export const salesEventsTable = pgTable("sales_events", {
    *  derived event details. Copied onto the agenda block at publish time; not
    *  queried or joined, hence one jsonb rather than more tables. */
   catalogExtras: jsonb("catalog_extras").$type<EventCatalogExtras>().notNull().default({}),
+  /** RainFocus credentials + auto-sync state. Token redacted by the API. */
+  rainfocusConfig: jsonb("rainfocus_config").$type<RainfocusConfig>().notNull().default({}),
   description: text("description"),
   status: text("status").notNull().default("draft"), // draft | active | archived
   createdBy: text("created_by"),

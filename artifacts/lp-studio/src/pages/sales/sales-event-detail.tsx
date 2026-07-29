@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import {
   BarChart3, CalendarDays, Check, Copy, ExternalLink, FileDown, FileUp, Globe, MapPin, Pencil, Pin,
-  Plus, RefreshCw, Sparkles, Trash2, Users, Zap } from "lucide-react";
+  Plus, RefreshCw, Sparkles, Trash2, Users, Zap, Loader2, AlertTriangle } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,9 @@ interface EventSession {
   speakers: { name: string; title?: string; org?: string }[];
   tags: { roles?: string[]; industries?: string[]; topics?: string[]; tiers?: string[] };
   isReservedSlot: boolean;
+  /** 'active' | 'missing' — a session the RainFocus catalog no longer lists. */
+  catalogStatus?: string;
+  missingSince?: string | null;
 }
 
 interface EventDetail {
@@ -58,6 +61,16 @@ interface EventDetail {
   startDate: string | null;
   endDate: string | null;
   status: string;
+  /** Token-free RainFocus state (the API redacts apiToken). */
+  rainfocusConfig?: {
+    connected?: boolean;
+    widgetId?: string;
+    autoSync?: boolean;
+    lastSyncAt?: string;
+    lastSyncStatus?: "ok" | "error";
+    lastSyncMessage?: string;
+    lastSyncSummary?: { created?: number; updated?: number; missing?: number; restored?: number; total?: number };
+  } | null;
 }
 
 interface AgendaRow {
@@ -679,6 +692,86 @@ function UrlImportDialog({
   );
 }
 
+/**
+ * Auto-sync state for an event connected to RainFocus.
+ *
+ * Shows what the last run changed, because that's the only reason to care: a
+ * catalog that added two sessions and dropped three is exactly what would
+ * otherwise silently invalidate an agenda already sent to a customer.
+ *
+ * There is no seat count here on purpose — a public widget token doesn't expose
+ * registrations or a sold-out flag (see lib/sales/rainfocus-sync.ts).
+ */
+function RainfocusSyncControls({ eventId, config, onChanged }: {
+  eventId: number;
+  config: NonNullable<EventDetail["rainfocusConfig"]>;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState<"toggle" | "sync" | null>(null);
+
+  const setAuto = async (autoSync: boolean) => {
+    setBusy("toggle");
+    try {
+      const res = await fetch(`${API_BASE}/sales/events/${eventId}/rainfocus`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoSync }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast({ title: "Couldn't change auto-sync", description: data.error, variant: "destructive" }); return; }
+      onChanged();
+    } finally { setBusy(null); }
+  };
+
+  const syncNow = async () => {
+    setBusy("sync");
+    try {
+      const res = await fetch(`${API_BASE}/sales/events/${eventId}/rainfocus/sync`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast({ title: "Sync failed", description: data.error, variant: "destructive" }); return; }
+      const parts = [
+        data.created ? `${data.created} added` : "",
+        data.updated ? `${data.updated} updated` : "",
+        data.missing ? `${data.missing} no longer in the catalog` : "",
+        data.restored ? `${data.restored} back` : "",
+      ].filter(Boolean);
+      toast({
+        title: parts.length ? `Catalog changed: ${parts.join(", ")}` : "Catalog unchanged",
+        description: data.missing
+          ? "Sessions that left the catalog are flagged, not deleted — a published agenda may still reference one."
+          : `${data.total} sessions checked.`,
+      });
+      onChanged();
+    } finally { setBusy(null); }
+  };
+
+  const last = config.lastSyncAt ? new Date(config.lastSyncAt) : null;
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border px-2.5 py-1.5">
+      <div className="flex items-center gap-1.5">
+        <Switch
+          checked={config.autoSync === true}
+          disabled={busy !== null}
+          onCheckedChange={(v) => void setAuto(v)}
+          aria-label="Auto-sync from RainFocus"
+        />
+        <span className="text-xs">Auto-sync</span>
+      </div>
+      <span className="text-[11px] text-muted-foreground">
+        {config.lastSyncStatus === "error"
+          ? (config.lastSyncMessage ?? "Last sync failed")
+          : last
+            ? `Checked ${last.toLocaleDateString()}`
+            : "Never checked"}
+      </span>
+      <Button size="sm" variant="ghost" className="h-6 text-xs" disabled={busy !== null} onClick={() => void syncNow()}>
+        {busy === "sync" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Sync now"}
+      </Button>
+    </div>
+  );
+}
+
 /* ── RainFocus import ────────────────────────────────────────────────────
  * Most large conferences run their catalog on RainFocus. The embed's apiToken
  * and widgetId are public (they ship in client-side HTML), so pasting the
@@ -1243,6 +1336,11 @@ function AgendaEditorDialog({
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-medium">{s.title}</span>
+                              {s.catalogStatus === "missing" && (
+                                <Badge variant="destructive" className="text-[10px]" title="RainFocus no longer lists this session — it may have been cancelled or unpublished. Flagged rather than deleted in case an agenda already references it.">
+                                  <AlertTriangle className="w-3 h-3 mr-1" />Not in catalog
+                                </Badge>
+                              )}
                               {s.isReservedSlot && (
                                 <Badge variant="secondary" className="text-[10px]"><Pin className="w-3 h-3 mr-1" />Reserved</Badge>
                               )}
@@ -1457,6 +1555,13 @@ export default function SalesEventDetail() {
           back={{ onClick: () => navigate("/sales/events"), label: "Events" }}
           actions={
             <div className="flex gap-2">
+              {event?.rainfocusConfig?.connected && (
+                <RainfocusSyncControls
+                  eventId={eventId}
+                  config={event.rainfocusConfig}
+                  onChanged={() => void load()}
+                />
+              )}
               <Button variant="outline" onClick={() => setRfImportOpen(true)} title="Paste a RainFocus widget embed — best quality import">
                 <Zap className="w-4 h-4 mr-1.5" /> Import from RainFocus
               </Button>
@@ -1603,6 +1708,15 @@ export default function SalesEventDetail() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium truncate">{s.title}</p>
+                          {s.catalogStatus === "missing" && (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px]"
+                              title={`RainFocus no longer lists this session${s.missingSince ? ` (since ${new Date(s.missingSince).toLocaleDateString()})` : ""}. Flagged rather than deleted — a published agenda may already reference it.`}
+                            >
+                              <AlertTriangle className="w-3 h-3 mr-1" />Not in catalog
+                            </Badge>
+                          )}
                           {s.isReservedSlot && (
                             <Badge variant="secondary" className="text-[10px]"><Pin className="w-3 h-3 mr-1" />Reserved</Badge>
                           )}
