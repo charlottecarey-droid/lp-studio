@@ -20,6 +20,7 @@ import { fieldAccessor, isTestLead } from "@workspace/lead-utils";
 import { getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import { personalizeAgendaProps } from "../../lib/sales/agenda-tokens";
+import type { AccountTeamMember } from "@workspace/db";
 import {
   matchAgendaSessions,
   catalogRoleOptions,
@@ -1251,6 +1252,31 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
     const catalogSpeakers = Array.isArray(extras.speakers) ? extras.speakers : [];
     const catalogSponsors = Array.isArray(extras.sponsors) ? extras.sponsors : [];
 
+    /**
+     * Fill the "account team" section from the account's own team (Salesforce
+     * AccountTeamMember and/or hand-edited), so a rep doesn't retype the people
+     * already recorded against the account.
+     *
+     * `photoUrl` is deliberately DROPPED. Salesforce's SmallPhotoUrl needs a
+     * Salesforce session to fetch, so embedding it in a public landing page
+     * renders a broken image — the block's initials fallback looks better than
+     * that. The URL stays on the account for in-app use.
+     *
+     * Job title beats TeamMemberRole for display: "Enterprise Account
+     * Executive" tells the reader who they're talking to; "Account Manager"
+     * describes our internal coverage model.
+     */
+    const accountTeamPeople = ((account?.accountTeam?.members ?? []) as AccountTeamMember[])
+      .filter((m) => m.name?.trim())
+      .map((m) => {
+        const person: Record<string, string> = { name: m.name.trim() };
+        const title = (m.title || m.role || "").trim();
+        if (title) person.title = title;
+        if (m.email?.trim()) person.email = m.email.trim();
+        if (m.phone?.trim()) person.phone = m.phone.trim();
+        return person;
+      });
+
     const blockProps = {
       // Canned fallbacks — a saved default overrides any of these.
       subheadline: `A schedule curated for your team — every session picked for ${accountName}.`,
@@ -1280,6 +1306,7 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
       // these by hand in Block Defaults — keeps whatever is already there.
       ...(catalogSpeakers.length ? { speakers: catalogSpeakers } : {}),
       ...(catalogSponsors.length ? { sponsors: catalogSponsors } : {}),
+      ...(accountTeamPeople.length ? { team: accountTeamPeople } : {}),
     };
 
     /**

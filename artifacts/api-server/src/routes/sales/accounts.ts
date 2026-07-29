@@ -13,6 +13,8 @@ import {
   sfdcConnectionsTable,
 } from "@workspace/db";
 import { restoreRows } from "../../lib/restoreRows";
+import { SfdcService } from "../../lib/sfdc-service";
+import type { AccountTeamMember } from "@workspace/db";
 import {
   rankAndDedupeAccounts,
   type AccountSearchCandidate,
@@ -403,6 +405,77 @@ async function generateUniqueToken(maxAttempts = 5): Promise<string> {
 }
 
 // GET /accounts/:id/microsites — list distinct pages for this account
+/**
+ * Replace an account's team by hand.
+ *
+ * Salesforce-sourced members are kept distinguishable (`source`), so a later
+ * re-sync can refresh those without discarding anything typed here. Sending a
+ * member with no name drops it rather than storing a blank row.
+ */
+router.put("/accounts/:id/team", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const raw = Array.isArray((req.body as { members?: unknown[] })?.members)
+      ? ((req.body as { members: unknown[] }).members)
+      : [];
+    const members: AccountTeamMember[] = raw
+      .map((m) => {
+        const o = (m ?? {}) as Record<string, unknown>;
+        const name = String(o.name ?? "").trim();
+        if (!name) return null;
+        const out: AccountTeamMember = {
+          name,
+          source: o.source === "salesforce" ? "salesforce" : "manual",
+        };
+        for (const k of ["title", "email", "phone", "photoUrl", "role", "salesforceUserId"] as const) {
+          const v = String(o[k] ?? "").trim();
+          if (v) out[k] = v;
+        }
+        return out;
+      })
+      .filter((m): m is AccountTeamMember => m !== null);
+
+    const [updated] = await db
+      .update(salesAccountsTable)
+      .set({ accountTeam: { members, syncedAt: undefined } })
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, id)))
+      .returning({ accountTeam: salesAccountsTable.accountTeam });
+    if (!updated) { res.status(404).json({ error: "Account not found" }); return; }
+    res.json(updated.accountTeam);
+  } catch (err) {
+    console.error("PUT /sales/accounts/:id/team error:", err);
+    res.status(500).json({ error: "Failed to save the account team" });
+  }
+});
+
+/**
+ * Pull account teams from Salesforce.
+ *
+ * Tenant-wide rather than per-account: one SOQL query covers every account we
+ * hold, so syncing 400 accounts one at a time would be 400 round trips for the
+ * same data. Returns `unavailable` (not an error) when the org has Account
+ * Teams switched off, so the UI can say why instead of showing a failure.
+ */
+router.post("/accounts/team/sync-salesforce", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const svc = new SfdcService();
+    const conn = await svc.getActiveConnection(tenantId);
+    if (!conn) {
+      res.status(400).json({ error: "Salesforce isn't connected for this workspace." });
+      return;
+    }
+    const result = await svc.syncAccountTeams(conn.id, tenantId);
+    res.json(result);
+  } catch (err) {
+    console.error("POST /sales/accounts/team/sync-salesforce error:", err);
+    res.status(502).json({ error: "Salesforce rejected the account-team query." });
+  }
+});
+
 router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;

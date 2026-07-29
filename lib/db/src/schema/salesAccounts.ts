@@ -6,6 +6,26 @@ import { z } from "zod/v4";
  * Sales Accounts — the core entity for sales workflows.
  * Each account represents a target company/practice.
  */
+/** One person on the account team — from Salesforce or typed by hand. */
+export interface AccountTeamMember {
+  name: string;
+  /** Job title (Salesforce User.Title). */
+  title?: string;
+  email?: string;
+  phone?: string;
+  photoUrl?: string;
+  /** Salesforce's AccountTeamMember.TeamMemberRole, e.g. "Account Manager". */
+  role?: string;
+  salesforceUserId?: string;
+  /** Manual entries survive a re-sync; Salesforce ones are replaced by it. */
+  source: "salesforce" | "manual";
+}
+
+export interface AccountTeam {
+  members?: AccountTeamMember[];
+  syncedAt?: string;
+}
+
 export const salesAccountsTable = pgTable("sales_accounts", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull(),
@@ -13,6 +33,10 @@ export const salesAccountsTable = pgTable("sales_accounts", {
   name: text("name").notNull(),
   displayName: text("display_name"),         // clean display name (overrides raw name in outreach/UI)
   domain: text("domain"),
+  /** Who from our side covers this account — synced from Salesforce
+   *  AccountTeamMember and/or hand-edited. Read whole with the account, never
+   *  joined, hence one jsonb. */
+  accountTeam: jsonb("account_team").$type<AccountTeam>().notNull().default({}),
   industry: text("industry"),
   segment: text("segment"),                  // e.g. "DSO", "DSO Practice", "Independent"
   parentAccountId: integer("parent_account_id"),  // for DSO → practice hierarchy

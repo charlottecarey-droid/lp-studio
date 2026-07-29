@@ -1,6 +1,7 @@
 import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfdcLeadsTable, sfdcOpportunitiesTable, salesAccountsTable, salesContactsTable } from "@workspace/db";
+import type { AccountTeam, AccountTeamMember } from "@workspace/db";
 import type { SfdcSyncFilters } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { logger } from "./logger";
 import { encryptCredential, decryptCredential } from "./encryption";
@@ -740,6 +741,113 @@ export class SfdcService {
   /**
    * Run all syncs for a connection.
    */
+  /**
+   * Sync Salesforce Account Teams onto our accounts.
+   *
+   * Deliberately NOT part of syncAll: AccountTeamMember only exists when
+   * "Account Teams" is enabled in the org, and querying a disabled object
+   * throws INVALID_TYPE. Making the full sync depend on that would break
+   * account/contact syncing for every org that doesn't use teams. Callers get
+   * a clear `unavailable` result instead.
+   *
+   * The member's details live on User, not on AccountTeamMember, so this
+   * traverses the relationship for name/title/email/phone/photo.
+   *
+   * Manual entries are PRESERVED. A re-sync replaces only the members it owns
+   * (`source: "salesforce"`), so someone hand-added on our side isn't wiped by
+   * a Salesforce refresh.
+   */
+  async syncAccountTeams(
+    connectionId: number,
+    tenantId: number = 1,
+  ): Promise<{ accounts: number; members: number; unavailable?: string }> {
+    logger.info({ connectionId }, "Starting account-team sync");
+
+    // Only accounts we actually hold, so the IN clause stays bounded.
+    const accounts = await db
+      .select({ id: salesAccountsTable.id, sfdcId: salesAccountsTable.salesforceId, team: salesAccountsTable.accountTeam })
+      .from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), isNotNull(salesAccountsTable.salesforceId)));
+
+    const bySfdcId = new Map(accounts.filter((a) => a.sfdcId).map((a) => [a.sfdcId as string, a]));
+    if (bySfdcId.size === 0) return { accounts: 0, members: 0 };
+
+    const ids = [...bySfdcId.keys()];
+    let rows: Record<string, unknown>[] = [];
+    // SOQL has a statement-length limit, so page the IN clause.
+    const CHUNK = 200;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const inList = ids.slice(i, i + CHUNK).map((x) => `'${x.replace(/'/g, "\\'")}'`).join(",");
+      const soql =
+        "SELECT AccountId, UserId, TeamMemberRole, User.Name, User.Title, User.Email, User.Phone, User.SmallPhotoUrl " +
+        `FROM AccountTeamMember WHERE AccountId IN (${inList}) LIMIT 10000`;
+      try {
+        const result = await this.querySalesforce(connectionId, soql);
+        rows.push(...((result.records ?? []) as unknown as Record<string, unknown>[]));
+      } catch (err) {
+        const msg = String(err);
+        // Account Teams switched off, or the user lacks access to the object.
+        if (/INVALID_TYPE|sObject type 'AccountTeamMember'|INSUFFICIENT_ACCESS/i.test(msg)) {
+          logger.warn({ connectionId }, "AccountTeamMember unavailable in this org");
+          return {
+            accounts: 0,
+            members: 0,
+            unavailable:
+              "Salesforce didn't return Account Teams. Check that Account Teams is enabled and that the connected user can read AccountTeamMember.",
+          };
+        }
+        throw err;
+      }
+    }
+
+    // Group by our account id.
+    const grouped = new Map<number, AccountTeamMember[]>();
+    for (const r of rows) {
+      const accountId = bySfdcId.get(String(r.AccountId ?? ""))?.id;
+      if (!accountId) continue;
+      const user = (r.User ?? {}) as Record<string, unknown>;
+      const name = String(user.Name ?? "").trim();
+      if (!name) continue;
+      const member: AccountTeamMember = { name, source: "salesforce" };
+      const set = (v: unknown, key: "title" | "email" | "phone" | "photoUrl" | "role" | "salesforceUserId") => {
+        const t = String(v ?? "").trim();
+        if (t) member[key] = t;
+      };
+      set(user.Title, "title");
+      set(user.Email, "email");
+      set(user.Phone, "phone");
+      set(user.SmallPhotoUrl, "photoUrl");
+      set(r.TeamMemberRole, "role");
+      set(r.UserId, "salesforceUserId");
+      const list = grouped.get(accountId) ?? [];
+      // One row per user per account is the norm, but guard anyway.
+      if (!list.some((m) => m.salesforceUserId && m.salesforceUserId === member.salesforceUserId)) {
+        list.push(member);
+      }
+      grouped.set(accountId, list);
+    }
+
+    let touched = 0;
+    let memberCount = 0;
+    const syncedAt = new Date().toISOString();
+    for (const account of accounts) {
+      const fresh = grouped.get(account.id) ?? [];
+      const existing = (account.team ?? {}) as AccountTeam;
+      const manual = (existing.members ?? []).filter((m) => m.source !== "salesforce");
+      // Nothing came back and nothing was there — don't churn the row.
+      if (fresh.length === 0 && (existing.members ?? []).length === 0) continue;
+      await db
+        .update(salesAccountsTable)
+        .set({ accountTeam: { members: [...fresh, ...manual], syncedAt } })
+        .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, account.id)));
+      touched += 1;
+      memberCount += fresh.length;
+    }
+
+    logger.info({ connectionId, accounts: touched, members: memberCount }, "Account-team sync done");
+    return { accounts: touched, members: memberCount };
+  }
+
   async syncAll(connectionId: number, tenantId: number = 1): Promise<any> {
     logger.info({ connectionId }, "Starting full sync");
 

@@ -93,6 +93,7 @@ interface Account {
   parentAccountId: number | null;
   status: string;
   owner: string | null;
+  accountTeam?: { members?: AccountTeamMember[]; syncedAt?: string } | null;
   notes: string | null;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -2426,6 +2427,142 @@ function ContactImportWizard({ accountId, onImported }: { accountId: number; onI
 
 /* ─── Account Detail View ────────────────────────────────────── */
 
+interface AccountTeamMember {
+  name: string;
+  title?: string;
+  email?: string;
+  phone?: string;
+  photoUrl?: string;
+  role?: string;
+  salesforceUserId?: string;
+  source: "salesforce" | "manual";
+}
+
+/**
+ * Who from our side covers this account.
+ *
+ * Populated from Salesforce's AccountTeamMember (joined to User) and/or typed
+ * here. A re-sync refreshes only the Salesforce-sourced rows, so anyone added
+ * by hand survives it — which is why `source` is shown.
+ *
+ * Photos aren't rendered: Salesforce's SmallPhotoUrl needs a Salesforce session
+ * to load, so it would be a broken image here and on any published page.
+ */
+function AccountTeamCard({ accountId, team, onSaved }: {
+  accountId: number;
+  team: { members?: AccountTeamMember[]; syncedAt?: string } | null | undefined;
+  onSaved: (next: { members?: AccountTeamMember[]; syncedAt?: string }) => void;
+}) {
+  const members = team?.members ?? [];
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<AccountTeamMember[]>(members);
+  const [busy, setBusy] = useState<"save" | "sync" | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const startEdit = () => { setDraft(members.length ? members : [{ name: "", source: "manual" }]); setEditing(true); setNote(null); };
+
+  const save = async () => {
+    setBusy("save"); setNote(null);
+    try {
+      const res = await fetch(`${API_BASE}/sales/accounts/${accountId}/team`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ members: draft.filter(m => m.name.trim()) }),
+      });
+      if (!res.ok) { setNote("Couldn't save."); return; }
+      onSaved(await res.json());
+      setEditing(false);
+    } finally { setBusy(null); }
+  };
+
+  const syncSalesforce = async () => {
+    setBusy("sync"); setNote(null);
+    try {
+      const res = await fetch(`${API_BASE}/sales/accounts/team/sync-salesforce`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setNote(data.error ?? "Salesforce sync failed."); return; }
+      if (data.unavailable) { setNote(data.unavailable); return; }
+      setNote(`Synced ${data.members ?? 0} member(s) across ${data.accounts ?? 0} account(s). Reloading…`);
+      // The sync is tenant-wide, so refetch this account to see its slice.
+      const fresh = await fetch(`${API_BASE}/sales/accounts/${accountId}`).then(r => r.ok ? r.json() : null);
+      if (fresh?.accountTeam) onSaved(fresh.accountTeam);
+    } finally { setBusy(null); }
+  };
+
+  const patch = (i: number, p: Partial<AccountTeamMember>) =>
+    setDraft(d => d.map((m, j) => j === i ? { ...m, ...p } : m));
+
+  return (
+    <Card className="p-5 rounded-2xl border border-border/60">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account team</h3>
+        <div className="flex gap-1.5">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy !== null} onClick={() => void syncSalesforce()}>
+            {busy === "sync" ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+            Sync from Salesforce
+          </Button>
+          {!editing && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={startEdit}>Edit</Button>
+          )}
+        </div>
+      </div>
+
+      {!editing ? (
+        members.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No one recorded yet. Sync from Salesforce, or add people by hand — they flow onto event agendas built for this account.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {members.map((m, i) => (
+              <li key={i} className="flex items-baseline justify-between gap-3">
+                <span className="text-sm text-foreground">
+                  {m.name}
+                  {(m.title || m.role) && <span className="text-muted-foreground"> · {m.title || m.role}</span>}
+                </span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {m.email}
+                  {m.source === "manual" && <span className="ml-2 italic">manual</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        <div className="space-y-2">
+          {draft.map((m, i) => (
+            <div key={i} className="grid grid-cols-2 gap-2">
+              <Input value={m.name} onChange={e => patch(i, { name: e.target.value })} placeholder="Full name" className="h-8 text-xs" />
+              <Input value={m.title ?? ""} onChange={e => patch(i, { title: e.target.value })} placeholder="Job title" className="h-8 text-xs" />
+              <Input value={m.email ?? ""} onChange={e => patch(i, { email: e.target.value })} placeholder="email@company.com" className="h-8 text-xs" />
+              <div className="flex gap-1.5">
+                <Input value={m.phone ?? ""} onChange={e => patch(i, { phone: e.target.value })} placeholder="Phone" className="h-8 text-xs" />
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setDraft(d => d.filter((_, j) => j !== i))}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-1.5 pt-1">
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDraft(d => [...d, { name: "", source: "manual" }])}>
+              <Plus className="w-3 h-3 mr-1" /> Add person
+            </Button>
+            <Button size="sm" className="h-7 text-xs" disabled={busy !== null} onClick={() => void save()}>Save</Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {note && <p className="mt-2 text-[11px] text-muted-foreground">{note}</p>}
+      {team?.syncedAt && !editing && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Last synced {new Date(team.syncedAt).toLocaleDateString()}
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function AccountDetailView({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const { domainContext } = useAuth();
@@ -2826,6 +2963,12 @@ function AccountDetailView({ id }: { id: string }) {
             </div>
 
             {/* Notes */}
+            <AccountTeamCard
+              accountId={Number(id)}
+              team={account.accountTeam}
+              onSaved={(next) => setAccount(a => a ? { ...a, accountTeam: next } : a)}
+            />
+
             {account.notes && (
               <Card className="p-5 rounded-2xl border border-border/60">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Notes</h3>
