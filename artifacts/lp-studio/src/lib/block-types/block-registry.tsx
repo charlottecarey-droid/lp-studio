@@ -173,6 +173,7 @@ import type {
   OnboardingHubBlockProps,
   ValueRenewalReviewBlockProps,
   EventAgendaBlockProps,
+  EventActivationsBlockProps,
   ChatCaptureBlockProps,
 } from "./generic-blocks";
 // June-2026 modern block wave: the builder agents export curated default props
@@ -194,6 +195,7 @@ import { ACCOUNT_MICROSITE_DEFAULT_PROPS } from "@/blocks/BlockAccountMicrosite"
 import { ONBOARDING_HUB_DEFAULT_PROPS } from "@/blocks/BlockOnboardingHub";
 import { VALUE_RENEWAL_REVIEW_DEFAULT_PROPS } from "@/blocks/BlockValueRenewalReview";
 import { EVENT_AGENDA_DEFAULT_PROPS } from "@/blocks/BlockEventAgenda";
+import { EVENT_ACTIVATIONS_DEFAULT_PROPS } from "@/blocks/BlockEventActivations";
 import type {
   SectionBlockProps,
   ColumnsBlockProps,
@@ -9192,6 +9194,36 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "event-activations",
+    label: "Event Activations Page",
+    category: "Events" as BlockCategory,
+    defaultProps: (): EventActivationsBlockProps =>
+      structuredClone(EVENT_ACTIVATIONS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#ffffff" rx="4" />
+        {/* nav bar */}
+        <rect x="8" y="5" width="18" height="3" rx="1.5" fill="#0F4C46" />
+        <rect x="92" y="4" width="20" height="5" rx="2.5" fill="#0F4C46" />
+        {/* split hero: badge + two-tone headline left, image right */}
+        <rect x="8" y="14" width="28" height="4" rx="2" fill="#0F4C46" opacity="0.18" />
+        <rect x="8" y="21" width="38" height="5" rx="1.5" fill="#101828" />
+        <rect x="8" y="28" width="30" height="5" rx="1.5" fill="#0F4C46" opacity="0.45" />
+        <rect x="64" y="13" width="48" height="24" rx="3" fill="#7CB9AE" />
+        {/* tinted activations band with cards */}
+        <rect x="0" y="42" width="120" height="28" rx="0" fill="#0F4C46" opacity="0.07" />
+        {([0, 1] as const).map(r => (
+          <g key={r}>
+            <rect x="8" y={46 + r * 11} width="104" height="9" rx="2" fill="#ffffff" />
+            <rect x="12" y={48.5 + r * 11} width="16" height="2" rx="1" fill="#0F4C46" opacity="0.5" />
+            <rect x="12" y={52 + r * 11} width="42" height="2" rx="1" fill="#101828" opacity="0.7" />
+            <rect x="88" y={48 + r * 11} width="20" height="5.5" rx="1.5" fill="#7CB9AE" opacity="0.6" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
 ];
 
 // Attach code-default semantic role tags to every registered block from the
@@ -9250,6 +9282,7 @@ export function createBlock(type: "account-microsite"): Extract<PageBlock, { typ
 export function createBlock(type: "onboarding-hub"): Extract<PageBlock, { type: "onboarding-hub" }>;
 export function createBlock(type: "value-renewal-review"): Extract<PageBlock, { type: "value-renewal-review" }>;
 export function createBlock(type: "event-agenda"): Extract<PageBlock, { type: "event-agenda" }>;
+export function createBlock(type: "event-activations"): Extract<PageBlock, { type: "event-activations" }>;
 export function createBlock(type: "rating-badges"): Extract<PageBlock, { type: "rating-badges" }>;
 export function createBlock(type: "avatar-social-proof"): Extract<PageBlock, { type: "avatar-social-proof" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
@@ -9606,6 +9639,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "onboarding-hub": return { id, type: "onboarding-hub", props: props as OnboardingHubBlockProps };
     case "value-renewal-review": return { id, type: "value-renewal-review", props: props as ValueRenewalReviewBlockProps };
     case "event-agenda": return { id, type: "event-agenda", props: props as EventAgendaBlockProps };
+    case "event-activations": return { id, type: "event-activations", props: props as EventActivationsBlockProps };
     case "rating-badges": return { id, type: "rating-badges", props: props as RatingBadgesBlockProps };
     case "avatar-social-proof": return { id, type: "avatar-social-proof", props: props as AvatarSocialProofBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
@@ -9715,6 +9749,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "onboarding-hub": ["onboarding-hub"],
     "value-renewal-review": ["value-renewal-review"],
     "event-agenda": ["event-agenda"],
+    "event-activations": ["event-activations"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

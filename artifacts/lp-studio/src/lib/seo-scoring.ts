@@ -108,6 +108,9 @@ export const HERO_TYPES = new Set([
   // Full-page event landing templates — each leads with an event hero (see
   // FULL_PAGE_BLOCK_TYPES); they carry the "hero" role, so credit the hero.
   "event-noir", "event-luminous", "event-split",
+  // Sponsored-event presence page — leads with an event hero and carries its
+  // own booking CTA/form (see FULL_PAGE_BLOCK_TYPES).
+  "event-activations",
   // Webinar Hub leads with an event hero (and carries its own CTA + lead form).
   "webinar-hub",
 ]);

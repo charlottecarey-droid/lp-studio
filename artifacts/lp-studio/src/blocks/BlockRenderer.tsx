@@ -64,6 +64,7 @@ import { BlockAccountMicrosite } from "./BlockAccountMicrosite";
 import { BlockOnboardingHub } from "./BlockOnboardingHub";
 import { BlockValueRenewalReview } from "./BlockValueRenewalReview";
 import { BlockEventAgenda } from "./BlockEventAgenda";
+import { BlockEventActivations } from "./BlockEventActivations";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -465,7 +466,7 @@ export const NO_REVEAL = new Set<string>([
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   "business-case-split", "business-case-centered", "business-case-premium",
   "storybrand-journey", "exec-decision-brief", "challenger-insight",
-  "deal-room", "account-microsite", "onboarding-hub", "value-renewal-review", "event-agenda",
+  "deal-room", "account-microsite", "onboarding-hub", "value-renewal-review", "event-agenda", "event-activations",
   "content-series", "blog-series", "storefront", "webinar-hub",
   "event-noir", "event-luminous", "event-split",
   "case-metrics", "case-editorial", "case-modular",
@@ -1330,6 +1331,21 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             pageId={pageId}
             variantId={variantId}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "#") : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "event-activations":
+        return (
+          <BlockEventActivations
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            testId={testId}
+            variantId={variantId}
+            sessionId={sessionId}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "") : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

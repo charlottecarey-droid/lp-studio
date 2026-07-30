@@ -488,6 +488,91 @@ function caseSeedProps(variant: CaseVariant): Props {
   };
 }
 
+// ── EVENT ACTIVATIONS (sponsored-event presence page) ───────────────────────
+// Seed mirror of lp-studio's EVENT_ACTIVATIONS_DEFAULT_PROPS
+// (blocks/BlockEventActivations.tsx) — tenant-neutral copy, no palette keys
+// (the block derives its palette from the tenant brand at render time).
+
+function eventActivationsSeedProps(): Props {
+  return {
+    showNav: true,
+    navLinks: [
+      { label: "What's happening", href: "#activations" },
+      { label: "Book a meeting", href: "#book" },
+    ],
+    navCtaText: "Book a meeting",
+    navCtaUrl: "#book",
+
+    heroLayout: "split",
+    badgeText: "Summit 2026 • July 15 – 17, 2026",
+    headline: "Visit us at",
+    headlineAccent: "Booth #21",
+    heroBody:
+      "Three days, one booth, every conversation that matters. See everything we're hosting at this year's show — and reserve time with our team while you're there.",
+    heroImage:
+      "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=2000&auto=format&fit=crop",
+    heroImageAlt: "Host-city skyline at dusk",
+    overlayColor: "#000000",
+    backgroundOverlay: 0.45,
+    heroCtaText: "See what's happening",
+    heroCtaUrl: "#activations",
+
+    showIntroSection: true,
+    introKicker: "At the show",
+    introHeadline: "Everything we're hosting on the floor",
+    introBody:
+      "From breakout sessions to after-hours socials — here's where to find us all week.",
+    showActivations: true,
+    activationsAnchorId: "activations",
+    activations: [
+      {
+        kicker: "Breakout session | Day 2 • 4:45 PM",
+        title: "A look at the decade ahead",
+        body: "Join our leadership team for a forward look at how AI, consolidation, and changing labor models will reshape the industry — with predictions you can act on now. Seats fill fast; arrive early.",
+        imageUrl:
+          "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1600&auto=format&fit=crop",
+        imageAlt: "Speaker on a conference stage",
+        linkText: "Save your seat",
+        linkUrl: "#book",
+      },
+      {
+        kicker: "Lounge | Day 2 • 1:30 PM",
+        title: "Roundtable + afternoon social",
+        body: "Swing by our lounge for an interactive operator roundtable — real talk on what's working, what isn't, and what to watch — followed by refreshments and time with peers.",
+        imageUrl:
+          "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1600&auto=format&fit=crop",
+        imageAlt: "Attendees talking around a table",
+        linkText: "RSVP here",
+        linkUrl: "#book",
+      },
+      {
+        kicker: "Booth #21 | All three days",
+        title: "See the platform in action",
+        body: "Stop by for a hands-on demo with our product team, meet executive leadership, and see what's shipping next. Book ahead to guarantee a time that fits your schedule.",
+        imageUrl:
+          "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1600&auto=format&fit=crop",
+        imageAlt: "Team demoing a product at a booth",
+        linkText: "Book your meeting",
+        linkUrl: "#book",
+      },
+    ],
+
+    showBookingSection: true,
+    bookingAnchorId: "book",
+    bookingKicker: "On-site meetings",
+    bookingHeading: "Book a meeting at the show",
+    bookingBody:
+      "Grab 30 minutes with our team on the floor — pick a time that works and we'll take care of the rest.",
+    bookingMode: "button",
+    ctaText: "Book a meeting onsite",
+    ctaUrl: "#",
+    formHeading: "Request a time",
+    formSubheading: "Tell us when you're free — we'll confirm within the day.",
+
+    footerText: "© 2026 · See you at the show",
+  };
+}
+
 // ── Seeds ────────────────────────────────────────────────────────────────────
 
 export const TEMPLATE_PAGE_SEEDS: GlobalTemplateSeed[] = [
@@ -523,6 +608,17 @@ export const TEMPLATE_PAGE_SEEDS: GlobalTemplateSeed[] = [
     industry: "events",
     premiumRank: 20,
     blocks: [{ id: "seed-event-split-1", type: "event-split", props: eventSeedProps("split") }],
+  },
+  {
+    slug: "global-event-activations",
+    title: "Event — Sponsor Activations",
+    templateLabel: "Event — Sponsor Activations",
+    templateDescription:
+      "A \"visit us at the show\" page for events you sponsor: booth-number hero (split, full-bleed, or dark band), a section for every activation — breakout session, lounge, social, demo — and a book-a-meeting close that links a scheduler or embeds a global form. Inherits your brand colors and logo.",
+    ogImage: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80",
+    industry: "events",
+    premiumRank: 38,
+    blocks: [{ id: "seed-event-activations-1", type: "event-activations", props: eventActivationsSeedProps() }],
   },
   {
     slug: "global-case-metrics",

@@ -377,6 +377,8 @@ export type {
   EvaSpeaker,
   EvaSession,
   EvaDay,
+  EventActivationsBlockProps,
+  EventActivationItem,
 } from "./generic-blocks";
 
 // Graduated section-block CTA defaults (value export, used by block-registry).

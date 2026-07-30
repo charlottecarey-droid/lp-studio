@@ -297,6 +297,8 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "onboarding-hub": ["content"],
   "value-renewal-review": ["content"],
   "event-agenda": ["content"],
+  // Full-page sponsored-event presence template (own nav + hero + booking CTA).
+  "event-activations": ["hero", "content", "media", "cta"],
 
   // ── Showcase ────────────────────────────────────────────────────────────────
   "sticky-stack": ["features", "media"],
@@ -422,6 +424,7 @@ export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "onboarding-hub",
   "value-renewal-review",
   "event-agenda",
+  "event-activations",
 ]);
 
 /** True when a block type renders an entire standalone full-page template. */

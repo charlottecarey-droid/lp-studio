@@ -176,6 +176,7 @@ import type {
   OnboardingHubBlockProps,
   ValueRenewalReviewBlockProps,
   EventAgendaBlockProps,
+  EventActivationsBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -369,6 +370,7 @@ export type BlockVariant =
   | { type: "onboarding-hub"; props: OnboardingHubBlockProps }
   | { type: "value-renewal-review"; props: ValueRenewalReviewBlockProps }
   | { type: "event-agenda"; props: EventAgendaBlockProps }
+  | { type: "event-activations"; props: EventActivationsBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "id-hero"; props: IdHeroBlockProps }

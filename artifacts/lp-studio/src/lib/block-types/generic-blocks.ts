@@ -5014,6 +5014,10 @@ export type {
   EvaSession,
   EvaDay,
 } from "@/blocks/BlockEventAgenda";
+export type {
+  EventActivationsBlockProps,
+  EventActivationItem,
+} from "@/blocks/BlockEventActivations";
 
 /**
  * Final CTA — Video background: a final CTA over a looping background video
