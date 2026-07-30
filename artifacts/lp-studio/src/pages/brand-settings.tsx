@@ -913,7 +913,7 @@ function SegmentCard({ segment, onChange, onRemove, strictMode }: {
           {/* Segment-specific Products */}
           <div className="space-y-1.5">
             <Label className="text-xs">Segment-Specific Products</Label>
-            <p className="text-[11px] text-muted-foreground -mt-0.5">Products or features especially relevant to this segment (e.g. Dandy Hub, Dandy Insights)</p>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">Products or features especially relevant to this segment (e.g. your platform tier, an add-on module)</p>
             <TagInput
               value={segment.segmentProducts ?? []}
               onChange={(v) => set("segmentProducts", v)}
@@ -3653,7 +3653,7 @@ export default function BrandSettings() {
                 url={config.numbersFontUrl}
                 onFamilyChange={(v) => update("numbersFont", v)}
                 onUrlChange={(v) => update("numbersFontUrl", v)}
-                hint="Big stat values (TrustBar, StatCallout, DSO stats). Falls back to Display Font."
+                hint="Big stat values (TrustBar, StatCallout, stat callouts). Falls back to Display Font."
               />
               <SelectField
                 label="Eyebrow Style"
@@ -4364,7 +4364,7 @@ export default function BrandSettings() {
               value={config.chilipiperUrl ?? ""}
               onChange={(v) => update("chilipiperUrl", v)}
               placeholder="https://na.chilipiper.com/..."
-              hint="When set, all DSO page CTAs will open a Chili Piper booking modal instead of linking to a URL."
+              hint="When set, page CTAs will open a Chili Piper booking modal instead of linking to a URL."
             />
           </Card>
 
@@ -4872,7 +4872,7 @@ export default function BrandSettings() {
             {(config.segments ?? []).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No additional segments yet. Add a segment like "DSO" or "Group Practice" to enable personalized landing pages and AI copy beyond your core audience.</p>
+                <p className="text-sm">No additional segments yet. Add a segment like "Enterprise" or "Mid-market" to enable personalized landing pages and AI copy beyond your core audience.</p>
               </div>
             ) : (
               <div className="space-y-4">

@@ -191,7 +191,7 @@ export function ImagePicker({ value, onChange, label, placeholder, className, ai
             value={tweak}
             onChange={e => setTweak(e.target.value)}
             className="text-xs flex-1 h-8"
-            placeholder="Tweak (optional brief — e.g. 'sunlit dental clinic, warm tones')"
+            placeholder="Tweak (optional brief — e.g. 'sunlit office, warm tones')"
             disabled={isGenerating}
           />
           <Button

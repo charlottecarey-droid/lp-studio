@@ -285,7 +285,10 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       const partner = applyPartnerLayout(buildPartnerContent(brandCtx, dandyTenant), savedPartner);
       // Replace the {dso} placeholder (used in the Partner intro) with the
       // prospect name, matching the PDF generator's substitution.
-      const partnerIntro = partner.intro.replace(/\{dso\}/g, dsoName);
+      // `{dso}` is the original token and stays supported forever — existing
+      // one-pagers contain it. `{account}` / `{company}` are aliases so new
+      // copy doesn't have to learn dental jargon to name the customer.
+      const partnerIntro = partner.intro.replace(/\{(?:dso|account|company)\}/gi, dsoName);
       const partnerCtaHeadline = brandName
         ? `Ready to partner with ${brandName}?`
         : "Ready to start the partnership?";

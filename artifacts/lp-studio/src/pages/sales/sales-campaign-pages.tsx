@@ -74,7 +74,7 @@ interface SavedView {
 const API_BASE = "/api";
 
 const AVAILABLE_VARS = [
-  { tag: "{{company}}", label: "Company name", example: "Pacific Dental Alliance" },
+  { tag: "{{company}}", label: "Company name", example: "Acme Corp" },
   { tag: "{{first_name}}", label: "First name", example: "Sarah" },
   { tag: "{{last_name}}", label: "Last name", example: "Johnson" },
   { tag: "{{microsite_url}}", label: "Personalized link URL", example: "https://…/p/abc123" },
@@ -317,7 +317,7 @@ function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; mic
             </Label>
             <Input
               id="ms-title"
-              placeholder="e.g. Pacific Dental Campaign"
+              placeholder="e.g. Q3 Enterprise Campaign"
               value={title}
               onChange={e => handleTitleChange(e.target.value)}
             />
@@ -757,7 +757,7 @@ export function CampaignPagesContent() {
                         }
                       </Button>
                       <a
-                        href={`${getLpPageUrl(page.slug, micrositeDomain, tenantHost)}?_v_company=Acme+Dental&_v_first_name=Sarah`}
+                        href={`${getLpPageUrl(page.slug, micrositeDomain, tenantHost)}?_v_company=Acme+Corp&_v_first_name=Sarah`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

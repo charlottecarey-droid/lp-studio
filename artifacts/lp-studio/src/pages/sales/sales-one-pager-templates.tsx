@@ -192,7 +192,7 @@ const getFontCss = (f: string) => FONT_OPTIONS.find(o => o.value === f)?.css || 
 // no configured CTA — never a literal Dandy URL.
 type FieldTypeDef = { type: OverlayField["type"]; label: string; icon: React.ReactNode; defaultProps: Partial<OverlayField> };
 const buildFieldTypes = (ctaDefault: string): FieldTypeDef[] => [
-  { type: "dso_name", label: "DSO Name", icon: <User className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", bold: true } },
+  { type: "dso_name", label: "Account Name", icon: <User className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", bold: true } },
   { type: "phone", label: "Phone", icon: <Phone className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#FFFFFF", bold: false } },
   { type: "heading", label: "Heading", icon: <Heading1 className="w-3.5 h-3.5" />, defaultProps: { fontSize: 22, color: "#FFFFFF", bold: true, defaultValue: "Section Heading" } },
   { type: "custom_text", label: "Body Text", icon: <Type className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#333333", bold: false, defaultValue: "Text here" } },
@@ -338,7 +338,7 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
   // We render a lightweight handle chip with just an icon + short label so the
   // preview text isn't doubled. Click/drag the chip to reposition.
   const shortLabel =
-    field.type === "dso_name" ? "DSO" :
+    field.type === "dso_name" ? "Account" :
     field.type === "phone" ? "Phone" :
     field.type === "qr_code" ? "QR" :
     field.type === "logo" ? "Logo" :
@@ -722,7 +722,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
         const brandContextWithFonts = brandContext
           ? { ...brandContext, fonts: await resolveBrandPdfFonts(brand) }
           : undefined;
-        const groupLabel = brandContext?.industryLabel || "DSO";
+        const groupLabel = brandContext?.industryLabel || "Account";
         if (builtinId === "roi") doc = await generateROIOnePager(dsoName || groupLabel, 50, undefined, brandContextWithFonts, oneAssets);
         else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || groupLabel, audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined, undefined, undefined, brandContextWithFonts, oneAssets);
         else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || groupLabel, [], phone, null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, brandContextWithFonts, oneAssets);
@@ -892,8 +892,8 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
           {(isBuiltin || showLegacyInputs) && (
             <>
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">DSO / Practice Name</label>
-                <input type="text" value={dsoName} onChange={e => setDsoName(e.target.value)} placeholder="e.g. Acme DSO" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Account name</label>
+                <input type="text" value={dsoName} onChange={e => setDsoName(e.target.value)} placeholder="e.g. Acme Corp" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
               </div>
               {/* Audience picker — only relevant for Pilot template */}
               {builtinId === "pilot" && (
@@ -1586,7 +1586,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
               <div>
                 <label className="text-[9px] text-muted-foreground uppercase block mb-1">Type</label>
                 <select value={selectedField.type} onChange={e => updateField(selectedField.id, { type: e.target.value as OverlayField["type"] })} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none">
-                  <option value="dso_name">DSO Name</option>
+                  <option value="dso_name">Account Name</option>
                   <option value="phone">Phone</option>
                   <option value="heading">Heading</option>
                   <option value="custom_text">Body Text</option>
@@ -1720,7 +1720,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
                   </div>
                   <div>
                     <label className="text-[9px] text-muted-foreground uppercase block mb-1">Default Value</label>
-                    <input type="text" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="Fallback DSO name" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                    <input type="text" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="Fallback account name" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
                   </div>
                 </>
               )}
@@ -2219,7 +2219,7 @@ export default function SalesOnePagerTemplates({ scope = "tenant" }: { scope?: T
         orientation: "portrait",
         fields: cloneFieldsForBuiltin(builtinId, {
           brandLabel: previewIsDandy ? "Dandy" : (previewBrandLabel || "Brand"),
-          industryLabel: previewBrandContext?.industryLabel ?? "DSO",
+          industryLabel: previewBrandContext?.industryLabel ?? "Account",
           ctaDefault: previewQrFallback,
         }),
         headerHeight: 30,

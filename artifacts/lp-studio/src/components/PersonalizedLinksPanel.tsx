@@ -270,7 +270,7 @@ export default function PersonalizedLinksPanel({ pageId, pageSlug: _pageSlug, pa
                 <Label className="text-xs font-medium">Company</Label>
                 <Input
                   className="mt-1 h-8 text-sm"
-                  placeholder="Apex Dental"
+                  placeholder="Acme Corp"
                   value={company}
                   onChange={e => setCompany(e.target.value)}
                 />

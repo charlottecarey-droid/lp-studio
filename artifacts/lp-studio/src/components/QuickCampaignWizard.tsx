@@ -815,7 +815,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
                 <Input
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Q2 DSO outreach"
+                  placeholder="e.g. Q2 enterprise outreach"
                   autoFocus
                 />
                 <p className="text-[11px] text-muted-foreground mt-1.5">Only visible to your team. Recipients won't see this.</p>

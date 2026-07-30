@@ -105,7 +105,7 @@ export function AvatarSocialProofPanel({ props, onChange }: Props) {
           rows={3}
         />
         <Input
-          placeholder="Author (e.g. Dr. Jane Smith, Bright Dental)"
+          placeholder="Author (e.g. Jane Smith, Acme Corp)"
           value={props.testimonialAuthor ?? ""}
           onChange={(e) => onChange({ ...props, testimonialAuthor: e.target.value })}
           className="text-sm"

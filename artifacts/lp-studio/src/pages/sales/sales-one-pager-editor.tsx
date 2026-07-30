@@ -610,7 +610,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
   const [forking, setForking] = useState(false);
   const [, navigate] = useLocation();
   const [savedIndicator, setSavedIndicator] = useState(false);
-  const [dsoName, setDsoName] = useState("Acme DSO");
+  const [dsoName, setDsoName] = useState("Acme Corp");
   const [numPractices, setNumPractices] = useState(50);
 
   // Layout configs
@@ -1577,7 +1577,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 <div>
                   <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">
-                    Preview DSO Name
+                    Preview account name
                   </label>
                   <input type="text" value={dsoName} maxLength={25}
                     onChange={e => setDsoName(e.target.value.slice(0, 25))}
@@ -1684,7 +1684,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
                       <textarea value={headerCfg.titleText} rows={2} placeholder={`Acme x ${dsoName}\n90-Day Pilot`}
                         onChange={e => setHeaderCfg(p => ({ ...p, titleText: e.target.value }))}
                         className={`mt-1 ${textareaCls}`} />
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Use {"{dso}"} for DSO name. Leave blank for default.</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Use {"{account}"} for the account name. Leave blank for default.</p>
                     </div>
                     <SliderRow label="Header Height" value={headerCfg.height} min={160} max={400} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, height: v }))} />
                     <SliderRow label="Split Ratio (left %)" value={headerCfg.splitRatio} min={30} max={70} unit="%" onChange={v => setHeaderCfg(p => ({ ...p, splitRatio: v }))} />
@@ -1888,8 +1888,8 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
                     <SliderRow label="Logo Group Offset Y" value={headerCfg.logoGroupOffsetY ?? 0} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetY: v }))} />
                     <div className="flex items-center justify-between pt-1">
                       <div>
-                        <span className="text-[11px] font-medium text-muted-foreground">Show "Brand &amp; DSO" subtitle</span>
-                        <p className="text-[10px] text-muted-foreground/70">The "[Your brand] &amp; [DSO name]:" line under the logos.</p>
+                        <span className="text-[11px] font-medium text-muted-foreground">Show "Brand &amp; account" subtitle</span>
+                        <p className="text-[10px] text-muted-foreground/70">The "[Your brand] &amp; [account name]:" line under the logos.</p>
                       </div>
                       <Switch
                         checked={headerCfg.subtitleShow !== false}
@@ -1949,7 +1949,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
                     </div>
                     <div>
                       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Testimonials Heading ({partnerTestimonialsHeading.length}/60)</label>
-                      <input type="text" maxLength={60} value={partnerTestimonialsHeading} onChange={e => setPartnerTestimonialsHeading(e.target.value)} placeholder="See what Dandy doctors are saying:" className={inputCls} />
+                      <input type="text" maxLength={60} value={partnerTestimonialsHeading} onChange={e => setPartnerTestimonialsHeading(e.target.value)} placeholder="See what our customers are saying:" className={inputCls} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Feature Cards — Title / Description</label>
@@ -2247,7 +2247,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
                         value={agreementFooter}
                         rows={2}
                         onChange={e => setAgreementFooter(e.target.value)}
-                        placeholder="For the full terms of agreement, please see the Acme Practice Agreement."
+                        placeholder="For the full terms of agreement, please see the Acme Service Agreement."
                         className={`mt-1 ${textareaCls}`}
                       />
                     </div>
@@ -2283,7 +2283,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
                         type="url"
                         value={agreementFooterLinkUrl}
                         onChange={e => setAgreementFooterLinkUrl(e.target.value)}
-                        placeholder="https://example.com/practice-agreement"
+                        placeholder="https://example.com/service-agreement"
                         className={inputCls}
                       />
                     </div>

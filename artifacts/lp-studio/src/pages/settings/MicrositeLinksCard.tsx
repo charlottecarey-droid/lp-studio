@@ -131,7 +131,7 @@ export function MicrositeLinksCard() {
           disabled={loading}
         />
         <p className="text-xs text-muted-foreground">
-          Visitors who land on the site root (<span className="font-mono">/</span>) are sent here. Leave blank to use the default Dandy landing page.
+          Visitors who land on the site root (<span className="font-mono">/</span>) are sent here. Leave blank to use the default landing page.
         </p>
       </div>
 

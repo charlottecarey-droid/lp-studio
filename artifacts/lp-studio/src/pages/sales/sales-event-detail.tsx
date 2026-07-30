@@ -97,6 +97,29 @@ interface AgendaRow {
 /** A role the catalog actually tags, with how many sessions carry it. */
 interface SegmentOption { segment: string; count: number }
 
+/**
+ * Brand Settings segments + the segments this catalog actually uses, in one
+ * list. Brand segments come first (the tenant's taxonomy is the default
+ * vocabulary); catalog-only names follow, so a conference that labels its
+ * audiences differently is still pickable. Compared case-insensitively so the
+ * same segment can't appear twice.
+ */
+function mergeSegmentOptions(catalog: SegmentOption[], brand: string[]): SegmentOption[] {
+  const out: SegmentOption[] = [];
+  const seen = new Set<string>();
+  const push = (segment: string, count: number) => {
+    const key = segment.trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ segment, count });
+  };
+  for (const name of brand) {
+    push(name, catalog.find((c) => c.segment.trim().toLowerCase() === name.trim().toLowerCase())?.count ?? 0);
+  }
+  for (const c of catalog) push(c.segment, c.count);
+  return out;
+}
+
 interface RoleOption {
   role: string;
   count: number;
@@ -1109,45 +1132,34 @@ function NewAgendaDialog({
             )}
           </div>
           <div className="space-y-1.5">
-              <Label>Segment</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {segmentOptions.map((o) => {
-                  const active = segment.trim().toLowerCase() === o.segment.toLowerCase();
-                  return (
-                    <button
-                      key={o.segment}
-                      type="button"
-                      onClick={() => setSegment(active ? "" : o.segment)}
-                      className={`text-xs border rounded-full px-2.5 py-0.5 transition-colors ${
-                        active
-                          ? "border-foreground bg-foreground text-background"
-                          : "text-muted-foreground hover:text-foreground hover:border-foreground/40"
-                      }`}
-                      title={`${o.count} session${o.count === 1 ? "" : "s"} for ${o.segment}`}
-                    >
-                      {o.segment} <span className="tabular-nums opacity-60">{o.count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <Input
-                value={segment}
-                onChange={(e) => setSegment(e.target.value)}
-                placeholder={picked?.segment ? `Account's segment: ${picked.segment}` : "Leave blank to use the account's segment"}
-                className="h-8 text-xs"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Sessions for a different segment are left off the draft. Blank uses
-                the account&rsquo;s own segment; type here when the conference names
-                its audiences differently.
-              </p>
-              {segmentOptions.length === 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  This catalog has no segment tags yet — re-import from RainFocus to
-                  pull them in, or type one to match on it manually.
-                </p>
-              )}
-            </div>
+            <Label>Segment</Label>
+            {/* A picked list, not free text: segments come from Brand Settings
+                plus whatever this catalog's sessions are tagged with, so the
+                same vocabulary drives matching everywhere. Add a missing one in
+                Brand Settings → Audience segments. */}
+            <Select
+              value={segment || "__account__"}
+              onValueChange={(v) => setSegment(v === "__account__" ? "" : v)}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Use the account's segment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__account__">
+                  {picked?.segment ? `Account's segment: ${picked.segment}` : "Use the account's segment"}
+                </SelectItem>
+                {segmentOptions.map((o) => (
+                  <SelectItem key={o.segment} value={o.segment}>
+                    {o.segment}{o.count > 0 ? ` · ${o.count} session${o.count === 1 ? "" : "s"}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Sessions for a different segment are left off the draft. Manage the
+              list in Brand Settings → Audience segments.
+            </p>
+          </div>
           <div className="space-y-1.5">
             <Label>Who's attending (roles)</Label>
             <div className="flex flex-wrap gap-1.5">
@@ -1529,44 +1541,32 @@ function AgendaEditorDialog({
             ))}
 
             <div className="space-y-1.5">
-                <Label>Segment</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {segmentOptions.map((o) => {
-                    const active = segmentOverride.trim().toLowerCase() === o.segment.toLowerCase();
-                    return (
-                      <button
-                        key={o.segment}
-                        type="button"
-                        onClick={() => setSegmentOverride(active ? "" : o.segment)}
-                        className={`text-xs border rounded-full px-2.5 py-0.5 transition-colors ${
-                          active
-                            ? "border-foreground bg-foreground text-background"
-                            : "text-muted-foreground hover:text-foreground hover:border-foreground/40"
-                        }`}
-                        title={`${o.count} session${o.count === 1 ? "" : "s"} for ${o.segment}`}
-                      >
-                        {o.segment} <span className="tabular-nums opacity-60">{o.count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <Input
-                  className="h-8 text-xs"
-                  value={segmentOverride}
-                  onChange={(e) => setSegmentOverride(e.target.value)}
-                  placeholder={accountSegment ? `Account's segment: ${accountSegment}` : "Leave blank to use the account's segment"}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Sessions for another segment are marked and left off the draft.
-                  Change this and hit Re-match to redraw against a different audience.
-                </p>
-                {segmentOptions.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    This catalog has no segment tags yet — re-import from RainFocus to
-                    pull them in, or type one to match on it manually.
-                  </p>
-                )}
-              </div>
+              <Label>Segment</Label>
+              {/* Same picked list as the create dialog — Brand Settings
+                  segments plus this catalog's own tags. */}
+              <Select
+                value={segmentOverride || "__account__"}
+                onValueChange={(v) => setSegmentOverride(v === "__account__" ? "" : v)}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Use the account's segment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__account__">
+                    {accountSegment ? `Account's segment: ${accountSegment}` : "Use the account's segment"}
+                  </SelectItem>
+                  {segmentOptions.map((o) => (
+                    <SelectItem key={o.segment} value={o.segment}>
+                      {o.segment}{o.count > 0 ? ` · ${o.count} session${o.count === 1 ? "" : "s"}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Sessions for another segment are marked and left off the draft.
+                Change this and hit Re-match to redraw against a different audience.
+              </p>
+            </div>
 
             <div className="space-y-1.5">
               <Label>Personal note (shown as a letter at the top of the page)</Label>
@@ -1613,6 +1613,26 @@ export default function SalesEventDetail() {
   const [agendas, setAgendas] = useState<AgendaRow[]>([]);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [segmentOptions, setSegmentOptions] = useState<SegmentOption[]>([]);
+  /**
+   * Audience segments from Brand Settings — the tenant's own taxonomy, and the
+   * source of truth for what a segment can be. Merged with the catalog's own
+   * vocabulary (a conference names its audiences itself, and those names are
+   * what the sessions are actually tagged with) so the picker covers both
+   * without anyone typing free text.
+   */
+  const [brandSegments, setBrandSegments] = useState<string[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/brand`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((brand: Record<string, unknown>) => {
+        const config = (brand.config ?? brand) as Record<string, unknown>;
+        const segs = Array.isArray(config.segments) ? config.segments : [];
+        setBrandSegments(
+          segs.map((s) => (s as { name?: string })?.name).filter((n): n is string => Boolean(n?.trim())),
+        );
+      })
+      .catch(() => {});
+  }, []);
   const [tagging, setTagging] = useState(false);
   const [analytics, setAnalytics] = useState<EventAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1993,10 +2013,10 @@ export default function SalesEventDetail() {
         eventId={eventId}
         onCreated={(id) => { void load(); setEditorAgendaId(id); }}
         roleOptions={roleOptions}
-        segmentOptions={segmentOptions}
+        segmentOptions={mergeSegmentOptions(segmentOptions, brandSegments)}
       />
       <AgendaEditorDialog
-        segmentOptions={segmentOptions}
+        segmentOptions={mergeSegmentOptions(segmentOptions, brandSegments)}
         agendaId={editorAgendaId}
         onClose={() => setEditorAgendaId(null)}
         onChanged={() => void load()}

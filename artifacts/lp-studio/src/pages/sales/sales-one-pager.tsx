@@ -1245,7 +1245,7 @@ const SalesOnePager = () => {
                       type="text"
                       value={agreementContent.footerLinkText ?? ""}
                       onChange={e => setAgreementContent(p => ({ ...p, footerLinkText: e.target.value }))}
-                      placeholder="e.g. Acme Practice Agreement"
+                      placeholder="e.g. Acme Service Agreement"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                     />
                   </div>

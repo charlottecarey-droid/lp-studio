@@ -5595,7 +5595,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="border-t pt-3 space-y-1.5">
               <Label className="text-xs text-muted-foreground">Trust Line 1</Label>
-              <Input value={p.trust1 ?? ""} onChange={e => onChange({ ...block, props: { ...p, trust1: e.target.value } })} placeholder="1,200+ DSO locations" />
+              <Input value={p.trust1 ?? ""} onChange={e => onChange({ ...block, props: { ...p, trust1: e.target.value } })} placeholder="1,200+ locations" />
               <Label className="text-xs text-muted-foreground">Trust Line 2</Label>
               <Input value={p.trust2 ?? ""} onChange={e => onChange({ ...block, props: { ...p, trust2: e.target.value } })} placeholder="No long-term contract" />
               <Label className="text-xs text-muted-foreground">Trust Line 3</Label>

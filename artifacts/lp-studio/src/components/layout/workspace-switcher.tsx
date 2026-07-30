@@ -239,7 +239,7 @@ function CreateWorkspaceDialog({
             <Input
               id="ws-name"
               value={name}
-              placeholder="Acme Dental"
+              placeholder="Acme Corp"
               onChange={(e) => setName(e.target.value)}
               data-testid="workspace-create-name"
             />
@@ -249,7 +249,7 @@ function CreateWorkspaceDialog({
             <Input
               id="ws-slug"
               value={effectiveSlug}
-              placeholder="acme-dental"
+              placeholder="acme-corp"
               onChange={(e) => {
                 setSlugTouched(true);
                 setSlug(slugify(e.target.value));

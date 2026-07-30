@@ -510,7 +510,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
               type="email"
               value={native.email}
               onChange={(e) => setNative({ ...native, email: e.target.value })}
-              placeholder="jane@yourpractice.com"
+              placeholder="jane@company.com"
               className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[var(--brand-primary)] transition-colors"
               required
               disabled={formState === "loading"}

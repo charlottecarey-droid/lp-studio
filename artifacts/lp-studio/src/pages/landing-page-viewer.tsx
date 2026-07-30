@@ -1178,6 +1178,9 @@ function LandingPageViewerInner() {
   const dtrConf = applyDtr(variantConf, dtrVars);
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
+  // Server-authoritative (resolved from the immutable protected slug), so a
+  // tenant can't switch Dandy's own footer on by editing brand settings.
+  const isDandyTenant = brand.isDandy === true;
   const ctaColor = dtrConf.ctaColor || LIME;
 
   const handleCtaClick = () => {
@@ -1325,7 +1328,7 @@ function LandingPageViewerInner() {
               ) : (
                 <img 
                   src="https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1600" 
-                  alt="Dental Office" 
+                  alt="" 
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -1362,7 +1365,7 @@ function LandingPageViewerInner() {
               ) : (
                 <img 
                   src="https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1600" 
-                  alt="Dental Office" 
+                  alt="" 
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -1674,76 +1677,85 @@ function LandingPageViewerInner() {
               <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || brand.copyrightName || "Logo"} className="w-40 h-auto" style={{ opacity: 0.9 }} />
             </div>
 
-            {/* Nav columns */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-10 flex-1">
-              <div>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Dandy</p>
-                <ul className="space-y-2.5">
-                  {[
-                    ["Home", "https://www.meetdandy.com/"],
-                    ["Pricing", "https://www.meetdandy.com/pricing/"],
-                    ["Get in touch", "https://www.meetdandy.com/get-in-touch/"],
-                    ["Dandy Reviews", "https://www.meetdandy.com/reviews/"],
-                    ["Careers", "https://www.meetdandy.com/careers/"],
-                    ["Privacy Policy", "https://www.meetdandy.com/privacy-policy/"],
-                    ["Terms of Use", "https://www.meetdandy.com/terms-of-use/"],
-                    ["Privacy Requests", "https://www.meetdandy.com/privacy-requests/"],
-                    ["Your Privacy Rights", "https://www.meetdandy.com/privacy-rights/"],
-                  ].map(([label, href]) => (
-                    <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
-                  ))}
-                  <li id="ot-sdk-btn" className="ot-sdk-show-settings menu-item menu-item-type-custom menu-item-object-custom menu-item-15259 text-white/50 text-sm hover:text-white/80 transition-colors cursor-pointer"><span className="menu-item-without-link">Do Not Sell or Share My Personal Information</span></li>
-                </ul>
+            {/* Nav columns — DANDY ONLY.
+                ~40 hardcoded meetdandy.com links (products, lab services, DSO
+                solutions). These rendered on EVERY tenant's programmatic page,
+                so a non-dental customer's live page carried a Dandy sitemap in
+                its footer. The colours here were already brand-driven, which is
+                why the colour-based no-leak specs never caught it. Non-Dandy
+                tenants keep the logo + copyright + social row below, which is
+                brand-driven end to end. */}
+            {isDandyTenant && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-10 flex-1">
+                <div>
+                  <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Dandy</p>
+                  <ul className="space-y-2.5">
+                    {[
+                      ["Home", "https://www.meetdandy.com/"],
+                      ["Pricing", "https://www.meetdandy.com/pricing/"],
+                      ["Get in touch", "https://www.meetdandy.com/get-in-touch/"],
+                      ["Dandy Reviews", "https://www.meetdandy.com/reviews/"],
+                      ["Careers", "https://www.meetdandy.com/careers/"],
+                      ["Privacy Policy", "https://www.meetdandy.com/privacy-policy/"],
+                      ["Terms of Use", "https://www.meetdandy.com/terms-of-use/"],
+                      ["Privacy Requests", "https://www.meetdandy.com/privacy-requests/"],
+                      ["Your Privacy Rights", "https://www.meetdandy.com/privacy-rights/"],
+                    ].map(([label, href]) => (
+                      <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
+                    ))}
+                    <li id="ot-sdk-btn" className="ot-sdk-show-settings menu-item menu-item-type-custom menu-item-object-custom menu-item-15259 text-white/50 text-sm hover:text-white/80 transition-colors cursor-pointer"><span className="menu-item-without-link">Do Not Sell or Share My Personal Information</span></li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Products & Technology</p>
+                  <ul className="space-y-2.5">
+                    {[
+                      ["Vision Scanner & Cart", "https://www.meetdandy.com/vision-scanner/"],
+                      ["Chairside", "https://www.meetdandy.com/chairside/"],
+                      ["Lab Services", "https://www.meetdandy.com/lab-services/"],
+                      ["Posterior Crown and Bridge", "https://www.meetdandy.com/posterior-crown-and-bridge/"],
+                      ["Partial Dentures", "https://www.meetdandy.com/partial-dentures/"],
+                      ["Digital Dentures", "https://www.meetdandy.com/digital-dentures/"],
+                      ["Implant Solutions", "https://www.meetdandy.com/implant-solutions/"],
+                      ["Splints and Guards", "https://www.meetdandy.com/splints-and-guards/"],
+                      ["Dandy Clear Aligners", "https://www.meetdandy.com/clear-aligners/"],
+                      ["Sleep Apnea", "https://www.meetdandy.com/sleep-apnea/"],
+                    ].map(([label, href]) => (
+                      <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Practices</p>
+                  <ul className="space-y-2.5">
+                    {[
+                      ["Private Practice", "https://www.meetdandy.com/solutions/private-practice/"],
+                      ["Group Practice", "https://www.meetdandy.com/solutions/group-practice/"],
+                      ["DSO", "https://www.meetdandy.com/solutions/dso/"],
+                      ["Refer a Practice", "https://www.meetdandy.com/refer/"],
+                      ["Login", "https://app.meetdandy.com/"],
+                    ].map(([label, href]) => (
+                      <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Resources</p>
+                  <ul className="space-y-2.5">
+                    {[
+                      ["Learning Center", "https://www.meetdandy.com/learning-center/"],
+                      ["Articles", "https://www.meetdandy.com/articles/"],
+                      ["Webinars", "https://www.meetdandy.com/webinars/"],
+                      ["eBooks", "https://www.meetdandy.com/ebooks/"],
+                      ["Lab Product Catalog", "https://www.meetdandy.com/lab-product-catalog/"],
+                      ["Newsroom", "https://www.meetdandy.com/newsroom/"],
+                    ].map(([label, href]) => (
+                      <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Products & Technology</p>
-                <ul className="space-y-2.5">
-                  {[
-                    ["Vision Scanner & Cart", "https://www.meetdandy.com/vision-scanner/"],
-                    ["Chairside", "https://www.meetdandy.com/chairside/"],
-                    ["Lab Services", "https://www.meetdandy.com/lab-services/"],
-                    ["Posterior Crown and Bridge", "https://www.meetdandy.com/posterior-crown-and-bridge/"],
-                    ["Partial Dentures", "https://www.meetdandy.com/partial-dentures/"],
-                    ["Digital Dentures", "https://www.meetdandy.com/digital-dentures/"],
-                    ["Implant Solutions", "https://www.meetdandy.com/implant-solutions/"],
-                    ["Splints and Guards", "https://www.meetdandy.com/splints-and-guards/"],
-                    ["Dandy Clear Aligners", "https://www.meetdandy.com/clear-aligners/"],
-                    ["Sleep Apnea", "https://www.meetdandy.com/sleep-apnea/"],
-                  ].map(([label, href]) => (
-                    <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Practices</p>
-                <ul className="space-y-2.5">
-                  {[
-                    ["Private Practice", "https://www.meetdandy.com/solutions/private-practice/"],
-                    ["Group Practice", "https://www.meetdandy.com/solutions/group-practice/"],
-                    ["DSO", "https://www.meetdandy.com/solutions/dso/"],
-                    ["Refer a Practice", "https://www.meetdandy.com/refer/"],
-                    ["Login", "https://app.meetdandy.com/"],
-                  ].map(([label, href]) => (
-                    <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Resources</p>
-                <ul className="space-y-2.5">
-                  {[
-                    ["Learning Center", "https://www.meetdandy.com/learning-center/"],
-                    ["Articles", "https://www.meetdandy.com/articles/"],
-                    ["Webinars", "https://www.meetdandy.com/webinars/"],
-                    ["eBooks", "https://www.meetdandy.com/ebooks/"],
-                    ["Lab Product Catalog", "https://www.meetdandy.com/lab-product-catalog/"],
-                    ["Newsroom", "https://www.meetdandy.com/newsroom/"],
-                  ].map(([label, href]) => (
-                    <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Bottom bar */}

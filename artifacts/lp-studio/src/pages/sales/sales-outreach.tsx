@@ -699,7 +699,7 @@ function SingleSendTab() {
                   __html: sanitizeHtml(buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined, bannerUrl, chrome })
                     .replace(/\{\{first_name\}\}/g, selectedContact?.firstName ?? "Sarah")
                     .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
-                    .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
+                    .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Corp")
                     .replace(/\{\{microsite_url\}\}/g, "https://example.com/p/abc12345")
                     .replace(/\{\{sender_name\}\}/g, senderName || brand.brandName || "")),
                 }}
@@ -709,7 +709,7 @@ function SingleSendTab() {
                 {bodyText
                   .replace(/\{\{first_name\}\}/g, selectedContact?.firstName ?? "Sarah")
                   .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
-                  .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
+                  .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Corp")
                   .replace(/\{\{microsite_url\}\}/g, "https://example.com/p/abc12345")
                   .replace(/\{\{sender_name\}\}/g, senderName || brand.brandName || "")}
               </pre>

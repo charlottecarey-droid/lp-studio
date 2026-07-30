@@ -580,7 +580,7 @@ export default function ProgrammaticPages() {
                                 <tr key={idx} className="border-b">
                                   <td className="px-2 py-1.5">
                                     <Input
-                                      placeholder="e.g. austin-dentists"
+                                      placeholder="e.g. austin-plumbers"
                                       value={row.slug}
                                       onChange={e => updateBulkRow(idx, "slug", e.target.value)}
                                       className="h-8 text-sm"

@@ -353,7 +353,7 @@ function NewWorkspaceModal({
                   <Input
                     value={name}
                     onChange={e => handleNameChange(e.target.value)}
-                    placeholder="Acme Dental Group"
+                    placeholder="Acme Corp"
                     required
                     className="h-8 text-sm"
                   />
@@ -363,7 +363,7 @@ function NewWorkspaceModal({
                   <Input
                     value={slug}
                     onChange={e => { setSlug(e.target.value); setSlugTouched(true); }}
-                    placeholder="acme-dental"
+                    placeholder="acme-corp"
                     required
                     className="h-8 text-sm font-mono"
                   />

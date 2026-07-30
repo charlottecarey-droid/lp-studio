@@ -253,7 +253,7 @@ export function AdCopyDialog({ open, onClose, pageId, pageTitle }: AdCopyDialogP
             <Input
               value={audience}
               onChange={(e) => setAudience(e.target.value)}
-              placeholder="e.g. DSO operations leaders evaluating new clinical AI"
+              placeholder="e.g. operations leaders evaluating new AI tooling"
               className="h-8 text-xs"
             />
           </div>

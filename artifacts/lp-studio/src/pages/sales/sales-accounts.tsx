@@ -43,6 +43,9 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import DraftEmailModal from "./DraftEmailModal";
 import { SalesLayout } from "@/components/layout/sales-layout";
@@ -2657,12 +2660,25 @@ function AccountDetailView({ id }: { id: string }) {
    * import / CRM sync, but plenty of accounts have none, so it has to be
    * settable here. Empty clears it back to null.
    */
-  const [editingSegment, setEditingSegment] = useState(false);
-  const [segmentInput, setSegmentInput] = useState("");
-  async function saveSegment() {
+  /** The tenant's audience segments from Brand Settings — the source of truth
+   *  for what a segment can be, so this is a picked list rather than free text
+   *  and the agenda builder matches on the same vocabulary. */
+  const [brandSegments, setBrandSegments] = useState<string[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/brand`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((brand: Record<string, unknown>) => {
+        const config = (brand.config ?? brand) as Record<string, unknown>;
+        const segs = Array.isArray(config.segments) ? config.segments : [];
+        setBrandSegments(
+          segs.map((x) => (x as { name?: string })?.name).filter((n): n is string => Boolean(n?.trim())),
+        );
+      })
+      .catch(() => {});
+  }, []);
+  async function saveSegment(raw: string) {
     if (!account) return;
-    const value = segmentInput.trim();
-    setEditingSegment(false);
+    const value = raw.trim();
     if (value === (account.segment ?? "")) return;
     const res = await fetch(`${API_BASE}/sales/accounts/${id}`, {
       method: "PATCH",
@@ -2954,28 +2970,31 @@ function AccountDetailView({ id }: { id: string }) {
                   didn't already have one. */}
               <div className="p-3 rounded-xl bg-muted/40">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Segment</p>
-                {editingSegment ? (
-                  <Input
-                    autoFocus
-                    className="h-7 mt-1 text-sm"
-                    value={segmentInput}
-                    onChange={(e) => setSegmentInput(e.target.value)}
-                    onBlur={() => void saveSegment()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); void saveSegment(); }
-                      if (e.key === "Escape") setEditingSegment(false);
-                    }}
-                    placeholder="e.g. General Contractors"
-                  />
+                {/* Picked from Brand Settings → Audience segments, so the
+                    agenda builder and this record can't drift apart. If the
+                    list is empty the segment can't be set here yet — the link
+                    says where to add one. */}
+                {brandSegments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {account.segment ?? (
+                      <>No segments defined — add them in <a className="underline" href="/brand-settings">Brand Settings</a>.</>
+                    )}
+                  </p>
                 ) : (
-                  <button
-                    type="button"
-                    className="text-sm font-semibold text-foreground mt-1 text-left hover:underline"
-                    onClick={() => { setSegmentInput(account.segment ?? ""); setEditingSegment(true); }}
-                    title="Used by the event agenda builder to match sessions to this account"
+                  <Select
+                    value={account.segment ?? "__none__"}
+                    onValueChange={(v) => void saveSegment(v === "__none__" ? "" : v)}
                   >
-                    {account.segment ?? <span className="text-muted-foreground font-normal">Set segment</span>}
-                  </button>
+                    <SelectTrigger className="h-7 mt-1 text-sm border-0 bg-transparent px-0 focus:ring-0">
+                      <SelectValue placeholder="Set segment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No segment</SelectItem>
+                      {brandSegments.map((name) => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
               {account.industry && (

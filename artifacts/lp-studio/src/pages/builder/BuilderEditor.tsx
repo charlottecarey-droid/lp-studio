@@ -3587,7 +3587,7 @@ export default function BuilderEditor() {
                 className="mt-1.5"
                 value={templateLabel}
                 onChange={e => setTemplateLabel(e.target.value)}
-                placeholder="e.g. DSO Dark Enterprise Skin"
+                placeholder="e.g. Dark Enterprise Skin"
                 autoFocus
               />
             </div>
@@ -3596,7 +3596,7 @@ export default function BuilderEditor() {
               <textarea
                 className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 rows={2}
-                placeholder="e.g. Dark-mode enterprise skin for large regional DSOs"
+                placeholder="e.g. Dark-mode skin for large enterprise accounts"
                 value={templateDescription}
                 onChange={e => setTemplateDescription(e.target.value)}
               />
@@ -4414,7 +4414,7 @@ function PageAccountNameSection({
           onChange={e => setValue(e.target.value)}
           onBlur={commit}
           onKeyDown={e => { if (e.key === "Enter") commit(); }}
-          placeholder="Pacific Dental Alliance"
+          placeholder="Acme Corp"
           className="h-8 text-xs"
         />
         <p className="text-[10px] text-muted-foreground leading-relaxed">

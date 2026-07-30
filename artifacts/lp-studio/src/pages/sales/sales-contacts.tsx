@@ -190,7 +190,7 @@ const CSV_TEMPLATE_HEADERS = [
 
 const CSV_TEMPLATE_EXAMPLE = [
   "0015d00003WBzFNAA1",  // sfdcAccountId
-  "Acme Dental Group",   // accountName
+  "Acme Corp",   // accountName
   "acmedental.com",      // accountDomain
   "Jane Doe",            // accountOwner
   "Consideration",       // accountAbmStage
