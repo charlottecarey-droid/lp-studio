@@ -21,17 +21,28 @@ import { getMicrositeTemplateCompatibility } from "@workspace/lp-template-engine
 //     enable/rename overrides from lp_microsite_template_overrides; owned
 //     rows use their own columns.
 
+//   - includeTemplateId: force ONE specific template into the result even when
+//     the curation filters above would drop it. For "Customize with AI" the rep
+//     has already pointed at a template, and the Sales Template Library shows a
+//     wider set than the microsite dropdown curates — without this, clicking
+//     Customize on a template outside the curated set silently preselected
+//     nothing and generated a page from scratch. Explicit intent beats a
+//     curation default. It does NOT beat governance: a template marketing has
+//     explicitly disabled for microsites stays out.
+
 export interface TemplateListingOpts {
   ownedOnly?: boolean;
   salesMode?: boolean;
   forMicrosite?: boolean;
+  /** Force this template into the result if the tenant may use it. See above. */
+  includeTemplateId?: number | null;
 }
 
 export async function listTemplatesForTenant(
   tenantId: number,
   opts: TemplateListingOpts = {},
 ): Promise<Array<typeof lpPagesTable.$inferSelect>> {
-  const { ownedOnly = false, salesMode = false, forMicrosite = false } = opts;
+  const { ownedOnly = false, salesMode = false, forMicrosite = false, includeTemplateId = null } = opts;
 
   // The first block's type — business-case templates are single-block
   // "monograph" documents whose first (only) block is business-case-*.
@@ -96,9 +107,46 @@ export async function listTemplatesForTenant(
     return ov?.label ? { ...t, templateLabel: ov.label } : t;
   });
 
-  if (!forMicrosite) return withOverrides;
+  /**
+   * Add the explicitly-requested template back if the filters dropped it.
+   *
+   * Guarded by the same rules the list uses, just applied to one row: the
+   * tenant must be able to see it (own it, or it's global), it must be a
+   * template, and it must not be EXPLICITLY disabled for microsites — a
+   * marketing "off" switch is a decision, not a default, so a rep can't route
+   * around it by clicking Customize.
+   */
+  const withRequested = async (
+    list: Array<typeof lpPagesTable.$inferSelect>,
+  ): Promise<Array<typeof lpPagesTable.$inferSelect>> => {
+    if (includeTemplateId == null || list.some((t) => t.id === includeTemplateId)) return list;
+    const [row] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.id, includeTemplateId), eq(lpPagesTable.isTemplate, true)));
+    if (!row) return list;
+    const visibleToTenant = row.isGlobal || row.tenantId === tenantId;
+    if (!visibleToTenant) return list;
+    if (row.isGlobal) {
+      const ov = overrideByTemplateId.get(row.id)
+        ?? (await db
+          .select()
+          .from(micrositeTemplateOverridesTable)
+          .where(and(
+            eq(micrositeTemplateOverridesTable.tenantId, tenantId),
+            eq(micrositeTemplateOverridesTable.templateId, row.id),
+          )))[0];
+      if (ov?.enabled === false) return list;
+      if (ov?.label) return [...list, { ...row, templateLabel: ov.label }];
+    } else if (row.micrositeEnabled === false) {
+      return list;
+    }
+    return [...list, row];
+  };
 
-  return withOverrides.filter((t) => {
+  if (!forMicrosite) return withRequested(withOverrides);
+
+  return withRequested(withOverrides.filter((t) => {
     // Built-in template: tenant override wins, else compatibility default.
     if (t.isGlobal) {
       const ov = overrideByTemplateId.get(t.id);
@@ -114,5 +162,5 @@ export async function listTemplatesForTenant(
     return getMicrositeTemplateCompatibility(
       blocks as ReadonlyArray<{ type?: unknown }>,
     ).compatible;
-  });
+  }));
 }

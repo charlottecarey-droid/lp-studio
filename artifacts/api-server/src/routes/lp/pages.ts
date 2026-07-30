@@ -376,9 +376,17 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
     // create-microsite dropdown (task #1219). Effective = explicit
     // micrositeEnabled override, else the computed compatibility default.
     const forMicrosite = String(req.query.forMicrosite ?? "").toLowerCase() === "true";
+    // includeId: force one specific template into the result even if the
+    // curation filters would drop it — the "Customize with AI" handoff, where
+    // the rep has already picked a template that the microsite dropdown
+    // doesn't curate. Governance still wins (see listTemplatesForTenant).
+    const includeRaw = Number(req.query.includeId);
+    const includeTemplateId = Number.isInteger(includeRaw) && includeRaw > 0 ? includeRaw : null;
     // Filtering logic lives in lib/templateListing.ts so the Salesforce
     // microsite-button choice sync (Task #1448) shows the exact same set.
-    const result = await listTemplatesForTenant(tenantId, { ownedOnly, salesMode, forMicrosite });
+    const result = await listTemplatesForTenant(tenantId, {
+      ownedOnly, salesMode, forMicrosite, includeTemplateId,
+    });
     res.json(result);
   } catch (err) {
     console.error("GET /lp/templates error:", String(err));

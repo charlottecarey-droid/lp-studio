@@ -154,6 +154,9 @@ export function GenerateMicrositeModal({
   const [hotlinkCount, setHotlinkCount] = useState(0);
   const [marketingTemplates, setMarketingTemplates] = useState<MarketingTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<MarketingTemplate | null>(null);
+  /** The "Customize with AI" seed couldn't be offered — shown rather than
+   *  silently generating from scratch. */
+  const [seedUnavailable, setSeedUnavailable] = useState(false);
   const [ctaMode, setCtaMode] = useState<"url" | "chilipiper">("url");
   const [ctaUrl, setCtaUrl] = useState("");
   const [salesReps, setSalesReps] = useState<SalesRep[]>([]);
@@ -215,17 +218,31 @@ export function GenerateMicrositeModal({
       // Reps see use cases marketing has enabled for microsites (forMicrosite)
       // owned by their own tenant PLUS the global flagship use cases (salesMode).
       // Generic off-brand global starters stay hidden.
-      fetch(`${API_BASE}/lp/templates?salesMode=true&forMicrosite=true`).then(r => r.json()).catch(() => []),
+      // includeId: the Sales Template Library lists a WIDER set than this
+      // dropdown curates, so a template the rep clicked Customize on may not
+      // be in the curated set. Asking for it explicitly keeps the eligibility
+      // rules on the server instead of forking them here.
+      fetch(
+        `${API_BASE}/lp/templates?salesMode=true&forMicrosite=true`
+        + (initialTemplateId != null ? `&includeId=${initialTemplateId}` : ""),
+      ).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/lp/library/team_member`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/lp/brand`).then(r => r.json()).catch(() => ({})),
     ]).then(([templates, reps, brand]: [MarketingTemplate[], SalesRep[], Record<string, unknown>]) => {
       const tplList = Array.isArray(templates) ? templates : [];
       setMarketingTemplates(tplList);
       // Sales Template Library "Customize with AI" handoff: preselect the
-      // clicked template as the use case when it's microsite-eligible. Falls
-      // back cleanly (no preselection) when the template isn't in the list.
+      // clicked template. If it still isn't available — marketing has disabled
+      // it for microsites — SAY SO. Silently falling back to no selection is
+      // what made this look broken: the rep picked a template and got a page
+      // generated from scratch with no indication why.
       if (initialTemplateId != null) {
-        setSelectedTemplate(tplList.find(t => t.id === initialTemplateId) ?? null);
+        const seed = tplList.find(t => t.id === initialTemplateId) ?? null;
+        setSelectedTemplate(seed);
+        setSeedUnavailable(seed === null);
+      } else {
+        // Standalone launch — clear any notice left from a previous open.
+        setSeedUnavailable(false);
       }
       setSalesReps(Array.isArray(reps) ? reps : []);
       const brandConfig = (brand.config ?? brand) as Record<string, unknown>;
@@ -806,6 +823,7 @@ export function GenerateMicrositeModal({
                     onChange={(e) => {
                       const id = e.target.value ? Number(e.target.value) : null;
                       setSelectedTemplate(id !== null ? marketingTemplates.find(t => t.id === id) ?? null : null);
+                      setSeedUnavailable(false);
                     }}
                     aria-label="Use case template"
                     className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
@@ -819,6 +837,13 @@ export function GenerateMicrositeModal({
                   </select>
                   <ChevronDown className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
                 </div>
+                {seedUnavailable && (
+                  <p className="text-[11px] text-amber-700">
+                    The template you picked isn&rsquo;t available for microsites — it&rsquo;s
+                    turned off in the microsite template settings. Pick another starting
+                    point, or generate from scratch.
+                  </p>
+                )}
               </div>
             )}
 
