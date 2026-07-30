@@ -36,6 +36,7 @@ import { SalesAssistantBar } from "@/components/sales/SalesAssistantBar";
 import dandyLogo from "@/assets/dandy-logo.svg";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import { isRoiCalculatorEnabled } from "@/lib/roi-vocabulary";
 
 /**
  * Task #320 — the Sales Console top nav has a dark green background
@@ -300,13 +301,22 @@ export function SalesTopNav() {
       permission: "sales_campaigns",
       matchFn: (loc) => loc === "/sales/campaigns" || loc.startsWith("/sales/campaigns"),
     },
-    {
-      label: "ROI Calculator",
-      href: "/sales/roi-calculator",
-      icon: <Calculator className="w-4 h-4" />,
-      permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/roi-calculator",
-    },
+    // Hidden when a tenant turns the calculator off in Brand Settings. It's
+    // opt-OUT: the models (time recovered, rework avoided) apply to any
+    // business now that the wording is configurable, so only a deliberate
+    // "not for us" removes it.
+    ...(isRoiCalculatorEnabled(
+      (brand as { roiCalculator?: Parameters<typeof isRoiCalculatorEnabled>[0] }).roiCalculator,
+      brand.isDandy === true,
+    )
+      ? [{
+          label: "ROI Calculator",
+          href: "/sales/roi-calculator",
+          icon: <Calculator className="w-4 h-4" />,
+          permission: "sales_accounts" as const,
+          matchFn: (loc: string) => loc === "/sales/roi-calculator",
+        }]
+      : []),
     {
       label: "Events",
       href: "/sales/events",

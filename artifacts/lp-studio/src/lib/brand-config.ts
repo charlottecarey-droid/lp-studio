@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { toFontFamilyValue, cleanFamilyName } from "./font-catalog";
 import type { BackgroundPresetLabels, BackgroundPresetColors } from "./bg-styles";
 import { BACKGROUND_STYLE_KEYS } from "./bg-styles";
+import type { RoiCalculatorConfig } from "./roi-vocabulary";
 import type { FormStyling } from "./form-styling";
 import type { BrandPdfFonts, EmbeddedFontFaces } from "@workspace/one-pager-types/generators";
 import { DEFAULT_HEAT_SCORING, type HeatScoringConfig } from "./heat-tier";
@@ -339,6 +340,9 @@ export interface BrandConfig {
   copyInstructions: string;
   productLines: ProductLine[];
   segments: AudienceSegment[];
+  /** ROI calculator wording + starting numbers. Absent = neutral defaults
+   *  (dental for Dandy). See lib/roi-vocabulary.ts. */
+  roiCalculator?: RoiCalculatorConfig;
   /**
    * Default microsite block list used when the selected segment has no
    * `micrositeBlockList` of its own. When this is also unset, the

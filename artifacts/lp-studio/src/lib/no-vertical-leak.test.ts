@@ -66,15 +66,14 @@ const ALLOWED_LINE = new RegExp([
 ].join("|"));
 
 /**
- * The ROI calculator is a dental tool end to end — it models remakes, chair
- * time and denture production, and its non-Dandy branch still says "across
- * your practices". Neutralising the WORDS would be worse than leaving them:
- * the page would read generic while computing dental economics. It needs an
- * industry gate (hide the nav entry for non-dental tenants), which is a
- * product decision, so it's excluded here rather than silently reworded.
+ * Files whose vertical-specific wording is correct where it sits.
+ *
+ * The ROI calculator USED to be listed here. It no longer is: its two models
+ * (time recovered, rework avoided) turned out to be industry-neutral
+ * arithmetic wearing dental nouns, so the nouns moved into a configurable
+ * vocabulary (lib/roi-vocabulary.ts) and the page is scanned like any other.
  */
 const KNOWN_VERTICAL_TOOLS = [
-  "sales-roi-calculator.tsx",
   // Property panels for the dental-specific blocks themselves (BlockDso*,
   // BlockDandy*). A panel that edits a "DSO practice nav" block is correctly
   // dental — it only appears when that block is on the canvas. PropertyPanel
@@ -82,8 +81,8 @@ const KNOWN_VERTICAL_TOOLS = [
   // panels with the dental blocks' own, and a line-level scan can't separate
   // them honestly.
   "DsoPracticeNavPanel.tsx",
-  // The in-app sales guide DOCUMENTS the vertical tools above (it explains the
-  // denture/ROI models), so it inherits their exclusion.
+  // The in-app sales guide names Dandy's own denture/ROI presets when
+  // describing what the calculator can model.
   "sales-guide.tsx",
   "PropertyPanel.tsx",
 ];

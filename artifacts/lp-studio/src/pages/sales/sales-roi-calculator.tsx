@@ -1,4 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import {
+  resolveRoiVocabulary,
+  resolveRoiDefaults,
+  computeTimeSaved,
+  computeReworkAvoided,
+  type RoiCalculatorConfig,
+} from "@/lib/roi-vocabulary";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { ChevronDown, Download } from "lucide-react";
@@ -64,25 +71,25 @@ interface DSOAccount {
 const SalesRoiCalculator = () => {
   const [location] = useLocation();
   const [accountName, setAccountName] = useState<string>("");
-  const [showDentureAdvanced, setShowDentureAdvanced] = useState(false);
+  const [showTimeAdvanced, setShowTimeAdvanced] = useState(false);
 
   // Denture inputs
-  const [dentureCases, setDentureCases] = useState(150);
+  const [modelAVolume, setModelAVolume] = useState(150);
   const [scenario, setScenario] = useState<Scenario>("medium");
-  const [avgMinPerAppt, setAvgMinPerAppt] = useState(30);
+  const [minutesPerStep, setMinutesPerStep] = useState(30);
   const [workingDays, setWorkingDays] = useState(20);
-  const [prodPerHour, setProdPerHour] = useState(500);
+  const [revenuePerHour, setRevenuePerHour] = useState(500);
   const [pctReinvested, setPctReinvested] = useState(75);
-  const [reinvestProdPerHr, setReinvestProdPerHr] = useState(750);
+  const [reinvestRevenuePerHour, setReinvestRevenuePerHour] = useState(750);
 
   // Fixed resto inputs
-  const [restoCases, setRestoCases] = useState(250);
-  const [avgCaseValue, setAvgCaseValue] = useState(1500);
-  const [currentRemakeRate, setCurrentRemakeRate] = useState(5);
-  const [improvedRemakeRate, setImprovedRemakeRate] = useState(2);
-  const [chairTimePerAppt, setChairTimePerAppt] = useState(1);
-  const [labCostPerCase, setLabCostPerCase] = useState(50);
-  const [restoProdPerHour, setRestoProdPerHour] = useState(500);
+  const [modelBVolume, setModelBVolume] = useState(250);
+  const [unitValue, setUnitValue] = useState(1500);
+  const [currentReworkRate, setCurrentReworkRate] = useState(5);
+  const [improvedReworkRate, setImprovedReworkRate] = useState(2);
+  const [hoursPerRework, setHoursPerRework] = useState(1);
+  const [hardCostPerUnit, setHardCostPerUnit] = useState(50);
+  const [modelBRevenuePerHour, setModelBRevenuePerHour] = useState(500);
 
   const [practices, setPractices] = useState(1);
 
@@ -103,6 +110,21 @@ const SalesRoiCalculator = () => {
   // slug), NOT the editable `brandName` — renaming the workspace to "Dandy"
   // must not pull Dandy-only copy back into the calculator.
   const isDandy = brand.isDandy === true;
+  /**
+   * Every noun on this page comes from here. The ARITHMETIC was never dental —
+   * both models are "time recovered" and "rework avoided", which any business
+   * has — so a tenant relabels it for their vertical instead of getting
+   * someone else's. Dandy's preset keeps their page exactly as it was.
+   */
+  const roiDefaults = useMemo(
+    () => resolveRoiDefaults((brand as { roiCalculator?: RoiCalculatorConfig }).roiCalculator),
+    [brand],
+  );
+  const voc = useMemo(
+    () => resolveRoiVocabulary((brand as { roiCalculator?: RoiCalculatorConfig }).roiCalculator, isDandy),
+    [brand, isDandy],
+  );
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const brandSlug = (brand.brandName || "report")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -119,46 +141,63 @@ const SalesRoiCalculator = () => {
     }
   }, []);
 
+  /**
+   * Seed the inputs from the tenant's configured starting numbers. The brand
+   * config arrives async, so state starts on the shipped defaults; this runs
+   * ONCE, and only while the form is still untouched, so it can never
+   * overwrite what a rep has already typed.
+   */
+  const [seededFromConfig, setSeededFromConfig] = useState(false);
+  useEffect(() => {
+    if (seededFromConfig || brand === DEFAULT_BRAND) return;
+    setSeededFromConfig(true);
+    setModelAVolume(roiDefaults.modelAVolume);
+    setMinutesPerStep(roiDefaults.minutesPerUnit);
+    setWorkingDays(roiDefaults.workingDays);
+    setRevenuePerHour(roiDefaults.revenuePerHour);
+    setPctReinvested(roiDefaults.pctReinvested);
+    setReinvestRevenuePerHour(roiDefaults.reinvestRevenuePerHour);
+    setModelBVolume(roiDefaults.modelBVolume);
+    setUnitValue(roiDefaults.unitValue);
+    setCurrentReworkRate(roiDefaults.currentReworkRate);
+    setImprovedReworkRate(roiDefaults.improvedReworkRate);
+    setHoursPerRework(roiDefaults.hoursPerRework);
+    setHardCostPerUnit(roiDefaults.hardCostPerUnit);
+    setModelBRevenuePerHour(roiDefaults.modelBRevenuePerHour);
+    setPractices(roiDefaults.sites);
+  }, [brand, roiDefaults, seededFromConfig]);
+
   const apptsSaved = scenarioApptsSaved[scenario];
 
-  const denture = useMemo(() => {
-    const apptsFreed = dentureCases * apptsSaved;
-    const chairMinFreed = apptsFreed * avgMinPerAppt;
-    const chairHrsFreed = chairMinFreed / 60;
-    const chairHrsPerDay = chairHrsFreed / workingDays;
-    const incProdMonth = chairHrsFreed * prodPerHour;
-    const incProdYear = incProdMonth * 12;
-    const reinvestedHrs = chairHrsFreed * (pctReinvested / 100);
-    const reinvestProdMonth = reinvestedHrs * reinvestProdPerHr;
-    return { apptsFreed, chairHrsFreed, chairHrsPerDay, incProdMonth, incProdYear, reinvestedHrs, reinvestProdMonth };
-  }, [dentureCases, apptsSaved, avgMinPerAppt, workingDays, prodPerHour, pctReinvested, reinvestProdPerHr]);
+  // The maths lives in lib/roi-vocabulary.ts so the page renders results it
+  // doesn't compute — one implementation, covered by unit tests.
+  const timeSaved = useMemo(
+    () => computeTimeSaved({
+      volume: modelAVolume,
+      unitsSavedPer: apptsSaved,
+      minutesPerUnitSaved: minutesPerStep,
+      workingDays,
+      revenuePerHour,
+      pctReinvested,
+      reinvestRevenuePerHour,
+    }),
+    [modelAVolume, apptsSaved, minutesPerStep, workingDays, revenuePerHour, pctReinvested, reinvestRevenuePerHour],
+  );
 
-  const resto = useMemo(() => {
-    const currentRemakes = restoCases * (currentRemakeRate / 100);
-    const improvedRemakes = restoCases * (improvedRemakeRate / 100);
-    const remakesAvoided = currentRemakes - improvedRemakes;
-    const recoveredProdMonth = remakesAvoided * avgCaseValue;
-    const recoveredProdYear = recoveredProdMonth * 12;
-    const chairTimeSavedMonth = remakesAvoided * chairTimePerAppt;
-    const chairTimeSavedYear = chairTimeSavedMonth * 12;
-    // Hard cost savings extrapolate across ALL cases, not just remakes —
-    // switching labs eliminates the per-case hard cost on every case shipped.
-    // (e.g. $8/case × 900 cases/mo × 12 = $86,400/year)
-    const labCostsAvoidedMonth = restoCases * labCostPerCase;
-    const labCostsAvoidedYear = labCostsAvoidedMonth * 12;
-    const opptyProdMonth = chairTimeSavedMonth * restoProdPerHour;
-    const opptyProdYear = opptyProdMonth * 12;
-    const totalUpsideYear = recoveredProdYear + labCostsAvoidedYear + opptyProdYear;
-    return {
-      currentRemakes, improvedRemakes, remakesAvoided,
-      recoveredProdMonth, recoveredProdYear,
-      chairTimeSavedMonth, chairTimeSavedYear,
-      labCostsAvoidedMonth, labCostsAvoidedYear,
-      opptyProdMonth, opptyProdYear, totalUpsideYear,
-    };
-  }, [restoCases, currentRemakeRate, improvedRemakeRate, avgCaseValue, chairTimePerAppt, labCostPerCase, restoProdPerHour]);
+  const reworkSaved = useMemo(
+    () => computeReworkAvoided({
+      volume: modelBVolume,
+      currentRatePct: currentReworkRate,
+      improvedRatePct: improvedReworkRate,
+      unitValue,
+      hoursPerRework,
+      hardCostPerUnit,
+      revenuePerHour: modelBRevenuePerHour,
+    }),
+    [modelBVolume, currentReworkRate, improvedReworkRate, unitValue, hoursPerRework, hardCostPerUnit, modelBRevenuePerHour],
+  );
 
-  const totalAnnualUpside = (denture.incProdYear + resto.totalUpsideYear) * practices;
+  const totalAnnualUpside = (timeSaved.revenueYear + reworkSaved.totalUpsideYear) * practices;
 
   const exportPDF = useCallback(() => {
     // Task #342 — for non-Dandy tenants, load the brand's logo (if any) and
@@ -244,12 +283,12 @@ const SalesRoiCalculator = () => {
       doc.setFontSize(15);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...white);
-      doc.text(isDandy ? "DSO ROI Calculator" : "ROI Calculator", marginL, 75);
+      doc.text(voc.title, marginL, 75);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(180, 210, 195);
       doc.text(
-        `${practices} practice${practices > 1 ? "s" : ""} · ${scenario} scenario · ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`,
+        `${practices} ${practices > 1 ? voc.sitePlural : voc.site} · ${scenario} scenario · ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`,
         marginL, 90
       );
 
@@ -296,45 +335,45 @@ const SalesRoiCalculator = () => {
         y += 16;
       };
 
-      sectionTitle("Denture Workflow Impact");
+      sectionTitle(voc.modelAName);
       categoryLabel("Inputs");
-      dataRow("Denture Cases / Month", String(dentureCases));
-      dataRow("Scenario", `${scenario.charAt(0).toUpperCase() + scenario.slice(1)} (${apptsSaved} appts saved)`);
-      dataRow("Avg Production / Hour", fmtDollar(prodPerHour));
-      dataRow("Avg Minutes / Appointment", String(avgMinPerAppt));
+      dataRow(voc.modelAVolumeLabel, String(modelAVolume));
+      dataRow("Scenario", `${cap(scenario)} (${apptsSaved} steps saved)`);
+      dataRow("Avg Production / Hour", fmtDollar(revenuePerHour));
+      dataRow("Avg Minutes / Appointment", String(minutesPerStep));
       dataRow("Working Days / Month", String(workingDays));
       spacer(3);
       categoryLabel("Results");
-      dataRow("Appointments Freed / Month", fmt(denture.apptsFreed));
-      dataRow("Chair Hours Freed / Month", fmtDec(denture.chairHrsFreed));
-      dataRow("Incremental Production / Month", fmtDollar(denture.incProdMonth), true);
-      dataRow("Incremental Production / Year", fmtDollar(denture.incProdYear), true);
+      dataRow("Steps Avoided / Month", fmt(timeSaved.eventsFreed));
+      dataRow(`${cap(voc.timeNoun)} Hours Freed / Month`, fmtDec(timeSaved.hoursFreed));
+      dataRow("Incremental Production / Month", fmtDollar(timeSaved.revenueMonth), true);
+      dataRow("Incremental Production / Year", fmtDollar(timeSaved.revenueYear), true);
       spacer(4);
       dividerLine();
 
-      sectionTitle("Fixed Restorations Remake Impact");
+      sectionTitle(voc.modelBName);
       categoryLabel("Inputs");
-      dataRow("Cases / Month", String(restoCases));
-      dataRow("Average Case Value", fmtDollar(avgCaseValue));
-      dataRow("Current Remake Rate", `${currentRemakeRate}%`);
-      dataRow("Improved Remake Rate", `${improvedRemakeRate}%`);
-      dataRow("Avg Chair Time / Case", `${chairTimePerAppt} hr${chairTimePerAppt !== 1 ? "s" : ""}`);
-      dataRow("Avg Lab Hard Cost / Case", fmtDollar(labCostPerCase));
-      dataRow("Avg Production / Hour", fmtDollar(restoProdPerHour));
+      dataRow("Cases / Month", String(modelBVolume));
+      dataRow(voc.unitValueLabel, fmtDollar(unitValue));
+      dataRow(`Current ${cap(voc.rework)} Rate`, `${currentReworkRate}%`);
+      dataRow(`Improved ${cap(voc.rework)} Rate`, `${improvedReworkRate}%`);
+      dataRow(`Avg ${cap(voc.timeNoun)} / ${cap(voc.rework)}`, `${hoursPerRework} hr${hoursPerRework !== 1 ? "s" : ""}`);
+      dataRow(voc.hardCostLabel, fmtDollar(hardCostPerUnit));
+      dataRow("Avg Production / Hour", fmtDollar(modelBRevenuePerHour));
       spacer(3);
       categoryLabel("Results");
-      dataRow("Remakes Avoided / Month", fmtDec(resto.remakesAvoided));
-      dataRow("Recovered Production / Year", fmtDollar(resto.recoveredProdYear));
-      dataRow("Lab Costs Avoided / Year", fmtDollar(resto.labCostsAvoidedYear));
-      dataRow("Opportunity Production / Year", fmtDollar(resto.opptyProdYear), true);
-      dataRow("Resto Total Upside / Year", fmtDollar(resto.totalUpsideYear), true);
+      dataRow(`${cap(voc.reworkPlural)} Avoided / Month`, fmtDec(reworkSaved.reworkAvoided));
+      dataRow("Recovered Production / Year", fmtDollar(reworkSaved.recoveredYear));
+      dataRow(`${voc.hardCostLabel} Avoided / Year`, fmtDollar(reworkSaved.hardCostYear));
+      dataRow("Opportunity Production / Year", fmtDollar(reworkSaved.opportunityYear), true);
+      dataRow("Resto Total Upside / Year", fmtDollar(reworkSaved.totalUpsideYear), true);
       spacer(4);
       dividerLine();
 
       const boxH = 58;
       doc.setFillColor(...darkGreen);
       doc.roundedRect(marginL, y, contentW, boxH, 6, 6, "F");
-      const titleText = `COMBINED ANNUAL UPSIDE${practices > 1 ? ` (${practices} PRACTICES)` : ""}`;
+      const titleText = `COMBINED ANNUAL UPSIDE${practices > 1 ? ` (${practices} ${voc.sitePlural.toUpperCase()})` : ""}`;
       doc.setFontSize(8);
       doc.setTextColor(180, 200, 190);
       doc.setFont("helvetica", "bold");
@@ -352,19 +391,19 @@ const SalesRoiCalculator = () => {
         doc.setFontSize(8);
         doc.setTextColor(180, 200, 190);
         doc.setFont("helvetica", "bold");
-        doc.text("DENTURE", divX + 16, y + 20);
+        doc.text(voc.modelAName.toUpperCase(), divX + 16, y + 20);
         doc.setFontSize(16);
         doc.setTextColor(...lime);
-        doc.text(fmtDollar(denture.incProdYear * practices), divX + 16, y + 42);
+        doc.text(fmtDollar(timeSaved.revenueYear * practices), divX + 16, y + 42);
         const div2X = divX + 140;
         doc.line(div2X, y + 12, div2X, y + 46);
         doc.setFontSize(8);
         doc.setTextColor(180, 200, 190);
         doc.setFont("helvetica", "bold");
-        doc.text("REMAKES", div2X + 16, y + 20);
+        doc.text(voc.reworkPlural.toUpperCase(), div2X + 16, y + 20);
         doc.setFontSize(16);
         doc.setTextColor(...lime);
-        doc.text(fmtDollar(resto.totalUpsideYear * practices), div2X + 16, y + 42);
+        doc.text(fmtDollar(reworkSaved.totalUpsideYear * practices), div2X + 16, y + 42);
       }
 
       y += boxH + 12;
@@ -372,7 +411,7 @@ const SalesRoiCalculator = () => {
       doc.setTextColor(...subtleText);
       doc.setFont("helvetica", "normal");
       doc.text(
-        "Calculations based on per-practice estimates. Actual results may vary based on case mix, clinical workflow, and lab partner quality.",
+        `Calculations based on per-${voc.site} estimates. Actual results may vary with mix, workflow, and supplier quality.`,
         marginL, y
       );
 
@@ -402,12 +441,12 @@ const SalesRoiCalculator = () => {
       }
       doc.setTextColor(...lime);
       doc.setFontSize(8);
-      doc.text(`${practices} practices  •  ${scenario} scenario`, pageW - marginR, pageH - footerH + 22, { align: "right" });
+      doc.text(`${practices} ${voc.sitePlural}  •  ${scenario} scenario`, pageW - marginR, pageH - footerH + 22, { align: "right" });
 
       const filename = isDandy ? "dandy-roi-calculator.pdf" : `${brandSlug}-roi-calculator.pdf`;
       doc.save(filename);
     }
-  }, [practices, scenario, apptsSaved, dentureCases, prodPerHour, avgMinPerAppt, workingDays, denture, restoCases, avgCaseValue, currentRemakeRate, improvedRemakeRate, chairTimePerAppt, labCostPerCase, restoProdPerHour, resto, totalAnnualUpside, isDandy, brand, brandSlug]);
+  }, [practices, scenario, apptsSaved, modelAVolume, revenuePerHour, minutesPerStep, workingDays, timeSaved, modelBVolume, unitValue, currentReworkRate, improvedReworkRate, hoursPerRework, hardCostPerUnit, modelBRevenuePerHour, reworkSaved, totalAnnualUpside, isDandy, brand, brandSlug]);
 
   return (
     <SalesLayout>
@@ -446,9 +485,7 @@ const SalesRoiCalculator = () => {
               transition={{ delay: 0.1 }}
               className="mt-3 text-sm text-muted-foreground max-w-lg mx-auto"
             >
-              {isDandy
-                ? "Estimate the cost of remakes and lost chair time across your DSO."
-                : "Estimate the cost of remakes and lost chair time across your practices."}
+              {voc.subtitle}
             </motion.p>
           </div>
 
@@ -458,7 +495,7 @@ const SalesRoiCalculator = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8 flex items-center justify-center gap-3"
           >
-            <label className="text-[13px] font-medium text-[#2A3A1A]">Number of practices:</label>
+            <label className="text-[13px] font-medium text-[#2A3A1A]">Number of {voc.sitePlural}:</label>
             <input
               type="number"
               min={1}
@@ -481,35 +518,35 @@ const SalesRoiCalculator = () => {
               {/* SECTION 1: Fixed Restoration Remake Impact */}
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-xl font-bold text-[#1A2A1A]" style={{ fontFamily: "'Inter', sans-serif" }}>Fixed Restoration Remake Impact</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Production recovered and costs avoided by reducing remakes.</p>
+                  <h3 className="text-xl font-bold text-[#1A2A1A]" style={{ fontFamily: "'Inter', sans-serif" }}>{voc.modelBName}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{`Revenue recovered and costs avoided by reducing ${voc.reworkPlural}.`}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <InputField label="Cases per Month:" value={restoCases}
-                    onChange={(v) => setRestoCases(Math.max(1, parseInt(v) || 1))} min={1} max={9999} />
-                  <InputField label="Average Case Value ($):" value={avgCaseValue} prefix="$"
-                    onChange={(v) => setAvgCaseValue(parseInt(v) || 0)} min={100} max={10000} />
-                  <InputField label="Current Remake Rate (%):" value={currentRemakeRate} suffix="%"
-                    onChange={(v) => setCurrentRemakeRate(parseFloat(v) || 0)} min={0.5} max={20} step={0.5} />
-                  <InputField label="Improved Remake Rate (%):" value={improvedRemakeRate} suffix="%"
-                    onChange={(v) => setImprovedRemakeRate(parseFloat(v) || 0)} min={0} max={20} step={0.5} />
-                  <InputField label="Avg Chair Time per Case (Hours):" value={chairTimePerAppt}
-                    onChange={(v) => setChairTimePerAppt(parseFloat(v) || 0)} min={0} step={0.5} />
-                  <InputField label="Avg Lab Hard Cost per Case ($):" value={labCostPerCase} prefix="$"
-                    onChange={(v) => setLabCostPerCase(parseInt(v) || 0)} min={0} />
-                  <InputField label="Avg Production per Hour ($):" value={restoProdPerHour} prefix="$"
-                    onChange={(v) => setRestoProdPerHour(parseInt(v) || 0)} min={50} max={5000} />
+                  <InputField label="Cases per Month:" value={modelBVolume}
+                    onChange={(v) => setModelBVolume(Math.max(1, parseInt(v) || 1))} min={1} max={9999} />
+                  <InputField label={`${voc.unitValueLabel} ($):`} value={unitValue} prefix="$"
+                    onChange={(v) => setUnitValue(parseInt(v) || 0)} min={100} max={10000} />
+                  <InputField label={`Current ${voc.rework} rate (%):`} value={currentReworkRate} suffix="%"
+                    onChange={(v) => setCurrentReworkRate(parseFloat(v) || 0)} min={0.5} max={20} step={0.5} />
+                  <InputField label={`Improved ${voc.rework} rate (%):`} value={improvedReworkRate} suffix="%"
+                    onChange={(v) => setImprovedReworkRate(parseFloat(v) || 0)} min={0} max={20} step={0.5} />
+                  <InputField label={`Avg ${voc.timeNoun} per ${voc.rework} (hours):`} value={hoursPerRework}
+                    onChange={(v) => setHoursPerRework(parseFloat(v) || 0)} min={0} step={0.5} />
+                  <InputField label={`${voc.hardCostLabel} ($):`} value={hardCostPerUnit} prefix="$"
+                    onChange={(v) => setHardCostPerUnit(parseInt(v) || 0)} min={0} />
+                  <InputField label="Avg Production per Hour ($):" value={modelBRevenuePerHour} prefix="$"
+                    onChange={(v) => setModelBRevenuePerHour(parseInt(v) || 0)} min={50} max={5000} />
                 </div>
               </div>
 
               {/* Divider */}
               <div className="border-t border-border" />
 
-              {/* SECTION 2: Denture Workflow Impact */}
+              {/* SECTION 2: time-recovered model */}
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-xl font-bold text-[#1A2A1A]" style={{ fontFamily: "'Inter', sans-serif" }}>Denture Workflow Impact</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Chair time freed by reducing intermediate appointments.</p>
+                  <h3 className="text-xl font-bold text-[#1A2A1A]" style={{ fontFamily: "'Inter', sans-serif" }}>{voc.modelAName}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{`${cap(voc.timeNoun)} freed by removing intermediate steps.`}</p>
                 </div>
 
                 {/* Scenario toggle */}
@@ -532,34 +569,34 @@ const SalesRoiCalculator = () => {
                       </button>
                     ))}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1.5">{apptsSaved} appointments saved per case</p>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">{apptsSaved} steps saved per {voc.unit}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <InputField label="Denture Cases / Month:" value={dentureCases}
-                    onChange={(v) => setDentureCases(Math.max(0, parseInt(v) || 0))} min={0} max={9999} />
-                  <InputField label="Avg Production per Hour ($):" value={prodPerHour} prefix="$"
-                    onChange={(v) => setProdPerHour(parseInt(v) || 0)} min={50} max={5000} />
+                  <InputField label={`${voc.modelAVolumeLabel}:`} value={modelAVolume}
+                    onChange={(v) => setModelAVolume(Math.max(0, parseInt(v) || 0))} min={0} max={9999} />
+                  <InputField label="Avg Production per Hour ($):" value={revenuePerHour} prefix="$"
+                    onChange={(v) => setRevenuePerHour(parseInt(v) || 0)} min={50} max={5000} />
                 </div>
 
                 {/* Advanced */}
                 <button
-                  onClick={() => setShowDentureAdvanced(!showDentureAdvanced)}
+                  onClick={() => setShowTimeAdvanced(!showTimeAdvanced)}
                   className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDentureAdvanced ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTimeAdvanced ? "rotate-180" : ""}`} />
                   Advanced settings
                 </button>
-                {showDentureAdvanced && (
+                {showTimeAdvanced && (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 animate-in fade-in-0 slide-in-from-top-2">
-                    <InputField label="Avg Min / Appointment:" value={avgMinPerAppt}
-                      onChange={(v) => setAvgMinPerAppt(parseInt(v) || 30)} min={5} max={120} />
+                    <InputField label="Avg minutes saved per step:" value={minutesPerStep}
+                      onChange={(v) => setMinutesPerStep(parseInt(v) || 30)} min={5} max={120} />
                     <InputField label="Working Days / Month:" value={workingDays}
                       onChange={(v) => setWorkingDays(parseInt(v) || 20)} min={1} max={31} />
                     <InputField label="% Time Reinvested:" value={pctReinvested} suffix="%"
                       onChange={(v) => setPctReinvested(parseInt(v) || 0)} min={0} max={100} />
-                    <InputField label="Prod/Hr Reinvested Time ($):" value={reinvestProdPerHr} prefix="$"
-                      onChange={(v) => setReinvestProdPerHr(parseInt(v) || 0)} min={50} max={5000} />
+                    <InputField label="Prod/Hr Reinvested Time ($):" value={reinvestRevenuePerHour} prefix="$"
+                      onChange={(v) => setReinvestRevenuePerHour(parseInt(v) || 0)} min={50} max={5000} />
                   </div>
                 )}
               </div>
@@ -581,34 +618,34 @@ const SalesRoiCalculator = () => {
                   Your results
                 </h3>
 
-                <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest pt-2">Denture Workflow</p>
-                <ResultRow label="Appointments Freed / Month" value={fmt(denture.apptsFreed)} />
-                <ResultRow label="Chair Hours Freed / Month" value={fmtDec(denture.chairHrsFreed)} />
-                <ResultRow label="Incremental Production / Month ($)" value={fmtDollar(denture.incProdMonth)} highlight />
-                <ResultRow label="Incremental Production / Year ($)" value={fmtDollar(denture.incProdYear)} highlight />
+                <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest pt-2">{voc.modelAName}</p>
+                <ResultRow label="Steps avoided / month" value={fmt(timeSaved.eventsFreed)} />
+                <ResultRow label={`${cap(voc.timeNoun)} hours freed / month`} value={fmtDec(timeSaved.hoursFreed)} />
+                <ResultRow label="Incremental Production / Month ($)" value={fmtDollar(timeSaved.revenueMonth)} highlight />
+                <ResultRow label="Incremental Production / Year ($)" value={fmtDollar(timeSaved.revenueYear)} highlight />
 
                 <div className="border-t border-white/10 my-3" />
 
-                <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest pt-2">Remake Impact</p>
-                <ResultRow label="Remakes Avoided / Month" value={fmtDec(resto.remakesAvoided)} />
-                <ResultRow label="Recovered Production / Year ($)" value={fmtDollar(resto.recoveredProdYear)} />
-                <ResultRow label="Lab Costs Avoided / Year ($)" value={fmtDollar(resto.labCostsAvoidedYear)} />
-                <ResultRow label="Opportunity Production / Year ($)" value={fmtDollar(resto.opptyProdYear)} highlight />
+                <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest pt-2">{voc.modelBName}</p>
+                <ResultRow label={`${cap(voc.reworkPlural)} avoided / month`} value={fmtDec(reworkSaved.reworkAvoided)} />
+                <ResultRow label="Recovered Production / Year ($)" value={fmtDollar(reworkSaved.recoveredYear)} />
+                <ResultRow label={`${voc.hardCostLabel} avoided / year ($)`} value={fmtDollar(reworkSaved.hardCostYear)} />
+                <ResultRow label="Opportunity Production / Year ($)" value={fmtDollar(reworkSaved.opportunityYear)} highlight />
 
                 <div className="border-t border-white/10 my-3" />
 
                 <div className="pt-2">
                   <p className="text-[11px] font-bold text-[var(--brand-accent)] uppercase tracking-wider mb-0.5">
-                    Total Financial Upside / Year ($){practices > 1 ? ` (${practices} practices)` : ""}
+                    Total Financial Upside / Year ($){practices > 1 ? ` (${practices} ${voc.sitePlural})` : ""}
                   </p>
                   <p className="text-3xl md:text-4xl font-bold text-white tracking-tight">
                     {fmtDollar(totalAnnualUpside)}
                   </p>
                   {practices > 1 && (
                     <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-white/50">
-                      <span>Denture: {fmtDollar(denture.incProdYear * practices)}</span>
+                      <span>{voc.modelAName}: {fmtDollar(timeSaved.revenueYear * practices)}</span>
                       <span>•</span>
-                      <span>Remakes: {fmtDollar(resto.totalUpsideYear * practices)}</span>
+                      <span>{voc.modelBName}: {fmtDollar(reworkSaved.totalUpsideYear * practices)}</span>
                     </div>
                   )}
                 </div>

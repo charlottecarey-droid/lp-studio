@@ -59,6 +59,10 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { ImagePicker } from "@/components/ImagePicker";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import {
+  NEUTRAL_ROI_VOCABULARY, DEFAULT_ROI_DEFAULTS,
+  type RoiVocabulary, type RoiDefaults,
+} from "@/lib/roi-vocabulary";
 import { streamBrandImportFromUrl, scrapeBrandImages } from "@/lib/brand-import-client";
 import {
   describeDomainVerification, RESEND_DOMAINS_DASHBOARD_URL,
@@ -2242,6 +2246,41 @@ export default function BrandSettings() {
       if (res.ok) setImportSource(await res.json());
     } catch { /* silent */ }
   }
+
+
+/** The ROI wording a business can rename, with the neutral default as the
+ *  placeholder so it's obvious what a blank field falls back to. */
+const ROI_VOCAB_FIELDS: ReadonlyArray<{ key: keyof RoiVocabulary; label: string; hint: string }> = [
+  { key: "title", label: "Page title", hint: NEUTRAL_ROI_VOCABULARY.title },
+  { key: "subtitle", label: "Subtitle", hint: NEUTRAL_ROI_VOCABULARY.subtitle },
+  { key: "unit", label: "One unit of work", hint: NEUTRAL_ROI_VOCABULARY.unit },
+  { key: "unitPlural", label: "…plural", hint: NEUTRAL_ROI_VOCABULARY.unitPlural },
+  { key: "site", label: "One site", hint: NEUTRAL_ROI_VOCABULARY.site },
+  { key: "sitePlural", label: "…plural", hint: NEUTRAL_ROI_VOCABULARY.sitePlural },
+  { key: "modelAName", label: "Time-savings model name", hint: NEUTRAL_ROI_VOCABULARY.modelAName },
+  { key: "modelAVolumeLabel", label: "…volume field", hint: NEUTRAL_ROI_VOCABULARY.modelAVolumeLabel },
+  { key: "timeNoun", label: "The time being freed", hint: NEUTRAL_ROI_VOCABULARY.timeNoun },
+  { key: "revenuePerHourLabel", label: "Revenue-per-hour label", hint: NEUTRAL_ROI_VOCABULARY.revenuePerHourLabel },
+  { key: "modelBName", label: "Rework model name", hint: NEUTRAL_ROI_VOCABULARY.modelBName },
+  { key: "modelBVolumeLabel", label: "…volume field", hint: NEUTRAL_ROI_VOCABULARY.modelBVolumeLabel },
+  { key: "rework", label: "A redone unit", hint: NEUTRAL_ROI_VOCABULARY.rework },
+  { key: "reworkPlural", label: "…plural", hint: NEUTRAL_ROI_VOCABULARY.reworkPlural },
+  { key: "hardCostLabel", label: "Per-unit hard cost", hint: NEUTRAL_ROI_VOCABULARY.hardCostLabel },
+  { key: "unitValueLabel", label: "Value of one unit", hint: NEUTRAL_ROI_VOCABULARY.unitValueLabel },
+];
+
+/** Starting numbers a business can set for its reps. */
+const ROI_DEFAULT_FIELDS: ReadonlyArray<{ key: keyof RoiDefaults; label: string }> = [
+  { key: "modelAVolume", label: "Volume / mo (time)" },
+  { key: "minutesPerUnit", label: "Min saved / step" },
+  { key: "workingDays", label: "Working days / mo" },
+  { key: "revenuePerHour", label: "Revenue / hour" },
+  { key: "modelBVolume", label: "Volume / mo (rework)" },
+  { key: "unitValue", label: "Value per unit" },
+  { key: "currentReworkRate", label: "Current rework %" },
+  { key: "improvedReworkRate", label: "Improved rework %" },
+];
+
 
   async function fetchPresets() {
     setPresetsLoading(true);
@@ -4857,6 +4896,81 @@ export default function BrandSettings() {
 
             {/* Brand-default page outline (task #6) — applies when a segment has
                 no outline of its own. */}
+            {/* ── ROI calculator ──
+                The calculator's two models — time recovered and rework avoided
+                — are industry-neutral arithmetic; only the nouns were dental.
+                This is where a business names them in its own language, so the
+                page reads like their operation instead of someone else's. */}
+            <div className="rounded-lg border bg-muted/10 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-xs">ROI Calculator</Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Estimates recovered time and avoided rework. Rename the terms for
+                    your business — everything below is wording and starting numbers,
+                    the maths is the same.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={config.roiCalculator?.enabled !== false}
+                    onChange={(e) => update("roiCalculator", { ...(config.roiCalculator ?? {}), enabled: e.target.checked })}
+                  />
+                  <div className="w-10 h-6 bg-muted rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-4" />
+                </label>
+              </div>
+              {config.roiCalculator?.enabled !== false && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {ROI_VOCAB_FIELDS.map(({ key, label, hint }) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">{label}</Label>
+                        <Input
+                          className="h-8 text-xs"
+                          value={config.roiCalculator?.vocabulary?.[key] ?? ""}
+                          placeholder={hint}
+                          onChange={(e) =>
+                            update("roiCalculator", {
+                              ...(config.roiCalculator ?? {}),
+                              vocabulary: { ...(config.roiCalculator?.vocabulary ?? {}), [key]: e.target.value },
+                            })
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Leave a field blank to keep the default wording. Reps can still change
+                    every number on the calculator itself — these are just the starting points.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {ROI_DEFAULT_FIELDS.map(({ key, label }) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">{label}</Label>
+                        <Input
+                          type="number"
+                          className="h-8 text-xs"
+                          value={config.roiCalculator?.defaults?.[key] ?? ""}
+                          placeholder={String(DEFAULT_ROI_DEFAULTS[key])}
+                          onChange={(e) =>
+                            update("roiCalculator", {
+                              ...(config.roiCalculator ?? {}),
+                              defaults: {
+                                ...(config.roiCalculator?.defaults ?? {}),
+                                [key]: e.target.value === "" ? undefined : Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="rounded-lg border bg-muted/10 p-4">
               <Label className="text-xs">Brand-Default Page Outline (optional)</Label>
               <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
