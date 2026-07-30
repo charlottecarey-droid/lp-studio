@@ -70,6 +70,9 @@ router.get("/accounts/search", async (req, res): Promise<void> => {
         crmId: (row.salesforce_id as string | null) ?? undefined,
         name: (row.display_name as string | null)?.trim() || (row.name as string),
         domain: (row.domain as string | null) ?? null,
+        // Surfaced so the agenda builder can show which segment it will match
+        // on before the rep decides whether to override it.
+        segment: (row.segment as string | null) ?? null,
         source: "local",
         contactCount: (row.contact_count as number) ?? 0,
         opportunityCount: (row.opportunity_count as number) ?? 0,

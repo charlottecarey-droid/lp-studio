@@ -9,9 +9,35 @@
  *
  * Scoring:
  *   +3 per attendee role the session targets (tags.roles)
+ *   +4 when the account's SEGMENT matches tags.segments (see below)
  *   +2 when the account's industry matches tags.industries
  *   +2 when the account's ABM tier matches tags.tiers
  *   +1 when the account's segment/dsoSize matches a topic tag (weak signal)
+ *
+ * SEGMENTS ARE A PARTITION, NOT A TAG. For a conference like Procore's, every
+ * account is the same industry (construction) and the axis that actually
+ * differentiates is the segment: general contractors / owners / subcontractors.
+ * An account is in exactly ONE, and a session tagged for one is genuinely
+ * wrong for the others. So the segment axis behaves differently from every
+ * other signal:
+ *
+ *   • It scores highest (+4) — it out-ranks a role match, because a session
+ *     for the wrong segment is wrong no matter who attends.
+ *   • It EXCLUDES. When a session declares segments and we know the account's
+ *     segment and it isn't among them, that session is not eligible for the
+ *     auto-draft at all. Nothing else in this file excludes; every other
+ *     mismatch is merely a lower score.
+ *   • It compares STRICTLY (segmentsMatch, not labelsMatch). The fuzzy
+ *     comparison the other axes use — built so "COO" finds "Chief Operating
+ *     Officer" — reports "General Contractor" ≈ "Specialty Contractors",
+ *     which would put specialty sessions on a GC agenda. Verified, not
+ *     assumed: that pair returns true from labelsMatch today.
+ *
+ * Exclusion needs the dedicated `tags.segments` axis, NOT tags.industries.
+ * Industries carries the audience for RainFocus imports but the INDUSTRY for
+ * other tenants — excluding on it would drop a Dandy session tagged
+ * industries:["Dental"] from an account whose segment is "DSO". A segment
+ * match against industries/topics still SCORES (+2), it just never excludes.
  * Reserved slots (is_reserved_slot) are always selected, first in their slot.
  * Non-reserved sessions need score > 0 to be auto-picked; within one time
  * slot only the highest-scoring session survives (ties break on earlier
@@ -20,6 +46,9 @@
 
 export interface MatchableSessionTags {
   roles?: string[];
+  /** Audience partition — "General Contractors" / "Owners" / "Subcontractors".
+   *  The only axis that can make a session ineligible. */
+  segments?: string[];
   industries?: string[];
   topics?: string[];
   tiers?: string[];
@@ -40,6 +69,9 @@ export interface MatchableSession {
 export interface MatchAccountFacts {
   industry?: string | null;
   abmTier?: string | null;
+  /** The account's audience partition. May be the CRM value or a per-agenda
+   *  override typed by the rep when the conference's segment names differ
+   *  from the CRM's — the caller resolves which; this file just uses it. */
   segment?: string | null;
   dsoSize?: string | null;
 }
@@ -49,6 +81,11 @@ export interface ScoredSession {
   score: number;
   reasons: string[];
   pinned: boolean; // reserved slot — always on the agenda
+  /** Declared for a different segment than this account's. Kept out of the
+   *  auto-draft but still returned in `considered`, so the swap UI can show
+   *  it (greyed, with its reason) instead of pretending it doesn't exist —
+   *  a rep who knows better can always add it by hand. */
+  excludedBySegment?: boolean;
 }
 
 export interface MatchAgendaResult {
@@ -173,6 +210,67 @@ export function labelsMatch(a: string, b: string): boolean {
   return false;
 }
 
+/**
+ * Strict comparison for the segment axis.
+ *
+ * Deliberately NOT labelsMatch. Segments name a partition the account sits in
+ * exactly one of, so a loose match is a wrong agenda, not a slightly-off one.
+ * We fold only the differences that are the SAME name written differently:
+ * case, spacing, punctuation, possessives, a leading "the", and the trailing
+ * plural. Everything else must be equal.
+ *
+ * Concretely: "General Contractors" == "general contractor" == "General
+ * Contractors" but NOT "Specialty Contractors" — which labelsMatch does treat
+ * as equal, because it relates the shared token "contractor(s)".
+ */
+export function segmentsMatch(a: string, b: string): boolean {
+  const na = normSegment(a);
+  const nb = normSegment(b);
+  return na.length > 0 && na === nb;
+}
+
+/** Lowercase, strip punctuation/possessives, drop a leading article, singularise. */
+function normSegment(s: string): string {
+  const base = s
+    .toLowerCase()
+    .replace(/[\u2019']s\b/g, "")   // "owner's" → "owner"
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/^the\s+/, "");
+  if (!base) return "";
+  // Singularise each word, then drop the spaces: "Sub-Contractors" and
+  // "subcontractors" are the same segment written two ways, and a hyphen
+  // shouldn't split them into a non-match.
+  return base
+    .split(" ")
+    .map((w) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w))
+    .join("");
+}
+
+/** First tag that strictly matches the segment, or null. */
+function segmentHit(segment: string, tagged: string[] | undefined): string | null {
+  if (!tagged?.length) return null;
+  for (const t of tagged) if (segmentsMatch(segment, t)) return t;
+  return null;
+}
+
+/**
+ * True when this session is explicitly for OTHER segments — it declares a
+ * segment audience and the account's segment isn't in it. The caller drops
+ * these from the auto-draft entirely. Returns false whenever we can't be
+ * sure (no account segment, or the session declares none), so the exclusion
+ * only ever fires on positive evidence.
+ */
+export function sessionExcludedBySegment(
+  session: MatchableSession,
+  account: MatchAccountFacts,
+): boolean {
+  const segment = account.segment?.trim();
+  const declared = session.tags?.segments ?? [];
+  if (!segment || declared.length === 0) return false;
+  return segmentHit(segment, declared) === null;
+}
+
 function anyMatch(wanted: string[], tagged: string[] | undefined): string | null {
   if (!tagged?.length) return null;
   for (const w of wanted) {
@@ -218,6 +316,30 @@ export function scoreSession(
     }
   }
 
+  // Segment — the strongest signal, and the only one that can exclude.
+  // Scored here; the exclusion itself happens in matchAgendaSessions so the
+  // swap UI can still SHOW an off-segment session (with its reason) rather
+  // than hiding that it exists.
+  const segment = account.segment?.trim();
+  if (segment) {
+    const declared = segmentHit(segment, tags.segments);
+    if (declared) {
+      score += 4;
+      reasons.push(`Segment: ${declared}`);
+    } else if ((tags.segments ?? []).length > 0) {
+      reasons.push(`For other segments (${(tags.segments ?? []).join(", ")})`);
+    } else {
+      // No dedicated segment tag: a catalog imported before the segment axis
+      // existed, or a tenant that files audience under industry. Scores, but
+      // never excludes — we can't tell a missing tag from a different one.
+      const loose = segmentHit(segment, tags.industries) ?? segmentHit(segment, tags.topics);
+      if (loose) {
+        score += 2;
+        reasons.push(`Segment: ${loose}`);
+      }
+    }
+  }
+
   if (account.industry) {
     const hit = anyMatch([account.industry], tags.industries);
     if (hit) {
@@ -247,8 +369,13 @@ export function scoreSession(
   // An imported agenda is mostly UNTAGGED: the source page rarely states an
   // audience for every session. Scoring those 0 meant the common case — import
   // a conference, pick two roles — produced an almost empty draft.
+  // `segments` only counts as targeting when we actually know the account's
+  // segment. Otherwise a fully segment-tagged catalog would score every
+  // session 0 for a segment-less account and hand back an empty draft.
+  const segmentsTarget = Boolean(segment) && (tags.segments ?? []).length > 0;
   const untargeted =
     (tags.roles ?? []).length === 0
+    && !segmentsTarget
     && (tags.industries ?? []).length === 0
     && (tags.tiers ?? []).length === 0;
   const plenary = /keynote|plenary|general session|opening|closing|welcome/i.test(
@@ -268,7 +395,16 @@ export function scoreSession(
     reasons.unshift("Reserved for this account");
   }
 
-  return { sessionId: session.id, score, reasons, pinned: session.isReservedSlot };
+  // A reserved slot is a meeting held FOR this account — it is never "for
+  // another segment", whatever the catalog says.
+  const excludedBySegment = !session.isReservedSlot && sessionExcludedBySegment(session, account);
+  return {
+    sessionId: session.id,
+    score,
+    reasons,
+    pinned: session.isReservedSlot,
+    ...(excludedBySegment ? { excludedBySegment: true } : {}),
+  };
 }
 
 /** Stable chronological-then-title ordering for agenda display. */
@@ -295,6 +431,9 @@ export function matchAgendaSessions(
   // title for stable ties. Each candidate survives only if it doesn't
   // conflict with an already-picked session.
   const candidates = considered
+    // Off-segment sessions never enter the auto-draft. They stay in
+    // `considered` for the swap UI — excluded, not hidden.
+    .filter((c) => !c.excludedBySegment)
     .filter((c) => c.pinned || c.score > 0)
     .sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -338,14 +477,63 @@ export function matchAgendaSessions(
 export function catalogRoleOptions(
   sessions: Pick<MatchableSession, "tags">[],
 ): { role: string; count: number }[] {
+  return catalogTagOptions(sessions, "roles").map((o) => ({ role: o.label, count: o.count }));
+}
+
+/**
+ * The segment vocabulary this catalog uses — what the rep picks from so they
+ * type the CONFERENCE's segment names, not the CRM's. Grouped with the same
+ * strictness the matcher uses (segmentsMatch), so the list can't offer
+ * "General Contractor" and "General Contractors" as two different choices
+ * while the matcher treats them as one.
+ */
+/**
+ * Which segment an agenda matches on.
+ *
+ * The rep's per-agenda override wins over the account's CRM segment. A
+ * conference names its own audiences ("Owners" at the show vs
+ * "Owner/Developer" in Salesforce), and the rep is the one who knows which
+ * persona the attendee is actually coming as. A blank/whitespace override
+ * clears back to the account rather than matching on an empty segment.
+ */
+export function resolveAgendaSegment(
+  account: { segment?: string | null } | null | undefined,
+  segmentOverride: string | null | undefined,
+): string | null {
+  const override = segmentOverride?.trim();
+  if (override) return override;
+  const fromAccount = account?.segment?.trim();
+  return fromAccount ? fromAccount : null;
+}
+
+/** Account facts for the matcher, with the agenda's segment resolved in. */
+export function agendaMatchFacts(
+  account: (MatchAccountFacts & Record<string, unknown>) | null | undefined,
+  segmentOverride: string | null | undefined,
+): MatchAccountFacts {
+  return { ...(account ?? {}), segment: resolveAgendaSegment(account, segmentOverride) };
+}
+
+export function catalogSegmentOptions(
+  sessions: Pick<MatchableSession, "tags">[],
+): { segment: string; count: number }[] {
+  return catalogTagOptions(sessions, "segments", normSegment).map((o) => ({ segment: o.label, count: o.count }));
+}
+
+/** Shared tally behind the role/segment vocabularies. */
+function catalogTagOptions(
+  sessions: Pick<MatchableSession, "tags">[],
+  axis: "roles" | "segments",
+  keyOf: (s: string) => string = norm,
+): { label: string; count: number }[] {
   const groups = new Map<string, { label: string; count: number; spellings: Map<string, number> }>();
   for (const session of sessions) {
     // One session shouldn't inflate a role by listing it twice.
     const seen = new Set<string>();
-    for (const raw of session.tags?.roles ?? []) {
+    for (const raw of session.tags?.[axis] ?? []) {
       const label = (raw ?? "").trim();
       if (!label) continue;
-      const key = norm(label);
+      const key = keyOf(label);
       if (seen.has(key)) continue;
       seen.add(key);
       const entry = groups.get(key) ?? { label, count: 0, spellings: new Map() };
@@ -365,11 +553,11 @@ export function catalogRoleOptions(
   };
   return [...groups.values()]
     .map((e) => ({
-      role: [...e.spellings.entries()]
+      label: [...e.spellings.entries()]
         .sort((a, b) => b[1] - a[1] || displayRank(a[0]) - displayRank(b[0]) || a[0].localeCompare(b[0]))[0][0],
       count: e.count,
     }))
-    .sort((a, b) => b.count - a.count || a.role.localeCompare(b.role));
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 /**

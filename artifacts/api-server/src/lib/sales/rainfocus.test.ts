@@ -124,9 +124,17 @@ describe("mapRainfocusSession", () => {
   it("maps the typed attributes onto our tags — no AI inference", () => {
     expect(row.tags).toEqual({
       roles: ["Executive", "Finance"], // deduped
+      // "Audience" lands in BOTH axes on purpose: `industries` keeps the
+      // existing scoring and any rep-edited tags working, while `segments` is
+      // the axis the matcher may EXCLUDE on (agenda-matching.ts).
       industries: ["Owners"],
+      segments: ["Owners"],
       topics: ["Cost Management"],
     });
+  });
+
+  it("the segment axis carries the show's audience, so off-segment sessions can be filtered", () => {
+    expect(row.tags?.segments).toEqual(["Owners"]);
   });
 
   it("does not leak non-audience attributes into tags", () => {

@@ -883,6 +883,13 @@
       "when": 1757900000000,
       "tag": "0125_sales_events_style_template",
       "breakpoints": false
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1757910000000,
+      "tag": "0126_agenda_segment_override",
+      "breakpoints": false
     }
   ]
 }

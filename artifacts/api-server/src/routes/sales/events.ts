@@ -31,6 +31,9 @@ import {
 import {
   matchAgendaSessions,
   catalogRoleOptions,
+  catalogSegmentOptions,
+  resolveAgendaSegment,
+  agendaMatchFacts,
   labelsMatch,
   sessionSourceKey,
   type MatchableSession,
@@ -276,7 +279,14 @@ router.get("/events/:eventId", async (req, res): Promise<void> => {
     // roleOptions = the role vocabulary this catalog actually uses, most-used
     // first. The builder offers these as chips so a picked role can genuinely
     // match something (brand personas often use different words entirely).
-    res.json({ event: forApi(event), sessions, roleOptions: catalogRoleOptions(sessions.map(toMatchable)) });
+    res.json({
+      event: forApi(event),
+      sessions,
+      roleOptions: catalogRoleOptions(sessions.map(toMatchable)),
+      // The segment vocabulary the catalog actually uses, so a rep picks the
+      // conference's names rather than guessing at the CRM's.
+      segmentOptions: catalogSegmentOptions(sessions.map(toMatchable)),
+    });
   } catch (err) {
     console.error("[sales/events] get error", err);
     res.status(500).json({ error: "Failed to load event" });
@@ -958,7 +968,9 @@ router.post("/events/:eventId/agendas", async (req, res): Promise<void> => {
     const event = await loadEvent(tenantId, eventId);
     if (!event) { res.status(404).json({ error: "Event not found" }); return; }
 
-    const { accountId, attendeeRoles } = req.body as { accountId?: unknown; attendeeRoles?: unknown };
+    const { accountId, attendeeRoles, segmentOverride } = req.body as {
+      accountId?: unknown; attendeeRoles?: unknown; segmentOverride?: unknown;
+    };
     if (typeof accountId !== "number" || !Number.isFinite(accountId)) {
       res.status(400).json({ error: "accountId is required" });
       return;
@@ -970,8 +982,9 @@ router.post("/events/:eventId/agendas", async (req, res): Promise<void> => {
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
     const roles = asStringArray(attendeeRoles);
+    const override = typeof segmentOverride === "string" ? segmentOverride.trim() || null : null;
     const sessions = await loadEventSessions(tenantId, eventId);
-    const match = matchAgendaSessions(sessions.map(toMatchable), account, roles);
+    const match = matchAgendaSessions(sessions.map(toMatchable), agendaMatchFacts(account, override), roles);
 
     const [agenda] = await db.insert(salesEventAgendasTable).values({
       eventId,
@@ -979,6 +992,7 @@ router.post("/events/:eventId/agendas", async (req, res): Promise<void> => {
       accountId,
       accountNameSnapshot: account.displayName || account.name,
       attendeeRoles: roles,
+      segmentOverride: override,
       selections: match.selected.map((s) => ({ sessionId: s.sessionId })),
       createdBy: (req as { authUser?: { email?: string } }).authUser?.email ?? null,
     }).returning();
@@ -1013,7 +1027,11 @@ router.get("/agendas/:agendaId", async (req, res): Promise<void> => {
           .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, agenda.accountId))))[0] ?? null
       : null;
     // Re-score on every load so the swap UI always reflects the live catalog.
-    const match = matchAgendaSessions(sessions.map(toMatchable), account ?? {}, (agenda.attendeeRoles ?? []) as string[]);
+    const match = matchAgendaSessions(
+      sessions.map(toMatchable),
+      agendaMatchFacts(account, agenda.segmentOverride),
+      (agenda.attendeeRoles ?? []) as string[],
+    );
     let pageSlug: string | null = null;
     if (agenda.lpPageId) {
       const [page] = await db
@@ -1059,6 +1077,12 @@ router.patch("/agendas/:agendaId", async (req, res): Promise<void> => {
       patch.selections = selections;
     }
     if (body.attendeeRoles !== undefined) patch.attendeeRoles = asStringArray(body.attendeeRoles);
+    if (body.segmentOverride !== undefined) {
+      // "" clears the override and falls back to the account's CRM segment.
+      patch.segmentOverride = typeof body.segmentOverride === "string" && body.segmentOverride.trim()
+        ? body.segmentOverride.trim()
+        : null;
+    }
     if (body.personalNote !== undefined) patch.personalNote = typeof body.personalNote === "string" ? body.personalNote : null;
     if (Object.keys(patch).length === 0) { res.status(400).json({ error: "No valid fields to update" }); return; }
     const [agenda] = await db
@@ -1109,7 +1133,11 @@ router.post("/agendas/:agendaId/rematch", async (req, res): Promise<void> => {
           .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, agenda.accountId))))[0] ?? null
       : null;
     const sessions = await loadEventSessions(tenantId, agenda.eventId);
-    const match = matchAgendaSessions(sessions.map(toMatchable), account ?? {}, (agenda.attendeeRoles ?? []) as string[]);
+    const match = matchAgendaSessions(
+      sessions.map(toMatchable),
+      agendaMatchFacts(account, agenda.segmentOverride),
+      (agenda.attendeeRoles ?? []) as string[],
+    );
     const priorBlurbs = new Map(((agenda.selections ?? []) as AgendaSelection[]).map((s) => [s.sessionId, s.blurbOverride]));
     const selections: AgendaSelection[] = match.selected.map((s) => ({
       sessionId: s.sessionId,
@@ -1260,7 +1288,9 @@ router.post("/agendas/:agendaId/generate-blurbs", async (req, res): Promise<void
       {
         name: account?.displayName || account?.name || agenda.accountNameSnapshot || "the account",
         industry: account?.industry,
-        segment: account?.segment,
+        // The agenda's segment, not the raw CRM one — the why-attend copy
+        // should speak to the persona the rep is actually writing for.
+        segment: resolveAgendaSegment(account, agenda.segmentOverride),
         abmTier: account?.abmTier,
         numLocations: account?.numLocations,
         city: account?.city,

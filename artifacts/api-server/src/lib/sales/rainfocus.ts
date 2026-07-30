@@ -329,7 +329,13 @@ export function mapRainfocusSession(item: Record<string, unknown>): ImportedSess
     .filter((s): s is { name: string; title?: string } => s !== null);
 
   const roles = attrValues(item, "Role");
+  // RainFocus's "Audience" is the show's audience PARTITION — at a Procore-style
+  // conference that's General Contractors / Owners / Subcontractors. It lands
+  // in both axes on purpose: `industries` keeps existing scoring and any tags a
+  // rep already edited working, while `segments` is the axis the matcher is
+  // allowed to EXCLUDE on (see agenda-matching.ts).
   const industries = attrValues(item, "Audience");
+  const segments = industries;
   const topics = attrValues(item, "Topic");
 
   const sessionType = str(item.type) || attrValues(item, "SessionType")[0] || "";
@@ -354,6 +360,7 @@ export function mapRainfocusSession(item: Record<string, unknown>): ImportedSess
     row.tags = {
       ...(roles.length ? { roles } : {}),
       ...(industries.length ? { industries } : {}),
+      ...(segments.length ? { segments } : {}),
       ...(topics.length ? { topics } : {}),
     };
   }

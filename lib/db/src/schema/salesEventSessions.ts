@@ -16,6 +16,11 @@ export interface EventSessionSpeaker {
  */
 export interface EventSessionTags {
   roles?: string[];       // attendee roles the session targets ("COO", "Clinical Director")
+  /** Audience PARTITION the session is for — "General Contractors" / "Owners"
+   *  / "Subcontractors". Unlike every other axis this one excludes: a session
+   *  tagged here is not proposed to accounts in a different segment. See
+   *  lib/sales/agenda-matching.ts. */
+  segments?: string[];
   industries?: string[];  // account industries the session is relevant to
   topics?: string[];      // free-form topic labels for filtering
   tiers?: string[];       // ABM tiers ("Tier 1") the session is reserved for/aimed at

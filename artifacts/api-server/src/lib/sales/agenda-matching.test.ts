@@ -6,6 +6,11 @@ import {
   sessionSourceKey,
   catalogRoleOptions,
   type MatchableSession,
+  segmentsMatch,
+  scoreSession,
+  resolveAgendaSegment,
+  agendaMatchFacts,
+  catalogSegmentOptions,
 } from "./agenda-matching";
 
 function session(partial: Partial<MatchableSession> & { id: number; title: string }): MatchableSession {
@@ -238,5 +243,175 @@ describe("catalogRoleOptions — chips come from the catalog's own tags", () => 
 
   it("is empty for an untagged catalog", () => {
     expect(catalogRoleOptions([session({ id: 1, title: "A" })])).toEqual([]);
+  });
+});
+
+/* ── segment matching (the Procore case) ───────────────────────────────────
+   Every account is construction; the axis that differentiates is general
+   contractors vs owners vs subcontractors. */
+
+describe("segmentsMatch — strict, because segments partition the audience", () => {
+  it("folds the ways people write the SAME segment", () => {
+    expect(segmentsMatch("General Contractors", "general contractor")).toBe(true);
+    expect(segmentsMatch("Owners", "owners")).toBe(true);
+    expect(segmentsMatch("Owner's Representatives", "owner representative")).toBe(true);
+    expect(segmentsMatch("Sub-Contractors", "subcontractors")).toBe(true);
+    expect(segmentsMatch("The Owners", "owners")).toBe(true);
+  });
+
+  it("keeps DIFFERENT segments apart — including the pair labelsMatch gets wrong", () => {
+    // labelsMatch("General Contractor", "Specialty Contractors") === true,
+    // because it relates the shared token. On a partition that's a wrong
+    // agenda, so the segment axis must not use it.
+    expect(labelsMatch("General Contractor", "Specialty Contractors")).toBe(true);
+    expect(segmentsMatch("General Contractor", "Specialty Contractors")).toBe(false);
+
+    expect(segmentsMatch("General Contractors", "Subcontractors")).toBe(false);
+    expect(segmentsMatch("Owners", "General Contractors")).toBe(false);
+    expect(segmentsMatch("Subcontractors", "Specialty Contractors")).toBe(false);
+  });
+
+  it("an empty segment matches nothing rather than everything", () => {
+    expect(segmentsMatch("", "Owners")).toBe(false);
+    expect(segmentsMatch("   ", "")).toBe(false);
+  });
+});
+
+describe("segment scoring and exclusion", () => {
+  const session = (id: number, title: string, segments?: string[], extra: Partial<MatchableSession> = {}): MatchableSession => ({
+    id, title, day: "2026-05-01", startTime: `0${id}:00`, endTime: `0${id}:45`,
+    isReservedSlot: false,
+    tags: segments ? { segments } : {},
+    ...extra,
+  });
+
+  it("a matching segment outranks a role match — wrong segment is wrong for everyone", () => {
+    const onSegment = scoreSession(session(1, "GC cost control", ["General Contractors"]), { segment: "General Contractors" }, []);
+    const roleOnly = scoreSession(
+      { ...session(2, "Ops roundtable"), tags: { roles: ["COO"] } },
+      { segment: "General Contractors" },
+      ["COO"],
+    );
+    expect(onSegment.score).toBeGreaterThan(roleOnly.score);
+    expect(onSegment.reasons).toContain("Segment: General Contractors");
+  });
+
+  it("EXCLUDES a session declared for other segments", () => {
+    const scored = scoreSession(session(1, "Owner capital planning", ["Owners"]), { segment: "General Contractors" }, []);
+    expect(scored.excludedBySegment).toBe(true);
+    expect(scored.reasons.join(" ")).toContain("For other segments");
+  });
+
+  it("a session listing SEVERAL segments including ours is included", () => {
+    const scored = scoreSession(session(1, "Safety", ["Owners", "General Contractors"]), { segment: "General Contractors" }, []);
+    expect(scored.excludedBySegment).toBeUndefined();
+    expect(scored.score).toBeGreaterThan(0);
+  });
+
+  it("only fires on POSITIVE evidence — no account segment, or no session segments, never excludes", () => {
+    expect(scoreSession(session(1, "Owner planning", ["Owners"]), {}, []).excludedBySegment).toBeUndefined();
+    expect(scoreSession(session(1, "Untagged"), { segment: "Owners" }, []).excludedBySegment).toBeUndefined();
+  });
+
+  it("a RESERVED slot is never off-segment — it's booked for this account", () => {
+    const reserved = session(1, "1:1 with your team", ["Owners"], { isReservedSlot: true });
+    expect(scoreSession(reserved, { segment: "General Contractors" }, []).excludedBySegment).toBeUndefined();
+  });
+
+  it("does NOT exclude on the industries axis — that axis means industry for other tenants", () => {
+    const s = { ...session(1, "Dental ops"), tags: { industries: ["Dental"] } };
+    const scored = scoreSession(s, { segment: "DSO", industry: "Dental" }, []);
+    expect(scored.excludedBySegment).toBeUndefined();
+    expect(scored.score).toBeGreaterThan(0);
+  });
+
+  it("still SCORES a segment found on industries/topics (catalogs imported before the axis existed)", () => {
+    const s = { ...session(1, "GC track"), tags: { industries: ["General Contractors"] } };
+    const scored = scoreSession(s, { segment: "General Contractors" }, []);
+    expect(scored.reasons).toContain("Segment: General Contractors");
+    expect(scored.score).toBeGreaterThan(0);
+  });
+
+  it("the draft keeps off-segment sessions out but still reports them for the swap UI", () => {
+    const catalog = [
+      session(1, "GC cost control", ["General Contractors"]),
+      session(2, "Owner capital planning", ["Owners"]),
+      session(3, "Subcontractor cash flow", ["Subcontractors"]),
+    ];
+    const result = matchAgendaSessions(catalog, { segment: "General Contractors" }, []);
+    expect(result.selected.map((s) => s.sessionId)).toEqual([1]);
+    expect(result.considered.map((s) => s.sessionId).sort()).toEqual([1, 2, 3]);
+    expect(result.considered.find((s) => s.sessionId === 2)?.excludedBySegment).toBe(true);
+  });
+
+  it("an OFF-SEGMENT keynote is excluded even though keynotes normally score for everyone", () => {
+    const keynote = session(1, "Owners keynote", ["Owners"], { sessionType: "Keynote" });
+    const result = matchAgendaSessions([keynote], { segment: "Subcontractors" }, []);
+    expect(result.selected).toHaveLength(0);
+  });
+
+  it("with no segment on the account, matching behaves exactly as before", () => {
+    const catalog = [
+      session(1, "GC cost control", ["General Contractors"]),
+      session(2, "Owner capital planning", ["Owners"]),
+    ];
+    expect(matchAgendaSessions(catalog, {}, []).selected).toHaveLength(2);
+  });
+});
+
+describe("resolveAgendaSegment — the rep's override beats the CRM", () => {
+  it("uses the account's segment when there's no override", () => {
+    expect(resolveAgendaSegment({ segment: "Owners" }, null)).toBe("Owners");
+  });
+
+  it("the override wins — the conference names its own audiences", () => {
+    expect(resolveAgendaSegment({ segment: "Owner/Developer" }, "Owners")).toBe("Owners");
+  });
+
+  it("works with no account row at all (CRM-less agenda)", () => {
+    expect(resolveAgendaSegment(null, "Subcontractors")).toBe("Subcontractors");
+    expect(resolveAgendaSegment(null, null)).toBeNull();
+  });
+
+  it("a blank override CLEARS back to the account instead of matching on empty", () => {
+    expect(resolveAgendaSegment({ segment: "Owners" }, "   ")).toBe("Owners");
+    expect(resolveAgendaSegment({ segment: null }, "")).toBeNull();
+  });
+
+  it("agendaMatchFacts keeps the account's other fields intact", () => {
+    const facts = agendaMatchFacts({ segment: "Owner/Developer", industry: "Construction", abmTier: "Tier 1" }, "Owners");
+    expect(facts).toEqual({ segment: "Owners", industry: "Construction", abmTier: "Tier 1" });
+  });
+});
+
+describe("catalogSegmentOptions — the vocabulary the rep picks from", () => {
+  const withSegments = (...segs: string[][]) =>
+    segs.map((segments) => ({ tags: { segments } }));
+
+  it("counts sessions per segment, most common first", () => {
+    const opts = catalogSegmentOptions(withSegments(
+      ["General Contractors"], ["General Contractors"], ["Owners"],
+    ));
+    expect(opts).toEqual([
+      { segment: "General Contractors", count: 2 },
+      { segment: "Owners", count: 1 },
+    ]);
+  });
+
+  it("groups spellings the MATCHER treats as one, so the list can't offer a distinction that doesn't exist", () => {
+    const opts = catalogSegmentOptions(withSegments(
+      ["General Contractors"], ["general contractor"], ["Sub-Contractors"], ["subcontractors"],
+    ));
+    expect(opts).toHaveLength(2);
+    expect(opts.map((o) => o.count)).toEqual([2, 2]);
+  });
+
+  it("keeps genuinely different segments separate", () => {
+    const opts = catalogSegmentOptions(withSegments(["General Contractors"], ["Specialty Contractors"]));
+    expect(opts).toHaveLength(2);
+  });
+
+  it("an untagged catalog offers nothing rather than guessing", () => {
+    expect(catalogSegmentOptions([{ tags: {} }, { tags: { roles: ["COO"] } }])).toEqual([]);
   });
 });

@@ -27,6 +27,8 @@ export interface AccountSearchCandidate {
   crmId?: string;
   name: string;
   domain?: string | null;
+  /** CRM segment, passed through for the agenda builder's segment default. */
+  segment?: string | null;
   source: AccountSource;
   /** Signals used to compute dataRichness — all optional / fail-open. */
   contactCount?: number;

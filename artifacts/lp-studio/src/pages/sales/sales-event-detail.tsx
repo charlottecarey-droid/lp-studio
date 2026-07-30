@@ -89,11 +89,14 @@ interface AgendaRow {
   selections: { sessionId: number; blurbOverride?: string }[];
   attendeeRoles: string[];
   personalNote: string | null;
+  segmentOverride?: string | null;
   pageUrl: string | null;
   lpPageId?: number | null;
 }
 
 /** A role the catalog actually tags, with how many sessions carry it. */
+interface SegmentOption { segment: string; count: number }
+
 interface RoleOption {
   role: string;
   count: number;
@@ -104,6 +107,9 @@ interface SessionScore {
   score: number;
   reasons: string[];
   pinned: boolean;
+  /** Declared for a different segment — kept off the draft, still listed so
+   *  the rep can see it exists and add it deliberately. */
+  excludedBySegment?: boolean;
 }
 
 interface EventAnalytics {
@@ -963,11 +969,13 @@ interface AccountResult {
   id: number | null;
   name: string;
   domain?: string | null;
+  /** CRM segment, shown as the placeholder so the rep can see the default. */
+  segment?: string | null;
   source: string;
 }
 
 function NewAgendaDialog({
-  open, onClose, eventId, onCreated, roleOptions, presetAccountId,
+  open, onClose, eventId, onCreated, roleOptions, segmentOptions, presetAccountId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -975,6 +983,7 @@ function NewAgendaDialog({
   onCreated: (agendaId: number) => void;
   /** Roles this catalog actually tags, most-used first, with session counts. */
   roleOptions: RoleOption[];
+  segmentOptions: SegmentOption[];
   /** Account to preselect (the assistant's "build an agenda for X" deep link). */
   presetAccountId?: number | null;
 }) {
@@ -983,6 +992,10 @@ function NewAgendaDialog({
   const [picked, setPicked] = useState<AccountResult | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [roleInput, setRoleInput] = useState("");
+  // Blank = use the account's CRM segment. Set only when the conference names
+  // its audiences differently, or the rep knows the attendee is coming as a
+  // different persona than the account record says.
+  const [segment, setSegment] = useState("");
   const [creating, setCreating] = useState(false);
   // Chips come from the CATALOG's own tags — picking a role that no session
   // carries can only ever return an empty match. Brand personas are a
@@ -1041,7 +1054,7 @@ function NewAgendaDialog({
       const res = await fetch(`${API_BASE}/sales/events/${eventId}/agendas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: picked.id, attendeeRoles: roles }),
+        body: JSON.stringify({ accountId: picked.id, attendeeRoles: roles, segmentOverride: segment.trim() || undefined }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -1095,6 +1108,42 @@ function NewAgendaDialog({
               </div>
             )}
           </div>
+          {(segmentOptions.length > 0 || segment) && (
+            <div className="space-y-1.5">
+              <Label>Segment</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {segmentOptions.map((o) => {
+                  const active = segment.trim().toLowerCase() === o.segment.toLowerCase();
+                  return (
+                    <button
+                      key={o.segment}
+                      type="button"
+                      onClick={() => setSegment(active ? "" : o.segment)}
+                      className={`text-xs border rounded-full px-2.5 py-0.5 transition-colors ${
+                        active
+                          ? "border-foreground bg-foreground text-background"
+                          : "text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                      }`}
+                      title={`${o.count} session${o.count === 1 ? "" : "s"} for ${o.segment}`}
+                    >
+                      {o.segment} <span className="tabular-nums opacity-60">{o.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <Input
+                value={segment}
+                onChange={(e) => setSegment(e.target.value)}
+                placeholder={picked?.segment ? `Account's segment: ${picked.segment}` : "Leave blank to use the account's segment"}
+                className="h-8 text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Sessions for a different segment are left off the draft. Blank uses
+                the account&rsquo;s own segment; type here when the conference names
+                its audiences differently.
+              </p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>Who's attending (roles)</Label>
             <div className="flex flex-wrap gap-1.5">
@@ -1156,19 +1205,24 @@ function NewAgendaDialog({
 /* ── agenda editor dialog ────────────────────────────────────────────────── */
 
 function AgendaEditorDialog({
-  agendaId, onClose, onChanged, sessions, event,
+  agendaId, onClose, onChanged, sessions, event, segmentOptions,
 }: {
   agendaId: number | null;
   onClose: () => void;
   onChanged: () => void;
   sessions: EventSession[];
   event: EventDetail | null;
+  segmentOptions: SegmentOption[];
 }) {
   const [loading, setLoading] = useState(true);
   const [accountName, setAccountName] = useState("");
   const [selected, setSelected] = useState<Map<number, string>>(new Map()); // sessionId → blurb
   const [scores, setScores] = useState<Map<number, SessionScore>>(new Map());
   const [personalNote, setPersonalNote] = useState("");
+  // Conference segment for this agenda. Blank = the account's CRM segment;
+  // changing it and hitting Re-match redraws the draft against that audience.
+  const [segmentOverride, setSegmentOverride] = useState("");
+  const [accountSegment, setAccountSegment] = useState<string | null>(null);
   const [pageUrl, setPageUrl] = useState<string | null>(null);
   const [lpPageId, setLpPageId] = useState<number | null>(null);
   const [busy, setBusy] = useState<"save" | "publish" | "rematch" | "blurbs" | "pdf" | null>(null);
@@ -1187,6 +1241,8 @@ function AgendaEditorDialog({
       ));
       setScores(new Map((data.scores ?? []).map((s: SessionScore) => [s.sessionId, s])));
       setPersonalNote(data.agenda.personalNote ?? "");
+      setSegmentOverride(data.agenda.segmentOverride ?? "");
+      setAccountSegment(data.account?.segment ?? null);
       setPageUrl(data.pageUrl ?? null);
       setLpPageId(data.agenda.lpPageId ?? null);
     } catch {
@@ -1219,7 +1275,7 @@ function AgendaEditorDialog({
     const res = await fetch(`${API_BASE}/sales/agendas/${agendaId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ selections, personalNote }),
+      body: JSON.stringify({ selections, personalNote, segmentOverride }),
     });
     return res.ok;
   };
@@ -1296,6 +1352,9 @@ function AgendaEditorDialog({
   };
 
   const rematch = async () => {
+    // Persist first: re-match reads the stored segment, so running it before
+    // saving would silently match against the previous audience.
+    await persist();
     if (!agendaId) return;
     setBusy("rematch");
     try {
@@ -1431,11 +1490,19 @@ function AgendaEditorDialog({
                               {s.isReservedSlot && (
                                 <Badge variant="secondary" className="text-[10px]"><Pin className="w-3 h-3 mr-1" />Reserved</Badge>
                               )}
-                              {score && score.score > 0 && (
+                              {score?.excludedBySegment ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] border-amber-400 text-amber-700"
+                                  title={`${score.reasons.join(" · ")} — left off the draft, but you can still add it.`}
+                                >
+                                  Other segment
+                                </Badge>
+                              ) : score && score.score > 0 ? (
                                 <Badge variant="outline" className="text-[10px]" title={score.reasons.join(" · ")}>
                                   {score.reasons[0] ?? `Score ${score.score}`}{score.reasons.length > 1 ? ` +${score.reasons.length - 1}` : ""}
                                 </Badge>
-                              )}
+                              ) : null}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {[timeLabel(s), s.room, s.sessionType].filter(Boolean).join(" · ")}
@@ -1456,6 +1523,42 @@ function AgendaEditorDialog({
                 </div>
               </div>
             ))}
+
+            {(segmentOptions.length > 0 || segmentOverride || accountSegment) && (
+              <div className="space-y-1.5">
+                <Label>Segment</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {segmentOptions.map((o) => {
+                    const active = segmentOverride.trim().toLowerCase() === o.segment.toLowerCase();
+                    return (
+                      <button
+                        key={o.segment}
+                        type="button"
+                        onClick={() => setSegmentOverride(active ? "" : o.segment)}
+                        className={`text-xs border rounded-full px-2.5 py-0.5 transition-colors ${
+                          active
+                            ? "border-foreground bg-foreground text-background"
+                            : "text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                        }`}
+                        title={`${o.count} session${o.count === 1 ? "" : "s"} for ${o.segment}`}
+                      >
+                        {o.segment} <span className="tabular-nums opacity-60">{o.count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <Input
+                  className="h-8 text-xs"
+                  value={segmentOverride}
+                  onChange={(e) => setSegmentOverride(e.target.value)}
+                  placeholder={accountSegment ? `Account's segment: ${accountSegment}` : "Leave blank to use the account's segment"}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Sessions for another segment are marked and left off the draft.
+                  Change this and hit Re-match to redraw against a different audience.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>Personal note (shown as a letter at the top of the page)</Label>
@@ -1501,6 +1604,7 @@ export default function SalesEventDetail() {
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [agendas, setAgendas] = useState<AgendaRow[]>([]);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+  const [segmentOptions, setSegmentOptions] = useState<SegmentOption[]>([]);
   const [tagging, setTagging] = useState(false);
   const [analytics, setAnalytics] = useState<EventAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1527,6 +1631,7 @@ export default function SalesEventDetail() {
       setEvent(eventData.event);
       setSessions(eventData.sessions ?? []);
       setRoleOptions(eventData.roleOptions ?? []);
+      setSegmentOptions(eventData.segmentOptions ?? []);
       if (agendasRes.ok) {
         const agendaData = await agendasRes.json();
         setAgendas(agendaData.agendas ?? []);
@@ -1880,8 +1985,10 @@ export default function SalesEventDetail() {
         eventId={eventId}
         onCreated={(id) => { void load(); setEditorAgendaId(id); }}
         roleOptions={roleOptions}
+        segmentOptions={segmentOptions}
       />
       <AgendaEditorDialog
+        segmentOptions={segmentOptions}
         agendaId={editorAgendaId}
         onClose={() => setEditorAgendaId(null)}
         onChanged={() => void load()}

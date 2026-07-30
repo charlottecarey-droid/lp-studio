@@ -24,6 +24,10 @@ export const salesEventAgendasTable = pgTable("sales_event_agendas", {
   accountId: integer("account_id"),          // FK sales_accounts, SET NULL on account delete (agenda outlives re-sync churn)
   accountNameSnapshot: text("account_name_snapshot"), // denormalized so the agenda stays labeled if the account row churns
   attendeeRoles: jsonb("attendee_roles").$type<string[]>().default([]),
+  /** Conference-specific audience segment for THIS agenda. NULL = fall back to
+   *  the account's CRM segment. Lets a rep use the show's segment names when
+   *  they differ from Salesforce's. */
+  segmentOverride: text("segment_override"),
   selections: jsonb("selections").$type<AgendaSelection[]>().default([]),
   personalNote: text("personal_note"),       // account-team welcome letter shown on the page
   status: text("status").notNull().default("draft"), // draft | published
