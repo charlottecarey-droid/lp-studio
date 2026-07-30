@@ -2650,6 +2650,33 @@ function AccountDetailView({ id }: { id: string }) {
     }
   }
 
+  /**
+   * Segment is what the conference agenda builder matches sessions on — for a
+   * one-industry customer it's the ONLY axis that differentiates accounts
+   * (general contractors vs owners vs subcontractors). It arrives from CSV
+   * import / CRM sync, but plenty of accounts have none, so it has to be
+   * settable here. Empty clears it back to null.
+   */
+  const [editingSegment, setEditingSegment] = useState(false);
+  const [segmentInput, setSegmentInput] = useState("");
+  async function saveSegment() {
+    if (!account) return;
+    const value = segmentInput.trim();
+    setEditingSegment(false);
+    if (value === (account.segment ?? "")) return;
+    const res = await fetch(`${API_BASE}/sales/accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segment: value || null }),
+    });
+    if (res.ok) {
+      const updated = await res.json() as Account;
+      setAccount(updated);
+    } else {
+      toast({ title: "Couldn't save the segment", variant: "destructive" });
+    }
+  }
+
   // Last signal time for Overview stat
   const [lastSignalTime, setLastSignalTime] = useState<string | null>(null);
   useEffect(() => {
@@ -2922,12 +2949,35 @@ function AccountDetailView({ id }: { id: string }) {
 
             {/* Account metadata grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {account.segment && (
-                <div className="p-3 rounded-xl bg-muted/40">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Segment</p>
-                  <p className="text-sm font-semibold text-foreground mt-1">{account.segment}</p>
-                </div>
-              )}
+              {/* Always rendered, even when empty — this used to hide itself when
+                  unset, which left no way to ADD a segment to an account that
+                  didn't already have one. */}
+              <div className="p-3 rounded-xl bg-muted/40">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Segment</p>
+                {editingSegment ? (
+                  <Input
+                    autoFocus
+                    className="h-7 mt-1 text-sm"
+                    value={segmentInput}
+                    onChange={(e) => setSegmentInput(e.target.value)}
+                    onBlur={() => void saveSegment()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); void saveSegment(); }
+                      if (e.key === "Escape") setEditingSegment(false);
+                    }}
+                    placeholder="e.g. General Contractors"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-foreground mt-1 text-left hover:underline"
+                    onClick={() => { setSegmentInput(account.segment ?? ""); setEditingSegment(true); }}
+                    title="Used by the event agenda builder to match sessions to this account"
+                  >
+                    {account.segment ?? <span className="text-muted-foreground font-normal">Set segment</span>}
+                  </button>
+                )}
+              </div>
               {account.industry && (
                 <div className="p-3 rounded-xl bg-muted/40">
                   <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Industry</p>

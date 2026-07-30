@@ -1108,8 +1108,7 @@ function NewAgendaDialog({
               </div>
             )}
           </div>
-          {(segmentOptions.length > 0 || segment) && (
-            <div className="space-y-1.5">
+          <div className="space-y-1.5">
               <Label>Segment</Label>
               <div className="flex flex-wrap gap-1.5">
                 {segmentOptions.map((o) => {
@@ -1142,8 +1141,13 @@ function NewAgendaDialog({
                 the account&rsquo;s own segment; type here when the conference names
                 its audiences differently.
               </p>
+              {segmentOptions.length === 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  This catalog has no segment tags yet — re-import from RainFocus to
+                  pull them in, or type one to match on it manually.
+                </p>
+              )}
             </div>
-          )}
           <div className="space-y-1.5">
             <Label>Who's attending (roles)</Label>
             <div className="flex flex-wrap gap-1.5">
@@ -1524,8 +1528,7 @@ function AgendaEditorDialog({
               </div>
             ))}
 
-            {(segmentOptions.length > 0 || segmentOverride || accountSegment) && (
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
                 <Label>Segment</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {segmentOptions.map((o) => {
@@ -1557,8 +1560,13 @@ function AgendaEditorDialog({
                   Sessions for another segment are marked and left off the draft.
                   Change this and hit Re-match to redraw against a different audience.
                 </p>
+                {segmentOptions.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    This catalog has no segment tags yet — re-import from RainFocus to
+                    pull them in, or type one to match on it manually.
+                  </p>
+                )}
               </div>
-            )}
 
             <div className="space-y-1.5">
               <Label>Personal note (shown as a letter at the top of the page)</Label>

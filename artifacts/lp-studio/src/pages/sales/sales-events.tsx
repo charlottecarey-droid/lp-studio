@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, MapPin, Plus, Users } from "lucide-react";
+import { CalendarDays, MapPin, MoreVertical, Plus, Trash2, Users } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { toast } from "@/hooks/use-toast";
@@ -34,6 +37,114 @@ interface SalesEvent {
   agenda_count: number;
 }
 
+/**
+ * Confirm deleting an event.
+ *
+ * The delete cascades to the whole session catalog and every agenda built from
+ * it, with no undo, so the dialog states the actual counts rather than a
+ * generic "are you sure". Two levels, proportionate to what's lost:
+ *
+ *   • Nothing published — plain confirm with the counts.
+ *   • Published agendas exist — the server refuses the first request (409) and
+ *     returns them; we then require the event NAME to be typed. Those pages
+ *     stay live at their URLs, but the agenda behind each one is gone, so
+ *     nobody can edit or republish them afterwards. That's worth a deliberate
+ *     act, not one more click.
+ */
+function DeleteEventDialog({ event, onClose, onDeleted }: {
+  event: SalesEvent | null;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [published, setPublished] = useState<number | null>(null);
+  const [typed, setTyped] = useState("");
+
+  useEffect(() => {
+    // Reset when a different event is targeted, so a previous escalation
+    // can't carry over and pre-authorize this one.
+    setPublished(null);
+    setTyped("");
+  }, [event?.id]);
+
+  if (!event) return null;
+
+  const needsName = published !== null && published > 0;
+  const nameMatches = typed.trim().toLowerCase() === event.name.trim().toLowerCase();
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/events/${event.id}${needsName ? "?force=true" : ""}`, {
+        method: "DELETE",
+      });
+      if (res.status === 409) {
+        // Published agendas — escalate rather than delete.
+        const data = await res.json().catch(() => ({}));
+        setPublished(Number(data?.impact?.published ?? 1));
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast({ title: `Deleted "${event.name}"` });
+      onDeleted();
+      onClose();
+    } catch {
+      toast({ title: "Couldn't delete the event", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete &ldquo;{event.name}&rdquo;?</DialogTitle>
+          <DialogDescription>
+            This also deletes {event.session_count} session{event.session_count === 1 ? "" : "s"}
+            {" and "}{event.agenda_count} account agenda{event.agenda_count === 1 ? "" : "s"}. It can&rsquo;t be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        {needsName && (
+          <div className="space-y-2.5">
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-medium">
+                {published} of these agendas {published === 1 ? "is" : "are"} published.
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed">
+                Those pages stay live at their URLs, so anyone you&rsquo;ve already sent
+                them can still open them. But the agenda behind each one is deleted —
+                you won&rsquo;t be able to edit or republish them.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Type the event name to confirm</Label>
+              <Input
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                placeholder={event.name}
+                autoFocus
+              />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button
+            variant="destructive"
+            onClick={() => void remove()}
+            disabled={busy || (needsName && !nameMatches)}
+          >
+            {busy ? "Deleting…" : needsName ? "Delete anyway" : "Delete event"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function formatRange(start: string | null, end: string | null): string {
   if (!start) return "Dates TBD";
   const fmt = (d: string) =>
@@ -47,6 +158,7 @@ export default function SalesEvents() {
   const [events, setEvents] = useState<SalesEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleting, setDeleting] = useState<SalesEvent | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", location: "", startDate: "", endDate: "", description: "" });
 
@@ -155,6 +267,23 @@ export default function SalesEvents() {
                     <span className="inline-flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5" /> {event.agenda_count} agenda{event.agenda_count === 1 ? "" : "s"}
                     </span>
+                    {/* The whole card navigates, so the menu must stop the click
+                        from bubbling — otherwise opening it opens the event. */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${event.name}`}>
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); setDeleting(event); }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete event
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </Card>
@@ -162,6 +291,12 @@ export default function SalesEvents() {
           </div>
         )}
       </div>
+
+      <DeleteEventDialog
+        event={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => void load()}
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>

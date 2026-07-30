@@ -343,17 +343,69 @@ router.patch("/events/:eventId", async (req, res): Promise<void> => {
   }
 });
 
+/**
+ * Delete an event, its session catalog, and its agendas.
+ *
+ * sales_event_sessions and sales_event_agendas are ON DELETE CASCADE, so this
+ * is not a small delete — it takes the whole catalog and every agenda built
+ * from it, and there is no undo.
+ *
+ * PUBLISHED PAGES SURVIVE. lp_pages is not cascaded from here (the FK only
+ * runs the other way, nulling agenda.lp_page_id if a page is deleted), so a
+ * page a customer has already been sent stays live at its URL. What's lost is
+ * the agenda behind it: nobody can edit or republish that page from the event
+ * again. That's a decision the rep has to make knowingly, so when published
+ * agendas exist we refuse and hand back the counts; the client re-sends with
+ * ?force=true once the human has confirmed.
+ */
 router.delete("/events/:eventId", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const eventId = parseInt(req.params.eventId, 10);
     if (isNaN(eventId)) { res.status(400).json({ error: "Invalid eventId" }); return; }
+
+    const [event] = await db
+      .select({ id: salesEventsTable.id, name: salesEventsTable.name })
+      .from(salesEventsTable)
+      .where(and(eq(salesEventsTable.tenantId, tenantId), eq(salesEventsTable.id, eventId)));
+    if (!event) { res.status(404).json({ error: "Event not found" }); return; }
+
+    // Count first — the cascade makes this unrecoverable, so the human sees
+    // the blast radius before it happens, not after.
+    const counts = await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*)::int FROM sales_event_sessions
+          WHERE tenant_id = ${tenantId} AND event_id = ${eventId}) AS sessions,
+        (SELECT COUNT(*)::int FROM sales_event_agendas
+          WHERE tenant_id = ${tenantId} AND event_id = ${eventId}) AS agendas,
+        (SELECT COUNT(*)::int FROM sales_event_agendas
+          WHERE tenant_id = ${tenantId} AND event_id = ${eventId}
+            AND status = 'published') AS published
+    `);
+    const row = counts.rows[0] as { sessions?: number; agendas?: number; published?: number };
+    const impact = {
+      sessions: Number(row?.sessions ?? 0),
+      agendas: Number(row?.agendas ?? 0),
+      published: Number(row?.published ?? 0),
+    };
+
+    const force = String((req.query.force as string) ?? "") === "true";
+    if (impact.published > 0 && !force) {
+      res.status(409).json({
+        error: "This event has published agendas.",
+        requiresConfirmation: true,
+        eventName: event.name,
+        impact,
+      });
+      return;
+    }
+
     const [deleted] = await db
       .delete(salesEventsTable)
       .where(and(eq(salesEventsTable.tenantId, tenantId), eq(salesEventsTable.id, eventId)))
       .returning({ id: salesEventsTable.id });
     if (!deleted) { res.status(404).json({ error: "Event not found" }); return; }
-    res.json({ ok: true });
+    res.json({ ok: true, impact });
   } catch (err) {
     console.error("[sales/events] delete error", err);
     res.status(500).json({ error: "Failed to delete event" });

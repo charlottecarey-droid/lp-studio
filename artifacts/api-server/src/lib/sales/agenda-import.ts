@@ -36,7 +36,9 @@ export interface ImportedSessionRow {
   track?: string;
   description?: string;
   speakers?: { name: string; title?: string }[];
-  tags?: { roles?: string[]; industries?: string[]; topics?: string[] };
+  /** `segments` is the audience PARTITION axis — the only one the matcher
+   *  excludes on. See lib/sales/agenda-matching.ts. */
+  tags?: { roles?: string[]; industries?: string[]; segments?: string[]; topics?: string[] };
 }
 
 export interface AgendaEventContext {
