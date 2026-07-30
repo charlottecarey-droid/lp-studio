@@ -502,6 +502,66 @@ export function EventActivationsPanel({ props, onChange }: Props) {
               className="text-xs"
               placeholder="Grab 30 minutes with our team on the floor…"
             />
+            <div className="space-y-2 rounded-md border p-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Meeting host</Label>
+                <Switch
+                  checked={props.showBookingHost !== false}
+                  onCheckedChange={(v) => set("showBookingHost", v)}
+                />
+              </div>
+              {props.showBookingHost !== false && (
+                <div className="space-y-2">
+                  <ImagePicker
+                    label="Headshot"
+                    value={props.hostImageUrl ?? ""}
+                    onChange={(v) => set("hostImageUrl", v)}
+                    placeholder="https://…"
+                  />
+                  {props.hostImageUrl ? (
+                    <FocalPointPicker
+                      label="Focal point"
+                      value={props.hostImageFocalPoint ?? "50% 50%"}
+                      onChange={(v) => set("hostImageFocalPoint", v)}
+                      previewUrl={props.hostImageUrl}
+                    />
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">No photo? A name still shows an initials disc.</p>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Name</Label>
+                      <Input
+                        value={props.hostName ?? ""}
+                        onChange={(e) => set("hostName", e.target.value)}
+                        className="h-8 text-xs"
+                        placeholder="Alex Morgan"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Title</Label>
+                      <Input
+                        value={props.hostTitle ?? ""}
+                        onChange={(e) => set("hostTitle", e.target.value)}
+                        className="h-8 text-xs"
+                        placeholder="VP, Enterprise Partnerships"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Short bio</Label>
+                    <Textarea
+                      value={props.hostBio ?? ""}
+                      onChange={(e) => set("hostBio", e.target.value)}
+                      rows={2}
+                      className="text-xs"
+                      placeholder="A decade helping multi-location groups roll out new platforms…"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs">Booking action</Label>
               <Select

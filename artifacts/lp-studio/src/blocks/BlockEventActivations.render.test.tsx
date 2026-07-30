@@ -73,6 +73,39 @@ describe("BlockEventActivations — sections + guards", () => {
     expect(html).toContain("Munchkin ID");
   });
 
+  it("renders the meeting-host lockup from defaults, in both booking modes", () => {
+    const btn = render(EVENT_ACTIVATIONS_DEFAULT_PROPS);
+    expect(btn).toContain("Alex Morgan");
+    expect(btn).toContain("VP, Enterprise Partnerships");
+    expect(btn).toContain("bring your hardest questions");
+    const form = render({ ...EVENT_ACTIVATIONS_DEFAULT_PROPS, bookingMode: "form" });
+    expect(form).toContain("Alex Morgan");
+  });
+
+  it("hides the host lockup when toggled off", () => {
+    const html = render({ ...EVENT_ACTIVATIONS_DEFAULT_PROPS, showBookingHost: false });
+    expect(html).not.toContain("Alex Morgan");
+  });
+
+  it("falls back to an initials disc when the host has no photo", () => {
+    const html = render({ ...EVENT_ACTIVATIONS_DEFAULT_PROPS, hostImageUrl: undefined });
+    expect(html).toContain(">AM<");
+    expect(html).not.toContain("Headshot of your meeting host");
+  });
+
+  it("renders no host lockup when every host field is empty", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      hostImageUrl: undefined,
+      hostName: undefined,
+      hostTitle: undefined,
+      hostBio: undefined,
+    });
+    expect(html).not.toContain(">AM<");
+    // The booking CTA still renders under the heading.
+    expect(html).toContain("Book a meeting onsite");
+  });
+
   it("falls back to the dark band when a full-bleed layout has no image", () => {
     const html = render({
       ...EVENT_ACTIVATIONS_DEFAULT_PROPS,

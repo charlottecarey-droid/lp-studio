@@ -564,6 +564,14 @@ function eventActivationsSeedProps(): Props {
     bookingBody:
       "Grab 30 minutes with our team on the floor — pick a time that works and we'll take care of the rest.",
     bookingMode: "button",
+    showBookingHost: true,
+    hostImageUrl:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop",
+    hostImageAlt: "Headshot of your meeting host",
+    hostName: "Alex Morgan",
+    hostTitle: "VP, Enterprise Partnerships",
+    hostBio:
+      "Alex has spent a decade helping multi-location groups roll out new platforms — bring your hardest questions.",
     ctaText: "Book a meeting onsite",
     ctaUrl: "#",
     formHeading: "Request a time",

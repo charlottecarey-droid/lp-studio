@@ -123,6 +123,20 @@ export interface EventActivationsBlockProps {
   /** "button" (default) renders the big booking CTA; "form" embeds the
    *  configured global/Marketo form instead. */
   bookingMode?: "button" | "form";
+  /** Show the meeting-host lockup (headshot + name/title/bio) above the
+   *  button/form. Default true; also hidden when no host fields are set. */
+  showBookingHost?: boolean;
+  /** Headshot of the person the visitor will meet. Falls back to an
+   *  initials disc when empty but a name is set. */
+  hostImageUrl?: string;
+  hostImageAlt?: string;
+  /** CSS object-position focal point for the headshot. */
+  hostImageFocalPoint?: string;
+  hostName?: string;
+  /** Role line under the name, e.g. "VP, Enterprise Partnerships". */
+  hostTitle?: string;
+  /** Short bio shown under the name/title. */
+  hostBio?: string;
   /** PRIMARY CTA — the book-a-meeting button label/destination. */
   ctaText?: string;
   ctaUrl?: string;
@@ -231,6 +245,14 @@ export const EVENT_ACTIVATIONS_DEFAULT_PROPS: EventActivationsBlockProps = {
   bookingBody:
     "Grab 30 minutes with our team on the floor — pick a time that works and we'll take care of the rest.",
   bookingMode: "button",
+  showBookingHost: true,
+  hostImageUrl:
+    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop",
+  hostImageAlt: "Headshot of your meeting host",
+  hostName: "Alex Morgan",
+  hostTitle: "VP, Enterprise Partnerships",
+  hostBio:
+    "Alex has spent a decade helping multi-location groups roll out new platforms — bring your hardest questions.",
   ctaText: "Book a meeting onsite",
   ctaUrl: "#",
   formHeading: "Request a time",
@@ -940,6 +962,118 @@ export function BlockEventActivations({
               >
                 <InlineText as="span" value={props.bookingBody ?? ""} onUpdate={field("bookingBody")} multiline style={{ fontFamily: BODY }} />
               </p>
+            )}
+
+            {/* Meeting-host lockup — who the visitor is actually booking time
+                with. Headshot falls back to an initials disc so a rep without
+                a photo still gets a face-like anchor. Hidden via the toggle or
+                when every host field is empty. */}
+            {props.showBookingHost !== false &&
+              (props.hostName || props.hostTitle || props.hostBio || props.hostImageUrl || isEditor) && (
+              <div
+                style={{
+                  marginTop: "clamp(1.75rem, 4vh, 2.5rem)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.85rem",
+                }}
+              >
+                {props.hostImageUrl ? (
+                  <div
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 9999,
+                      overflow: "hidden",
+                      boxShadow: "0 8px 24px rgba(16,24,40,0.14)",
+                      border: `3px solid ${paper}`,
+                      outline: `1px solid ${hairline}`,
+                    }}
+                  >
+                    <InlineImage
+                      src={props.hostImageUrl}
+                      alt={props.hostImageAlt ?? props.hostName ?? "Meeting host"}
+                      onUpdate={field("hostImageUrl")}
+                      onAltUpdate={field("hostImageAlt")}
+                      focalPoint={props.hostImageFocalPoint}
+                      onFocalUpdate={field("hostImageFocalPoint")}
+                      wrapperClassName="block w-full h-full"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                ) : props.hostName ? (
+                  <div
+                    aria-hidden
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 9999,
+                      background: chipBg,
+                      color: chipInk,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: DISPLAY,
+                      fontSize: "1.75rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {props.hostName
+                      .trim()
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map((w) => w[0]?.toUpperCase() ?? "")
+                      .join("")}
+                  </div>
+                ) : null}
+                {(props.hostName || isEditor) && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontFamily: DISPLAY,
+                      fontSize: "clamp(1.0625rem, 1.8vw, 1.1875rem)",
+                      fontWeight: 700,
+                      letterSpacing: "-0.01em",
+                      color: ink,
+                    }}
+                  >
+                    <InlineText as="span" value={props.hostName ?? ""} onUpdate={field("hostName")} style={{ fontFamily: DISPLAY }} />
+                  </p>
+                )}
+                {(props.hostTitle || isEditor) && (
+                  <p
+                    style={{
+                      margin: "-0.35rem 0 0 0",
+                      fontSize: "0.8125rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: chipInk,
+                      fontFamily: BODY,
+                    }}
+                  >
+                    <InlineText as="span" value={props.hostTitle ?? ""} onUpdate={field("hostTitle")} style={{ fontFamily: BODY }} />
+                  </p>
+                )}
+                {(props.hostBio || isEditor) && (
+                  <p
+                    style={{
+                      margin: 0,
+                      maxWidth: "44ch",
+                      fontSize: "0.9375rem",
+                      lineHeight: 1.6,
+                      color: muted,
+                      fontFamily: BODY,
+                    }}
+                  >
+                    <InlineText as="span" value={props.hostBio ?? ""} onUpdate={field("hostBio")} multiline style={{ fontFamily: BODY }} />
+                  </p>
+                )}
+              </div>
             )}
 
             {(props.bookingMode ?? "button") === "button" ? (
