@@ -106,6 +106,37 @@ describe("BlockEventActivations — sections + guards", () => {
     expect(html).toContain("Book a meeting onsite");
   });
 
+  it("re-inks the activations band when a dark preset background is chosen", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      activationsBackgroundStyle: "black",
+    });
+    // Section paints the preset (CSS-var chain with the black fallback)…
+    expect(html).toContain("var(--lp-bg-black, #000000)");
+    // …and the intro headline resolves to light ink, not the light-page navy.
+    const h2 = html.match(/<h2[^>]*style="([^"]*)"/)?.[1] ?? "";
+    expect(h2).toContain("color:#F6F7F9");
+  });
+
+  it("re-inks card text when a dark custom card background is set", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      cardBgColor: "#101828",
+    });
+    const card = html.match(/<article[^>]*style="([^"]*)"/)?.[1] ?? "";
+    expect(card).toContain("background:#101828");
+    const h3 = html.match(/<h3[^>]*style="([^"]*)"/)?.[1] ?? "";
+    expect(h3).not.toContain("color:#101828");
+  });
+
+  it("honors explicit headline color overrides", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      bookingHeadlineColor: "#ba2525",
+    });
+    expect(html).toContain("color:#ba2525");
+  });
+
   it("falls back to the dark band when a full-bleed layout has no image", () => {
     const html = render({
       ...EVENT_ACTIVATIONS_DEFAULT_PROPS,

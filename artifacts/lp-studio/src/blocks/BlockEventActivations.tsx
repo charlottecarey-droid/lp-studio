@@ -5,6 +5,7 @@ import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import { isValidHex, pickContrastingColor } from "@/lib/brand-config";
 import { mixHex } from "@/lib/section-ink";
+import { resolveSectionSurface, type BackgroundStyle, type ResolvedSectionSurface } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -99,6 +100,17 @@ export interface EventActivationsBlockProps {
   /** Optional hero button (quieter than the booking CTA). Hidden when empty. */
   heroCtaText?: string;
   heroCtaUrl?: string;
+  /** Hero surface: shared background preset (White / Light gray / Muted /
+   *  Dark / Brand color / Black / Gradient)… */
+  heroBackgroundStyle?: BackgroundStyle;
+  /** …or a custom hex when no preset is chosen. Empty = layout default
+   *  (white for split, dark brand band otherwise). Behind a full-bleed photo
+   *  the image + overlay still cover it. */
+  heroBgColor?: string;
+  /** Hero headline color override. Empty = auto contrast on the surface. */
+  heroHeadlineColor?: string;
+  /** Color of the accent headline line. Empty = brand tint, contrast-guarded. */
+  heroAccentColor?: string;
 
   // ── Intro + activations band ──────────────────────────────────────────────
   /** Show the intro lockup above the activation list. Default true. */
@@ -111,6 +123,17 @@ export interface EventActivationsBlockProps {
   /** Anchor id for the activations band (without `#`). Default "activations". */
   activationsAnchorId?: string;
   activations?: EventActivationItem[];
+  /** Activations-band surface: shared preset or custom hex. Empty = the
+   *  original soft brand tint. */
+  activationsBackgroundStyle?: BackgroundStyle;
+  activationsBgColor?: string;
+  /** Intro headline color override. Empty = auto contrast on the band. */
+  introHeadlineColor?: string;
+  /** Activation-card (and booking form card) background. Empty = white.
+   *  Card inks re-derive from this, so dark cards get light text. */
+  cardBgColor?: string;
+  /** Activation-card title color override. Empty = auto contrast on the card. */
+  cardTitleColor?: string;
 
   // ── Booking close ─────────────────────────────────────────────────────────
   /** Show the book-a-meeting section. Default true. */
@@ -120,6 +143,11 @@ export interface EventActivationsBlockProps {
   bookingKicker?: string;
   bookingHeading?: string;
   bookingBody?: string;
+  /** Booking-section surface: shared preset or custom hex. Empty = white. */
+  bookingBackgroundStyle?: BackgroundStyle;
+  bookingBgColor?: string;
+  /** Booking headline color override. Empty = auto contrast on the surface. */
+  bookingHeadlineColor?: string;
   /** "button" (default) renders the big booking CTA; "form" embeds the
    *  configured global/Marketo form instead. */
   bookingMode?: "button" | "form";
@@ -330,36 +358,127 @@ export function BlockEventActivations({
           })
       : undefined;
 
-  // ── palette: brand-derived light editorial page ───────────────────────────
+  // ── palette: brand-derived, resolved PER SECTION ──────────────────────────
+  // Each section resolves its own surface (shared background preset dropdown
+  // or a custom hex, via resolveSectionSurface) and derives every ink it
+  // renders from that surface — so a dark band never keeps light-page ink.
+  // With no overrides set, the palette matches the original light editorial
+  // look exactly.
   const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : "#0f4c46";
   const paper = "#ffffff";
-  const ink = "#101828";
-  const muted = "#475467";
-  const hairline = "rgba(16, 24, 40, 0.10)";
-  const band = mixHex(primary, "#ffffff", 0.08);
-  const chipBg = mixHex(primary, "#ffffff", 0.14);
-  const chipInk = pickContrastingColor(mixHex(primary, "#000000", 0.82), chipBg, [primary, ink]);
-  // Two-tone headline accent: a soft tint of the primary, contrast-guarded so
-  // very light brands never render an invisible second line.
-  const accentOnLight = pickContrastingColor(
-    mixHex(primary, "#ffffff", 0.62),
-    paper,
-    [primary, ink],
-    2.4,
-  );
-  const linkInk = pickContrastingColor(primary, paper, [mixHex(primary, "#000000", 0.7), ink]);
 
-  // ── hero layout + dark-surface chrome ─────────────────────────────────────
-  const heroLayout = resolveHeroLayout(props.heroLayout, Boolean(props.heroImage), "split");
-  const darkSurface = resolveDarkHeroSurface(brand, undefined, (h) => !!h && isValidHex(h));
-  const heroIsDark = heroLayout !== "split";
-  const darkInk = heroChromeInk(darkSurface);
-  // Near-white before accent on dark surfaces (dark-headline rule).
-  const accentOnDark = mixHex("#ffffff", primary, 0.72);
+  interface SectionPalette {
+    /** CSS `background` value (solid hex or gradient image). */
+    bg: string;
+    /** Representative solid hex for contrast math. */
+    base: string;
+    isDark: boolean;
+    ink: string;
+    muted: string;
+    headline: string;
+    /** Small-caps kicker/eyebrow ink on the section surface. */
+    kicker: string;
+    chipBg: string;
+    chipInk: string;
+    hairline: string;
+  }
+  const paletteFor = (
+    surf: ResolvedSectionSurface,
+    headlineOverride?: string,
+  ): SectionPalette => {
+    const dark = surf.isDark;
+    const chrome = dark ? heroChromeInk(surf.base) : { ink: "#101828", muted: "#475467" };
+    // Near-white before accent on dark surfaces (dark-headline rule).
+    const headline =
+      headlineOverride && isValidHex(headlineOverride)
+        ? headlineOverride
+        : dark
+          ? pickContrastingColor("#F6F7F9", surf.base, ["#FFFFFF"])
+          : pickContrastingColor("#101828", surf.base, ["#0B0B0F"]);
+    const kicker = pickContrastingColor(
+      dark ? mixHex("#ffffff", primary, 0.72) : mixHex(primary, "#000000", 0.82),
+      surf.base,
+      [chrome.ink],
+    );
+    const chipBg = dark ? mixHex("#ffffff", surf.base, 0.16) : mixHex(primary, surf.base, 0.14);
+    const chipInk = pickContrastingColor(
+      dark ? "#ffffff" : mixHex(primary, "#000000", 0.82),
+      chipBg,
+      [chrome.ink, "#101828"],
+    );
+    return {
+      bg: surf.background,
+      base: surf.base,
+      isDark: dark,
+      ink: chrome.ink,
+      muted: chrome.muted,
+      headline,
+      kicker,
+      chipBg,
+      chipInk,
+      hairline: dark ? "rgba(255,255,255,0.16)" : "rgba(16, 24, 40, 0.10)",
+    };
+  };
+
   const overlayRaw = props.backgroundOverlay;
   const backgroundOverlay =
     typeof overlayRaw === "number" ? Math.max(0, Math.min(1, overlayRaw)) : 0.45;
   const headlineScale = clampScale(props.headlineFontScale);
+
+  // ── hero layout + per-section surfaces ────────────────────────────────────
+  const heroLayout = resolveHeroLayout(props.heroLayout, Boolean(props.heroImage), "split");
+  const darkSurface = resolveDarkHeroSurface(brand, undefined, (h) => !!h && isValidHex(h));
+  const heroSurf = resolveSectionSurface(
+    { backgroundStyle: props.heroBackgroundStyle, bgColor: props.heroBgColor },
+    heroLayout === "split" ? paper : darkSurface,
+    brand,
+  );
+  // Under a full-bleed photo the dark overlay owns legibility, so the copy is
+  // always treated as on-dark there — palette contrast resolves against the
+  // overlay tint, not the (covered) base surface.
+  const heroIsDark = heroLayout === "image-overlay" ? true : heroSurf.isDark;
+  const heroPal = paletteFor(
+    heroLayout === "image-overlay"
+      ? {
+          background: heroSurf.background,
+          base: mixHex(props.overlayColor ?? "#000000", "#1a1a1a", 0.8),
+          isDark: true,
+        }
+      : heroSurf,
+    props.heroHeadlineColor,
+  );
+  const heroAccent =
+    props.heroAccentColor && isValidHex(props.heroAccentColor)
+      ? props.heroAccentColor
+      : heroIsDark
+        ? mixHex("#ffffff", primary, 0.72)
+        : pickContrastingColor(
+            mixHex(primary, heroPal.base, 0.62),
+            heroPal.base,
+            [primary, heroPal.ink],
+            2.4,
+          );
+
+  const bandSurf = resolveSectionSurface(
+    { backgroundStyle: props.activationsBackgroundStyle, bgColor: props.activationsBgColor },
+    mixHex(primary, "#ffffff", 0.08),
+    brand,
+  );
+  const bandPal = paletteFor(bandSurf, props.introHeadlineColor);
+  // Cards (activation rows + the booking form card) carry their own surface so
+  // a dark card on a light band — or the reverse — stays legible.
+  const cardSurf = resolveSectionSurface({ bgColor: props.cardBgColor }, paper, brand);
+  const cardPal = paletteFor(cardSurf, props.cardTitleColor);
+  const cardLink = pickContrastingColor(primary, cardSurf.base, [
+    mixHex(primary, "#000000", 0.7),
+    cardPal.ink,
+  ]);
+  const bookSurf = resolveSectionSurface(
+    { backgroundStyle: props.bookingBackgroundStyle, bgColor: props.bookingBgColor },
+    paper,
+    brand,
+  );
+  const bookPal = paletteFor(bookSurf, props.bookingHeadlineColor);
 
   // ── CTA palette (parity with event-landing-hero): explicit prop wins, else
   //    tenant brand vars so the rest of the brand system still applies. ──────
@@ -523,8 +642,8 @@ export function BlockEventActivations({
             gap: "0.5rem",
             borderRadius: 9999,
             padding: "0.45rem 1rem",
-            background: dark ? "rgba(255,255,255,0.14)" : chipBg,
-            color: dark ? "#ffffff" : chipInk,
+            background: heroPal.chipBg,
+            color: heroPal.chipInk,
             fontSize: "clamp(0.75rem, 1.3vw, 0.875rem)",
             fontWeight: 600,
             letterSpacing: "0.02em",
@@ -547,14 +666,14 @@ export function BlockEventActivations({
           lineHeight: 1.04,
           fontWeight: 700,
           letterSpacing: "-0.025em",
-          color: dark ? darkInk.ink : ink,
+          color: heroPal.headline,
           textShadow: dark ? "0 2px 24px rgba(0,0,0,0.35)" : undefined,
           maxWidth: "16ch",
         }}
       >
         <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }} />
         {(props.headlineAccent || isEditor) && (
-          <span style={{ display: "block", color: dark ? accentOnDark : accentOnLight }}>
+          <span style={{ display: "block", color: heroAccent }}>
             <InlineText as="span" value={props.headlineAccent ?? ""} onUpdate={field("headlineAccent")} style={{ fontFamily: DISPLAY }} />
           </span>
         )}
@@ -570,7 +689,7 @@ export function BlockEventActivations({
             maxWidth: "46ch",
             fontSize: "clamp(1rem, 1.7vw, 1.125rem)",
             lineHeight: 1.6,
-            color: dark ? darkInk.muted : muted,
+            color: heroPal.muted,
             textShadow: dark ? "0 1px 8px rgba(0,0,0,0.4)" : undefined,
             fontFamily: BODY,
           }}
@@ -595,9 +714,9 @@ export function BlockEventActivations({
     </div>
   );
 
-  const navSurface = heroIsDark ? darkSurface : paper;
-  const navInk = heroIsDark ? darkInk.ink : ink;
-  const navMuted = heroIsDark ? darkInk.muted : muted;
+  const navSurface = heroLayout === "image-overlay" ? darkSurface : heroPal.base;
+  const navInk = heroPal.ink;
+  const navMuted = heroPal.muted;
   const navCtaLabel = props.navCtaText ?? props.ctaText;
   const navbar =
     props.showNav !== false ? (
@@ -620,10 +739,10 @@ export function BlockEventActivations({
     ) : null;
 
   return (
-    <div style={{ background: paper, color: ink, fontFamily: BODY, overflowX: "clip" }}>
+    <div style={{ background: paper, color: "#101828", fontFamily: BODY, overflowX: "clip" }}>
       {/* ── HERO ── */}
       {heroLayout === "image-overlay" ? (
-        <header style={{ position: "relative", background: darkSurface }}>
+        <header style={{ position: "relative", background: heroPal.bg }}>
           {props.heroImage && (
             <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
               <InlineImage
@@ -666,7 +785,7 @@ export function BlockEventActivations({
           </div>
         </header>
       ) : heroLayout === "dark" ? (
-        <header style={{ background: darkSurface }}>
+        <header style={{ background: heroPal.bg }}>
           {navbar}
           <div
             style={{
@@ -679,7 +798,7 @@ export function BlockEventActivations({
           </div>
         </header>
       ) : (
-        <header style={{ background: paper }}>
+        <header style={{ background: heroPal.bg }}>
           {navbar}
           <div
             className="evact-hero-grid"
@@ -729,7 +848,7 @@ export function BlockEventActivations({
         <section
           id={activationsAnchor}
           style={{
-            background: band,
+            background: bandPal.bg,
             padding: "clamp(3.5rem, 9vh, 6.5rem) clamp(1.25rem, 5vw, 3rem)",
           }}
         >
@@ -744,7 +863,7 @@ export function BlockEventActivations({
                       fontWeight: 700,
                       letterSpacing: "0.16em",
                       textTransform: "uppercase",
-                      color: chipInk,
+                      color: bandPal.kicker,
                       fontFamily: BODY,
                     }}
                   >
@@ -761,7 +880,7 @@ export function BlockEventActivations({
                       lineHeight: 1.12,
                       fontWeight: 700,
                       letterSpacing: "-0.02em",
-                      color: ink,
+                      color: bandPal.headline,
                     }}
                   >
                     <InlineText as="span" value={props.introHeadline ?? ""} onUpdate={field("introHeadline")} multiline style={{ fontFamily: DISPLAY }} />
@@ -774,7 +893,7 @@ export function BlockEventActivations({
                       maxWidth: "56ch",
                       fontSize: "clamp(0.9375rem, 1.6vw, 1.0625rem)",
                       lineHeight: 1.6,
-                      color: muted,
+                      color: bandPal.muted,
                       fontFamily: BODY,
                     }}
                   >
@@ -794,8 +913,8 @@ export function BlockEventActivations({
                       key={i}
                       className="evact-card"
                       style={{
-                        background: paper,
-                        border: `1px solid ${hairline}`,
+                        background: cardSurf.background,
+                        border: `1px solid ${cardPal.hairline}`,
                         borderRadius: 20,
                         padding: "clamp(1.5rem, 3.5vw, 2.5rem)",
                         display: "grid",
@@ -817,8 +936,8 @@ export function BlockEventActivations({
                               display: "inline-flex",
                               borderRadius: 8,
                               padding: "0.3rem 0.7rem",
-                              background: chipBg,
-                              color: chipInk,
+                              background: cardPal.chipBg,
+                              color: cardPal.chipInk,
                               fontSize: "0.75rem",
                               fontWeight: 700,
                               letterSpacing: "0.08em",
@@ -837,7 +956,7 @@ export function BlockEventActivations({
                             lineHeight: 1.18,
                             fontWeight: 700,
                             letterSpacing: "-0.015em",
-                            color: ink,
+                            color: cardPal.headline,
                           }}
                         >
                           <InlineText as="span" value={a.title} onUpdate={editItem(i, "title")} multiline style={{ fontFamily: DISPLAY }} />
@@ -848,7 +967,7 @@ export function BlockEventActivations({
                               margin: 0,
                               fontSize: "clamp(0.9375rem, 1.5vw, 1rem)",
                               lineHeight: 1.65,
-                              color: muted,
+                              color: cardPal.muted,
                               fontFamily: BODY,
                             }}
                           >
@@ -864,7 +983,7 @@ export function BlockEventActivations({
                               display: "inline-flex",
                               alignItems: "center",
                               gap: 6,
-                              color: linkInk,
+                              color: cardLink,
                               fontWeight: 700,
                               fontSize: "0.9375rem",
                               textDecoration: "none",
@@ -913,7 +1032,7 @@ export function BlockEventActivations({
         <section
           id={bookingAnchor}
           style={{
-            background: paper,
+            background: bookPal.bg,
             padding: "clamp(3.5rem, 10vh, 7rem) clamp(1.25rem, 5vw, 3rem)",
           }}
         >
@@ -926,7 +1045,7 @@ export function BlockEventActivations({
                   fontWeight: 700,
                   letterSpacing: "0.16em",
                   textTransform: "uppercase",
-                  color: chipInk,
+                  color: bookPal.kicker,
                   fontFamily: BODY,
                 }}
               >
@@ -943,7 +1062,7 @@ export function BlockEventActivations({
                   lineHeight: 1.12,
                   fontWeight: 700,
                   letterSpacing: "-0.02em",
-                  color: ink,
+                  color: bookPal.headline,
                 }}
               >
                 <InlineText as="span" value={props.bookingHeading ?? ""} onUpdate={field("bookingHeading")} multiline style={{ fontFamily: DISPLAY }} />
@@ -956,7 +1075,7 @@ export function BlockEventActivations({
                   maxWidth: "52ch",
                   fontSize: "clamp(0.9375rem, 1.6vw, 1.0625rem)",
                   lineHeight: 1.6,
-                  color: muted,
+                  color: bookPal.muted,
                   fontFamily: BODY,
                 }}
               >
@@ -988,7 +1107,7 @@ export function BlockEventActivations({
                       overflow: "hidden",
                       boxShadow: "0 8px 24px rgba(16,24,40,0.14)",
                       border: `3px solid ${paper}`,
-                      outline: `1px solid ${hairline}`,
+                      outline: `1px solid ${bookPal.hairline}`,
                     }}
                   >
                     <InlineImage
@@ -1011,8 +1130,8 @@ export function BlockEventActivations({
                       width: 88,
                       height: 88,
                       borderRadius: 9999,
-                      background: chipBg,
-                      color: chipInk,
+                      background: bookPal.chipBg,
+                      color: bookPal.chipInk,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1038,7 +1157,7 @@ export function BlockEventActivations({
                       fontSize: "clamp(1.0625rem, 1.8vw, 1.1875rem)",
                       fontWeight: 700,
                       letterSpacing: "-0.01em",
-                      color: ink,
+                      color: bookPal.ink,
                     }}
                   >
                     <InlineText as="span" value={props.hostName ?? ""} onUpdate={field("hostName")} style={{ fontFamily: DISPLAY }} />
@@ -1052,7 +1171,7 @@ export function BlockEventActivations({
                       fontWeight: 700,
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
-                      color: chipInk,
+                      color: bookPal.kicker,
                       fontFamily: BODY,
                     }}
                   >
@@ -1066,7 +1185,7 @@ export function BlockEventActivations({
                       maxWidth: "44ch",
                       fontSize: "0.9375rem",
                       lineHeight: 1.6,
-                      color: muted,
+                      color: bookPal.muted,
                       fontFamily: BODY,
                     }}
                   >
@@ -1098,8 +1217,8 @@ export function BlockEventActivations({
                 style={{
                   marginTop: "clamp(1.75rem, 4vh, 2.5rem)",
                   textAlign: "left",
-                  background: paper,
-                  border: `1px solid ${hairline}`,
+                  background: cardSurf.background,
+                  border: `1px solid ${cardPal.hairline}`,
                   borderRadius: 20,
                   boxShadow: "0 12px 40px rgba(16,24,40,0.08)",
                   padding: "clamp(1.5rem, 3.5vw, 2.5rem)",
@@ -1113,14 +1232,14 @@ export function BlockEventActivations({
                       fontSize: "clamp(1.25rem, 2.4vw, 1.5rem)",
                       lineHeight: 1.2,
                       fontWeight: 700,
-                      color: ink,
+                      color: cardPal.headline,
                     }}
                   >
                     <InlineText as="span" value={props.formHeading ?? ""} onUpdate={field("formHeading")} style={{ fontFamily: DISPLAY }} />
                   </h3>
                 )}
                 {(props.formSubheading || isEditor) && (
-                  <p style={{ margin: "0 0 1.25rem 0", fontSize: "0.9375rem", lineHeight: 1.5, color: muted, fontFamily: BODY }}>
+                  <p style={{ margin: "0 0 1.25rem 0", fontSize: "0.9375rem", lineHeight: 1.5, color: cardPal.muted, fontFamily: BODY }}>
                     <InlineText as="span" value={props.formSubheading ?? ""} onUpdate={field("formSubheading")} multiline style={{ fontFamily: BODY }} />
                   </p>
                 )}
@@ -1138,11 +1257,11 @@ export function BlockEventActivations({
                 ) : (
                   <div
                     style={{
-                      border: `1px dashed ${hairline}`,
+                      border: `1px dashed ${cardPal.hairline}`,
                       borderRadius: 14,
                       padding: "1.25rem 1.5rem",
                       fontSize: 13,
-                      color: muted,
+                      color: cardPal.muted,
                       fontFamily: BODY,
                     }}
                   >
@@ -1161,11 +1280,11 @@ export function BlockEventActivations({
       {(props.footerText || isEditor) && (
         <footer
           style={{
-            borderTop: `1px solid ${hairline}`,
+            borderTop: "1px solid rgba(16, 24, 40, 0.10)",
             padding: "1.75rem clamp(1.25rem, 5vw, 3rem)",
             textAlign: "center",
             fontSize: "0.8125rem",
-            color: muted,
+            color: "#475467",
             fontFamily: BODY,
           }}
         >

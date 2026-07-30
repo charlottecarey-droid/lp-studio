@@ -12,6 +12,7 @@ import {
 import { ImagePicker } from "@/components/ImagePicker";
 import { FocalPointPicker } from "@/components/FocalPointPicker";
 import { ColorField } from "./BlockSettingsPanel";
+import { SectionBackgroundControl } from "./SectionBackgroundControl";
 import type {
   EventActivationsBlockProps,
   EventActivationItem,
@@ -257,6 +258,28 @@ export function EventActivationsPanel({ props, onChange }: Props) {
             </div>
           </div>
         )}
+        <div className="space-y-2 rounded-md border p-2.5">
+          <SectionBackgroundControl
+            backgroundStyle={props.heroBackgroundStyle}
+            bgColor={props.heroBgColor}
+            defaultBgColor="#ffffff"
+            onChange={(patch) => onChange({ ...props, heroBackgroundStyle: patch.backgroundStyle, ...(patch.bgColor !== undefined ? { heroBgColor: patch.bgColor } : {}) })}
+            label="Hero background"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <ColorField
+              label="Headline color"
+              value={props.heroHeadlineColor}
+              onChange={(v) => set("heroHeadlineColor", v)}
+            />
+            <ColorField
+              label="Accent line color"
+              value={props.heroAccentColor}
+              onChange={(v) => set("heroAccentColor", v)}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">Empty = automatic from your brand. Behind a full-bleed image the photo covers the background.</p>
+        </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Headline size — {(props.headlineFontScale ?? 1).toFixed(2)}×</Label>
           <Slider
@@ -344,6 +367,33 @@ export function EventActivationsPanel({ props, onChange }: Props) {
                 className="h-8 text-xs font-mono"
                 placeholder="activations"
               />
+            </div>
+            <div className="space-y-2 rounded-md border p-2.5">
+              <SectionBackgroundControl
+                backgroundStyle={props.activationsBackgroundStyle}
+                bgColor={props.activationsBgColor}
+                defaultBgColor="#f2f4f5"
+                onChange={(patch) => onChange({ ...props, activationsBackgroundStyle: patch.backgroundStyle, ...(patch.bgColor !== undefined ? { activationsBgColor: patch.bgColor } : {}) })}
+                label="Section background"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <ColorField
+                  label="Headline color"
+                  value={props.introHeadlineColor}
+                  onChange={(v) => set("introHeadlineColor", v)}
+                />
+                <ColorField
+                  label="Card title color"
+                  value={props.cardTitleColor}
+                  onChange={(v) => set("cardTitleColor", v)}
+                />
+              </div>
+              <ColorField
+                label="Card background"
+                value={props.cardBgColor}
+                onChange={(v) => set("cardBgColor", v)}
+              />
+              <p className="text-[11px] text-muted-foreground">Empty = automatic (soft brand tint, white cards). Card text re-adjusts for dark card colors. Card background also applies to the booking form card.</p>
             </div>
             {activations.map((a, i) => {
               const open = openItem === i;
@@ -502,6 +552,21 @@ export function EventActivationsPanel({ props, onChange }: Props) {
               className="text-xs"
               placeholder="Grab 30 minutes with our team on the floor…"
             />
+            <div className="space-y-2 rounded-md border p-2.5">
+              <SectionBackgroundControl
+                backgroundStyle={props.bookingBackgroundStyle}
+                bgColor={props.bookingBgColor}
+                defaultBgColor="#ffffff"
+                onChange={(patch) => onChange({ ...props, bookingBackgroundStyle: patch.backgroundStyle, ...(patch.bgColor !== undefined ? { bookingBgColor: patch.bgColor } : {}) })}
+                label="Section background"
+              />
+              <ColorField
+                label="Headline color"
+                value={props.bookingHeadlineColor}
+                onChange={(v) => set("bookingHeadlineColor", v)}
+              />
+              <p className="text-[11px] text-muted-foreground">Empty = automatic. Text and the host lockup re-adjust for dark backgrounds.</p>
+            </div>
             <div className="space-y-2 rounded-md border p-2.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Meeting host</Label>
