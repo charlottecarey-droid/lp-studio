@@ -14,6 +14,7 @@ import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { extractWistiaId } from "@/lib/wistia";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -21,7 +22,16 @@ const BODY = BRAND_BODY_FONT;
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 function toAutoEmbedUrl(url: string, autoplay: boolean, loop = false): string {
-  if (!url || !autoplay) return url;
+  if (!url) return url;
+  // Wistia media-page/embed links only render inside an iframe via the embed
+  // endpoint (a wistia.com/medias page X-Frame-denies), so convert them even
+  // when autoplay is off — unlike the YouTube/Vimeo branches below, which
+  // keep their historical pass-through-when-not-autoplaying behavior.
+  const wistiaId = extractWistiaId(url);
+  if (wistiaId) {
+    return `https://fast.wistia.net/embed/iframe/${wistiaId}${autoplay ? "?autoPlay=true&silentAutoPlay=allow" : ""}`;
+  }
+  if (!autoplay) return url;
   try {
     // YouTube: convert watch?v= or youtu.be/ to embed if needed, then add params
     const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);

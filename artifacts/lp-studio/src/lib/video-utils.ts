@@ -1,3 +1,5 @@
+import { extractWistiaId } from "./wistia";
+
 const VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov"];
 
 export function isNativeVideoUrl(url: string): boolean {
@@ -16,6 +18,19 @@ function appendParams(url: string, params: Record<string, string>): string {
 export function getAutoplayEmbedUrl(url: string): string {
   if (!url) return url;
   if (isNativeVideoUrl(url)) return url;
+
+  // Wistia media-page/embed links (any *.wistia.com|net host, `?wvideo=`
+  // decorations, or a bare hashed media id) → the iframe player endpoint.
+  // A wistia.com/medias page X-Frame-denies, so this conversion is what makes
+  // Wistia work everywhere the generic embed path is used. `silentAutoPlay`
+  // lets the player start muted when the browser blocks audible autoplay.
+  // wistia.com/s/<token> SHARE links carry a token, not a media id — those
+  // resolve asynchronously at input time (VideoPicker / WistiaUrlField) and
+  // fall through unchanged here.
+  const wistiaId = extractWistiaId(url);
+  if (wistiaId) {
+    return `https://fast.wistia.net/embed/iframe/${wistiaId}?autoPlay=true&silentAutoPlay=allow`;
+  }
 
   try {
     const u = new URL(url);

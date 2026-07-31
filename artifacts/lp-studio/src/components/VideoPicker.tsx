@@ -6,6 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Upload, Loader2, Play, Check, X, Film, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ensureCsrfToken, clearCsrfToken } from "@/lib/api-fetch";
+import {
+  extractWistiaId,
+  isWistiaShareLink,
+  resolveWistiaShareLink,
+  wistiaIframeUrl,
+} from "@/lib/wistia";
 
 interface MediaItem {
   id: string;
@@ -147,6 +153,7 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [customUrl, setCustomUrl] = useState(value);
+  const [resolvingShare, setResolvingShare] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadLibrary = async () => {
@@ -190,8 +197,24 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
     }
   };
 
-  const handleApplyUrl = () => {
-    onChange(customUrl);
+  const handleApplyUrl = async () => {
+    let url = customUrl.trim();
+    if (!url) return;
+    // Wistia: /s/<token> share links carry a token, not a media id — resolve
+    // it via the public oEmbed endpoint so the saved prop is always a real
+    // embeddable URL. Media-page/embed links normalize to the canonical
+    // iframe endpoint for the same reason. Unresolvable links are kept as
+    // pasted (renderers fall back to their no-video path).
+    if (isWistiaShareLink(url)) {
+      setResolvingShare(true);
+      const id = await resolveWistiaShareLink(url);
+      setResolvingShare(false);
+      if (id) url = wistiaIframeUrl(id);
+    } else {
+      const id = extractWistiaId(url);
+      if (id) url = wistiaIframeUrl(id);
+    }
+    onChange(url);
     setOpen(false);
   };
 
@@ -346,7 +369,7 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
           {tab === "url" && (
             <div className="space-y-3 py-2">
               <p className="text-sm text-muted-foreground">
-                Paste a YouTube, Vimeo, Loom, or other embed URL.
+                Paste a YouTube, Vimeo, Loom, Wistia, or other embed URL.
               </p>
               <Input
                 value={customUrl}
@@ -360,9 +383,15 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
                 className="w-full"
                 style={{ backgroundColor: "var(--brand-primary)", color: "white" }}
                 onClick={handleApplyUrl}
-                disabled={!customUrl.trim()}
+                disabled={!customUrl.trim() || resolvingShare}
               >
-                Use This URL
+                {resolvingShare ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Resolving Wistia link…
+                  </>
+                ) : (
+                  "Use This URL"
+                )}
               </Button>
             </div>
           )}
