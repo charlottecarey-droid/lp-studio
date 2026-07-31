@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
+import { VideoPicker } from "@/components/VideoPicker";
 import { FocalPointPicker } from "@/components/FocalPointPicker";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -239,6 +240,12 @@ export function EventActivationsPanel({ props, onChange }: Props) {
           onChange={(v) => set("heroImageFocalPoint", v)}
           previewUrl={props.heroImage ?? undefined}
         />
+        <VideoPicker
+          label="Video (optional)"
+          value={props.heroVideoUrl ?? ""}
+          onChange={(v) => set("heroVideoUrl", v || undefined)}
+        />
+        <p className="text-[11px] text-muted-foreground">Pick from your video library or paste a YouTube / Vimeo / Loom link. Split layout: plays in the media slot (the image becomes the poster). Full-bleed: an uploaded/.mp4 video becomes the looping background; other links get a "Watch the video" button.</p>
         {heroLayout === "image-overlay" && (
           <div className="grid grid-cols-2 gap-2">
             <ColorField
@@ -457,6 +464,14 @@ export function EventActivationsPanel({ props, onChange }: Props) {
                         onChange={(v) => setItem(i, { imageUrl: v })}
                         placeholder="https://images.unsplash.com/…"
                       />
+                      <VideoPicker
+                        label="Video (optional)"
+                        value={a.videoUrl ?? ""}
+                        onChange={(v) => setItem(i, { videoUrl: v || undefined })}
+                      />
+                      {a.videoUrl && (
+                        <p className="text-[11px] text-muted-foreground">The video plays in this card's media slot; with an image set, the image is the poster behind a play button.</p>
+                      )}
                       {a.imageUrl && (
                         <>
                           <div className="space-y-1.5">

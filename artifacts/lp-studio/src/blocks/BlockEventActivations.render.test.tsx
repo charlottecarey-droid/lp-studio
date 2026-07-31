@@ -137,6 +137,67 @@ describe("BlockEventActivations — sections + guards", () => {
     expect(html).toContain("color:#ba2525");
   });
 
+  it("renders a poster + play button when a card has both image and video", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      activations: [
+        {
+          ...EVENT_ACTIVATIONS_DEFAULT_PROPS.activations![0],
+          videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        },
+      ],
+    });
+    // Image stays as the poster; the player only mounts after the click.
+    expect(html).toContain("Speaker on a conference stage");
+    expect(html).toContain('aria-label="Play video"');
+    expect(html).not.toContain("<iframe");
+  });
+
+  it("renders a play panel for a video-only card (no image)", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      activations: [
+        {
+          kicker: "Demo",
+          title: "Video only",
+          videoUrl: "https://vimeo.com/123456789",
+        },
+      ],
+    });
+    expect(html).toContain('aria-label="Play video"');
+  });
+
+  it("uses a direct video file as the full-bleed background loop", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      heroLayout: "image-overlay",
+      heroVideoUrl: "https://cdn.example.com/sizzle.mp4",
+    });
+    expect(html).toContain("<video");
+    expect(html).toContain("sizzle.mp4");
+    // The hero image doubles as the poster.
+    expect(html).toContain('poster="https://images.unsplash.com/photo-1496442226666');
+  });
+
+  it("offers the lightbox watch button when a full-bleed hero has an embed-link video", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      heroLayout: "image-overlay",
+      heroVideoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    expect(html).toContain("Watch the video");
+    expect(html).not.toContain("<iframe");
+  });
+
+  it("shows the split-hero play overlay over the image when a hero video is set", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      heroVideoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    expect(html).toContain('aria-label="Play video"');
+    expect(html).not.toContain("Watch the video");
+  });
+
   it("falls back to the dark band when a full-bleed layout has no image", () => {
     const html = render({
       ...EVENT_ACTIVATIONS_DEFAULT_PROPS,

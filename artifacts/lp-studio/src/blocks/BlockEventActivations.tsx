@@ -1,6 +1,6 @@
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import { isValidHex, pickContrastingColor } from "@/lib/brand-config";
@@ -10,6 +10,8 @@ import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BlockForm } from "./BlockForm";
+import { VideoModal } from "@/components/VideoModal";
+import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
 import type { FormBlockProps } from "@/lib/block-types";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import {
@@ -55,6 +57,13 @@ export interface EventActivationItem {
   imageAlt?: string;
   /** CSS object-position for the image, e.g. "50% 30%". */
   imageFocalPoint?: string;
+  /** Optional video for the media slot: YouTube / Vimeo / Loom link or a
+   *  direct .mp4/.webm file (NOT Wistia-specific — resolved by the shared
+   *  video-utils embed helper). With an image set, the image becomes the
+   *  poster behind a play button; without one, a dark panel + play button
+   *  renders. Safe name: nested item keys are never rewritten by the Page
+   *  CTA transform (top-level `videoUrl` would be — see PRIMARY_CTA_KEYS). */
+  videoUrl?: string;
   /** Optional link under the body, e.g. "RSVP here" → external RSVP or #book. */
   linkText?: string;
   linkUrl?: string;
@@ -91,6 +100,15 @@ export interface EventActivationsBlockProps {
   heroImageAlt?: string;
   /** CSS object-position focal point for the hero image. */
   heroImageFocalPoint?: string;
+  /** Optional hero video (YouTube / Vimeo / Loom / direct .mp4 — generic
+   *  video-utils resolver, not Wistia-specific). Split layout: plays in the
+   *  media slot (image = poster + play button when both are set). Full-bleed
+   *  layout: a direct .mp4 becomes the looping background video; embed links
+   *  get a "watch" button that opens the shared lightbox. Dark band: any
+   *  video renders the "watch" lightbox button. */
+  heroVideoUrl?: string;
+  /** Label on the hero "watch the video" lightbox button. */
+  heroVideoCtaText?: string;
   /** Overlay color on the full-bleed hero image. Default #000000. */
   overlayColor?: string;
   /** 0–1 overlay opacity on the full-bleed hero image. Default 0.45. */
@@ -426,7 +444,11 @@ export function BlockEventActivations({
   const headlineScale = clampScale(props.headlineFontScale);
 
   // ── hero layout + per-section surfaces ────────────────────────────────────
-  const heroLayout = resolveHeroLayout(props.heroLayout, Boolean(props.heroImage), "split");
+  const heroLayout = resolveHeroLayout(
+    props.heroLayout,
+    Boolean(props.heroImage || (props.heroVideoUrl ?? "").trim()),
+    "split",
+  );
   const darkSurface = resolveDarkHeroSurface(brand, undefined, (h) => !!h && isValidHex(h));
   const heroSurf = resolveSectionSurface(
     { backgroundStyle: props.heroBackgroundStyle, bgColor: props.heroBgColor },
@@ -511,6 +533,68 @@ export function BlockEventActivations({
 
   const activationsAnchor = (props.activationsAnchorId ?? "activations").trim() || "activations";
   const bookingAnchor = (props.bookingAnchorId ?? "book").trim() || "book";
+
+  // ── video slots (generic video-utils path: library mp4s, YouTube, Vimeo,
+  //    Loom, or any embeddable URL — image doubles as the poster) ────────────
+  const heroVideo = (props.heroVideoUrl ?? "").trim();
+  const heroVideoNative = !!heroVideo && isNativeVideoUrl(heroVideo);
+  const [heroPlaying, setHeroPlaying] = useState(false);
+  const [cardPlaying, setCardPlaying] = useState<number | null>(null);
+  const [modalVideo, setModalVideo] = useState("");
+
+  const VideoEmbed = ({ url, title }: { url: string; title: string }) =>
+    isNativeVideoUrl(url) ? (
+      <video
+        src={url}
+        controls
+        autoPlay
+        playsInline
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#000" }}
+      />
+    ) : (
+      <iframe
+        src={getAutoplayEmbedUrl(url)}
+        title={title}
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        style={{ width: "100%", height: "100%", border: 0, display: "block", background: "#000" }}
+      />
+    );
+
+  const PlayOverlay = ({ onClick }: { onClick: () => void }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Play video"
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.25)",
+        border: "none",
+        cursor: "pointer",
+        zIndex: 2,
+      }}
+    >
+      <span
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 9999,
+          background: "rgba(255,255,255,0.92)",
+          color: "#0f172a",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+        }}
+      >
+        <Play aria-hidden fill="currentColor" style={{ width: 24, height: 24, marginLeft: 3 }} />
+      </span>
+    </button>
+  );
 
   /** Shared premium pill used by the hero CTA and the booking CTA. */
   const CtaPill = ({
@@ -698,17 +782,49 @@ export function BlockEventActivations({
         </motion.p>
       )}
 
-      {props.heroCtaText && (
+      {(props.heroCtaText ||
+        (heroVideo && (heroLayout === "dark" || (heroLayout === "image-overlay" && !heroVideoNative)))) && (
         <motion.div
           initial={anim({ opacity: 0, y: 14 })}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.24 }}
+          style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.85rem", justifyContent: center ? "center" : "flex-start" }}
         >
-          <CtaPill
-            label={props.heroCtaText}
-            onUpdate={field("heroCtaText")}
-            onClick={() => navigateCta(props.heroCtaUrl || `#${activationsAnchor}`)}
-          />
+          {props.heroCtaText && (
+            <CtaPill
+              label={props.heroCtaText}
+              onUpdate={field("heroCtaText")}
+              onClick={() => navigateCta(props.heroCtaUrl || `#${activationsAnchor}`)}
+            />
+          )}
+          {/* Lightbox "watch" button for layouts without an inline player:
+              the dark band (no media slot) and a full-bleed hero whose video
+              is an embed link (only a direct file can be the background). */}
+          {heroVideo && (heroLayout === "dark" || (heroLayout === "image-overlay" && !heroVideoNative)) && (
+            <button
+              type="button"
+              onClick={() => setModalVideo(heroVideo)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                borderRadius: 9999,
+                background: "transparent",
+                color: heroPal.ink,
+                border: `1px solid ${dark ? "rgba(255,255,255,0.45)" : "rgba(16,24,40,0.25)"}`,
+                padding: "0.85rem 1.6rem",
+                fontSize: "clamp(0.8125rem, 1.4vw, 0.9375rem)",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                fontFamily: BODY,
+              }}
+            >
+              <Play aria-hidden fill="currentColor" style={{ width: 14, height: 14 }} />
+              <InlineText as="span" value={props.heroVideoCtaText ?? "Watch the video"} onUpdate={field("heroVideoCtaText")} style={{ fontFamily: BODY }} />
+            </button>
+          )}
         </motion.div>
       )}
     </div>
@@ -743,20 +859,34 @@ export function BlockEventActivations({
       {/* ── HERO ── */}
       {heroLayout === "image-overlay" ? (
         <header style={{ position: "relative", background: heroPal.bg }}>
-          {props.heroImage && (
+          {(props.heroImage || heroVideoNative) && (
             <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
-              <InlineImage
-                src={props.heroImage}
-                alt={props.heroImageAlt ?? ""}
-                onUpdate={field("heroImage")}
-                onAltUpdate={field("heroImageAlt")}
-                focalPoint={props.heroImageFocalPoint}
-                onFocalUpdate={field("heroImageFocalPoint")}
-                wrapperClassName="block w-full h-full"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                loading="eager"
-                decoding="async"
-              />
+              {heroVideoNative ? (
+                // Direct video file → looping muted background (the hero image,
+                // when set, doubles as the poster while it buffers).
+                <video
+                  src={heroVideo}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  poster={props.heroImage || undefined}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              ) : (
+                <InlineImage
+                  src={props.heroImage!}
+                  alt={props.heroImageAlt ?? ""}
+                  onUpdate={field("heroImage")}
+                  onAltUpdate={field("heroImageAlt")}
+                  focalPoint={props.heroImageFocalPoint}
+                  onFocalUpdate={field("heroImageFocalPoint")}
+                  wrapperClassName="block w-full h-full"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  loading="eager"
+                  decoding="async"
+                />
+              )}
               <div
                 aria-hidden
                 style={{
@@ -813,30 +943,43 @@ export function BlockEventActivations({
             }}
           >
             {heroContent(false, false)}
-            {props.heroImage && (
+            {(props.heroImage || heroVideo) && (
               <motion.div
                 initial={anim({ opacity: 0, scale: 0.98 })}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 style={{
+                  position: "relative",
                   borderRadius: 20,
                   overflow: "hidden",
                   boxShadow: "0 24px 60px rgba(16,24,40,0.16)",
-                  aspectRatio: "4 / 3",
+                  aspectRatio: heroVideo ? "16 / 9" : "4 / 3",
+                  background: heroVideo ? "#000" : undefined,
                 }}
               >
-                <InlineImage
-                  src={props.heroImage}
-                  alt={props.heroImageAlt ?? ""}
-                  onUpdate={field("heroImage")}
-                  onAltUpdate={field("heroImageAlt")}
-                  focalPoint={props.heroImageFocalPoint}
-                  onFocalUpdate={field("heroImageFocalPoint")}
-                  wrapperClassName="block w-full h-full"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  loading="eager"
-                  decoding="async"
-                />
+                {heroVideo && heroPlaying ? (
+                  <VideoEmbed url={heroVideo} title="Event video" />
+                ) : props.heroImage ? (
+                  <>
+                    <InlineImage
+                      src={props.heroImage}
+                      alt={props.heroImageAlt ?? ""}
+                      onUpdate={field("heroImage")}
+                      onAltUpdate={field("heroImageAlt")}
+                      focalPoint={props.heroImageFocalPoint}
+                      onFocalUpdate={field("heroImageFocalPoint")}
+                      wrapperClassName="block w-full h-full"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      loading="eager"
+                      decoding="async"
+                    />
+                    {heroVideo && <PlayOverlay onClick={() => setHeroPlaying(true)} />}
+                  </>
+                ) : (
+                  <div style={{ position: "absolute", inset: 0, background: darkSurface }}>
+                    <PlayOverlay onClick={() => setHeroPlaying(true)} />
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
@@ -907,7 +1050,9 @@ export function BlockEventActivations({
               <div style={{ display: "flex", flexDirection: "column", gap: "clamp(1.25rem, 3vh, 2rem)" }}>
                 {activations.map((a, i) => {
                   const hasImage = Boolean(a.imageUrl);
-                  const imageLeft = hasImage && i % 2 === 1;
+                  const hasVideo = Boolean((a.videoUrl ?? "").trim());
+                  const hasMedia = hasImage || hasVideo;
+                  const imageLeft = hasMedia && i % 2 === 1;
                   return (
                     <article
                       key={i}
@@ -918,7 +1063,7 @@ export function BlockEventActivations({
                         borderRadius: 20,
                         padding: "clamp(1.5rem, 3.5vw, 2.5rem)",
                         display: "grid",
-                        gridTemplateColumns: hasImage
+                        gridTemplateColumns: hasMedia
                           ? imageLeft
                             ? "minmax(0, 0.85fr) minmax(0, 1.15fr)"
                             : "minmax(0, 1.15fr) minmax(0, 0.85fr)"
@@ -995,27 +1140,40 @@ export function BlockEventActivations({
                           </a>
                         )}
                       </div>
-                      {hasImage && (
+                      {hasMedia && (
                         <div
                           style={{
                             order: imageLeft ? 1 : 2,
+                            position: "relative",
                             borderRadius: 14,
                             overflow: "hidden",
-                            aspectRatio: "16 / 10",
+                            aspectRatio: hasVideo ? "16 / 9" : "16 / 10",
+                            background: hasVideo ? "#000" : undefined,
                           }}
                         >
-                          <InlineImage
-                            src={a.imageUrl!}
-                            alt={a.imageAlt ?? a.title}
-                            onUpdate={editItem(i, "imageUrl")}
-                            onAltUpdate={editItem(i, "imageAlt")}
-                            focalPoint={a.imageFocalPoint}
-                            onFocalUpdate={editItem(i, "imageFocalPoint")}
-                            wrapperClassName="block w-full h-full"
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                            loading="lazy"
-                            decoding="async"
-                          />
+                          {hasVideo && cardPlaying === i ? (
+                            <VideoEmbed url={a.videoUrl!} title={a.title || "Activation video"} />
+                          ) : hasImage ? (
+                            <>
+                              <InlineImage
+                                src={a.imageUrl!}
+                                alt={a.imageAlt ?? a.title}
+                                onUpdate={editItem(i, "imageUrl")}
+                                onAltUpdate={editItem(i, "imageAlt")}
+                                focalPoint={a.imageFocalPoint}
+                                onFocalUpdate={editItem(i, "imageFocalPoint")}
+                                wrapperClassName="block w-full h-full"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                loading="lazy"
+                                decoding="async"
+                              />
+                              {hasVideo && <PlayOverlay onClick={() => setCardPlaying(i)} />}
+                            </>
+                          ) : (
+                            <div style={{ position: "absolute", inset: 0, background: darkSurface }}>
+                              <PlayOverlay onClick={() => setCardPlaying(i)} />
+                            </div>
+                          )}
                         </div>
                       )}
                     </article>
@@ -1291,6 +1449,9 @@ export function BlockEventActivations({
           <InlineText as="span" value={props.footerText ?? ""} onUpdate={field("footerText")} style={{ fontFamily: BODY }} />
         </footer>
       )}
+
+      {/* Shared lightbox for the hero "watch the video" button. */}
+      <VideoModal open={!!modalVideo} onClose={() => setModalVideo("")} videoUrl={modalVideo} posterUrl={props.heroImage} />
 
       {/* Stack the hero + activation grids on narrow viewports, and trim
           BlockForm's outer section padding when nested in the booking card. */}
