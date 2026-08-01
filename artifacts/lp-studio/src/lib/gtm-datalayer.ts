@@ -1,10 +1,19 @@
-// Helpers for pushing landing-page events into the GTM `dataLayer`.
+// Helpers for reporting successful form submissions to marketing analytics.
+// Two channels, one call:
 //
-// GTM (Google Tag Manager) is loaded by the host site (`lp.meetdandy.com`)
-// and exposes a global `window.dataLayer` array. Tags configured in the GTM
-// container key off `event` strings pushed onto this array. Marketing needs
-// every successful Marketo form submission to push a documented event so
-// downstream ads-conversion and analytics tags can fire.
+//   1. GTM `dataLayer` push — GTM (loaded on `lp.meetdandy.com`) exposes a
+//      global `window.dataLayer` array; container tags (GA4, ads
+//      conversions) key off the pushed `event` string.
+//   2. Webflow Optimize `sendEvent` — the Intellimize snippet (loaded via a
+//      GTM Custom HTML tag) counts A/B-test conversions ONLY through its own
+//      API (`window.wf.sendEvent(apiName)` — the project's "Marketo Form
+//      Submission" event is type "custom", apiName "marketoFormSubmission").
+//      It never reads dataLayer pushes for conversions. It DOES have a
+//      built-in MktoForms2 submit hook, which is how conversions were
+//      counted historically — until the hidden Marketo Forms2 ghost-submit
+//      was disabled (GHOST_SUBMIT_ENABLED=false, 2026-05-16), which silently
+//      stopped Webflow A/B conversion tracking. The direct sendEvent call
+//      restores it without re-enabling the ghost submit.
 //
 // The default payload is the EXACT one the SMB trios5 page on
 // lp.meetdandy.com (global form 6) has fired since this feature shipped:
@@ -24,9 +33,18 @@
 //      reload resets the module and thus the guard, which matches GTM's
 //      treatment of a reload as a new session.
 
+// Webflow Optimize (the rebranded Intellimize snippet, loaded on
+// lp.meetdandy.com via a GTM Custom HTML tag) exposes the same external API
+// on both `window.wf` and `window.intellimize`.
+interface WebflowOptimizeApi {
+  sendEvent?: (apiName: string) => void;
+}
+
 declare global {
   interface Window {
     dataLayer?: Array<Record<string, unknown>>;
+    wf?: WebflowOptimizeApi;
+    intellimize?: WebflowOptimizeApi;
   }
 }
 
@@ -55,6 +73,20 @@ export const DEFAULT_GTM_DATALAYER_CONFIG: Required<GtmDataLayerConfig> = {
 };
 
 let hasPushed = false;
+
+/**
+ * Webflow Optimize "custom event" apiNames are the auto-generated camelCase
+ * of the event's display name ("Marketo Form Submission" →
+ * "marketoFormSubmission"). Deriving it from the configured event name keeps
+ * per-form event-name overrides working for both channels without a second
+ * config field.
+ */
+export function toWebflowApiName(eventName: string): string {
+  const words = eventName.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  return words
+    .map((w, i) => (i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()))
+    .join("");
+}
 
 /**
  * Push the configured GTM dataLayer event. Idempotent within a page
@@ -90,28 +122,61 @@ export function pushMarketoSubmissionToDataLayer(config?: GtmDataLayerConfig | n
     console.log("[lp-studio] dataLayer push skipped (already fired this page load)");
     return;
   }
+
+  // Whether at least one channel accepted the event. Only then does the
+  // dedupe sentinel latch — if both channels are unavailable (GTM not loaded
+  // yet), a later submit on the same page load can still deliver.
+  let delivered = false;
+
+  // Channel 1 — GTM dataLayer. Fans out to the GA4 / ads-conversion tags
+  // configured in the container (GTM custom-event trigger "Marketo Form
+  // Submission").
   const dl = window.dataLayer;
   if (!dl || typeof dl.push !== "function") {
     // eslint-disable-next-line no-console
     console.warn("[lp-studio] dataLayer push skipped: window.dataLayer not present (GTM not loaded?)");
-    return;
+  } else {
+    try {
+      const payload = {
+        formName: merged.formName,
+        event: merged.event,
+      };
+      dl.push(payload);
+      delivered = true;
+      // eslint-disable-next-line no-console
+      console.log("[lp-studio] dataLayer push fired:", payload);
+    } catch {
+      // dataLayer.push is just an Array.push under the hood, but if a GTM
+      // proxy has overridden it and throws, don't latch the sentinel so a
+      // future submit can retry. The submit UX itself must never break on
+      // analytics failures.
+    }
   }
-  hasPushed = true;
-  try {
-    const payload = {
-      formName: merged.formName,
-      event: merged.event,
-    };
-    dl.push(payload);
+
+  // Channel 2 — Webflow Optimize (Intellimize). Its conversion events are
+  // "custom" API events fired via `wf.sendEvent(apiName)`; it does NOT
+  // consume GTM dataLayer pushes, and its built-in Marketo Forms2 hook only
+  // sees real MktoForms2 submits (which stopped when the ghost-submit was
+  // disabled, 2026-05-16 — that's what silently broke Webflow A/B conversion
+  // tracking). Calling the API directly is the channel Webflow actually
+  // counts.
+  const wfApi = window.wf ?? window.intellimize;
+  if (!wfApi || typeof wfApi.sendEvent !== "function") {
     // eslint-disable-next-line no-console
-    console.log("[lp-studio] dataLayer push fired:", payload);
-  } catch {
-    // dataLayer.push is just an Array.push under the hood, but if a GTM
-    // proxy has overridden it and throws, drop the dedupe sentinel so a
-    // future submit can retry. The submit UX itself must never break on
-    // analytics failures.
-    hasPushed = false;
+    console.log("[lp-studio] Webflow Optimize sendEvent skipped: window.wf not present");
+  } else {
+    try {
+      const apiName = toWebflowApiName(merged.event);
+      wfApi.sendEvent(apiName);
+      delivered = true;
+      // eslint-disable-next-line no-console
+      console.log("[lp-studio] Webflow Optimize sendEvent fired:", apiName);
+    } catch {
+      // Same contract as above: analytics failures never break the submit.
+    }
   }
+
+  hasPushed = delivered;
 }
 
 /**
