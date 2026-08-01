@@ -68,6 +68,22 @@ export interface MediaLibraryDrawerProps {
    * logos, not the whole photo library.
    */
   onlyTag?: string;
+  /**
+   * Keep-open picking mode (single-select only): selecting an image fires
+   * `onSelect` but LEAVES the drawer open so the user can watch it land on
+   * the canvas and try others. The sheet turns non-modal with no backdrop
+   * (the page behind stays visible and interactive), a prominent full-width
+   * "Done" button sits above the Files/Folder bar, and the drawer closes
+   * itself when the user clicks or scrolls anywhere outside it. Default
+   * false — every other consumer keeps the classic pick-and-close behavior.
+   */
+  keepOpenOnSelect?: boolean;
+  /**
+   * URL currently saved on the field that opened the picker. In keep-open
+   * mode the matching tile gets a "Current" ring so the user always knows
+   * which image is applied as they click around.
+   */
+  activeUrl?: string;
 }
 
 const DRAWER_PAGE_SIZE = 24;
@@ -130,7 +146,7 @@ function dedupeBySourceImage(items: MediaItem[]): MediaItem[] {
 
 // ─── Images tab ─────────────────────────────────────────────────────────────
 
-function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle, onlyTag }: {
+function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle, onlyTag, activeUrl }: {
   onSelect: (url: string) => void;
   /** Multi-select mode: tiles toggle selection instead of selecting+closing. */
   selectable?: boolean;
@@ -138,6 +154,8 @@ function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle, onlyT
   onToggle?: (url: string) => void;
   /** Restrict the list to one tag (see MediaLibraryDrawerProps.onlyTag). */
   onlyTag?: string;
+  /** Keep-open mode: ring the tile whose URL is applied on the field. */
+  activeUrl?: string;
 }) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
@@ -309,13 +327,20 @@ function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle, onlyT
           <div className="grid grid-cols-2 gap-3">
             {visibleItems.map(item => {
               const isSelected = selectable && !!selectedUrls?.has(item.url);
+              const isActive = !selectable && !!activeUrl && item.url === activeUrl;
               return (
-              <div key={item.id} className={`group relative rounded-lg border overflow-hidden bg-muted/20 hover:shadow-md transition-all cursor-pointer ${isSelected ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/50"}`}>
+              <div key={item.id} className={`group relative rounded-lg border overflow-hidden bg-muted/20 hover:shadow-md transition-all cursor-pointer ${isSelected || isActive ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/50"}`}>
                 <div className="aspect-video relative" onClick={() => (selectable ? onToggle?.(item.url) : onSelect(item.url))}>
                   <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   {selectable && (
                     <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary text-primary-foreground" : "bg-black/30 border-white/80"}`}>
                       {isSelected && <Check className="w-3 h-3" />}
+                    </div>
+                  )}
+                  {isActive && (
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-primary text-primary-foreground rounded-full pl-1.5 pr-2 py-0.5">
+                      <Check className="w-2.5 h-2.5" />
+                      <span className="text-[9px] font-semibold">Current</span>
                     </div>
                   )}
                 </div>
@@ -948,11 +973,31 @@ function PdfsTab({ onSelect }: { onSelect: (url: string) => void }) {
 
 // ─── Main drawer ─────────────────────────────────────────────────────────────
 
-export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = "images", multiSelect = false, onSelectMany, onlyTag }: MediaLibraryDrawerProps) {
+export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = "images", multiSelect = false, onSelectMany, onlyTag, keepOpenOnSelect = false, activeUrl }: MediaLibraryDrawerProps) {
   const handleSelect = (url: string) => {
     onSelect(url);
-    onOpenChange(false);
+    // Keep-open mode: the user is trying images on the live canvas — stay put
+    // so they can click through candidates; the Done button / outside click /
+    // outside scroll closes.
+    if (!keepOpenOnSelect) onOpenChange(false);
   };
+
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Keep-open mode: close when the user scrolls anything OUTSIDE the drawer
+  // (the canvas, the property panel, the page itself). Scrolls inside the
+  // drawer's own grids/chip rows are ignored. Capture phase because scroll
+  // events don't bubble.
+  useEffect(() => {
+    if (!open || !keepOpenOnSelect) return;
+    const onScroll = (e: Event) => {
+      const t = e.target;
+      if (t instanceof Node && contentRef.current?.contains(t)) return;
+      onOpenChange(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [open, keepOpenOnSelect, onOpenChange]);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Reset the pending selection each time the drawer opens in multi-select mode.
@@ -993,12 +1038,36 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = 
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
+    <Sheet open={open} onOpenChange={onOpenChange} modal={!keepOpenOnSelect}>
+      <SheetContent
+        ref={contentRef}
+        side="right"
+        hideOverlay={keepOpenOnSelect}
+        // Non-modal (keep-open) sheets don't block outside interaction, so
+        // dismiss explicitly on any outside press — the click still lands on
+        // whatever the user pressed.
+        onPointerDownOutside={keepOpenOnSelect ? () => onOpenChange(false) : undefined}
+        className="w-full sm:max-w-lg p-0 flex flex-col"
+      >
         <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0">
           <SheetTitle className="text-lg">Media Library</SheetTitle>
-          <SheetDescription className="text-xs">Browse and upload images, videos, and PDFs for your pages.</SheetDescription>
+          <SheetDescription className="text-xs">
+            {keepOpenOnSelect
+              ? "Click an image to apply it to the page — keep clicking to try others."
+              : "Browse and upload images, videos, and PDFs for your pages."}
+          </SheetDescription>
         </SheetHeader>
+
+        {/* Keep-open mode: a can't-miss close affordance (the corner X is
+            tiny) sitting ABOVE the Files/Folder upload bar. */}
+        {keepOpenOnSelect && (
+          <div className="px-4 pt-3 shrink-0">
+            <Button className="w-full h-9 gap-1.5" onClick={() => onOpenChange(false)}>
+              <Check className="w-4 h-4" />
+              Done — keep this image
+            </Button>
+          </div>
+        )}
 
         <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-6 mt-3 mb-0 shrink-0 w-fit">
@@ -1009,7 +1078,7 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = 
           </TabsList>
 
           <TabsContent value="images" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
-            <ImagesTab onSelect={handleSelect} onlyTag={onlyTag} />
+            <ImagesTab onSelect={handleSelect} onlyTag={onlyTag} activeUrl={keepOpenOnSelect ? activeUrl : undefined} />
           </TabsContent>
 
           <TabsContent value="og-images" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">

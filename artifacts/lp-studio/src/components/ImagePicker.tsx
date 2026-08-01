@@ -222,6 +222,11 @@ export function ImagePicker({ value, onChange, label, placeholder, className, ai
         onOpenChange={setLibraryOpen}
         onSelect={(url) => onChange(url)}
         onlyTag={libraryTag}
+        // Try-on mode: picking an image applies it live but keeps the library
+        // open so the user can click through candidates; the big Done button,
+        // an outside click, or an outside scroll closes it.
+        keepOpenOnSelect
+        activeUrl={value}
       />
     </div>
   );
