@@ -14,6 +14,10 @@ export const lpPageVisitsTable = pgTable("lp_page_visits", {
   utmCampaign: text("utm_campaign"),
   utmTerm: text("utm_term"),
   utmContent: text("utm_content"),
+  // Accumulated tab-visible seconds for this session's time on the page,
+  // MAX-merged from the viewer's dwell beacon (capped at 30 min). NULL =
+  // visit predates dwell tracking — render "—", never 0.
+  dwellSeconds: integer("dwell_seconds"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("lp_page_visits_page_id_idx").on(table.pageId),

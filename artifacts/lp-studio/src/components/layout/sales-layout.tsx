@@ -263,7 +263,7 @@ export function SalesTopNav() {
       matchFn: (loc) => loc === "/sales/accounts" || loc.startsWith("/sales/accounts/"),
     },
     {
-      label: "Microsites",
+      label: "Pages",
       href: "/sales/microsites",
       icon: <Globe className="w-4 h-4" />,
       permission: "sales_accounts",

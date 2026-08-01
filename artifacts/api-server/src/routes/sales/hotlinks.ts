@@ -2,7 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import rateLimit from "express-rate-limit";
-import { eq, and, or, desc, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { eq, and, or, desc, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesHotlinksTable,
@@ -12,6 +12,7 @@ import {
   salesSignalsTable,
   salesEmailSendsTable,
   lpPagesTable,
+  lpPageVisitsTable,
 } from "@workspace/db";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { broadcastSignal } from "./signals";
@@ -237,6 +238,203 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
   } catch (err) {
     logger.error({ err }, "GET /sales/microsites/overview error");
     res.status(500).json({ error: "Failed to load microsites overview" });
+  }
+});
+
+/**
+ * Sales Pages view — flat per-page rows with the analytics a rep scans daily.
+ *
+ * Unlike /microsites/overview (account-grouped, no analytics), this returns
+ * ONE row per non-template page with:
+ *   - creator/editor attribution (created_by/updated_by) so the client can
+ *     default-sort the rep's own pages first,
+ *   - a 30-day stat block from lp_page_visits (views, unique sessions, avg
+ *     time-on-page from the dwell beacon — null until data accrues),
+ *   - all-time last visit,
+ *   - KNOWN viewers: contacts whose hotlink page_view signals hit this page
+ *     (top 6 by recency + the distinct total),
+ *   - the page's active hotlinks (same shape the microsites view uses).
+ *
+ * Four batched queries total (pages, visit stats ×2, signals, hotlinks) —
+ * never per-page fan-out. All aggregations ride existing composite indexes
+ * (lp_page_visits page_id+created_at, sales_signals tenant+created).
+ */
+router.get("/pages/overview", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const WINDOW_DAYS = 30;
+  const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000);
+  try {
+    const pages = await db
+      .select({
+        pageId: lpPagesTable.id,
+        pageTitle: lpPagesTable.title,
+        pageSlug: lpPagesTable.slug,
+        pageStatus: lpPagesTable.status,
+        pageUpdatedAt: lpPagesTable.updatedAt,
+        pageCreatedAt: lpPagesTable.createdAt,
+        createdBy: lpPagesTable.createdBy,
+        updatedBy: lpPagesTable.updatedBy,
+        accountId: salesAccountsTable.id,
+        accountName: salesAccountsTable.name,
+        accountOwner: salesAccountsTable.owner,
+      })
+      .from(lpPagesTable)
+      .leftJoin(salesAccountsTable, and(
+        eq(salesAccountsTable.tenantId, tenantId),
+        or(
+          eq(lpPagesTable.accountId, salesAccountsTable.id),
+          and(
+            isNotNull(lpPagesTable.sfdcAccountId),
+            eq(lpPagesTable.sfdcAccountId, salesAccountsTable.salesforceId),
+          ),
+        ),
+      ))
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        eq(lpPagesTable.isTemplate, false),
+      ))
+      .orderBy(desc(lpPagesTable.updatedAt));
+
+    if (pages.length === 0) {
+      res.json({ windowDays: WINDOW_DAYS, pages: [] });
+      return;
+    }
+    const pageIds = [...new Set(pages.map((p) => p.pageId))];
+
+    // Windowed visit stats. avg() over dwell_seconds ignores NULLs by SQL
+    // semantics, so pre-dwell visits never drag the average down; the sample
+    // count lets the client suppress the metric until it means something.
+    const windowStats = await db
+      .select({
+        pageId: lpPageVisitsTable.pageId,
+        views: sql<number>`count(*)::int`,
+        uniques: sql<number>`count(distinct ${lpPageVisitsTable.sessionId})::int`,
+        avgDwellSeconds: sql<number | null>`round(avg(${lpPageVisitsTable.dwellSeconds}))::int`,
+        dwellSamples: sql<number>`count(${lpPageVisitsTable.dwellSeconds})::int`,
+      })
+      .from(lpPageVisitsTable)
+      .where(and(inArray(lpPageVisitsTable.pageId, pageIds), gte(lpPageVisitsTable.createdAt, since)))
+      .groupBy(lpPageVisitsTable.pageId);
+
+    // All-time last visit (not window-scoped — "last seen 6 weeks ago" is
+    // more useful to a rep than a blank).
+    const lastVisits = await db
+      .select({
+        pageId: lpPageVisitsTable.pageId,
+        lastVisitAt: sql<string>`max(${lpPageVisitsTable.createdAt})`,
+      })
+      .from(lpPageVisitsTable)
+      .where(inArray(lpPageVisitsTable.pageId, pageIds))
+      .groupBy(lpPageVisitsTable.pageId);
+
+    // Known viewers: hotlink page_view signals joined back to the contact.
+    const knownRows = await db
+      .select({
+        pageId: salesHotlinksTable.pageId,
+        contactId: salesContactsTable.id,
+        firstName: salesContactsTable.firstName,
+        lastName: salesContactsTable.lastName,
+        views: sql<number>`count(*)::int`,
+        lastViewedAt: sql<string>`max(${salesSignalsTable.createdAt})`,
+      })
+      .from(salesSignalsTable)
+      .innerJoin(salesHotlinksTable, eq(salesSignalsTable.hotlinkId, salesHotlinksTable.id))
+      .innerJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
+      .where(and(
+        eq(salesSignalsTable.tenantId, tenantId),
+        eq(salesSignalsTable.type, "page_view"),
+        inArray(salesHotlinksTable.pageId, pageIds),
+      ))
+      .groupBy(
+        salesHotlinksTable.pageId,
+        salesContactsTable.id,
+        salesContactsTable.firstName,
+        salesContactsTable.lastName,
+      );
+
+    const hotlinks = await db
+      .select({
+        hotlinkId: salesHotlinksTable.id,
+        token: salesHotlinksTable.token,
+        pageId: salesHotlinksTable.pageId,
+        contactId: salesContactsTable.id,
+        contactFirst: salesContactsTable.firstName,
+        contactLast: salesContactsTable.lastName,
+      })
+      .from(salesHotlinksTable)
+      .leftJoin(salesContactsTable, and(
+        eq(salesHotlinksTable.contactId, salesContactsTable.id),
+        eq(salesContactsTable.tenantId, tenantId),
+      ))
+      .where(and(
+        inArray(salesHotlinksTable.pageId, pageIds),
+        eq(salesHotlinksTable.isActive, true),
+      ));
+
+    const statsByPage = new Map(windowStats.map((s) => [s.pageId, s]));
+    const lastVisitByPage = new Map(lastVisits.map((s) => [s.pageId, s.lastVisitAt]));
+
+    type KnownViewer = { contactId: number; name: string; views: number; lastViewedAt: string };
+    const knownByPage = new Map<number, KnownViewer[]>();
+    for (const row of knownRows) {
+      if (!row.pageId) continue;
+      const list = knownByPage.get(row.pageId) ?? [];
+      list.push({
+        contactId: row.contactId,
+        name: [row.firstName, row.lastName].filter(Boolean).join(" ").trim() || "Unknown contact",
+        views: row.views,
+        lastViewedAt: row.lastViewedAt,
+      });
+      knownByPage.set(row.pageId, list);
+    }
+    for (const list of knownByPage.values()) {
+      list.sort((a, b) => new Date(b.lastViewedAt).getTime() - new Date(a.lastViewedAt).getTime());
+    }
+
+    type HotlinkOut = { hotlinkId: number; token: string; contactId: number | null; contactName: string };
+    const hotlinksByPage = new Map<number, HotlinkOut[]>();
+    for (const hl of hotlinks) {
+      if (!hl.pageId) continue;
+      const list = hotlinksByPage.get(hl.pageId) ?? [];
+      list.push({
+        hotlinkId: hl.hotlinkId,
+        token: hl.token,
+        contactId: hl.contactId ?? null,
+        contactName: [hl.contactFirst, hl.contactLast].filter(Boolean).join(" ").trim(),
+      });
+      hotlinksByPage.set(hl.pageId, list);
+    }
+
+    res.json({
+      windowDays: WINDOW_DAYS,
+      pages: pages.map((p) => {
+        const stats = statsByPage.get(p.pageId);
+        const known = knownByPage.get(p.pageId) ?? [];
+        return {
+          pageId: p.pageId,
+          pageTitle: p.pageTitle,
+          pageSlug: p.pageSlug,
+          pageStatus: p.pageStatus,
+          pageUpdatedAt: p.pageUpdatedAt,
+          pageCreatedAt: p.pageCreatedAt,
+          createdBy: p.createdBy,
+          updatedBy: p.updatedBy,
+          accountId: p.accountId ?? null,
+          accountName: p.accountName ?? null,
+          views: stats?.views ?? 0,
+          uniques: stats?.uniques ?? 0,
+          avgDwellSeconds: stats && stats.dwellSamples > 0 ? stats.avgDwellSeconds : null,
+          dwellSamples: stats?.dwellSamples ?? 0,
+          lastVisitAt: lastVisitByPage.get(p.pageId) ?? null,
+          knownViewerCount: known.length,
+          knownViewers: known.slice(0, 6),
+          hotlinks: hotlinksByPage.get(p.pageId) ?? [],
+        };
+      }),
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /sales/pages/overview error");
+    res.status(500).json({ error: "Failed to load pages overview" });
   }
 });
 

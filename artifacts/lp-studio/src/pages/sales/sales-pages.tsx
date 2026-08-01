@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { AccountCombobox } from "@/components/AccountCombobox";
 import { Link, useLocation } from "wouter";
@@ -46,6 +46,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
 import { getLpPageUrl } from "@/lib/utils";
+import { copyEmailPreview } from "@/lib/email-preview";
+import { toast } from "@/hooks/use-toast";
+import { formatDistanceToNowStrict } from "date-fns";
 
 const API_BASE = "/api";
 
@@ -74,20 +77,57 @@ function normalizeHotlink(hl: HotlinkEntryRaw): HotlinkEntry {
   };
 }
 
-interface PageEntry {
+interface KnownViewer {
+  contactId: number;
+  name: string;
+  views: number;
+  lastViewedAt: string;
+}
+
+/** One row of GET /sales/pages/overview — a page plus the analytics a rep
+ *  scans daily (30-day window unless noted). */
+interface PageRow {
   pageId: number;
   pageTitle: string;
   pageSlug: string;
   pageStatus: string;
   pageUpdatedAt: string;
+  pageCreatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  accountId: number | null;
+  accountName: string | null;
+  views: number;
+  uniques: number;
+  /** Avg tab-visible seconds; null until dwell data accrues → render "—". */
+  avgDwellSeconds: number | null;
+  dwellSamples: number;
+  /** All-time last visit. */
+  lastVisitAt: string | null;
+  knownViewerCount: number;
+  knownViewers: KnownViewer[];
   hotlinks: HotlinkEntry[];
 }
 
-interface AccountEntry {
-  accountId: number;
-  accountName: string;
-  accountOwner: string | null;
-  pages: PageEntry[];
+/** 0 = I created it, 1 = I edited it, 2 = someone else's. Drives the default
+ *  "My pages first" sort and the "My Pages" filter. Exported for tests. */
+export function pageMineRank(
+  r: Pick<PageRow, "createdBy" | "updatedBy">,
+  myEmail: string,
+): 0 | 1 | 2 {
+  if (!myEmail) return 2;
+  if ((r.createdBy ?? "").toLowerCase() === myEmail) return 0;
+  if ((r.updatedBy ?? "").toLowerCase() === myEmail) return 1;
+  return 2;
+}
+
+/** "2m 05s" / "48s" — analytics-table dwell formatting. Exported for tests. */
+export function fmtDwell(seconds: number | null): string {
+  if (seconds == null) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${String(s).padStart(2, "0")}s`;
 }
 
 interface SavedList {
@@ -246,13 +286,17 @@ export default function SalesPages() {
   const { user, domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const tenantHost = user?.tenantHost ?? null;
-  const [overview, setOverview] = useState<AccountEntry[]>([]);
+  const [rows, setRows] = useState<PageRow[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-  const [sortBy, setSortBy] = useState<"recent" | "name" | "status">("recent");
+  const [expandedPage, setExpandedPage] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<"mine" | "recent" | "views" | "name" | "status">("mine");
+  // "Copy email preview" per-row busy/copied indicators.
+  const [previewBusyId, setPreviewBusyId] = useState<number | null>(null);
+  const [previewCopiedId, setPreviewCopiedId] = useState<number | null>(null);
+  const [alertTogglingId, setAlertTogglingId] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showNewMicrosite, setShowNewMicrosite] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -524,12 +568,6 @@ export default function SalesPages() {
     }
   }
 
-  function openAlertPanel(pageId: number) {
-    setAlertPageId(alertPageId === pageId ? null : pageId);
-    setAlertInput("");
-    if (!alertEmails.has(pageId)) loadAlertEmails(pageId);
-  }
-
   function copyHlLink(token: string) {
     navigator.clipboard.writeText(`${window.location.origin}/p/${token}`).then(() => {
       setHlCopied(token);
@@ -540,25 +578,20 @@ export default function SalesPages() {
   const load = useCallback(() => {
     setLoading(true);
     Promise.all([
-      fetch(`${API_BASE}/sales/microsites/overview`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/pages/overview`).then(r => r.ok ? r.json() : { pages: [] }),
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
     ])
-      .then(([ov, accts]: [any[], Account[]]) => {
-        // Normalize hotlink entries — API may return contactFirst/contactLast or contactName
-        const normalized: AccountEntry[] = ov.map((a: any) => ({
-          ...a,
-          pages: a.pages.map((p: any) => ({
-            ...p,
-            hotlinks: (p.hotlinks ?? []).map(normalizeHotlink),
-          })),
+      .then(([ov, accts]: [{ pages: any[] }, Account[]]) => {
+        const normalized: PageRow[] = (ov.pages ?? []).map((p: any) => ({
+          ...p,
+          hotlinks: (p.hotlinks ?? []).map(normalizeHotlink),
         }));
-        setOverview(normalized);
+        setRows(normalized);
         setAccounts(accts);
-        // Pre-load alert subscriptions for all pages so the strip shows correct state
-        const allPageIds = normalized.flatMap(a => a.pages.map(p => p.pageId));
-        allPageIds.forEach((pid: number) => loadAlertEmails(pid));
+        // Pre-load alert subscriptions for all pages so the bell shows correct state
+        normalized.forEach(p => loadAlertEmails(p.pageId));
       })
-      .catch((err) => console.error("Failed to load microsites:", err))
+      .catch((err) => console.error("Failed to load pages overview:", err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -572,13 +605,49 @@ export default function SalesPages() {
     });
   }
 
-  function toggleCollapse(accountId: number) {
-    setCollapsed(prev => {
-      const next = new Set(prev);
-      if (next.has(accountId)) next.delete(accountId);
-      else next.add(accountId);
-      return next;
-    });
+  // ── One-click visit-alert bell + email-preview copy ────────────────────────
+  const myEmail = (user?.email ?? "").trim().toLowerCase();
+
+  function mySubscription(pageId: number) {
+    return (alertEmails.get(pageId) ?? []).find(ae => ae.email.toLowerCase() === myEmail);
+  }
+
+  /** Bell click = subscribe/unsubscribe MY email for this page's visit alerts.
+   *  The expanded row keeps the full manage panel (teammates, any address). */
+  async function toggleMyAlert(pageId: number) {
+    if (!myEmail || alertTogglingId !== null) return;
+    setAlertTogglingId(pageId);
+    try {
+      const mine = mySubscription(pageId);
+      if (mine) await removeAlertEmail(mine.id, pageId);
+      else await addAlertEmail(pageId, myEmail);
+    } finally {
+      setAlertTogglingId(null);
+    }
+  }
+
+  /** Rich image+link clipboard snippet (Userled-style email embed). Links to
+   *  the first hotlink when one exists (attributed visit), else the page URL. */
+  async function handleCopyEmailPreview(row: PageRow) {
+    if (previewBusyId !== null) return;
+    setPreviewBusyId(row.pageId);
+    try {
+      const firstToken = row.hotlinks[0]?.token;
+      const pageUrl = firstToken
+        ? `${window.location.origin}/p/${firstToken}`
+        : getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost);
+      const result = await copyEmailPreview({ pageId: row.pageId, pageUrl, title: row.pageTitle });
+      setPreviewCopiedId(row.pageId);
+      setTimeout(() => setPreviewCopiedId(null), 2500);
+      if (result === "link-only") {
+        toast({
+          title: "Copied the link instead",
+          description: "Couldn't build the image preview, so the plain link is on your clipboard.",
+        });
+      }
+    } finally {
+      setPreviewBusyId(null);
+    }
   }
 
   async function togglePageStatus(pageId: number, currentStatus: string) {
@@ -620,15 +689,11 @@ export default function SalesPages() {
   }
 
   function selectAllUnlinked() {
-    const unlinked = overview.find(a => a.accountId === -1);
-    if (!unlinked) return;
     setSelectedPages(prev => {
       const next = new Set(prev);
-      unlinked.pages.forEach(p => next.add(p.pageId));
+      rows.filter(r => r.accountId == null).forEach(r => next.add(r.pageId));
       return next;
     });
-    // Make sure the unlinked group is expanded
-    setCollapsed(prev => { const next = new Set(prev); next.delete(-1); return next; });
   }
 
   function exitSelectMode() {
@@ -694,51 +759,56 @@ export default function SalesPages() {
   }
 
   // ── Apply view filter then search ─────────────────────────────────────────
-  const viewFilteredOverview = (() => {
-    if (viewFilter === "all") return overview;
-    if (viewFilter === "mine") {
-      const myName = user?.name?.toLowerCase() ?? "";
-      return overview.filter(a => a.accountOwner?.toLowerCase() === myName);
-    }
+  const mineRank = (r: PageRow): 0 | 1 | 2 => pageMineRank(r, myEmail);
+
+  const viewFilteredRows = (() => {
+    if (viewFilter === "all") return rows;
+    if (viewFilter === "mine") return rows.filter(r => mineRank(r) < 2);
     if (viewFilter.startsWith("list:")) {
       const listId = viewFilter.slice(5);
       const list = savedLists.find(l => l.id === listId);
-      if (!list) return overview;
-      return overview.filter(a => list.accountIds.includes(a.accountId));
+      if (!list) return rows;
+      return rows.filter(r => r.accountId != null && list.accountIds.includes(r.accountId));
     }
-    return overview;
+    return rows;
   })();
 
   const q = search.toLowerCase();
-  const filteredOverview = search
-    ? viewFilteredOverview.filter(acct =>
-        acct.accountName.toLowerCase().includes(q) ||
-        acct.pages.some(p => p.pageTitle.toLowerCase().includes(q)) ||
-        acct.pages.some(p => p.hotlinks.some(hl => hl.contactName.toLowerCase().includes(q)))
+  const filteredRows = search
+    ? viewFilteredRows.filter(r =>
+        r.pageTitle.toLowerCase().includes(q) ||
+        (r.accountName ?? "").toLowerCase().includes(q) ||
+        r.pageSlug.toLowerCase().includes(q) ||
+        r.hotlinks.some(hl => hl.contactName.toLowerCase().includes(q)) ||
+        r.knownViewers.some(v => v.name.toLowerCase().includes(q))
       )
-    : viewFilteredOverview;
+    : viewFilteredRows;
 
-  // Sort pages within each account
-  const sortedOverview = filteredOverview.map(acct => ({
-    ...acct,
-    pages: [...acct.pages].sort((a, b) => {
-      if (sortBy === "status") return a.pageStatus.localeCompare(b.pageStatus);
-      if (sortBy === "name") return a.pageTitle.localeCompare(b.pageTitle);
-      return new Date(b.pageUpdatedAt).getTime() - new Date(a.pageUpdatedAt).getTime(); // recent first
-    }),
-  })).sort((a, b) => {
-    // Always push "General" (unlinked, id=-1) to the bottom
-    if (a.accountId === -1 && b.accountId !== -1) return 1;
-    if (b.accountId === -1 && a.accountId !== -1) return -1;
-    if (sortBy === "name") return a.accountName.localeCompare(b.accountName);
-    // Sort by most recently updated page
-    const aMax = Math.max(...a.pages.map(p => new Date(p.pageUpdatedAt).getTime()));
-    const bMax = Math.max(...b.pages.map(p => new Date(p.pageUpdatedAt).getTime()));
-    return bMax - aMax;
+  const byRecency = (a: PageRow, b: PageRow) =>
+    new Date(b.pageUpdatedAt).getTime() - new Date(a.pageUpdatedAt).getTime();
+  const sortedRows = [...filteredRows].sort((a, b) => {
+    if (sortBy === "mine") {
+      const rank = mineRank(a) - mineRank(b);
+      if (rank !== 0) return rank;
+      return byRecency(a, b);
+    }
+    if (sortBy === "views") return b.views - a.views || byRecency(a, b);
+    if (sortBy === "name") return a.pageTitle.localeCompare(b.pageTitle);
+    if (sortBy === "status") return a.pageStatus.localeCompare(b.pageStatus) || byRecency(a, b);
+    return byRecency(a, b);
   });
 
-  // Accounts that don't yet have a microsite (exclude the -1 "General" bucket)
-  const accountsWithMicrosites = new Set(overview.filter(a => a.accountId !== -1).map(a => a.accountId));
+  // Distinct accounts present in the table (for the build-list chips).
+  const accountsInRows = (() => {
+    const map = new Map<number, string>();
+    for (const r of rows) {
+      if (r.accountId != null && !map.has(r.accountId)) map.set(r.accountId, r.accountName ?? `Account #${r.accountId}`);
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  // Accounts that don't yet have a microsite
+  const accountsWithMicrosites = new Set(rows.filter(r => r.accountId != null).map(r => r.accountId));
   const accountsWithout = accounts.filter(a => !accountsWithMicrosites.has(a.id));
 
   return (
@@ -746,8 +816,8 @@ export default function SalesPages() {
       <div className="flex flex-col gap-6 pb-12">
 
         <SalesPageHeader
-          title="Microsites"
-          description="AI-generated pages for your accounts, with per-contact personalized links"
+          title="Pages"
+          description="Every page with its views, known visitors, and personalized links — yours first"
           back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
           actions={
             <>
@@ -800,7 +870,7 @@ export default function SalesPages() {
                 : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
             }`}
           >
-            My Accounts
+            My Pages
           </button>
 
           {/* Saved lists */}
@@ -839,9 +909,30 @@ export default function SalesPages() {
           )}
         </div>
 
-        {/* Build list save bar */}
+        {/* Build list save bar — pick accounts by chip (the table is flat, so
+            there are no account headers to click anymore) */}
         {buildListMode && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5">
+          <div className="flex flex-col gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5">
+            <div className="flex flex-wrap gap-1.5">
+              {accountsInRows.map(a => (
+                <button
+                  key={a.id}
+                  onClick={() => toggleBuildSelection(a.id)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    buildListSelection.has(a.id)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                  }`}
+                >
+                  {buildListSelection.has(a.id) ? <Check className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}
+                  {a.name}
+                </button>
+              ))}
+              {accountsInRows.length === 0 && (
+                <span className="text-xs text-muted-foreground">No account-linked pages yet.</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
               <span className="text-sm font-medium text-foreground">
                 {buildListSelection.size} account{buildListSelection.size !== 1 ? "s" : ""} selected
@@ -874,17 +965,19 @@ export default function SalesPages() {
             <button onClick={exitBuildListMode} className="text-xs text-muted-foreground hover:text-foreground">
               Cancel
             </button>
+            </div>
           </div>
         )}
 
         {/* PageHint banner */}
         <PageHint
           id="sales-microsites"
-          title="Personalized Microsites"
-          description="AI-generated pages per account; each contact gets a tracked link so you know exactly who visited."
+          title="Your pages, who's viewing them, and their links"
+          description="Every page with views, known visitors, and time on page — your pages sort to the top. Click a row for links, viewers, and alerts."
           tips={[
-            "Generate from an account, or 'Clone for account' to copy a general page.",
-            "'Generate hotlinks' creates the tracked per-contact URLs.",
+            "The bell subscribes YOU to visit alerts for that page in one click.",
+            "The envelope copies an email preview — a screenshot that pastes into Gmail and clicks through to the page.",
+            "Avg time starts counting from today; older visits show —.",
           ]}
           color="blue"
           icon={Globe}
@@ -897,7 +990,7 @@ export default function SalesPages() {
               <span className="text-sm font-medium text-foreground">
                 {selectedPages.size} selected
               </span>
-              {overview.some(a => a.accountId === -1) && (
+              {rows.some(r => r.accountId == null) && (
                 <button
                   onClick={selectAllUnlinked}
                   className="text-xs font-semibold text-primary hover:underline"
@@ -955,7 +1048,7 @@ export default function SalesPages() {
         )}
 
         {/* Search */}
-        {overview.length > 0 && (
+        {rows.length > 0 && (
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -1010,17 +1103,19 @@ export default function SalesPages() {
           </Card>
         )}
 
-        {/* Account microsites list */}
+        {/* ── Pages table ──────────────────────────────────────────────────
+            Flat, analytics-first: one row per page, the rep's own pages
+            sorted to the top. Row expands for hotlinks + alert management. */}
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1, 2].map(i => <Skeleton key={i} className="h-32 rounded-lg" />)}
           </div>
-        ) : sortedOverview.length === 0 && !search ? (
+        ) : sortedRows.length === 0 && !search ? (
           <div className="flex flex-col items-center justify-center py-16 px-8 border border-dashed border-border rounded-lg text-center">
             <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center mb-4">
               <Layout className="w-5 h-5 text-muted-foreground" />
             </div>
-            <h3 className="text-sm font-medium text-foreground mb-1">No microsites yet</h3>
+            <h3 className="text-sm font-medium text-foreground mb-1">No pages yet</h3>
             <p className="text-[13px] text-muted-foreground max-w-xs mb-5">
               Go to an account and tap "Generate Microsite" to create a personalized page with unique links for every contact.
             </p>
@@ -1031,21 +1126,18 @@ export default function SalesPages() {
               </Button>
             </Link>
           </div>
-        ) : sortedOverview.length === 0 && search ? (
+        ) : sortedRows.length === 0 && search ? (
           <div className="flex flex-col items-center justify-center py-12 px-8 border border-dashed border-border rounded-lg text-center">
             <Search className="w-5 h-5 text-muted-foreground mb-3" />
             <h3 className="text-sm font-medium text-foreground mb-1">No results for "{search}"</h3>
             <p className="text-[13px] text-muted-foreground max-w-xs">Try a different search term or clear the search.</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {(() => {
-                  const showing = sortedOverview.filter(a => a.accountId !== -1).length;
-                  const total = overview.filter(a => a.accountId !== -1).length;
-                  return showing < total ? `${showing} of ${total}` : total;
-                })()} account{sortedOverview.filter(a => a.accountId !== -1).length !== 1 ? "s" : ""}
+                {sortedRows.length < rows.length ? `${sortedRows.length} of ${rows.length}` : rows.length} page{sortedRows.length !== 1 ? "s" : ""}
+                <span className="normal-case tracking-normal font-normal"> · stats last 30 days</span>
               </p>
               <div className="flex items-center gap-1.5">
                 <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
@@ -1054,237 +1146,302 @@ export default function SalesPages() {
                   onChange={(e) => setSortBy(e.target.value as any)}
                   className="text-xs appearance-none bg-transparent text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none"
                 >
+                  <option value="mine">My pages first</option>
                   <option value="recent">Most recent</option>
+                  <option value="views">Most viewed</option>
                   <option value="name">Name</option>
                   <option value="status">Status</option>
                 </select>
               </div>
             </div>
-            {sortedOverview.map((acct, acctIdx) => (
-              <div key={acct.accountId}>
-                {/* Divider before General pages */}
-                {acct.accountId === -1 && acctIdx > 0 && (
-                  <div className="flex items-center gap-3 pt-6 pb-3">
-                    <div className="flex-1 h-px bg-border" />
-                    <span className="text-xs font-medium text-muted-foreground">General pages</span>
-                    <div className="flex-1 h-px bg-border" />
-                  </div>
-                )}
 
-              <Card className={`rounded-lg overflow-hidden border ${
-                buildListMode && acct.accountId !== -1 && buildListSelection.has(acct.accountId)
-                  ? "border-primary bg-primary/3"
-                  : acct.accountId === -1 ? "border-dashed border-border/60" : "border-border"
-              }`}>
-                {/* ── Account header ─────────────────────────────── */}
-                <button
-                  onClick={() => {
-                    if (buildListMode && acct.accountId !== -1) {
-                      toggleBuildSelection(acct.accountId);
-                    } else {
-                      toggleCollapse(acct.accountId);
-                    }
-                  }}
-                  className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left ${
-                    buildListMode && acct.accountId !== -1 ? "hover:bg-primary/5" : "hover:bg-muted/30"
-                  }`}
-                >
-                  {buildListMode && acct.accountId !== -1 ? (
-                    buildListSelection.has(acct.accountId)
-                      ? <CheckSquare className="w-4 h-4 text-primary shrink-0" />
-                      : <Square className="w-4 h-4 text-muted-foreground shrink-0" />
-                  ) : (
-                    collapsed.has(acct.accountId)
-                      ? <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                      : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  )}
-
-                  {acct.accountId === -1 ? (
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-muted-foreground">General landing pages</p>
-                      <p className="text-xs text-muted-foreground/60 mt-0.5">Not linked to an account</p>
-                    </div>
-                  ) : (
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-foreground">{acct.accountName}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground">{acct.pages.length} page{acct.pages.length !== 1 ? "s" : ""}</span>
-                        {acct.pages.reduce((s, p) => s + p.hotlinks.length, 0) > 0 && (
-                          <>
-                            <span className="text-muted-foreground/30">&middot;</span>
-                            <span className="text-xs text-muted-foreground">{acct.pages.reduce((s, p) => s + p.hotlinks.length, 0)} links</span>
-                          </>
-                        )}
-                        {acct.accountOwner && (
-                          <>
-                            <span className="text-muted-foreground/30">&middot;</span>
-                            <span className="text-xs text-muted-foreground/60">{acct.accountOwner}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {acct.accountId !== -1 && !buildListMode && (
-                    <Link href={`/sales/accounts/${acct.accountId}`} onClick={e => e.stopPropagation()}>
-                      <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                        View account <ChevronRight className="w-3 h-3" />
-                      </span>
-                    </Link>
-                  )}
-                </button>
-
-                {/* ── Pages ────────────────────────────────────────── */}
-                {!collapsed.has(acct.accountId) && (
-                  <div className="border-t border-border">
-                    {acct.pages.map(page => (
-                      <div key={page.pageId} className={`group/page ${selectMode && selectedPages.has(page.pageId) ? "bg-primary/5" : ""}`}>
-                        <div className="flex items-start gap-3 px-5 py-3.5 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-b-0">
-                          {/* Status dot or checkbox */}
-                          <div className="pt-1.5 shrink-0">
-                            {selectMode ? (
-                              <button onClick={() => toggleSelect(page.pageId)} className="text-primary">
-                                {selectedPages.has(page.pageId) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-muted-foreground" />}
-                              </button>
-                            ) : (
-                              <div className={`w-2 h-2 rounded-full ${page.pageStatus === "published" ? "bg-[hsl(var(--accent-warm))]" : "bg-amber-400"}`} />
-                            )}
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Link href={`/builder/${page.pageId}`}>
-                                <span className="text-[13px] font-medium text-foreground hover:underline cursor-pointer leading-snug">{page.pageTitle}</span>
-                              </Link>
-                              <PageStatusBadge status={page.pageStatus} />
-                            </div>
-
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-muted-foreground font-mono">/{page.pageSlug}</span>
-                              <span className="text-muted-foreground/30">&middot;</span>
-                              <span className="text-xs text-muted-foreground">{format(new Date(page.pageUpdatedAt), "MMM d")}</span>
-                              {page.hotlinks.length > 0 && (
-                                <>
-                                  <span className="text-muted-foreground/30">&middot;</span>
-                                  <span className="text-xs text-muted-foreground">{page.hotlinks.length} link{page.hotlinks.length !== 1 ? "s" : ""}</span>
-                                </>
-                              )}
-                            </div>
-
-                            {/* Contact chips */}
-                            {page.hotlinks.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                                {page.hotlinks.map(hl => (
-                                  <button
-                                    key={hl.hotlinkId}
-                                    onClick={() => copyLink(hl.token)}
-                                    className="group/hl inline-flex items-center gap-1.5 text-xs pl-1 pr-2.5 py-1 rounded-full bg-muted/60 hover:bg-muted transition-colors cursor-pointer"
-                                    title={`Copy ${hl.contactName || "contact"}'s link`}
-                                  >
-                                    <div className="w-5 h-5 rounded-full bg-muted-foreground/10 flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">
-                                      {initials(hl.contactName)}
-                                    </div>
-                                    <span className="text-foreground font-medium truncate max-w-[120px] leading-none">
-                                      {hl.contactName || <span className="text-muted-foreground italic font-normal">Unknown</span>}
-                                    </span>
-                                    {copiedToken === hl.token
-                                      ? <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                                      : <Copy className="w-3 h-3 text-muted-foreground/30 group-hover/hl:text-muted-foreground shrink-0 transition-colors" />
-                                    }
+            <Card className="rounded-lg border border-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40 text-left">
+                      <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Page</th>
+                      <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Views</th>
+                      <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Viewers</th>
+                      <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Avg time</th>
+                      <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Last visit</th>
+                      <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Links</th>
+                      <th className="px-3 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRows.map(row => {
+                      const rank = mineRank(row);
+                      const isExpanded = expandedPage === row.pageId;
+                      const subs = alertEmails.get(row.pageId) ?? [];
+                      const mineSubbed = !!mySubscription(row.pageId);
+                      const firstToken = row.hotlinks[0]?.token;
+                      const copyKey = firstToken ?? `page:${row.pageId}`;
+                      return (
+                        <Fragment key={row.pageId}>
+                          <tr
+                            className={`border-b border-border/50 last:border-b-0 hover:bg-muted/40 transition-colors cursor-pointer ${
+                              selectMode && selectedPages.has(row.pageId) ? "bg-primary/5" : isExpanded ? "bg-muted/30" : ""
+                            }`}
+                            onClick={() => setExpandedPage(isExpanded ? null : row.pageId)}
+                          >
+                            {/* Page */}
+                            <td className="px-4 py-3 max-w-[340px]">
+                              <div className="flex items-start gap-2.5">
+                                {selectMode ? (
+                                  <button onClick={(e) => { e.stopPropagation(); toggleSelect(row.pageId); }} className="text-primary pt-0.5">
+                                    {selectedPages.has(row.pageId) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-muted-foreground" />}
                                   </button>
-                                ))}
+                                ) : (
+                                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${row.pageStatus === "published" ? "bg-[hsl(var(--accent-warm))]" : "bg-amber-400"}`} title={row.pageStatus} />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Link href={`/builder/${row.pageId}`} onClick={(e) => e.stopPropagation()}>
+                                      <span className="text-[13px] font-medium text-foreground hover:underline cursor-pointer leading-snug truncate">{row.pageTitle}</span>
+                                    </Link>
+                                    {rank === 0 && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-primary/10 text-primary shrink-0">Yours</span>}
+                                    {rank === 1 && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-muted text-muted-foreground shrink-0">Edited by you</span>}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground min-w-0">
+                                    {row.accountName ? (
+                                      <Link href={`/sales/accounts/${row.accountId}`} onClick={(e) => e.stopPropagation()}>
+                                        <span className="hover:text-foreground transition-colors flex items-center gap-1 truncate"><Building2 className="w-3 h-3 shrink-0" />{row.accountName}</span>
+                                      </Link>
+                                    ) : (
+                                      <span className="text-muted-foreground/60">General</span>
+                                    )}
+                                    <span className="text-muted-foreground/30">·</span>
+                                    <span className="font-mono truncate">/{row.pageSlug}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            {/* Views */}
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
+                              <span className="text-[13px] font-semibold text-foreground tabular-nums">{row.views}</span>
+                              {row.views > 0 && <span className="block text-[11px] text-muted-foreground tabular-nums">{row.uniques} unique</span>}
+                            </td>
+                            {/* Known viewers */}
+                            <td className="px-3 py-3 whitespace-nowrap">
+                              {row.knownViewerCount === 0 ? (
+                                <span className="text-xs text-muted-foreground/50">—</span>
+                              ) : (
+                                <div className="flex items-center">
+                                  <div className="flex -space-x-1.5">
+                                    {row.knownViewers.slice(0, 4).map(v => (
+                                      <div
+                                        key={v.contactId}
+                                        className="w-6 h-6 rounded-full bg-primary/15 border-2 border-background flex items-center justify-center text-[9px] font-bold text-primary"
+                                        title={`${v.name} — ${v.views} view${v.views !== 1 ? "s" : ""}`}
+                                      >
+                                        {initials(v.name)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {row.knownViewerCount > 4 && (
+                                    <span className="ml-1.5 text-[11px] text-muted-foreground">+{row.knownViewerCount - 4}</span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            {/* Avg time */}
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
+                              <span className={`text-[13px] tabular-nums ${row.avgDwellSeconds != null ? "text-foreground" : "text-muted-foreground/50"}`}>
+                                {fmtDwell(row.avgDwellSeconds)}
+                              </span>
+                            </td>
+                            {/* Last visit */}
+                            <td className="px-3 py-3 whitespace-nowrap">
+                              <span className="text-xs text-muted-foreground">
+                                {row.lastVisitAt ? `${formatDistanceToNowStrict(new Date(row.lastVisitAt))} ago` : "—"}
+                              </span>
+                            </td>
+                            {/* Links */}
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Link2 className="w-3 h-3" />
+                                {row.hotlinks.length}
                                 <button
-                                  onClick={() => openManageLinks(page.pageId, page.pageTitle, page.hotlinks)}
-                                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors px-1.5 py-1 rounded-md hover:bg-muted/40"
-                                  title="Manage / remove links"
+                                  onClick={(e) => { e.stopPropagation(); openHotlinksModal(row.pageId, row.pageTitle); }}
+                                  className="ml-0.5 p-0.5 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                                  title="Create personalized links"
                                 >
-                                  <Pencil className="w-3 h-3" />
-                                  Manage
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </span>
+                            </td>
+                            {/* Actions */}
+                            <td className="px-3 py-3 whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  variant="ghost" size="icon"
+                                  className={`h-7 w-7 rounded-md ${mineSubbed ? "text-primary" : "text-muted-foreground/40 hover:text-foreground"}`}
+                                  title={mineSubbed ? "You get visit alerts for this page — click to unsubscribe" : "Alert me when someone views this page"}
+                                  disabled={alertTogglingId === row.pageId || !myEmail}
+                                  onClick={() => toggleMyAlert(row.pageId)}
+                                >
+                                  {alertTogglingId === row.pageId
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : mineSubbed ? <BellRing className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+                                </Button>
+                                <Button
+                                  variant="ghost" size="icon"
+                                  className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
+                                  title={firstToken ? "Copy the first personalized link" : "Copy the page link"}
+                                  onClick={() => {
+                                    if (firstToken) copyLink(firstToken);
+                                    else {
+                                      navigator.clipboard.writeText(getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost)).then(() => {
+                                        setCopiedToken(copyKey);
+                                        setTimeout(() => setCopiedToken(null), 2000);
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {copiedToken === copyKey ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                </Button>
+                                <Button
+                                  variant="ghost" size="icon"
+                                  className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
+                                  title="Copy email preview — a linked screenshot that pastes into an email"
+                                  disabled={previewBusyId === row.pageId}
+                                  onClick={() => void handleCopyEmailPreview(row)}
+                                >
+                                  {previewBusyId === row.pageId
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : previewCopiedId === row.pageId
+                                      ? <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                      : <Mail className="w-3.5 h-3.5" />}
+                                </Button>
+                                <a href={getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost)} target="_blank" rel="noopener noreferrer">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" title="Open page">
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </Button>
+                                </a>
+                                <MicrositeRowMenu
+                                  status={row.pageStatus}
+                                  actionLoading={actionLoading}
+                                  onToggleStatus={() => togglePageStatus(row.pageId, row.pageStatus)}
+                                  onDelete={() => deletePage(row.pageId)}
+                                />
+                                <button
+                                  onClick={() => setExpandedPage(isExpanded ? null : row.pageId)}
+                                  className="p-1 text-muted-foreground/40 hover:text-foreground transition-colors"
+                                  title={isExpanded ? "Collapse" : "Links, viewers & alerts"}
+                                >
+                                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                 </button>
                               </div>
-                            )}
+                            </td>
+                          </tr>
 
-                            {/* Alert subscription — microsites only */}
-                            {acct.accountId !== -1 && (
-                              <div className="mt-2">
-                                {(() => {
-                                  const subs = alertEmails.get(page.pageId) ?? [];
-                                  const isExpanded = alertPageId === page.pageId;
-                                  return (
-                                    <>
-                                      <div className="flex items-center gap-2">
-                                        {subs.length > 0 && (
-                                          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
-                                            {subs.slice(0, 2).map(ae => (
-                                              <span key={ae.id} className="text-xs text-muted-foreground">{ae.email}</span>
-                                            ))}
-                                            {subs.length > 2 && <span className="text-xs text-muted-foreground">+{subs.length - 2}</span>}
-                                          </div>
+                          {/* ── Expanded drill-down ── */}
+                          {isExpanded && (
+                            <tr className="border-b border-border/50 last:border-b-0 bg-muted/20">
+                              <td colSpan={7} className="px-5 py-4">
+                                <div className="flex flex-col gap-4 max-w-4xl">
+                                  {/* Known viewers detail */}
+                                  {row.knownViewers.length > 0 && (
+                                    <div>
+                                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Who viewed</p>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {row.knownViewers.map(v => (
+                                          <Link key={v.contactId} href={`/sales/contacts/${v.contactId}`}>
+                                            <span className="inline-flex items-center gap-1.5 text-xs pl-1 pr-2.5 py-1 rounded-full bg-background border border-border hover:border-primary/40 transition-colors cursor-pointer">
+                                              <span className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">{initials(v.name)}</span>
+                                              <span className="text-foreground font-medium">{v.name}</span>
+                                              <span className="text-muted-foreground">{v.views}× · {formatDistanceToNowStrict(new Date(v.lastViewedAt))} ago</span>
+                                            </span>
+                                          </Link>
+                                        ))}
+                                        {row.knownViewerCount > row.knownViewers.length && (
+                                          <span className="text-xs text-muted-foreground self-center">+{row.knownViewerCount - row.knownViewers.length} more</span>
                                         )}
-                                        <button
-                                          onClick={() => openAlertPanel(page.pageId)}
-                                          className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                                        >
-                                          <Bell className="w-3 h-3" />
-                                          {subs.length > 0 ? "Manage alerts" : "Subscribe to alerts"}
-                                        </button>
                                       </div>
-                                      {isExpanded && (
-                                        <div className="mt-2 pt-2 border-t border-border/50">
-                                          {subs.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5 mb-2">
-                                              {subs.map(ae => (
-                                                <span key={ae.id} className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-md">
-                                                  <Mail className="w-3 h-3" />
-                                                  {ae.email}
-                                                  <button onClick={() => removeAlertEmail(ae.id, page.pageId)} className="ml-0.5 text-muted-foreground/50 hover:text-foreground transition-colors" title="Remove"><X className="w-3 h-3" /></button>
-                                                </span>
-                                              ))}
-                                            </div>
-                                          )}
-                                          <div className="flex items-center gap-2">
-                                            <input type="email" value={alertInput} onChange={e => setAlertInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addAlertEmail(page.pageId, alertInput); }} placeholder="your@email.com" className="flex-1 text-xs px-2.5 py-1.5 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40" />
-                                            <Button size="sm" className="h-7 px-3 text-xs" disabled={!alertInput.trim() || alertSaving} onClick={() => addAlertEmail(page.pageId, alertInput)}>{alertSaving ? "Saving…" : "Subscribe"}</Button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            )}
-                          </div>
+                                    </div>
+                                  )}
 
-                          {/* Page actions */}
-                          <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
-                            <a href={getLpPageUrl(page.pageSlug, micrositeDomain, tenantHost)} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" title="Preview"><ExternalLink className="w-3.5 h-3.5" /></Button>
-                            </a>
-                            <Link href={`/builder/${page.pageId}`}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" title="Edit"><Pencil className="w-3.5 h-3.5" /></Button>
-                            </Link>
-                            {acct.accountId === -1 && !selectMode && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground hidden sm:inline-flex" title="Clone for account" onClick={() => openCloneModal(page.pageId, page.pageTitle)}><Layers className="w-3.5 h-3.5" /></Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground hidden sm:inline-flex" title="Generate hotlinks" onClick={() => openHotlinksModal(page.pageId, page.pageTitle)}><Globe className="w-3.5 h-3.5" /></Button>
-                              </>
-                            )}
-                            <MicrositeRowMenu
-                              status={page.pageStatus}
-                              actionLoading={actionLoading}
-                              onToggleStatus={() => togglePageStatus(page.pageId, page.pageStatus)}
-                              onDelete={() => deletePage(page.pageId)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
+                                  {/* Personalized links */}
+                                  <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Personalized links</p>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {row.hotlinks.map(hl => (
+                                        <button
+                                          key={hl.hotlinkId}
+                                          onClick={() => copyLink(hl.token)}
+                                          className="group/hl inline-flex items-center gap-1.5 text-xs pl-1 pr-2.5 py-1 rounded-full bg-background border border-border hover:border-primary/40 transition-colors cursor-pointer"
+                                          title={`Copy ${hl.contactName || "contact"}'s link`}
+                                        >
+                                          <span className="w-5 h-5 rounded-full bg-muted-foreground/10 flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{initials(hl.contactName)}</span>
+                                          <span className="text-foreground font-medium truncate max-w-[120px] leading-none">
+                                            {hl.contactName || <span className="text-muted-foreground italic font-normal">Unknown</span>}
+                                          </span>
+                                          {copiedToken === hl.token
+                                            ? <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                                            : <Copy className="w-3 h-3 text-muted-foreground/30 group-hover/hl:text-muted-foreground shrink-0 transition-colors" />}
+                                        </button>
+                                      ))}
+                                      <Button variant="outline" size="sm" className="h-6 px-2 text-[11px] gap-1" onClick={() => openHotlinksModal(row.pageId, row.pageTitle)}>
+                                        <Plus className="w-3 h-3" /> New links
+                                      </Button>
+                                      {row.hotlinks.length > 0 && (
+                                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => openManageLinks(row.pageId, row.pageTitle, row.hotlinks)}>
+                                          <Pencil className="w-3 h-3" /> Manage
+                                        </Button>
+                                      )}
+                                      {row.accountId == null && (
+                                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => openCloneModal(row.pageId, row.pageTitle)}>
+                                          <Layers className="w-3 h-3" /> Clone for account
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Visit alerts */}
+                                  <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Visit alerts</p>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {subs.map(ae => (
+                                        <span key={ae.id} className="inline-flex items-center gap-1 text-xs bg-background border border-border text-muted-foreground px-2 py-0.5 rounded-md">
+                                          <Mail className="w-3 h-3" />
+                                          {ae.email}
+                                          {ae.email.toLowerCase() === myEmail && <span className="text-[9px] font-bold uppercase text-primary">you</span>}
+                                          <button onClick={() => removeAlertEmail(ae.id, row.pageId)} className="ml-0.5 text-muted-foreground/50 hover:text-foreground transition-colors" title="Remove"><X className="w-3 h-3" /></button>
+                                        </span>
+                                      ))}
+                                      {!mineSubbed && myEmail && (
+                                        <Button size="sm" className="h-6 px-2.5 text-[11px] gap-1" disabled={alertTogglingId === row.pageId} onClick={() => toggleMyAlert(row.pageId)}>
+                                          <BellRing className="w-3 h-3" /> Alert me
+                                        </Button>
+                                      )}
+                                      <div className="flex items-center gap-1.5">
+                                        <input
+                                          type="email"
+                                          value={alertPageId === row.pageId ? alertInput : ""}
+                                          onFocus={() => { setAlertPageId(row.pageId); }}
+                                          onChange={e => { setAlertPageId(row.pageId); setAlertInput(e.target.value); }}
+                                          onKeyDown={e => { if (e.key === "Enter") addAlertEmail(row.pageId, alertInput); }}
+                                          placeholder="teammate@email.com"
+                                          className="text-xs px-2 py-1 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40 w-44"
+                                        />
+                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" disabled={alertPageId !== row.pageId || !alertInput.trim() || alertSaving} onClick={() => addAlertEmail(row.pageId, alertInput)}>
+                                          {alertSaving && alertPageId === row.pageId ? "Saving…" : "Add"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            </Card>
           </div>
         )}
       </div>

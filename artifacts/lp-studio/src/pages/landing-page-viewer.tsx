@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-types";
 import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
+import { useDwellTracker } from "@/hooks/use-dwell-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, getBrandButtonCss, getBrandButtonShapeCss, getBrandSurfaceCss, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
@@ -581,6 +582,9 @@ function LandingPageViewerInner() {
     return undefined;
   })();
   useHeatmapTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId);
+  // Time-on-page beacon (Sales Pages analytics) — same gating as the heatmap:
+  // real visitors only, never builder/preview sessions.
+  useDwellTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId);
 
   useEffect(() => {
     let cancelled = false;

@@ -6,7 +6,7 @@ import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
 import { resolvePageOG, substitutePageTitleToken, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
 import type { Request } from "express";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
@@ -310,6 +310,42 @@ const trackEventLimiter = rateLimit({
   name: "lp-track",
   windowMs: 60 * 1000,
   max: envLimit("RATE_LIMIT_TRACKING_PER_MIN", 500),
+});
+
+/**
+ * Dwell beacon — time-on-page for analytics (Sales Pages view).
+ *
+ * The viewer's use-dwell-tracker hook reports the session's CUMULATIVE
+ * tab-visible seconds (sendBeacon on hide/leave + periodic keepalive flush).
+ * We MAX-merge onto the visit row(s) for this (page, session): cumulative
+ * totals make replayed or out-of-order beacons harmless, and a missing visit
+ * row (editor sessions, ancient sessions) is a silent no-op. Hand-validated
+ * body instead of api-zod — the payload is three fields and public.
+ */
+router.post("/lp/track/dwell", trackEventLimiter, async (req, res): Promise<void> => {
+  const body = (req.body ?? {}) as { pageId?: unknown; sessionId?: unknown; seconds?: unknown };
+  const pageId = typeof body.pageId === "number" ? Math.floor(body.pageId) : NaN;
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
+  const secondsRaw = typeof body.seconds === "number" ? Math.floor(body.seconds) : NaN;
+  if (!Number.isFinite(pageId) || pageId <= 0 || !sessionId || sessionId.length > 128 || !Number.isFinite(secondsRaw) || secondsRaw < 1) {
+    res.status(400).json({ error: "Invalid dwell payload" });
+    return;
+  }
+  // Server-side cap mirrors the client's: a tab open overnight (or a hostile
+  // payload) can never poison averages.
+  const seconds = Math.min(secondsRaw, 1800);
+  try {
+    await db
+      .update(lpPageVisitsTable)
+      .set({
+        dwellSeconds: sql`GREATEST(COALESCE(${lpPageVisitsTable.dwellSeconds}, 0), ${seconds})`,
+      })
+      .where(and(eq(lpPageVisitsTable.pageId, pageId), eq(lpPageVisitsTable.sessionId, sessionId)));
+    res.json({ ok: true });
+  } catch (err) {
+    console.warn("Error recording dwell for page", pageId, ":", err);
+    res.status(500).json({ error: "Failed to record dwell" });
+  }
 });
 
 router.post("/lp/track", trackEventLimiter, async (req, res): Promise<void> => {
