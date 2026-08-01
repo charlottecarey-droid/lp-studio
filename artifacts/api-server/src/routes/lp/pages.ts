@@ -19,7 +19,16 @@ import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/trigge
 import { withDbRetry, isTransientDbError } from "../../lib/dbResilience";
 import { isUniqueViolation } from "../../lib/dbErrors";
 import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
-import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
+import {
+  triggerTemplateThumbnailCapture,
+  ensurePreviewReviewToken,
+  resolvePreviewBaseUrl,
+  isNearUniformCapture,
+} from "../../lib/captureTemplateThumbnail";
+import { capturePageScreenshot } from "../../lib/pageScreenshot";
+import { ObjectStorageService } from "../../lib/objectStorage";
+import { OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
+import sharp from "sharp";
 import { enforceFactFlagPublishGate } from "./fact-flags";
 import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
@@ -1185,6 +1194,69 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     } else {
       res.status(500).json({ error: "Failed to update page" });
     }
+  }
+});
+
+/**
+ * Capture a 1200×630 OG share-card screenshot of the page — SELF-HOSTED
+ * (lib/pageScreenshot.ts drives the same chromium as the publish prerender,
+ * waits for [data-lp-page] content + `document.fonts.ready`, proxies Google
+ * Fonts through Node) and uploads the PNG to object storage. Replaces the old
+ * thum.io URL-as-storage flow, whose fixed-wait third-party renderer kept
+ * snapshotting pages before their brand fonts swapped in.
+ *
+ * Targets `/preview/:slug` (renders drafts AND published pages) with a review
+ * token + `prerender=1`, so the capture works pre-publish and scroll-reveal
+ * content is visible. Returns { url, width, height }; the client writes the
+ * URL into the page's OG image field (nothing is persisted here — the user
+ * still reviews/saves, matching the upload-resize endpoint's contract).
+ */
+router.post("/lp/pages/:pageId/capture-og", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid page ID" });
+    return;
+  }
+  try {
+    const [page] = await db
+      .select({ id: lpPagesTable.id, slug: lpPagesTable.slug })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+    const slug = (page?.slug ?? "").trim();
+    if (!page || !slug) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const token = await ensurePreviewReviewToken(page.id);
+    const baseUrl = resolvePreviewBaseUrl(getRequestHost(req));
+    const previewUrl =
+      `${baseUrl}/preview/${encodeURIComponent(slug)}` +
+      `?reviewToken=${encodeURIComponent(token)}&prerender=1`;
+
+    const shot = await capturePageScreenshot({
+      url: previewUrl,
+      viewportWidth: OG_IMAGE_WIDTH,
+      viewportHeight: OG_IMAGE_HEIGHT,
+      timeoutMs: 60_000,
+    });
+    const { blank, stdev } = await isNearUniformCapture(shot);
+    if (blank) {
+      res.status(502).json({
+        error: `Capture came back blank (stdev ${stdev}). Try again in a moment.`,
+      });
+      return;
+    }
+    const png = await sharp(shot)
+      .resize({ width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fit: "cover", position: "centre" })
+      .png()
+      .toBuffer();
+    const servePath = await new ObjectStorageService().uploadObjectEntity(png, "image/png", { tenantId });
+    res.json({ url: `/api/storage${servePath}`, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT });
+  } catch (err) {
+    console.error("capture-og error:", err);
+    res.status(500).json({ error: "Failed to capture the share-card screenshot" });
   }
 });
 

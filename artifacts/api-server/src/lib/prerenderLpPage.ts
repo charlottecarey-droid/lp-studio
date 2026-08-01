@@ -80,8 +80,10 @@ function isFkViolation(err: unknown): boolean {
 
 let cachedChromium: string | null | undefined;
 
-/** Reuse the marketing-prerender chromium-detection dance (see #363). */
-function detectSystemChromium(): string | undefined {
+/** Reuse the marketing-prerender chromium-detection dance (see #363).
+ *  Exported for lib/pageScreenshot.ts (the self-hosted OG/thumbnail capture),
+ *  which launches the same chromium. */
+export function detectSystemChromium(): string | undefined {
   if (cachedChromium !== undefined) return cachedChromium ?? undefined;
   if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
     cachedChromium = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;

@@ -4021,6 +4021,7 @@ export default function BuilderEditor() {
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">SEO &amp; Metadata</p>
                     <AutoMetaButton
+                      pageId={pageId}
                       blocks={blocks}
                       title={title}
                       currentSlug={slug}
@@ -4498,6 +4499,7 @@ function VariablesPanel({
 // ── Auto-fill Meta Tags ──────────────────────────────────────────────────
 
 function AutoMetaButton({
+  pageId,
   blocks,
   title,
   currentSlug,
@@ -4506,6 +4508,7 @@ function AutoMetaButton({
   segmentContext,
   onGenerated,
 }: {
+  pageId?: string | number | null;
   blocks: PageBlock[];
   title: string;
   currentSlug: string;
@@ -4515,9 +4518,7 @@ function AutoMetaButton({
   onGenerated: (metaTitle: string, metaDescription: string, suggestedSlug: string, ogImage: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
   const { toast } = useToast();
-  const tenantHost = user?.tenantHost ?? null;
 
   const handleAutoFill = async () => {
     setLoading(true);
@@ -4543,10 +4544,23 @@ function AutoMetaButton({
         return;
       }
 
-      // Generate OG screenshot URL from the live page
-      const pageSlug = data.suggestedSlug || currentSlug;
-      const pageUrl = getLpPageUrl(pageSlug, micrositeDomain, tenantHost);
-      const ogScreenshot = `https://image.thum.io/get/width/1200/crop/630/noanimate/${pageUrl}`;
+      // Capture the OG share card server-side (self-hosted chromium — waits
+      // for brand fonts, uploads to object storage, returns a stable URL).
+      // Best-effort: a failed capture keeps the existing OG image, since
+      // onGenerated only overwrites the image field when non-empty.
+      let ogScreenshot = "";
+      const pageIdNum = typeof pageId === "number" ? pageId : parseInt(String(pageId ?? ""), 10);
+      if (Number.isFinite(pageIdNum) && pageIdNum > 0) {
+        try {
+          const capRes = await fetch(`/api/lp/pages/${pageIdNum}/capture-og`, { method: "POST" });
+          if (capRes.ok) {
+            const cap = (await capRes.json()) as { url?: string };
+            ogScreenshot = cap.url ?? "";
+          }
+        } catch {
+          /* keep the page's existing OG image */
+        }
+      }
 
       onGenerated(data.metaTitle, data.metaDescription, data.suggestedSlug, ogScreenshot);
     } catch {

@@ -373,8 +373,8 @@ export default function SalesMarketplace() {
   };
 
   // Force a fresh screenshot capture for a tenant-owned template. Awaits the
-  // server (a few seconds while thum.io renders), then patches the row in local
-  // state so the new thumbnail (with its cache-busted URL) loads immediately.
+  // server (a few seconds while the self-hosted chromium capture renders),
+  // then patches the row in local state so the new thumbnail loads immediately.
   const handleRefreshThumbnail = async (template: TemplatePage) => {
     if (template.isGlobal) return;
     setRefreshingThumbId(template.id);

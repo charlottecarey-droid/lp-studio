@@ -2,70 +2,44 @@
  * Capture a real screenshot thumbnail for a template (an `lp_pages` row with
  * is_template = true) and persist it on `lp_pages.thumbnail_url`.
  *
- * Task #736. Reuses the same public thum.io gateway the OG flow uses
- * (artifacts/lp-studio .../BuilderEditor.tsx, `image.thum.io/get/...`) but
- * points it at the in-app `/preview/:slug` route — which renders unpublished
- * pages/templates as a full SPA snapshot — instead of `/p/:slug` (published
- * only, 404s on templates). A short-lived (non-expiring, revocable) review
- * token is minted exactly like the prerender flow (prerenderLpPage.ts) so
- * thum.io's headless fetch authenticates against `/api/lp/preview/:slug`
- * without a session.
+ * Task #736 introduced this via the public thum.io gateway; that produced
+ * wrong-font/half-hydrated captures (thum.io snapshots on a fixed wait in its
+ * own headless browser and caches the bad frame), so captures now run through
+ * the SELF-HOSTED chromium screenshot helper (lib/pageScreenshot.ts — waits
+ * for the viewer's content marker + `document.fonts.ready`) and the PNG is
+ * uploaded to object storage. The stored thumbnail_url is our own
+ * `/api/storage/objects/uploads/<id>` serve path — a stable image with no
+ * third-party renderer behind it.
  *
- * Storage model: the thum.io URL itself is the storage — we do NOT download or
- * re-host the image. We pre-warm the capture (a single GET) so thum.io renders
- * and caches the screenshot before the gallery `<img>` ever requests it. On
- * any failure we leave thumbnail_url NULL so the next save/edit/backfill run
- * retries it.
+ * Targets the in-app `/preview/:slug` route — which renders unpublished
+ * pages/templates as a full SPA — authenticated by a short-lived (pending,
+ * revocable) review token minted exactly like the prerender flow, plus
+ * `&prerender=1` so the viewer takes the StaticRenderContext path and
+ * scroll-reveal content is visible in the shot.
  *
- * Cache-busting: the captured target URL carries `&v=<capturedAt-ms>`. thum.io
- * keys its cache on the full target URL, so a re-capture (new timestamp) forces
- * a fresh render and the gallery — which renders the stored full thum.io URL —
- * loads the new image.
+ * On any failure thumbnail_url is left as-is (or cleared when requested) so
+ * the card falls back to the page's OG image and a later save retries.
  */
 import { db, lpPagesTable, lpPageReviewsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
+import { capturePageScreenshot } from "./pageScreenshot";
+import { ObjectStorageService } from "./objectStorage";
 
 /**
  * Template card aspect — a 3:2 crop, wider + taller than the 1200x630 OG card.
  *
  * High-DPI sharpness: gallery cards are ~410px wide at the 3-up grid and up to
- * ~430px full-width on phones, i.e. up to ~1290 device px on a 3× display. To
- * stay above that (so the browser always *downscales* the source — never
- * upscales it — and the card reads crisp on retina/3× screens) we capture at the
- * largest clean 3:2 thum.io's anonymous gateway will return.
- *
- * thum.io ceiling (verified empirically, anonymous tier — no auth key in env):
- * the output width is capped around 1280px. `width/2400/crop/1600` does NOT give
- * a 2400px image — it returns a broken 1200×1200 *square* (no res gain, ratio
- * lost). `width/1600/crop/800` reliably returns a clean 1280×853 (3:2). So 1600
- * is the request value that maxes out a correct-ratio capture; thum.io clamps
- * the delivered pixels to ~1280 wide.
- */
-const THUMB_WIDTH = 1600;
-const THUMB_CROP = 800;
-
-/**
- * Browser viewport thum.io renders the `/preview` SPA at before snapshotting.
- * Pinning a generous *desktop* viewport (3:2) does two things vs. relying on
- * thum.io's default viewport: (1) it forces the template's intended desktop
- * layout (not a narrower default/mobile breakpoint), and (2) thum.io renders at
- * 1600px then delivers its ~1280px-capped output, so the result is a clean
- * downscale (sharp) rather than a potential upscale (soft/grainy).
+ * ~430px full-width on phones, i.e. up to ~1290 device px on a 3× display. The
+ * stored image is 1280×853 (the browser always *downscales*, never upscales),
+ * captured from a 1600-wide desktop viewport so templates render their
+ * intended desktop layout.
  */
 const THUMB_VIEWPORT_WIDTH = 1600;
 const THUMB_VIEWPORT_HEIGHT = 1067;
-
-/**
- * Seconds thum.io waits *after* page load before snapshotting. The `/preview`
- * route is a client-rendered SPA (bundle boot → API fetch → block paint → brand
- * fonts/images), so without this thum.io often captures the blank/grey shell
- * before it hydrates. thum.io has no wait-for-selector option (only time-based
- * `wait`), so we give the SPA a generous fixed window and still validate the
- * result below.
- */
-const THUMB_WAIT_SECONDS = 8;
+const THUMB_OUT_WIDTH = 1280;
+const THUMB_OUT_HEIGHT = 853;
 
 /**
  * Minimum per-channel standard deviation for a capture to count as a real,
@@ -77,16 +51,13 @@ const THUMB_WAIT_SECONDS = 8;
  */
 const MIN_CONTENT_STDEV = 10;
 
-/**
- * Upper bound on the pre-warm GET. thum.io renders synchronously on first hit
- * (headless browser boot + nav + screenshot), which can take several seconds;
- * keep generous headroom but bounded so a stuck render can't hang the caller
- * (the manual-refresh route awaits this).
- */
-const PREWARM_TIMEOUT_MS = 25_000;
+/** Hard ceiling on one capture (browser launch + nav + waits + shot). */
+const CAPTURE_TIMEOUT_MS = 60_000;
 
 /** Default coalescing window for fire-and-forget captures after autosaves. */
 const DEFAULT_DEBOUNCE_MS = 30_000;
+
+const storage = new ObjectStorageService();
 
 export interface CaptureThumbnailOptions {
   pageId: number;
@@ -99,7 +70,7 @@ export interface CaptureThumbnailOptions {
   /**
    * When true, a failed/blank capture actively clears any stored thumbnail_url
    * (set NULL) so the card falls back to the page's OG image. The manual-refresh
-   * route sets this so a previously-stored broken grey capture reverts to OG.
+   * route sets this so a previously-stored broken capture reverts to OG.
    * The fire-and-forget autosave path leaves the existing thumbnail intact to
    * avoid a mid-edit flicker to the gradient on a transient failure.
    */
@@ -128,11 +99,13 @@ export interface CaptureThumbnailResult {
 
 /**
  * Resolve a base URL that serves the lp-studio SPA `/preview/:slug` route.
- * Prefer the triggering admin host (guaranteed to serve the SPA + be publicly
- * reachable by thum.io), then the explicit render-base override, then the dev
+ * Prefer the triggering admin host (guaranteed to serve the SPA + be reachable
+ * from this process), then the explicit render-base override, then the dev
  * domain, then any configured public host.
+ *
+ * Exported for the OG capture route, which builds the same preview URL.
  */
-function resolvePreviewBaseUrl(requestHost?: string | null): string {
+export function resolvePreviewBaseUrl(requestHost?: string | null): string {
   const host = (requestHost ?? "").trim().toLowerCase();
   if (host) {
     const proto = host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https";
@@ -148,12 +121,14 @@ function resolvePreviewBaseUrl(requestHost?: string | null): string {
 }
 
 /**
- * Mint (or reuse) a pending review token for the page so thum.io's headless
- * fetch can read the draft/template via `/api/lp/preview/:slug?reviewToken=`.
+ * Mint (or reuse) a pending review token for the page so the headless capture
+ * can read the draft/template via `/api/lp/preview/:slug?reviewToken=`.
  * Mirrors prerenderLpPage.ts::ensureReviewToken (reuse the latest pending
  * token to avoid piling up rows on every re-capture).
+ *
+ * Exported for the OG capture route.
  */
-async function ensureReviewToken(pageId: number): Promise<string> {
+export async function ensurePreviewReviewToken(pageId: number): Promise<string> {
   const [existing] = await db
     .select({ token: lpPageReviewsTable.token })
     .from(lpPageReviewsTable)
@@ -169,22 +144,28 @@ async function ensureReviewToken(pageId: number): Promise<string> {
   return inserted?.token ?? fresh;
 }
 
-/**
- * Build the thum.io capture URL for a fully-formed preview URL. thum.io appends
- * the target URL raw after the option path (matching the existing OG pattern).
- */
-export function buildTemplateThumbnailUrl(previewUrl: string): string {
-  return (
-    `https://image.thum.io/get/viewport/${THUMB_VIEWPORT_WIDTH}x${THUMB_VIEWPORT_HEIGHT}` +
-    `/width/${THUMB_WIDTH}/crop/${THUMB_CROP}/png/noanimate/${previewUrl}`
-  );
+/** `/api/storage/objects/uploads/<id>` → `/objects/uploads/<id>` (the path the
+ *  storage service understands), or null for anything else — external URLs and
+ *  legacy thum.io links are simply not ours to delete. Exported for tests. */
+export function storedObjectPathFromServeUrl(url: string | null | undefined): string | null {
+  if (!url || !url.startsWith("/api/storage/objects/")) return null;
+  return url.slice("/api/storage".length);
+}
+
+/** Reject blank/grey/near-uniform captures (the SPA never hydrated) so a
+ *  broken screenshot can never override a perfectly good OG image.
+ *  Exported for the OG capture route, which applies the same gate. */
+export async function isNearUniformCapture(imageBytes: Buffer): Promise<{ blank: boolean; stdev: string }> {
+  const stats = await sharp(imageBytes).stats();
+  const maxStdev = Math.max(...stats.channels.map((c) => c.stdev));
+  const blank = !Number.isFinite(maxStdev) || maxStdev < MIN_CONTENT_STDEV;
+  return { blank, stdev: Number.isFinite(maxStdev) ? maxStdev.toFixed(1) : "n/a" };
 }
 
 /**
  * Capture + persist a thumbnail for one template. Best-effort: returns a
  * structured result instead of throwing so callers (fire-and-forget triggers
- * and the manual-refresh route) can decide what to surface. On failure
- * thumbnail_url is left NULL for a later retry.
+ * and the manual-refresh route) can decide what to surface.
  */
 export async function captureTemplateThumbnail(
   opts: CaptureThumbnailOptions,
@@ -200,7 +181,12 @@ export async function captureTemplateThumbnail(
   });
 
   const [page] = await db
-    .select({ id: lpPagesTable.id, slug: lpPagesTable.slug, isTemplate: lpPagesTable.isTemplate })
+    .select({
+      id: lpPagesTable.id,
+      slug: lpPagesTable.slug,
+      isTemplate: lpPagesTable.isTemplate,
+      thumbnailUrl: lpPagesTable.thumbnailUrl,
+    })
     .from(lpPagesTable)
     .where(eq(lpPagesTable.id, opts.pageId));
   if (!page) return skip("page_not_found");
@@ -238,47 +224,36 @@ export async function captureTemplateThumbnail(
   };
 
   const capturedAt = new Date();
-  let thumbnailUrl: string;
+  let imageBytes: Buffer;
   try {
-    const token = await ensureReviewToken(page.id);
+    const token = await ensurePreviewReviewToken(page.id);
     const baseUrl = resolvePreviewBaseUrl(opts.requestHost);
     const previewUrl =
       `${baseUrl}/preview/${encodeURIComponent(slug)}` +
-      `?reviewToken=${encodeURIComponent(token)}&v=${capturedAt.getTime()}`;
-    thumbnailUrl = buildTemplateThumbnailUrl(previewUrl);
+      `?reviewToken=${encodeURIComponent(token)}&prerender=1`;
+    imageBytes = await capturePageScreenshot({
+      url: previewUrl,
+      viewportWidth: THUMB_VIEWPORT_WIDTH,
+      viewportHeight: THUMB_VIEWPORT_HEIGHT,
+      timeoutMs: CAPTURE_TIMEOUT_MS,
+    });
   } catch (err) {
     return fellBack(err instanceof Error ? err.message : String(err));
   }
 
-  // Pre-warm: trigger thum.io to render the screenshot now, and pull the bytes
-  // back so we can validate the capture before trusting it.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PREWARM_TIMEOUT_MS);
-  let imageBytes: Buffer;
+  let thumbnailUrl: string;
   try {
-    const res = await fetch(thumbnailUrl, { signal: controller.signal, redirect: "follow" });
-    if (!res.ok) {
-      return fellBack(`thum.io responded ${res.status}`);
-    }
-    imageBytes = Buffer.from(await res.arrayBuffer());
-  } catch (err) {
-    return fellBack(err instanceof Error ? err.message : String(err));
-  } finally {
-    clearTimeout(timer);
-  }
-
-  // Validate: reject blank/grey/near-uniform captures (the SPA never hydrated)
-  // so a broken screenshot can never override a perfectly good OG image.
-  try {
-    const stats = await sharp(imageBytes).stats();
-    const maxStdev = Math.max(...stats.channels.map((c) => c.stdev));
-    if (!Number.isFinite(maxStdev) || maxStdev < MIN_CONTENT_STDEV) {
-      const reported = Number.isFinite(maxStdev) ? maxStdev.toFixed(1) : "n/a";
-      return fellBack(`blank/near-uniform capture (max stdev ${reported})`);
-    }
+    const { blank, stdev } = await isNearUniformCapture(imageBytes);
+    if (blank) return fellBack(`blank/near-uniform capture (max stdev ${stdev})`);
+    const resized = await sharp(imageBytes)
+      .resize({ width: THUMB_OUT_WIDTH, height: THUMB_OUT_HEIGHT, fit: "cover", position: "centre" })
+      .png()
+      .toBuffer();
+    const servePath = await storage.uploadObjectEntity(resized, "image/png");
+    thumbnailUrl = `/api/storage${servePath}`;
   } catch (err) {
     return fellBack(
-      `could not decode capture: ${err instanceof Error ? err.message : String(err)}`,
+      `could not process capture: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
@@ -289,6 +264,18 @@ export async function captureTemplateThumbnail(
       .where(eq(lpPagesTable.id, page.id));
   } catch (err) {
     return fellBack(err instanceof Error ? err.message : String(err));
+  }
+
+  // Reclaim the previous capture's stored object — best-effort, never fails
+  // the refresh. Legacy thum.io URLs (external) return null and are skipped.
+  const oldObjectPath = storedObjectPathFromServeUrl(page.thumbnailUrl);
+  if (oldObjectPath) {
+    void storage.deleteObjectEntity(oldObjectPath).catch((err) => {
+      console.warn("[captureTemplateThumbnail] failed to delete previous thumbnail object", {
+        pageId: page.id,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   return { ok: true, outcome: "captured", thumbnailUrl, thumbnailCapturedAt: capturedAt };
