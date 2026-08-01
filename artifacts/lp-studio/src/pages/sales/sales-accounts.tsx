@@ -66,6 +66,7 @@ import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
+import { copyEmailPreview } from "@/lib/email-preview";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 import {
   type HeatSignal,
@@ -2597,6 +2598,11 @@ function AccountDetailView({ id }: { id: string }) {
   const [hotlinks, setHotlinks] = useState<Hotlink[]>([]);
   const [copiedContactId, setCopiedContactId] = useState<number | null>(null);
 
+  // "Copy email preview" (rich image+link clipboard) — keyed per button so
+  // busy/copied indicators never bleed between rows.
+  const [previewBusyKey, setPreviewBusyKey] = useState<string | null>(null);
+  const [previewCopiedKey, setPreviewCopiedKey] = useState<string | null>(null);
+
   // Contact delete (CSV-only)
   const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
   const [contactDeleting, setContactDeleting] = useState(false);
@@ -2796,6 +2802,32 @@ function AccountDetailView({ id }: { id: string }) {
       setCopiedToken(token);
       setTimeout(() => setCopiedToken(null), 2000);
     });
+  }
+
+  // "Copy email preview" — puts a linked screenshot of the page on the
+  // clipboard (rich HTML) so a paste into Gmail/Outlook shows the page
+  // preview clicking through to the personalized link. First use on a page
+  // with no OG image captures one server-side, which can take ~10s.
+  async function handleCopyEmailPreview(key: string, pageId: number, token: string, title?: string | null) {
+    if (previewBusyKey) return;
+    setPreviewBusyKey(key);
+    try {
+      const result = await copyEmailPreview({
+        pageId,
+        pageUrl: `${getHotlinkBase()}/p/${token}`,
+        title,
+      });
+      setPreviewCopiedKey(key);
+      setTimeout(() => setPreviewCopiedKey(null), 2500);
+      if (result === "link-only") {
+        toast({
+          title: "Copied the link instead",
+          description: "Couldn't build the image preview, so the plain link is on your clipboard.",
+        });
+      }
+    } finally {
+      setPreviewBusyKey(null);
+    }
   }
 
   function handleCopyContactLink(contactId: number, token: string) {
@@ -3152,10 +3184,10 @@ function AccountDetailView({ id }: { id: string }) {
             ) : (
               <div className="flex flex-col gap-4">
                 {(() => {
-                  const latestByContact = new Map<number, string>();
+                  const latestByContact = new Map<number, Hotlink>();
                   for (const hl of hotlinks) {
                     if (!latestByContact.has(hl.contactId)) {
-                      latestByContact.set(hl.contactId, hl.token);
+                      latestByContact.set(hl.contactId, hl);
                     }
                   }
 
@@ -3191,7 +3223,8 @@ function AccountDetailView({ id }: { id: string }) {
                         <span className="text-xs text-muted-foreground">{groupContacts.length} contact{groupContacts.length !== 1 ? "s" : ""}</span>
                       </div>
                       {groupContacts.map((contact) => {
-                        const token = latestByContact.get(contact.id);
+                        const contactHotlink = latestByContact.get(contact.id);
+                        const token = contactHotlink?.token;
                         const isContactSelected = selectedContactIds.has(contact.id);
                         const isContactCsvOnly = !contact.salesforceId;
                         return (
@@ -3256,6 +3289,22 @@ function AccountDetailView({ id }: { id: string }) {
                                   <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500 font-medium">Copied</span></>
                                 ) : (
                                   <><Link2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Link</span></>
+                                )}
+                              </button>
+                            )}
+                            {token && contactHotlink && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); void handleCopyEmailPreview(`ct-${contact.id}`, contactHotlink.pageId, token, `${contact.firstName} — take a look`); }}
+                                title="Copy an image preview of the page that pastes into an email and clicks through to this contact's personalized link"
+                                disabled={previewBusyKey === `ct-${contact.id}`}
+                                className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all disabled:opacity-60"
+                              >
+                                {previewBusyKey === `ct-${contact.id}` ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : previewCopiedKey === `ct-${contact.id}` ? (
+                                  <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500 font-medium">Copied</span></>
+                                ) : (
+                                  <><Mail className="w-3.5 h-3.5" /><span className="hidden sm:inline">Email Preview</span></>
                                 )}
                               </button>
                             )}
@@ -3352,6 +3401,33 @@ function AccountDetailView({ id }: { id: string }) {
                             <>
                               <Copy className="w-3.5 h-3.5" />
                               Copy Link
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {site.firstToken && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 h-8 px-2.5 text-xs"
+                          title="Copy an image preview of this page that pastes into an email and clicks through to the personalized link"
+                          disabled={previewBusyKey === `ms-${site.pageId}`}
+                          onClick={() => handleCopyEmailPreview(`ms-${site.pageId}`, site.pageId, site.firstToken!, site.title)}
+                        >
+                          {previewBusyKey === `ms-${site.pageId}` ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              Capturing…
+                            </>
+                          ) : previewCopiedKey === `ms-${site.pageId}` ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="w-3.5 h-3.5" />
+                              Email Preview
                             </>
                           )}
                         </Button>

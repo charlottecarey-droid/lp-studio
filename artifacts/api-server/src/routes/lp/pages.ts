@@ -5,7 +5,7 @@ import { eq, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
 import { listTemplatesForTenant } from "../../lib/templateListing";
-import { resolveOGFields } from "../../lib/resolvePageOG";
+import { resolveOGFields, resolvePageOG } from "../../lib/resolvePageOG";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { getTenantPlan } from "../../lib/planFeatures";
@@ -1229,34 +1229,102 @@ router.post("/lp/pages/:pageId/capture-og", async (req, res): Promise<void> => {
       return;
     }
 
-    const token = await ensurePreviewReviewToken(page.id);
-    const baseUrl = resolvePreviewBaseUrl(getRequestHost(req));
-    const previewUrl =
-      `${baseUrl}/preview/${encodeURIComponent(slug)}` +
-      `?reviewToken=${encodeURIComponent(token)}&prerender=1`;
-
-    const shot = await capturePageScreenshot({
-      url: previewUrl,
-      viewportWidth: OG_IMAGE_WIDTH,
-      viewportHeight: OG_IMAGE_HEIGHT,
-      timeoutMs: 60_000,
+    const url = await captureOgScreenshotToStorage({
+      pageId: page.id,
+      slug,
+      tenantId,
+      requestHost: getRequestHost(req),
     });
-    const { blank, stdev } = await isNearUniformCapture(shot);
-    if (blank) {
-      res.status(502).json({
-        error: `Capture came back blank (stdev ${stdev}). Try again in a moment.`,
-      });
+    res.json({ url, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT });
+  } catch (err) {
+    if (err instanceof BlankCaptureError) {
+      res.status(502).json({ error: `${err.message}. Try again in a moment.` });
       return;
     }
-    const png = await sharp(shot)
-      .resize({ width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fit: "cover", position: "centre" })
-      .png()
-      .toBuffer();
-    const servePath = await new ObjectStorageService().uploadObjectEntity(png, "image/png", { tenantId });
-    res.json({ url: `/api/storage${servePath}`, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT });
-  } catch (err) {
     console.error("capture-og error:", err);
     res.status(500).json({ error: "Failed to capture the share-card screenshot" });
+  }
+});
+
+class BlankCaptureError extends Error {}
+
+/** Capture a 1200×630 share-card shot of /preview/:slug and upload it to
+ *  object storage (tenant-ACL'd; the serve route allows anonymous reads so
+ *  email clients and scrapers can fetch it). Shared by the capture-og and
+ *  email-preview routes. Returns the `/api/storage/...` serve URL. */
+async function captureOgScreenshotToStorage(args: {
+  pageId: number;
+  slug: string;
+  tenantId: number;
+  requestHost: string | null;
+}): Promise<string> {
+  const token = await ensurePreviewReviewToken(args.pageId);
+  const baseUrl = resolvePreviewBaseUrl(args.requestHost);
+  const previewUrl =
+    `${baseUrl}/preview/${encodeURIComponent(args.slug)}` +
+    `?reviewToken=${encodeURIComponent(token)}&prerender=1`;
+
+  const shot = await capturePageScreenshot({
+    url: previewUrl,
+    viewportWidth: OG_IMAGE_WIDTH,
+    viewportHeight: OG_IMAGE_HEIGHT,
+    timeoutMs: 60_000,
+  });
+  const { blank, stdev } = await isNearUniformCapture(shot);
+  if (blank) throw new BlankCaptureError(`Capture came back blank (stdev ${stdev})`);
+  const png = await sharp(shot)
+    .resize({ width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fit: "cover", position: "centre" })
+    .png()
+    .toBuffer();
+  const servePath = await new ObjectStorageService().uploadObjectEntity(png, "image/png", {
+    tenantId: args.tenantId,
+  });
+  return `/api/storage${servePath}`;
+}
+
+/**
+ * Resolve the preview image for the "copy email preview" embed snippet: the
+ * page's OG share-card cascade first (per-page og_image → tenant default →
+ * first block image), lazily falling back to a fresh self-hosted screenshot.
+ * A lazily-captured image is persisted onto lp_pages.og_image so social
+ * scrapers and the next copy reuse it instead of re-rendering chromium.
+ */
+router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid page ID" });
+    return;
+  }
+  try {
+    const [page] = await db
+      .select({ id: lpPagesTable.id, slug: lpPagesTable.slug })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+    const slug = (page?.slug ?? "").trim();
+    if (!page || !slug) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const resolved = await resolvePageOG(page.id);
+    let imageUrl = (resolved?.image ?? "").trim();
+    if (!imageUrl) {
+      imageUrl = await captureOgScreenshotToStorage({
+        pageId: page.id,
+        slug,
+        tenantId,
+        requestHost: getRequestHost(req),
+      });
+      await db
+        .update(lpPagesTable)
+        .set({ ogImage: imageUrl })
+        .where(eq(lpPagesTable.id, page.id));
+    }
+    res.json({ imageUrl });
+  } catch (err) {
+    console.error("email-preview error:", err);
+    res.status(500).json({ error: "Failed to resolve a preview image for this page" });
   }
 });
 

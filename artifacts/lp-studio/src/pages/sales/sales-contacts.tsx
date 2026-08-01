@@ -58,6 +58,7 @@ import { useBrandConfig } from "@/context/BrandConfigContext";
 import { displayTier } from "@/lib/sales-tier";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
+import { copyEmailPreview } from "@/lib/email-preview";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
@@ -1601,6 +1602,8 @@ function ContactDetailView({ id }: { id: string }) {
   const [accountPages, setAccountPages] = useState<{ id: number; title: string; slug: string; accountId: number | null }[]>([]);
   const [creatingHotlink, setCreatingHotlink] = useState(false);
   const [copiedHotlink, setCopiedHotlink] = useState<number | null>(null);
+  const [previewBusyId, setPreviewBusyId] = useState<number | null>(null);
+  const [previewCopiedId, setPreviewCopiedId] = useState<number | null>(null);
 
   const fetchData = useCallback(() => {
     Promise.all([
@@ -1657,6 +1660,31 @@ function ContactDetailView({ id }: { id: string }) {
       setCopiedHotlink(hotlinkId);
       setTimeout(() => setCopiedHotlink(null), 2000);
     });
+  }
+
+  // "Copy email preview" — rich image+link clipboard payload; pasting into
+  // Gmail/Outlook shows the page preview clicking through to the personalized
+  // link. First use on a page with no OG image captures one (~10s).
+  async function copyHotlinkEmailPreview(hl: Hotlink) {
+    if (previewBusyId !== null) return;
+    setPreviewBusyId(hl.id);
+    try {
+      const result = await copyEmailPreview({
+        pageId: hl.pageId,
+        pageUrl: `${window.location.origin}/p/${hl.token}`,
+        title: hl.pageTitle,
+      });
+      setPreviewCopiedId(hl.id);
+      setTimeout(() => setPreviewCopiedId(null), 2500);
+      if (result === "link-only") {
+        toast({
+          title: "Copied the link instead",
+          description: "Couldn't build the image preview, so the plain link is on your clipboard.",
+        });
+      }
+    } finally {
+      setPreviewBusyId(null);
+    }
   }
 
   if (loading) {
@@ -1878,6 +1906,24 @@ function ContactDetailView({ id }: { id: string }) {
                       title={isPublished ? "Copy link" : "Publish the page before sharing this link"}
                     >
                       {copiedHotlink === hl.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => void copyHotlinkEmailPreview(hl)}
+                      disabled={!isPublished || previewBusyId === hl.id}
+                      title={isPublished
+                        ? "Copy an email preview — a linked screenshot that pastes into an email"
+                        : "Publish the page before sharing this link"}
+                    >
+                      {previewBusyId === hl.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : previewCopiedId === hl.id ? (
+                        <Check className="w-3.5 h-3.5 text-green-500" />
+                      ) : (
+                        <Mail className="w-3.5 h-3.5" />
+                      )}
                     </Button>
                     <a
                       href={`/p/${hl.token}`}
