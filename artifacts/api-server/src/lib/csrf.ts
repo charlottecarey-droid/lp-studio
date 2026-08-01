@@ -23,6 +23,13 @@ const IS_PROD = process.env.NODE_ENV === "production";
 //   CSRF token bound to that (non-existent) session would be useless.
 //   /api/auth/logout is intentionally NOT in this list — it is the canonical
 //   CSRF target and must require a valid token.
+// - The two emailed-link verify POSTs are submitted by a server-rendered
+//   interstitial page (routes/auth.ts) that has no way to carry the SPA's
+//   CSRF token. The 256-bit single-use token in the form body IS the
+//   credential — an attacker who could forge the request would already hold
+//   the emailed secret — so these are login endpoints in the same sense as
+//   the rest of this list, even when the browser happens to carry a session
+//   cookie from an earlier login.
 const CSRF_EXEMPT_PREFIXES = ["/api/webhooks/", "/api/_test/"];
 const CSRF_EXEMPT_EXACT = new Set([
   "/api/auth/google",
@@ -32,6 +39,8 @@ const CSRF_EXEMPT_EXACT = new Set([
   "/api/auth/accept",
   "/api/auth/handoff-code",
   "/api/auth/verify-password",
+  "/api/auth/magic-link/verify",
+  "/api/auth/email/verify",
 ]);
 
 function isExemptPath(path: string): boolean {

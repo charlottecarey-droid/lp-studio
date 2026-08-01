@@ -33,7 +33,9 @@ import {
 import {
   mintEmailToken,
   redeemEmailToken,
+  peekEmailToken,
   invalidateUserTokens,
+  type EmailTokenPurpose,
 } from "../lib/authEmailTokens";
 import { mintOAuthState, redeemOAuthState } from "../lib/oauthState";
 import { dispatchNotification } from "../lib/notificationDispatcher";
@@ -2659,18 +2661,133 @@ router.post("/auth/email/register", emailSendLimiter, async (req, res): Promise<
   }
 });
 
-// GET /api/auth/email/verify — redeem an email-verification token, mark the
-// address verified, and log the user in.
-router.get("/auth/email/verify", async (req, res): Promise<void> => {
+// ---------------------------------------------------------------------------
+// Emailed-link redemption (email verification + magic link).
+//
+// The links we email are single-use, but corporate mail scanners, link
+// previews, and in-app webviews GET a URL before (or instead of) the user's
+// real browser. Redeeming on GET burns the token on that invisible prefetch,
+// so the click the user actually sees lands on "invalid or expired" — while
+// the prefetch may even have established the session. So GET is
+// NON-CONSUMING: it peeks the token and serves a tiny auto-submitting form,
+// and only the POST redeems. Scanners and previews don't submit forms, so the
+// token survives until a real browser runs the page. The POST paths are CSRF-
+// exempt (see lib/csrf.ts) because the 256-bit single-use token in the body IS
+// the credential — same class as the other login endpoints.
+// ---------------------------------------------------------------------------
+
+// Tokens are minted as 32 random bytes hex-encoded (lib/authEmailTokens.ts).
+// Enforcing the shape up front also guarantees the value is safe to embed in
+// the interstitial's HTML.
+const EMAIL_TOKEN_SHAPE = /^[a-f0-9]{64}$/;
+
+/** True if the request carries a valid, unexpired session cookie. */
+async function hasLiveSession(req: Request): Promise<boolean> {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) return false;
+  try {
+    const r = await pool.query(
+      `SELECT 1 FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid]
+    );
+    return r.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Where to send a dead-link hit: a logged-in user almost certainly already
+ * redeemed this link (double-click, second tab), so send them into the app
+ * instead of a scary error; everyone else gets the sign-in error.
+ */
+async function deadLinkRedirect(req: Request): Promise<string> {
+  return (await hasLiveSession(req)) ? "/" : "/?error=invalid_or_expired_link";
+}
+
+/** The auto-submitting redemption page served by the non-consuming GET. */
+function renderRedeemInterstitial(actionPath: string, token: string, heading: string): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>LP Studio</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; color:#111827; }
+  form { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:40px 48px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.06); max-width:360px; }
+  h1 { font-size:18px; margin:0 0 8px; }
+  p { font-size:14px; color:#6b7280; margin:0 0 24px; }
+  button { font:inherit; font-weight:600; background:#111827; color:#fff; border:0; border-radius:8px; padding:10px 24px; cursor:pointer; }
+</style>
+</head>
+<body>
+<form method="post" action="${actionPath}">
+  <h1>${heading}</h1>
+  <p>Click continue if you aren't redirected automatically.</p>
+  <input type="hidden" name="token" value="${token}">
+  <button type="submit">Continue</button>
+</form>
+<script>document.forms[0].submit();</script>
+</body>
+</html>`;
+}
+
+/** Shared non-consuming GET handler for both emailed-link flows. */
+async function serveEmailLinkInterstitial(
+  req: Request,
+  res: Response,
+  purpose: EmailTokenPurpose,
+  actionPath: string,
+  heading: string,
+): Promise<void> {
   try {
     const token = (req.query.token as string) || "";
-    const redeemed = await redeemEmailToken(token, "email_verify");
+    if (!EMAIL_TOKEN_SHAPE.test(token)) {
+      res.redirect(await deadLinkRedirect(req));
+      return;
+    }
+    const peeked = await peekEmailToken(token, purpose);
+    if (!peeked) {
+      res.redirect(await deadLinkRedirect(req));
+      return;
+    }
+    // Host-binding checked here too so a wrong-host link bounces without
+    // burning the token (the POST re-checks after the atomic redeem).
+    if (peeked.targetHost && peeked.targetHost !== getRequestHost(req)) {
+      res.redirect("/?error=invalid_link_host");
+      return;
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.type("html").send(renderRedeemInterstitial(actionPath, token, heading));
+  } catch (err) {
+    console.error(`[auth] ${purpose} interstitial error:`, err);
+    res.redirect("/?error=auth_failed");
+  }
+}
+
+/**
+ * Shared POST handler: atomically redeem the token, mark the address verified
+ * (both flows prove inbox ownership), log the user in, and 303 to the app.
+ */
+async function redeemEmailLinkAndLogin(
+  req: Request,
+  res: Response,
+  purpose: EmailTokenPurpose,
+): Promise<void> {
+  try {
+    const body = (req.body ?? {}) as { token?: unknown };
+    const token = typeof body.token === "string" ? body.token : "";
+    const redeemed = EMAIL_TOKEN_SHAPE.test(token)
+      ? await redeemEmailToken(token, purpose)
+      : null;
     if (!redeemed) {
-      res.redirect("/?error=invalid_or_expired_link");
+      res.redirect(303, await deadLinkRedirect(req));
       return;
     }
     if (redeemed.targetHost && redeemed.targetHost !== getRequestHost(req)) {
-      res.redirect("/?error=invalid_link_host");
+      res.redirect(303, "/?error=invalid_link_host");
       return;
     }
     const userRes = await pool.query(
@@ -2679,16 +2796,27 @@ router.get("/auth/email/verify", async (req, res): Promise<void> => {
       [redeemed.userId]
     );
     if (!userRes.rows.length) {
-      res.redirect("/?error=auth_failed");
+      res.redirect(303, "/?error=auth_failed");
       return;
     }
     const { domainMode, domainTenantId } = await resolveDomainMode(req);
     await establishSession(res, userRes.rows[0], domainMode, domainTenantId);
-    res.redirect(sanitizeNextPath(redeemed.nextPath) ?? "/");
+    res.redirect(303, sanitizeNextPath(redeemed.nextPath) ?? "/");
   } catch (err) {
-    console.error("[auth] email verify error:", err);
-    res.redirect("/?error=auth_failed");
+    console.error(`[auth] ${purpose} redeem error:`, err);
+    res.redirect(303, "/?error=auth_failed");
   }
+}
+
+// GET /api/auth/email/verify — non-consuming interstitial for the emailed
+// verification link. POST /api/auth/email/verify redeems it, marks the address
+// verified, and logs the user in.
+router.get("/auth/email/verify", async (req, res): Promise<void> => {
+  await serveEmailLinkInterstitial(req, res, "email_verify", "/api/auth/email/verify", "Confirming your email…");
+});
+
+router.post("/auth/email/verify", async (req, res): Promise<void> => {
+  await redeemEmailLinkAndLogin(req, res, "email_verify");
 });
 
 // POST /api/auth/email/resend-verification — re-send the verification email for
@@ -2805,36 +2933,15 @@ router.post("/auth/magic-link", emailSendLimiter, async (req, res): Promise<void
   }
 });
 
-// GET /api/auth/magic-link/verify — redeem a magic-link token and log in. The
-// link proves inbox ownership, so the address is marked verified.
+// GET /api/auth/magic-link/verify — non-consuming interstitial for the emailed
+// magic link. POST /api/auth/magic-link/verify redeems it and logs the user in
+// (the link proves inbox ownership, so the address is marked verified).
 router.get("/auth/magic-link/verify", async (req, res): Promise<void> => {
-  try {
-    const token = (req.query.token as string) || "";
-    const redeemed = await redeemEmailToken(token, "magic_link");
-    if (!redeemed) {
-      res.redirect("/?error=invalid_or_expired_link");
-      return;
-    }
-    if (redeemed.targetHost && redeemed.targetHost !== getRequestHost(req)) {
-      res.redirect("/?error=invalid_link_host");
-      return;
-    }
-    const userRes = await pool.query(
-      `UPDATE app_users SET email_verified = true, last_login_at = now(), updated_at = now()
-       WHERE id = $1 RETURNING id, email, name, avatar_url, role, tenant_id`,
-      [redeemed.userId]
-    );
-    if (!userRes.rows.length) {
-      res.redirect("/?error=auth_failed");
-      return;
-    }
-    const { domainMode, domainTenantId } = await resolveDomainMode(req);
-    await establishSession(res, userRes.rows[0], domainMode, domainTenantId);
-    res.redirect(sanitizeNextPath(redeemed.nextPath) ?? "/");
-  } catch (err) {
-    console.error("[auth] magic-link verify error:", err);
-    res.redirect("/?error=auth_failed");
-  }
+  await serveEmailLinkInterstitial(req, res, "magic_link", "/api/auth/magic-link/verify", "Signing you in…");
+});
+
+router.post("/auth/magic-link/verify", async (req, res): Promise<void> => {
+  await redeemEmailLinkAndLogin(req, res, "magic_link");
 });
 
 // POST /api/auth/password/forgot — send a password-reset link. Generic response

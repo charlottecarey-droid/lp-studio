@@ -65,6 +65,31 @@ export async function redeemEmailToken(
 }
 
 /**
+ * Non-consuming lookup: report whether a live (unused, unexpired) token exists
+ * for the purpose, without redeeming it. Used by the GET interstitial pages so
+ * that email-scanner/link-preview prefetches never burn a single-use token —
+ * only the explicit POST (redeemEmailToken) consumes it.
+ */
+export async function peekEmailToken(
+  raw: string,
+  purpose: EmailTokenPurpose,
+): Promise<RedeemedToken | null> {
+  if (typeof raw !== "string" || raw.length === 0) return null;
+  const tokenHash = hashToken(raw);
+  const result = await pool.query(
+    `SELECT user_id, target_host, next_path FROM auth_email_tokens
+      WHERE token_hash = $1
+        AND purpose = $2
+        AND used_at IS NULL
+        AND expires_at > now()`,
+    [tokenHash, purpose],
+  );
+  if (!result.rows.length) return null;
+  const row = result.rows[0];
+  return { userId: row.user_id, targetHost: row.target_host ?? null, nextPath: row.next_path ?? null };
+}
+
+/**
  * Invalidate all outstanding tokens of a purpose for a user. Called before
  * minting a fresh one (so a user only ever has one live reset/verify link) and
  * after a password reset (so any other pending reset links are voided).
