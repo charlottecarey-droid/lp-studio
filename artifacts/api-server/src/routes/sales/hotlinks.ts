@@ -438,6 +438,133 @@ router.get("/pages/overview", async (req, res): Promise<void> => {
   }
 });
 
+/**
+ * Sales Pages drill-down — the engagement slice the marketing analytics
+ * endpoints don't cover: per-HOTLINK view counts, the page's full known-viewer
+ * list (the overview caps at 6), and the dwell average with a prior-period
+ * comparison. The drill-down pairs this with the marketing per-page endpoints
+ * (/lp/analytics/pages/:id/summary|traffic-sources|visits), which are equally
+ * tenant-scoped and already de-anonymize form-filling visitors.
+ */
+router.get("/pages/:pageId/engagement", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const pageId = parseInt(String(req.params.pageId), 10);
+  if (isNaN(pageId)) {
+    res.status(400).json({ error: "Invalid page ID" });
+    return;
+  }
+  const days = Math.min(365, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30));
+  const now = Date.now();
+  const curStart = new Date(now - days * 86_400_000);
+  const prevStart = new Date(now - 2 * days * 86_400_000);
+  try {
+    const [page] = await db
+      .select({ id: lpPagesTable.id })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
+    if (!page) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const [linkRows, viewerRows, dwellRows] = await Promise.all([
+      // Active hotlinks + all-time view count / last view per link. LEFT JOIN
+      // signals so never-clicked links still list with 0 views.
+      db
+        .select({
+          hotlinkId: salesHotlinksTable.id,
+          token: salesHotlinksTable.token,
+          createdAt: salesHotlinksTable.createdAt,
+          contactId: salesContactsTable.id,
+          contactFirst: salesContactsTable.firstName,
+          contactLast: salesContactsTable.lastName,
+          views: sql<number>`count(${salesSignalsTable.id})::int`,
+          lastViewedAt: sql<string | null>`max(${salesSignalsTable.createdAt})`,
+        })
+        .from(salesHotlinksTable)
+        .leftJoin(salesContactsTable, and(
+          eq(salesHotlinksTable.contactId, salesContactsTable.id),
+          eq(salesContactsTable.tenantId, tenantId),
+        ))
+        .leftJoin(salesSignalsTable, and(
+          eq(salesSignalsTable.hotlinkId, salesHotlinksTable.id),
+          eq(salesSignalsTable.type, "page_view"),
+        ))
+        .where(and(eq(salesHotlinksTable.pageId, pageId), eq(salesHotlinksTable.isActive, true)))
+        .groupBy(
+          salesHotlinksTable.id,
+          salesHotlinksTable.token,
+          salesHotlinksTable.createdAt,
+          salesContactsTable.id,
+          salesContactsTable.firstName,
+          salesContactsTable.lastName,
+        ),
+      // Full known-viewer list (uncapped — the overview truncates to 6).
+      db
+        .select({
+          contactId: salesContactsTable.id,
+          firstName: salesContactsTable.firstName,
+          lastName: salesContactsTable.lastName,
+          views: sql<number>`count(*)::int`,
+          lastViewedAt: sql<string>`max(${salesSignalsTable.createdAt})`,
+        })
+        .from(salesSignalsTable)
+        .innerJoin(salesHotlinksTable, eq(salesSignalsTable.hotlinkId, salesHotlinksTable.id))
+        .innerJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
+        .where(and(
+          eq(salesSignalsTable.tenantId, tenantId),
+          eq(salesSignalsTable.type, "page_view"),
+          eq(salesHotlinksTable.pageId, pageId),
+        ))
+        .groupBy(salesContactsTable.id, salesContactsTable.firstName, salesContactsTable.lastName),
+      // Dwell: current window vs the window before it (trend).
+      db
+        .select({
+          period: sql<string>`CASE WHEN ${lpPageVisitsTable.createdAt} >= ${curStart} THEN 'cur' ELSE 'prev' END`,
+          avgDwellSeconds: sql<number | null>`round(avg(${lpPageVisitsTable.dwellSeconds}))::int`,
+          samples: sql<number>`count(${lpPageVisitsTable.dwellSeconds})::int`,
+        })
+        .from(lpPageVisitsTable)
+        .where(and(eq(lpPageVisitsTable.pageId, pageId), gte(lpPageVisitsTable.createdAt, prevStart)))
+        .groupBy(sql`1`),
+    ]);
+
+    const cur = dwellRows.find((r) => r.period === "cur");
+    const prev = dwellRows.find((r) => r.period === "prev");
+
+    res.json({
+      windowDays: days,
+      dwell: {
+        avgSeconds: cur && cur.samples > 0 ? cur.avgDwellSeconds : null,
+        samples: cur?.samples ?? 0,
+        prevAvgSeconds: prev && prev.samples > 0 ? prev.avgDwellSeconds : null,
+      },
+      knownViewers: viewerRows
+        .map((v) => ({
+          contactId: v.contactId,
+          name: [v.firstName, v.lastName].filter(Boolean).join(" ").trim() || "Unknown contact",
+          views: v.views,
+          lastViewedAt: v.lastViewedAt,
+        }))
+        .sort((a, b) => new Date(b.lastViewedAt).getTime() - new Date(a.lastViewedAt).getTime()),
+      hotlinks: linkRows
+        .map((l) => ({
+          hotlinkId: l.hotlinkId,
+          token: l.token,
+          createdAt: l.createdAt,
+          contactId: l.contactId ?? null,
+          contactName: [l.contactFirst, l.contactLast].filter(Boolean).join(" ").trim(),
+          views: l.views,
+          lastViewedAt: l.lastViewedAt,
+        }))
+        .sort((a, b) => b.views - a.views),
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /sales/pages/:pageId/engagement error");
+    res.status(500).json({ error: "Failed to load page engagement" });
+  }
+});
+
 // ─── Token generation (matches existing LP Studio pattern) ──
 
 function generateToken(): string {

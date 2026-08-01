@@ -61,12 +61,15 @@ interface HotlinkEntryRaw {
   contactLast?: string;
 }
 
-interface HotlinkEntry {
-  hotlinkId: number;
-  token: string;
-  contactId: number;
-  contactName: string;
-}
+import {
+  fmtDwell,
+  initials,
+  pageMineRank,
+  type AlertEmail,
+  type HotlinkEntry,
+  type PageRow,
+} from "./sales-pages-shared";
+import { SalesPageDrillDown } from "./SalesPageDrillDown";
 
 function normalizeHotlink(hl: HotlinkEntryRaw): HotlinkEntry {
   return {
@@ -77,58 +80,9 @@ function normalizeHotlink(hl: HotlinkEntryRaw): HotlinkEntry {
   };
 }
 
-interface KnownViewer {
-  contactId: number;
-  name: string;
-  views: number;
-  lastViewedAt: string;
-}
-
-/** One row of GET /sales/pages/overview — a page plus the analytics a rep
- *  scans daily (30-day window unless noted). */
-interface PageRow {
-  pageId: number;
-  pageTitle: string;
-  pageSlug: string;
-  pageStatus: string;
-  pageUpdatedAt: string;
-  pageCreatedAt: string;
-  createdBy: string | null;
-  updatedBy: string | null;
-  accountId: number | null;
-  accountName: string | null;
-  views: number;
-  uniques: number;
-  /** Avg tab-visible seconds; null until dwell data accrues → render "—". */
-  avgDwellSeconds: number | null;
-  dwellSamples: number;
-  /** All-time last visit. */
-  lastVisitAt: string | null;
-  knownViewerCount: number;
-  knownViewers: KnownViewer[];
-  hotlinks: HotlinkEntry[];
-}
-
-/** 0 = I created it, 1 = I edited it, 2 = someone else's. Drives the default
- *  "My pages first" sort and the "My Pages" filter. Exported for tests. */
-export function pageMineRank(
-  r: Pick<PageRow, "createdBy" | "updatedBy">,
-  myEmail: string,
-): 0 | 1 | 2 {
-  if (!myEmail) return 2;
-  if ((r.createdBy ?? "").toLowerCase() === myEmail) return 0;
-  if ((r.updatedBy ?? "").toLowerCase() === myEmail) return 1;
-  return 2;
-}
-
-/** "2m 05s" / "48s" — analytics-table dwell formatting. Exported for tests. */
-export function fmtDwell(seconds: number | null): string {
-  if (seconds == null) return "—";
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}m ${String(s).padStart(2, "0")}s`;
-}
+// Shared with the drill-down sheet (SalesPageDrillDown.tsx) — see
+// sales-pages-shared.ts for PageRow/KnownViewer/AlertEmail + fmtDwell/
+// pageMineRank/initials.
 
 interface SavedList {
   id: string;
@@ -169,10 +123,6 @@ function PageStatusBadge({ status }: { status: string }) {
   return <StatusBadge status={status}>{status === "published" ? "Published" : "Draft"}</StatusBadge>;
 }
 
-function initials(name: string | null | undefined) {
-  if (!name?.trim()) return "?";
-  return name.split(" ").map(w => w[0] ?? "").join("").toUpperCase().slice(0, 2) || "?";
-}
 
 function MicrositeRowMenu({
   status,
@@ -291,7 +241,7 @@ export default function SalesPages() {
   const [loading, setLoading] = useState(true);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [expandedPage, setExpandedPage] = useState<number | null>(null);
+  const [drillRow, setDrillRow] = useState<PageRow | null>(null);
   const [sortBy, setSortBy] = useState<"mine" | "recent" | "views" | "name" | "status">("mine");
   // "Copy email preview" per-row busy/copied indicators.
   const [previewBusyId, setPreviewBusyId] = useState<number | null>(null);
@@ -523,7 +473,6 @@ export default function SalesPages() {
   }
 
   // ── Visit alert subscriptions ────────────────────────────────────────────────
-  interface AlertEmail { id: number; email: string }
   const [alertEmails, setAlertEmails] = useState<Map<number, AlertEmail[]>>(new Map());
   const [alertInput, setAlertInput] = useState("");
   const [alertSaving, setAlertSaving] = useState(false);
@@ -1172,8 +1121,6 @@ export default function SalesPages() {
                   <tbody>
                     {sortedRows.map(row => {
                       const rank = mineRank(row);
-                      const isExpanded = expandedPage === row.pageId;
-                      const subs = alertEmails.get(row.pageId) ?? [];
                       const mineSubbed = !!mySubscription(row.pageId);
                       const firstToken = row.hotlinks[0]?.token;
                       const copyKey = firstToken ?? `page:${row.pageId}`;
@@ -1181,9 +1128,9 @@ export default function SalesPages() {
                         <Fragment key={row.pageId}>
                           <tr
                             className={`border-b border-border/50 last:border-b-0 hover:bg-muted/40 transition-colors cursor-pointer ${
-                              selectMode && selectedPages.has(row.pageId) ? "bg-primary/5" : isExpanded ? "bg-muted/30" : ""
+                              selectMode && selectedPages.has(row.pageId) ? "bg-primary/5" : ""
                             }`}
-                            onClick={() => setExpandedPage(isExpanded ? null : row.pageId)}
+                            onClick={() => setDrillRow(row)}
                           >
                             {/* Page */}
                             <td className="px-4 py-3 max-w-[340px]">
@@ -1326,115 +1273,16 @@ export default function SalesPages() {
                                   onDelete={() => deletePage(row.pageId)}
                                 />
                                 <button
-                                  onClick={() => setExpandedPage(isExpanded ? null : row.pageId)}
+                                  onClick={() => setDrillRow(row)}
                                   className="p-1 text-muted-foreground/40 hover:text-foreground transition-colors"
-                                  title={isExpanded ? "Collapse" : "Links, viewers & alerts"}
+                                  title="Analytics, viewers, links & alerts"
                                 >
-                                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                  <ChevronRight className="w-4 h-4" />
                                 </button>
                               </div>
                             </td>
                           </tr>
 
-                          {/* ── Expanded drill-down ── */}
-                          {isExpanded && (
-                            <tr className="border-b border-border/50 last:border-b-0 bg-muted/20">
-                              <td colSpan={7} className="px-5 py-4">
-                                <div className="flex flex-col gap-4 max-w-4xl">
-                                  {/* Known viewers detail */}
-                                  {row.knownViewers.length > 0 && (
-                                    <div>
-                                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Who viewed</p>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {row.knownViewers.map(v => (
-                                          <Link key={v.contactId} href={`/sales/contacts/${v.contactId}`}>
-                                            <span className="inline-flex items-center gap-1.5 text-xs pl-1 pr-2.5 py-1 rounded-full bg-background border border-border hover:border-primary/40 transition-colors cursor-pointer">
-                                              <span className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">{initials(v.name)}</span>
-                                              <span className="text-foreground font-medium">{v.name}</span>
-                                              <span className="text-muted-foreground">{v.views}× · {formatDistanceToNowStrict(new Date(v.lastViewedAt))} ago</span>
-                                            </span>
-                                          </Link>
-                                        ))}
-                                        {row.knownViewerCount > row.knownViewers.length && (
-                                          <span className="text-xs text-muted-foreground self-center">+{row.knownViewerCount - row.knownViewers.length} more</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Personalized links */}
-                                  <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Personalized links</p>
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      {row.hotlinks.map(hl => (
-                                        <button
-                                          key={hl.hotlinkId}
-                                          onClick={() => copyLink(hl.token)}
-                                          className="group/hl inline-flex items-center gap-1.5 text-xs pl-1 pr-2.5 py-1 rounded-full bg-background border border-border hover:border-primary/40 transition-colors cursor-pointer"
-                                          title={`Copy ${hl.contactName || "contact"}'s link`}
-                                        >
-                                          <span className="w-5 h-5 rounded-full bg-muted-foreground/10 flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{initials(hl.contactName)}</span>
-                                          <span className="text-foreground font-medium truncate max-w-[120px] leading-none">
-                                            {hl.contactName || <span className="text-muted-foreground italic font-normal">Unknown</span>}
-                                          </span>
-                                          {copiedToken === hl.token
-                                            ? <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                                            : <Copy className="w-3 h-3 text-muted-foreground/30 group-hover/hl:text-muted-foreground shrink-0 transition-colors" />}
-                                        </button>
-                                      ))}
-                                      <Button variant="outline" size="sm" className="h-6 px-2 text-[11px] gap-1" onClick={() => openHotlinksModal(row.pageId, row.pageTitle)}>
-                                        <Plus className="w-3 h-3" /> New links
-                                      </Button>
-                                      {row.hotlinks.length > 0 && (
-                                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => openManageLinks(row.pageId, row.pageTitle, row.hotlinks)}>
-                                          <Pencil className="w-3 h-3" /> Manage
-                                        </Button>
-                                      )}
-                                      {row.accountId == null && (
-                                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => openCloneModal(row.pageId, row.pageTitle)}>
-                                          <Layers className="w-3 h-3" /> Clone for account
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Visit alerts */}
-                                  <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Visit alerts</p>
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      {subs.map(ae => (
-                                        <span key={ae.id} className="inline-flex items-center gap-1 text-xs bg-background border border-border text-muted-foreground px-2 py-0.5 rounded-md">
-                                          <Mail className="w-3 h-3" />
-                                          {ae.email}
-                                          {ae.email.toLowerCase() === myEmail && <span className="text-[9px] font-bold uppercase text-primary">you</span>}
-                                          <button onClick={() => removeAlertEmail(ae.id, row.pageId)} className="ml-0.5 text-muted-foreground/50 hover:text-foreground transition-colors" title="Remove"><X className="w-3 h-3" /></button>
-                                        </span>
-                                      ))}
-                                      {!mineSubbed && myEmail && (
-                                        <Button size="sm" className="h-6 px-2.5 text-[11px] gap-1" disabled={alertTogglingId === row.pageId} onClick={() => toggleMyAlert(row.pageId)}>
-                                          <BellRing className="w-3 h-3" /> Alert me
-                                        </Button>
-                                      )}
-                                      <div className="flex items-center gap-1.5">
-                                        <input
-                                          type="email"
-                                          value={alertPageId === row.pageId ? alertInput : ""}
-                                          onFocus={() => { setAlertPageId(row.pageId); }}
-                                          onChange={e => { setAlertPageId(row.pageId); setAlertInput(e.target.value); }}
-                                          onKeyDown={e => { if (e.key === "Enter") addAlertEmail(row.pageId, alertInput); }}
-                                          placeholder="teammate@email.com"
-                                          className="text-xs px-2 py-1 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40 w-44"
-                                        />
-                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" disabled={alertPageId !== row.pageId || !alertInput.trim() || alertSaving} onClick={() => addAlertEmail(row.pageId, alertInput)}>
-                                          {alertSaving && alertPageId === row.pageId ? "Saving…" : "Add"}
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
                         </Fragment>
                       );
                     })}
@@ -1965,6 +1813,22 @@ export default function SalesPages() {
       </Dialog>
 
       <GenerateMicrositeModal open={showNewMicrosite} onClose={() => { setShowNewMicrosite(false); load(); }} onCreated={load} />
+
+      {/* ── Per-page drill-down (row click) ─────────────────────────────── */}
+      <SalesPageDrillDown
+        row={drillRow}
+        windowDays={30}
+        myEmail={myEmail}
+        micrositeDomain={micrositeDomain}
+        tenantHost={tenantHost}
+        alertEmails={drillRow ? alertEmails.get(drillRow.pageId) ?? [] : []}
+        alertSaving={alertSaving}
+        onAddAlert={addAlertEmail}
+        onRemoveAlert={removeAlertEmail}
+        onCreateLinks={(pageId, pageTitle) => openHotlinksModal(pageId, pageTitle)}
+        onManageLinks={(row) => openManageLinks(row.pageId, row.pageTitle, row.hotlinks)}
+        onClose={() => setDrillRow(null)}
+      />
     </SalesLayout>
   );
 }

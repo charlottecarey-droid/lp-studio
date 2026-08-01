@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtDwell, pageMineRank } from "./sales-pages";
+import { fmtDwell, pageMineRank } from "./sales-pages-shared";
 
 describe("fmtDwell", () => {
   it("renders a dash for pages without dwell data (never a fake 0)", () => {

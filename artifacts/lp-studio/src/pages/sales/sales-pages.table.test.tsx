@@ -93,6 +93,46 @@ beforeEach(() => {
       // Page 1: the rep is already subscribed; page 2: nobody is.
       return json(url.includes("pageId=1") ? [{ id: 77, email: "rep@meetdandy.com" }] : []);
     }
+    // Drill-down sheet endpoints:
+    if (url.includes("/lp/analytics/pages/1/summary")) {
+      return json({
+        page: { id: 1 },
+        metrics: {
+          visits: { value: 42, deltaPct: 20 },
+          uniqueVisitors: { value: 31, deltaPct: 10 },
+          leads: { value: 3, deltaPct: null },
+          conversionRate: { value: 7.1, deltaPct: null },
+        },
+      });
+    }
+    if (url.includes("/sales/pages/1/engagement")) {
+      return json({
+        windowDays: 30,
+        dwell: { avgSeconds: 95, samples: 12, prevAvgSeconds: 60 },
+        knownViewers: [
+          { contactId: 5, name: "Darby Tinker", views: 3, lastViewedAt: "2026-07-31T09:00:00Z" },
+        ],
+        hotlinks: [
+          { hotlinkId: 11, token: "tok11", createdAt: "2026-07-01T00:00:00Z", contactId: 5, contactName: "Darby Tinker", views: 3, lastViewedAt: "2026-07-31T09:00:00Z" },
+        ],
+      });
+    }
+    if (url.includes("/lp/analytics/pages/1/traffic-sources")) {
+      return json({ sources: [{ source: "Personalized link", visits: 12, conversions: 1, cvr: 8.3 }] });
+    }
+    if (url.includes("/lp/analytics/pages/1/visits")) {
+      return json({
+        visits: [
+          {
+            id: 900, source: "personalized", resolved: false, visitedAt: "2026-07-31T09:00:00Z",
+            contactName: "Darby Tinker", company: "Bright Smiles DSO", email: null,
+            city: "Austin", region: "TX", country: "US", utmSource: null, utmMedium: null,
+            scrollDepthPct: 82, clicks: 4, converted: true,
+          },
+        ],
+        total: 1, page: 1, limit: 25, hasMore: false,
+      });
+    }
     return json({});
   }));
 });
@@ -117,16 +157,25 @@ describe("Sales Pages table", () => {
     expect(screen.getByText("Yours")).toBeTruthy();
   });
 
-  it("expands a row into viewers, links, and the alert panel", async () => {
+  it("opens the drill-down sheet on row click with stats, viewers, and visits", async () => {
     render(<SalesPages />);
     await waitFor(() => expect(screen.getAllByText("Someone Else's Page").length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getAllByText("Someone Else's Page")[0].closest("tr")!);
-    await waitFor(() => expect(screen.getByText("Who viewed")).toBeTruthy());
+    // Stat strip resolves from the summary + engagement endpoints.
+    await waitFor(() => expect(screen.getByText("Unique visitors")).toBeTruthy());
+    // Appears in both the table's Avg-time cell and the sheet's stat tile.
+    await waitFor(() => expect(screen.getAllByText("1m 35s").length).toBeGreaterThan(1));
+    // Default Visitors tab: full known-viewer list + de-anonymized visit rows.
+    await waitFor(() => expect(screen.getByText(/Known viewers/)).toBeTruthy());
     expect(screen.getAllByText(/Darby Tinker/).length).toBeGreaterThan(0);
-    expect(screen.getByText("Personalized links")).toBeTruthy();
-    expect(screen.getByText("Visit alerts")).toBeTruthy();
-    // The rep's own subscription is labeled.
-    await waitFor(() => expect(screen.getByText("you")).toBeTruthy());
+    expect(screen.getByText("Recent visits")).toBeTruthy();
+    expect(screen.getByText("Converted")).toBeTruthy();
+    // Tabs for links / sources / alerts are present ("Links" also appears as
+    // a table column header, so assert on the tab role).
+    const tabNames = screen.getAllByRole("tab").map(t => t.textContent);
+    expect(tabNames).toContain("Links");
+    expect(tabNames).toContain("Sources");
+    expect(tabNames).toContain("Alerts");
   });
 });
