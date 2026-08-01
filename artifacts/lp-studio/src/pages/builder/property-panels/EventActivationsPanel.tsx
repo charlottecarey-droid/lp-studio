@@ -17,7 +17,31 @@ import { SectionBackgroundControl } from "./SectionBackgroundControl";
 import type {
   EventActivationsBlockProps,
   EventActivationItem,
+  EventVideoPlayMode,
 } from "@/blocks/BlockEventActivations";
+
+/** Shared "how does this video start" select for the hero + card videos. */
+function PlayModeSelect({
+  value,
+  onChange,
+}: {
+  value: EventVideoPlayMode | undefined;
+  onChange: (v: EventVideoPlayMode) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Play behavior</Label>
+      <Select value={value ?? "click"} onValueChange={(v) => onChange(v as EventVideoPlayMode)}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="click">Click to play (default)</SelectItem>
+          <SelectItem value="autoplay">Autoplay (muted loop)</SelectItem>
+          <SelectItem value="hover">Play on hover (image until hovered)</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 /* ----------------------------------------------------------------------------
  * Property panel for the "event-activations" full-page block (sponsored-event
@@ -245,7 +269,13 @@ export function EventActivationsPanel({ props, onChange }: Props) {
           value={props.heroVideoUrl ?? ""}
           onChange={(v) => set("heroVideoUrl", v || undefined)}
         />
-        <p className="text-[11px] text-muted-foreground">Pick from your video library or paste a YouTube / Vimeo / Loom link. Split layout: plays in the media slot (the image becomes the poster). Full-bleed: an uploaded/.mp4 video becomes the looping background; other links get a "Watch the video" button.</p>
+        {props.heroVideoUrl && (
+          <PlayModeSelect
+            value={props.heroVideoPlayMode}
+            onChange={(v) => set("heroVideoPlayMode", v)}
+          />
+        )}
+        <p className="text-[11px] text-muted-foreground">Pick from your video library or paste a YouTube / Vimeo / Loom / Wistia link. Split layout: plays in the media slot (the image becomes the poster). Full-bleed: an uploaded/.mp4 video becomes the looping background; other links get a "Watch the video" button.</p>
         {heroLayout === "image-overlay" && (
           <div className="grid grid-cols-2 gap-2">
             <ColorField
@@ -470,7 +500,13 @@ export function EventActivationsPanel({ props, onChange }: Props) {
                         onChange={(v) => setItem(i, { videoUrl: v || undefined })}
                       />
                       {a.videoUrl && (
-                        <p className="text-[11px] text-muted-foreground">The video plays in this card's media slot; with an image set, the image is the poster behind a play button.</p>
+                        <>
+                          <PlayModeSelect
+                            value={a.videoPlayMode}
+                            onChange={(v) => setItem(i, { videoPlayMode: v })}
+                          />
+                          <p className="text-[11px] text-muted-foreground">The video plays in this card's media slot; with an image set, the image is the poster (play button on click mode, or it plays on hover).</p>
+                        </>
                       )}
                       {a.imageUrl && (
                         <>

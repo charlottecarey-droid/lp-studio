@@ -48,6 +48,13 @@ const BODY = BRAND_BODY_STACK;
  * names on purpose so the Page CTA never rewrites them.
  * -------------------------------------------------------------------------- */
 
+/** How a slot video starts.
+ *  - "click": poster + play button; player mounts on click (default).
+ *  - "autoplay": muted looping player mounts immediately.
+ *  - "hover": static image (or dark panel) that plays muted while hovered —
+ *    a tap starts it on touch devices, where hover doesn't exist. */
+export type EventVideoPlayMode = "click" | "autoplay" | "hover";
+
 export interface EventActivationItem {
   /** Small chip above the title, e.g. "Breakout session | Day 2 · 4:45 PM". */
   kicker?: string;
@@ -64,6 +71,8 @@ export interface EventActivationItem {
    *  renders. Safe name: nested item keys are never rewritten by the Page
    *  CTA transform (top-level `videoUrl` would be — see PRIMARY_CTA_KEYS). */
   videoUrl?: string;
+  /** How the card video starts. Default "click". */
+  videoPlayMode?: EventVideoPlayMode;
   /** Optional link under the body, e.g. "RSVP here" → external RSVP or #book. */
   linkText?: string;
   linkUrl?: string;
@@ -107,6 +116,10 @@ export interface EventActivationsBlockProps {
    *  get a "watch" button that opens the shared lightbox. Dark band: any
    *  video renders the "watch" lightbox button. */
   heroVideoUrl?: string;
+  /** How the split-layout hero video starts. Default "click". (A full-bleed
+   *  .mp4 background is always an ambient autoplay loop; the dark band's
+   *  lightbox button is always click.) */
+  heroVideoPlayMode?: EventVideoPlayMode;
   /** Label on the hero "watch the video" lightbox button. */
   heroVideoCtaText?: string;
   /** Overlay color on the full-bleed hero image. Default #000000. */
@@ -538,16 +551,23 @@ export function BlockEventActivations({
   //    Loom, or any embeddable URL — image doubles as the poster) ────────────
   const heroVideo = (props.heroVideoUrl ?? "").trim();
   const heroVideoNative = !!heroVideo && isNativeVideoUrl(heroVideo);
+  const heroVideoMode: EventVideoPlayMode = props.heroVideoPlayMode ?? "click";
   const [heroPlaying, setHeroPlaying] = useState(false);
+  const [heroHovering, setHeroHovering] = useState(false);
   const [cardPlaying, setCardPlaying] = useState<number | null>(null);
+  const [cardHovering, setCardHovering] = useState<number | null>(null);
   const [modalVideo, setModalVideo] = useState("");
 
-  const VideoEmbed = ({ url, title }: { url: string; title: string }) =>
+  /** `ambient` = muted looping preview (autoplay/hover modes, no controls on
+   *  native files); default = the click-to-play player with controls/sound. */
+  const VideoEmbed = ({ url, title, ambient }: { url: string; title: string; ambient?: boolean }) =>
     isNativeVideoUrl(url) ? (
       <video
         src={url}
-        controls
+        controls={!ambient}
         autoPlay
+        muted={ambient}
+        loop={ambient}
         playsInline
         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#000" }}
       />
@@ -948,6 +968,10 @@ export function BlockEventActivations({
                 initial={anim({ opacity: 0, scale: 0.98 })}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                onMouseEnter={heroVideo && heroVideoMode === "hover" ? () => setHeroHovering(true) : undefined}
+                onMouseLeave={heroVideo && heroVideoMode === "hover" ? () => setHeroHovering(false) : undefined}
+                // Touch devices have no hover — a tap starts the preview.
+                onClick={heroVideo && heroVideoMode === "hover" ? () => setHeroHovering(true) : undefined}
                 style={{
                   position: "relative",
                   borderRadius: 20,
@@ -957,8 +981,9 @@ export function BlockEventActivations({
                   background: heroVideo ? "#000" : undefined,
                 }}
               >
-                {heroVideo && heroPlaying ? (
-                  <VideoEmbed url={heroVideo} title="Event video" />
+                {heroVideo &&
+                (heroVideoMode === "autoplay" || heroPlaying || (heroVideoMode === "hover" && heroHovering)) ? (
+                  <VideoEmbed url={heroVideo} title="Event video" ambient={heroVideoMode !== "click"} />
                 ) : props.heroImage ? (
                   <>
                     <InlineImage
@@ -973,11 +998,13 @@ export function BlockEventActivations({
                       loading="eager"
                       decoding="async"
                     />
-                    {heroVideo && <PlayOverlay onClick={() => setHeroPlaying(true)} />}
+                    {heroVideo && heroVideoMode === "click" && (
+                      <PlayOverlay onClick={() => setHeroPlaying(true)} />
+                    )}
                   </>
                 ) : (
                   <div style={{ position: "absolute", inset: 0, background: darkSurface }}>
-                    <PlayOverlay onClick={() => setHeroPlaying(true)} />
+                    {heroVideoMode === "click" && <PlayOverlay onClick={() => setHeroPlaying(true)} />}
                   </div>
                 )}
               </motion.div>
@@ -1053,6 +1080,12 @@ export function BlockEventActivations({
                   const hasVideo = Boolean((a.videoUrl ?? "").trim());
                   const hasMedia = hasImage || hasVideo;
                   const imageLeft = hasMedia && i % 2 === 1;
+                  const videoMode: EventVideoPlayMode = a.videoPlayMode ?? "click";
+                  const videoShowing =
+                    hasVideo &&
+                    (videoMode === "autoplay" ||
+                      cardPlaying === i ||
+                      (videoMode === "hover" && cardHovering === i));
                   return (
                     <article
                       key={i}
@@ -1142,6 +1175,10 @@ export function BlockEventActivations({
                       </div>
                       {hasMedia && (
                         <div
+                          onMouseEnter={hasVideo && videoMode === "hover" ? () => setCardHovering(i) : undefined}
+                          onMouseLeave={hasVideo && videoMode === "hover" ? () => setCardHovering((c) => (c === i ? null : c)) : undefined}
+                          // Touch devices have no hover — a tap starts the preview.
+                          onClick={hasVideo && videoMode === "hover" ? () => setCardHovering(i) : undefined}
                           style={{
                             order: imageLeft ? 1 : 2,
                             position: "relative",
@@ -1151,8 +1188,12 @@ export function BlockEventActivations({
                             background: hasVideo ? "#000" : undefined,
                           }}
                         >
-                          {hasVideo && cardPlaying === i ? (
-                            <VideoEmbed url={a.videoUrl!} title={a.title || "Activation video"} />
+                          {videoShowing ? (
+                            <VideoEmbed
+                              url={a.videoUrl!}
+                              title={a.title || "Activation video"}
+                              ambient={videoMode !== "click"}
+                            />
                           ) : hasImage ? (
                             <>
                               <InlineImage
@@ -1167,11 +1208,13 @@ export function BlockEventActivations({
                                 loading="lazy"
                                 decoding="async"
                               />
-                              {hasVideo && <PlayOverlay onClick={() => setCardPlaying(i)} />}
+                              {hasVideo && videoMode === "click" && (
+                                <PlayOverlay onClick={() => setCardPlaying(i)} />
+                              )}
                             </>
                           ) : (
                             <div style={{ position: "absolute", inset: 0, background: darkSurface }}>
-                              <PlayOverlay onClick={() => setCardPlaying(i)} />
+                              {videoMode === "click" && <PlayOverlay onClick={() => setCardPlaying(i)} />}
                             </div>
                           )}
                         </div>

@@ -198,6 +198,49 @@ describe("BlockEventActivations — sections + guards", () => {
     expect(html).not.toContain("Watch the video");
   });
 
+  it("mounts the player immediately in autoplay mode, with no play button", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      activations: [
+        {
+          ...EVENT_ACTIVATIONS_DEFAULT_PROPS.activations![0],
+          videoUrl: "https://vimeo.com/76979871",
+          videoPlayMode: "autoplay",
+        },
+      ],
+    });
+    expect(html).toContain("player.vimeo.com/video/76979871");
+    expect(html).not.toContain('aria-label="Play video"');
+  });
+
+  it("keeps the plain image (no overlay, no player) in hover mode until hovered", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      activations: [
+        {
+          ...EVENT_ACTIVATIONS_DEFAULT_PROPS.activations![0],
+          videoUrl: "https://vimeo.com/76979871",
+          videoPlayMode: "hover",
+        },
+      ],
+    });
+    expect(html).toContain("Speaker on a conference stage");
+    expect(html).not.toContain('aria-label="Play video"');
+    expect(html).not.toContain("<iframe");
+  });
+
+  it("renders a muted looping ambient player for an autoplay-mode native hero video", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      heroVideoUrl: "https://cdn.example.com/sizzle.mp4",
+      heroVideoPlayMode: "autoplay",
+    });
+    const video = html.match(/<video[^>]*>/)?.[0] ?? "";
+    expect(video).toContain("sizzle.mp4");
+    expect(video).toContain("loop");
+    expect(video).not.toContain("controls");
+  });
+
   it("falls back to the dark band when a full-bleed layout has no image", () => {
     const html = render({
       ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
