@@ -190,6 +190,8 @@ interface FetchedPage {
   allowFollowing?: boolean | null;
   animationsEnabled?: boolean;
   smoothScroll?: boolean;
+  // Page-level cookie-banner opt-in (Aug 2026). Default false.
+  showCookieBanner?: boolean;
   pageVariables?: Record<string, string>;
   // Unified CTA architecture, Phase 1. Page-level default CTA. null/absent =
   // no page-level CTA.
@@ -234,6 +236,7 @@ interface SavePageData {
   customCss?: string;
   animationsEnabled?: boolean;
   smoothScroll?: boolean;
+  showCookieBanner?: boolean;
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
@@ -1303,6 +1306,7 @@ export default function BuilderEditor() {
   const [customCss, setCustomCss] = useState("");
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [smoothScroll, setSmoothScroll] = useState(true);
+  const [showCookieBanner, setShowCookieBanner] = useState(false);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
@@ -1791,6 +1795,7 @@ export default function BuilderEditor() {
         setCustomCss(p.customCss ?? "");
         setAnimationsEnabled(p.animationsEnabled !== false);
         setSmoothScroll(p.smoothScroll !== false);
+        setShowCookieBanner(p.showCookieBanner === true);
         setMetaTitle(p.metaTitle ?? "");
         setMetaDescription(p.metaDescription ?? "");
         setOgImage(p.ogImage ?? "");
@@ -1830,6 +1835,7 @@ export default function BuilderEditor() {
             allowFollowing: p.allowFollowing ?? null,
             animationsEnabled: p.animationsEnabled !== false,
             smoothScroll: p.smoothScroll !== false,
+            showCookieBanner: p.showCookieBanner === true,
             pageVariables: p.pageVariables ?? {},
             ctaDefault: p.ctaDefault ?? null,
           });
@@ -2542,6 +2548,7 @@ export default function BuilderEditor() {
     customCss,
     animationsEnabled,
     smoothScroll,
+    showCookieBanner,
     metaTitle,
     metaDescription,
     ogImage,
@@ -2577,6 +2584,7 @@ export default function BuilderEditor() {
         allowFollowing,
         animationsEnabled,
         smoothScroll,
+        showCookieBanner,
         pageVariables: pageVariables ?? {},
         ctaDefault: pageCta ?? null,
       });
@@ -2587,7 +2595,7 @@ export default function BuilderEditor() {
   const currentSnapshot = useMemo(
     () => buildSnapshot(status),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are buildSnapshot's actual inputs
-    [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, pageVariables, pageCta],
+    [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, pageCta],
   );
 
   const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
@@ -4240,6 +4248,29 @@ export default function BuilderEditor() {
                         className={cn(
                           "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform",
                           smoothScroll ? "translate-x-4" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Cookie Consent Banner</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">Show the cookie banner to visitors on this page</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={showCookieBanner}
+                      onClick={() => { setShowCookieBanner(v => !v); setTimeout(handleSave, 50); }}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none",
+                        showCookieBanner ? "bg-[var(--brand-primary)]" : "bg-slate-200"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform",
+                          showCookieBanner ? "translate-x-4" : "translate-x-0"
                         )}
                       />
                     </button>

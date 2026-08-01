@@ -24,10 +24,14 @@
          below. Sets Google Consent Mode v2 defaults to denied (so GTM tags
          hold their cookies until the visitor decides), exposes a tiny
          consent API (window.__lpConsent) that the RB2B/Apollo loaders gate
-         on, persists the choice in localStorage('lp_consent'), and renders
-         a minimal bottom-bar banner. Scoped to the SAME hosts the trackers
-         load on (lp.meetdandy.com → GTM; partners.meetdandy.com →
-         RB2B + Apollo) so no other host ever sees the banner. -->
+         on, and persists the choice in localStorage('lp_consent'). The
+         bottom-bar banner is NO LONGER auto-shown (Aug 2026): it is opt-in
+         per page — the published-page viewer calls
+         window.__lpConsent.showBanner() when the page row has
+         show_cookie_banner=true. Consent-mode defaults stay scoped to the
+         tracking hosts (lp.meetdandy.com → GTM; partners.meetdandy.com →
+         RB2B + Apollo); the banner itself may show on any host when a page
+         opts in. -->
     <script>
       (function () {
         var TRACKING_HOSTS = ['lp.meetdandy.com', 'partners.meetdandy.com'];
@@ -71,22 +75,36 @@
                 try { cbs[i](); } catch (_) {}
               }
             }
+          },
+          // Render the consent banner. NOT called by this bootstrap — the
+          // published-page viewer calls it only for pages that opted in
+          // (lp_pages.show_cookie_banner). No-ops when the visitor already
+          // chose, or when the banner is already up.
+          showBanner: function () {
+            if (window.__lpConsent.state !== null) return;
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', showBanner);
+            } else {
+              showBanner();
+            }
           }
         };
-        if (!tracked) return;
-        // Google Consent Mode v2 defaults — everything denied until the
-        // visitor decides. Queued on dataLayer BEFORE gtm.js loads, which
-        // is what makes it a valid Consent Mode default.
-        window.gtag('consent', 'default', {
-          ad_storage: 'denied',
-          analytics_storage: 'denied',
-          ad_user_data: 'denied',
-          ad_personalization: 'denied',
-          wait_for_update: 500
-        });
-        if (stored === 'granted') pushGrantedUpdate();
-        if (stored !== null) return; // prior choice exists — apply silently, no banner
+        if (tracked) {
+          // Google Consent Mode v2 defaults — everything denied until the
+          // visitor decides. Queued on dataLayer BEFORE gtm.js loads, which
+          // is what makes it a valid Consent Mode default. Tracking-host
+          // scoped exactly as before; unrelated to whether a banner shows.
+          window.gtag('consent', 'default', {
+            ad_storage: 'denied',
+            analytics_storage: 'denied',
+            ad_user_data: 'denied',
+            ad_personalization: 'denied',
+            wait_for_update: 500
+          });
+          if (stored === 'granted') pushGrantedUpdate();
+        }
         function showBanner() {
+          if (window.__lpConsent.state !== null) return;
           if (document.getElementById('lp-consent-banner')) return;
           if (!document.body) return;
           var bar = document.createElement('div');
@@ -119,11 +137,8 @@
           bar.appendChild(decline);
           document.body.appendChild(bar);
         }
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', showBanner);
-        } else {
-          showBanner();
-        }
+        // No auto-show: the banner renders only when a page that opted in
+        // (lp_pages.show_cookie_banner) calls window.__lpConsent.showBanner().
       })();
     </script>
     <!-- RB2B Visitor Identification — partners.meetdandy.com only, and only

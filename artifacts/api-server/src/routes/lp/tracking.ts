@@ -242,6 +242,9 @@ async function enrichVariantWithPage(variant: LpVariant) {
           customCss: linkedPage.customCss ?? "",
           animationsEnabled: linkedPage.animationsEnabled !== false,
           smoothScroll: linkedPage.smoothScroll !== false,
+          // Page-level cookie-banner opt-in — the viewer calls
+          // window.__lpConsent.showBanner() only when this is true.
+          showCookieBanner: linkedPage.showCookieBanner === true,
           // Page-level default CTA, so the viewer's variant render can drive each
           // block's PRIMARY button from the Page CTA (matching the main path).
           ctaDefault: linkedPage.ctaDefault ?? null,

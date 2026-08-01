@@ -897,6 +897,13 @@
       "when": 1757920000000,
       "tag": "0127_page_visit_dwell",
       "breakpoints": false
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1757930000000,
+      "tag": "0128_lp_pages_show_cookie_banner",
+      "breakpoints": false
     }
   ]
 }

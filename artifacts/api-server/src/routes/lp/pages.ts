@@ -1009,7 +1009,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -1020,6 +1020,8 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     ogImage?: string;
     animationsEnabled?: boolean;
     smoothScroll?: boolean;
+    // Page-level cookie-banner opt-in (Aug 2026). Default false.
+    showCookieBanner?: boolean;
     pageVariables?: Record<string, string>;
     audienceType?: string | null;
     segmentId?: string | null;
@@ -1038,7 +1040,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     ctaDefault?: Record<string, unknown> | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; ctaDefault: Record<string, unknown> | null; updatedBy: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; showCookieBanner: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; ctaDefault: Record<string, unknown> | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -1094,6 +1096,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (ogImage !== undefined) updates.ogImage = ogImage;
   if (animationsEnabled !== undefined) updates.animationsEnabled = animationsEnabled;
   if (smoothScroll !== undefined) updates.smoothScroll = smoothScroll;
+  if (showCookieBanner !== undefined) updates.showCookieBanner = showCookieBanner === true;
   if (pageVariables !== undefined) updates.pageVariables = pageVariables;
   if (audienceType !== undefined) updates.audienceType = audienceType ?? null;
   if (segmentId !== undefined) updates.segmentId = segmentId ?? null;

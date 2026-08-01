@@ -25,6 +25,12 @@ export const lpPagesTable = pgTable("lp_pages", {
   allowFollowing: boolean("allow_following"),
   animationsEnabled: boolean("animations_enabled").notNull().default(true),
   smoothScroll: boolean("smooth_scroll").notNull().default(true),
+  // Page-level opt-in for the cookie-consent banner (Aug 2026). The index.html
+  // consent bootstrap no longer auto-shows its banner; the published-page
+  // viewer calls window.__lpConsent.showBanner() only when this is true.
+  // Default false = no banner (the GTM stack on lp.meetdandy.com already
+  // ships OneTrust, so the built-in banner was double-bannering).
+  showCookieBanner: boolean("show_cookie_banner").notNull().default(false),
   pageVariables: jsonb("page_variables").default({}),
   // Page-level default CTA (unified CTA architecture, Phase 1). ADDITIVE +
   // NULLABLE: NULL = no page-level CTA (every block falls straight through to
