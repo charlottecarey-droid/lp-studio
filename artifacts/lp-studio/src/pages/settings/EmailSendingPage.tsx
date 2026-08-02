@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { DEFAULT_OUTREACH_SUBJECT, DEFAULT_OUTREACH_INTRO } from "@/lib/email-preview";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Save, Users, Globe, Plus, Trash2, RotateCcw, CheckCircle2, AlertTriangle,
+  Loader2, Save, Users, Globe, Plus, Trash2, RotateCcw, CheckCircle2, AlertTriangle, Mail,
 } from "lucide-react";
 import { fetchBrandConfig, saveBrandConfig } from "@/lib/brand-config";
 import type { SalesConsoleConfig } from "@/lib/brand-config";
@@ -489,7 +491,7 @@ function BrandedSubdomainCard() {
 }
 
 /**
- * The six salesConsole fields this page owns. Everything else in
+ * The salesConsole fields this page owns. Everything else in
  * `config.salesConsole` (value props, AI prompt strings, one-pager defaults,
  * the route-managed brandedEmailSubdomain* triple) belongs to other surfaces —
  * the save below re-fetches the freshest config and merges ONLY these keys so
@@ -503,6 +505,8 @@ interface SendingDraft {
   customEmailDomainId?: string;
   replyTo: string;
   notificationsLocalPart: string;
+  outreachSubject: string;
+  outreachIntro: string;
 }
 
 function toDraft(sc: SalesConsoleConfig | undefined): SendingDraft {
@@ -513,6 +517,8 @@ function toDraft(sc: SalesConsoleConfig | undefined): SendingDraft {
     customEmailDomainId: sc?.customEmailDomainId,
     replyTo: sc?.replyTo ?? "",
     notificationsLocalPart: sc?.notificationsLocalPart ?? "",
+    outreachSubject: sc?.outreachSubject ?? "",
+    outreachIntro: sc?.outreachIntro ?? "",
   };
 }
 
@@ -588,6 +594,8 @@ export function EmailSendingContent() {
           customEmailDomainId: draft.customEmailDomainId,
           replyTo: draft.replyTo,
           notificationsLocalPart: draft.notificationsLocalPart,
+          outreachSubject: draft.outreachSubject.trim(),
+          outreachIntro: draft.outreachIntro.trim(),
         },
       });
       toast({ title: "Sending settings saved", description: "Outbound email now uses the updated sender identity." });
@@ -719,6 +727,45 @@ export function EmailSendingContent() {
       )}
 
       {hasBrandedEmailSubdomain && <BrandedSubdomainCard />}
+
+      {/* Defaults for the draft a rep opens from Pages → Copy email preview →
+          Gmail / Mail. Workspace-level so the whole team isn't shipping one
+          identical opener — and so it can be fixed in one place. */}
+      <Card id="sales-console-outreach-defaults" className="p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <Mail className="w-4 h-4 text-primary" /> Outreach draft defaults
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Prefills the email a rep opens from <span className="font-medium text-foreground">Pages → Copy email preview</span>. They can edit anything before sending. Leave blank to use the built-in wording.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Subject</Label>
+          <Input
+            value={draft.outreachSubject}
+            onChange={e => patch({ outreachSubject: e.target.value })}
+            placeholder={DEFAULT_OUTREACH_SUBJECT}
+          />
+          <p className="text-xs text-muted-foreground">
+            Defaults to the page's own title.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Opening lines</Label>
+          <Textarea
+            rows={3}
+            value={draft.outreachIntro}
+            onChange={e => patch({ outreachIntro: e.target.value })}
+            placeholder={DEFAULT_OUTREACH_INTRO}
+          />
+          <p className="text-xs text-muted-foreground">
+            Tokens: <code className="text-[11px]">{"{{first_name}}"}</code> ·{" "}
+            <code className="text-[11px]">{"{{page_title}}"}</code>. The page link is appended
+            automatically, so a draft still works if the rep forgets to paste the card.
+          </p>
+        </div>
+      </Card>
 
       <div className="sticky bottom-4 flex justify-end">
         <div className="bg-background/90 backdrop-blur-md border border-border rounded-2xl px-6 py-3 shadow-lg flex items-center gap-4">

@@ -47,7 +47,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
 import { getLpPageUrl } from "@/lib/utils";
-import { copyEmailPreview, buildOutreachEmail, buildGmailComposeUrl } from "@/lib/email-preview";
+import { copyEmailPreview, buildOutreachEmail, buildGmailComposeUrl, buildMailtoUrl } from "@/lib/email-preview";
+import { fetchBrandConfig } from "@/lib/brand-config";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNowStrict } from "date-fns";
 
@@ -119,6 +120,10 @@ interface GeneratedLink {
   contactName: string;
   token: string;
 }
+
+/** Where a prefilled outreach draft opens. Both are plain-text-only, hence
+ *  the copy-then-paste flow for the card itself. */
+type ComposeTarget = "gmail" | "mail";
 
 /** Row of GET /sales/contacts — the fields the email-preview modal's
  *  cross-account contact search needs (accountName comes from the join). */
@@ -260,6 +265,9 @@ export default function SalesPages() {
   const [epSearch, setEpSearch] = useState("");
   const [epAllContacts, setEpAllContacts] = useState<EpContact[]>([]);
   const [epContactsLoading, setEpContactsLoading] = useState(false);
+  /** Workspace outreach templates (Settings → Email → Sending), loaded with
+   *  the modal. undefined until fetched → built-in defaults apply. */
+  const [epOutreach, setEpOutreach] = useState<{ subject?: string; intro?: string } | undefined>();
   /** "plain" or `contact:${id}` — which option is copying / just copied. */
   const [epBusyKey, setEpBusyKey] = useState<string | null>(null);
   const [epCopiedKey, setEpCopiedKey] = useState<string | null>(null);
@@ -593,6 +601,14 @@ export default function SalesPages() {
     setEpSearch("");
     setEpBusyKey(null);
     setEpCopiedKey(null);
+    if (epOutreach === undefined) {
+      void fetchBrandConfig()
+        .then(b => setEpOutreach({
+          subject: b.salesConsole?.outreachSubject,
+          intro: b.salesConsole?.outreachIntro,
+        }))
+        .catch(() => setEpOutreach({}));  // fall back to built-in defaults
+    }
     if (epAllContacts.length === 0 && !epContactsLoading) {
       setEpContactsLoading(true);
       fetch(`${API_BASE}/sales/contacts`)
@@ -607,25 +623,40 @@ export default function SalesPages() {
    *  is on the clipboard — a compose URL can't carry an image, so the rep
    *  pastes it in. The URL is in the body too, so a send without pasting is
    *  still a working email. */
-  function openGmailFor(
+  function openComposerFor(
     pageUrl: string,
-    opts: { to?: string | null; firstName?: string | null; title?: string | null; copied: boolean },
+    opts: {
+      target: ComposeTarget;
+      to?: string | null;
+      firstName?: string | null;
+      title?: string | null;
+      copied: boolean;
+    },
   ) {
     const { subject, body } = buildOutreachEmail({
       firstName: opts.firstName,
       pageTitle: opts.title,
       url: pageUrl,
+      subjectTemplate: epOutreach?.subject,
+      introTemplate: epOutreach?.intro,
     });
-    window.open(buildGmailComposeUrl({ to: opts.to, subject, body }), "_blank", "noopener,noreferrer");
+    const label = opts.target === "gmail" ? "Gmail" : "Your email app";
+    if (opts.target === "gmail") {
+      window.open(buildGmailComposeUrl({ to: opts.to, subject, body }), "_blank", "noopener,noreferrer");
+    } else {
+      // mailto: hands off to the OS default client — navigate rather than
+      // window.open so we don't leave an orphaned blank tab behind.
+      window.location.href = buildMailtoUrl({ to: opts.to, subject, body });
+    }
     toast(
       opts.copied
         ? {
-            title: "Gmail opened — paste the card",
+            title: `${label} opened — paste the card`,
             description: "The preview is on your clipboard: click into the message body and press ⌘V.",
           }
         : {
             // The draft is still worth having: the body carries the link.
-            title: "Gmail opened without the card",
+            title: `${label} opened without the card`,
             description: "The preview couldn't reach your clipboard, but the link is already in the message.",
           },
     );
@@ -635,7 +666,7 @@ export default function SalesPages() {
     row: PageRow,
     pageUrl: string,
     key: string,
-    gmail?: { to?: string | null; firstName?: string | null },
+    compose?: { target: ComposeTarget; to?: string | null; firstName?: string | null },
   ) {
     if (epBusyKey !== null) return;
     setEpBusyKey(key);
@@ -649,13 +680,13 @@ export default function SalesPages() {
         result = await copyEmailPreview({ pageId: row.pageId, pageUrl, title: row.pageTitle });
       } catch (err) {
         console.error("Copy email preview error:", err);
-        if (!gmail) throw err;
+        if (!compose) throw err;
       }
       if (result) {
         setEpCopiedKey(key);
         setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
       }
-      if (gmail) openGmailFor(pageUrl, { ...gmail, title: row.pageTitle, copied: result !== null });
+      if (compose) openComposerFor(pageUrl, { ...compose, title: row.pageTitle, copied: result !== null });
       else if (result === "link-only") {
         toast({
           title: "Copied the link instead",
@@ -672,7 +703,7 @@ export default function SalesPages() {
 
   /** Copy the preview linked to a personalized /p/ link for this contact,
    *  reusing the page's existing hotlink or creating one on the fly. */
-  async function copyPersonalizedPreview(row: PageRow, contact: EpContact, openGmail = false) {
+  async function copyPersonalizedPreview(row: PageRow, contact: EpContact, target?: ComposeTarget) {
     if (epBusyKey !== null) return;
     const key = `contact:${contact.id}`;
     setEpBusyKey(key);
@@ -709,14 +740,15 @@ export default function SalesPages() {
         });
       } catch (err) {
         console.error("Copy email preview error:", err);
-        if (!openGmail) throw err;
+        if (!target) throw err;
       }
       if (result) {
         setEpCopiedKey(key);
         setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
       }
-      if (openGmail) {
-        openGmailFor(personalizedUrl, {
+      if (target) {
+        openComposerFor(personalizedUrl, {
+          target,
           to: contact.email,
           firstName: contact.firstName,
           title: row.pageTitle,
@@ -1864,12 +1896,22 @@ export default function SalesPages() {
                         : <><Copy className="w-3 h-3 mr-1" />Copy</>}
                   </Button>
                   <Button
-                    size="sm" variant="outline" className="h-7 px-2.5 text-[11px] shrink-0"
+                    size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0"
                     disabled={epBusyKey !== null}
                     title="Copy the card and open a Gmail draft (no recipient — it's the plain link)"
-                    onClick={() => void copyPreviewTo(row, plainUrl, "plain", {})}
+                    aria-label="Open a Gmail draft with the plain page link"
+                    onClick={() => void copyPreviewTo(row, plainUrl, "plain", { target: "gmail" })}
                   >
-                    <Send className="w-3 h-3 mr-1" />Gmail
+                    <Send className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0"
+                    disabled={epBusyKey !== null}
+                    title="Copy the card and open a draft in your default email app"
+                    aria-label="Open a draft in your email app with the plain page link"
+                    onClick={() => void copyPreviewTo(row, plainUrl, "plain", { target: "mail" })}
+                  >
+                    <Mail className="w-3 h-3" />
                   </Button>
                 </div>
 
@@ -1933,12 +1975,26 @@ export default function SalesPages() {
                                   title={`Copy the card and open a Gmail draft to ${name}`}
                                   aria-label={`Open a Gmail draft to ${name}`}
                                   onClick={() => void copyPreviewTo(row, url, key, {
+                                    target: "gmail",
                                     to: contact?.email,
                                     firstName: contact?.firstName || name,
                                   })}
-                                  className="px-2.5 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
+                                  className="px-2 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
                                 >
                                   <Send className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  disabled={epBusyKey !== null}
+                                  title={`Copy the card and open a draft to ${name} in your email app`}
+                                  aria-label={`Open an email-app draft to ${name}`}
+                                  onClick={() => void copyPreviewTo(row, url, key, {
+                                    target: "mail",
+                                    to: contact?.email,
+                                    firstName: contact?.firstName || name,
+                                  })}
+                                  className="pr-3 pl-1 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
+                                >
+                                  <Mail className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             );
@@ -1989,10 +2045,19 @@ export default function SalesPages() {
                               disabled={epBusyKey !== null}
                               title={c.email ? `Copy the card and open a Gmail draft to ${c.email}` : "Copy the card and open a Gmail draft (this contact has no email on file)"}
                               aria-label={`Open a Gmail draft to ${name}`}
-                              onClick={() => void copyPersonalizedPreview(row, c, true)}
-                              className="px-2.5 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
+                              onClick={() => void copyPersonalizedPreview(row, c, "gmail")}
+                              className="px-2 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
                             >
                               <Send className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              disabled={epBusyKey !== null}
+                              title={c.email ? `Copy the card and open a draft to ${c.email} in your email app` : "Copy the card and open a draft in your email app"}
+                              aria-label={`Open an email-app draft to ${name}`}
+                              onClick={() => void copyPersonalizedPreview(row, c, "mail")}
+                              className="pr-3 pl-1 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         );

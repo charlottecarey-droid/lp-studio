@@ -639,6 +639,17 @@ export interface SalesConsoleConfig {
   notificationsLocalPart?: string;
   emailSignature?: string;
   emailFooter?: string;
+  /**
+   * Defaults for the rep-composed outreach draft opened from the "Copy email
+   * preview" modal (Settings → Email → Sending). Tokens: `{{first_name}}`,
+   * `{{page_title}}`. Blank = the built-in default.
+   *
+   * NOT to be confused with `salesIntroLine` below, which is a system-prompt
+   * fragment for the AI cold-email drafter — this pair is literal copy that
+   * ships to a recipient.
+   */
+  outreachSubject?: string;
+  outreachIntro?: string;
   salesIntroLine?: string;
   briefBlurb?: string;
   /** Legacy no-op flag; the built-in microsite exemplars it once gated were removed. */

@@ -58,6 +58,29 @@ export function firstNameOf(name: string | null | undefined): string {
   return first.includes("@") ? "" : first;
 }
 
+/** Workspace-editable defaults (Settings → Email → Sending). Exported so the
+ *  settings form can show them as placeholders rather than duplicating copy. */
+export const DEFAULT_OUTREACH_SUBJECT = "{{page_title}}";
+export const DEFAULT_OUTREACH_INTRO = "Hey {{first_name}},\n\nI put together a page just for you:";
+
+/** Tokens a workspace may use in the outreach templates. */
+export const OUTREACH_TOKENS = ["{{first_name}}", "{{page_title}}"] as const;
+
+/** Substitute the outreach tokens, then repair the punctuation a missing name
+ *  leaves behind — "Hey {{first_name}}," with no name must read "Hey," and
+ *  never "Hey ,". */
+export function fillOutreachTokens(
+  template: string,
+  vars: { firstName: string; pageTitle: string },
+): string {
+  return template
+    .replace(/\{\{\s*first_name\s*\}\}/gi, vars.firstName)
+    .replace(/\{\{\s*page_title\s*\}\}/gi, vars.pageTitle)
+    .replace(/[ \t]+([,.!?])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 /**
  * Subject + plain-text body for a one-click outreach compose.
  *
@@ -70,14 +93,36 @@ export function buildOutreachEmail(args: {
   firstName?: string | null;
   pageTitle?: string | null;
   url: string;
+  /** Workspace overrides; blank/absent falls back to the built-in default. */
+  subjectTemplate?: string | null;
+  introTemplate?: string | null;
 }): { subject: string; body: string } {
-  const first = firstNameOf(args.firstName);
-  const title = (args.pageTitle ?? "").trim();
-  const greeting = first ? `Hey ${first},` : "Hey,";
-  return {
-    subject: title || "A page for you",
-    body: `${greeting}\n\nI put together a page just for you:\n${args.url}\n\n`,
+  const vars = {
+    firstName: firstNameOf(args.firstName),
+    pageTitle: (args.pageTitle ?? "").trim(),
   };
+  const subject =
+    fillOutreachTokens((args.subjectTemplate ?? "").trim() || DEFAULT_OUTREACH_SUBJECT, vars) ||
+    vars.pageTitle ||
+    "A page for you";
+  const intro =
+    fillOutreachTokens((args.introTemplate ?? "").trim() || DEFAULT_OUTREACH_INTRO, vars) ||
+    fillOutreachTokens(DEFAULT_OUTREACH_INTRO, vars);
+  return { subject, body: `${intro}\n${args.url}\n\n` };
+}
+
+/** `mailto:` for whatever the rep's OS has registered — the sibling of the
+ *  Gmail-web path, same plain-text limitation. */
+export function buildMailtoUrl(args: {
+  to?: string | null;
+  subject: string;
+  body: string;
+}): string {
+  const params = new URLSearchParams({ subject: args.subject, body: args.body });
+  // URLSearchParams encodes spaces as "+", which mail clients render literally
+  // in a mailto body; %20 is the safe encoding here.
+  const qs = params.toString().replace(/\+/g, "%20");
+  return `mailto:${encodeURIComponent((args.to ?? "").trim())}?${qs}`;
 }
 
 /** Gmail web compose URL. Gmail ignores HTML in `body`, which is why the card

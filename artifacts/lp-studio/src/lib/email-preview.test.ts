@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEmailPreviewHtml, firstNameOf, buildOutreachEmail, buildGmailComposeUrl } from "./email-preview";
+import { buildEmailPreviewHtml, firstNameOf, buildOutreachEmail, buildGmailComposeUrl, buildMailtoUrl, fillOutreachTokens } from "./email-preview";
 
 describe("buildEmailPreviewHtml", () => {
   it("wraps the preview image and text link in anchors to the page URL", () => {
@@ -83,5 +83,60 @@ describe("buildGmailComposeUrl", () => {
   it("omits `to` entirely when there's no recipient (plain-link path)", () => {
     const u = new URL(buildGmailComposeUrl({ to: "  ", subject: "s", body: "b" }));
     expect(u.searchParams.has("to")).toBe(false);
+  });
+});
+
+describe("fillOutreachTokens", () => {
+  it("substitutes tokens and tolerates whitespace/case inside the braces", () => {
+    expect(fillOutreachTokens("Hey {{first_name}} re {{ Page_Title }}", { firstName: "Ava", pageTitle: "Proposal" }))
+      .toBe("Hey Ava re Proposal");
+  });
+
+  it("repairs the dangling punctuation a missing name leaves behind", () => {
+    expect(fillOutreachTokens("Hey {{first_name}},", { firstName: "", pageTitle: "" })).toBe("Hey,");
+  });
+
+  it("leaves unknown tokens alone rather than blanking them", () => {
+    expect(fillOutreachTokens("Hi {{company}}", { firstName: "A", pageTitle: "B" })).toBe("Hi {{company}}");
+  });
+});
+
+describe("buildOutreachEmail — workspace templates", () => {
+  const url = "https://x.example.com/p/tok";
+
+  it("uses the workspace subject + intro when set", () => {
+    const { subject, body } = buildOutreachEmail({
+      firstName: "Ava", pageTitle: "Q3 Proposal", url,
+      subjectTemplate: "{{page_title}} for you",
+      introTemplate: "Morning {{first_name}} — quick one:",
+    });
+    expect(subject).toBe("Q3 Proposal for you");
+    expect(body.startsWith("Morning Ava — quick one:")).toBe(true);
+    expect(body).toContain(url);
+  });
+
+  it("treats a blank/whitespace template as unset", () => {
+    const { subject, body } = buildOutreachEmail({
+      firstName: "Ava", pageTitle: "Q3 Proposal", url, subjectTemplate: "   ", introTemplate: "",
+    });
+    expect(subject).toBe("Q3 Proposal");
+    expect(body.startsWith("Hey Ava,")).toBe(true);
+  });
+
+  it("never yields an empty subject when the template resolves to nothing", () => {
+    expect(buildOutreachEmail({ url, subjectTemplate: "{{page_title}}" }).subject).toBe("A page for you");
+  });
+});
+
+describe("buildMailtoUrl", () => {
+  it("encodes spaces as %20 (a '+' shows up literally in mail clients)", () => {
+    const u = buildMailtoUrl({ to: "ava@x.com", subject: "Hello there", body: "Line one\nLine two" });
+    expect(u.startsWith("mailto:ava%40x.com?")).toBe(true);
+    expect(u).toContain("subject=Hello%20there");
+    expect(u).not.toContain("+");
+  });
+
+  it("still builds a usable draft with no recipient", () => {
+    expect(buildMailtoUrl({ to: null, subject: "s", body: "b" }).startsWith("mailto:?")).toBe(true);
   });
 });
