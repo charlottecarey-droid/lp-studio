@@ -8,7 +8,8 @@ import {
   ElementType,
 } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
+import { useStaticRender, useRevealFallback } from "@/lib/reveal-fallback";
 import {
   Bold,
   Italic,
@@ -146,6 +147,17 @@ export function InlineText({
   const initialHtmlRef = useRef<string>(value);
   const [toolbarPos, setToolbarPos] = useState<{ top: number; left: number } | null>(null);
   const lastHtmlRef = useRef<string>(value);
+
+  // Fail-open guards for the `animate` entrance (lib/reveal-fallback.ts):
+  // the old bare `whileInView` left text at opacity 0 forever when the
+  // IntersectionObserver never fired (scaled/embedded preview iframes,
+  // hidden panes) and baked opacity 0 into static renders. Track in-view
+  // ourselves and let the watchdog force the reveal. Passing `true` when
+  // there's no entrance animation skips the watchdog timer entirely.
+  const staticRender = useStaticRender();
+  const revealRef = useRef<HTMLElement | null>(null);
+  const revealInView = useInView(revealRef, { once: true, margin: "-10% 0px" });
+  const revealForced = useRevealFallback(!animate || revealInView);
 
   const renderedHtml = useMemo(() => {
     if (!value) return "";
@@ -432,12 +444,19 @@ export function InlineText({
   // Read-only render path (no onUpdate) — also used when isEditing is false.
   if (!onUpdate) {
     const baseStyle: React.CSSProperties = { ...wrapStyle, ...style };
-    if (animate) {
+    // Entrance animation — but ONLY while the reveal can actually complete.
+    // Under a static render, or once the watchdog fires because the
+    // IntersectionObserver never did (scaled/embedded preview iframes,
+    // rAF-paused panes, t=0 captures), fall through to the plain render
+    // below: framer can't be trusted to reach opacity 1 in exactly the
+    // environments where the observer is broken, so the fail-open path must
+    // not go through the animation system at all.
+    if (animate && !staticRender && !revealForced) {
       const MotionTag = motion.create(Tag as React.ComponentType<Record<string, unknown>>);
       const motionProps = {
+        ref: revealRef,
         initial: { opacity: 0, y: animate.y ?? 12 },
-        whileInView: { opacity: 1, y: 0 },
-        viewport: { once: true, margin: "-10% 0px" },
+        animate: revealInView ? { opacity: 1, y: 0 } : undefined,
         transition: {
           duration: animate.duration ?? 0.6,
           delay: animate.delay ?? 0,
