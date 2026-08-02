@@ -36,6 +36,7 @@ import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, ge
 import { useFactFlags } from "@/hooks/use-fact-flags";
 import { syncFactFlags } from "@/lib/fact-flags-api";
 import { FactReviewModal } from "@/components/FactReviewModal";
+import { ImagePicker } from "@/components/ImagePicker";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, templateToBlocks, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
@@ -148,32 +149,6 @@ function genBlockId(type: string) {
 }
 
 const API_BASE = "/api";
-
-/** One thumbnail in the OG "images in use" picker. Decoded lazily/async so a
- *  long list never exhausts a phone's image-decode memory (which renders the
- *  tiles as scrambled garbage), and self-hides on load failure without
- *  mutating the DOM out from under React. */
-function OgInUseThumb({ url, onPick }: { url: string; onPick: (url: string) => void }) {
-  const [broken, setBroken] = useState(false);
-  if (broken) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => onPick(url)}
-      className="aspect-video rounded overflow-hidden border border-transparent hover:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-muted"
-    >
-      <img
-        src={url}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        className="w-full h-full object-cover"
-        onError={() => setBroken(true)}
-      />
-    </button>
-  );
-}
 
 interface FetchedPage {
   id: number;
@@ -1730,25 +1705,6 @@ export default function BuilderEditor() {
   const titleRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [capturingOg, setCapturingOg] = useState(false);
-  const [ogPickerOpen, setOgPickerOpen] = useState(false);
-  const [inUseImages, setInUseImages] = useState<string[]>([]);
-  const [inUseLoading, setInUseLoading] = useState(false);
-
-  const openOgPicker = async () => {
-    setOgPickerOpen(v => !v);
-    if (inUseImages.length === 0 && !inUseLoading) {
-      setInUseLoading(true);
-      try {
-        const res = await fetch(`${API_BASE}/lp/in-use-images`);
-        const data = await res.json() as { urls?: string[] };
-        setInUseImages(data.urls ?? []);
-      } catch {
-        // ignore
-      } finally {
-        setInUseLoading(false);
-      }
-    }
-  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -4094,25 +4050,15 @@ export default function BuilderEditor() {
                       {capturingOg ? "Capturing…" : "Capture Page"}
                     </Button>
                   </div>
-                  <div className="flex gap-1.5 items-center">
-                    <Input
-                      value={ogImage}
-                      onChange={e => setOgImage(e.target.value)}
-                      onBlur={handleSave}
-                      placeholder="https://..."
-                      className="text-sm font-mono flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0 w-8 h-8"
-                      title="Pick from pages in use"
-                      onClick={openOgPicker}
-                    >
-                      <ImageIcon className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                  {/* Standard picker: URL, media library, upload, AI generate.
+                      Persistence rides the dirty-snapshot autosave (ogImage is
+                      in the snapshot), same as typing in the old URL input. */}
+                  <ImagePicker
+                    value={ogImage}
+                    onChange={url => setOgImage(url)}
+                    placeholder="https://..."
+                    aiHint="Social share card (1200×630)"
+                  />
                   <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Shown when shared on social media. Best at 1200×630px.</p>
                   <OgDimensionWarning
                     imageUrl={ogImage}
@@ -4132,33 +4078,6 @@ export default function BuilderEditor() {
                       domain={micrositeDomain}
                     />
                   </div>
-                  {ogPickerOpen && (
-                    <div className="mt-2 border border-border rounded-md bg-background overflow-hidden">
-                      <div className="flex items-center justify-between px-2 py-1.5 bg-muted/40 border-b border-border">
-                        <span className="text-[11px] font-medium text-muted-foreground">Images in use across pages</span>
-                        <button type="button" onClick={() => setOgPickerOpen(false)} className="text-muted-foreground hover:text-foreground">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      {inUseLoading ? (
-                        <div className="flex items-center justify-center py-6">
-                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : inUseImages.length === 0 ? (
-                        <p className="text-[11px] text-muted-foreground text-center py-4">No images found in pages yet.</p>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-1 p-1.5 max-h-48 overflow-y-auto">
-                          {inUseImages.map(url => (
-                            <OgInUseThumb
-                              key={url}
-                              url={url}
-                              onPick={u => { setOgImage(u); setOgPickerOpen(false); setTimeout(handleSave, 100); }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Search engine visibility (task #494, #547) */}
