@@ -8,7 +8,7 @@ import {
   salesContactsTable,
   type MarketoConnection,
 } from "@workspace/db";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { relinkOrphans } from "./sales/relinkOrphans";
 import { encryptCredential, decryptCredential } from "./encryption";
@@ -122,6 +122,22 @@ export function planResume(
   return lists.slice(idx).map((l, i) =>
     i === 0 ? { listId: l.marketoId, startCursor: resume.cursor } : { listId: l.marketoId },
   );
+}
+
+/**
+ * Salesforce IDs come in two forms for the SAME record: a 15-character
+ * case-sensitive id and an 18-character case-insensitive one (the 15 plus a
+ * 3-character checksum). Marketo generally hands back the 18; LP Studio's
+ * contacts are stored as 15. A raw string comparison between them matches
+ * NOTHING — which is exactly what a preview against 7,781 real contacts
+ * showed: 69% of leads carrying ids, zero overlap.
+ *
+ * Truncating to 15 is the canonical way to compare across systems, and is a
+ * no-op when both sides are already 15.
+ */
+export function normalizeSfdcId(id: string | null | undefined): string {
+  const v = (id ?? "").trim();
+  return v ? v.slice(0, 15) : "";
 }
 
 export class MarketoService {
@@ -731,12 +747,17 @@ export class MarketoService {
     const marketoLeadId = String(lead.id);
     const engagementMeta = { marketoLeadScore: lead.leadScore ?? null, marketoLeadId };
 
-    // (a) Match by Salesforce contact id.
+    // (a) Match by Salesforce contact id. Compared on the 15-character form —
+    // Marketo hands back 18-character ids and we store 15, so an exact string
+    // comparison matched nothing at all (see normalizeSfdcId).
     if (lead.sfdcContactId) {
       const [contact] = await db
         .select()
         .from(salesContactsTable)
-        .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.salesforceId, lead.sfdcContactId)))
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          sql`left(${salesContactsTable.salesforceId}, 15) = ${normalizeSfdcId(lead.sfdcContactId)}`,
+        ))
         .limit(1);
       if (contact) {
         await db.update(salesContactsTable).set({
@@ -753,7 +774,10 @@ export class MarketoService {
       const [account] = await db
         .select({ id: salesAccountsTable.id })
         .from(salesAccountsTable)
-        .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.salesforceId, lead.sfdcAccountId)))
+        .where(and(
+          eq(salesAccountsTable.tenantId, tenantId),
+          sql`left(${salesAccountsTable.salesforceId}, 15) = ${normalizeSfdcId(lead.sfdcAccountId)}`,
+        ))
         .limit(1);
       if (account) {
         await db.insert(salesContactsTable).values({
@@ -950,6 +974,8 @@ export class MarketoService {
     leadsCarryingContactId: number;
     leadsCarryingAccountId: number;
     importUnlinkedLeads: boolean;
+    marketoIdLengths: number[];
+    matchesWithoutNormalization: number;
   }> {
     const sampleSize = Math.min(Math.max(opts.sampleSize ?? 2000, 1), 20000);
     const connection = await this.getConnectionForTenant(connectionId, tenantId);
@@ -980,34 +1006,39 @@ export class MarketoService {
 
     const contactIds = [...new Set(sample.map((l) => l.sfdcContactId).filter((v): v is string => !!v))];
     const accountIds = [...new Set(sample.map((l) => l.sfdcAccountId).filter((v): v is string => !!v))];
+    // Diagnostic: what shape are Marketo's ids? 15 vs 18 decides whether a raw
+    // comparison can ever match what we store.
+    const idLengths = [...new Set(contactIds.map((v) => v.length))].sort((a, b) => a - b);
 
+    // Pull every contact id once and compare NORMALISED on both sides, so the
+    // 15-vs-18 mismatch can't hide a real match.
     const knownContactIds = new Set<string>();
+    const knownContactIdsRaw = new Set<string>();
     if (contactIds.length > 0) {
       const rows = await db
         .select({ salesforceId: salesContactsTable.salesforceId })
         .from(salesContactsTable)
-        .where(and(
-          eq(salesContactsTable.tenantId, tenantId),
-          inArray(salesContactsTable.salesforceId, contactIds),
-        ));
-      for (const r of rows) if (r.salesforceId) knownContactIds.add(r.salesforceId);
+        .where(eq(salesContactsTable.tenantId, tenantId));
+      for (const r of rows) {
+        if (!r.salesforceId) continue;
+        knownContactIdsRaw.add(r.salesforceId);
+        knownContactIds.add(normalizeSfdcId(r.salesforceId));
+      }
     }
     const knownAccountIds = new Set<string>();
     if (accountIds.length > 0) {
       const rows = await db
         .select({ salesforceId: salesAccountsTable.salesforceId })
         .from(salesAccountsTable)
-        .where(and(
-          eq(salesAccountsTable.tenantId, tenantId),
-          inArray(salesAccountsTable.salesforceId, accountIds),
-        ));
-      for (const r of rows) if (r.salesforceId) knownAccountIds.add(r.salesforceId);
+        .where(eq(salesAccountsTable.tenantId, tenantId));
+      for (const r of rows) if (r.salesforceId) knownAccountIds.add(normalizeSfdcId(r.salesforceId));
     }
 
-    let wouldUpdateExistingContact = 0, wouldCreateUnderAccount = 0, wouldSkip = 0;
+    let wouldUpdateExistingContact = 0, wouldCreateUnderAccount = 0, wouldSkip = 0, rawMatches = 0;
     for (const lead of sample) {
-      if (lead.sfdcContactId && knownContactIds.has(lead.sfdcContactId)) wouldUpdateExistingContact++;
-      else if (lead.sfdcAccountId && knownAccountIds.has(lead.sfdcAccountId)) wouldCreateUnderAccount++;
+      if (lead.sfdcContactId && knownContactIdsRaw.has(lead.sfdcContactId)) rawMatches++;
+      if (lead.sfdcContactId && knownContactIds.has(normalizeSfdcId(lead.sfdcContactId))) wouldUpdateExistingContact++;
+      else if (lead.sfdcAccountId && knownAccountIds.has(normalizeSfdcId(lead.sfdcAccountId))) wouldCreateUnderAccount++;
       else if (connection.importUnlinkedLeads) wouldCreateUnderAccount++;
       else wouldSkip++;
     }
@@ -1021,6 +1052,11 @@ export class MarketoService {
       leadsCarryingContactId: sample.filter((l) => !!l.sfdcContactId).length,
       leadsCarryingAccountId: sample.filter((l) => !!l.sfdcAccountId).length,
       importUnlinkedLeads: connection.importUnlinkedLeads,
+      // Diagnostics: `matchesWithoutNormalization` is what the old exact-string
+      // comparison would have found. A large gap between it and
+      // wouldUpdateExistingContact IS the 15-vs-18 bug.
+      marketoIdLengths: idLengths,
+      matchesWithoutNormalization: rawMatches,
     };
   }
 
