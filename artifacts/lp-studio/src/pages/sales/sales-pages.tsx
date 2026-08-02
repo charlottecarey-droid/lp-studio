@@ -32,6 +32,7 @@ import {
   Bell,
   BellRing,
   Mail,
+  Send,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -46,7 +47,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
 import { getLpPageUrl } from "@/lib/utils";
-import { copyEmailPreview } from "@/lib/email-preview";
+import { copyEmailPreview, buildOutreachEmail, buildGmailComposeUrl } from "@/lib/email-preview";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNowStrict } from "date-fns";
 
@@ -602,14 +603,60 @@ export default function SalesPages() {
     }
   }
 
-  async function copyPreviewTo(row: PageRow, pageUrl: string, key: string) {
+  /** Open Gmail's web composer prefilled for this link. Called AFTER the card
+   *  is on the clipboard — a compose URL can't carry an image, so the rep
+   *  pastes it in. The URL is in the body too, so a send without pasting is
+   *  still a working email. */
+  function openGmailFor(
+    pageUrl: string,
+    opts: { to?: string | null; firstName?: string | null; title?: string | null; copied: boolean },
+  ) {
+    const { subject, body } = buildOutreachEmail({
+      firstName: opts.firstName,
+      pageTitle: opts.title,
+      url: pageUrl,
+    });
+    window.open(buildGmailComposeUrl({ to: opts.to, subject, body }), "_blank", "noopener,noreferrer");
+    toast(
+      opts.copied
+        ? {
+            title: "Gmail opened — paste the card",
+            description: "The preview is on your clipboard: click into the message body and press ⌘V.",
+          }
+        : {
+            // The draft is still worth having: the body carries the link.
+            title: "Gmail opened without the card",
+            description: "The preview couldn't reach your clipboard, but the link is already in the message.",
+          },
+    );
+  }
+
+  async function copyPreviewTo(
+    row: PageRow,
+    pageUrl: string,
+    key: string,
+    gmail?: { to?: string | null; firstName?: string | null },
+  ) {
     if (epBusyKey !== null) return;
     setEpBusyKey(key);
     try {
-      const result = await copyEmailPreview({ pageId: row.pageId, pageUrl, title: row.pageTitle });
-      setEpCopiedKey(key);
-      setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
-      if (result === "link-only") {
+      // A clipboard write can fail for reasons that have nothing to do with
+      // the draft (denied permission, the tab losing focus mid-capture). When
+      // the rep asked for Gmail, that must NOT swallow the compose window —
+      // the body carries the link, so the draft is useful on its own.
+      let result: Awaited<ReturnType<typeof copyEmailPreview>> | null = null;
+      try {
+        result = await copyEmailPreview({ pageId: row.pageId, pageUrl, title: row.pageTitle });
+      } catch (err) {
+        console.error("Copy email preview error:", err);
+        if (!gmail) throw err;
+      }
+      if (result) {
+        setEpCopiedKey(key);
+        setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
+      }
+      if (gmail) openGmailFor(pageUrl, { ...gmail, title: row.pageTitle, copied: result !== null });
+      else if (result === "link-only") {
         toast({
           title: "Copied the link instead",
           description: "Couldn't build the image preview, so the plain link is on your clipboard.",
@@ -625,7 +672,7 @@ export default function SalesPages() {
 
   /** Copy the preview linked to a personalized /p/ link for this contact,
    *  reusing the page's existing hotlink or creating one on the fly. */
-  async function copyPersonalizedPreview(row: PageRow, contact: EpContact) {
+  async function copyPersonalizedPreview(row: PageRow, contact: EpContact, openGmail = false) {
     if (epBusyKey !== null) return;
     const key = `contact:${contact.id}`;
     setEpBusyKey(key);
@@ -649,14 +696,33 @@ export default function SalesPages() {
         setEmailPreviewModal(prev => prev && prev.pageId === row.pageId ? { ...prev, hotlinks: [...prev.hotlinks, appended] } : prev);
         setRows(prev => prev.map(r => r.pageId === row.pageId ? { ...r, hotlinks: [...r.hotlinks, appended] } : r));
       }
-      const result = await copyEmailPreview({
-        pageId: row.pageId,
-        pageUrl: `${window.location.origin}/p/${entry.token}`,
-        title: row.pageTitle,
-      });
-      setEpCopiedKey(key);
-      setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
-      if (result === "link-only") {
+      const personalizedUrl = `${window.location.origin}/p/${entry.token}`;
+      // Same rule as copyPreviewTo: a clipboard failure must not cost the rep
+      // the Gmail draft, which already carries the link in its body. The
+      // hotlink above is created either way, so the link stays valid.
+      let result: Awaited<ReturnType<typeof copyEmailPreview>> | null = null;
+      try {
+        result = await copyEmailPreview({
+          pageId: row.pageId,
+          pageUrl: personalizedUrl,
+          title: row.pageTitle,
+        });
+      } catch (err) {
+        console.error("Copy email preview error:", err);
+        if (!openGmail) throw err;
+      }
+      if (result) {
+        setEpCopiedKey(key);
+        setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
+      }
+      if (openGmail) {
+        openGmailFor(personalizedUrl, {
+          to: contact.email,
+          firstName: contact.firstName,
+          title: row.pageTitle,
+          copied: result !== null,
+        });
+      } else if (result === "link-only") {
         toast({
           title: "Copied the link instead",
           description: "Couldn't build the image preview, so the plain link is on your clipboard.",
@@ -1797,6 +1863,14 @@ export default function SalesPages() {
                         ? <><Check className="w-3 h-3 mr-1 text-emerald-500" />Copied</>
                         : <><Copy className="w-3 h-3 mr-1" />Copy</>}
                   </Button>
+                  <Button
+                    size="sm" variant="outline" className="h-7 px-2.5 text-[11px] shrink-0"
+                    disabled={epBusyKey !== null}
+                    title="Copy the card and open a Gmail draft (no recipient — it's the plain link)"
+                    onClick={() => void copyPreviewTo(row, plainUrl, "plain", {})}
+                  >
+                    <Send className="w-3 h-3 mr-1" />Gmail
+                  </Button>
                 </div>
 
                 {/* Personalized link — attributed visits */}
@@ -1832,23 +1906,41 @@ export default function SalesPages() {
                           {row.hotlinks.map(hl => {
                             const key = `contact:${hl.contactId}`;
                             const name = hl.contactName || "Contact";
+                            const url = `${window.location.origin}/p/${hl.token}`;
+                            // A hotlink row carries only the contact's name —
+                            // resolve the address from the contact list the
+                            // modal already loaded so Gmail can prefill "To".
+                            const contact = epAllContacts.find(c => c.id === hl.contactId);
                             return (
-                              <button
-                                key={hl.hotlinkId}
-                                disabled={epBusyKey !== null}
-                                onClick={() => void copyPreviewTo(row, `${window.location.origin}/p/${hl.token}`, key)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
-                              >
-                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
-                                  {initials(name)}
-                                </div>
-                                <span className="flex-1 min-w-0 text-xs text-foreground truncate">{name}</span>
-                                {epBusyKey === key
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
-                                  : epCopiedKey === key
-                                    ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                    : <Copy className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
-                              </button>
+                              <div key={hl.hotlinkId} className="flex items-center hover:bg-muted/60 transition-colors">
+                                <button
+                                  disabled={epBusyKey !== null}
+                                  onClick={() => void copyPreviewTo(row, url, key)}
+                                  className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left disabled:opacity-60"
+                                >
+                                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                                    {initials(name)}
+                                  </div>
+                                  <span className="flex-1 min-w-0 text-xs text-foreground truncate">{name}</span>
+                                  {epBusyKey === key
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+                                    : epCopiedKey === key
+                                      ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                      : <Copy className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
+                                </button>
+                                <button
+                                  disabled={epBusyKey !== null}
+                                  title={`Copy the card and open a Gmail draft to ${name}`}
+                                  aria-label={`Open a Gmail draft to ${name}`}
+                                  onClick={() => void copyPreviewTo(row, url, key, {
+                                    to: contact?.email,
+                                    firstName: contact?.firstName || name,
+                                  })}
+                                  className="px-2.5 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -1869,30 +1961,40 @@ export default function SalesPages() {
                         const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim() || c.email || "Contact";
                         const hasLink = linkedIds.has(c.id);
                         return (
-                          <button
-                            key={c.id}
-                            disabled={epBusyKey !== null}
-                            onClick={() => void copyPersonalizedPreview(row, c)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
-                          >
-                            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
-                              {initials(name)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs text-foreground truncate">{name}</div>
-                              <div className="text-[10px] text-muted-foreground truncate">
-                                {[c.title, c.accountName].filter(Boolean).join(" · ")}
+                          <div key={c.id} className="flex items-center hover:bg-muted/60 transition-colors">
+                            <button
+                              disabled={epBusyKey !== null}
+                              onClick={() => void copyPersonalizedPreview(row, c)}
+                              className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left disabled:opacity-60"
+                            >
+                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                                {initials(name)}
                               </div>
-                            </div>
-                            {hasLink && (
-                              <span className="text-[9px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">Has link</span>
-                            )}
-                            {epBusyKey === key
-                              ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
-                              : epCopiedKey === key
-                                ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                : <Copy className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
-                          </button>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-foreground truncate">{name}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">
+                                  {[c.title, c.accountName].filter(Boolean).join(" · ")}
+                                </div>
+                              </div>
+                              {hasLink && (
+                                <span className="text-[9px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">Has link</span>
+                              )}
+                              {epBusyKey === key
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+                                : epCopiedKey === key
+                                  ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                  : <Copy className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
+                            </button>
+                            <button
+                              disabled={epBusyKey !== null}
+                              title={c.email ? `Copy the card and open a Gmail draft to ${c.email}` : "Copy the card and open a Gmail draft (this contact has no email on file)"}
+                              aria-label={`Open a Gmail draft to ${name}`}
+                              onClick={() => void copyPersonalizedPreview(row, c, true)}
+                              className="px-2.5 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         );
                       })}
                     </div>

@@ -50,6 +50,49 @@ export function buildEmailPreviewHtml(args: {
   );
 }
 
+/** "Ava Nguyen" → "Ava". Returns "" when there's nothing usable, so callers
+ *  fall back to a name-less greeting instead of writing "Hey ,". */
+export function firstNameOf(name: string | null | undefined): string {
+  const first = (name ?? "").trim().split(/\s+/)[0] ?? "";
+  // An email-shaped "name" is not a first name.
+  return first.includes("@") ? "" : first;
+}
+
+/**
+ * Subject + plain-text body for a one-click outreach compose.
+ *
+ * The body deliberately carries the URL even though the rep is about to paste
+ * the rich card over/under it: a compose URL cannot transport an image, so the
+ * paste is a manual step, and an un-pasted send must still be a working email
+ * rather than "Hey Ava," followed by nothing.
+ */
+export function buildOutreachEmail(args: {
+  firstName?: string | null;
+  pageTitle?: string | null;
+  url: string;
+}): { subject: string; body: string } {
+  const first = firstNameOf(args.firstName);
+  const title = (args.pageTitle ?? "").trim();
+  const greeting = first ? `Hey ${first},` : "Hey,";
+  return {
+    subject: title || "A page for you",
+    body: `${greeting}\n\nI put together a page just for you:\n${args.url}\n\n`,
+  };
+}
+
+/** Gmail web compose URL. Gmail ignores HTML in `body`, which is why the card
+ *  itself rides the clipboard instead. */
+export function buildGmailComposeUrl(args: {
+  to?: string | null;
+  subject: string;
+  body: string;
+}): string {
+  const params = new URLSearchParams({ view: "cm", fs: "1", su: args.subject, body: args.body });
+  const to = (args.to ?? "").trim();
+  if (to) params.set("to", to);
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
 export type EmailPreviewCopyResult = "rich" | "link-only";
 
 /**

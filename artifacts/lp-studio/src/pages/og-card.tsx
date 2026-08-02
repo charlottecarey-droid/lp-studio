@@ -184,13 +184,20 @@ export default function OgCardPage() {
             alt=""
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           />
-          {/* Scrim keeps white text readable over any photo; heavier at the
-              bottom where the headline sits. */}
+          {/* Two-axis scrim. The horizontal pass is the load-bearing one: hero
+              art is routinely a CENTRE-FRAMED subject (a portrait, a product),
+              so a bottom-only wash left the headline sitting on a face. Darken
+              the left column where all the text lives and let the right side
+              stay light, which also means more of the photo actually reads.
+              Kept as two gradients rather than one baked ramp so each axis can
+              be tuned without re-deriving the other. */}
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(180deg, rgba(7,10,18,0.45) 0%, rgba(7,10,18,0.62) 55%, rgba(7,10,18,0.82) 100%)",
+              background:
+                "linear-gradient(90deg, rgba(7,10,18,0.68) 0%, rgba(7,10,18,0.45) 50%, rgba(7,10,18,0.10) 100%)," +
+                "linear-gradient(180deg, rgba(7,10,18,0.20) 0%, rgba(7,10,18,0.32) 55%, rgba(7,10,18,0.55) 100%)",
             }}
           />
         </>
