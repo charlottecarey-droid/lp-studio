@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { logger } from "./logger";
+import { relinkOrphans } from "./sales/relinkOrphans";
 import { encryptCredential, decryptCredential } from "./encryption";
 
 /**
@@ -895,6 +896,17 @@ export class MarketoService {
         status: "completed", lastCursor: null, recordsProcessed: processed, recordsCreated: created, recordsUpdated: updated, recordsSkipped: skipped, completedAt: new Date(),
       }).where(eq(marketoSyncLogTable.id, logId));
       await db.update(marketoConnectionsTable).set({ lastSyncAt: new Date(), lastSyncError: null }).where(eq(marketoConnectionsTable.id, connectionId));
+      // An import can create the contact an already-sent personalized link was
+      // waiting for, so heal orphaned hotlinks here rather than leaving them
+      // for whoever remembers POST /sales/relink exists. Non-fatal.
+      try {
+        const healed = await relinkOrphans(tenantId);
+        if (healed.hotlinksRelinked || healed.pagesRelinked) {
+          logger.info({ tenantId, ...healed }, "Marketo import re-linked orphaned records");
+        }
+      } catch (relinkErr) {
+        logger.error({ relinkErr, tenantId }, "Post-import relink failed (non-fatal)");
+      }
       // Completed cleanly — clear any resume cursor so the next scheduled run
       // starts from the top.
       if (resume) await this.writeScheduledSyncState(connectionId, null);

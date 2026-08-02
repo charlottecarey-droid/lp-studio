@@ -1,3 +1,4 @@
+import { relinkOrphans } from "../../lib/sales/relinkOrphans";
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
@@ -425,31 +426,13 @@ router.post("/import/contacts", importLimiter, async (req, res): Promise<void> =
   }
 
   // ─── Re-association pass ────────────────────────────────────────────────────
-  // After upsert, re-link any hotlinks whose contact_id was NULLed during a
-  // prior delete+re-sync. Match via sfdc_contact_id = sales_contacts.salesforce_id.
-  // Also heal lp_pages.account_id that went stale by joining on sfdc_account_id.
+  // Re-link hotlinks orphaned by a prior delete+re-sync, and heal stale
+  // lp_pages.account_id. Shared with POST /sales/relink — the copy that used to
+  // live here joined sales_accounts.sfdc_id, a column empty on every row, so
+  // the page half never matched anything. Non-fatal: a failed repair must not
+  // fail an otherwise good import.
   try {
-    // 1. Re-link orphaned hotlinks → contacts
-    await pool.query(`
-      UPDATE sales_hotlinks hl
-      SET contact_id = c.id
-      FROM sales_contacts c
-      WHERE hl.contact_id IS NULL
-        AND hl.sfdc_contact_id IS NOT NULL
-        AND c.salesforce_id = hl.sfdc_contact_id
-        AND c.tenant_id = $1
-    `, [tenantId]);
-
-    // 2. Heal stale account_id on lp_pages via sfdc_account_id
-    await pool.query(`
-      UPDATE lp_pages lp
-      SET account_id = sa.id
-      FROM sales_accounts sa
-      WHERE lp.sfdc_account_id IS NOT NULL
-        AND lp.sfdc_account_id = sa.sfdc_id
-        AND sa.tenant_id = $1
-        AND (lp.account_id IS NULL OR lp.account_id != sa.id)
-    `, [tenantId]);
+    await relinkOrphans(tenantId);
   } catch (relinkErr) {
     console.error("Re-association pass error (non-fatal):", relinkErr);
   }
@@ -557,27 +540,7 @@ router.post("/import/display-names", importLimiter, async (req, res): Promise<vo
 router.post("/relink", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
-    // Re-link hotlinks where contact was deleted (contact_id IS NULL) but sfdc_contact_id matches a re-imported contact
-    const { rowCount: hotlinksRelinked } = await pool.query(`
-      UPDATE sales_hotlinks hl
-      SET contact_id = c.id
-      FROM sales_contacts c
-      WHERE hl.contact_id IS NULL
-        AND hl.sfdc_contact_id IS NOT NULL
-        AND c.salesforce_id = hl.sfdc_contact_id
-        AND c.tenant_id = $1
-    `, [tenantId]);
-
-    // Heal stale account_id on lp_pages using the stable sfdc_account_id
-    const { rowCount: pagesRelinked } = await pool.query(`
-      UPDATE lp_pages lp
-      SET account_id = sa.id
-      FROM sales_accounts sa
-      WHERE lp.sfdc_account_id IS NOT NULL
-        AND lp.sfdc_account_id = sa.sfdc_id
-        AND sa.tenant_id = $1
-        AND (lp.account_id IS NULL OR lp.account_id != sa.id)
-    `, [tenantId]);
+    const { hotlinksRelinked, pagesRelinked } = await relinkOrphans(tenantId);
 
     res.json({
       success: true,
