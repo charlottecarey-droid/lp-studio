@@ -263,13 +263,6 @@ export function SalesTopNav() {
       matchFn: (loc) => loc === "/sales/accounts" || loc.startsWith("/sales/accounts/"),
     },
     {
-      label: "Pages",
-      href: "/sales/microsites",
-      icon: <Globe className="w-4 h-4" />,
-      permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/microsites" || loc === "/sales/pages",
-    },
-    {
       label: "Activity",
       href: "/sales/signals",
       icon: <Activity className="w-4 h-4" />,
@@ -282,6 +275,15 @@ export function SalesTopNav() {
       icon: <Users className="w-4 h-4" />,
       permission: "sales_contacts",
       matchFn: (loc) => loc === "/sales/contacts" || loc.startsWith("/sales/contacts/"),
+    },
+    // Pages sits last, right before the Tools dropdown — it's the most-used
+    // tab, and end-of-row is the easiest slot to hit repeatedly.
+    {
+      label: "Pages",
+      href: "/sales/microsites",
+      icon: <Globe className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/microsites" || loc === "/sales/pages",
     },
   ];
 
