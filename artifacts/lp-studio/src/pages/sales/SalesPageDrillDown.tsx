@@ -80,6 +80,9 @@ interface VisitRow {
   utmSource: string | null;
   utmMedium: string | null;
   scrollDepthPct: number | null;
+  /** Tab-visible seconds for this single visit. null = predates dwell
+   *  tracking, or the visitor left before the first flush. */
+  dwellSeconds: number | null;
   clicks: number;
   converted: boolean;
 }
@@ -339,6 +342,17 @@ export function SalesPageDrillDown({
                     <p className="text-xs text-muted-foreground py-3">No visits in the last {windowDays} days.</p>
                   ) : (
                     <div className="flex flex-col divide-y divide-border/50 rounded-lg border border-border overflow-hidden">
+                      {/* Column headers — the per-visit numbers were bare
+                          values with only a hover title, so "89%" read as
+                          anyone's guess. Widths here must match the row cells
+                          below or the labels drift out of alignment. */}
+                      <div className="flex items-center gap-2.5 px-3 py-1.5 bg-muted/40">
+                        <span className="w-6 shrink-0" aria-hidden />
+                        <span className="flex-1 min-w-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Visitor</span>
+                        <span className="w-14 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Time</span>
+                        <span className="w-12 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scroll</span>
+                        <span className="w-16 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">When</span>
+                      </div>
                       {visits.map(v => {
                         const known = v.source !== "anonymous" || v.resolved;
                         const who = v.contactName || v.email || v.company;
@@ -369,11 +383,20 @@ export function SalesPageDrillDown({
                             {v.converted && (
                               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-emerald-100 text-emerald-700 shrink-0">Converted</span>
                             )}
-                            {v.scrollDepthPct != null && (
-                              <span className="text-[11px] text-muted-foreground tabular-nums shrink-0" title="Scroll depth">{Math.round(v.scrollDepthPct)}%</span>
-                            )}
-                            <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
-                              {formatDistanceToNowStrict(new Date(v.visitedAt))} ago
+                            <span
+                              className={`w-14 shrink-0 text-right text-[11px] tabular-nums ${v.dwellSeconds != null ? "text-foreground" : "text-muted-foreground/50"}`}
+                              title={v.dwellSeconds != null ? "Time on page for this visit" : "No time recorded for this visit"}
+                            >
+                              {fmtDwell(v.dwellSeconds)}
+                            </span>
+                            <span
+                              className={`w-12 shrink-0 text-right text-[11px] tabular-nums ${v.scrollDepthPct != null ? "text-foreground" : "text-muted-foreground/50"}`}
+                              title={v.scrollDepthPct != null ? "How far down the page they scrolled" : "No scroll recorded for this visit"}
+                            >
+                              {v.scrollDepthPct != null ? `${Math.round(v.scrollDepthPct)}%` : "—"}
+                            </span>
+                            <span className="w-16 shrink-0 text-right text-[11px] text-muted-foreground whitespace-nowrap">
+                              {formatDistanceToNowStrict(new Date(v.visitedAt), { addSuffix: false })}
                             </span>
                           </div>
                         );

@@ -470,6 +470,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           pv.utm_source, pv.utm_medium, pv.utm_campaign,
           pv.session_id,
           NULL::real AS scroll_depth_pct,
+          pv.dwell_seconds,
           0 AS clicks,
           EXISTS (
             SELECT 1 FROM lp_events e
@@ -488,6 +489,10 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           NULL::text AS utm_source, NULL::text AS utm_medium, NULL::text AS utm_campaign,
           NULL::text AS session_id,
           plv.scroll_depth_pct,
+          -- Personalized-link visits carry no dwell of their own: the tab-visible
+          -- timer posts against the page's own session (lp_page_visits), so the
+          -- same human's time shows on their anonymous row.
+          NULL::integer AS dwell_seconds,
           plv.cta_clicks AS clicks,
           (plv.cta_clicks > 0) AS converted
         FROM lp_personalized_link_visits plv
@@ -543,6 +548,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
       utm_campaign: string | null;
       session_id: string | null;
       scroll_depth_pct: number | null;
+      dwell_seconds: number | null;
       clicks: number | null;
       converted: boolean;
     }
@@ -691,6 +697,10 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
         utmCampaign: r.utm_campaign,
         device,
         scrollDepthPct,
+        // Tab-visible seconds for THIS visit (NULL predates dwell tracking or
+        // the visitor left before the first flush) — the per-visit counterpart
+        // to the "Avg time" stat above the list.
+        dwellSeconds: r.dwell_seconds != null ? Number(r.dwell_seconds) : null,
         clicks,
         converted: Boolean(r.converted),
         // Per-visit detail for row-expand (anonymous heatmap stream only;
