@@ -5,7 +5,7 @@ import { eq, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
 import { listTemplatesForTenant } from "../../lib/templateListing";
-import { resolveOGFields, isLegacyThumioUrl, CURRENT_OG_CARD_VERSION } from "../../lib/resolvePageOG";
+import { resolveOGFields, CURRENT_OG_CARD_VERSION } from "../../lib/resolvePageOG";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { getTenantPlan } from "../../lib/planFeatures";
@@ -1293,17 +1293,18 @@ async function captureOgScreenshotToStorage(args: {
 }
 
 /**
- * Resolve the preview image for the "copy email preview" embed snippet.
- * Precedence:
- *   1. the page's explicit og_image (SEO-panel upload / builder auto-fill) —
- *      the user picked it, never second-guess it. Legacy thum.io URLs are the
- *      exception: those captures were wrong-font/stale by construction, so
- *      they're treated as absent;
- *   2. the auto-generated designed card (og_card_image) — but only when its
- *      recorded design version is current, so shipping a better card template
- *      lazily refreshes every stale card on the next copy;
- *   3. a fresh card capture, persisted to og_card_image + og_card_version so
- *      scrapers and the next copy reuse it instead of re-rendering chromium.
+ * Resolve the preview image for the "copy email preview" embed snippet: ALWAYS
+ * the designed card — the stored current-version og_card_image when present,
+ * else a fresh capture persisted to og_card_image + og_card_version so
+ * scrapers and the next copy reuse it instead of re-rendering chromium.
+ *
+ * og_image is deliberately NOT consulted here (unlike the scraper meta
+ * cascade, where an explicit og_image still wins): years of auto-fill and the
+ * pre-card email-preview flow wrote captures into og_image, so its presence
+ * doesn't mean a human picked it — honoring it silently served stale
+ * screenshots on ~60% of pages and made this feature look unshipped. The rep
+ * embed is a system surface; it gets the system card, deterministically.
+ * Bumping CURRENT_OG_CARD_VERSION lazily regenerates every card on next copy.
  */
 router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -1317,7 +1318,6 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
       .select({
         id: lpPagesTable.id,
         slug: lpPagesTable.slug,
-        ogImage: lpPagesTable.ogImage,
         ogCardImage: lpPagesTable.ogCardImage,
         ogCardVersion: lpPagesTable.ogCardVersion,
       })
@@ -1329,12 +1329,9 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
       return;
     }
 
-    const explicit = (page.ogImage ?? "").trim();
     const card = (page.ogCardImage ?? "").trim();
     let imageUrl = "";
-    if (explicit && !isLegacyThumioUrl(explicit)) {
-      imageUrl = explicit;
-    } else if (card && page.ogCardVersion === CURRENT_OG_CARD_VERSION) {
+    if (card && page.ogCardVersion === CURRENT_OG_CARD_VERSION) {
       imageUrl = card;
     } else {
       imageUrl = await captureOgScreenshotToStorage({

@@ -39,6 +39,7 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "*",    pattern: /^\/lp\/track/ },
   { method: "*",    pattern: /^\/lp\/page\// },           // GET /lp/page/:slug (variant config for public viewer)
   { method: "GET",  pattern: /^\/lp\/preview\// },        // GET /lp/preview/:slug — does its own auth-or-token check; must skip blanket auth so unauth requests 404 instead of 401 (no enumeration)
+  { method: "GET",  pattern: /^\/lp\/og-card-data\// },   // GET /lp/og-card-data/:slug — data for the designed OG share card (/og-card/:slug); same auth-or-token check as /lp/preview, and the headless capture loads it with only a reviewToken
   { method: "GET",  pattern: /^\/lp\/brand$/ },           // GET /lp/brand — brand for the published page (tenant resolved from host)
   { method: "POST", pattern: /^\/lp\/media\/shared\/upload$/ }, // POST /lp/media/shared/upload — superadmin only (requireSuperadmin)
   { method: "POST", pattern: /^\/lp\/leads$/ },           // POST /lp/leads (form submissions)
