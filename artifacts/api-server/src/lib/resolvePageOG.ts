@@ -99,12 +99,87 @@ export function deriveFirstBlockImage(blocks: unknown): string {
   return visit(blocks) ?? "";
 }
 
+/**
+ * A block's own lead image, in the order that makes the best 1200×630 card
+ * background. Full-bleed background assets come first because they are drawn
+ * to sit behind text; a `heroImageUrl` is often a portrait/product shot that
+ * crops awkwardly at card ratio. Matching walks THIS list (not the object's
+ * key order), so the result no longer depends on how the JSON happens to be
+ * serialised.
+ */
+const HERO_IMAGE_KEYS = [
+  "backgroundimageurl",
+  "backgroundimage",
+  "bgimageurl",
+  "bgimage",
+  "heroimageurl",
+  "heroimage",
+  "coverimageurl",
+  "coverimage",
+  "imageurl",
+  "image",
+];
+
+/** Block types that ARE the page's lead visual. */
+const HERO_BLOCK_TYPE = /hero|masthead|banner|cover/i;
+
+/** First direct-prop image matching `keys`, in key-priority order. Deliberately
+ *  depth-1: a hero image is a prop of the hero block, never buried inside a
+ *  repeater — recursing is exactly how a testimonial headshot or a carousel
+ *  frame used to win. */
+function directImage(props: Record<string, unknown>, keys: string[]): string {
+  const lowered = new Map<string, unknown>();
+  for (const [k, v] of Object.entries(props)) lowered.set(k.toLowerCase(), v);
+  for (const key of keys) {
+    const v = lowered.get(key);
+    if (typeof v === "string" && looksLikeImageUrl(v)) return v.trim();
+  }
+  return "";
+}
+
+/**
+ * The image a share card should sit on: the page's HERO, not merely the first
+ * image anywhere in the blocks JSON.
+ *
+ * `deriveFirstBlockImage` (still used for the scraper cascade) doesn't match
+ * `heroImageUrl` / `backgroundImageUrl` at all, so on most real pages it fell
+ * straight through to a nested `src`/`photo` — a stock headshot, a logo, a
+ * carousel frame. Hence "the card uses a random image".
+ *
+ * Order: hero-typed block first, then any block's hero/background prop, then
+ * the legacy walk so a page with only nested imagery still gets something.
+ */
+export function deriveHeroImage(blocks: unknown): string {
+  if (Array.isArray(blocks)) {
+    const entries = blocks
+      .filter((b): b is Record<string, unknown> => !!b && typeof b === "object" && !Array.isArray(b))
+      .map((b) => ({
+        type: typeof b.type === "string" ? b.type : "",
+        props:
+          b.props && typeof b.props === "object" && !Array.isArray(b.props)
+            ? (b.props as Record<string, unknown>)
+            : b,
+      }));
+
+    for (const e of entries) {
+      if (!HERO_BLOCK_TYPE.test(e.type)) continue;
+      const img = directImage(e.props, HERO_IMAGE_KEYS);
+      if (img) return img;
+    }
+    for (const e of entries) {
+      const img = directImage(e.props, HERO_IMAGE_KEYS);
+      if (img) return img;
+    }
+  }
+  return deriveFirstBlockImage(blocks);
+}
+
 const s = (v: string | null | undefined): string => (typeof v === "string" ? v.trim() : "");
 
 /** Current designed-card layout version. Bump when the /og-card template
  *  changes visually; stored cards with an older ogCardVersion are lazily
  *  re-captured on the next email-preview copy instead of being served. */
-export const CURRENT_OG_CARD_VERSION = 1;
+export const CURRENT_OG_CARD_VERSION = 2;
 
 /** Legacy thum.io capture URLs (pre-Aug-2026 URL-as-storage era). These
  *  routinely rendered with fallback fonts and third-party caching, so every
@@ -119,6 +194,11 @@ export function isLegacyThumioUrl(url: string): boolean {
 }
 
 const dropThumio = (url: string): string => (isLegacyThumioUrl(url) ? "" : url);
+
+/** Explicit co-brand / partner logo fields — the value a human picked in the
+ *  block panel. Always beats a logo scraped off a sponsor wall. */
+const ACCOUNT_LOGO_KEYS = ["accountlogourl", "partnerlogourl", "cobrandlogourl", "clientlogourl"];
+const ACCOUNT_NAME_KEYS = ["accountname", "partnername", "clientname"];
 
 const HEADLINE_KEY_HINTS = ["headline", "heading", "title"];
 const SUBHEADLINE_KEY_HINTS = ["subheadline", "subtitle", "subheading", "tagline", "description"];
@@ -144,52 +224,69 @@ export function deriveOgCardCopy(blocks: unknown): {
 } {
   let headline = "";
   let subheadline = "";
-  let accountName = "";
-  let accountLogo = "";
+  let anyAccountName = "";
+  // Partner-badge candidates, kept in TIERS. Collecting instead of taking the
+  // first match is the whole point: a greedy walk let whichever logo appeared
+  // earliest in the JSON win, so a sponsor-wall mark could beat the page's
+  // explicit partner field.
+  const explicitBadges: { name: string; logo: string }[] = [];
+  const sponsorBadges: { name: string; logo: string }[] = [];
+
   const seen = new Set<unknown>();
   const visit = (node: unknown): void => {
     if (node == null || typeof node !== "object") return;
     if (seen.has(node)) return;
     seen.add(node);
     if (Array.isArray(node)) {
-      for (const item of node) {
-        if (headline && subheadline && accountName && accountLogo) return;
-        visit(item);
-      }
+      for (const item of node) visit(item);
       return;
     }
-    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    const obj = node as Record<string, unknown>;
+    // Lowercased view so key lookups don't depend on casing.
+    const lowered = new Map<string, unknown>();
+    for (const [k, v] of Object.entries(obj)) lowered.set(k.toLowerCase(), v);
+
+    for (const [key, value] of Object.entries(obj)) {
       const k = key.toLowerCase();
       if (!headline && HEADLINE_KEY_HINTS.includes(k) && isPlainText(value)) headline = value.trim();
       if (!subheadline && SUBHEADLINE_KEY_HINTS.includes(k) && isPlainText(value)) subheadline = value.trim();
-      if (!accountName && k === "accountname" && isPlainText(value)) accountName = value.trim();
-      if (!accountLogo && k === "accountlogourl" && typeof value === "string" && looksLikeImageUrl(value)) {
-        accountLogo = value.trim();
+      if (!anyAccountName && ACCOUNT_NAME_KEYS.includes(k) && isPlainText(value)) anyAccountName = value.trim();
+
+      // Tier 1 — the explicit co-brand field a human filled in.
+      if (ACCOUNT_LOGO_KEYS.includes(k) && typeof value === "string" && looksLikeImageUrl(value)) {
+        const near = ACCOUNT_NAME_KEYS.map((nk) => lowered.get(nk)).find(isPlainText);
+        const alt = lowered.get("accountlogoalt");
+        explicitBadges.push({
+          name: (near as string | undefined)?.trim() || (isPlainText(alt) ? alt.trim() : ""),
+          logo: value.trim(),
+        });
       }
-      // Sponsored-event partner walls (`sponsors`/`partners` arrays of
-      // {name, logoUrl}). The lead entry stands in for "the partner" on the
-      // card's logo pair. A bare `logoUrl` key hint would be wrong here —
-      // event blocks use that same key for the TENANT's own logo — so only
-      // entries nested under an explicitly partner-ish array key count.
-      if (!accountLogo && (k === "sponsors" || k === "partners") && Array.isArray(value)) {
+
+      // Tier 2 — sponsored-event partner walls (`sponsors`/`partners` arrays of
+      // {name, logoUrl}). Only entries under an explicitly partner-ish array
+      // key count: event blocks use a bare `logoUrl` for the TENANT's own mark.
+      if ((k === "sponsors" || k === "partners") && Array.isArray(value)) {
         for (const entry of value) {
           if (entry == null || typeof entry !== "object" || Array.isArray(entry)) continue;
           const e = entry as Record<string, unknown>;
           const logo = typeof e.logoUrl === "string" && looksLikeImageUrl(e.logoUrl) ? e.logoUrl.trim() : "";
           if (!logo) continue;
-          accountLogo = logo;
-          if (!accountName && isPlainText(e.name)) accountName = (e.name as string).trim();
+          sponsorBadges.push({ name: isPlainText(e.name) ? e.name.trim() : "", logo });
           break;
         }
       }
     }
-    for (const value of Object.values(node as Record<string, unknown>)) {
-      if (headline && subheadline && accountName && accountLogo) return;
-      visit(value);
-    }
+    for (const value of Object.values(obj)) visit(value);
   };
   visit(blocks);
-  return { headline, subheadline, accountName, accountLogo };
+
+  const badge = explicitBadges[0] ?? sponsorBadges[0] ?? null;
+  return {
+    headline,
+    subheadline,
+    accountName: badge?.name || anyAccountName,
+    accountLogo: badge?.logo ?? "",
+  };
 }
 
 /**

@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
-import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveFirstBlockImage, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
+import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveHeroImage, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and, sql } from "drizzle-orm";
@@ -1141,10 +1141,11 @@ router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
     subheadline: trim(page.ogCardSubheadline) || copy.subheadline || metaFallback.description,
     accountName: copy.accountName,
     accountLogo: copy.accountLogo,
-    // Background: per-page override first, else derived from page CONTENT
-    // (first block image) — never og_image/og_card_image, which may
-    // themselves be captures of this card (recursion) or of the old layout.
-    backgroundImage: trim(page.ogCardBackground) || deriveFirstBlockImage(page.blocks),
+    // Background: per-page override first, else the page's HERO image
+    // (deriveHeroImage — NOT the first image anywhere, which used to surface a
+    // stock headshot or carousel frame). Never og_image/og_card_image, which
+    // may themselves be captures of this card (recursion) or the old layout.
+    backgroundImage: trim(page.ogCardBackground) || deriveHeroImage(page.blocks),
     host: host ?? "",
     slug: page.slug,
   });

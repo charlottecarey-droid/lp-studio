@@ -4,6 +4,7 @@ import {
   substitutePageTitleToken,
   deriveFirstBlockImage,
   deriveOgCardCopy,
+  deriveHeroImage,
   isLegacyThumioUrl,
   OG_IMAGE_WIDTH,
   OG_IMAGE_HEIGHT,
@@ -309,5 +310,96 @@ describe("deriveOgCardCopy", () => {
       { type: "event-page", headline: "Hi", logoUrl: "/api/storage/objects/uploads/tenant.png" },
     ]);
     expect(copy.accountLogo).toBe("");
+  });
+});
+
+describe("deriveHeroImage", () => {
+  const HERO = "/api/storage/objects/uploads/hero.png";
+  const STOCK = "/api/storage/objects/uploads/stock-headshot.png";
+
+  it("takes the hero block's image over a stock photo buried deeper in the page", () => {
+    // The exact production shape that produced "a random image": the hero's
+    // heroImageUrl/backgroundImageUrl were invisible to the legacy walker, so
+    // a testimonial headshot won.
+    const blocks = [
+      { type: "dso-heartland-hero", props: { headline: "Hi", heroImageUrl: HERO } },
+      { type: "testimonials", props: { items: [{ name: "A", photo: STOCK }] } },
+    ];
+    expect(deriveHeroImage(blocks)).toBe(HERO);
+    // Proof the legacy walk really did pick the wrong one:
+    expect(deriveFirstBlockImage(blocks)).toBe(STOCK);
+  });
+
+  it("prefers a full-bleed background over a foreground hero shot", () => {
+    const bg = "/api/storage/objects/uploads/bg.png";
+    const blocks = [{ type: "hero", props: { heroImageUrl: HERO, backgroundImageUrl: bg } }];
+    expect(deriveHeroImage(blocks)).toBe(bg);
+  });
+
+  it("is independent of JSON key order", () => {
+    const bg = "/api/storage/objects/uploads/bg.png";
+    const a = [{ type: "hero", props: { heroImageUrl: HERO, backgroundImageUrl: bg } }];
+    const b = [{ type: "hero", props: { backgroundImageUrl: bg, heroImageUrl: HERO } }];
+    expect(deriveHeroImage(a)).toBe(deriveHeroImage(b));
+  });
+
+  it("prefers a hero-typed block even when an earlier block has an image", () => {
+    const blocks = [
+      { type: "announcement-bar", props: { imageUrl: STOCK } },
+      { type: "full-bleed-hero", props: { backgroundImageUrl: HERO } },
+    ];
+    expect(deriveHeroImage(blocks)).toBe(HERO);
+  });
+
+  it("falls back to any block's hero prop, then to the legacy walk", () => {
+    expect(deriveHeroImage([{ type: "feature", props: { backgroundImageUrl: HERO } }])).toBe(HERO);
+    expect(deriveHeroImage([{ type: "gallery", props: { items: [{ src: STOCK }] } }])).toBe(STOCK);
+    expect(deriveHeroImage(null)).toBe("");
+  });
+
+  it("ignores non-image values under hero-ish keys", () => {
+    const blocks = [
+      { type: "hero", props: { heroImage: "cover", backgroundImageUrl: HERO } },
+    ];
+    expect(deriveHeroImage(blocks)).toBe(HERO);
+  });
+});
+
+describe("deriveOgCardCopy — partner badge priority", () => {
+  const ACCOUNT = "/api/storage/objects/uploads/account-logo.png";
+  const SPONSOR = "/api/storage/objects/uploads/sponsor-logo.png";
+
+  it("the explicit account logo beats a sponsor-wall logo that appears EARLIER", () => {
+    const copy = deriveOgCardCopy([
+      { type: "event-agenda", props: { headline: "Summit", sponsors: [{ name: "Northwind", logoUrl: SPONSOR }] } },
+      { type: "account-microsite", props: { accountName: "Gentle Dental", accountLogoUrl: ACCOUNT } },
+    ]);
+    expect(copy.accountLogo).toBe(ACCOUNT);
+    expect(copy.accountName).toBe("Gentle Dental");
+  });
+
+  it("pairs the name from the SAME block as the logo, not a stray accountName", () => {
+    const copy = deriveOgCardCopy([
+      { type: "intro", props: { accountName: "Wrong Co" } },
+      { type: "microsite", props: { accountName: "Right Co", accountLogoUrl: ACCOUNT } },
+    ]);
+    expect(copy.accountName).toBe("Right Co");
+  });
+
+  it("still falls back to the lead sponsor when no explicit logo exists", () => {
+    const copy = deriveOgCardCopy([
+      { type: "event-agenda", props: { sponsors: [{ name: "Northwind", logoUrl: SPONSOR }] } },
+    ]);
+    expect(copy.accountLogo).toBe(SPONSOR);
+    expect(copy.accountName).toBe("Northwind");
+  });
+
+  it("accepts partnerLogoUrl as an alias and never the tenant's own logoUrl", () => {
+    expect(deriveOgCardCopy([{ type: "x", props: { partnerLogoUrl: ACCOUNT } }]).accountLogo).toBe(ACCOUNT);
+    expect(deriveOgCardCopy([{ type: "event-page", props: { logoUrl: SPONSOR } }]).accountLogo).toBe("");
+  });
+
+  it("keeps a bare accountName when the page has no logo at all", () => {
+    expect(deriveOgCardCopy([{ type: "x", props: { accountName: "Acme" } }]).accountName).toBe("Acme");
   });
 });
