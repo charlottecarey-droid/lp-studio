@@ -329,8 +329,13 @@ router.get("/marketo/discover/lists", requireAuth, async (req, res): Promise<voi
 router.post("/marketo/discover/refresh", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
-    const conn = await marketoService.getActiveConnection(tenantId);
-    if (!conn) { res.status(404).json({ error: "No active Marketo connection found" }); return; }
+    // Sync-agnostic on purpose (same reasoning as the import preview): this
+    // only refreshes the cached list/program catalogue — it writes nothing to
+    // contacts or accounts. Requiring syncEnabled meant a tenant had to switch
+    // the whole sync on, and let the 15-minute poller loose on live data, just
+    // to populate a cache needed for a read-only dry run.
+    const conn = await marketoService.getConnectedConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No connected Marketo account found" }); return; }
     const rows = await marketoService.discoverLists(conn.id, tenantId);
     res.json({ success: true, count: rows.length });
   } catch (err) {
