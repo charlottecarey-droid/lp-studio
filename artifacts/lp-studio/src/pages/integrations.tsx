@@ -416,10 +416,16 @@ export function IntegrationsContent() {
           </div>
         </div>
 
-        {/* More coming soon */}
-        <div className="rounded-2xl border border-dashed border-border px-6 py-8 text-center">
-          <p className="text-sm font-medium text-muted-foreground">More integrations coming soon</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">HubSpot, Slack notifications, and more</p>
+        {/* This block used to read "More integrations coming soon — HubSpot,
+            Slack notifications". Both shipped, and since the settings
+            consolidation this content renders directly BELOW live HubSpot and
+            Slack connection cards, so it was advertising as forthcoming the
+            two things immediately above it. */}
+        <div className="rounded-2xl border border-dashed border-border px-6 py-6 text-center">
+          <p className="text-sm font-medium text-muted-foreground">Looking for Salesforce, Marketo, HubSpot, or Slack?</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">
+            Those are workspace connections — set them up under Connections above.
+          </p>
         </div>
     </div>
   );

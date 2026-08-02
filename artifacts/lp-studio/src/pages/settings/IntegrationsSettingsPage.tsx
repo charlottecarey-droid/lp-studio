@@ -59,7 +59,7 @@ const CONNECTIONS: ConnectionDef[] = [
   {
     key: "marketo-sync",
     name: "Marketo",
-    description: "Form leads sync to Marketo automatically; the Sales Console can also import leads and lists and push engagement back.",
+    description: "Form leads sync automatically. Browse your static lists, import a list's members as contacts or a campaign audience, and push personalized links back.",
     href: "/sales/marketo",
     statusEndpoint: `${API_BASE}/sales/marketo/connection`,
     accent: "#5C4C9F",

@@ -439,7 +439,7 @@ export default function MarketoSettingsPage() {
     return (
       <SalesLayout>
         <div className="space-y-6">
-          <SalesPageHeader title="Marketo Settings" description="Manage your Marketo connection and two-way sync" />
+          <SalesPageHeader title="Marketo Settings" description="Lists, list imports, lead sync, and outbound push" />
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="p-6">
@@ -456,7 +456,7 @@ export default function MarketoSettingsPage() {
   return (
     <SalesLayout>
       <div className="space-y-6">
-        <SalesPageHeader title="Marketo Settings" description="Manage your Marketo connection and two-way sync" />
+        <SalesPageHeader title="Marketo Settings" description="Lists, list imports, lead sync, and outbound push" />
 
         {/* Connection Status Card */}
         <Card className="p-6 border border-border/40 bg-card/50 backdrop-blur-sm">
@@ -577,7 +577,7 @@ export default function MarketoSettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-sm">Sync enabled</p>
-                    <p className="text-sm text-muted-foreground">Allow two-way syncing and outbound activity push.</p>
+                    <p className="text-sm text-muted-foreground">Runs the scheduled lead import and allows the outbound activity push. Importing a single list and pushing links do not need this.</p>
                   </div>
                   <Switch checked={connection!.syncEnabled} onCheckedChange={(v) => handleToggleSetting("syncEnabled", v)} />
                 </div>

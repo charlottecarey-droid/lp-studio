@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   Activity, Building2, Users, Globe,
   Mail, PenSquare, Megaphone, Store, Calculator, Presentation,
-  ChevronRight, ChevronDown, BookOpen, Search,
+  ChevronRight, ChevronDown, BookOpen, Search, Plug, CalendarDays,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,10 @@ interface Section {
   icon: React.ElementType;
   title: string;
   subtitle: string;
+  /** Extra search terms. The filter used to match title/subtitle only, so
+   *  searching "marketo", "slack" or "audience" returned "no sections match"
+   *  even though the guide covered them. */
+  keywords?: string;
   content: React.ReactNode;
 }
 
@@ -46,12 +50,24 @@ const SECTIONS: Section[] = [
   {
     id: "microsites",
     icon: Globe,
-    title: "Microsites",
+    // Named "Pages" in the nav — the guide called it Microsites everywhere,
+    // which sent people looking for a tab that doesn't exist by that name.
+    title: "Pages",
     subtitle: "AI-generated landing pages per account",
+    keywords: "microsites hotlinks personalized links email preview share card analytics dwell",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">Microsites are personalized landing pages built for a specific account. Every account should have at least one — it's the destination you send prospects to, and every visit is tracked back to a specific contact.</p>
+        <p className="text-slate-700">Pages (called microsites when they're scoped to one account) are personalized landing pages built for a specific company. Every account should have at least one — it's the destination you send prospects to, and every visit is tracked back to a specific contact.</p>
         <div className="space-y-3">
+          <Feature title="The Pages Table">
+            The list doubles as your analytics view: views, unique visitors, known viewers, average time on page, and last visit for every page. Click a row to open the drill-down — visitors, links, traffic sources, and visit alerts in tabs.
+          </Feature>
+          <Feature title="Email Preview Cards">
+            The envelope button puts a linked screenshot of the page on your clipboard, ready to paste into an email. On the Pages table and on an account's microsites tab it asks where the link should point — the plain page URL, or a personalized link for a contact you pick. Choose the contact: a plain link records an anonymous visit.
+          </Feature>
+          <Feature title="Open a Draft">
+            Next to the copy button, one more button opens a prefilled draft with the recipient and link already filled in. Paste the card in with ⌘V — and if the clipboard fails, the draft still opens with a working link. Which client it opens (Gmail or your default mail app) is a workspace setting under Settings → Email → Sending.
+          </Feature>
           <Feature title="AI Page Generation">
             Describe the account or the angle you want to lead with, and the system drafts an entire page tailored to them. Tweak it in the builder, or start from a Template Library page if you prefer a known-good layout.
           </Feature>
@@ -120,7 +136,7 @@ const SECTIONS: Section[] = [
             From any contact, jump straight into Draft Email with their details pre-filled. The fastest path from "I want to reach out to this person" to a sent message.
           </Feature>
           <Feature title="Audiences">
-            Group contacts into named audiences for targeted campaigns. Audiences are the unit of bulk outreach — when you launch a Quick Campaign, you send to an audience.
+            Group contacts into named audiences for targeted campaigns. Audiences are the unit of bulk outreach — when you launch a Quick Campaign, you send to an audience. You can also build one straight from a Marketo static list (see Integrations).
           </Feature>
         </div>
         <Tip>If your CSV comes from Salesforce, include the SFDC Account ID column — contacts automatically link to the right account record without manual cleanup.</Tip>
@@ -218,7 +234,7 @@ const SECTIONS: Section[] = [
         <p className="text-slate-700">One-Pager generates branded PDF documents you can send as attachments or leave-behinds — tailored to the type of stakeholder you're meeting.</p>
         <div className="space-y-3">
           <Feature title="Template Types">
-            Choose from Pilot Proposal, Comparison Sheet, New Partner Welcome, or ROI Summary. Each has a structure suited to a different sales moment.
+            Choose from Pilot Proposal, Comparison Sheet, New Partner Welcome, Agreement Summary, or ROI Summary. Each has a structure suited to a different sales moment.
           </Feature>
           <Feature title="Audience Focus">
             Select Executive, End User, or Manager and the body copy adjusts to speak to that person's priorities.
@@ -228,6 +244,62 @@ const SECTIONS: Section[] = [
           </Feature>
         </div>
         <Tip>Use the ROI Summary one-pager in final-stage deals — run the numbers in the ROI Calculator first, then generate the PDF to attach to your proposal email.</Tip>
+      </div>
+    ),
+  },
+  {
+    id: "integrations",
+    icon: Plug,
+    title: "Integrations",
+    subtitle: "Salesforce, Marketo, HubSpot, and Slack",
+    keywords: "marketo salesforce hubspot slack crm sync lists static list audience alerts channel connection",
+    content: (
+      <div className="space-y-4">
+        <p className="text-slate-700">All connections live in one place: <strong>Settings → Integrations</strong> (the gear items are in your account menu, top right). Each card opens a detail page for that service.</p>
+        <div className="space-y-3">
+          <Feature title="Salesforce">
+            Two-way account, contact, and lead sync, plus Lead write-back so landing-page form submissions land in Salesforce. Import filters and field mappings are on its detail page.
+          </Feature>
+          <Feature title="Marketo — Lists &amp; Programs">
+            Your Marketo static lists and programs are cached and listed on the Marketo page, searchable by name or Marketo ID. Hit <strong>Refresh lists &amp; programs</strong> to re-pull the catalogue. Marketo's API doesn't return member counts, so none are shown.
+          </Feature>
+          <Feature title="Marketo — Import a list">
+            <strong>Import</strong> on any static list pulls that list's members into Contacts. People you already have are matched (by Salesforce ID, then by email) and enriched rather than duplicated; everyone else is created. Programs have no Import button — Marketo's member API only covers static lists.
+          </Feature>
+          <Feature title="Marketo — List to campaign audience">
+            After an import, <strong>Save as campaign audience</strong> turns those contacts into a named audience. It then appears in the campaign wizard under "Start from a saved audience", so a Marketo list becomes a campaign you send from here.
+          </Feature>
+          <Feature title="Marketo — Push links back">
+            The other direction: in the campaign wizard choose "Generate links only", then <strong>Push to Marketo static list</strong>. Each contact's personalized link is written to a Marketo field you name and they're added to the list — so LP Studio makes the links and Marketo does the sending. You'll need the list's Marketo ID, which is what the copy button on each list row is for.
+          </Feature>
+          <Feature title="HubSpot">
+            Contact sync via a Private App token. Form leads push across as contacts.
+          </Feature>
+          <Feature title="Slack">
+            Connect your workspace and pick a destination channel, then choose which of three alerts post: <strong>new lead / form submission</strong>, <strong>hot visit</strong> (a known contact opens a microsite), and <strong>AI Briefing generated</strong>. Each has a Test button. For private channels, invite the bot first or it can't post.
+          </Feature>
+        </div>
+        <Tip>The fastest Marketo workflow is list → Import → Save as audience → campaign. You don't need the full inbound lead sync switched on for any of it — importing a list is a one-off pull of the list you chose.</Tip>
+      </div>
+    ),
+  },
+  {
+    id: "events",
+    icon: CalendarDays,
+    title: "Events",
+    subtitle: "Event pages and agendas",
+    keywords: "agenda sessions speakers schedule conference webinar rsvp",
+    content: (
+      <div className="space-y-4">
+        <p className="text-slate-700">Events builds pages for conferences, dinners, and webinars — with a structured agenda rather than free text, so sessions, times, and speakers stay editable after the page is generated.</p>
+        <div className="space-y-3">
+          <Feature title="Agenda Builder">
+            Add sessions with times, titles, descriptions, and speakers. The agenda renders as a proper schedule block on the page and stays editable in the builder.
+          </Feature>
+          <Feature title="Same Page Tooling">
+            Event pages are normal pages underneath — personalized hotlinks, visit alerts, email preview cards, and the analytics drill-down all work exactly as they do elsewhere.
+          </Feature>
+        </div>
       </div>
     ),
   },
@@ -310,11 +382,13 @@ function SectionCard({ section }: { section: Section }) {
 
 export default function SalesGuide() {
   const [search, setSearch] = useState("");
+  const q = search.trim().toLowerCase();
   const filtered = SECTIONS.filter(
     s =>
-      !search ||
-      s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.subtitle.toLowerCase().includes(search.toLowerCase())
+      !q ||
+      s.title.toLowerCase().includes(q) ||
+      s.subtitle.toLowerCase().includes(q) ||
+      (s.keywords ?? "").includes(q)
   );
 
   return (
@@ -339,7 +413,7 @@ export default function SalesGuide() {
               {[
                 "Pick an Account",
                 "Check Activity",
-                "Build a Microsite",
+                "Build a Page",
                 "Generate Hotlinks",
                 "Draft an Email",
                 "Launch a Campaign",
