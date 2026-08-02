@@ -5,7 +5,7 @@ const BODY = BRAND_BODY_FONT;
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import useEmblaCarousel from "embla-carousel-react";
-import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Menu, X } from "lucide-react";
 import type { EventPageBlockProps, EventPageTheme } from "@/lib/block-types";
 import type { FormField } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
@@ -299,6 +299,9 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
 
+  // Mobile nav (tablet & below — the desktop link row doesn't fit)
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
+
   // RSVP form state
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -505,13 +508,16 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
           WebkitBackdropFilter: "blur(12px)",
         }}
       >
-        {p.logoUrl ? (
-          <img src={p.logoUrl} alt="Logo" style={{ height: "1.25rem", width: "auto" }} />
-        ) : (
-          <InlineText as="span" value={p.eventName} onUpdate={field("eventName")} style={{ fontFamily: displayFont, fontSize: "1.1rem", color: C.navText, letterSpacing: "0.05em" }} />
-        )}
+        {/* Brand slot: logo only. The event name is edited in the hero h1 —
+            repeating it here wrapped letter-by-letter on phones. The empty
+            slot keeps space-between pushing the links/hamburger right. */}
+        <div style={{ display: "flex", alignItems: "center", minHeight: "1.25rem" }}>
+          {p.logoUrl && <img src={p.logoUrl} alt="Logo" style={{ height: "1.25rem", width: "auto" }} />}
+        </div>
+
+        {/* Desktop link row (≥lg) */}
         {p.navLinks.length > 0 && (
-          <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+          <div className="hidden lg:flex" style={{ gap: "2rem", alignItems: "center" }}>
             {p.navLinks.map(link => (
               <motion.a
                 key={link.href}
@@ -527,6 +533,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
         )}
         <motion.a
           href={p.navCtaUrl}
+          className="hidden lg:inline-block"
           style={{
             fontFamily: bodyFont,
             fontWeight: 300,
@@ -542,6 +549,55 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
         >
           {p.navCtaText}
         </motion.a>
+
+        {/* Hamburger (tablet & below) */}
+        <button
+          type="button"
+          className="flex lg:hidden"
+          aria-label={navMenuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={navMenuOpen}
+          onClick={() => setNavMenuOpen(o => !o)}
+          style={{ alignItems: "center", background: "none", border: "none", padding: "0.25rem", cursor: "pointer", color: C.navText }}
+        >
+          {navMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
+        {/* Collapsed menu panel — same glass treatment as the bar */}
+        {navMenuOpen && (
+          <div
+            className="flex lg:hidden"
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              flexDirection: "column",
+              padding: "0.5rem 2rem 1.5rem",
+              gap: "1.1rem",
+              backgroundColor: C.navBg,
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+            }}
+          >
+            {p.navLinks.map(link => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setNavMenuOpen(false)}
+                style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.8rem", letterSpacing: "0.12em", textTransform: "uppercase", color: C.navTextSoft, textDecoration: "none", padding: "0.25rem 0" }}
+              >
+                {link.label}
+              </a>
+            ))}
+            <a
+              href={p.navCtaUrl}
+              onClick={() => setNavMenuOpen(false)}
+              style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.8rem", letterSpacing: "0.15em", textTransform: "uppercase", color: C.primary, textDecoration: "none", padding: "0.25rem 0" }}
+            >
+              {p.navCtaText}
+            </a>
+          </div>
+        )}
       </motion.nav>
 
       {/* Hero */}
