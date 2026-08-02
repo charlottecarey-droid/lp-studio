@@ -178,8 +178,12 @@ const s = (v: string | null | undefined): string => (typeof v === "string" ? v.t
 
 /** Current designed-card layout version. Bump when the /og-card template
  *  changes visually; stored cards with an older ogCardVersion are lazily
- *  re-captured on the next email-preview copy instead of being served. */
-export const CURRENT_OG_CARD_VERSION = 2;
+ *  re-captured on the next email-preview copy instead of being served.
+ *
+ *  v3 — card copy is stripped of the inline-editor markup that used to print
+ *  onto the image as literal tags. Every card captured before this carries the
+ *  raw text, so they all need re-capturing, not just newly-created pages. */
+export const CURRENT_OG_CARD_VERSION = 3;
 
 /** Legacy thum.io capture URLs (pre-Aug-2026 URL-as-storage era). These
  *  routinely rendered with fallback fonts and third-party caching, so every
@@ -210,6 +214,45 @@ function isPlainText(value: unknown): value is string {
     !looksLikeImageUrl(value) &&
     !/^https?:\/\//i.test(value.trim())
   );
+}
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  ldquo: "“", rdquo: "”", lsquo: "‘", rsquo: "’",
+  mdash: "—", ndash: "–", hellip: "…", trade: "™",
+  reg: "®", copy: "©",
+};
+
+/**
+ * Block copy fields hold RICH TEXT, not plain strings — the inline editor
+ * writes markup into them (`<span style="font-size: 0.875em">…`, `<strong>`,
+ * `<br>`). The card template renders whatever it's handed as text, so an
+ * un-stripped value printed the tags literally onto the share image:
+ *
+ *   <span style="font-size: 0.875em">Porcelain aesthetics meets…</span>
+ *
+ * Strip tags, decode the entities that survive that strip, and collapse the
+ * whitespace the removed markup leaves behind. Returns "" when a value is
+ * nothing but markup, which the caller treats as "no headline here" so the
+ * walk keeps looking rather than locking in a blank.
+ */
+export function toPlainCardText(raw: string): string {
+  return raw
+    // Structural breaks are word boundaries; without this, "one<br>two"
+    // becomes "onetwo".
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/(p|div|h[1-6]|li)>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&#x([0-9a-f]+);/gi, (_m, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-z]+);/gi, (m, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? m)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Block copy → card-safe text, or "" if the field holds no readable words. */
+function cardText(value: unknown): string {
+  return isPlainText(value) ? toPlainCardText(value) : "";
 }
 
 /** Walk the blocks JSON (same discipline as {@link deriveFirstBlockImage}) and
@@ -248,16 +291,15 @@ export function deriveOgCardCopy(blocks: unknown): {
 
     for (const [key, value] of Object.entries(obj)) {
       const k = key.toLowerCase();
-      if (!headline && HEADLINE_KEY_HINTS.includes(k) && isPlainText(value)) headline = value.trim();
-      if (!subheadline && SUBHEADLINE_KEY_HINTS.includes(k) && isPlainText(value)) subheadline = value.trim();
-      if (!anyAccountName && ACCOUNT_NAME_KEYS.includes(k) && isPlainText(value)) anyAccountName = value.trim();
+      if (!headline && HEADLINE_KEY_HINTS.includes(k)) headline = cardText(value) || headline;
+      if (!subheadline && SUBHEADLINE_KEY_HINTS.includes(k)) subheadline = cardText(value) || subheadline;
+      if (!anyAccountName && ACCOUNT_NAME_KEYS.includes(k)) anyAccountName = cardText(value) || anyAccountName;
 
       // Tier 1 — the explicit co-brand field a human filled in.
       if (ACCOUNT_LOGO_KEYS.includes(k) && typeof value === "string" && looksLikeImageUrl(value)) {
         const near = ACCOUNT_NAME_KEYS.map((nk) => lowered.get(nk)).find(isPlainText);
-        const alt = lowered.get("accountlogoalt");
         explicitBadges.push({
-          name: (near as string | undefined)?.trim() || (isPlainText(alt) ? alt.trim() : ""),
+          name: cardText(near) || cardText(lowered.get("accountlogoalt")),
           logo: value.trim(),
         });
       }
@@ -271,7 +313,7 @@ export function deriveOgCardCopy(blocks: unknown): {
           const e = entry as Record<string, unknown>;
           const logo = typeof e.logoUrl === "string" && looksLikeImageUrl(e.logoUrl) ? e.logoUrl.trim() : "";
           if (!logo) continue;
-          sponsorBadges.push({ name: isPlainText(e.name) ? e.name.trim() : "", logo });
+          sponsorBadges.push({ name: cardText(e.name), logo });
           break;
         }
       }

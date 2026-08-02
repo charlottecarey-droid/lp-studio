@@ -288,6 +288,51 @@ describe("deriveOgCardCopy", () => {
     expect(copy).toEqual({ headline: "", subheadline: "", accountName: "", accountLogo: "" });
   });
 
+  // Copy fields hold RICH TEXT. The inline editor writes markup into them, and
+  // the card template renders what it's handed as text — so an un-stripped
+  // value printed the tags onto the share image, e.g.
+  //   <span style="font-size: 0.875em">Porcelain aesthetics meets…</span>
+  it("strips inline-editor markup out of the card copy", () => {
+    const copy = deriveOgCardCopy([
+      {
+        type: "hero",
+        headline: '<span style="font-size: 0.875em">Porcelain aesthetics meets zirconia strength</span>',
+        subheadline: '<span style="color: rgb(129, 147, 152); font-size: 17px">Polychromatic Shade&trade; technology</span>',
+      },
+    ]);
+    expect(copy.headline).toBe("Porcelain aesthetics meets zirconia strength");
+    expect(copy.subheadline).toBe("Polychromatic Shade™ technology");
+  });
+
+  it("decodes entities and treats structural tags as word breaks", () => {
+    const copy = deriveOgCardCopy([
+      { headline: "Crowns &amp; bridges<br>done right", subheadline: "<p>Fast</p><p>Accurate</p>" },
+    ]);
+    expect(copy.headline).toBe("Crowns & bridges done right");
+    expect(copy.subheadline).toBe("Fast Accurate");
+  });
+
+  // A field holding nothing but markup must not count as "found" — otherwise
+  // the walk stops on a blank and the card loses a headline it could have had.
+  it("keeps looking when a copy field is markup-only", () => {
+    const copy = deriveOgCardCopy([
+      { headline: '<span class="spacer"></span>' },
+      { headline: "The real headline" },
+    ]);
+    expect(copy.headline).toBe("The real headline");
+  });
+
+  it("strips markup out of the account badge name too", () => {
+    const copy = deriveOgCardCopy([
+      {
+        type: "account-microsite",
+        accountName: "<strong>Gentle Dental</strong>",
+        accountLogoUrl: "/api/storage/objects/uploads/logo.png",
+      },
+    ]);
+    expect(copy.accountName).toBe("Gentle Dental");
+  });
+
   it("takes the lead sponsors/partners entry as the partner badge", () => {
     const copy = deriveOgCardCopy([
       {

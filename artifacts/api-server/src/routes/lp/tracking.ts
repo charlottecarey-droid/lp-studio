@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
-import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveHeroImage, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
+import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveHeroImage, toPlainCardText, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and, sql } from "drizzle-orm";
@@ -1142,10 +1142,14 @@ router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
     tenantDefaultImageUrl: "",
   });
   const host = await resolveCanonicalPublishedHost(page.tenantId);
+  // toPlainCardText at the boundary, not just inside deriveOgCardCopy: the
+  // per-page overrides and the meta cascade are separate sources, and a pasted
+  // override or an auto-generated title can carry markup just as easily. The
+  // card renders text, so nothing markup-shaped should reach it by any route.
   res.json({
-    headline: trim(page.ogCardHeadline) || copy.headline || metaFallback.title,
-    subheadline: trim(page.ogCardSubheadline) || copy.subheadline || metaFallback.description,
-    accountName: partnerPref === "none" ? "" : copy.accountName,
+    headline: toPlainCardText(trim(page.ogCardHeadline) || copy.headline || metaFallback.title),
+    subheadline: toPlainCardText(trim(page.ogCardSubheadline) || copy.subheadline || metaFallback.description),
+    accountName: partnerPref === "none" ? "" : toPlainCardText(copy.accountName),
     accountLogo: partnerLogo,
     // Background: per-page override first, else the page's HERO image
     // (deriveHeroImage — NOT the first image anywhere, which used to surface a
