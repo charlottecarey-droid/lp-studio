@@ -26,9 +26,9 @@ export const salesContactsTable = pgTable("sales_contacts", {
   status: text("status").notNull().default("active"), // active | unsubscribed | bounced
   metadata: jsonb("metadata").default({}),
   sfdcLastSyncedAt: timestamp("sfdc_last_synced_at", { withTimezone: true }),
-  marketoLeadId: text("marketo_lead_id").unique(),  // Marketo lead id (parallel to salesforceId)
+  marketoLeadId: text("marketo_lead_id"),  // Marketo lead id — unique PER TENANT (migration 0134)
   marketoLastSyncedAt: timestamp("marketo_last_synced_at", { withTimezone: true }),
-  hubspotContactId: text("hubspot_contact_id").unique(),  // HubSpot contact id (parallel to salesforceId)
+  hubspotContactId: text("hubspot_contact_id"),  // HubSpot contact id — unique PER TENANT (migration 0134)
   hubspotLastSyncedAt: timestamp("hubspot_last_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -41,6 +41,15 @@ export const salesContactsTable = pgTable("sales_contacts", {
   uniqueIndex("sales_contacts_tenant_salesforce_id_key")
     .on(table.tenantId, table.salesforceId)
     .where(sql`${table.salesforceId} IS NOT NULL`),
+  // Same story for the Marketo/HubSpot ids (migration 0134). These matter to
+  // the list importer, whose inserts are ON CONFLICT DO NOTHING: a global rule
+  // turns a cross-workspace collision into a silently dropped row.
+  uniqueIndex("sales_contacts_tenant_marketo_lead_id_key")
+    .on(table.tenantId, table.marketoLeadId)
+    .where(sql`${table.marketoLeadId} IS NOT NULL`),
+  uniqueIndex("sales_contacts_tenant_hubspot_contact_id_key")
+    .on(table.tenantId, table.hubspotContactId)
+    .where(sql`${table.hubspotContactId} IS NOT NULL`),
 ]);
 
 export const insertSalesContactSchema = createInsertSchema(salesContactsTable).omit({ id: true, createdAt: true, updatedAt: true });
