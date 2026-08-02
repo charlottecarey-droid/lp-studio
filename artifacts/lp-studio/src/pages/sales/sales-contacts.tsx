@@ -58,7 +58,12 @@ import { useBrandConfig } from "@/context/BrandConfigContext";
 import { displayTier } from "@/lib/sales-tier";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
-import { copyEmailPreview } from "@/lib/email-preview";
+import {
+  ComposeButtons,
+  useEmailPreviewCopy,
+  useOutreachTemplates,
+  type ComposeTarget,
+} from "@/components/sales/EmailPreviewModal";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
@@ -1602,8 +1607,10 @@ function ContactDetailView({ id }: { id: string }) {
   const [accountPages, setAccountPages] = useState<{ id: number; title: string; slug: string; accountId: number | null }[]>([]);
   const [creatingHotlink, setCreatingHotlink] = useState(false);
   const [copiedHotlink, setCopiedHotlink] = useState<number | null>(null);
-  const [previewBusyId, setPreviewBusyId] = useState<number | null>(null);
-  const [previewCopiedId, setPreviewCopiedId] = useState<number | null>(null);
+  // Shared with the Pages table's email-preview modal — same copy semantics,
+  // same compose behaviour. Keyed by hotlink id (as a string) here.
+  const outreach = useOutreachTemplates();
+  const { busyKey: previewBusyId, copiedKey: previewCopiedId, copyPreview } = useEmailPreviewCopy(outreach);
 
   const fetchData = useCallback(() => {
     Promise.all([
@@ -1665,26 +1672,16 @@ function ContactDetailView({ id }: { id: string }) {
   // "Copy email preview" — rich image+link clipboard payload; pasting into
   // Gmail/Outlook shows the page preview clicking through to the personalized
   // link. First use on a page with no OG image captures one (~10s).
-  async function copyHotlinkEmailPreview(hl: Hotlink) {
-    if (previewBusyId !== null) return;
-    setPreviewBusyId(hl.id);
-    try {
-      const result = await copyEmailPreview({
-        pageId: hl.pageId,
-        pageUrl: `${window.location.origin}/p/${hl.token}`,
-        title: hl.pageTitle,
-      });
-      setPreviewCopiedId(hl.id);
-      setTimeout(() => setPreviewCopiedId(null), 2500);
-      if (result === "link-only") {
-        toast({
-          title: "Copied the link instead",
-          description: "Couldn't build the image preview, so the plain link is on your clipboard.",
-        });
-      }
-    } finally {
-      setPreviewBusyId(null);
-    }
+  function copyHotlinkEmailPreview(hl: Hotlink, target?: ComposeTarget) {
+    void copyPreview({
+      key: String(hl.id),
+      pageId: hl.pageId,
+      pageUrl: `${window.location.origin}/p/${hl.token}`,
+      title: hl.pageTitle,
+      ...(target
+        ? { compose: { target, to: contact?.email ?? null, firstName: contact?.firstName ?? null } }
+        : {}),
+    });
   }
 
   if (loading) {
@@ -1911,20 +1908,28 @@ function ContactDetailView({ id }: { id: string }) {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 shrink-0"
-                      onClick={() => void copyHotlinkEmailPreview(hl)}
-                      disabled={!isPublished || previewBusyId === hl.id}
+                      onClick={() => copyHotlinkEmailPreview(hl)}
+                      disabled={!isPublished || previewBusyId !== null}
                       title={isPublished
                         ? "Copy an email preview — a linked screenshot that pastes into an email"
                         : "Publish the page before sharing this link"}
                     >
-                      {previewBusyId === hl.id ? (
+                      {previewBusyId === String(hl.id) ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : previewCopiedId === hl.id ? (
+                      ) : previewCopiedId === String(hl.id) ? (
                         <Check className="w-3.5 h-3.5 text-green-500" />
                       ) : (
                         <Mail className="w-3.5 h-3.5" />
                       )}
                     </Button>
+                    {isPublished && (
+                      <ComposeButtons
+                        disabled={previewBusyId !== null}
+                        name={[contact?.firstName, contact?.lastName].filter(Boolean).join(" ").trim()}
+                        email={contact?.email}
+                        onCompose={target => copyHotlinkEmailPreview(hl, target)}
+                      />
+                    )}
                     <a
                       href={`/p/${hl.token}`}
                       target="_blank"

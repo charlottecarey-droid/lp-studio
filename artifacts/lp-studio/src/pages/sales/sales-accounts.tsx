@@ -66,7 +66,14 @@ import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
-import { copyEmailPreview } from "@/lib/email-preview";
+import {
+  ComposeButtons,
+  EmailPreviewModal,
+  useEmailPreviewCopy,
+  useOutreachTemplates,
+  type ComposeTarget,
+} from "@/components/sales/EmailPreviewModal";
+import { getLpPageUrl } from "@/lib/utils";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 import {
   type HeatSignal,
@@ -2581,7 +2588,7 @@ function AccountTeamCard({ accountId, team, onSaved }: {
 
 function AccountDetailView({ id }: { id: string }) {
   const [, navigate] = useLocation();
-  const { domainContext } = useAuth();
+  const { user, domainContext } = useAuth();
   const { brand } = useBrandConfig();
   const isDandy = brand?.isDandy === true;
   const [account, setAccount] = useState<Account | null>(null);
@@ -2599,9 +2606,16 @@ function AccountDetailView({ id }: { id: string }) {
   const [copiedContactId, setCopiedContactId] = useState<number | null>(null);
 
   // "Copy email preview" (rich image+link clipboard) — keyed per button so
-  // busy/copied indicators never bleed between rows.
-  const [previewBusyKey, setPreviewBusyKey] = useState<string | null>(null);
-  const [previewCopiedKey, setPreviewCopiedKey] = useState<string | null>(null);
+  // busy/copied indicators never bleed between rows. Shared with the Pages
+  // table so every envelope behaves the same way.
+  const outreach = useOutreachTemplates();
+  const { busyKey: previewBusyKey, copiedKey: previewCopiedKey, copyPreview } = useEmailPreviewCopy(outreach);
+
+  // Page-level "choose a link" modal, opened from the microsites tab. The
+  // envelope there used to copy `firstToken` — the page's first hotlink — so
+  // every visit from that email was attributed to whichever contact happened
+  // to be first. The modal makes the destination an explicit choice.
+  const [emailPreviewSite, setEmailPreviewSite] = useState<Microsite | null>(null);
 
   // Contact delete (CSV-only)
   const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
@@ -2808,26 +2822,20 @@ function AccountDetailView({ id }: { id: string }) {
   // clipboard (rich HTML) so a paste into Gmail/Outlook shows the page
   // preview clicking through to the personalized link. First use on a page
   // with no OG image captures one server-side, which can take ~10s.
-  async function handleCopyEmailPreview(key: string, pageId: number, token: string, title?: string | null) {
-    if (previewBusyKey) return;
-    setPreviewBusyKey(key);
-    try {
-      const result = await copyEmailPreview({
-        pageId,
-        pageUrl: `${getHotlinkBase()}/p/${token}`,
-        title,
-      });
-      setPreviewCopiedKey(key);
-      setTimeout(() => setPreviewCopiedKey(null), 2500);
-      if (result === "link-only") {
-        toast({
-          title: "Copied the link instead",
-          description: "Couldn't build the image preview, so the plain link is on your clipboard.",
-        });
-      }
-    } finally {
-      setPreviewBusyKey(null);
-    }
+  function handleCopyEmailPreview(
+    key: string,
+    pageId: number,
+    token: string,
+    title?: string | null,
+    compose?: { target: ComposeTarget; to?: string | null; firstName?: string | null },
+  ) {
+    void copyPreview({
+      key,
+      pageId,
+      pageUrl: `${getHotlinkBase()}/p/${token}`,
+      title,
+      ...(compose ? { compose } : {}),
+    });
   }
 
   function handleCopyContactLink(contactId: number, token: string) {
@@ -3293,20 +3301,34 @@ function AccountDetailView({ id }: { id: string }) {
                               </button>
                             )}
                             {token && contactHotlink && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); void handleCopyEmailPreview(`ct-${contact.id}`, contactHotlink.pageId, token, `${contact.firstName} — take a look`); }}
-                                title="Copy an image preview of the page that pastes into an email and clicks through to this contact's personalized link"
-                                disabled={previewBusyKey === `ct-${contact.id}`}
-                                className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all disabled:opacity-60"
-                              >
-                                {previewBusyKey === `ct-${contact.id}` ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : previewCopiedKey === `ct-${contact.id}` ? (
-                                  <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500 font-medium">Copied</span></>
-                                ) : (
-                                  <><Mail className="w-3.5 h-3.5" /><span className="hidden sm:inline">Email Preview</span></>
-                                )}
-                              </button>
+                              <>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCopyEmailPreview(`ct-${contact.id}`, contactHotlink.pageId, token, `${contact.firstName} — take a look`); }}
+                                  title="Copy an image preview of the page that pastes into an email and clicks through to this contact's personalized link"
+                                  disabled={previewBusyKey !== null}
+                                  className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all disabled:opacity-60"
+                                >
+                                  {previewBusyKey === `ct-${contact.id}` ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : previewCopiedKey === `ct-${contact.id}` ? (
+                                    <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500 font-medium">Copied</span></>
+                                  ) : (
+                                    <><Mail className="w-3.5 h-3.5" /><span className="hidden sm:inline">Email Preview</span></>
+                                  )}
+                                </button>
+                                <span onClick={(e) => e.stopPropagation()} className="flex items-center shrink-0">
+                                  <ComposeButtons
+                                    disabled={previewBusyKey !== null}
+                                    name={[contact.firstName, contact.lastName].filter(Boolean).join(" ").trim()}
+                                    email={contact.email}
+                                    onCompose={target => handleCopyEmailPreview(
+                                      `ct-${contact.id}`, contactHotlink.pageId, token,
+                                      `${contact.firstName} — take a look`,
+                                      { target, to: contact.email, firstName: contact.firstName },
+                                    )}
+                                  />
+                                </span>
+                              </>
                             )}
                           </div>
                         );
@@ -3405,33 +3427,16 @@ function AccountDetailView({ id }: { id: string }) {
                           )}
                         </Button>
                       )}
-                      {site.firstToken && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5 h-8 px-2.5 text-xs"
-                          title="Copy an image preview of this page that pastes into an email and clicks through to the personalized link"
-                          disabled={previewBusyKey === `ms-${site.pageId}`}
-                          onClick={() => handleCopyEmailPreview(`ms-${site.pageId}`, site.pageId, site.firstToken!, site.title)}
-                        >
-                          {previewBusyKey === `ms-${site.pageId}` ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              Capturing…
-                            </>
-                          ) : previewCopiedKey === `ms-${site.pageId}` ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-500" />
-                              Copied
-                            </>
-                          ) : (
-                            <>
-                              <Mail className="w-3.5 h-3.5" />
-                              Email Preview
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 h-8 px-2.5 text-xs"
+                        title="Copy an image preview of this page that pastes into an email — choose the plain page link or a contact's personalized link"
+                        onClick={() => setEmailPreviewSite(site)}
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        Email Preview
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -3475,6 +3480,33 @@ function AccountDetailView({ id }: { id: string }) {
           onClose={() => setDraftEmailContact(null)}
         />
       )}
+
+      <EmailPreviewModal
+        page={emailPreviewSite && {
+          pageId: emailPreviewSite.pageId,
+          pageTitle: emailPreviewSite.title,
+          plainUrl: getLpPageUrl(emailPreviewSite.slug, domainContext?.micrositeDomain, user?.tenantHost),
+          // Names/addresses come from this account's contacts — the hotlink
+          // rows themselves carry only ids.
+          hotlinks: hotlinks
+            .filter(hl => hl.pageId === emailPreviewSite.pageId)
+            .map(hl => {
+              const c = contacts.find(ct => ct.id === hl.contactId);
+              return {
+                hotlinkId: hl.id,
+                token: hl.token,
+                contactId: hl.contactId,
+                contactName: c ? [c.firstName, c.lastName].filter(Boolean).join(" ").trim() : "",
+                contactEmail: c?.email ?? null,
+              };
+            }),
+        }}
+        hotlinkBase={getHotlinkBase()}
+        onClose={() => setEmailPreviewSite(null)}
+        onHotlinkCreated={(pageId, hl) => {
+          setHotlinks(prev => [...prev, { id: hl.hotlinkId, contactId: hl.contactId, pageId, token: hl.token, isActive: true }]);
+        }}
+      />
     </SalesLayout>
   );
 }

@@ -23,8 +23,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getLpPageUrl } from "@/lib/utils";
-import { copyEmailPreview } from "@/lib/email-preview";
-import { toast } from "@/hooks/use-toast";
+import {
+  ComposeButtons,
+  useEmailPreviewCopy,
+  useOutreachTemplates,
+  type ComposeTarget,
+} from "@/components/sales/EmailPreviewModal";
 import { fmtDwell, initials, type AlertEmail, type PageRow } from "./sales-pages-shared";
 
 const API_BASE = "/api";
@@ -148,8 +152,12 @@ export function SalesPageDrillDown({
   const [loading, setLoading] = useState(false);
 
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [previewBusyToken, setPreviewBusyToken] = useState<string | null>(null);
-  const [previewCopiedToken, setPreviewCopiedToken] = useState<string | null>(null);
+  // Shared with the Pages-table modal: same copy semantics, same compose
+  // behaviour (a clipboard failure must never swallow the draft). Keyed by
+  // hotlink token here — the contact is already fixed per row, so this surface
+  // offers the drafts directly instead of a choose-a-link modal.
+  const outreach = useOutreachTemplates();
+  const { busyKey: previewBusyToken, copiedKey: previewCopiedToken, copyPreview } = useEmailPreviewCopy(outreach);
   const [alertInput, setAlertInput] = useState("");
   const [alertToggling, setAlertToggling] = useState(false);
 
@@ -209,26 +217,19 @@ export function SalesPageDrillDown({
     });
   }
 
-  async function copyPreviewForToken(token: string) {
-    if (!row || previewBusyToken) return;
-    setPreviewBusyToken(token);
-    try {
-      const result = await copyEmailPreview({
-        pageId: row.pageId,
-        pageUrl: `${window.location.origin}/p/${token}`,
-        title: row.pageTitle,
-      });
-      setPreviewCopiedToken(token);
-      setTimeout(() => setPreviewCopiedToken(null), 2500);
-      if (result === "link-only") {
-        toast({
-          title: "Copied the link instead",
-          description: "Couldn't build the image preview, so the plain link is on your clipboard.",
-        });
-      }
-    } finally {
-      setPreviewBusyToken(null);
-    }
+  /** Copy the card for one hotlink, optionally opening a prefilled draft.
+   *  The address rides on the parent row's hotlink (the engagement payload
+   *  carries no email), matched by contact. */
+  function copyPreviewForToken(token: string, contactId: number | null, name: string, target?: ComposeTarget) {
+    if (!row) return;
+    const email = row.hotlinks.find(hl => hl.contactId === contactId)?.contactEmail ?? null;
+    void copyPreview({
+      key: token,
+      pageId: row.pageId,
+      pageUrl: `${window.location.origin}/p/${token}`,
+      title: row.pageTitle,
+      ...(target ? { compose: { target, to: email, firstName: name } } : {}),
+    });
   }
 
   const mineSub = alertEmails.find(ae => ae.email.toLowerCase() === myEmail);
@@ -459,8 +460,8 @@ export function SalesPageDrillDown({
                         <Button
                           variant="ghost" size="icon" className="h-7 w-7 shrink-0"
                           title="Copy email preview — a linked screenshot that pastes into an email"
-                          disabled={previewBusyToken === hl.token}
-                          onClick={() => void copyPreviewForToken(hl.token)}
+                          disabled={previewBusyToken !== null}
+                          onClick={() => copyPreviewForToken(hl.token, hl.contactId, hl.contactName)}
                         >
                           {previewBusyToken === hl.token
                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -468,6 +469,12 @@ export function SalesPageDrillDown({
                               ? <Check className="w-3.5 h-3.5 text-emerald-500" />
                               : <Mail className="w-3.5 h-3.5" />}
                         </Button>
+                        <ComposeButtons
+                          disabled={previewBusyToken !== null}
+                          name={hl.contactName}
+                          email={row.hotlinks.find(r => r.contactId === hl.contactId)?.contactEmail ?? null}
+                          onCompose={target => copyPreviewForToken(hl.token, hl.contactId, hl.contactName, target)}
+                        />
                       </div>
                     ))}
                   </div>

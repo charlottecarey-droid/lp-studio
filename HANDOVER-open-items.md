@@ -1,86 +1,82 @@
 # Handover — two open items (2026-08-02)
 
-Everything else from this session is committed and pushed to `staging`
-(through `d8ee64ff3`). These two were identified but **not started**.
+Both items below are now **BUILT** (not yet verified on Replit — the authed
+sales screens can't render locally without the API server + DB). Everything
+else from this session is committed and pushed to `staging`.
 
 Background for both lives in `~/.claude/projects/.../memory/`:
 `og-capture.md` (share cards + email embed) and `marketo-sync.md`.
 
 ---
 
-## 1. Email embed button doesn't open the choose-a-link modal
+## 1. Email embed button doesn't open the choose-a-link modal — DONE
 
 **Reported:** "when I open the page view the email embed button doesn't open
 the modal to choose the link type."
 
-**Status:** not reproduced on the Pages table. Its envelope *does* open the
-modal — verified in production and again locally with all of today's changes.
-So the report is almost certainly about a different surface.
+**Diagnosis:** the Pages table envelope *did* open the modal. The modal simply
+only existed in `sales-pages.tsx`; three other surfaces copied on click.
 
-**What's actually inconsistent.** The modal only exists in `sales-pages.tsx`.
-Three other places have envelope buttons that call `copyEmailPreview()`
-directly and copy on click with no modal:
+**What was built.** The modal moved to
+`artifacts/lp-studio/src/components/sales/EmailPreviewModal.tsx`, which now
+exports:
+- `EmailPreviewModal` — the choose-a-link dialog, self-contained (its own
+  contact search, busy/copied keys, and on-the-fly hotlink creation).
+- `useEmailPreviewCopy()` — copy + compose, with the decoupling rule intact.
+- `useOutreachTemplates()` — lazy: surfaces that only show compose buttons no
+  longer re-fetch the brand config on every view, and `load()` is awaited
+  before a draft is built so the first click still gets the real template.
+- `ComposeButtons` — the Gmail + email-app pair for per-hotlink rows.
 
-| Surface | File | Notes |
-|---|---|---|
-| Page drill-down → Links tab | `artifacts/lp-studio/src/pages/sales/SalesPageDrillDown.tsx` (~line 461, `copyPreviewForToken`) | Per-hotlink. Contact already chosen, so "choose the link type" is arguably meaningless here — but it has **no Gmail/Mail compose buttons**, which is a real gap. |
-| Accounts → microsites tab | `artifacts/lp-studio/src/pages/sales/sales-accounts.tsx` (~2807, `handleCopyEmailPreview`) | Page-level. **Most likely what she clicked.** |
-| Contacts | `artifacts/lp-studio/src/pages/sales/sales-contacts.tsx` (~1672) | Per-contact hotlink row. |
+Per surface:
 
-**First step:** ask which screen, or just make them consistent — the answer is
-the same either way.
+| Surface | Now |
+|---|---|
+| Pages table | Same modal, imported instead of inline. |
+| Accounts → microsites tab | **Opens the modal.** It previously copied `site.firstToken` — the page's *first* hotlink — so every visit from that email was attributed to whichever contact happened to be first. |
+| Accounts → contact rows | Keeps the instant copy, plus compose buttons. |
+| Page drill-down → Links tab | Keeps the instant copy, plus compose buttons. |
+| Contacts → hotlink rows | Keeps the instant copy, plus compose buttons. |
 
-**Suggested fix.** Extract the modal out of `sales-pages.tsx` into
-`components/sales/EmailPreviewModal.tsx` and reuse it. It currently depends on
-this local state, all of which needs to move with it:
-`emailPreviewModal`, `epSearch`, `epAllContacts`, `epContactsLoading`,
-`epBusyKey`, `epCopiedKey`, `epOutreach`, plus `copyPreviewTo`,
-`copyPersonalizedPreview`, `openComposerFor` and the debounced contact-search
-`useEffect`.
-
-Wire page-level buttons (Accounts microsites tab) to open it. For the
-per-hotlink rows in the drill-down and Contacts, a modal is the wrong shape —
-give them the Gmail + Mail compose buttons instead, matching the pair now in
-the Pages modal.
-
-**Don't regress:** the copy call must stay decoupled from the compose call — a
-clipboard failure must not swallow the draft (see `copyPreviewTo` in
-`sales-pages.tsx`), and the compose body always carries the URL so an
-un-pasted send still works.
+**Tests:** `components/sales/EmailPreviewModal.test.tsx` pins the contract,
+including the don't-regress rule — a rejected clipboard write still opens the
+draft, addressed from the hotlink's own email, and warns the rep the card
+didn't make it.
 
 ---
 
-## 2. Marketo lists are cached but nothing displays them
+## 2. Marketo lists are cached but nothing displays them — DONE
 
 **Reported:** "where do lists go? I can't see them."
 
-**Status:** confirmed — they go into the database and no screen reads them.
-Searched the whole frontend: **zero references** to the lists endpoint.
+**Diagnosis:** confirmed — they went into the database and no screen read them.
 
-**What already works (server side):**
-- `GET /api/sales/marketo/discover/lists` — returns the cached rows.
-- `POST /api/sales/marketo/discover/refresh` and the "Refresh Lists" button
-  populate `marketo_lists`.
-- Dandy SMB (tenant 5, connection 462) currently holds **300 static lists +
-  20 programs**, sitting invisible.
+**What was built.** A "Lists & Programs" card on
+`artifacts/lp-studio/src/pages/sales/marketo-settings.tsx`: static lists and
+programs on separate tabs with counts, search across name / Marketo id /
+description, and a copy-id button on each row — the id is exactly what the
+campaign wizard's "Push to Marketo static list" asks for, so this screen is
+the missing half of the workflow that already works.
 
-**What's missing:** any UI. `artifacts/lp-studio/src/pages/sales/marketo-settings.tsx`
-has the Refresh buttons but never renders the result.
+Notes:
+- **No member counts.** Marketo's `/v1/lists.json` and
+  `/asset/v1/programs.json` don't return one and the cache has no column for
+  it; the card says so rather than showing a fake zero.
+- **The duplicate buttons are gone.** "Refresh Lists" and "Refresh Programs"
+  ran the identical `discoverLists()` call; there is now one "Refresh lists &
+  programs" button, and it POSTs to `discover/refresh` rather than
+  `sync/lists` — only the former is sync-toggle-agnostic, and the toggle is
+  off on both tenants.
+- **Read-only for now.** Whether picking a list should *do* something (feed an
+  audience / campaign) is still an open product question — see below.
 
-**Why it matters:** accounts don't come from Marketo at all and the inbound
-lead sync is low-value (see below), so the cached lists plus the outbound
-push are what this integration actually delivers. The data is already there;
-it just needs a surface.
+**Tests:** `pages/sales/marketo-settings.lists.test.tsx` (4 cases).
 
-**Suggested scope:** a "Lists" section on the Marketo settings page —
-searchable table of name / type / Marketo id / member count if available,
-static lists and programs separated. Then decide whether picking a list should
-do something (feed an audience / campaign), or whether read-only visibility is
-enough for now. Worth asking before building the picker.
+### Still open on this one
 
-**Related, same file:** "Refresh Programs" and "Refresh Lists" both call
-`discoverLists()` — they are duplicate buttons. Either differentiate them or
-remove one.
+Should selecting a list do anything, or is read-only visibility enough? The
+obvious candidate is wiring a list into a campaign as an audience, which is a
+bigger piece of work and worth deciding deliberately.
 
 ---
 
@@ -146,7 +142,8 @@ rather than necessary.
 **1. Build the Marketo lists UI (item 2 above). Highest value, lowest risk.**
 It is the only one of the three original goals — accounts, contacts, lists for
 emailing — that Marketo can actually serve. 320 lists are already cached on
-each tenant; the only missing piece is a screen.
+each tenant; the only missing piece is a screen. — **BUILT, pending Replit
+verify.**
 
 **2. Do NOT enable the INBOUND lead sync as it stands.** A full run scans
 851,000 leads to find ~800 matches, on a 15-minute poller, forever. Even after
