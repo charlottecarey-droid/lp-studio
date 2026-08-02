@@ -911,6 +911,13 @@
       "when": 1757940000000,
       "tag": "0129_lp_pages_og_card_image",
       "breakpoints": false
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1757950000000,
+      "tag": "0130_lp_pages_og_card_overrides",
+      "breakpoints": false
     }
   ]
 }

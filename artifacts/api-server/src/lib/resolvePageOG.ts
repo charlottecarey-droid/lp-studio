@@ -166,6 +166,22 @@ export function deriveOgCardCopy(blocks: unknown): {
       if (!accountLogo && k === "accountlogourl" && typeof value === "string" && looksLikeImageUrl(value)) {
         accountLogo = value.trim();
       }
+      // Sponsored-event partner walls (`sponsors`/`partners` arrays of
+      // {name, logoUrl}). The lead entry stands in for "the partner" on the
+      // card's logo pair. A bare `logoUrl` key hint would be wrong here —
+      // event blocks use that same key for the TENANT's own logo — so only
+      // entries nested under an explicitly partner-ish array key count.
+      if (!accountLogo && (k === "sponsors" || k === "partners") && Array.isArray(value)) {
+        for (const entry of value) {
+          if (entry == null || typeof entry !== "object" || Array.isArray(entry)) continue;
+          const e = entry as Record<string, unknown>;
+          const logo = typeof e.logoUrl === "string" && looksLikeImageUrl(e.logoUrl) ? e.logoUrl.trim() : "";
+          if (!logo) continue;
+          accountLogo = logo;
+          if (!accountName && isPlainText(e.name)) accountName = (e.name as string).trim();
+          break;
+        }
+      }
     }
     for (const value of Object.values(node as Record<string, unknown>)) {
       if (headline && subheadline && accountName && accountLogo) return;

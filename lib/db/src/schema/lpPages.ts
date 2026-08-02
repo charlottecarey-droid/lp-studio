@@ -25,6 +25,16 @@ export const lpPagesTable = pgTable("lp_pages", {
   // lazily re-captures instead of serving the stale design.
   ogCardImage: text("og_card_image"),
   ogCardVersion: integer("og_card_version"),
+  // Per-page card copy overrides (Aug 2026). NULL = derive from the page's
+  // lead block / meta cascade; set when the derived hero copy reads wrong on
+  // the card. Any content-affecting PUT clears og_card_image so the next
+  // email-preview copy re-captures with the current copy.
+  ogCardHeadline: text("og_card_headline"),
+  ogCardSubheadline: text("og_card_subheadline"),
+  ogCardBackground: text("og_card_background"),
+  // What the "Copy email preview" embed links its image to: the designed
+  // card ('card', default) or the page's explicit og_image ('og').
+  emailEmbedSource: text("email_embed_source").notNull().default("card"),
   // Per-page robots overrides (task #494). TRI-STATE — intentionally NULLABLE
   // with no DB default: NULL = inherit the tenant default
   // (tenants.settings.seo.*), true = force allow, false = force deny. The

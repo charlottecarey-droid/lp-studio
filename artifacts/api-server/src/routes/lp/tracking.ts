@@ -1121,8 +1121,9 @@ router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
 
   const copy = deriveOgCardCopy(page.blocks);
   const trim = (v: string | null | undefined) => (typeof v === "string" ? v.trim() : "");
-  // Hero copy first — it's what the page visually leads with — falling back
-  // to the same meta cascade scrapers see, so the card is never empty.
+  // Per-page overrides (builder "Email embed card" section) beat everything —
+  // they exist precisely because the derived hero copy sometimes reads wrong
+  // on the card. Then hero copy, then the meta cascade scrapers see.
   const metaFallback = resolveOGFields({
     pageTitle: trim(page.title),
     pageMetaTitle: trim(page.metaTitle),
@@ -1136,14 +1137,14 @@ router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
   });
   const host = await resolveCanonicalPublishedHost(page.tenantId);
   res.json({
-    headline: copy.headline || metaFallback.title,
-    subheadline: copy.subheadline || metaFallback.description,
+    headline: trim(page.ogCardHeadline) || copy.headline || metaFallback.title,
+    subheadline: trim(page.ogCardSubheadline) || copy.subheadline || metaFallback.description,
     accountName: copy.accountName,
     accountLogo: copy.accountLogo,
-    // Background is always derived from page CONTENT (first block image) —
-    // never og_image/og_card_image, which may themselves be captures of this
-    // card (recursion) or of the old broken layout.
-    backgroundImage: deriveFirstBlockImage(page.blocks),
+    // Background: per-page override first, else derived from page CONTENT
+    // (first block image) — never og_image/og_card_image, which may
+    // themselves be captures of this card (recursion) or of the old layout.
+    backgroundImage: trim(page.ogCardBackground) || deriveFirstBlockImage(page.blocks),
     host: host ?? "",
     slug: page.slug,
   });

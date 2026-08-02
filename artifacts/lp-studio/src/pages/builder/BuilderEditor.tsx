@@ -160,6 +160,10 @@ interface FetchedPage {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  ogCardHeadline?: string | null;
+  ogCardSubheadline?: string | null;
+  ogCardBackground?: string | null;
+  emailEmbedSource?: string;
   // Task #494 — tri-state robots overrides. null = inherit tenant default.
   allowIndexing?: boolean | null;
   allowFollowing?: boolean | null;
@@ -215,6 +219,12 @@ interface SavePageData {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  // Designed email-embed card overrides ("" = auto-derived) + which image the
+  // email embed uses ('card' | 'og').
+  ogCardHeadline?: string;
+  ogCardSubheadline?: string;
+  ogCardBackground?: string;
+  emailEmbedSource?: string;
   // Task #494 — tri-state robots overrides. null = inherit tenant default.
   allowIndexing?: boolean | null;
   allowFollowing?: boolean | null;
@@ -1285,6 +1295,11 @@ export default function BuilderEditor() {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
+  // Email-embed card overrides ("" = auto-derived) + embed image source.
+  const [ogCardHeadline, setOgCardHeadline] = useState("");
+  const [ogCardSubheadline, setOgCardSubheadline] = useState("");
+  const [ogCardBackground, setOgCardBackground] = useState("");
+  const [emailEmbedSource, setEmailEmbedSource] = useState<"card" | "og">("card");
   // Task #494 — per-page robots overrides. null = inherit tenant default.
   const [allowIndexing, setAllowIndexing] = useState<boolean | null>(null);
   const [allowFollowing, setAllowFollowing] = useState<boolean | null>(null);
@@ -1755,6 +1770,10 @@ export default function BuilderEditor() {
         setMetaTitle(p.metaTitle ?? "");
         setMetaDescription(p.metaDescription ?? "");
         setOgImage(p.ogImage ?? "");
+        setOgCardHeadline(p.ogCardHeadline ?? "");
+        setOgCardSubheadline(p.ogCardSubheadline ?? "");
+        setOgCardBackground(p.ogCardBackground ?? "");
+        setEmailEmbedSource(p.emailEmbedSource === "og" ? "og" : "card");
         setAllowIndexing(p.allowIndexing ?? null);
         setAllowFollowing(p.allowFollowing ?? null);
         setPageVariables(p.pageVariables ?? {});
@@ -1787,6 +1806,10 @@ export default function BuilderEditor() {
             metaTitle: p.metaTitle ?? "",
             metaDescription: p.metaDescription ?? "",
             ogImage: p.ogImage ?? "",
+            ogCardHeadline: p.ogCardHeadline ?? "",
+            ogCardSubheadline: p.ogCardSubheadline ?? "",
+            ogCardBackground: p.ogCardBackground ?? "",
+            emailEmbedSource: p.emailEmbedSource === "og" ? "og" : "card",
             allowIndexing: p.allowIndexing ?? null,
             allowFollowing: p.allowFollowing ?? null,
             animationsEnabled: p.animationsEnabled !== false,
@@ -2508,6 +2531,10 @@ export default function BuilderEditor() {
     metaTitle,
     metaDescription,
     ogImage,
+    ogCardHeadline,
+    ogCardSubheadline,
+    ogCardBackground,
+    emailEmbedSource,
     allowIndexing,
     allowFollowing,
     pageVariables: Object.keys(pageVariables).length > 0 ? pageVariables : undefined,
@@ -2536,6 +2563,10 @@ export default function BuilderEditor() {
         metaTitle,
         metaDescription,
         ogImage,
+        ogCardHeadline,
+        ogCardSubheadline,
+        ogCardBackground,
+        emailEmbedSource,
         allowIndexing,
         allowFollowing,
         animationsEnabled,
@@ -2551,7 +2582,7 @@ export default function BuilderEditor() {
   const currentSnapshot = useMemo(
     () => buildSnapshot(status),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are buildSnapshot's actual inputs
-    [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, pageCta],
+    [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, emailEmbedSource, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, pageCta],
   );
 
   const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
@@ -4077,6 +4108,76 @@ export default function BuilderEditor() {
                       imageUrl={ogImage}
                       domain={micrositeDomain}
                     />
+                  </div>
+                </div>
+
+                {/* Email embed card — the designed 1200×630 card reps paste
+                    into outreach emails. Copy/background default to what the
+                    page derives; overrides exist because the derived hero
+                    copy sometimes reads wrong on the card. */}
+                <div className="border-t border-border pt-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Embed Card</Label>
+                    <a
+                      href={`/og-card/${encodeURIComponent(slug)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-primary hover:underline"
+                    >
+                      View card ↗
+                    </a>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div>
+                      <Label className="text-xs font-medium text-foreground mb-1 block">Embed image</Label>
+                      <select
+                        value={emailEmbedSource}
+                        onChange={e => {
+                          setEmailEmbedSource(e.target.value === "og" ? "og" : "card");
+                          setTimeout(handleSave, 50);
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="card">Designed card (auto-generated)</option>
+                        <option value="og">OG image above</option>
+                      </select>
+                    </div>
+                    {emailEmbedSource === "card" && (
+                      <>
+                        <div>
+                          <Label className="text-xs font-medium text-foreground mb-1 block">Card headline</Label>
+                          <Input
+                            value={ogCardHeadline}
+                            onChange={e => setOgCardHeadline(e.target.value)}
+                            onBlur={handleSave}
+                            placeholder="Auto — from the page's hero"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-foreground mb-1 block">Card subheadline</Label>
+                          <Input
+                            value={ogCardSubheadline}
+                            onChange={e => setOgCardSubheadline(e.target.value)}
+                            onBlur={handleSave}
+                            placeholder="Auto — from the page's hero"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-foreground mb-1 block">Card background</Label>
+                          <ImagePicker
+                            value={ogCardBackground}
+                            onChange={url => setOgCardBackground(url)}
+                            placeholder="Auto — the page's first image"
+                            aiHint="Email share card background (1200×630)"
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Leave fields empty to auto-fill from the page. Edits regenerate the card on the next email-preview copy.
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
 

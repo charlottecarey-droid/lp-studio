@@ -5,7 +5,7 @@ import { eq, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
 import { listTemplatesForTenant } from "../../lib/templateListing";
-import { resolveOGFields, CURRENT_OG_CARD_VERSION } from "../../lib/resolvePageOG";
+import { resolveOGFields, isLegacyThumioUrl, CURRENT_OG_CARD_VERSION } from "../../lib/resolvePageOG";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { getTenantPlan } from "../../lib/planFeatures";
@@ -1009,7 +1009,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, emailEmbedSource, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -1018,6 +1018,12 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     metaTitle?: string;
     metaDescription?: string;
     ogImage?: string;
+    // Designed-card copy overrides (Aug 2026). Empty string clears back to
+    // auto-derived. emailEmbedSource: 'card' | 'og'.
+    ogCardHeadline?: string;
+    ogCardSubheadline?: string;
+    ogCardBackground?: string;
+    emailEmbedSource?: string;
     animationsEnabled?: boolean;
     smoothScroll?: boolean;
     // Page-level cookie-banner opt-in (Aug 2026). Default false.
@@ -1040,7 +1046,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     ctaDefault?: Record<string, unknown> | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; showCookieBanner: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; ctaDefault: Record<string, unknown> | null; updatedBy: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; ogCardHeadline: string | null; ogCardSubheadline: string | null; ogCardBackground: string | null; emailEmbedSource: string; ogCardImage: string | null; ogCardVersion: number | null; animationsEnabled: boolean; smoothScroll: boolean; showCookieBanner: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; ctaDefault: Record<string, unknown> | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -1094,6 +1100,17 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (metaTitle !== undefined) updates.metaTitle = metaTitle;
   if (metaDescription !== undefined) updates.metaDescription = metaDescription;
   if (ogImage !== undefined) updates.ogImage = ogImage;
+  // Card copy overrides: empty/whitespace = clear back to auto-derived (NULL).
+  if (ogCardHeadline !== undefined) updates.ogCardHeadline = ogCardHeadline.trim() || null;
+  if (ogCardSubheadline !== undefined) updates.ogCardSubheadline = ogCardSubheadline.trim() || null;
+  if (ogCardBackground !== undefined) updates.ogCardBackground = ogCardBackground.trim() || null;
+  if (emailEmbedSource !== undefined) {
+    if (emailEmbedSource !== "card" && emailEmbedSource !== "og") {
+      res.status(400).json({ error: "emailEmbedSource must be 'card' or 'og'" });
+      return;
+    }
+    updates.emailEmbedSource = emailEmbedSource;
+  }
   if (animationsEnabled !== undefined) updates.animationsEnabled = animationsEnabled;
   if (smoothScroll !== undefined) updates.smoothScroll = smoothScroll;
   if (showCookieBanner !== undefined) updates.showCookieBanner = showCookieBanner === true;
@@ -1139,6 +1156,24 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     updates.allowFollowing = allowFollowing;
   }
   updates.updatedBy = req.authUser?.email ?? null;
+
+  // The captured designed card is a snapshot of SAVED content. Any save that
+  // can change what the card shows (page copy, blocks, meta cascade, or the
+  // card's own overrides) invalidates it, so the next email-preview copy
+  // re-captures instead of pasting a stale frame. Cheap: capture is lazy and
+  // only runs on the next actual copy.
+  if (
+    updates.title !== undefined ||
+    updates.blocks !== undefined ||
+    updates.metaTitle !== undefined ||
+    updates.metaDescription !== undefined ||
+    updates.ogCardHeadline !== undefined ||
+    updates.ogCardSubheadline !== undefined ||
+    updates.ogCardBackground !== undefined
+  ) {
+    updates.ogCardImage = null;
+    updates.ogCardVersion = null;
+  }
 
   // Capture pre-update state so we can detect status transitions + slug
   // renames for the prerender cache lifecycle (task #364).
@@ -1318,8 +1353,10 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
       .select({
         id: lpPagesTable.id,
         slug: lpPagesTable.slug,
+        ogImage: lpPagesTable.ogImage,
         ogCardImage: lpPagesTable.ogCardImage,
         ogCardVersion: lpPagesTable.ogCardVersion,
+        emailEmbedSource: lpPagesTable.emailEmbedSource,
       })
       .from(lpPagesTable)
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
@@ -1327,6 +1364,17 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
     if (!page || !slug) {
       res.status(404).json({ error: "Page not found" });
       return;
+    }
+
+    // Page-level opt-out of the designed card: emailEmbedSource='og' pins the
+    // embed to the explicit og_image (falling through to the card only when
+    // that field is empty or a known-bad legacy thum.io URL).
+    if (page.emailEmbedSource === "og") {
+      const explicit = (page.ogImage ?? "").trim();
+      if (explicit && !isLegacyThumioUrl(explicit)) {
+        res.json({ imageUrl: explicit });
+        return;
+      }
     }
 
     const card = (page.ogCardImage ?? "").trim();

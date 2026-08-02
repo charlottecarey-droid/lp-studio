@@ -286,4 +286,28 @@ describe("deriveOgCardCopy", () => {
     const copy = deriveOgCardCopy(null);
     expect(copy).toEqual({ headline: "", subheadline: "", accountName: "", accountLogo: "" });
   });
+
+  it("takes the lead sponsors/partners entry as the partner badge", () => {
+    const copy = deriveOgCardCopy([
+      {
+        type: "event-agenda",
+        headline: "Summit",
+        logoUrl: "/api/storage/objects/uploads/tenant-logo.png",
+        sponsors: [
+          { name: "No Logo Co", tier: "Founding partner" },
+          { name: "Weave", logoUrl: "/api/storage/objects/uploads/weave.png" },
+          { name: "Later Corp", logoUrl: "/api/storage/objects/uploads/later.png" },
+        ],
+      },
+    ]);
+    expect(copy.accountLogo).toBe("/api/storage/objects/uploads/weave.png");
+    expect(copy.accountName).toBe("Weave");
+  });
+
+  it("never mistakes the tenant's own logoUrl for a partner logo", () => {
+    const copy = deriveOgCardCopy([
+      { type: "event-page", headline: "Hi", logoUrl: "/api/storage/objects/uploads/tenant.png" },
+    ]);
+    expect(copy.accountLogo).toBe("");
+  });
 });
