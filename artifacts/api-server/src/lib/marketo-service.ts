@@ -300,6 +300,32 @@ export class MarketoService {
    * enabled. The tenant id is REQUIRED — there is no cross-tenant fallback.
    * Returns null when the tenant has no eligible connection.
    */
+  /**
+   * The tenant's connected Marketo connection REGARDLESS of `syncEnabled` —
+   * for read-only paths like the import preview. `getActiveConnection` requires
+   * syncEnabled, which is right for anything that writes, but a dry run has to
+   * work precisely when the sync is switched OFF: that is the state you are in
+   * while deciding whether to switch it on.
+   */
+  async getConnectedConnection(
+    tenantId: number,
+  ): Promise<{ id: number } | null> {
+    try {
+      const [connection] = await db
+        .select({ id: marketoConnectionsTable.id })
+        .from(marketoConnectionsTable)
+        .where(and(
+          eq(marketoConnectionsTable.tenantId, tenantId),
+          eq(marketoConnectionsTable.status, "connected"),
+        ))
+        .limit(1);
+      return connection || null;
+    } catch (err) {
+      logger.error({ err, tenantId }, "Error retrieving Marketo connection");
+      return null;
+    }
+  }
+
   async getActiveConnection(
     tenantId: number,
   ): Promise<{ id: number; restEndpoint: string; tenantId: number; enrollListId: string | null } | null> {

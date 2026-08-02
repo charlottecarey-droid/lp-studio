@@ -249,8 +249,10 @@ router.post("/marketo/sync/:object", requireAuth, async (req, res): Promise<void
 router.post("/marketo/sync/preview", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
-    const conn = await marketoService.getActiveConnection(tenantId);
-    if (!conn) { res.status(404).json({ error: "No active Marketo connection found" }); return; }
+    // Deliberately NOT getActiveConnection: a dry run must work while the
+    // sync is disabled, which is exactly when you want to run one.
+    const conn = await marketoService.getConnectedConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No connected Marketo account found" }); return; }
     const sampleSize = Number((req.body ?? {}).sampleSize) || undefined;
     const result = await marketoService.previewImport(conn.id, tenantId, { sampleSize });
     res.json({ success: true, dryRun: true, ...result });
