@@ -1,4 +1,5 @@
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import { mixHex } from "@/lib/section-ink";
@@ -61,6 +62,23 @@ interface NavbarProps {
    * JIT emits it. Defaults to `h-7` — the size every existing caller renders.
    */
   logoHeightClass?: string;
+  /** The rem value logoHeightClass resolves to (h-7 → 1.75). Only needed when
+   *  `balanceAccountLogo` or `accountLogoHeightRem` is in play. */
+  logoHeightRem?: number;
+  /** Fixed partner-logo height in rem, independent of the tenant mark. Wins
+   *  over balanceAccountLogo. */
+  accountLogoHeightRem?: number;
+  /**
+   * Area-balance the partner logo against the tenant mark: at EQUAL heights a
+   * squarish partner mark carries ~1/4 the visual area of a wide wordmark and
+   * reads "super small". Balancing scales the partner's height by
+   * √(tenantAspect / partnerAspect), clamped 0.8–2×. Fails open to the shared
+   * logoHeightClass while (or if) the intrinsic sizes can't be read.
+   */
+  balanceAccountLogo?: boolean;
+  /** Render the tenant mark before the partner logo (default: partner first —
+   *  the historical ABM lockup order). */
+  tenantLogoFirst?: boolean;
   /** 0–4 anchor links rendered between the lockup and the CTA. */
   links?: MicrositeNavLink[];
   /** Primary CTA label. Hidden when empty. */
@@ -87,6 +105,37 @@ interface NavbarProps {
   onCtaClick?: () => void;
 }
 
+/** Load an image's intrinsic aspect ratio (w/h); null when it can't be read
+ *  (broken URL, SVG with no intrinsic size, SSR). */
+function loadAspect(src: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () =>
+      resolve(img.naturalHeight > 0 && img.naturalWidth > 0 ? img.naturalWidth / img.naturalHeight : null);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+/** Area-balance scale for the partner logo (see `balanceAccountLogo` doc).
+ *  Returns null (= keep the shared height) until both aspects are known. */
+function useAccountLogoScale(accountSrc: string | undefined, tenantSrc: string | undefined, enabled: boolean): number | null {
+  const [scale, setScale] = useState<number | null>(null);
+  useEffect(() => {
+    if (!enabled || !accountSrc || !tenantSrc || typeof window === "undefined") {
+      setScale(null);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all([loadAspect(tenantSrc), loadAspect(accountSrc)]).then(([tenant, account]) => {
+      if (cancelled || !tenant || !account) return;
+      setScale(Math.min(2, Math.max(0.8, Math.sqrt(tenant / account))));
+    });
+    return () => { cancelled = true; };
+  }, [accountSrc, tenantSrc, enabled]);
+  return scale;
+}
+
 /**
  * Slim top navbar that sits transparently over a (dark) hero: a logo lockup
  * (optional account/co-brand logo + tenant logo, NO hardcoded brand), optional
@@ -101,6 +150,10 @@ export function MicrositeNavbar({
   accountLogoUrl,
   accountLogoAlt,
   logoHeightClass = "h-7",
+  logoHeightRem,
+  accountLogoHeightRem,
+  balanceAccountLogo = false,
+  tenantLogoFirst = false,
   links = [],
   ctaText,
   ctaUrl = "#",
@@ -119,6 +172,23 @@ export function MicrositeNavbar({
   const cleanLinks = links.filter((l) => l.label?.trim() && l.href?.trim()).slice(0, 4);
   const divider = mixHex(accent, heroSurface, isDark ? 0.45 : 0.65);
 
+  // Partner-logo sizing: explicit rem wins, then area-balance against the
+  // tenant mark, else the shared height class (the historical behavior).
+  const tenantLogoSrc =
+    (logoUrl ?? "").trim() ||
+    (isDark ? (brand?.logoUrlDark ?? "").trim() || (brand?.logoUrl ?? "").trim() : (brand?.logoUrl ?? "").trim());
+  const balanceScale = useAccountLogoScale(
+    accountLogoUrl,
+    tenantLogoSrc,
+    balanceAccountLogo && accountLogoHeightRem === undefined && hasTenantLogo,
+  );
+  const accountHeightStyle: CSSProperties | undefined =
+    accountLogoHeightRem !== undefined
+      ? { height: `${accountLogoHeightRem}rem` }
+      : balanceScale !== null && logoHeightRem !== undefined
+        ? { height: `${(logoHeightRem * balanceScale).toFixed(3)}rem` }
+        : undefined;
+
   const handle = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
     if (onAnchor) onAnchor(e, href);
   };
@@ -131,36 +201,48 @@ export function MicrositeNavbar({
       aria-label="Page navigation"
     >
       <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-5 py-4 sm:px-8 sm:py-5 lg:px-10">
-        {/* Logo lockup — optional account/co-brand logo + tenant logo / wordmark. */}
+        {/* Logo lockup — co-brand/partner logo + tenant logo / wordmark, in
+            either order (tenantLogoFirst). */}
         <div className="flex min-w-0 items-center gap-3">
-          {accountLogoUrl && (
-            <>
+          {(() => {
+            const partnerMark = accountLogoUrl ? (
               <img
+                key="partner"
                 src={accountLogoUrl}
                 alt={accountLogoAlt || "Account logo"}
-                className={`${logoHeightClass} w-auto shrink-0 ${isDark ? "brightness-0 invert" : ""}`}
+                className={`${accountHeightStyle ? "" : logoHeightClass} w-auto shrink-0 ${isDark ? "brightness-0 invert" : ""}`}
+                style={accountHeightStyle}
                 loading="eager"
               />
-              <span aria-hidden className="h-5 w-px shrink-0" style={{ background: inkMuted }} />
-            </>
-          )}
-          {hasTenantLogo && brand ? (
-            <BrandLogo
-              brand={brand}
-              url={logoUrl}
-              alt={logoAlt || brand.brandName || "Logo"}
-              tone={isDark ? "onDark" : "onLight"}
-              autoContrast
-              className={`${logoHeightClass} w-auto shrink-0`}
-            />
-          ) : wordmark ? (
-            <span
-              className="truncate text-base font-bold tracking-tight"
-              style={{ color: ink, fontFamily: BODY }}
-            >
-              {wordmark}
-            </span>
-          ) : null}
+            ) : null;
+            const tenantMark = hasTenantLogo && brand ? (
+              <BrandLogo
+                key="tenant"
+                brand={brand}
+                url={logoUrl}
+                alt={logoAlt || brand.brandName || "Logo"}
+                tone={isDark ? "onDark" : "onLight"}
+                autoContrast
+                className={`${logoHeightClass} w-auto shrink-0`}
+              />
+            ) : wordmark ? (
+              <span
+                key="tenant"
+                className="truncate text-base font-bold tracking-tight"
+                style={{ color: ink, fontFamily: BODY }}
+              >
+                {wordmark}
+              </span>
+            ) : null;
+            const dividerMark =
+              partnerMark && tenantMark ? (
+                <span key="div" aria-hidden className="h-5 w-px shrink-0" style={{ background: inkMuted }} />
+              ) : null;
+            const order = tenantLogoFirst
+              ? [tenantMark, dividerMark, partnerMark]
+              : [partnerMark, dividerMark, tenantMark];
+            return <>{order}</>;
+          })()}
         </div>
 
         {/* Anchor links — hidden on small screens, the CTA stays. */}

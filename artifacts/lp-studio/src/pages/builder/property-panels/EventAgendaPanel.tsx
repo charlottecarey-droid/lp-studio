@@ -695,10 +695,32 @@ export function EventAgendaPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 count (&ldquo;1 day&rdquo; vs &ldquo;3 days&rdquo;).
               </p>
             </div>
-            <Field label="Account logo URL (navbar co-brand)">
-              <Input value={props.accountLogoUrl ?? ""} onChange={(e) => set("accountLogoUrl", e.target.value)} placeholder="https://…/logo.svg" className="text-xs h-8" />
+            <Field label="Partner logo (navbar co-brand, after your logo)">
+              <ImagePicker
+                value={props.accountLogoUrl ?? ""}
+                onChange={(v) => set("accountLogoUrl", v || undefined)}
+                aiHint="partner / account logo"
+              />
             </Field>
-            <Field label="Logo size (header + footer)">
+            <Field label="Partner logo size">
+              <Select
+                value={props.accountLogoSize ?? "auto"}
+                onValueChange={(v) => set("accountLogoSize", v as EventAgendaBlockProps["accountLogoSize"])}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto-balance with your logo</SelectItem>
+                  <SelectItem value="match">Match your logo's height</SelectItem>
+                  <SelectItem value="sm">Small</SelectItem>
+                  <SelectItem value="md">Medium</SelectItem>
+                  <SelectItem value="lg">Large</SelectItem>
+                  <SelectItem value="xl">Extra large</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Your logo size (header + footer)">
               <Select
                 value={props.logoSize ?? "md"}
                 onValueChange={(v) => set("logoSize", v as EventAgendaBlockProps["logoSize"])}

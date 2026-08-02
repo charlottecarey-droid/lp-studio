@@ -207,9 +207,18 @@ export interface EventAgendaBlockProps extends CtaModalConfig, HeroCtaConfig {
   navLinks?: MicrositeNavLink[];
   navCtaText?: string;
   navCtaUrl?: string;
-  /** Optional account (co-brand) logo in the navbar lockup. */
+  /** Optional account/partner (co-brand) logo in the navbar lockup. Renders
+   *  AFTER the tenant mark (tenant leads on agenda pages). */
   accountLogoUrl?: string;
   accountLogoAlt?: string;
+  /**
+   * Partner-logo sizing, independent of `logoSize`:
+   *   "auto" (default) — area-balance against the tenant mark, so a squarish
+   *     partner logo isn't dwarfed by a wide tenant wordmark at equal height;
+   *   "match" — same height as the tenant mark (the pre-Aug-2026 behavior);
+   *   sm|md|lg|xl — fixed heights on the same scale as `logoSize`.
+   */
+  accountLogoSize?: "auto" | "match" | "sm" | "md" | "lg" | "xl";
   /** Tenant logo override (falls back to the brand logo). */
   logoUrl?: string;
   logoAlt?: string;
@@ -759,11 +768,11 @@ interface LinkedRsvpForm {
  * so the JIT emits them. The footer mark runs one notch smaller than the
  * header — it's a sign-off, not the lockup.
  */
-const LOGO_HEIGHTS: Record<NonNullable<EventAgendaBlockProps["logoSize"]>, { header: string; footer: string }> = {
-  sm: { header: "h-5", footer: "h-4" },
-  md: { header: "h-7", footer: "h-6" },
-  lg: { header: "h-10", footer: "h-8" },
-  xl: { header: "h-14", footer: "h-11" },
+const LOGO_HEIGHTS: Record<NonNullable<EventAgendaBlockProps["logoSize"]>, { header: string; headerRem: number; footer: string }> = {
+  sm: { header: "h-5", headerRem: 1.25, footer: "h-4" },
+  md: { header: "h-7", headerRem: 1.75, footer: "h-6" },
+  lg: { header: "h-10", headerRem: 2.5, footer: "h-8" },
+  xl: { header: "h-14", headerRem: 3.5, footer: "h-11" },
 };
 
 function downloadIcsBlob(ics: string, filename: string): void {
@@ -2886,7 +2895,15 @@ export function BlockEventAgenda({ props, brand, onCtaClick, onFieldChange, page
               logoAlt={props.logoAlt}
               accountLogoUrl={props.accountLogoUrl}
               accountLogoAlt={props.accountLogoAlt || props.accountName}
+              tenantLogoFirst
               logoHeightClass={logoHeights.header}
+              logoHeightRem={logoHeights.headerRem}
+              balanceAccountLogo={(props.accountLogoSize ?? "auto") === "auto"}
+              accountLogoHeightRem={
+                props.accountLogoSize && props.accountLogoSize !== "auto" && props.accountLogoSize !== "match"
+                  ? LOGO_HEIGHTS[props.accountLogoSize].headerRem
+                  : undefined
+              }
               links={props.navLinks ?? EVENT_AGENDA_DEFAULT_PROPS.navLinks ?? []}
               ctaText={props.navCtaText ?? props.ctaText}
               ctaUrl={props.navCtaUrl || props.ctaUrl || "#contact"}
