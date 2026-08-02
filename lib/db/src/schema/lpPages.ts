@@ -15,6 +15,16 @@ export const lpPagesTable = pgTable("lp_pages", {
   metaTitle: text("meta_title").notNull().default(""),
   metaDescription: text("meta_description").notNull().default(""),
   ogImage: text("og_image").notNull().default(""),
+  // Auto-generated designed share card (Aug 2026, replaces raw page
+  // screenshots as the OG fallback). NULLABLE + separate from `ogImage` on
+  // purpose: `ogImage` stays the user's explicit choice (SEO panel upload or
+  // builder auto-fill), `ogCardImage` is system-owned so a design change can
+  // regenerate every card without clobbering anything a human picked.
+  // `ogCardVersion` records which card design captured it; when it's behind
+  // the api-server's CURRENT_OG_CARD_VERSION the next email-preview copy
+  // lazily re-captures instead of serving the stale design.
+  ogCardImage: text("og_card_image"),
+  ogCardVersion: integer("og_card_version"),
   // Per-page robots overrides (task #494). TRI-STATE — intentionally NULLABLE
   // with no DB default: NULL = inherit the tenant default
   // (tenants.settings.seo.*), true = force allow, false = force deny. The

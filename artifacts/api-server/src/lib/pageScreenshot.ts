@@ -49,6 +49,14 @@ export interface PageScreenshotOptions {
   deviceScaleFactor?: number;
   /** Hard timeout for launch + nav + waits. Default 60s. */
   timeoutMs?: number;
+  /**
+   * CSS selector that marks "the page is pixel-final" — used INSTEAD of the
+   * default `[data-lp-page]`-with-children condition. The designed OG card
+   * route sets `[data-og-card-ready="1"]` only after it has explicitly loaded
+   * its fonts + background image and run its text auto-fit, which is a
+   * stronger guarantee than the generic waits below.
+   */
+  readyWaitSelector?: string;
 }
 
 export async function capturePageScreenshot(opts: PageScreenshotOptions): Promise<Buffer> {
@@ -108,25 +116,33 @@ async function captureNow(opts: PageScreenshotOptions): Promise<Buffer> {
       throw new Error(`screenshot target failed to load (${response?.status() ?? "no-response"}): ${opts.url}`);
     }
 
-    // Same "the viewer actually rendered blocks" condition as the prerender —
-    // never snapshot the boot spinner or an auth-loading shell.
-    await page.waitForFunction(
-      // Browser-context callback (typed `any` — the api-server tsconfig has no
-      // DOM lib; Playwright runs this inside chromium where `document` is real).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ((): any => {
-        const doc = (globalThis as any).document;
-        const root = doc?.getElementById("root");
-        if (!root) return false;
-        const hasRealChildren = Array.from(root.children as ArrayLike<{ id?: string }>).some(
-          (c) => c?.id !== "pre-mount-loader",
-        );
-        if (!hasRealChildren) return false;
-        const lpPage = doc.querySelector?.("[data-lp-page]");
-        return !!lpPage && lpPage.children?.length > 0;
-      }) as unknown as string,
-      { timeout: Math.max(30_000, Math.floor(timeoutMs * 0.75)) },
-    );
+    if (opts.readyWaitSelector) {
+      // The target page declares its own readiness (see the option's doc).
+      await page.waitForSelector(opts.readyWaitSelector, {
+        state: "attached",
+        timeout: Math.max(30_000, Math.floor(timeoutMs * 0.75)),
+      });
+    } else {
+      // Same "the viewer actually rendered blocks" condition as the prerender —
+      // never snapshot the boot spinner or an auth-loading shell.
+      await page.waitForFunction(
+        // Browser-context callback (typed `any` — the api-server tsconfig has no
+        // DOM lib; Playwright runs this inside chromium where `document` is real).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ((): any => {
+          const doc = (globalThis as any).document;
+          const root = doc?.getElementById("root");
+          if (!root) return false;
+          const hasRealChildren = Array.from(root.children as ArrayLike<{ id?: string }>).some(
+            (c) => c?.id !== "pre-mount-loader",
+          );
+          if (!hasRealChildren) return false;
+          const lpPage = doc.querySelector?.("[data-lp-page]");
+          return !!lpPage && lpPage.children?.length > 0;
+        }) as unknown as string,
+        { timeout: Math.max(30_000, Math.floor(timeoutMs * 0.75)) },
+      );
+    }
 
     // The load-bearing wait thum.io couldn't do: every @font-face used on the
     // page (self-hosted Bagoss included) has finished loading. Bounded so a

@@ -101,6 +101,81 @@ export function deriveFirstBlockImage(blocks: unknown): string {
 
 const s = (v: string | null | undefined): string => (typeof v === "string" ? v.trim() : "");
 
+/** Current designed-card layout version. Bump when the /og-card template
+ *  changes visually; stored cards with an older ogCardVersion are lazily
+ *  re-captured on the next email-preview copy instead of being served. */
+export const CURRENT_OG_CARD_VERSION = 1;
+
+/** Legacy thum.io capture URLs (pre-Aug-2026 URL-as-storage era). These
+ *  routinely rendered with fallback fonts and third-party caching, so every
+ *  cascade treats them as absent rather than serving a known-bad frame. */
+export function isLegacyThumioUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "thum.io" || host.endsWith(".thum.io");
+  } catch {
+    return false;
+  }
+}
+
+const dropThumio = (url: string): string => (isLegacyThumioUrl(url) ? "" : url);
+
+const HEADLINE_KEY_HINTS = ["headline", "heading", "title"];
+const SUBHEADLINE_KEY_HINTS = ["subheadline", "subtitle", "subheading", "tagline", "description"];
+
+function isPlainText(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    !looksLikeImageUrl(value) &&
+    !/^https?:\/\//i.test(value.trim())
+  );
+}
+
+/** Walk the blocks JSON (same discipline as {@link deriveFirstBlockImage}) and
+ *  pull the first hero-ish copy pair, plus the microsite account badge fields.
+ *  Depth-first with direct keys checked before recursion, so the page's lead
+ *  block wins over anything nested deeper. */
+export function deriveOgCardCopy(blocks: unknown): {
+  headline: string;
+  subheadline: string;
+  accountName: string;
+  accountLogo: string;
+} {
+  let headline = "";
+  let subheadline = "";
+  let accountName = "";
+  let accountLogo = "";
+  const seen = new Set<unknown>();
+  const visit = (node: unknown): void => {
+    if (node == null || typeof node !== "object") return;
+    if (seen.has(node)) return;
+    seen.add(node);
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        if (headline && subheadline && accountName && accountLogo) return;
+        visit(item);
+      }
+      return;
+    }
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      const k = key.toLowerCase();
+      if (!headline && HEADLINE_KEY_HINTS.includes(k) && isPlainText(value)) headline = value.trim();
+      if (!subheadline && SUBHEADLINE_KEY_HINTS.includes(k) && isPlainText(value)) subheadline = value.trim();
+      if (!accountName && k === "accountname" && isPlainText(value)) accountName = value.trim();
+      if (!accountLogo && k === "accountlogourl" && typeof value === "string" && looksLikeImageUrl(value)) {
+        accountLogo = value.trim();
+      }
+    }
+    for (const value of Object.values(node as Record<string, unknown>)) {
+      if (headline && subheadline && accountName && accountLogo) return;
+      visit(value);
+    }
+  };
+  visit(blocks);
+  return { headline, subheadline, accountName, accountLogo };
+}
+
 /**
  * Resolve the effective OG metadata for a single page. Loads the page and its
  * tenant itself so callers only pass a pageId. Returns null when the page does
@@ -113,6 +188,7 @@ export async function resolvePageOG(pageId: number): Promise<ResolvedPageOG | nu
       metaTitle: lpPagesTable.metaTitle,
       metaDescription: lpPagesTable.metaDescription,
       ogImage: lpPagesTable.ogImage,
+      ogCardImage: lpPagesTable.ogCardImage,
       blocks: lpPagesTable.blocks,
       tenantId: lpPagesTable.tenantId,
     })
@@ -137,6 +213,7 @@ export async function resolvePageOG(pageId: number): Promise<ResolvedPageOG | nu
     pageMetaTitle: s(page.metaTitle),
     pageMetaDescription: s(page.metaDescription),
     pageOgImage: s(page.ogImage),
+    pageOgCardImage: s(page.ogCardImage),
     blocks: page.blocks,
     tenantName: s(tenant?.name),
     tenantDefaultTitle: s(tenant?.defaultOgTitle),
@@ -150,6 +227,9 @@ export interface ResolveOGFieldsInput {
   pageMetaTitle: string;
   pageMetaDescription: string;
   pageOgImage: string;
+  /** Auto-generated designed card (lp_pages.og_card_image). Optional so the
+   *  pre-existing callers that never handled cards keep compiling. */
+  pageOgCardImage?: string;
   blocks: unknown;
   tenantName: string;
   tenantDefaultTitle: string;
@@ -175,8 +255,9 @@ export function resolveOGFields(i: ResolveOGFieldsInput): ResolvedPageOG {
     "";
 
   const image =
-    i.pageOgImage ||
-    i.tenantDefaultImageUrl ||
+    dropThumio(i.pageOgImage) ||
+    (i.pageOgCardImage ?? "") ||
+    dropThumio(i.tenantDefaultImageUrl) ||
     deriveFirstBlockImage(i.blocks) ||
     "";
 

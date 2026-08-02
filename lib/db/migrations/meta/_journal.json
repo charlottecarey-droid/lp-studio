@@ -904,6 +904,13 @@
       "when": 1757930000000,
       "tag": "0128_lp_pages_show_cookie_banner",
       "breakpoints": false
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1757940000000,
+      "tag": "0129_lp_pages_og_card_image",
+      "breakpoints": false
     }
   ]
 }

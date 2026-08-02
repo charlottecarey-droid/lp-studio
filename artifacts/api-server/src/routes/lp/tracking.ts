@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
-import { resolvePageOG, substitutePageTitleToken, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
+import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveFirstBlockImage, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and, sql } from "drizzle-orm";
@@ -1068,6 +1068,84 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
       ? page.pageVariables as Record<string, string>
       : {},
     isPreview: true,
+  });
+});
+
+/**
+ * Data payload for the designed OG share card (`/og-card/:slug` in the SPA —
+ * the page the headless capture screenshots instead of the live layout).
+ * Auth is identical to /lp/preview above: a page-scoped review token, or the
+ * caller's session tenant. Brand colors/logo/fonts are NOT here — the card
+ * route loads them through the existing /lp/brand?slug&reviewToken path.
+ */
+router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
+  const slug = req.params.slug?.trim();
+  if (!slug) { res.status(404).json({ error: "Page not found" }); return; }
+  const reviewToken = typeof req.query.reviewToken === "string" ? req.query.reviewToken : null;
+
+  let page: typeof lpPagesTable.$inferSelect | null = null;
+  if (reviewToken) {
+    const [review] = await db
+      .select()
+      .from(lpPageReviewsTable)
+      .where(eq(lpPageReviewsTable.token, reviewToken));
+    if (review) {
+      const [byTokenPage] = await db
+        .select()
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.id, review.pageId), eq(lpPagesTable.slug, slug)));
+      if (byTokenPage) page = byTokenPage;
+    }
+  }
+  if (!page) {
+    const user = await loadAuthUser(req);
+    if (!user || user.tenantId == null) { res.status(404).json({ error: "Page not found" }); return; }
+    const [byAuthPage] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, user.tenantId), eq(lpPagesTable.slug, slug)));
+    if (byAuthPage) page = byAuthPage;
+  }
+  if (!page) { res.status(404).json({ error: "Page not found" }); return; }
+
+  res.set("Cache-Control", "no-store");
+  const [tenant] = await db
+    .select({
+      name: tenantsTable.name,
+      defaultOgTitle: tenantsTable.defaultOgTitle,
+      defaultOgDescription: tenantsTable.defaultOgDescription,
+    })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, page.tenantId))
+    .limit(1);
+
+  const copy = deriveOgCardCopy(page.blocks);
+  const trim = (v: string | null | undefined) => (typeof v === "string" ? v.trim() : "");
+  // Hero copy first — it's what the page visually leads with — falling back
+  // to the same meta cascade scrapers see, so the card is never empty.
+  const metaFallback = resolveOGFields({
+    pageTitle: trim(page.title),
+    pageMetaTitle: trim(page.metaTitle),
+    pageMetaDescription: trim(page.metaDescription),
+    pageOgImage: "",
+    blocks: page.blocks,
+    tenantName: trim(tenant?.name),
+    tenantDefaultTitle: trim(tenant?.defaultOgTitle),
+    tenantDefaultDescription: trim(tenant?.defaultOgDescription),
+    tenantDefaultImageUrl: "",
+  });
+  const host = await resolveCanonicalPublishedHost(page.tenantId);
+  res.json({
+    headline: copy.headline || metaFallback.title,
+    subheadline: copy.subheadline || metaFallback.description,
+    accountName: copy.accountName,
+    accountLogo: copy.accountLogo,
+    // Background is always derived from page CONTENT (first block image) —
+    // never og_image/og_card_image, which may themselves be captures of this
+    // card (recursion) or of the old broken layout.
+    backgroundImage: deriveFirstBlockImage(page.blocks),
+    host: host ?? "",
+    slug: page.slug,
   });
 });
 

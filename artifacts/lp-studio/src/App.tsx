@@ -111,6 +111,7 @@ const Dashboard = lazy(() => import("@/pages/dashboard"));
 const CreateTest = lazy(() => import("@/pages/create-test"));
 const TestDetail = lazy(() => import("@/pages/test-detail"));
 const LandingPageViewer = lazy(() => import("@/pages/landing-page-viewer"));
+const OgCardPage = lazy(() => import("@/pages/og-card"));
 const BrandSettings = lazy(() => import("@/pages/brand-settings"));
 const PagesGallery = lazy(() => import("@/pages/pages-gallery"));
 const BuilderEditor = lazy(() => import("@/pages/builder/BuilderEditor"));
@@ -422,6 +423,9 @@ function AppRouter() {
         {/* Authenticated draft preview (No App Layout) */}
         <Route path="/preview/:slug" component={LandingPageViewer} />
 
+        {/* Designed OG share card — headless-capture target (No App Layout) */}
+        <Route path="/og-card/:slug" component={OgCardPage} />
+
         {/* Review Shell (No App Layout) */}
         <Route path="/review/:token" component={ReviewShell} />
 
@@ -560,6 +564,8 @@ function AppShell() {
             <Route path="/reset-password" component={ResetPassword} />
             {/* Authenticated/token-gated draft preview — must come before /:slug catch-all */}
             <Route path="/preview/:slug" component={LandingPageViewer} />
+            {/* Designed OG share card — must come before /:slug catch-all */}
+            <Route path="/og-card/:slug" component={OgCardPage} />
             {/* Token-based review link */}
             <Route path="/review/:token" component={ReviewShell} />
             {/* Short slug routes: partners.meetdandy.com/{slug}.
@@ -630,7 +636,8 @@ function AppShell() {
     location.startsWith("/thank-you") ||
     location.startsWith("/preview/template/") ||
     location.startsWith("/preview/generic-catalog-fixture") ||
-    (location.startsWith("/preview/") && hasReviewToken);
+    (location.startsWith("/preview/") && hasReviewToken) ||
+    (location.startsWith("/og-card/") && hasReviewToken);
 
   if (isPublicRoute) {
     return (
@@ -647,6 +654,7 @@ function AppShell() {
             <Route path="/preview/template/:templateId" component={TemplatePreview} />
             <Route path="/preview/generic-catalog-fixture" component={GenericCatalogFixture} />
             <Route path="/preview/:slug" component={LandingPageViewer} />
+            <Route path="/og-card/:slug" component={OgCardPage} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>

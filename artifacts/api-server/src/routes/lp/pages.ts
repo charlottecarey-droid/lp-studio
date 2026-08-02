@@ -5,7 +5,7 @@ import { eq, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
 import { listTemplatesForTenant } from "../../lib/templateListing";
-import { resolveOGFields, resolvePageOG } from "../../lib/resolvePageOG";
+import { resolveOGFields, isLegacyThumioUrl, CURRENT_OG_CARD_VERSION } from "../../lib/resolvePageOG";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { getTenantPlan } from "../../lib/planFeatures";
@@ -1251,10 +1251,16 @@ router.post("/lp/pages/:pageId/capture-og", async (req, res): Promise<void> => {
 
 class BlankCaptureError extends Error {}
 
-/** Capture a 1200×630 share-card shot of /preview/:slug and upload it to
- *  object storage (tenant-ACL'd; the serve route allows anonymous reads so
- *  email clients and scrapers can fetch it). Shared by the capture-og and
- *  email-preview routes. Returns the `/api/storage/...` serve URL. */
+/** Capture the DESIGNED 1200×630 share card (`/og-card/:slug` in the SPA) and
+ *  upload it to object storage (tenant-ACL'd; the serve route allows anonymous
+ *  reads so email clients and scrapers can fetch it). Shared by the capture-og
+ *  and email-preview routes. Returns the `/api/storage/...` serve URL.
+ *
+ *  Previously this screenshot the live `/preview/:slug` layout letterboxed
+ *  into 1200×630 — which cropped viewport-height heroes, overlapped their
+ *  vw-sized headlines, and raced brand webfonts. The card route composes a
+ *  purpose-built frame and flips `data-og-card-ready` only once its fonts and
+ *  background image are actually painted, so the capture waits on that. */
 async function captureOgScreenshotToStorage(args: {
   pageId: number;
   slug: string;
@@ -1263,15 +1269,16 @@ async function captureOgScreenshotToStorage(args: {
 }): Promise<string> {
   const token = await ensurePreviewReviewToken(args.pageId);
   const baseUrl = resolvePreviewBaseUrl(args.requestHost);
-  const previewUrl =
-    `${baseUrl}/preview/${encodeURIComponent(args.slug)}` +
-    `?reviewToken=${encodeURIComponent(token)}&prerender=1`;
+  const cardUrl =
+    `${baseUrl}/og-card/${encodeURIComponent(args.slug)}` +
+    `?reviewToken=${encodeURIComponent(token)}`;
 
   const shot = await capturePageScreenshot({
-    url: previewUrl,
+    url: cardUrl,
     viewportWidth: OG_IMAGE_WIDTH,
     viewportHeight: OG_IMAGE_HEIGHT,
     timeoutMs: 60_000,
+    readyWaitSelector: '[data-og-card-ready="1"]',
   });
   const { blank, stdev } = await isNearUniformCapture(shot);
   if (blank) throw new BlankCaptureError(`Capture came back blank (stdev ${stdev})`);
@@ -1286,11 +1293,17 @@ async function captureOgScreenshotToStorage(args: {
 }
 
 /**
- * Resolve the preview image for the "copy email preview" embed snippet: the
- * page's OG share-card cascade first (per-page og_image → tenant default →
- * first block image), lazily falling back to a fresh self-hosted screenshot.
- * A lazily-captured image is persisted onto lp_pages.og_image so social
- * scrapers and the next copy reuse it instead of re-rendering chromium.
+ * Resolve the preview image for the "copy email preview" embed snippet.
+ * Precedence:
+ *   1. the page's explicit og_image (SEO-panel upload / builder auto-fill) —
+ *      the user picked it, never second-guess it. Legacy thum.io URLs are the
+ *      exception: those captures were wrong-font/stale by construction, so
+ *      they're treated as absent;
+ *   2. the auto-generated designed card (og_card_image) — but only when its
+ *      recorded design version is current, so shipping a better card template
+ *      lazily refreshes every stale card on the next copy;
+ *   3. a fresh card capture, persisted to og_card_image + og_card_version so
+ *      scrapers and the next copy reuse it instead of re-rendering chromium.
  */
 router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -1301,7 +1314,13 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
   }
   try {
     const [page] = await db
-      .select({ id: lpPagesTable.id, slug: lpPagesTable.slug })
+      .select({
+        id: lpPagesTable.id,
+        slug: lpPagesTable.slug,
+        ogImage: lpPagesTable.ogImage,
+        ogCardImage: lpPagesTable.ogCardImage,
+        ogCardVersion: lpPagesTable.ogCardVersion,
+      })
       .from(lpPagesTable)
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
     const slug = (page?.slug ?? "").trim();
@@ -1310,9 +1329,14 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
       return;
     }
 
-    const resolved = await resolvePageOG(page.id);
-    let imageUrl = (resolved?.image ?? "").trim();
-    if (!imageUrl) {
+    const explicit = (page.ogImage ?? "").trim();
+    const card = (page.ogCardImage ?? "").trim();
+    let imageUrl = "";
+    if (explicit && !isLegacyThumioUrl(explicit)) {
+      imageUrl = explicit;
+    } else if (card && page.ogCardVersion === CURRENT_OG_CARD_VERSION) {
+      imageUrl = card;
+    } else {
       imageUrl = await captureOgScreenshotToStorage({
         pageId: page.id,
         slug,
@@ -1321,7 +1345,7 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
       });
       await db
         .update(lpPagesTable)
-        .set({ ogImage: imageUrl })
+        .set({ ogCardImage: imageUrl, ogCardVersion: CURRENT_OG_CARD_VERSION })
         .where(eq(lpPagesTable.id, page.id));
     }
     res.json({ imageUrl });

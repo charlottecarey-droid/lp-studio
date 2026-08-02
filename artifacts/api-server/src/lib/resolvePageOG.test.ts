@@ -3,6 +3,8 @@ import {
   resolveOGFields,
   substitutePageTitleToken,
   deriveFirstBlockImage,
+  deriveOgCardCopy,
+  isLegacyThumioUrl,
   OG_IMAGE_WIDTH,
   OG_IMAGE_HEIGHT,
   type ResolveOGFieldsInput,
@@ -197,5 +199,91 @@ describe("resolveOGFields — image cascade + dimensions", () => {
     const noImg = resolve({});
     expect(noImg.width).toBeNull();
     expect(noImg.height).toBeNull();
+  });
+});
+
+describe("isLegacyThumioUrl", () => {
+  it("matches thum.io hosts (any subdomain)", () => {
+    expect(isLegacyThumioUrl("https://image.thum.io/get/width/1200/https://x.com")).toBe(true);
+    expect(isLegacyThumioUrl("https://thum.io/get/foo")).toBe(true);
+  });
+
+  it("does not match our storage URLs, other hosts, or non-URLs", () => {
+    expect(isLegacyThumioUrl("/api/storage/objects/uploads/abc")).toBe(false);
+    expect(isLegacyThumioUrl("https://cdn.example.com/thum.io.png")).toBe(false);
+    expect(isLegacyThumioUrl("")).toBe(false);
+    expect(isLegacyThumioUrl("not a url")).toBe(false);
+  });
+});
+
+describe("resolveOGFields — designed card + thum.io filtering", () => {
+  it("treats a legacy thum.io per-page og_image as absent", () => {
+    const r = resolve({
+      pageOgImage: "https://image.thum.io/get/width/1200/https://x.com",
+      pageOgCardImage: "/api/storage/objects/uploads/card.png",
+    });
+    expect(r.image).toBe("/api/storage/objects/uploads/card.png");
+  });
+
+  it("explicit per-page og_image still wins over the auto card", () => {
+    const r = resolve({
+      pageOgImage: "/api/storage/objects/uploads/custom.png",
+      pageOgCardImage: "/api/storage/objects/uploads/card.png",
+    });
+    expect(r.image).toBe("/api/storage/objects/uploads/custom.png");
+  });
+
+  it("auto card wins over tenant default and block image", () => {
+    const r = resolve({
+      pageOgCardImage: "/api/storage/objects/uploads/card.png",
+      tenantDefaultImageUrl: "https://cdn.example.com/tenant.png",
+      blocks: [{ image: "https://cdn.example.com/block.png" }],
+    });
+    expect(r.image).toBe("/api/storage/objects/uploads/card.png");
+  });
+
+  it("treats a legacy thum.io tenant default as absent", () => {
+    const r = resolve({
+      tenantDefaultImageUrl: "https://image.thum.io/get/anything",
+      blocks: [{ image: "https://cdn.example.com/block.png" }],
+    });
+    expect(r.image).toBe("https://cdn.example.com/block.png");
+  });
+});
+
+describe("deriveOgCardCopy", () => {
+  it("pulls the lead block's headline/subheadline pair", () => {
+    const copy = deriveOgCardCopy([
+      { type: "hero", headline: "Built for Gentle Dental", subheadline: "One lab across 40+ locations." },
+      { type: "hero", headline: "Second hero" },
+    ]);
+    expect(copy.headline).toBe("Built for Gentle Dental");
+    expect(copy.subheadline).toBe("One lab across 40+ locations.");
+  });
+
+  it("falls through headline key synonyms and ignores image-URL values", () => {
+    const copy = deriveOgCardCopy([
+      { title: "https://cdn.example.com/pic.png" },
+      { heading: "Real heading" },
+    ]);
+    expect(copy.headline).toBe("Real heading");
+  });
+
+  it("surfaces the microsite account badge fields", () => {
+    const copy = deriveOgCardCopy([
+      {
+        type: "account-microsite",
+        headline: "Hi",
+        accountName: "Gentle Dental",
+        accountLogoUrl: "/api/storage/objects/uploads/logo.png",
+      },
+    ]);
+    expect(copy.accountName).toBe("Gentle Dental");
+    expect(copy.accountLogo).toBe("/api/storage/objects/uploads/logo.png");
+  });
+
+  it("returns empty strings for empty blocks", () => {
+    const copy = deriveOgCardCopy(null);
+    expect(copy).toEqual({ headline: "", subheadline: "", accountName: "", accountLogo: "" });
   });
 });
