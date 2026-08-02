@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_OUTREACH_SUBJECT, DEFAULT_OUTREACH_INTRO } from "@/lib/email-preview";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Loader2, Save, Users, Globe, Plus, Trash2, RotateCcw, CheckCircle2, AlertTriangle, Mail,
 } from "lucide-react";
@@ -507,6 +508,7 @@ interface SendingDraft {
   notificationsLocalPart: string;
   outreachSubject: string;
   outreachIntro: string;
+  outreachMailClient: "gmail" | "default";
 }
 
 function toDraft(sc: SalesConsoleConfig | undefined): SendingDraft {
@@ -519,6 +521,7 @@ function toDraft(sc: SalesConsoleConfig | undefined): SendingDraft {
     notificationsLocalPart: sc?.notificationsLocalPart ?? "",
     outreachSubject: sc?.outreachSubject ?? "",
     outreachIntro: sc?.outreachIntro ?? "",
+    outreachMailClient: sc?.outreachMailClient ?? "gmail",
   };
 }
 
@@ -596,6 +599,7 @@ export function EmailSendingContent() {
           notificationsLocalPart: draft.notificationsLocalPart,
           outreachSubject: draft.outreachSubject.trim(),
           outreachIntro: draft.outreachIntro.trim(),
+          outreachMailClient: draft.outreachMailClient,
         },
       });
       toast({ title: "Sending settings saved", description: "Outbound email now uses the updated sender identity." });
@@ -738,6 +742,29 @@ export function EmailSendingContent() {
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
             Prefills the email a rep opens from <span className="font-medium text-foreground">Pages → Copy email preview</span>. They can edit anything before sending. Leave blank to use the built-in wording.
+          </p>
+        </div>
+        {/* One client, not both. The console shows a single "open a draft"
+            button per row and this decides which one — offering Gmail AND
+            mailto everywhere meant two near-identical icons beside a copy
+            button that already uses an envelope. */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">Mail client</Label>
+          <Select
+            value={draft.outreachMailClient}
+            onValueChange={(v) => patch({ outreachMailClient: v as "gmail" | "default" })}
+          >
+            <SelectTrigger className="max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gmail">Gmail</SelectItem>
+              <SelectItem value="default">Everything else (default mail app)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Where the draft buttons in the console open. Gmail uses its web composer; everything
+            else hands off to whatever mail app the rep's machine is set to.
           </p>
         </div>
         <div className="space-y-1.5">

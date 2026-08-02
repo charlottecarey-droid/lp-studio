@@ -19,6 +19,17 @@ interface BrandConfigContextValue {
 
 const BrandConfigContext = createContext<BrandConfigContextValue | null>(null);
 
+/**
+ * Non-throwing read, for consumers where the brand is a nicety rather than a
+ * requirement (e.g. picking which mail-client icon to draw). `useBrandConfig`
+ * throws on purpose — a page that renders brand colors must not silently show
+ * the wrong ones — but a small shared control shouldn't take a whole page down
+ * because it was mounted outside the provider.
+ */
+export function useOptionalBrandConfig(): BrandConfigContextValue | null {
+  return useContext(BrandConfigContext);
+}
+
 export function BrandConfigProvider({ children }: { children: ReactNode }) {
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [loading, setLoading] = useState(true);

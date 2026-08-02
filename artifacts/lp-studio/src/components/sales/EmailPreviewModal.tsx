@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, Globe, Loader2, Mail, Search, Send, Users, X } from "lucide-react";
+import { Check, Copy, Globe, Loader2, Mail, Search, Send, SquarePen, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { copyEmailPreview, buildOutreachEmail, buildGmailComposeUrl, buildMailtoUrl } from "@/lib/email-preview";
 import { fetchBrandConfig } from "@/lib/brand-config";
+import { useOptionalBrandConfig } from "@/context/BrandConfigContext";
 import { toast } from "@/hooks/use-toast";
 import { initials } from "@/pages/sales/sales-pages-shared";
 
@@ -41,6 +42,12 @@ export interface EmailPreviewPage {
 }
 
 export interface OutreachTemplates { subject?: string; intro?: string }
+
+/** Workspace mail client (Settings → Email → Sending). Unset = gmail. */
+export function useMailClient(): ComposeTarget {
+  const ctx = useOptionalBrandConfig();
+  return ctx?.brand?.salesConsole?.outreachMailClient === "default" ? "mail" : "gmail";
+}
 
 /**
  * Workspace outreach templates (Settings → Email → Sending). Three tiers:
@@ -185,10 +192,17 @@ export function useEmailPreviewCopy(outreach: OutreachSource) {
 }
 
 /**
- * The Gmail / email-app pair that sits next to a copy control. Per-hotlink rows
- * (page drill-down, contacts) can't offer a link-type choice — the contact is
- * already fixed — but they should still be able to get a draft, which is what
- * they were missing.
+ * ONE "open a draft" button, next to the copy control.
+ *
+ * This used to render a Gmail button AND a mail-app button on every row. Two
+ * problems: a workspace uses one client, not both, and the mail-app icon was an
+ * envelope sitting immediately beside the copy-email-preview button — which is
+ * also an envelope. So the client is a workspace setting (Settings → Email →
+ * Sending) and the icons are deliberately distinct from each other and from
+ * that envelope: a paper plane for Gmail, a compose pen for everything else.
+ *
+ * Per-hotlink rows (page drill-down, contacts) can't offer a link-type choice —
+ * the contact is already fixed — but they should still be able to get a draft.
  */
 export function ComposeButtons({
   disabled,
@@ -203,53 +217,37 @@ export function ComposeButtons({
   onCompose: (target: ComposeTarget) => void;
   variant?: "icon" | "row";
 }) {
+  const target = useMailClient();
   const who = name || email || "this contact";
   const noEmail = !email ? " (no email on file — the draft opens empty)" : "";
+  const label = target === "gmail" ? "Gmail" : "your email app";
+  const title = `Copy the card and open a draft to ${who} in ${label}${noEmail}`;
+  const aria = `Open a draft to ${who} in ${label}`;
+  const Icon = target === "gmail" ? Send : SquarePen;
+
   if (variant === "row") {
     return (
-      <>
-        <button
-          disabled={disabled}
-          title={`Copy the card and open a Gmail draft to ${who}${noEmail}`}
-          aria-label={`Open a Gmail draft to ${who}`}
-          onClick={() => onCompose("gmail")}
-          className="px-2 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
-        >
-          <Send className="w-3.5 h-3.5" />
-        </button>
-        <button
-          disabled={disabled}
-          title={`Copy the card and open a draft to ${who} in your email app${noEmail}`}
-          aria-label={`Open an email-app draft to ${who}`}
-          onClick={() => onCompose("mail")}
-          className="pr-3 pl-1 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
-        >
-          <Mail className="w-3.5 h-3.5" />
-        </button>
-      </>
+      <button
+        disabled={disabled}
+        title={title}
+        aria-label={aria}
+        onClick={() => onCompose(target)}
+        className="pr-3 pl-2 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
+      >
+        <Icon className="w-3.5 h-3.5" />
+      </button>
     );
   }
   return (
-    <>
-      <Button
-        variant="ghost" size="icon" className="h-7 w-7 shrink-0"
-        disabled={disabled}
-        title={`Copy the card and open a Gmail draft to ${who}${noEmail}`}
-        aria-label={`Open a Gmail draft to ${who}`}
-        onClick={() => onCompose("gmail")}
-      >
-        <Send className="w-3.5 h-3.5" />
-      </Button>
-      <Button
-        variant="ghost" size="icon" className="h-7 w-7 shrink-0"
-        disabled={disabled}
-        title={`Copy the card and open a draft to ${who} in your email app${noEmail}`}
-        aria-label={`Open an email-app draft to ${who}`}
-        onClick={() => onCompose("mail")}
-      >
-        <Mail className="w-3.5 h-3.5" />
-      </Button>
-    </>
+    <Button
+      variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+      disabled={disabled}
+      title={title}
+      aria-label={aria}
+      onClick={() => onCompose(target)}
+    >
+      <Icon className="w-3.5 h-3.5" />
+    </Button>
   );
 }
 
@@ -284,6 +282,7 @@ export function EmailPreviewModal({
   const [created, setCreated] = useState<EmailPreviewHotlink[]>([]);
 
   const outreach = useOutreachTemplates(!!page);
+  const mailClient = useMailClient();
   const { busyKey, copiedKey, setBusyKey, setCopiedKey, copyPreview, openComposerFor } = useEmailPreviewCopy(outreach);
 
   const pageId = page?.pageId ?? null;
@@ -426,23 +425,16 @@ export function EmailPreviewModal({
                       ? <><Check className="w-3 h-3 mr-1 text-emerald-500" />Copied</>
                       : <><Copy className="w-3 h-3 mr-1" />Copy</>}
                 </Button>
+                {/* One draft button, per the workspace's mail client — same
+                    rule as the contact rows below. */}
                 <Button
                   size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0"
                   disabled={busyKey !== null}
-                  title="Copy the card and open a Gmail draft (no recipient — it's the plain link)"
-                  aria-label="Open a Gmail draft with the plain page link"
-                  onClick={() => void copyPreview({ key: "plain", pageId: row.pageId, pageUrl: plainUrl, title: row.pageTitle, compose: { target: "gmail" } })}
+                  title={`Copy the card and open a draft in ${mailClient === "gmail" ? "Gmail" : "your email app"} (no recipient — it's the plain link)`}
+                  aria-label="Open a draft with the plain page link"
+                  onClick={() => void copyPreview({ key: "plain", pageId: row.pageId, pageUrl: plainUrl, title: row.pageTitle, compose: { target: mailClient } })}
                 >
-                  <Send className="w-3 h-3" />
-                </Button>
-                <Button
-                  size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0"
-                  disabled={busyKey !== null}
-                  title="Copy the card and open a draft in your default email app"
-                  aria-label="Open a draft in your email app with the plain page link"
-                  onClick={() => void copyPreview({ key: "plain", pageId: row.pageId, pageUrl: plainUrl, title: row.pageTitle, compose: { target: "mail" } })}
-                >
-                  <Mail className="w-3 h-3" />
+                  {mailClient === "gmail" ? <Send className="w-3 h-3" /> : <SquarePen className="w-3 h-3" />}
                 </Button>
               </div>
 

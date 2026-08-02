@@ -21,6 +21,12 @@ vi.mock("@/lib/email-preview", () => ({
   buildMailtoUrl: ({ to }: { to?: string | null }) => `mailto:${to ?? ""}`,
 }));
 vi.mock("@/lib/brand-config", () => ({ fetchBrandConfig: async () => null }));
+// Workspace mail client — one draft button, not two. Mutable so a test can
+// flip the workspace to "everything else".
+const brandState = { outreachMailClient: "gmail" as "gmail" | "default" };
+vi.mock("@/context/BrandConfigContext", () => ({
+  useOptionalBrandConfig: () => ({ brand: { salesConsole: { outreachMailClient: brandState.outreachMailClient } } }),
+}));
 const toast = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({ toast: (...args: unknown[]) => toast(...args) }));
 
@@ -39,6 +45,7 @@ describe("EmailPreviewModal", () => {
   beforeEach(() => {
     copyEmailPreview.mockReset().mockResolvedValue("rich");
     toast.mockReset();
+    brandState.outreachMailClient = "gmail";
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, json: async () => ({}) })));
     vi.stubGlobal("open", vi.fn());
   });
@@ -66,7 +73,7 @@ describe("EmailPreviewModal", () => {
     copyEmailPreview.mockRejectedValue(new Error("clipboard denied"));
     render(<EmailPreviewModal page={PAGE} onClose={() => {}} />);
 
-    fireEvent.click(screen.getByLabelText("Open a Gmail draft to Darby Tinker"));
+    fireEvent.click(screen.getByLabelText("Open a draft to Darby Tinker in Gmail"));
 
     await waitFor(() => expect(window.open).toHaveBeenCalled());
     expect((window.open as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toContain("darby@example.com");
@@ -76,9 +83,23 @@ describe("EmailPreviewModal", () => {
     });
   });
 
+  it("shows ONE draft button, matching the workspace's mail client", () => {
+    // Gmail workspace: a Gmail draft button, and no mail-app twin beside it.
+    render(<EmailPreviewModal page={PAGE} onClose={() => {}} />);
+    expect(screen.getByLabelText("Open a draft to Darby Tinker in Gmail")).toBeTruthy();
+    expect(screen.queryByLabelText(/in your email app/)).toBeNull();
+    cleanup();
+
+    // Everything-else workspace: the mailto button, and no Gmail twin.
+    brandState.outreachMailClient = "default";
+    render(<EmailPreviewModal page={PAGE} onClose={() => {}} />);
+    expect(screen.getByLabelText("Open a draft to Darby Tinker in your email app")).toBeTruthy();
+    expect(screen.queryByLabelText(/in Gmail/)).toBeNull();
+  });
+
   it("addresses the draft from the hotlink, not the loaded contact list", async () => {
     render(<EmailPreviewModal page={PAGE} onClose={() => {}} />);
-    fireEvent.click(screen.getByLabelText("Open a Gmail draft to Darby Tinker"));
+    fireEvent.click(screen.getByLabelText("Open a draft to Darby Tinker in Gmail"));
     await waitFor(() => expect(window.open).toHaveBeenCalled());
     expect((window.open as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toContain("darby@example.com");
   });

@@ -650,6 +650,16 @@ export interface SalesConsoleConfig {
    */
   outreachSubject?: string;
   outreachIntro?: string;
+  /**
+   * Which mail client the "open a draft" buttons target. Gmail opens its web
+   * composer; "default" hands off to the OS mail app via mailto:.
+   *
+   * The console used to offer BOTH on every row, which put two envelope-ish
+   * icons next to a copy button that is itself an envelope. A workspace runs
+   * on one or the other, so it's a setting, not a per-click choice. Unset =
+   * gmail.
+   */
+  outreachMailClient?: "gmail" | "default";
   salesIntroLine?: string;
   briefBlurb?: string;
   /** Legacy no-op flag; the built-in microsite exemplars it once gated were removed. */
