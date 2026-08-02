@@ -102,9 +102,21 @@ function useLogoNeedsInversion(src: string | null | undefined): boolean | null {
   return needsInvert;
 }
 
+/**
+ * Account menu — identity, settings, sign out.
+ *
+ * Settings used to be its own bare gear icon sitting between the Sidekick pill
+ * and the mode toggle: a third control shape in a four-item cluster, with no
+ * hit affordance and no relationship to its neighbours. Its contents are all
+ * account-level (integrations, brand, team, roles), which is exactly what an
+ * account menu is for, so the gear is gone and the items live here.
+ */
 function UserAvatarDropdown() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPerm } = useAuth();
+  const [location] = useLocation();
   if (!user) return null;
+
+  const isActive = (path: string) => location === path;
 
   const initials = user.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -113,15 +125,18 @@ function UserAvatarDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-full border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-200 group">
+        <button
+          className="flex items-center gap-1.5 h-8 pl-1 pr-1.5 rounded-lg hover:bg-white/10 transition-colors duration-150 group"
+          aria-label="Account menu"
+        >
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0 ring-2 ring-white/10" />
+            <img src={user.avatarUrl} alt={user.name} className="h-6 w-6 rounded-full object-cover shrink-0" />
           ) : (
-            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[rgb(var(--brand-accent-rgb)/0.3)] to-[rgb(var(--brand-accent-rgb)/0.1)] text-[var(--brand-accent)] text-[11px] font-semibold flex items-center justify-center shrink-0 ring-2 ring-[rgb(var(--brand-accent-rgb)/0.2)]">
+            <div className="h-6 w-6 rounded-full bg-white/15 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
               {initials}
             </div>
           )}
-          <ChevronDown className="w-3 h-3 text-white/40 group-hover:text-white/70 transition-colors shrink-0" />
+          <ChevronDown className="w-3 h-3 text-white/45 group-hover:text-white/80 transition-colors shrink-0" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 p-1.5">
@@ -129,6 +144,8 @@ function UserAvatarDropdown() {
           <div className="text-sm font-semibold">{user.name}</div>
           <div className="text-xs text-muted-foreground truncate mt-0.5">{user.email}</div>
         </div>
+        <DropdownMenuSeparator />
+        <SettingsMenuItems hasPerm={hasPerm} user={user} isActive={isActive} />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="gap-2.5 text-destructive focus:text-destructive rounded-md mx-0.5"
@@ -145,20 +162,13 @@ function UserAvatarDropdown() {
   );
 }
 
-function SettingsDropdown() {
-  const { hasPerm, user } = useAuth();
-  const [location] = useLocation();
-
-  const isActive = (path: string) => location === path;
-
+function SettingsMenuItems({ hasPerm, user, isActive }: {
+  hasPerm: (key: string) => boolean;
+  user: { isAdmin?: boolean } | null;
+  isActive: (path: string) => boolean;
+}) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/8 transition-all duration-200 group">
-          <Settings className="w-4 h-4 text-white/50 group-hover:text-white/80 transition-colors" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 p-1.5">
+    <>
         <DropdownMenuLabel className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground px-2">
           Settings
         </DropdownMenuLabel>
@@ -219,8 +229,7 @@ function SettingsDropdown() {
             </DropdownMenuItem>
           </Link>
         )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </>
   );
 }
 
@@ -404,9 +413,13 @@ export function SalesTopNav() {
                 {brandName || "LP Studio"}
               </span>
             )}
-            <div className="hidden md:flex items-center gap-2">
-              <div className="w-px h-4 bg-white/15" />
-              <span className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/40 group-hover:text-white/60 transition-colors">
+            {/* `whitespace-nowrap`: at ~1280–1440px this wrapped to two stacked
+                lines against a 56px bar, which is where the lockup started
+                looking broken. Tracking eased off too — 0.18em pushed it wide
+                enough to force that wrap in the first place. */}
+            <div className="hidden xl:flex items-center gap-2">
+              <div className="w-px h-3.5 bg-white/15" />
+              <span className="text-[11px] font-semibold tracking-[0.12em] uppercase text-white/40 group-hover:text-white/60 transition-colors whitespace-nowrap">
                 Sales Console
               </span>
             </div>
@@ -417,14 +430,17 @@ export function SalesTopNav() {
         <div className="hidden lg:flex items-center gap-0.5 flex-1">
           {visiblePrimaryNav.map((item) => (
             <Link key={item.href} href={item.href}>
+              {/* Inactive was white/50 against chrome that ran up to white/95,
+                  so the primary navigation was the quietest thing on the bar.
+                  Raised to /70, and the active state now actually reads. */}
               <button
-                className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] font-medium ${
+                className={`relative flex items-center gap-2 h-8 px-3 rounded-lg transition-colors duration-150 whitespace-nowrap text-[13px] font-medium ${
                   isActive(item)
-                    ? "text-white bg-white/8"
-                    : "text-white/50 hover:text-white/80 hover:bg-white/5"
+                    ? "text-white bg-white/15"
+                    : "text-white/70 hover:text-white hover:bg-white/10"
                 }`}
               >
-                {item.icon}
+                <span className={isActive(item) ? "opacity-100" : "opacity-60"}>{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             </Link>
@@ -440,15 +456,15 @@ export function SalesTopNav() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] font-medium ${
+                  className={`relative flex items-center gap-1.5 h-8 px-3 rounded-lg transition-colors duration-150 whitespace-nowrap text-[13px] font-medium ${
                     isToolsActive
-                      ? "text-white bg-white/8"
-                      : "text-white/50 hover:text-white/80 hover:bg-white/5"
+                      ? "text-white bg-white/15"
+                      : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
                 >
-                  <Wrench className="w-3.5 h-3.5" />
+                  <Wrench className={`w-3.5 h-3.5 ${isToolsActive ? "opacity-100" : "opacity-60"}`} />
                   <span>Tools</span>
-                  <ChevronDown className="w-3 h-3 ml-0.5 opacity-60" />
+                  <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 p-1.5">
@@ -468,21 +484,27 @@ export function SalesTopNav() {
           )}
         </div>
 
-        {/* Right: Assistant, Settings, Mode Toggle, User Avatar, Mobile Menu */}
-        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+        {/* Right: Sidekick, mode switch, account.
+            Everything here is one 32px-tall, rounded-lg control. It used to be
+            four different shapes — a bordered pill, a bare gear, a 200px
+            segmented control and a round avatar chip — which read as four
+            unrelated things and, because the mode switch was the brightest
+            element on the bar, put the loudest emphasis on the control a rep
+            touches least. The gear folded into the account menu, the mode
+            switch shrank to its content, and the shared hover language now
+            groups the rest. */}
+        <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
           {/* Sales assistant — same engine as the dashboard prompt box, reachable
-              from every console page. Panel below; closes on navigation. */}
-          {/* Glass pill in the nav's own white-on-dark language (the earlier
-              solid violet fit nothing here). Deliberately NOT brand-accent
-              tinted: a dark tenant accent made accent-tinted text illegible
-              on this dark nav — only the sparkle icon carries a fixed, always
-              legible violet hint. */}
+              from every console page. Panel below; closes on navigation.
+              Deliberately NOT brand-accent tinted: a dark tenant accent made
+              accent-tinted text illegible on this dark nav — only the sparkle
+              icon carries a fixed, always legible violet hint. */}
           <button
             onClick={() => setAssistantOpen((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all duration-200 whitespace-nowrap text-[13px] font-medium ${
+            className={`flex items-center gap-1.5 h-8 px-2.5 rounded-lg transition-colors duration-150 whitespace-nowrap text-[13px] font-medium ${
               assistantOpen
-                ? "bg-white/12 border-white/20 text-white"
-                : "bg-white/6 border-white/12 text-white/85 hover:bg-white/10 hover:text-white"
+                ? "bg-white/15 text-white"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
             }`}
             aria-expanded={assistantOpen}
             aria-label="Sidekick — sales assistant"
@@ -490,17 +512,18 @@ export function SalesTopNav() {
             <Sparkles className="w-3.5 h-3.5 text-violet-300" />
             <span className="hidden sm:inline">Sidekick</span>
           </button>
-          <SettingsDropdown />
-          <div className="hidden md:block w-[200px]">
+
+          <div className="hidden md:block w-[172px] ml-1">
             <ModeToggle onDark />
           </div>
-          <div className="w-px h-5 bg-white/10 hidden md:block" />
+
+          <div className="w-px h-5 bg-white/10 mx-1.5 hidden md:block" />
           <UserAvatarDropdown />
 
           {/* Mobile Menu Toggle */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/8 transition-all duration-200 text-white/60 hover:text-white/90"
+            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 transition-colors duration-150 text-white/70 hover:text-white"
           >
             {mobileMenuOpen ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}
           </button>

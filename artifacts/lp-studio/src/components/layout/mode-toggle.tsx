@@ -20,11 +20,15 @@ const SURFACE = {
     activeText: "text-sidebar-primary-foreground",
     inactiveText: "text-sidebar-foreground/65 hover:text-sidebar-foreground/90",
   },
+  // Sales-console nav only (`onDark`). A pure-white slider made this rarely
+  // used context switch the highest-contrast element on the whole bar — louder
+  // than the page navigation beside it. Muted so it still reads as selected
+  // without competing.
   dark: {
-    container: "bg-white/8 border-white/12",
-    slider: "bg-white/95",
+    container: "bg-black/20 border-white/10",
+    slider: "bg-white/85",
     activeText: "text-[#12241C]",
-    inactiveText: "text-white/60 hover:text-white/90",
+    inactiveText: "text-white/55 hover:text-white/85",
   },
 } as const;
 
