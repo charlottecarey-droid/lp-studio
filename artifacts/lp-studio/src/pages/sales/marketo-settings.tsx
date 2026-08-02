@@ -14,6 +14,8 @@ import {
   Search,
   Copy,
   Check,
+  UserPlus,
+  Users,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -80,6 +82,19 @@ interface MarketoList {
   name: string;
   description?: string | null;
   fetchedAt?: string;
+}
+
+/** Result of importing one static list's members. `contactIds` is what a
+ *  saved audience is built from. */
+interface ImportResult {
+  listId: string;
+  listName: string;
+  processed: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  truncated: boolean;
+  contactIds: number[];
 }
 
 interface FieldMapping {
@@ -167,6 +182,11 @@ export default function MarketoSettingsPage() {
   const [listSearch, setListSearch] = useState("");
   const [listTab, setListTab] = useState<"static_list" | "program">("static_list");
   const [copiedListId, setCopiedListId] = useState<string | null>(null);
+  const [importingListId, setImportingListId] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [savingAudience, setSavingAudience] = useState(false);
+  const [savedAudience, setSavedAudience] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
@@ -308,6 +328,58 @@ export default function MarketoSettingsPage() {
       console.error("Failed to refresh Marketo lists:", error);
     } finally {
       setSyncing(null);
+    }
+  }
+
+  /** Pull one static list's members into sales_contacts. Bounded and
+   *  user-initiated — unrelated to the lead sync toggle. */
+  async function handleImportList(list: MarketoList) {
+    setImportingListId(list.marketoId);
+    setImportError(null);
+    setImportResult(null);
+    setSavedAudience(null);
+    try {
+      const res = await fetch(`${API_BASE}/sales/marketo/lists/${encodeURIComponent(list.marketoId)}/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setImportError(data.error || "Import failed.");
+        return;
+      }
+      setImportResult(data as ImportResult);
+      // Sync history + any newly-cached state.
+      await fetchConnectionStatus();
+    } catch {
+      setImportError("Could not reach the server.");
+    } finally {
+      setImportingListId(null);
+    }
+  }
+
+  /** Turn the imported members into a saved audience. Uses the ordinary
+   *  audience endpoint with `filters.contactIds` — no new storage concept, and
+   *  it shows up in the campaign wizard's "Start from a saved audience". */
+  async function handleSaveAudience(result: ImportResult) {
+    setSavingAudience(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/audiences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: result.listName,
+          description: `Imported from the Marketo static list "${result.listName}" (id ${result.listId}).`,
+          filters: { contactIds: result.contactIds },
+        }),
+      });
+      if (res.ok) setSavedAudience(result.listName);
+      else setImportError("Couldn't save the audience.");
+    } catch {
+      setImportError("Could not reach the server.");
+    } finally {
+      setSavingAudience(false);
     }
   }
 
@@ -617,6 +689,7 @@ export default function MarketoSettingsPage() {
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground">Name</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground">Description</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground">Marketo ID</th>
+                            {listTab === "static_list" && <th className="py-3 px-3" />}
                           </tr>
                         </thead>
                         <tbody>
@@ -638,6 +711,20 @@ export default function MarketoSettingsPage() {
                                   </Button>
                                 </div>
                               </td>
+                              {/* Static lists only: Marketo's list-members API
+                                  doesn't apply to programs. */}
+                              {listTab === "static_list" && (
+                                <td className="py-3 px-3 text-right">
+                                  <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs"
+                                    disabled={importingListId !== null}
+                                    title="Pull this list's members into contacts, then optionally save them as a campaign audience"
+                                    onClick={() => handleImportList(list)}>
+                                    {importingListId === list.marketoId
+                                      ? <><Loader2 className="w-3 h-3 animate-spin" />Importing…</>
+                                      : <><UserPlus className="w-3 h-3" />Import</>}
+                                  </Button>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -649,6 +736,51 @@ export default function MarketoSettingsPage() {
                     Showing {visibleLists.length} of {listTab === "static_list" ? staticListCount : programCount}.
                     Marketo&rsquo;s list API doesn&rsquo;t return member counts, so none are shown.
                   </p>
+
+                  {importError && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-red-600">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      {importError}
+                    </div>
+                  )}
+
+                  {importResult && (
+                    <div className="mt-4 rounded-md border border-border/60 bg-muted/30 p-4">
+                      <p className="text-sm font-medium mb-1">
+                        Imported &ldquo;{importResult.listName}&rdquo;
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {importResult.processed} member{importResult.processed !== 1 ? "s" : ""} on the list
+                        {" · "}<span className="text-emerald-600 font-medium">{importResult.created} new</span>
+                        {" · "}<span className="text-amber-600 font-medium">{importResult.updated} matched an existing contact</span>
+                        {importResult.skipped > 0 && <> {" · "}{importResult.skipped} skipped</>}
+                      </p>
+                      {importResult.truncated && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Stopped at the per-run cap — run the import again to continue through the rest of the list.
+                        </p>
+                      )}
+                      {savedAudience ? (
+                        <p className="text-sm text-emerald-600 mt-3 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4" />
+                          Saved as the audience &ldquo;{savedAudience}&rdquo; — pick it in the campaign wizard under
+                          &ldquo;Start from a saved audience&rdquo;.
+                        </p>
+                      ) : (
+                        <div className="mt-3 flex items-center gap-3">
+                          <Button size="sm" className="gap-2"
+                            disabled={savingAudience || importResult.contactIds.length === 0}
+                            onClick={() => handleSaveAudience(importResult)}>
+                            {savingAudience ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5" />}
+                            Save as campaign audience
+                          </Button>
+                          <span className="text-xs text-muted-foreground">
+                            {importResult.contactIds.length} contact{importResult.contactIds.length !== 1 ? "s" : ""} on this list
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </Card>

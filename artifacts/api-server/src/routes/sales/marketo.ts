@@ -344,6 +344,50 @@ router.post("/marketo/discover/refresh", requireAuth, async (req, res): Promise<
   }
 });
 
+/**
+ * POST /marketo/lists/:listId/import — import ONE static list's members.
+ *
+ * Sync-agnostic for the same reason as the preview and the discovery refresh:
+ * this is a bounded, user-initiated pull of a list they picked, not the
+ * 851k-lead scan the toggle guards.
+ *
+ * The list id is checked against this connection's cached rows before it
+ * reaches Marketo, so a caller can't aim the importer at an arbitrary id or at
+ * another tenant's list.
+ */
+router.post("/marketo/lists/:listId/import", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const listId = String(req.params["listId"] ?? "");
+  try {
+    const conn = await marketoService.getConnectedConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No connected Marketo account found" }); return; }
+
+    const [cached] = await db
+      .select({ name: marketoListsTable.name })
+      .from(marketoListsTable)
+      .where(and(
+        eq(marketoListsTable.connectionId, conn.id),
+        eq(marketoListsTable.marketoId, listId),
+        eq(marketoListsTable.listType, "static_list"),
+      ))
+      .limit(1);
+    if (!cached) {
+      res.status(404).json({ error: "That static list isn't in the cache — refresh lists and try again" });
+      return;
+    }
+
+    const body = (req.body ?? {}) as { importUnlinked?: boolean; maxLeads?: number };
+    const result = await marketoService.importListMembers(conn.id, tenantId, listId, {
+      importUnlinked: body.importUnlinked ?? true,
+      ...(body.maxLeads ? { maxLeads: Number(body.maxLeads) } : {}),
+    });
+    res.json({ success: true, listId, listName: cached.name, ...result });
+  } catch (err) {
+    logger.error({ err, listId }, "Marketo list-member import failed");
+    res.status(500).json({ error: "Failed to import list members" });
+  }
+});
+
 // ─── FIELD MAPPINGS ───────────────────────────────────────────
 
 const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_.]{0,127}$/;

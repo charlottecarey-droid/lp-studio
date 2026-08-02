@@ -769,6 +769,30 @@ export class MarketoService {
       }
     }
 
+    // (a2) Match by email within the tenant. Without this, anyone already here
+    // from Salesforce or a CSV — who therefore has no marketo_lead_id — gets a
+    // SECOND contact row, because the ON CONFLICT DO NOTHING below only dedupes
+    // on marketo_lead_id. Runs after the Salesforce-id match (a stronger key)
+    // and before the create branches.
+    if (lead.email) {
+      const [byEmail] = await db
+        .select({ id: salesContactsTable.id, metadata: salesContactsTable.metadata })
+        .from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          sql`lower(${salesContactsTable.email}) = ${lead.email.trim().toLowerCase()}`,
+        ))
+        .limit(1);
+      if (byEmail) {
+        await db.update(salesContactsTable).set({
+          marketoLeadId,
+          marketoLastSyncedAt: new Date(),
+          metadata: { ...(byEmail.metadata as Record<string, unknown> ?? {}), ...engagementMeta },
+        }).where(eq(salesContactsTable.id, byEmail.id));
+        return "updated";
+      }
+    }
+
     // (b) Match by Salesforce account id → new contact under that account.
     if (lead.sfdcAccountId) {
       const [account] = await db
@@ -1058,6 +1082,198 @@ export class MarketoService {
       marketoIdLengths: idLengths,
       matchesWithoutNormalization: rawMatches,
     };
+  }
+
+  /**
+   * Import the members of ONE static list — the targeted counterpart to
+   * importLeads().
+   *
+   * importLeads scans every cached list looking for leads that happen to match
+   * a local record: measured at 851k leads for ~800 matches, which is why it
+   * stays off. This asks the opposite question — "give me the people on the
+   * list I picked" — so the work is bounded by the list, the caller triggered
+   * it, and no poller is involved.
+   *
+   * Two deliberate differences from importLeads:
+   *
+   *   - `importUnlinked` is a per-call argument, not the connection toggle.
+   *     Of 2,208 sampled leads carrying a Salesforce contact id, 3 matched a
+   *     local contact. Honouring the toggle here would mean importing a list
+   *     you chose and getting "0 created, 100% skipped". For a list you intend
+   *     to email, contacts with no Salesforce link are the point.
+   *
+   *   - Matching is SET-BASED: two queries for the whole batch instead of one
+   *     or two per lead (the shape previewImport already uses, and the one the
+   *     per-lead importer should move to).
+   *
+   * Capped at `maxLeads` and reports `truncated` when it bites — a silent cap
+   * would read as "that's the whole list".
+   */
+  async importListMembers(
+    connectionId: number,
+    tenantId: number,
+    listId: string,
+    opts: { importUnlinked?: boolean; maxLeads?: number } = {},
+  ): Promise<{
+    logId: number;
+    processed: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    truncated: boolean;
+    contactIds: number[];
+  }> {
+    const importUnlinked = opts.importUnlinked ?? true;
+    const maxLeads = Math.min(Math.max(opts.maxLeads ?? 2000, 1), 20000);
+
+    const connection = await this.getConnectionForTenant(connectionId, tenantId);
+    if (!connection) throw new Error(`Marketo connection ${connectionId} not found for tenant ${tenantId}`);
+
+    const [log] = await db.insert(marketoSyncLogTable).values({
+      tenantId, connectionId, syncType: "manual", objectType: `list:${listId}`, status: "running",
+    }).returning({ id: marketoSyncLogTable.id });
+    const logId = log.id;
+
+    let processed = 0, created = 0, updated = 0, skipped = 0, truncated = false;
+    const fields = ["id", "email", "firstName", "lastName", "company", "title", "phone", "sfdcContactId", "sfdcAccountId", "sfdcLeadId", "leadScore"];
+
+    try {
+      // 1. Pull the members (bounded).
+      const leads: MarketoLeadRecord[] = [];
+      let token: string | undefined = undefined;
+      do {
+        const page = await this.getLeadsByListPage(connection, listId, token, fields);
+        leads.push(...page.records);
+        token = page.nextPageToken;
+        if (leads.length >= maxLeads) { truncated = Boolean(token); break; }
+      } while (token);
+      if (leads.length > maxLeads) leads.length = maxLeads;
+      processed = leads.length;
+
+      // 2. Resolve every key in two queries, not two per lead. Normalised on
+      //    both sides: Marketo returns 18-character Salesforce ids and we store
+      //    15, so a raw comparison matches nothing (see normalizeSfdcId).
+      const contactBySfId = new Map<string, number>();
+      const contactByEmail = new Map<string, number>();
+      for (const c of await db
+        .select({ id: salesContactsTable.id, salesforceId: salesContactsTable.salesforceId, email: salesContactsTable.email })
+        .from(salesContactsTable)
+        .where(eq(salesContactsTable.tenantId, tenantId))) {
+        if (c.salesforceId) contactBySfId.set(normalizeSfdcId(c.salesforceId), c.id);
+        if (c.email) contactByEmail.set(c.email.trim().toLowerCase(), c.id);
+      }
+      const accountBySfId = new Map<string, number>();
+      for (const a of await db
+        .select({ id: salesAccountsTable.id, salesforceId: salesAccountsTable.salesforceId })
+        .from(salesAccountsTable)
+        .where(eq(salesAccountsTable.tenantId, tenantId))) {
+        if (a.salesforceId) accountBySfId.set(normalizeSfdcId(a.salesforceId), a.id);
+      }
+
+      // 3. Plan. Same precedence as applyImportedLead: Salesforce contact id →
+      //    email → Salesforce account id → unlinked.
+      const toUpdate: { contactId: number; lead: MarketoLeadRecord }[] = [];
+      const toInsert: { accountId: number; lead: MarketoLeadRecord }[] = [];
+      /** Emails already claimed by a planned insert — two members sharing an
+       *  address must not become two contacts. */
+      const claimedEmails = new Set<string>();
+      let importAccountId: number | null = null;
+
+      for (const lead of leads) {
+        const email = lead.email?.trim().toLowerCase() || null;
+        const byContact = lead.sfdcContactId ? contactBySfId.get(normalizeSfdcId(lead.sfdcContactId)) : undefined;
+        const byEmail = email ? contactByEmail.get(email) : undefined;
+        const existing = byContact ?? byEmail;
+        if (existing !== undefined) { toUpdate.push({ contactId: existing, lead }); continue; }
+        if (email && claimedEmails.has(email)) { skipped++; continue; }
+
+        const accountId = lead.sfdcAccountId ? accountBySfId.get(normalizeSfdcId(lead.sfdcAccountId)) : undefined;
+        if (accountId !== undefined) {
+          if (email) claimedEmails.add(email);
+          toInsert.push({ accountId, lead });
+          continue;
+        }
+        if (!importUnlinked) { skipped++; continue; }
+        if (importAccountId === null) importAccountId = await this.ensureImportAccount(tenantId);
+        if (email) claimedEmails.add(email);
+        toInsert.push({ accountId: importAccountId, lead });
+      }
+
+      // 4. Apply. Stamping marketo_lead_id on updated rows is what makes step 5
+      //    able to name the audience membership afterwards.
+      for (const { contactId, lead } of toUpdate) {
+        const [row] = await db
+          .select({ metadata: salesContactsTable.metadata })
+          .from(salesContactsTable)
+          .where(eq(salesContactsTable.id, contactId));
+        await db.update(salesContactsTable).set({
+          marketoLeadId: String(lead.id),
+          marketoLastSyncedAt: new Date(),
+          metadata: {
+            ...((row?.metadata as Record<string, unknown>) ?? {}),
+            marketoLeadScore: lead.leadScore ?? null,
+            marketoLeadId: String(lead.id),
+          },
+        }).where(and(eq(salesContactsTable.id, contactId), eq(salesContactsTable.tenantId, tenantId)));
+        updated++;
+      }
+
+      for (let i = 0; i < toInsert.length; i += 500) {
+        const chunk = toInsert.slice(i, i + 500);
+        const inserted = await db.insert(salesContactsTable).values(
+          chunk.map(({ accountId, lead }) => ({
+            tenantId,
+            accountId,
+            firstName: lead.firstName ?? "",
+            lastName: lead.lastName ?? "(unknown)",
+            email: lead.email ?? null,
+            title: lead.title ?? null,
+            phone: lead.phone ?? null,
+            marketoLeadId: String(lead.id),
+            marketoLastSyncedAt: new Date(),
+            metadata: { marketoLeadScore: lead.leadScore ?? null, marketoLeadId: String(lead.id) },
+          })),
+        ).onConflictDoNothing().returning({ id: salesContactsTable.id });
+        created += inserted.length;
+        // A conflict here means the row already existed under a key we didn't
+        // match on — count it honestly rather than reporting it as created.
+        skipped += chunk.length - inserted.length;
+      }
+
+      // 5. Who is on this list, locally? Resolved from marketo_lead_id rather
+      //    than from what this run happened to touch, so a re-import still
+      //    returns the whole list and the caller can build an audience from it.
+      const leadIds = leads.map(l => String(l.id));
+      const contactIds = leadIds.length === 0 ? [] : (await db
+        .select({ id: salesContactsTable.id })
+        .from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          inArray(salesContactsTable.marketoLeadId, leadIds),
+        ))).map(r => r.id);
+
+      await db.update(marketoSyncLogTable).set({
+        status: "completed", recordsProcessed: processed, recordsCreated: created,
+        recordsUpdated: updated, recordsSkipped: skipped, completedAt: new Date(),
+      }).where(eq(marketoSyncLogTable.id, logId));
+
+      // An import can create the contact an already-sent personalized link was
+      // waiting for (same reasoning as importLeads). Non-fatal.
+      try {
+        await relinkOrphans(tenantId);
+      } catch (relinkErr) {
+        logger.error({ relinkErr, tenantId }, "Post-import relink failed (non-fatal)");
+      }
+
+      return { logId, processed, created, updated, skipped, truncated, contactIds };
+    } catch (err) {
+      logger.error({ err, connectionId, listId }, "Marketo list-member import failed");
+      await db.update(marketoSyncLogTable).set({
+        status: "failed", errorMessage: String(err), recordsProcessed: processed,
+        recordsCreated: created, recordsUpdated: updated, recordsSkipped: skipped, completedAt: new Date(),
+      }).where(eq(marketoSyncLogTable.id, logId));
+      throw err;
+    }
   }
 
   /**

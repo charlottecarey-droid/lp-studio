@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 
 /**
  * The Marketo list/program catalogue has been cached in `marketo_lists` for a
@@ -40,15 +40,32 @@ const LISTS = [
   { id: 3, marketoId: "2001", listType: "program", name: "Summer Nurture", description: null, fetchedAt: "2026-08-02T10:00:00Z" },
 ];
 
+const IMPORT_RESULT = {
+  success: true,
+  listId: "1001",
+  listName: "Webinar Attendees",
+  processed: 42,
+  created: 30,
+  updated: 10,
+  skipped: 2,
+  truncated: false,
+  contactIds: [101, 102, 103],
+};
+
 function mockFetch(lists: typeof LISTS) {
-  const calls: { url: string; method: string }[] = [];
+  const calls: { url: string; method: string; body?: unknown }[] = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-    calls.push({ url, method: init?.method ?? "GET" });
+    calls.push({
+      url,
+      method: init?.method ?? "GET",
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    });
     const body =
       url.includes("/discover/lists") ? lists
       : url.includes("/connection") ? CONNECTION
       : url.includes("/sync/log") ? []
       : url.includes("/field-mappings") ? []
+      : url.includes("/import") ? IMPORT_RESULT
       : { success: true };
     return { ok: true, json: async () => body } as Response;
   });
@@ -68,6 +85,12 @@ describe("Marketo settings — Lists & Programs", () => {
   // Radix tab triggers activate on mousedown, which fireEvent.click doesn't send.
   function selectTab(label: string) {
     fireEvent.mouseDown(screen.getByText(label));
+  }
+
+  /** Rows are sorted by name, so click the button inside the row you mean. */
+  async function clickImportFor(listName: string) {
+    const row = (await screen.findByText(listName)).closest("tr")!;
+    fireEvent.click(within(row).getByText("Import"));
   }
 
   it("renders cached static lists, and programs on the other tab", async () => {
@@ -103,6 +126,50 @@ describe("Marketo settings — Lists & Programs", () => {
     mockFetch([]);
     render(<MarketoSettings />);
     expect(await screen.findByText(/Nothing cached yet/)).toBeTruthy();
+  });
+
+  it("imports one list's members and reports what happened", async () => {
+    const calls = mockFetch(LISTS);
+    render(<MarketoSettings />);
+
+    await clickImportFor("Webinar Attendees");
+
+    await waitFor(() => {
+      expect(calls.some(c => c.method === "POST" && c.url.includes("/marketo/lists/1001/import"))).toBe(true);
+    });
+    expect(await screen.findByText(/Imported .Webinar Attendees./)).toBeTruthy();
+    expect(screen.getByText(/30 new/)).toBeTruthy();
+    expect(screen.getByText(/10 matched an existing contact/)).toBeTruthy();
+  });
+
+  it("turns the imported members into a saved audience by contact id", async () => {
+    const calls = mockFetch(LISTS);
+    render(<MarketoSettings />);
+
+    await clickImportFor("Webinar Attendees");
+    fireEvent.click(await screen.findByText("Save as campaign audience"));
+
+    await waitFor(() => {
+      expect(calls.some(c => c.method === "POST" && c.url.endsWith("/sales/audiences"))).toBe(true);
+    });
+    const audienceCall = calls.find(c => c.url.endsWith("/sales/audiences"))!;
+    // contactIds, not a new storage concept — this is what makes it appear in
+    // the campaign wizard's saved-audience picker.
+    expect(audienceCall.body).toMatchObject({
+      name: "Webinar Attendees",
+      filters: { contactIds: [101, 102, 103] },
+    });
+    expect(await screen.findByText(/Saved as the audience/)).toBeTruthy();
+  });
+
+  it("offers Import on static lists only — programs have no member API", async () => {
+    mockFetch(LISTS);
+    render(<MarketoSettings />);
+    expect((await screen.findAllByText("Import")).length).toBe(2);
+
+    selectTab("Programs (1)");
+    await screen.findByText("Summer Nurture");
+    expect(screen.queryByText("Import")).toBeNull();
   });
 
   it("refreshes via discover/refresh, not sync/lists", async () => {

@@ -72,11 +72,56 @@ Notes:
 
 **Tests:** `pages/sales/marketo-settings.lists.test.tsx` (4 cases).
 
-### Still open on this one
+### Follow-up: picking a list now imports it — BUILT
 
-Should selecting a list do anything, or is read-only visibility enough? The
-obvious candidate is wiring a list into a campaign as an audience, which is a
-bigger piece of work and worth deciding deliberately.
+Answered: both "import contacts" and "campaign audience", because they're a
+sequence, not alternatives. Campaigns select LOCAL contacts (`contactIds`, and
+saved audiences resolve to contacts), so a Marketo list can only become an
+audience after its members exist as `sales_contacts`.
+
+Each static list now has an **Import** button → `POST
+/marketo/lists/:listId/import` → `marketoService.importListMembers`, followed
+by **Save as campaign audience**, which posts to the ordinary
+`POST /sales/audiences` with `filters.contactIds`. No new storage concept, and
+it appears in the wizard's "Start from a saved audience" picker.
+
+Three things this deliberately does differently from `importLeads`:
+
+1. **Bounded and user-initiated.** One list the rep chose, capped per run
+   (`maxLeads`, default 2,000) and reporting `truncated` when the cap bites.
+   This is the inverse-the-sync recommendation in a form someone can trigger —
+   it is NOT the 851k-lead scan, and it doesn't consult `sync_enabled`.
+2. **`importUnlinked` is a per-call argument, defaulting on.** Of 2,208 sampled
+   leads carrying a Salesforce contact id, 3 matched a local contact. Honouring
+   the connection toggle would import a list you picked and create nobody.
+3. **Set-based matching** — two queries for the batch instead of two per lead,
+   the shape `previewImport` already uses.
+
+**Two bugs fixed on the way, both of which would have bitten immediately:**
+
+- **Migration 0134** — `sales_contacts.marketo_lead_id` and
+  `hubspot_contact_id` carried the same GLOBAL `.unique()` that 0133 fixed for
+  `salesforce_id`. Since the importer inserts with `ON CONFLICT DO NOTHING`, a
+  second workspace importing an overlapping lead would silently lose the row.
+  Verified on the live schema before writing it: both were global.
+- **Email matching in `applyImportedLead`.** Dedupe was by `marketo_lead_id`
+  only, so anyone already present from Salesforce or a CSV — who has no Marketo
+  id — got a second contact. Now matched by email within the tenant, after the
+  Salesforce-id match and before the create branches. This helps the existing
+  importer too.
+
+**Tests:** `marketo-service.listImport.integration.test.ts` (3 cases, real
+Postgres) covers 15-vs-18 id matching, email matching, within-batch duplicate
+addresses, `importUnlinked=false`, and re-import idempotence. Frontend cases
+added to `marketo-settings.lists.test.tsx`.
+
+**Verified against a Neon branch** (`test-0134-list-import`,
+`br-snowy-sun-ame8ax9y`): migration applied cleanly and all Marketo suites
+pass. Delete the branch when you're done with it — along with
+`test-0133-migration` (`br-rough-cell-amqwt7wl`) from the previous session.
+
+**Not yet verified on Replit**, and nothing here has been run against real
+Marketo data. The first real import should be a small list.
 
 ---
 
