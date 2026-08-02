@@ -67,10 +67,10 @@ Searched the whole frontend: **zero references** to the lists endpoint.
 **What's missing:** any UI. `artifacts/lp-studio/src/pages/sales/marketo-settings.tsx`
 has the Refresh buttons but never renders the result.
 
-**Why it matters:** of the three things she wanted from Marketo (accounts,
-contacts, lists for emailing), lists are the **only** one Marketo can actually
-deliver today — accounts don't come from Marketo at all, and contacts need
-Salesforce data first. The data is already there; it just needs a surface.
+**Why it matters:** accounts don't come from Marketo at all and the inbound
+lead sync is low-value (see below), so the cached lists plus the outbound
+push are what this integration actually delivers. The data is already there;
+it just needs a surface.
 
 **Suggested scope:** a "Lists" section on the Marketo settings page —
 searchable table of name / type / Marketo id / member count if available,
@@ -113,6 +113,34 @@ leads that is roughly 800 matches: a few hundred contacts enriched with lead
 scores, a few hundred created under existing accounts. Order of magnitude
 only; the sample is the first 27 lists, not random.
 
+### WORKING TODAY — push personalized links to a Marketo static list
+
+**This works and nothing diagnosed here breaks it.** Easy to miss: it is NOT
+`marketoService.addLeadToList` (that function has zero callers and is dead
+code with a settings field, `enrollListId`, still wired to the UI). The live
+path is an **export destination**:
+
+- UI: campaign wizard → "Generate links only" → `LinkExportPanel` →
+  **"Push to Marketo static list"** (asks for a list id + a Marketo field name).
+- Server: `marketoDestination` in `lib/exportDestinations.ts` →
+  `syncLinksToMarketoStaticList` in `lib/notifications.ts`.
+- It create-or-updates each contact in Marketo, writes the personalized link
+  onto the named field, and adds them to the static list.
+
+Why today's bugs don't touch it:
+- Matches on **`lookupField: "email"`**, not Salesforce id — so the 15-vs-18
+  mismatch is irrelevant.
+- Does **not** use `marketo_lead_id` (empty on all 8,134 contacts).
+- Credentials come from `getFormSyncCredentials`, which keys on
+  `status = 'connected'` and **deliberately ignores `sync_enabled`** — so
+  disabling the sync did not break it on either tenant.
+- Fail-closed: validates the link field exists in Marketo before sending, and
+  refuses if it can't read the schema.
+
+Implication: LP Studio generates the links, Marketo does the sending. That is
+arguably the whole workflow, and it makes the inbound lead sync optional
+rather than necessary.
+
 ### RECOMMENDATION
 
 **1. Build the Marketo lists UI (item 2 above). Highest value, lowest risk.**
@@ -120,11 +148,14 @@ It is the only one of the three original goals — accounts, contacts, lists for
 emailing — that Marketo can actually serve. 320 lists are already cached on
 each tenant; the only missing piece is a screen.
 
-**2. Do NOT enable the lead sync as it stands.** A full run scans 851,000 leads
-to find ~800 matches, on a 15-minute poller, forever. Even after batching the
-per-lead queries the cost/benefit is poor.
+**2. Do NOT enable the INBOUND lead sync as it stands.** A full run scans
+851,000 leads to find ~800 matches, on a 15-minute poller, forever. Even after
+batching the per-lead queries the cost/benefit is poor. This says nothing about
+the outbound static-list push above, which works and should be left alone.
 
-**3. If enrichment is wanted, invert the sync instead of batching it.** The
+**3. Only if enrichment is genuinely wanted, invert the sync instead of
+batching it.** Consider skipping this entirely — the outbound push already
+covers the "get links in front of people via Marketo" workflow. The
 current design scans every lead hoping to hit one of our contacts. Marketo's
 API can be queried the other way — leads BY Salesforce contact id, 300 ids per
 call. 7,781 contacts becomes ~26 API calls, finds every match rather than
