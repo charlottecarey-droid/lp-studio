@@ -119,6 +119,17 @@ interface GeneratedLink {
   token: string;
 }
 
+/** Row of GET /sales/contacts — the fields the email-preview modal's
+ *  cross-account contact search needs (accountName comes from the join). */
+interface EpContact {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email?: string | null;
+  title?: string | null;
+  accountName?: string | null;
+}
+
 function PageStatusBadge({ status }: { status: string }) {
   return <StatusBadge status={status}>{status === "published" ? "Published" : "Draft"}</StatusBadge>;
 }
@@ -243,9 +254,14 @@ export default function SalesPages() {
   const [search, setSearch] = useState("");
   const [drillRow, setDrillRow] = useState<PageRow | null>(null);
   const [sortBy, setSortBy] = useState<"mine" | "recent" | "views" | "name" | "status">("mine");
-  // "Copy email preview" per-row busy/copied indicators.
-  const [previewBusyId, setPreviewBusyId] = useState<number | null>(null);
-  const [previewCopiedId, setPreviewCopiedId] = useState<number | null>(null);
+  // ── "Copy email preview" modal (choose plain vs personalized link) ────────
+  const [emailPreviewModal, setEmailPreviewModal] = useState<PageRow | null>(null);
+  const [epSearch, setEpSearch] = useState("");
+  const [epAllContacts, setEpAllContacts] = useState<EpContact[]>([]);
+  const [epContactsLoading, setEpContactsLoading] = useState(false);
+  /** "plain" or `contact:${id}` — which option is copying / just copied. */
+  const [epBusyKey, setEpBusyKey] = useState<string | null>(null);
+  const [epCopiedKey, setEpCopiedKey] = useState<string | null>(null);
   const [alertTogglingId, setAlertTogglingId] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showNewMicrosite, setShowNewMicrosite] = useState(false);
@@ -546,14 +562,6 @@ export default function SalesPages() {
 
   useEffect(() => { load(); }, [load]);
 
-  function copyLink(token: string) {
-    const url = `${window.location.origin}/p/${token}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedToken(token);
-      setTimeout(() => setCopiedToken(null), 2000);
-    });
-  }
-
   // ── One-click visit-alert bell + email-preview copy ────────────────────────
   const myEmail = (user?.email ?? "").trim().toLowerCase();
 
@@ -575,27 +583,90 @@ export default function SalesPages() {
     }
   }
 
-  /** Rich image+link clipboard snippet (Userled-style email embed). Links to
-   *  the first hotlink when one exists (attributed visit), else the page URL. */
-  async function handleCopyEmailPreview(row: PageRow) {
-    if (previewBusyId !== null) return;
-    setPreviewBusyId(row.pageId);
+  /** Rich image+link clipboard snippet (Userled-style email embed). The modal
+   *  makes the rep pick the destination explicitly — the plain page URL, or a
+   *  personalized /p/ link for a chosen contact — because silently linking to
+   *  the first hotlink attributed every visit to a random contact. */
+  function openEmailPreviewModal(row: PageRow) {
+    setEmailPreviewModal(row);
+    setEpSearch("");
+    setEpBusyKey(null);
+    setEpCopiedKey(null);
+    if (epAllContacts.length === 0 && !epContactsLoading) {
+      setEpContactsLoading(true);
+      fetch(`${API_BASE}/sales/contacts`)
+        .then(r => (r.ok ? r.json() : []))
+        .then(data => setEpAllContacts(Array.isArray(data) ? data : data.data ?? []))
+        .catch(err => console.error("Failed to load contacts for email preview:", err))
+        .finally(() => setEpContactsLoading(false));
+    }
+  }
+
+  async function copyPreviewTo(row: PageRow, pageUrl: string, key: string) {
+    if (epBusyKey !== null) return;
+    setEpBusyKey(key);
     try {
-      const firstToken = row.hotlinks[0]?.token;
-      const pageUrl = firstToken
-        ? `${window.location.origin}/p/${firstToken}`
-        : getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost);
       const result = await copyEmailPreview({ pageId: row.pageId, pageUrl, title: row.pageTitle });
-      setPreviewCopiedId(row.pageId);
-      setTimeout(() => setPreviewCopiedId(null), 2500);
+      setEpCopiedKey(key);
+      setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
       if (result === "link-only") {
         toast({
           title: "Copied the link instead",
           description: "Couldn't build the image preview, so the plain link is on your clipboard.",
         });
       }
+    } catch (err) {
+      console.error("Copy email preview error:", err);
+      toast({ title: "Couldn't copy", description: "Nothing made it to your clipboard — try again.", variant: "destructive" });
     } finally {
-      setPreviewBusyId(null);
+      setEpBusyKey(null);
+    }
+  }
+
+  /** Copy the preview linked to a personalized /p/ link for this contact,
+   *  reusing the page's existing hotlink or creating one on the fly. */
+  async function copyPersonalizedPreview(row: PageRow, contact: EpContact) {
+    if (epBusyKey !== null) return;
+    const key = `contact:${contact.id}`;
+    setEpBusyKey(key);
+    try {
+      let entry = row.hotlinks.find(hl => hl.contactId === contact.id);
+      if (!entry) {
+        const res = await fetch(`${API_BASE}/sales/hotlinks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId: contact.id, pageId: row.pageId }),
+        });
+        if (!res.ok) throw new Error(`Hotlink create failed (${res.status})`);
+        const created = (await res.json()) as { id: number; token: string };
+        entry = {
+          hotlinkId: created.id,
+          token: created.token,
+          contactId: contact.id,
+          contactName: [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim(),
+        };
+        const appended = entry;
+        setEmailPreviewModal(prev => prev && prev.pageId === row.pageId ? { ...prev, hotlinks: [...prev.hotlinks, appended] } : prev);
+        setRows(prev => prev.map(r => r.pageId === row.pageId ? { ...r, hotlinks: [...r.hotlinks, appended] } : r));
+      }
+      const result = await copyEmailPreview({
+        pageId: row.pageId,
+        pageUrl: `${window.location.origin}/p/${entry.token}`,
+        title: row.pageTitle,
+      });
+      setEpCopiedKey(key);
+      setTimeout(() => setEpCopiedKey(k => (k === key ? null : k)), 2500);
+      if (result === "link-only") {
+        toast({
+          title: "Copied the link instead",
+          description: "Couldn't build the image preview, so the plain link is on your clipboard.",
+        });
+      }
+    } catch (err) {
+      console.error("Personalized email preview error:", err);
+      toast({ title: "Couldn't create the personalized link", description: "Nothing was copied — try again.", variant: "destructive" });
+    } finally {
+      setEpBusyKey(null);
     }
   }
 
@@ -1122,8 +1193,7 @@ export default function SalesPages() {
                     {sortedRows.map(row => {
                       const rank = mineRank(row);
                       const mineSubbed = !!mySubscription(row.pageId);
-                      const firstToken = row.hotlinks[0]?.token;
-                      const copyKey = firstToken ?? `page:${row.pageId}`;
+                      const copyKey = `page:${row.pageId}`;
                       return (
                         <Fragment key={row.pageId}>
                           <tr
@@ -1235,15 +1305,12 @@ export default function SalesPages() {
                                 <Button
                                   variant="ghost" size="icon"
                                   className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
-                                  title={firstToken ? "Copy the first personalized link" : "Copy the page link"}
+                                  title="Copy the page link"
                                   onClick={() => {
-                                    if (firstToken) copyLink(firstToken);
-                                    else {
-                                      navigator.clipboard.writeText(getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost)).then(() => {
-                                        setCopiedToken(copyKey);
-                                        setTimeout(() => setCopiedToken(null), 2000);
-                                      });
-                                    }
+                                    navigator.clipboard.writeText(getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost)).then(() => {
+                                      setCopiedToken(copyKey);
+                                      setTimeout(() => setCopiedToken(null), 2000);
+                                    });
                                   }}
                                 >
                                   {copiedToken === copyKey ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1252,14 +1319,9 @@ export default function SalesPages() {
                                   variant="ghost" size="icon"
                                   className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
                                   title="Copy email preview — a linked screenshot that pastes into an email"
-                                  disabled={previewBusyId === row.pageId}
-                                  onClick={() => void handleCopyEmailPreview(row)}
+                                  onClick={() => openEmailPreviewModal(row)}
                                 >
-                                  {previewBusyId === row.pageId
-                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    : previewCopiedId === row.pageId
-                                      ? <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                      : <Mail className="w-3.5 h-3.5" />}
+                                  <Mail className="w-3.5 h-3.5" />
                                 </Button>
                                 <a href={getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost)} target="_blank" rel="noopener noreferrer">
                                   <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" title="Open page">
@@ -1688,6 +1750,157 @@ export default function SalesPages() {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Copy email preview Dialog (choose plain vs personalized link) ── */}
+      <Dialog open={!!emailPreviewModal} onOpenChange={open => { if (!open) setEmailPreviewModal(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-primary" /> Copy email preview
+            </DialogTitle>
+            <DialogDescription>
+              Puts a linked screenshot of <span className="font-medium text-foreground">"{emailPreviewModal?.pageTitle}"</span> on your clipboard to paste into an email. Choose where the link should point.
+            </DialogDescription>
+          </DialogHeader>
+
+          {emailPreviewModal && (() => {
+            const row = emailPreviewModal;
+            const plainUrl = getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost);
+            const q = epSearch.trim().toLowerCase();
+            const linkedIds = new Set(row.hotlinks.map(hl => hl.contactId));
+            const matches = q
+              ? epAllContacts.filter(c =>
+                  `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase().includes(q) ||
+                  (c.email ?? "").toLowerCase().includes(q) ||
+                  (c.accountName ?? "").toLowerCase().includes(q)
+                ).slice(0, 50)
+              : [];
+            return (
+              <div className="flex flex-col gap-4 pt-2">
+                {/* Plain page link — anonymous visits */}
+                <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 flex items-center gap-3">
+                  <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-foreground">Plain page link</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{plainUrl}</div>
+                  </div>
+                  <Button
+                    size="sm" variant="outline" className="h-7 px-2.5 text-[11px] shrink-0"
+                    disabled={epBusyKey !== null}
+                    onClick={() => void copyPreviewTo(row, plainUrl, "plain")}
+                  >
+                    {epBusyKey === "plain"
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : epCopiedKey === "plain"
+                        ? <><Check className="w-3 h-3 mr-1 text-emerald-500" />Copied</>
+                        : <><Copy className="w-3 h-3 mr-1" />Copy</>}
+                  </Button>
+                </div>
+
+                {/* Personalized link — attributed visits */}
+                <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border/50 flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs font-medium text-muted-foreground">Personalized link — visits are attributed to the contact</span>
+                  </div>
+                  <div className="px-3 py-2 border-b border-border/50">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                      <input
+                        type="text"
+                        value={epSearch}
+                        onChange={e => setEpSearch(e.target.value)}
+                        placeholder="Search contacts by name, email, or account…"
+                        className="w-full pl-6 pr-6 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                        autoFocus
+                      />
+                      {epSearch && (
+                        <button onClick={() => setEpSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {q === "" ? (
+                    row.hotlinks.length > 0 ? (
+                      <>
+                        <p className="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">Already has a link</p>
+                        <div className="max-h-52 overflow-y-auto divide-y divide-border/40">
+                          {row.hotlinks.map(hl => {
+                            const key = `contact:${hl.contactId}`;
+                            const name = hl.contactName || "Contact";
+                            return (
+                              <button
+                                key={hl.hotlinkId}
+                                disabled={epBusyKey !== null}
+                                onClick={() => void copyPreviewTo(row, `${window.location.origin}/p/${hl.token}`, key)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
+                              >
+                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                                  {initials(name)}
+                                </div>
+                                <span className="flex-1 min-w-0 text-xs text-foreground truncate">{name}</span>
+                                {epBusyKey === key
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+                                  : epCopiedKey === key
+                                    ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                    : <Copy className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground px-3 py-3">Search to pick a contact — a unique tracked link is created for them.</p>
+                    )
+                  ) : epContactsLoading ? (
+                    <div className="p-3 flex flex-col gap-2">
+                      {[1, 2, 3].map(i => <Skeleton key={i} className="h-5 w-full rounded" />)}
+                    </div>
+                  ) : matches.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts match your search.</p>
+                  ) : (
+                    <div className="max-h-52 overflow-y-auto divide-y divide-border/40">
+                      {matches.map(c => {
+                        const key = `contact:${c.id}`;
+                        const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim() || c.email || "Contact";
+                        const hasLink = linkedIds.has(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            disabled={epBusyKey !== null}
+                            onClick={() => void copyPersonalizedPreview(row, c)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
+                          >
+                            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                              {initials(name)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs text-foreground truncate">{name}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                {[c.title, c.accountName].filter(Boolean).join(" · ")}
+                              </div>
+                            </div>
+                            {hasLink && (
+                              <span className="text-[9px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">Has link</span>
+                            )}
+                            {epBusyKey === key
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+                              : epCopiedKey === key
+                                ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                : <Copy className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
