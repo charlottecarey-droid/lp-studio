@@ -360,6 +360,7 @@ router.get("/pages/overview", async (req, res): Promise<void> => {
         contactId: salesContactsTable.id,
         contactFirst: salesContactsTable.firstName,
         contactLast: salesContactsTable.lastName,
+        contactEmail: salesContactsTable.email,
       })
       .from(salesHotlinksTable)
       .leftJoin(salesContactsTable, and(
@@ -391,7 +392,10 @@ router.get("/pages/overview", async (req, res): Promise<void> => {
       list.sort((a, b) => new Date(b.lastViewedAt).getTime() - new Date(a.lastViewedAt).getTime());
     }
 
-    type HotlinkOut = { hotlinkId: number; token: string; contactId: number | null; contactName: string };
+    // contactEmail rides along so the email-preview modal can prefill a
+    // compose "To:" without a second lookup — resolving it client-side against
+    // the contact list silently failed for any contact outside the loaded page.
+    type HotlinkOut = { hotlinkId: number; token: string; contactId: number | null; contactName: string; contactEmail: string | null };
     const hotlinksByPage = new Map<number, HotlinkOut[]>();
     for (const hl of hotlinks) {
       if (!hl.pageId) continue;
@@ -401,6 +405,7 @@ router.get("/pages/overview", async (req, res): Promise<void> => {
         token: hl.token,
         contactId: hl.contactId ?? null,
         contactName: [hl.contactFirst, hl.contactLast].filter(Boolean).join(" ").trim(),
+        contactEmail: hl.contactEmail ?? null,
       });
       hotlinksByPage.set(hl.pageId, list);
     }

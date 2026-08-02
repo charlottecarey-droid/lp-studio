@@ -37,6 +37,7 @@ import { useFactFlags } from "@/hooks/use-fact-flags";
 import { syncFactFlags } from "@/lib/fact-flags-api";
 import { FactReviewModal } from "@/components/FactReviewModal";
 import { ImagePicker } from "@/components/ImagePicker";
+import { DEFAULT_CARD_LINK_LABEL } from "@/lib/email-preview";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, templateToBlocks, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
@@ -163,6 +164,8 @@ interface FetchedPage {
   ogCardHeadline?: string | null;
   ogCardSubheadline?: string | null;
   ogCardBackground?: string | null;
+  ogCardPartnerLogo?: string | null;
+  ogCardLinkLabel?: string | null;
   emailEmbedSource?: string;
   // Task #494 — tri-state robots overrides. null = inherit tenant default.
   allowIndexing?: boolean | null;
@@ -224,6 +227,8 @@ interface SavePageData {
   ogCardHeadline?: string;
   ogCardSubheadline?: string;
   ogCardBackground?: string;
+  ogCardPartnerLogo?: string;
+  ogCardLinkLabel?: string;
   emailEmbedSource?: string;
   // Task #494 — tri-state robots overrides. null = inherit tenant default.
   allowIndexing?: boolean | null;
@@ -1299,6 +1304,9 @@ export default function BuilderEditor() {
   const [ogCardHeadline, setOgCardHeadline] = useState("");
   const [ogCardSubheadline, setOgCardSubheadline] = useState("");
   const [ogCardBackground, setOgCardBackground] = useState("");
+  /** "" = auto-detect from page content, "none" = suppress, else an image URL. */
+  const [ogCardPartnerLogo, setOgCardPartnerLogo] = useState("");
+  const [ogCardLinkLabel, setOgCardLinkLabel] = useState("");
   const [emailEmbedSource, setEmailEmbedSource] = useState<"card" | "og">("card");
   // Task #494 — per-page robots overrides. null = inherit tenant default.
   const [allowIndexing, setAllowIndexing] = useState<boolean | null>(null);
@@ -1773,6 +1781,8 @@ export default function BuilderEditor() {
         setOgCardHeadline(p.ogCardHeadline ?? "");
         setOgCardSubheadline(p.ogCardSubheadline ?? "");
         setOgCardBackground(p.ogCardBackground ?? "");
+        setOgCardPartnerLogo(p.ogCardPartnerLogo ?? "");
+        setOgCardLinkLabel(p.ogCardLinkLabel ?? "");
         setEmailEmbedSource(p.emailEmbedSource === "og" ? "og" : "card");
         setAllowIndexing(p.allowIndexing ?? null);
         setAllowFollowing(p.allowFollowing ?? null);
@@ -1809,6 +1819,8 @@ export default function BuilderEditor() {
             ogCardHeadline: p.ogCardHeadline ?? "",
             ogCardSubheadline: p.ogCardSubheadline ?? "",
             ogCardBackground: p.ogCardBackground ?? "",
+            ogCardPartnerLogo: p.ogCardPartnerLogo ?? "",
+            ogCardLinkLabel: p.ogCardLinkLabel ?? "",
             emailEmbedSource: p.emailEmbedSource === "og" ? "og" : "card",
             allowIndexing: p.allowIndexing ?? null,
             allowFollowing: p.allowFollowing ?? null,
@@ -2534,6 +2546,8 @@ export default function BuilderEditor() {
     ogCardHeadline,
     ogCardSubheadline,
     ogCardBackground,
+    ogCardPartnerLogo,
+    ogCardLinkLabel,
     emailEmbedSource,
     allowIndexing,
     allowFollowing,
@@ -2566,6 +2580,8 @@ export default function BuilderEditor() {
         ogCardHeadline,
         ogCardSubheadline,
         ogCardBackground,
+        ogCardPartnerLogo,
+        ogCardLinkLabel,
         emailEmbedSource,
         allowIndexing,
         allowFollowing,
@@ -2582,7 +2598,7 @@ export default function BuilderEditor() {
   const currentSnapshot = useMemo(
     () => buildSnapshot(status),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are buildSnapshot's actual inputs
-    [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, emailEmbedSource, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, pageCta],
+    [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, ogCardPartnerLogo, ogCardLinkLabel, emailEmbedSource, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, pageCta],
   );
 
   const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
@@ -4169,8 +4185,49 @@ export default function BuilderEditor() {
                           <ImagePicker
                             value={ogCardBackground}
                             onChange={url => setOgCardBackground(url)}
-                            placeholder="Auto — the page's first image"
+                            placeholder="Auto — the page's hero image"
                             aiHint="Email share card background (1200×630)"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-foreground mb-1 block">Partner logo</Label>
+                          <select
+                            value={ogCardPartnerLogo === "" ? "auto" : ogCardPartnerLogo === "none" ? "none" : "custom"}
+                            onChange={e => {
+                              const v = e.target.value;
+                              // Switching to custom keeps any URL already set so
+                              // toggling away and back doesn't lose the upload.
+                              setOgCardPartnerLogo(v === "auto" ? "" : v === "none" ? "none" : (ogCardPartnerLogo && ogCardPartnerLogo !== "none" ? ogCardPartnerLogo : " "));
+                              setTimeout(handleSave, 50);
+                            }}
+                            className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            <option value="auto">Auto — detect from the page</option>
+                            <option value="none">Don't show a partner logo</option>
+                            <option value="custom">Use a specific logo</option>
+                          </select>
+                          {ogCardPartnerLogo !== "" && ogCardPartnerLogo !== "none" && (
+                            <div className="mt-2">
+                              <ImagePicker
+                                value={ogCardPartnerLogo.trim()}
+                                onChange={url => setOgCardPartnerLogo(url || " ")}
+                                placeholder="https://…/partner-logo.png"
+                                aiHint="partner / account logo"
+                              />
+                            </div>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+                            Auto reads logos out of the page content and can pick the wrong one when there are several.
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-foreground mb-1 block">Link text under the image</Label>
+                          <Input
+                            value={ogCardLinkLabel}
+                            onChange={e => setOgCardLinkLabel(e.target.value)}
+                            onBlur={handleSave}
+                            placeholder={DEFAULT_CARD_LINK_LABEL}
+                            className="text-sm"
                           />
                         </div>
                         <p className="text-[10px] text-muted-foreground leading-relaxed">

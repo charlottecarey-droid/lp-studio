@@ -32,6 +32,11 @@ export const lpPagesTable = pgTable("lp_pages", {
   ogCardHeadline: text("og_card_headline"),
   ogCardSubheadline: text("og_card_subheadline"),
   ogCardBackground: text("og_card_background"),
+  /** '' / NULL = auto-detect from page content, 'none' = never show a partner
+   *  mark, anything else = an explicit image URL. */
+  ogCardPartnerLogo: text("og_card_partner_logo"),
+  /** Caption on the link under the pasted card. NULL = built-in default. */
+  ogCardLinkLabel: text("og_card_link_label"),
   // What the "Copy email preview" embed links its image to: the designed
   // card ('card', default) or the page's explicit og_image ('og').
   emailEmbedSource: text("email_embed_source").notNull().default("card"),

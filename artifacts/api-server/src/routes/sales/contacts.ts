@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and, ilike, count, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, or, ilike, count, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { cleanAccountDisplayName } from "@workspace/lead-utils";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
@@ -13,11 +13,30 @@ const router = Router();
 router.get("/contacts", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const { accountId, limit: limitStr, offset: offsetStr } = req.query;
+    const { accountId, limit: limitStr, offset: offsetStr, search: searchStr } = req.query;
 
-    const baseWhere = accountId
-      ? and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, Number(accountId)))
-      : eq(salesContactsTable.tenantId, tenantId);
+    // Server-side search (Aug 2026). The email-preview modal used to pull the
+    // first N contacts and filter them in the browser, so anyone outside that
+    // window was simply unfindable — on a big tenant that reads as "search only
+    // matches some people". Matches first/last name, the full name, email, and
+    // the joined account name.
+    const search = typeof searchStr === "string" ? searchStr.trim() : "";
+    const like = `%${search}%`;
+    const searchWhere = search
+      ? or(
+          ilike(salesContactsTable.firstName, like),
+          ilike(salesContactsTable.lastName, like),
+          ilike(sql`concat(${salesContactsTable.firstName}, ' ', ${salesContactsTable.lastName})`, like),
+          ilike(salesContactsTable.email, like),
+          ilike(salesAccountsTable.name, like),
+        )
+      : undefined;
+
+    const baseWhere = and(
+      eq(salesContactsTable.tenantId, tenantId),
+      accountId ? eq(salesContactsTable.accountId, Number(accountId)) : undefined,
+      searchWhere,
+    );
 
     const limit = Math.min(Math.max(Number(limitStr) || 2000, 1), 2000);
     const offset = Math.max(Number(offsetStr) || 0, 0);
@@ -58,7 +77,10 @@ router.get("/contacts", async (req, res): Promise<void> => {
     // Only compute totalCount when explicitly paginated (caller sent limit or offset)
     if (limitStr || offsetStr) {
       const [[{ total }], contacts] = await Promise.all([
-        db.select({ total: count() }).from(salesContactsTable).where(baseWhere),
+        db.select({ total: count() })
+          .from(salesContactsTable)
+          .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
+          .where(baseWhere),
         contactsQuery,
       ]);
       res.json({ data: contacts, totalCount: total });

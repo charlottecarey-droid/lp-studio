@@ -19,6 +19,12 @@
  *    button never leaves the rep empty-handed.
  */
 
+/** Caption on the link under the pasted card. The page title used to be used
+ *  here, which reads like a filename in an email ("Acme Dental — Custom
+ *  Proposal →"); an action phrase performs better and is overridable per page
+ *  in the builder. */
+export const DEFAULT_CARD_LINK_LABEL = "Visit your personalized page";
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -36,7 +42,7 @@ export function buildEmailPreviewHtml(args: {
 }): string {
   const href = escapeHtml(args.pageUrl);
   const img = escapeHtml(args.imageUrl);
-  const label = escapeHtml((args.title ?? "").trim() || "Take a look");
+  const label = escapeHtml((args.title ?? "").trim() || DEFAULT_CARD_LINK_LABEL);
   return (
     `<div>` +
     `<a href="${href}" target="_blank" style="text-decoration:none;">` +
@@ -152,11 +158,13 @@ export async function copyEmailPreview(args: {
   title?: string | null;
 }): Promise<EmailPreviewCopyResult> {
   let imageUrl = "";
+  let linkLabel = "";
   try {
     const res = await fetch(`/api/lp/pages/${args.pageId}/email-preview`, { method: "POST" });
     if (res.ok) {
-      const data = (await res.json()) as { imageUrl?: string };
+      const data = (await res.json()) as { imageUrl?: string; linkLabel?: string | null };
       imageUrl = (data.imageUrl ?? "").trim();
+      linkLabel = (data.linkLabel ?? "").trim();
     }
   } catch {
     /* fall through to link-only */
@@ -171,7 +179,9 @@ export async function copyEmailPreview(args: {
       const html = buildEmailPreviewHtml({
         pageUrl: args.pageUrl,
         imageUrl: absImageUrl,
-        title: args.title,
+        // The page's own label wins; otherwise the built-in action phrase.
+        // args.title is deliberately NOT used — see DEFAULT_CARD_LINK_LABEL.
+        title: linkLabel || null,
       });
       await navigator.clipboard.write([
         new ClipboardItem({

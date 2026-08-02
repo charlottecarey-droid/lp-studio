@@ -9,6 +9,9 @@ export interface HotlinkEntry {
   token: string;
   contactId: number;
   contactName: string;
+  /** From the overview payload so a compose "To:" never depends on the
+   *  separately-loaded contact list. */
+  contactEmail?: string | null;
 }
 
 export interface KnownViewer {

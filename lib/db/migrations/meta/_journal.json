@@ -925,6 +925,13 @@
       "when": 1757960000000,
       "tag": "0131_outreach_defaults",
       "breakpoints": false
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1757970000000,
+      "tag": "0132_og_card_partner_and_label",
+      "breakpoints": false
     }
   ]
 }

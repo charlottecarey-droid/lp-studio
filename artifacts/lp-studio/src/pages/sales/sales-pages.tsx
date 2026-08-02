@@ -61,6 +61,7 @@ interface HotlinkEntryRaw {
   contactName?: string;
   contactFirst?: string;
   contactLast?: string;
+  contactEmail?: string | null;
 }
 
 import {
@@ -79,6 +80,7 @@ function normalizeHotlink(hl: HotlinkEntryRaw): HotlinkEntry {
     token: hl.token,
     contactId: hl.contactId,
     contactName: hl.contactName || [hl.contactFirst, hl.contactLast].filter(Boolean).join(" ").trim() || "",
+    contactEmail: hl.contactEmail ?? null,
   };
 }
 
@@ -619,15 +621,33 @@ export default function SalesPages() {
         });
       });
     }
-    if (epAllContacts.length === 0 && !epContactsLoading) {
-      setEpContactsLoading(true);
-      fetch(`${API_BASE}/sales/contacts`)
-        .then(r => (r.ok ? r.json() : []))
-        .then(data => setEpAllContacts(Array.isArray(data) ? data : data.data ?? []))
-        .catch(err => console.error("Failed to load contacts for email preview:", err))
-        .finally(() => setEpContactsLoading(false));
-    }
   }
+
+  // Contact search runs on the SERVER. It used to pull the first page of
+  // contacts and filter them in the browser, so anyone outside that window was
+  // unfindable — on a tenant with thousands of contacts that reads as "search
+  // only matches some people". Debounced so typing doesn't spam the endpoint.
+  useEffect(() => {
+    const q = epSearch.trim();
+    if (!emailPreviewModal || q.length < 2) {
+      setEpAllContacts([]);
+      setEpContactsLoading(false);
+      return;
+    }
+    setEpContactsLoading(true);
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch(`${API_BASE}/sales/contacts?search=${encodeURIComponent(q)}&limit=50`)
+        .then(r => (r.ok ? r.json() : []))
+        .then(data => {
+          if (cancelled) return;
+          setEpAllContacts(Array.isArray(data) ? data : data.data ?? []);
+        })
+        .catch(err => { if (!cancelled) console.error("Contact search failed:", err); })
+        .finally(() => { if (!cancelled) setEpContactsLoading(false); });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [epSearch, emailPreviewModal]);
 
   /** Open Gmail's web composer prefilled for this link. Called AFTER the card
    *  is on the clipboard — a compose URL can't carry an image, so the rep
@@ -1735,7 +1755,7 @@ export default function SalesPages() {
                   ) : emailContacts.length === 0 ? (
                     <p className="text-xs text-muted-foreground px-3 py-3">No contacts with an email address found. Add contacts first.</p>
                   ) : filtered.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts match your search.</p>
+                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts match "{q}".</p>
                   ) : (
                     <div className="max-h-44 overflow-y-auto divide-y divide-border/40">
                       {filtered.map(c => {
@@ -1876,15 +1896,10 @@ export default function SalesPages() {
           {emailPreviewModal && (() => {
             const row = emailPreviewModal;
             const plainUrl = getLpPageUrl(row.pageSlug, micrositeDomain, tenantHost);
-            const q = epSearch.trim().toLowerCase();
+            const q = epSearch.trim();
             const linkedIds = new Set(row.hotlinks.map(hl => hl.contactId));
-            const matches = q
-              ? epAllContacts.filter(c =>
-                  `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase().includes(q) ||
-                  (c.email ?? "").toLowerCase().includes(q) ||
-                  (c.accountName ?? "").toLowerCase().includes(q)
-                ).slice(0, 50)
-              : [];
+            // Server-filtered already (name / email / account name).
+            const matches = q.length >= 2 ? epAllContacts : [];
             return (
               <div className="flex flex-col gap-4 pt-2">
                 {/* Plain page link — anonymous visits */}
@@ -1959,10 +1974,12 @@ export default function SalesPages() {
                             const key = `contact:${hl.contactId}`;
                             const name = hl.contactName || "Contact";
                             const url = `${window.location.origin}/p/${hl.token}`;
-                            // A hotlink row carries only the contact's name —
-                            // resolve the address from the contact list the
-                            // modal already loaded so Gmail can prefill "To".
-                            const contact = epAllContacts.find(c => c.id === hl.contactId);
+                            // The address rides on the hotlink itself. It used
+                            // to be looked up in the loaded contact list, which
+                            // silently produced an empty "To:" for any contact
+                            // outside that window.
+                            const contactEmail =
+                              hl.contactEmail ?? epAllContacts.find(c => c.id === hl.contactId)?.email ?? null;
                             return (
                               <div key={hl.hotlinkId} className="flex items-center hover:bg-muted/60 transition-colors">
                                 <button
@@ -1986,8 +2003,8 @@ export default function SalesPages() {
                                   aria-label={`Open a Gmail draft to ${name}`}
                                   onClick={() => void copyPreviewTo(row, url, key, {
                                     target: "gmail",
-                                    to: contact?.email,
-                                    firstName: contact?.firstName || name,
+                                    to: contactEmail,
+                                    firstName: name,
                                   })}
                                   className="px-2 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
                                 >
@@ -1999,8 +2016,8 @@ export default function SalesPages() {
                                   aria-label={`Open an email-app draft to ${name}`}
                                   onClick={() => void copyPreviewTo(row, url, key, {
                                     target: "mail",
-                                    to: contact?.email,
-                                    firstName: contact?.firstName || name,
+                                    to: contactEmail,
+                                    firstName: name,
                                   })}
                                   className="pr-3 pl-1 py-2 shrink-0 text-muted-foreground/50 hover:text-primary disabled:opacity-60"
                                 >
@@ -2012,14 +2029,14 @@ export default function SalesPages() {
                         </div>
                       </>
                     ) : (
-                      <p className="text-xs text-muted-foreground px-3 py-3">Search to pick a contact — a unique tracked link is created for them.</p>
+                      <p className="text-xs text-muted-foreground px-3 py-3">Type at least 2 characters to find a contact — a unique tracked link is created for them.</p>
                     )
                   ) : epContactsLoading ? (
                     <div className="p-3 flex flex-col gap-2">
                       {[1, 2, 3].map(i => <Skeleton key={i} className="h-5 w-full rounded" />)}
                     </div>
                   ) : matches.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts match your search.</p>
+                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts match "{q}".</p>
                   ) : (
                     <div className="max-h-52 overflow-y-auto divide-y divide-border/40">
                       {matches.map(c => {

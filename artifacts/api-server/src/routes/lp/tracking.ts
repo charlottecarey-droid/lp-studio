@@ -1121,6 +1121,12 @@ router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
 
   const copy = deriveOgCardCopy(page.blocks);
   const trim = (v: string | null | undefined) => (typeof v === "string" ? v.trim() : "");
+  // Partner mark: 'none' suppresses it entirely, an explicit URL wins, blank
+  // falls back to the content guess. Auto-detection reads block content and
+  // WILL pick the wrong mark on a page carrying several logos, so the explicit
+  // controls are the reliable path.
+  const partnerPref = trim(page.ogCardPartnerLogo);
+  const partnerLogo = partnerPref === "none" ? "" : partnerPref || copy.accountLogo;
   // Per-page overrides (builder "Email embed card" section) beat everything —
   // they exist precisely because the derived hero copy sometimes reads wrong
   // on the card. Then hero copy, then the meta cascade scrapers see.
@@ -1139,8 +1145,8 @@ router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
   res.json({
     headline: trim(page.ogCardHeadline) || copy.headline || metaFallback.title,
     subheadline: trim(page.ogCardSubheadline) || copy.subheadline || metaFallback.description,
-    accountName: copy.accountName,
-    accountLogo: copy.accountLogo,
+    accountName: partnerPref === "none" ? "" : copy.accountName,
+    accountLogo: partnerLogo,
     // Background: per-page override first, else the page's HERO image
     // (deriveHeroImage — NOT the first image anywhere, which used to surface a
     // stock headshot or carousel frame). Never og_image/og_card_image, which

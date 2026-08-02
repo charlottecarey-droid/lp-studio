@@ -1009,7 +1009,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, emailEmbedSource, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, ogCardPartnerLogo, ogCardLinkLabel, emailEmbedSource, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -1023,6 +1023,9 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     ogCardHeadline?: string;
     ogCardSubheadline?: string;
     ogCardBackground?: string;
+    /** '' = auto-detect, 'none' = suppress, else an explicit image URL. */
+    ogCardPartnerLogo?: string;
+    ogCardLinkLabel?: string;
     emailEmbedSource?: string;
     animationsEnabled?: boolean;
     smoothScroll?: boolean;
@@ -1046,7 +1049,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     ctaDefault?: Record<string, unknown> | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; ogCardHeadline: string | null; ogCardSubheadline: string | null; ogCardBackground: string | null; emailEmbedSource: string; ogCardImage: string | null; ogCardVersion: number | null; animationsEnabled: boolean; smoothScroll: boolean; showCookieBanner: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; ctaDefault: Record<string, unknown> | null; updatedBy: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; ogCardHeadline: string | null; ogCardSubheadline: string | null; ogCardBackground: string | null; ogCardPartnerLogo: string | null; ogCardLinkLabel: string | null; emailEmbedSource: string; ogCardImage: string | null; ogCardVersion: number | null; animationsEnabled: boolean; smoothScroll: boolean; showCookieBanner: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; ctaDefault: Record<string, unknown> | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -1104,6 +1107,8 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (ogCardHeadline !== undefined) updates.ogCardHeadline = ogCardHeadline.trim() || null;
   if (ogCardSubheadline !== undefined) updates.ogCardSubheadline = ogCardSubheadline.trim() || null;
   if (ogCardBackground !== undefined) updates.ogCardBackground = ogCardBackground.trim() || null;
+  if (ogCardPartnerLogo !== undefined) updates.ogCardPartnerLogo = ogCardPartnerLogo.trim() || null;
+  if (ogCardLinkLabel !== undefined) updates.ogCardLinkLabel = ogCardLinkLabel.trim() || null;
   if (emailEmbedSource !== undefined) {
     if (emailEmbedSource !== "card" && emailEmbedSource !== "og") {
       res.status(400).json({ error: "emailEmbedSource must be 'card' or 'og'" });
@@ -1169,7 +1174,8 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     updates.metaDescription !== undefined ||
     updates.ogCardHeadline !== undefined ||
     updates.ogCardSubheadline !== undefined ||
-    updates.ogCardBackground !== undefined
+    updates.ogCardBackground !== undefined ||
+    updates.ogCardPartnerLogo !== undefined
   ) {
     updates.ogCardImage = null;
     updates.ogCardVersion = null;
@@ -1356,6 +1362,7 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
         ogImage: lpPagesTable.ogImage,
         ogCardImage: lpPagesTable.ogCardImage,
         ogCardVersion: lpPagesTable.ogCardVersion,
+        ogCardLinkLabel: lpPagesTable.ogCardLinkLabel,
         emailEmbedSource: lpPagesTable.emailEmbedSource,
       })
       .from(lpPagesTable)
@@ -1372,7 +1379,7 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
     if (page.emailEmbedSource === "og") {
       const explicit = (page.ogImage ?? "").trim();
       if (explicit && !isLegacyThumioUrl(explicit)) {
-        res.json({ imageUrl: explicit });
+        res.json({ imageUrl: explicit, linkLabel: (page.ogCardLinkLabel ?? "").trim() || null });
         return;
       }
     }
@@ -1393,7 +1400,10 @@ router.post("/lp/pages/:pageId/email-preview", async (req, res): Promise<void> =
         .set({ ogCardImage: imageUrl, ogCardVersion: CURRENT_OG_CARD_VERSION })
         .where(eq(lpPagesTable.id, page.id));
     }
-    res.json({ imageUrl });
+    // linkLabel is the caption on the link under the pasted image. Null lets
+    // the client apply its built-in default rather than the page title, which
+    // reads like a filename in an email.
+    res.json({ imageUrl, linkLabel: (page.ogCardLinkLabel ?? "").trim() || null });
   } catch (err) {
     console.error("email-preview error:", err);
     res.status(500).json({ error: "Failed to resolve a preview image for this page" });

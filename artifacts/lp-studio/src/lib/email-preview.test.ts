@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEmailPreviewHtml, firstNameOf, buildOutreachEmail, buildGmailComposeUrl, buildMailtoUrl, fillOutreachTokens } from "./email-preview";
+import { buildEmailPreviewHtml, DEFAULT_CARD_LINK_LABEL, firstNameOf, buildOutreachEmail, buildGmailComposeUrl, buildMailtoUrl, fillOutreachTokens } from "./email-preview";
 
 describe("buildEmailPreviewHtml", () => {
   it("wraps the preview image and text link in anchors to the page URL", () => {
@@ -33,7 +33,7 @@ describe("buildEmailPreviewHtml", () => {
       pageUrl: "https://x.example/p/a",
       imageUrl: "https://x.example/img.png",
     });
-    expect(html).toContain("Take a look");
+    expect(html).toContain(DEFAULT_CARD_LINK_LABEL);
   });
 });
 
@@ -138,5 +138,25 @@ describe("buildMailtoUrl", () => {
 
   it("still builds a usable draft with no recipient", () => {
     expect(buildMailtoUrl({ to: null, subject: "s", body: "b" }).startsWith("mailto:?")).toBe(true);
+  });
+});
+
+describe("buildEmailPreviewHtml — link caption", () => {
+  it("defaults to the action phrase, not the page title", () => {
+    const html = buildEmailPreviewHtml({ pageUrl: "https://x.com/p/t", imageUrl: "https://x.com/i.png" });
+    expect(html).toContain(DEFAULT_CARD_LINK_LABEL);
+    expect(html).toContain(`${DEFAULT_CARD_LINK_LABEL} &rarr;`);
+  });
+
+  it("uses a per-page label when one is supplied", () => {
+    const html = buildEmailPreviewHtml({ pageUrl: "https://x.com/p/t", imageUrl: "https://x.com/i.png", title: "Check it out" });
+    expect(html).toContain("Check it out &rarr;");
+    expect(html).not.toContain(DEFAULT_CARD_LINK_LABEL);
+  });
+
+  it("escapes a label containing markup", () => {
+    const html = buildEmailPreviewHtml({ pageUrl: "https://x.com/p/t", imageUrl: "https://x.com/i.png", title: '<script>x</script>' });
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });
