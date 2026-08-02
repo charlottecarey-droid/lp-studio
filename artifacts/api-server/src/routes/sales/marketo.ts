@@ -218,6 +218,32 @@ router.post("/marketo/sync", requireAuth, async (req, res): Promise<void> => {
 });
 
 /**
+ * POST /marketo/sync/preview — DRY RUN.
+ *
+ * MUST stay registered BEFORE POST /marketo/sync/:object below: Express
+ * matches in registration order, so the param route would otherwise swallow
+ * "preview" and reject it as an invalid object type. Reports what an import would do
+ * against a bounded sample and writes nothing, so a tenant with live contact
+ * data can find out whether matching works before the real importer mutates
+ * every matched row.
+ */
+router.post("/marketo/sync/preview", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    // Deliberately NOT getActiveConnection: a dry run must work while the
+    // sync is disabled, which is exactly when you want to run one.
+    const conn = await marketoService.getConnectedConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No connected Marketo account found" }); return; }
+    const sampleSize = Number((req.body ?? {}).sampleSize) || undefined;
+    const result = await marketoService.previewImport(conn.id, tenantId, { sampleSize });
+    res.json({ success: true, dryRun: true, ...result });
+  } catch (err) {
+    logger.error(err, "Marketo import preview failed");
+    res.status(500).json({ error: "Failed to preview import" });
+  }
+});
+
+/**
  * POST /marketo/sync/:object  (leads|lists|programs|activities)
  */
 router.post("/marketo/sync/:object", requireAuth, async (req, res): Promise<void> => {
@@ -237,28 +263,6 @@ router.post("/marketo/sync/:object", requireAuth, async (req, res): Promise<void
   } catch (err) {
     logger.error({ object, err }, "Error syncing Marketo object");
     res.status(500).json({ error: `Failed to sync ${object}` });
-  }
-});
-
-/**
- * POST /marketo/sync/preview — DRY RUN. Reports what an import would do
- * against a bounded sample and writes nothing, so a tenant with live contact
- * data can find out whether matching works before the real importer mutates
- * every matched row.
- */
-router.post("/marketo/sync/preview", requireAuth, async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  try {
-    // Deliberately NOT getActiveConnection: a dry run must work while the
-    // sync is disabled, which is exactly when you want to run one.
-    const conn = await marketoService.getConnectedConnection(tenantId);
-    if (!conn) { res.status(404).json({ error: "No connected Marketo account found" }); return; }
-    const sampleSize = Number((req.body ?? {}).sampleSize) || undefined;
-    const result = await marketoService.previewImport(conn.id, tenantId, { sampleSize });
-    res.json({ success: true, dryRun: true, ...result });
-  } catch (err) {
-    logger.error(err, "Marketo import preview failed");
-    res.status(500).json({ error: "Failed to preview import" });
   }
 });
 
