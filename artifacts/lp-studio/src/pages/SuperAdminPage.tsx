@@ -28,13 +28,14 @@ import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
   Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound, Smartphone, Share2, Wand2, ChefHat,
-  Newspaper, Megaphone, LifeBuoy,
+  Newspaper, Megaphone, LifeBuoy, Send,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
 import SuperAdminFeaturedTemplates from "./SuperAdminFeaturedTemplates";
 import SuperAdminMarketingShareCard from "./SuperAdminMarketingShareCard";
 import SuperAdminAnnouncementBanner from "./SuperAdminAnnouncementBanner";
+import SuperAdminOutreachDefaults from "./SuperAdminOutreachDefaults";
 import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
 import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
 import SuperAdminNotifications from "./SuperAdminNotifications";
@@ -1294,7 +1295,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "page-recipes" | "one-pagers" | "homepage-og" | "announcement" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "support" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "page-recipes" | "one-pagers" | "homepage-og" | "announcement" | "outreach" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "support" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#support") return "support";
       if (window.location.hash === "#catalog") return "catalog";
@@ -1305,6 +1306,7 @@ export default function SuperAdminPage() {
       if (window.location.hash === "#featured-templates") return "featured-templates";
       if (window.location.hash === "#homepage-og") return "homepage-og";
       if (window.location.hash === "#announcement") return "announcement";
+      if (window.location.hash === "#outreach") return "outreach";
       if (window.location.hash === "#asset-health") return "asset-health";
       if (window.location.hash === "#plans") return "plans";
       if (window.location.hash === "#notifications") return "notifications";
@@ -1408,6 +1410,7 @@ export default function SuperAdminPage() {
     { key: "one-pagers", label: "One-Pagers", icon: FileText },
     { key: "homepage-og", label: "Share Cards", icon: Share2 },
     { key: "announcement", label: "Announcement", icon: Megaphone },
+    { key: "outreach", label: "Outreach", icon: Send },
     { key: "asset-health", label: "Asset Health", icon: Activity },
     { key: "plans", label: "Plans", icon: CreditCard },
     { key: "notifications", label: "Notifications", icon: Bell },
@@ -1496,6 +1499,8 @@ export default function SuperAdminPage() {
           </div>
         ) : tab === "announcement" ? (
           <SuperAdminAnnouncementBanner />
+        ) : tab === "outreach" ? (
+          <SuperAdminOutreachDefaults />
         ) : tab === "plans" ? (
           <SuperAdminPlanConfig />
         ) : tab === "notifications" ? (

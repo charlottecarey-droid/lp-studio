@@ -60,6 +60,7 @@ import planConfigRouter from "./plan-config";
 import featuredTemplatesRouter from "./featured-templates";
 import homepageOgRouter from "./homepage-og";
 import announcementBannerRouter from "./announcement-banner";
+import outreachDefaultsRouter from "./outreach-defaults";
 import marketingPageOgRouter from "./marketing-page-og";
 import emailDomainRouter from "./email-domain";
 import brandedEmailSubdomainRouter from "./branded-email-subdomain";
@@ -91,6 +92,7 @@ router.use(planConfigRouter);
 router.use(featuredTemplatesRouter);
 router.use(homepageOgRouter);
 router.use(announcementBannerRouter);
+router.use(outreachDefaultsRouter);
 router.use(marketingPageOgRouter);
 // First-party marketing blog: public GET /lp/blog/* (allowlisted in LP_PUBLIC)
 // + superadmin /admin/blog/* CRUD (requireSuperadmin per-route). NOT

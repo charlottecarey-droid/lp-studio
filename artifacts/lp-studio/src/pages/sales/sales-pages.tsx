@@ -602,12 +602,22 @@ export default function SalesPages() {
     setEpBusyKey(null);
     setEpCopiedKey(null);
     if (epOutreach === undefined) {
-      void fetchBrandConfig()
-        .then(b => setEpOutreach({
-          subject: b.salesConsole?.outreachSubject,
-          intro: b.salesConsole?.outreachIntro,
-        }))
-        .catch(() => setEpOutreach({}));  // fall back to built-in defaults
+      // Three tiers: this workspace's copy → the platform default a superadmin
+      // set → the built-in constants (applied inside buildOutreachEmail when
+      // both come back blank). Both fetches fail soft for the same reason —
+      // a missing template must never cost a rep their draft.
+      void Promise.all([
+        fetchBrandConfig().catch(() => null),
+        fetch(`${API_BASE}/lp/outreach-defaults`)
+          .then(r => (r.ok ? r.json() as Promise<{ subject?: string; intro?: string }> : null))
+          .catch(() => null),
+      ]).then(([brand, platform]) => {
+        const sc = brand?.salesConsole;
+        setEpOutreach({
+          subject: (sc?.outreachSubject ?? "").trim() || platform?.subject || undefined,
+          intro: (sc?.outreachIntro ?? "").trim() || platform?.intro || undefined,
+        });
+      });
     }
     if (epAllContacts.length === 0 && !epContactsLoading) {
       setEpContactsLoading(true);
