@@ -8,7 +8,7 @@ import {
   salesContactsTable,
   type MarketoConnection,
 } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import { encryptCredential, decryptCredential } from "./encryption";
 
@@ -881,6 +881,109 @@ export class MarketoService {
     }
 
     return { logId, processed, created, updated, skipped };
+  }
+
+  /**
+   * DRY RUN — report what an import WOULD do, writing nothing.
+   *
+   * Exists because the real importer is all-or-nothing against live data: on a
+   * tenant with thousands of real contacts, "just try it and see" means mutating
+   * every matched row and creating contacts under every matched account, driven
+   * by a 15-minute poller. This answers the only question that actually matters
+   * beforehand — how many of these leads can we even match? — from a bounded
+   * sample, with zero writes.
+   *
+   * Matching mirrors applyImportedLead exactly (contact by sfdcContactId, then
+   * account by sfdcAccountId, then the unlinked toggle), but resolves the whole
+   * sample in TWO queries instead of one or two per lead. The live importer
+   * still does it per-lead, which is what exhausts the connection pool on a
+   * large run; this is the shape it should move to.
+   */
+  async previewImport(
+    connectionId: number,
+    tenantId: number,
+    opts: { sampleSize?: number } = {},
+  ): Promise<{
+    sampled: number;
+    listsSampled: number;
+    wouldUpdateExistingContact: number;
+    wouldCreateUnderAccount: number;
+    wouldSkip: number;
+    leadsCarryingContactId: number;
+    leadsCarryingAccountId: number;
+    importUnlinkedLeads: boolean;
+  }> {
+    const sampleSize = Math.min(Math.max(opts.sampleSize ?? 2000, 1), 20000);
+    const connection = await this.getConnectionForTenant(connectionId, tenantId);
+    if (!connection) throw new Error(`Marketo connection ${connectionId} not found for tenant ${tenantId}`);
+
+    const fields = ["id", "email", "firstName", "lastName", "sfdcContactId", "sfdcAccountId"];
+    const lists = await db
+      .select({ marketoId: marketoListsTable.marketoId })
+      .from(marketoListsTable)
+      .where(and(
+        eq(marketoListsTable.connectionId, connectionId),
+        eq(marketoListsTable.listType, "static_list"),
+      ))
+      .orderBy(marketoListsTable.marketoId);
+
+    const sample: MarketoLeadRecord[] = [];
+    let listsSampled = 0;
+    for (const list of lists) {
+      if (sample.length >= sampleSize) break;
+      listsSampled++;
+      let token: string | undefined = undefined;
+      do {
+        const page = await this.getLeadsByListPage(connection, list.marketoId, token, fields);
+        sample.push(...page.records);
+        token = page.nextPageToken;
+      } while (token && sample.length < sampleSize);
+    }
+
+    const contactIds = [...new Set(sample.map((l) => l.sfdcContactId).filter((v): v is string => !!v))];
+    const accountIds = [...new Set(sample.map((l) => l.sfdcAccountId).filter((v): v is string => !!v))];
+
+    const knownContactIds = new Set<string>();
+    if (contactIds.length > 0) {
+      const rows = await db
+        .select({ salesforceId: salesContactsTable.salesforceId })
+        .from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          inArray(salesContactsTable.salesforceId, contactIds),
+        ));
+      for (const r of rows) if (r.salesforceId) knownContactIds.add(r.salesforceId);
+    }
+    const knownAccountIds = new Set<string>();
+    if (accountIds.length > 0) {
+      const rows = await db
+        .select({ salesforceId: salesAccountsTable.salesforceId })
+        .from(salesAccountsTable)
+        .where(and(
+          eq(salesAccountsTable.tenantId, tenantId),
+          inArray(salesAccountsTable.salesforceId, accountIds),
+        ));
+      for (const r of rows) if (r.salesforceId) knownAccountIds.add(r.salesforceId);
+    }
+
+    let wouldUpdateExistingContact = 0, wouldCreateUnderAccount = 0, wouldSkip = 0;
+    for (const lead of sample) {
+      if (lead.sfdcContactId && knownContactIds.has(lead.sfdcContactId)) wouldUpdateExistingContact++;
+      else if (lead.sfdcAccountId && knownAccountIds.has(lead.sfdcAccountId)) wouldCreateUnderAccount++;
+      else if (connection.importUnlinkedLeads) wouldCreateUnderAccount++;
+      else wouldSkip++;
+    }
+
+    return {
+      sampled: sample.length,
+      listsSampled,
+      wouldUpdateExistingContact,
+      wouldCreateUnderAccount,
+      wouldSkip,
+      leadsCarryingContactId: sample.filter((l) => !!l.sfdcContactId).length,
+      leadsCarryingAccountId: sample.filter((l) => !!l.sfdcAccountId).length,
+      importUnlinkedLeads: connection.importUnlinkedLeads,
+    };
   }
 
   /**

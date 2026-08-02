@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -29,7 +30,7 @@ export interface AccountTeam {
 export const salesAccountsTable = pgTable("sales_accounts", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull(),
-  salesforceId: text("salesforce_id").unique(),  // SFDC Account ID (001...)
+  salesforceId: text("salesforce_id"),  // SFDC Account ID (001...) — unique PER TENANT (migration 0133)
   name: text("name").notNull(),
   displayName: text("display_name"),         // clean display name (overrides raw name in outreach/UI)
   domain: text("domain"),
@@ -60,7 +61,12 @@ export const salesAccountsTable = pgTable("sales_accounts", {
   sfdcLastSyncedAt: timestamp("sfdc_last_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  // Per-TENANT Salesforce uniqueness (migration 0133) — see salesContacts.
+  uniqueIndex("sales_accounts_tenant_salesforce_id_key")
+    .on(table.tenantId, table.salesforceId)
+    .where(sql`${table.salesforceId} IS NOT NULL`),
+]);
 
 export const insertSalesAccountSchema = createInsertSchema(salesAccountsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertSalesAccount = z.infer<typeof insertSalesAccountSchema>;

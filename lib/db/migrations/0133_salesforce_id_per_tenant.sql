@@ -1,0 +1,32 @@
+-- Scope the Salesforce-ID uniqueness to the tenant (Aug 2026).
+--
+-- `sales_accounts.salesforce_id` and `sales_contacts.salesforce_id` carried a
+-- GLOBAL unique index — no tenant_id, no partial predicate. Every other
+-- uniqueness rule in this schema is per-tenant, so this was almost certainly an
+-- oversight rather than intent, and it means one Salesforce record can exist in
+-- exactly one workspace across the whole platform.
+--
+-- Consequence in the wild: importing the same Salesforce accounts/contacts into
+-- a second workspace fails on every row. The importer's "already exists?" probe
+-- IS tenant-scoped, so it finds nothing locally, attempts an INSERT, and hits
+-- the global constraint. Two workspaces covering overlapping Salesforce data
+-- (an enterprise instance and an SMB instance of the same company) simply
+-- cannot both hold it.
+--
+-- Widening a unique index can never fail on existing data — every row that was
+-- globally unique is trivially unique within its tenant too.
+--
+-- The partial predicate keeps NULLs out of the index. Postgres already treats
+-- NULLs as non-conflicting, so this is purely to keep the index small; the
+-- behaviour is unchanged.
+
+DROP INDEX IF EXISTS "sales_accounts_salesforce_id_key";
+DROP INDEX IF EXISTS "sales_contacts_salesforce_id_key";
+
+CREATE UNIQUE INDEX IF NOT EXISTS "sales_accounts_tenant_salesforce_id_key"
+  ON "sales_accounts" ("tenant_id", "salesforce_id")
+  WHERE "salesforce_id" IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "sales_contacts_tenant_salesforce_id_key"
+  ON "sales_contacts" ("tenant_id", "salesforce_id")
+  WHERE "salesforce_id" IS NOT NULL;

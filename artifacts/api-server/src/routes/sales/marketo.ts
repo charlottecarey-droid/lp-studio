@@ -241,6 +241,26 @@ router.post("/marketo/sync/:object", requireAuth, async (req, res): Promise<void
 });
 
 /**
+ * POST /marketo/sync/preview — DRY RUN. Reports what an import would do
+ * against a bounded sample and writes nothing, so a tenant with live contact
+ * data can find out whether matching works before the real importer mutates
+ * every matched row.
+ */
+router.post("/marketo/sync/preview", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const conn = await marketoService.getActiveConnection(tenantId);
+    if (!conn) { res.status(404).json({ error: "No active Marketo connection found" }); return; }
+    const sampleSize = Number((req.body ?? {}).sampleSize) || undefined;
+    const result = await marketoService.previewImport(conn.id, tenantId, { sampleSize });
+    res.json({ success: true, dryRun: true, ...result });
+  } catch (err) {
+    logger.error(err, "Marketo import preview failed");
+    res.status(500).json({ error: "Failed to preview import" });
+  }
+});
+
+/**
  * GET /marketo/sync/log — tenant-scoped sync history.
  */
 router.get("/marketo/sync/log", requireAuth, async (req, res): Promise<void> => {

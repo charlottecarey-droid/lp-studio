@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesAccountsTable } from "./salesAccounts";
@@ -9,7 +10,7 @@ import { salesAccountsTable } from "./salesAccounts";
 export const salesContactsTable = pgTable("sales_contacts", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull(),
-  salesforceId: text("salesforce_id").unique(),  // SFDC Contact ID (003...)
+  salesforceId: text("salesforce_id"),  // SFDC Contact ID (003...) — unique PER TENANT (migration 0133)
   accountId: integer("account_id").notNull().references(() => salesAccountsTable.id, { onDelete: "cascade" }),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
@@ -34,6 +35,12 @@ export const salesContactsTable = pgTable("sales_contacts", {
 }, (table) => [
   index("sales_contacts_tenant_status_idx").on(table.tenantId, table.status),
   index("sales_contacts_account_id_idx").on(table.accountId),
+  // Per-TENANT Salesforce uniqueness (migration 0133). Was a global column
+  // `.unique()`, which stopped two workspaces from holding the same Salesforce
+  // record — see the migration for the full rationale.
+  uniqueIndex("sales_contacts_tenant_salesforce_id_key")
+    .on(table.tenantId, table.salesforceId)
+    .where(sql`${table.salesforceId} IS NOT NULL`),
 ]);
 
 export const insertSalesContactSchema = createInsertSchema(salesContactsTable).omit({ id: true, createdAt: true, updatedAt: true });
