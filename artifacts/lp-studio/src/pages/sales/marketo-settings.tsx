@@ -10,6 +10,10 @@ import {
   Clock,
   AlertTriangle,
   Download,
+  ListChecks,
+  Search,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -20,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +66,20 @@ interface SyncLog {
   errorMessage?: string;
   startedAt: string;
   completedAt?: string;
+}
+
+/**
+ * A cached row from `marketo_lists` — populated by "Refresh lists & programs"
+ * (and by a full sync). Marketo's /v1/lists.json and /asset/v1/programs.json
+ * carry no member count, so we deliberately don't pretend to show one.
+ */
+interface MarketoList {
+  id: number;
+  marketoId: string;
+  listType: string; // static_list | program | smart_list
+  name: string;
+  description?: string | null;
+  fetchedAt?: string;
 }
 
 interface FieldMapping {
@@ -144,6 +163,10 @@ export default function MarketoSettingsPage() {
   const [connection, setConnection] = useState<MarketoConnection | null>(null);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+  const [lists, setLists] = useState<MarketoList[]>([]);
+  const [listSearch, setListSearch] = useState("");
+  const [listTab, setListTab] = useState<"static_list" | "program">("static_list");
+  const [copiedListId, setCopiedListId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
@@ -159,10 +182,11 @@ export default function MarketoSettingsPage() {
   async function fetchConnectionStatus() {
     try {
       setLoading(true);
-      const [connRes, logsRes, mappingsRes] = await Promise.all([
+      const [connRes, logsRes, mappingsRes, listsRes] = await Promise.all([
         fetch(`${API_BASE}/sales/marketo/connection`),
         fetch(`${API_BASE}/sales/marketo/sync/log`),
         fetch(`${API_BASE}/sales/marketo/field-mappings`),
+        fetch(`${API_BASE}/sales/marketo/discover/lists`),
       ]);
 
       if (connRes.ok) {
@@ -177,6 +201,13 @@ export default function MarketoSettingsPage() {
       if (mappingsRes.ok) {
         const mappings = await mappingsRes.json();
         setFieldMappings(Array.isArray(mappings) ? mappings : []);
+      }
+      // 404 here just means "no connection yet" — not an error worth surfacing.
+      if (listsRes.ok) {
+        const rows = await listsRes.json();
+        setLists(Array.isArray(rows) ? rows : []);
+      } else {
+        setLists([]);
       }
     } catch (error) {
       console.error("Failed to fetch Marketo settings:", error);
@@ -250,7 +281,7 @@ export default function MarketoSettingsPage() {
     }
   }
 
-  async function handleSyncObject(object: "leads" | "lists" | "programs") {
+  async function handleSyncObject(object: "leads") {
     try {
       setSyncing(object);
       await fetch(`${API_BASE}/sales/marketo/sync/${object}`, { method: "POST" });
@@ -259,6 +290,34 @@ export default function MarketoSettingsPage() {
       console.error(`Failed to sync ${object}:`, error);
     } finally {
       setSyncing(null);
+    }
+  }
+
+  /**
+   * Re-fetch the list/program catalogue. Deliberately POSTs to discover/refresh
+   * rather than sync/lists: both run the same discoverLists() call, but only
+   * discover/refresh is sync-toggle-agnostic — it writes nothing but the cache,
+   * so it must not require switching the whole lead sync on.
+   */
+  async function handleRefreshLists() {
+    try {
+      setSyncing("lists");
+      await fetch(`${API_BASE}/sales/marketo/discover/refresh`, { method: "POST" });
+      await fetchConnectionStatus();
+    } catch (error) {
+      console.error("Failed to refresh Marketo lists:", error);
+    } finally {
+      setSyncing(null);
+    }
+  }
+
+  async function handleCopyListId(marketoId: string) {
+    try {
+      await navigator.clipboard.writeText(marketoId);
+      setCopiedListId(marketoId);
+      setTimeout(() => setCopiedListId((cur) => (cur === marketoId ? null : cur)), 1500);
+    } catch (error) {
+      console.error("Failed to copy list id:", error);
     }
   }
 
@@ -289,6 +348,20 @@ export default function MarketoSettingsPage() {
   }
 
   const isConnected = connection?.status === "connected";
+
+  const staticListCount = lists.filter((l) => l.listType === "static_list").length;
+  const programCount = lists.filter((l) => l.listType === "program").length;
+  const listQuery = listSearch.trim().toLowerCase();
+  const visibleLists = lists
+    .filter((l) => l.listType === listTab)
+    .filter((l) =>
+      !listQuery ||
+      l.name.toLowerCase().includes(listQuery) ||
+      l.marketoId.includes(listQuery) ||
+      (l.description ?? "").toLowerCase().includes(listQuery),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const listsFetchedAt = lists.find((l) => l.fetchedAt)?.fetchedAt;
 
   if (loading) {
     return (
@@ -471,21 +544,113 @@ export default function MarketoSettingsPage() {
                 <Separator />
                 <div>
                   <p className="text-sm text-muted-foreground mb-3">Run an individual sync step</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {([
-                      { key: "leads", label: "Import Leads", icon: Download },
-                      { key: "lists", label: "Refresh Lists", icon: RefreshCw },
-                      { key: "programs", label: "Refresh Programs", icon: RefreshCw },
-                    ] as const).map(({ key, label, icon: Icon }) => (
-                      <Button key={key} variant="outline" size="sm" onClick={() => handleSyncObject(key)}
-                        disabled={syncing === key} className="gap-2">
-                        {syncing === key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Icon className="w-3 h-3" />}
-                        {label}
-                      </Button>
-                    ))}
+                  {/* "Refresh Lists" and "Refresh Programs" used to be two buttons
+                      running the identical discoverLists() call — one button now
+                      covers both, which is what it always did. */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Button variant="outline" size="sm" onClick={() => handleSyncObject("leads")}
+                      disabled={syncing === "leads"} className="gap-2">
+                      {syncing === "leads" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                      Import Leads
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleRefreshLists}
+                      disabled={syncing === "lists"} className="gap-2">
+                      {syncing === "lists" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Refresh lists &amp; programs
+                    </Button>
                   </div>
                 </div>
               </div>
+            </Card>
+
+            {/* Lists & Programs Card */}
+            <Card className="p-6 border border-border/40 bg-card/50 backdrop-blur-sm">
+              <div className="flex items-start justify-between gap-4 mb-1">
+                <h2 className="text-lg font-semibold flex items-center gap-3">
+                  <ListChecks className="w-5 h-5 text-purple-500" />
+                  Lists &amp; Programs
+                </h2>
+                {listsFetchedAt && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap pt-1">
+                    Cached {format(new Date(listsFetchedAt), "MMM d, h:mm a")}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Your Marketo static lists and programs. Copy a static list id to use it as the
+                destination when pushing personalized links from a campaign.
+              </p>
+
+              {lists.length === 0 ? (
+                <div className="text-sm text-muted-foreground border border-dashed border-border/60 rounded-md py-8 text-center">
+                  Nothing cached yet — run <span className="font-medium">Refresh lists &amp; programs</span> above.
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+                    <Tabs value={listTab} onValueChange={(v) => setListTab(v as "static_list" | "program")}>
+                      <TabsList>
+                        <TabsTrigger value="static_list">Static lists ({staticListCount})</TabsTrigger>
+                        <TabsTrigger value="program">Programs ({programCount})</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                    <div className="relative flex-1 md:max-w-xs">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="Search by name or id"
+                        value={listSearch}
+                        onChange={(e) => setListSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {visibleLists.length === 0 ? (
+                    <div className="text-sm text-muted-foreground py-8 text-center">
+                      No {listTab === "static_list" ? "static lists" : "programs"} match “{listSearch}”.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[420px] overflow-y-auto rounded-md border border-border/40">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-card z-10">
+                          <tr className="border-b border-border/40">
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground">Name</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground">Description</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground">Marketo ID</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleLists.map((list) => (
+                            <tr key={list.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
+                              <td className="py-3 px-3 font-medium">{list.name}</td>
+                              <td className="py-3 px-3 text-muted-foreground max-w-md truncate" title={list.description ?? ""}>
+                                {list.description || "—"}
+                              </td>
+                              <td className="py-3 px-3">
+                                <div className="flex items-center gap-1">
+                                  <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{list.marketoId}</code>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                                    aria-label={`Copy Marketo id ${list.marketoId}`}
+                                    onClick={() => handleCopyListId(list.marketoId)}>
+                                    {copiedListId === list.marketoId
+                                      ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                      : <Copy className="w-3.5 h-3.5" />}
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Showing {visibleLists.length} of {listTab === "static_list" ? staticListCount : programCount}.
+                    Marketo&rsquo;s list API doesn&rsquo;t return member counts, so none are shown.
+                  </p>
+                </>
+              )}
             </Card>
 
             {/* Sync History Card */}
