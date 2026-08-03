@@ -20,42 +20,28 @@
         window.webkit.messageHandlers = {};
       }
     </script>
-    <!-- Consent bootstrap — MUST run before the GTM / RB2B / Apollo loaders
-         below. Sets Google Consent Mode v2 defaults to denied (so GTM tags
-         hold their cookies until the visitor decides), exposes a tiny
-         consent API (window.__lpConsent) that the RB2B/Apollo loaders gate
-         on, and persists the choice in localStorage('lp_consent'). The
-         bottom-bar banner is NO LONGER auto-shown (Aug 2026): it is opt-in
-         per page — the published-page viewer calls
-         window.__lpConsent.showBanner() when the page row has
-         show_cookie_banner=true. Consent-mode defaults stay scoped to the
-         tracking hosts (lp.meetdandy.com → GTM; partners.meetdandy.com →
-         RB2B + Apollo); the banner itself may show on any host when a page
-         opts in. -->
     <!-- OneTrust → GTM bridge. MUST be defined before the OneTrust SDK
-         initialises, which is why it lives here at the top of <head> rather
-         than in the app bundle.
+         initialises (OneTrust itself is loaded BY GTM, not by us), which is
+         why it lives here rather than in the app bundle.
 
-         OneTrust calls `OptanonWrapper()` once after it initialises and again
-         after every consent change. Setting `window.OnetrustActiveGroups` is
-         all OneTrust does by itself — announcing that to GTM is the site's
-         job, and LP Studio never did it. Meanwhile the GTM container
-         (GTM-NHJFVSJ) gates tags behind trigger groups whose second member
-         waits for a dataLayer event named `OneTrustGroupsUpdated`. Nothing on
-         these pages pushed it, so those groups never completed and their tags
-         never fired — even with consent fully granted.
+         TEMPORARY, and marked for deletion. The GTM container currently gates
+         tags behind trigger groups whose second member waits for a dataLayer
+         event named `OneTrustGroupsUpdated`. That event appears exactly once
+         in the published container — as the listener — and nothing pushes it,
+         so those groups never complete. Measured on
+         lp.meetdandy.com/inside-dandy 2026-08-03 with consent fully granted
+         (`,C0003,C0001,C0004,C0002,`): Webflow Optimize (needs C0003) was
+         never injected, and the Meta Pixel + LinkedIn base libraries (need
+         C0004) never loaded — the "fbq is not defined" / "window.lintrk is
+         not a function" console errors.
 
-         Measured on lp.meetdandy.com/inside-dandy (2026-08-03) with
-         OnetrustActiveGroups = ",C0003,C0001,C0004,C0002,OSSTA_BG,":
-           - Webflow Optimize / Intellimize (needs C0003) never injected, so
-             `window.wf` was absent and no A/B conversion could be recorded —
-             and no visitor was ever bucketed into a variant either.
-           - The Meta Pixel and LinkedIn base libraries (need C0004) never
-             loaded, producing "fbq is not defined" and "window.lintrk is not
-             a function" while their event tags ran regardless.
+         REMOVE THIS once the container re-triggers those groups on Consent
+         Mode / gtm.init_consent instead of the legacy event. Deleting it
+         before that silently re-breaks all three integrations.
 
-         This only ever forwards a decision OneTrust has already made; it
-         cannot grant consent that wasn't given. -->
+         It only forwards a decision OneTrust has already made; it cannot
+         grant consent that wasn't given, and it sets no Consent Mode
+         defaults — OneTrust's own GTM template owns those. -->
     <script>
       window.OptanonWrapper = function () {
         try {
@@ -69,118 +55,6 @@
         }
       };
     </script>
-    <script>
-      (function () {
-        var TRACKING_HOSTS = ['lp.meetdandy.com', 'partners.meetdandy.com'];
-        var tracked = TRACKING_HOSTS.indexOf(location.hostname) !== -1;
-        window.dataLayer = window.dataLayer || [];
-        if (!window.gtag) {
-          window.gtag = function () { window.dataLayer.push(arguments); };
-        }
-        var stored = null;
-        try { stored = localStorage.getItem('lp_consent'); } catch (_) {}
-        if (stored !== 'granted' && stored !== 'denied') stored = null;
-        var pending = [];
-        function pushGrantedUpdate() {
-          window.gtag('consent', 'update', {
-            analytics_storage: 'granted',
-            ad_storage: 'granted',
-            ad_user_data: 'granted',
-            ad_personalization: 'granted'
-          });
-        }
-        window.__lpConsent = {
-          state: stored,
-          // Run cb now if consent is already granted, otherwise queue it
-          // until (if ever) the visitor accepts. Used by the RB2B and
-          // Apollo loaders below so those scripts are only injected
-          // post-consent.
-          onGranted: function (cb) {
-            if (window.__lpConsent.state === 'granted') {
-              try { cb(); } catch (_) {}
-            } else {
-              pending.push(cb);
-            }
-          },
-          set: function (choice) {
-            window.__lpConsent.state = choice;
-            try { localStorage.setItem('lp_consent', choice); } catch (_) {}
-            if (choice === 'granted') {
-              pushGrantedUpdate();
-              var cbs = pending.splice(0, pending.length);
-              for (var i = 0; i < cbs.length; i++) {
-                try { cbs[i](); } catch (_) {}
-              }
-            }
-          },
-          // Render the consent banner. NOT called by this bootstrap — the
-          // published-page viewer calls it only for pages that opted in
-          // (lp_pages.show_cookie_banner). No-ops when the visitor already
-          // chose, or when the banner is already up.
-          showBanner: function () {
-            if (window.__lpConsent.state !== null) return;
-            if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', showBanner);
-            } else {
-              showBanner();
-            }
-          }
-        };
-        if (tracked) {
-          // Google Consent Mode v2 defaults — everything denied until the
-          // visitor decides. Queued on dataLayer BEFORE gtm.js loads, which
-          // is what makes it a valid Consent Mode default. Tracking-host
-          // scoped exactly as before; unrelated to whether a banner shows.
-          window.gtag('consent', 'default', {
-            ad_storage: 'denied',
-            analytics_storage: 'denied',
-            ad_user_data: 'denied',
-            ad_personalization: 'denied',
-            wait_for_update: 500
-          });
-          if (stored === 'granted') pushGrantedUpdate();
-        }
-        function showBanner() {
-          if (window.__lpConsent.state !== null) return;
-          if (document.getElementById('lp-consent-banner')) return;
-          if (!document.body) return;
-          var bar = document.createElement('div');
-          bar.id = 'lp-consent-banner';
-          bar.setAttribute('role', 'dialog');
-          bar.setAttribute('aria-label', 'Cookie consent');
-          bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483600;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;padding:10px 16px;background:#111827;color:#ffffff;font:14px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,0.25)';
-          var msg = document.createElement('span');
-          msg.textContent = 'We use cookies for analytics.';
-          function mkBtn(label, primary) {
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = label;
-            b.style.cssText = 'font:inherit;font-size:13px;padding:6px 14px;border-radius:4px;cursor:pointer;' +
-              (primary
-                ? 'background:#ffffff;color:#111827;border:1px solid #ffffff;'
-                : 'background:transparent;color:#ffffff;border:1px solid rgba(255,255,255,0.6);');
-            return b;
-          }
-          var accept = mkBtn('Accept', true);
-          var decline = mkBtn('Decline', false);
-          function choose(choice) {
-            window.__lpConsent.set(choice);
-            if (bar.parentNode) bar.parentNode.removeChild(bar);
-          }
-          accept.onclick = function () { choose('granted'); };
-          decline.onclick = function () { choose('denied'); };
-          bar.appendChild(msg);
-          bar.appendChild(accept);
-          bar.appendChild(decline);
-          document.body.appendChild(bar);
-        }
-        // No auto-show: the banner renders only when a page that opted in
-        // (lp_pages.show_cookie_banner) calls window.__lpConsent.showBanner().
-      })();
-    </script>
-    <!-- RB2B Visitor Identification — partners.meetdandy.com only, and only
-         after the visitor grants consent (see consent bootstrap above). -->
-    <script>if (location.hostname === 'partners.meetdandy.com') { window.__lpConsent.onGranted(function () { !function(key) {if (window.reb2b) return;window.reb2b = {loaded: true};var s = document.createElement("script");s.async = true;s.src = "https://ddwl4m2hdecbv.cloudfront.net/b/" + key + "/" + key + ".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s, document.getElementsByTagName("script")[0]);}("5NRP9H7ZVYO1"); }); }</script>
     <!-- Google Tag Manager — lp.meetdandy.com only. Intentionally NOT loaded
          on partners.meetdandy.com (the GTM container ships marketing popups
          we don't want firing for partner traffic). -->
@@ -238,9 +112,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         }
       })();
     </script>
-    <!-- Apollo Website Tracker — partners.meetdandy.com only, and only after
-         the visitor grants consent (see consent bootstrap above). -->
-    <script>if (location.hostname === 'partners.meetdandy.com') { function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,o.onload=function(){window.trackingFunctions.onLoad({appId:"68405d9cf09fef0021474660"})},document.head.appendChild(o)}window.__lpConsent.onGranted(initApollo); }</script>
   </head>
   <body>
     <!-- Google Tag Manager (noscript) — lp.meetdandy.com only, see head. -->

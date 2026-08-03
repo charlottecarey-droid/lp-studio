@@ -4329,29 +4329,6 @@ export default function BuilderEditor() {
                       />
                     </button>
                   </div>
-                  <div className="flex items-center justify-between mt-3">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Cookie Consent Banner</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">Show the cookie banner to visitors on this page</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={showCookieBanner}
-                      onClick={() => { setShowCookieBanner(v => !v); setTimeout(handleSave, 50); }}
-                      className={cn(
-                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none",
-                        showCookieBanner ? "bg-[var(--brand-primary)]" : "bg-slate-200"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform",
-                          showCookieBanner ? "translate-x-4" : "translate-x-0"
-                        )}
-                      />
-                    </button>
-                  </div>
                 </div>
 
                 {/* Performance Score Panel */}

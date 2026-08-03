@@ -512,29 +512,6 @@ function LandingPageViewerInner() {
   );
   const hasPageVars = Object.keys(pageVars).length > 0;
 
-  // Cookie-consent banner opt-in (lp_pages.show_cookie_banner). The
-  // index.html consent bootstrap no longer auto-shows its banner; a page
-  // that opted in triggers it here once its payload resolves. Covers both
-  // payload shapes (direct builder page and A/B-test assignedVariant's
-  // linkedPage). showBanner() itself no-ops when the visitor already chose.
-  const showCookieBanner = useMemo<boolean>(() => {
-    if (!config) return false;
-    if (isBuilderPageResponse(config)) {
-      return (config as BuilderPageResponse & { showCookieBanner?: boolean }).showCookieBanner === true;
-    }
-    const av = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: { showCookieBanner?: boolean } | null };
-    return av?.linkedPage?.showCookieBanner === true;
-  }, [config]);
-  useEffect(() => {
-    if (!showCookieBanner) return;
-    const api = (window as unknown as { __lpConsent?: { showBanner?: () => void } }).__lpConsent;
-    try {
-      api?.showBanner?.();
-    } catch {
-      // Consent bootstrap absent (tests / non-index entrypoints) — never
-      // break the page render over the banner.
-    }
-  }, [showCookieBanner]);
 
   // Programmatic-page variable DEFAULTS: the Programmatic Pages screen saves
   // bare keys into lp_pages.pageVariables (e.g. { company: "Acme" }). Those
