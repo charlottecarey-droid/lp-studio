@@ -8,12 +8,23 @@
 //      GTM Custom HTML tag) counts A/B-test conversions ONLY through its own
 //      API (`window.wf.sendEvent(apiName)` — the project's "Marketo Form
 //      Submission" event is type "custom", apiName "marketoFormSubmission").
-//      It never reads dataLayer pushes for conversions. It DOES have a
-//      built-in MktoForms2 submit hook, which is how conversions were
-//      counted historically — until the hidden Marketo Forms2 ghost-submit
-//      was disabled (GHOST_SUBMIT_ENABLED=false, 2026-05-16), which silently
-//      stopped Webflow A/B conversion tracking. The direct sendEvent call
-//      restores it without re-enabling the ghost submit.
+//      It never reads dataLayer pushes for conversions — that part was read
+//      out of the Optimize snippet config, so it's solid, and it's the whole
+//      reason this second channel exists.
+//
+// WHY conversions broke in May 2026 is NOT settled, despite what the commit
+// that added the sendEvent channel (0c1282982) claims. That message blamed
+// disabling the hidden Marketo Forms2 ghost-submit
+// (GHOST_SUBMIT_ENABLED=false, 2026-05-16) for silently killing Webflow A/B
+// tracking. Corrected 2026-08-03: the ghost submit was an ATTEMPTED FIX added
+// 2026-05-14 — before the dataLayer push landed on 2026-05-15 — so the two
+// adjacent dates were a correlation, not a demonstrated cause. The dataLayer
+// push has also fired continuously since then (no lp_forms row sets
+// `enabled:false`), which rules out a form-level disable.
+//
+// Don't rewrite this comment into a tidy causal story without evidence. The
+// fix doesn't depend on knowing: both channels fire on every submit, so
+// whichever one Optimize actually listens to gets the event.
 //
 // The default payload is the EXACT one the SMB trios5 page on
 // lp.meetdandy.com (global form 6) has fired since this feature shipped:
