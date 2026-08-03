@@ -231,3 +231,99 @@ describe("toWebflowApiName", () => {
     expect(toWebflowApiName("already camelCased")).toBe("alreadyCamelcased");
   });
 });
+
+/**
+ * REGRESSION: the real snippet's API shape.
+ *
+ * Every test above installs `window.wf = { sendEvent }`. The live Intellimize
+ * snippet NEVER produces that shape. Its bootstrap creates
+ *   window.intellimize = { ready, push }
+ *   window.wf          = { ready }
+ * and only later, in ExternalApi.initialize(), does it install the real
+ * methods onto `intellimize`, MIRRORING them onto `wf` only if `wf` exists.
+ *
+ * So `window.wf` is a stub carrying `ready` alone for the whole early page
+ * life. The old resolver — `window.wf ?? window.intellimize` — bound to that
+ * stub, found no sendEvent, and gave up while the callable API sat on
+ * window.intellimize. It shipped because the tests asserted a fictional shape.
+ * These model the real one.
+ */
+describe("pushMarketoSubmissionToDataLayer — real Optimize API shape", () => {
+  beforeEach(() => {
+    __resetMarketoDataLayerDedupeForTests();
+  });
+
+  afterEach(() => {
+    removeWindow();
+    __resetMarketoDataLayerDedupeForTests();
+  });
+
+  it("sends via window.intellimize when window.wf is the ready-only stub", () => {
+    const sent: string[] = [];
+    globalAny.window = {
+      dataLayer: [],
+      // Exactly what the snippet builds post-initialize().
+      intellimize: { ready: () => {}, sendEvent: (n: string) => sent.push(n) },
+      wf: { ready: () => {} },
+    } as never;
+
+    pushMarketoSubmissionToDataLayer();
+
+    // Would be [] on the old `window.wf ?? window.intellimize` resolver.
+    expect(sent).toEqual(["marketoFormSubmission"]);
+  });
+
+  it("prefers whichever global actually carries sendEvent, mirror included", () => {
+    const sent: string[] = [];
+    globalAny.window = {
+      dataLayer: [],
+      intellimize: { ready: () => {} },
+      wf: { ready: () => {}, sendEvent: (n: string) => sent.push(n) },
+    } as never;
+
+    pushMarketoSubmissionToDataLayer();
+
+    expect(sent).toEqual(["marketoFormSubmission"]);
+  });
+
+  it("queues through ready() when the API has not initialised yet", () => {
+    const sent: string[] = [];
+    let readyCb: (() => void) | null = null;
+    const intellimize: Record<string, unknown> = {
+      ready: (cb: () => void) => { readyCb = cb; },
+    };
+    globalAny.window = { dataLayer: [], intellimize, wf: { ready: () => {} } } as never;
+
+    pushMarketoSubmissionToDataLayer();
+
+    // Nothing sent yet, but the callback is registered rather than dropped —
+    // a submit landing mid-boot used to lose the conversion permanently.
+    expect(sent).toEqual([]);
+    expect(readyCb).toBeTypeOf("function");
+
+    // Optimize finishes booting and installs the method, then drains its queue.
+    intellimize.sendEvent = (n: string) => sent.push(n);
+    readyCb!();
+
+    expect(sent).toEqual(["marketoFormSubmission"]);
+  });
+
+  it("latches the dedupe on a queued send, so one submit queues once", () => {
+    const readyCbs: Array<() => void> = [];
+    globalAny.window = {
+      dataLayer: [],
+      intellimize: { ready: (cb: () => void) => readyCbs.push(cb) },
+    } as never;
+
+    pushMarketoSubmissionToDataLayer();
+    pushMarketoSubmissionToDataLayer();
+
+    expect(readyCbs).toHaveLength(1);
+  });
+
+  it("reports a genuinely absent snippet without throwing", () => {
+    globalAny.window = { dataLayer: [] } as never;
+
+    expect(() => pushMarketoSubmissionToDataLayer()).not.toThrow();
+  });
+});

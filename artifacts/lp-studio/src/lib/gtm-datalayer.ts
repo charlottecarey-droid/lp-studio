@@ -45,10 +45,43 @@
 //      treatment of a reload as a new session.
 
 // Webflow Optimize (the rebranded Intellimize snippet, loaded on
-// lp.meetdandy.com via a GTM Custom HTML tag) exposes the same external API
-// on both `window.wf` and `window.intellimize`.
+// lp.meetdandy.com via a GTM Custom HTML tag).
+//
+// It does NOT expose the same API on both globals, which cost us a day.
+// Reading the live snippet, the bootstrap creates:
+//     window.intellimize = { ready, push }
+//     window.wf          = { ready }
+// and only later, in ExternalApi.initialize(), installs the real methods:
+//     i.sendEvent = c;  if (s !== undefined) s.sendEvent = c;
+// — i.e. `window.intellimize` is the PRIMARY namespace and `window.wf` is an
+// optional mirror. The snippet even logs "window.wf is undefined: Can only
+// initialize External API on the window.intellimize namespace".
+//
+// So `window.wf` exists almost immediately as a stub carrying only `ready`.
+// Resolving the API as `window.wf ?? window.intellimize` bound to that stub,
+// found no sendEvent, and gave up — while the real, callable API sat on
+// window.intellimize the whole time. Resolve by CAPABILITY, never by name.
 interface WebflowOptimizeApi {
   sendEvent?: (apiName: string) => void;
+  /** Bootstrap queue: runs the callback once the External API is initialised. */
+  ready?: (cb: () => void) => void;
+}
+
+/** The first global carrying a callable `sendEvent`, or null if none has
+ *  initialised yet. Order is irrelevant — capability is the test. */
+function resolveOptimizeApi(): WebflowOptimizeApi | null {
+  for (const candidate of [window.intellimize, window.wf]) {
+    if (candidate && typeof candidate.sendEvent === "function") return candidate;
+  }
+  return null;
+}
+
+/** A bootstrap stub we can defer through when the API isn't ready yet. */
+function resolveOptimizeQueue(): WebflowOptimizeApi | null {
+  for (const candidate of [window.intellimize, window.wf]) {
+    if (candidate && typeof candidate.ready === "function") return candidate;
+  }
+  return null;
 }
 
 declare global {
@@ -178,19 +211,43 @@ export function pushMarketoSubmissionToDataLayer(config?: GtmDataLayerConfig | n
   // Confirm the name exists in the snippet config before trusting it:
   //   curl --compressed -s https://cdn.intellimize.co/snippet/117656075.js \
   //     | grep -o 'marketoFormSubmission'
-  const wfApi = window.wf ?? window.intellimize;
-  if (!wfApi || typeof wfApi.sendEvent !== "function") {
-    // eslint-disable-next-line no-console
-    console.log("[lp-studio] Webflow Optimize sendEvent skipped: window.wf not present");
-  } else {
+  const apiName = toWebflowApiName(merged.event);
+  const wfApi = resolveOptimizeApi();
+  if (wfApi) {
     try {
-      const apiName = toWebflowApiName(merged.event);
-      wfApi.sendEvent(apiName);
+      wfApi.sendEvent!(apiName);
       delivered = true;
       // eslint-disable-next-line no-console
       console.log("[lp-studio] Webflow Optimize sendEvent fired:", apiName);
     } catch {
       // Same contract as above: analytics failures never break the submit.
+    }
+  } else {
+    // The API isn't initialised yet. Don't drop the conversion — the snippet's
+    // own bootstrap queue exists for exactly this, and a submit that lands
+    // before Optimize finishes booting is otherwise lost for good.
+    const queue = resolveOptimizeQueue();
+    if (queue) {
+      try {
+        queue.ready!(() => {
+          const late = resolveOptimizeApi();
+          if (!late) return;
+          try {
+            late.sendEvent!(apiName);
+            // eslint-disable-next-line no-console
+            console.log("[lp-studio] Webflow Optimize sendEvent fired (deferred via ready):", apiName);
+          } catch { /* never break the page from a queued callback */ }
+        });
+        delivered = true;
+        // eslint-disable-next-line no-console
+        console.log("[lp-studio] Webflow Optimize sendEvent queued until ready:", apiName);
+      } catch { /* fall through to the log below */ }
+    } else {
+      // Genuinely absent: the snippet never loaded on this page.
+      // eslint-disable-next-line no-console
+      console.log(
+        "[lp-studio] Webflow Optimize sendEvent skipped: no intellimize/wf API on this page",
+      );
     }
   }
 
