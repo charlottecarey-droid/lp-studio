@@ -167,10 +167,17 @@ export function pushMarketoSubmissionToDataLayer(config?: GtmDataLayerConfig | n
   // Channel 2 — Webflow Optimize (Intellimize). Its conversion events are
   // "custom" API events fired via `wf.sendEvent(apiName)`; it does NOT
   // consume GTM dataLayer pushes, and its built-in Marketo Forms2 hook only
-  // sees real MktoForms2 submits (which stopped when the ghost-submit was
-  // disabled, 2026-05-16 — that's what silently broke Webflow A/B conversion
-  // tracking). Calling the API directly is the channel Webflow actually
-  // counts.
+  // sees real MktoForms2 submits. Calling the API directly is the channel
+  // Webflow actually counts. (On WHY conversions broke in May 2026, see the
+  // file header — that causation is unconfirmed, not the tidy story an earlier
+  // version of this comment told.)
+  //
+  // NOTE for debugging: sendEvent doesn't report back. An apiName that doesn't
+  // exist in the Optimize project is accepted silently, so the "fired" log
+  // below means "we called the API", NOT "Webflow recorded a conversion".
+  // Confirm the name exists in the snippet config before trusting it:
+  //   curl --compressed -s https://cdn.intellimize.co/snippet/117656075.js \
+  //     | grep -o 'marketoFormSubmission'
   const wfApi = window.wf ?? window.intellimize;
   if (!wfApi || typeof wfApi.sendEvent !== "function") {
     // eslint-disable-next-line no-console
