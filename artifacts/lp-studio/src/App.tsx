@@ -139,7 +139,6 @@ const SfdcSettings = lazy(() => import("@/pages/sales/sfdc-settings"));
 const MarketoSettings = lazy(() => import("@/pages/sales/marketo-settings"));
 const HubspotSettings = lazy(() => import("@/pages/sales/hubspot-settings"));
 const SlackSettings = lazy(() => import("@/pages/sales/slack-settings"));
-const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages"));
 const SalesCampaignDetail = lazy(() => import("@/pages/sales/sales-campaign-detail"));
 const SalesRoiCalculator = lazy(() => import("@/pages/sales/sales-roi-calculator"));
 const SalesOnePager = lazy(() => import("@/pages/sales/sales-one-pager"));
@@ -395,7 +394,11 @@ function AppRouter() {
         <Route path="/sales/contacts/:id">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
         <Route path="/sales/contacts">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
         <Route path="/sales/pages">{() => <Redirect to="/sales/microsites" />}</Route>
-        <Route path="/sales/campaign-pages">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignPages /></PermRoute>}</Route>
+        {/* Personalized Pages is a MODE of the Campaigns page, not a page of
+            its own. This route rendered the identical content standalone with
+            nothing linking to it — a second door to one room. Redirects so any
+            bookmark still lands somewhere real. */}
+        <Route path="/sales/campaign-pages">{() => <Redirect to="/sales/campaigns" />}</Route>
         <Route path="/sales/outreach">{() => <Redirect to="/sales/campaigns" />}</Route>
         <Route path="/sales/signals">{() => <PermRoute perm="sales_signals" fallback="/"><SalesSignals /></PermRoute>}</Route>
         <Route path="/sales/roi-calculator">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesRoiCalculator /></PermRoute>}</Route>

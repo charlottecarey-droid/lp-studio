@@ -49,7 +49,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { useAuth } from "@/context/AuthContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
@@ -885,13 +884,5 @@ export function CampaignPagesContent() {
         }}
       />
     </>
-  );
-}
-
-export default function SalesCampaignPages() {
-  return (
-    <SalesLayout>
-      <CampaignPagesContent />
-    </SalesLayout>
   );
 }

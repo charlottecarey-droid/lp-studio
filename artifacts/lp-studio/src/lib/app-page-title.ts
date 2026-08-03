@@ -22,7 +22,6 @@
 const APP_PAGE_NAMES: ReadonlyArray<readonly [string, string]> = [
   // — Sales Console —
   ["/sales/draft-email", "Sales Draft Email"],
-  ["/sales/campaign-pages", "Sales Campaign Pages"],
   ["/sales/campaigns", "Sales Campaigns"],
   ["/sales/microsites", "Sales Microsites"],
   ["/sales/accounts", "Sales Accounts"],
