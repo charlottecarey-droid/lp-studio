@@ -2859,7 +2859,7 @@ function AccountDetailView({ id }: { id: string }) {
   const DETAIL_TABS: { id: DetailTab; label: string; count?: number }[] = [
     { id: "overview", label: "Overview" },
     { id: "contacts", label: "Contacts", count: contacts.length },
-    { id: "microsites", label: "Microsites", count: microsites.length },
+    { id: "microsites", label: "Pages", count: microsites.length },
     { id: "activity", label: "Activity" },
   ];
 
@@ -2974,7 +2974,7 @@ function AccountDetailView({ id }: { id: string }) {
                 className="flex flex-col items-center justify-center gap-1 p-4 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer text-center"
               >
                 <span className="text-2xl font-bold text-foreground">{micrositesLoading ? "–" : microsites.length}</span>
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Microsites</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Pages</span>
               </button>
               <button
                 type="button"

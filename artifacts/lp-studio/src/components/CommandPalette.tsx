@@ -102,7 +102,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { label: "Sales accounts", icon: <Users className="w-4 h-4" />, href: "/sales/accounts", perm: "sales_accounts" },
     { label: "Sales contacts", icon: <Users className="w-4 h-4" />, href: "/sales/contacts", perm: "sales_contacts" },
     { label: "Draft email", icon: <Mail className="w-4 h-4" />, href: "/sales/draft-email", perm: "sales_outreach" },
-    { label: "Microsites", icon: <Globe className="w-4 h-4" />, href: "/sales/microsites", perm: "sales_accounts" },
+    { label: "Pages", icon: <Globe className="w-4 h-4" />, href: "/sales/pages", perm: "sales_accounts" },
     { label: "Campaigns", icon: <Plus className="w-4 h-4" />, href: "/sales/campaigns", perm: "sales_campaigns" },
   ];
 

@@ -290,10 +290,10 @@ export function SalesTopNav() {
     // tab, and end-of-row is the easiest slot to hit repeatedly.
     {
       label: "Pages",
-      href: "/sales/microsites",
+      href: "/sales/pages",
       icon: <Globe className="w-4 h-4" />,
       permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/microsites" || loc === "/sales/pages",
+      matchFn: (loc) => loc === "/sales/pages" || loc === "/sales/microsites",
     },
     {
       label: "Campaigns",

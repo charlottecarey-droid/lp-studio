@@ -386,14 +386,17 @@ function AppRouter() {
         <Route path="/sales/draft-email/:contactId">{() => <PermRoute perm="sales_outreach" fallback="/sales"><SalesDraftEmail /></PermRoute>}</Route>
         <Route path="/sales/campaigns/:id">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignDetail /></PermRoute>}</Route>
         <Route path="/sales/campaigns">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOutreach /></PermRoute>}</Route>
-        <Route path="/sales/microsites">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
+        <Route path="/sales/pages">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
         <Route path="/sales/accounts/:id">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
         <Route path="/sales/accounts">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
         <Route path="/sales/events/:id">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesEventDetail /></PermRoute>}</Route>
         <Route path="/sales/events">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesEvents /></PermRoute>}</Route>
         <Route path="/sales/contacts/:id">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
         <Route path="/sales/contacts">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
-        <Route path="/sales/pages">{() => <Redirect to="/sales/microsites" />}</Route>
+        {/* One name for this surface. The nav, the guide and the URL all said
+            different things; "Pages" won because that is what the nav says and
+            what the table actually lists. */}
+        <Route path="/sales/microsites">{() => <Redirect to="/sales/pages" />}</Route>
         {/* Personalized Pages is a MODE of the Campaigns page, not a page of
             its own. This route rendered the identical content standalone with
             nothing linking to it — a second door to one room. Redirects so any

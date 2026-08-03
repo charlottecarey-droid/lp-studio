@@ -397,7 +397,7 @@ export default function SalesSignals() {
             </p>
             {!acctFilterActive && (
               <div className="flex items-center gap-3 mt-4">
-                <Link href="/sales/microsites">
+                <Link href="/sales/pages">
                   <Button variant="outline" size="sm" className="gap-2">
                     <Globe className="w-3.5 h-3.5" />
                     Create a Microsite
