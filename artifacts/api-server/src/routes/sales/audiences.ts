@@ -11,6 +11,25 @@ import {
 
 const router = Router();
 
+/**
+ * An audience is a saved definition of "who", stored once and read by two
+ * kinds of consumer: the Accounts list uses the account-level criteria to
+ * filter what it shows, and campaigns resolve the whole thing down to
+ * contacts.
+ *
+ * That unification is the point. The console previously had three parallel
+ * ideas — Saved views (account filters), Saved lists (a set of account ids)
+ * and Audiences (contacts) — two of which lived in localStorage and so
+ * silently failed to follow a rep to a second browser.
+ *
+ * Two definition styles, and the difference matters:
+ *   - CRITERIA (owners / abmTiers / abmStages / practiceSegments / the
+ *     contact-level fields) are re-evaluated on every read, so an audience
+ *     picks up accounts that later match.
+ *   - EXPLICIT IDS (contactIds, accountIds) are a fixed snapshot.
+ * `contactIds` still short-circuits everything else — an explicitly chosen
+ * list of people means exactly those people.
+ */
 interface AudienceFilters {
   accountIds?: number[];
   titleKeywords?: string[];
@@ -20,6 +39,11 @@ interface AudienceFilters {
   contactIds?: number[];
   tiers?: string[];
   titleLevels?: string[];
+  // Account-level criteria — what a "saved view" on the Accounts page is.
+  owners?: string[];
+  abmTiers?: string[];
+  abmStages?: string[];
+  practiceSegments?: string[];
 }
 
 // ─── Build a Drizzle WHERE condition from audience filters ────────────────────
@@ -63,6 +87,21 @@ async function resolveContacts(filters: AudienceFilters, tenantId: number) {
     }
     if (filters.titleLevels && filters.titleLevels.length > 0) {
       conditions.push(inArray(salesContactsTable.titleLevel, filters.titleLevels));
+    }
+    // Account-level criteria. The query already left-joins sales_accounts for
+    // accountName, so these filter through that join rather than needing a
+    // separate lookup.
+    if (filters.owners && filters.owners.length > 0) {
+      conditions.push(inArray(salesAccountsTable.owner, filters.owners));
+    }
+    if (filters.abmTiers && filters.abmTiers.length > 0) {
+      conditions.push(inArray(salesAccountsTable.abmTier, filters.abmTiers));
+    }
+    if (filters.abmStages && filters.abmStages.length > 0) {
+      conditions.push(inArray(salesAccountsTable.abmStage, filters.abmStages));
+    }
+    if (filters.practiceSegments && filters.practiceSegments.length > 0) {
+      conditions.push(inArray(salesAccountsTable.practiceSegment, filters.practiceSegments));
     }
   }
 

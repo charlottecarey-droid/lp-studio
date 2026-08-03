@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
+import { useAccountAudiences, type AccountView, type AccountViewFilters } from "@/hooks/use-account-audiences";
 import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModal";
 import { Flame, Thermometer, Zap, TrendingDown, ArrowRight } from "lucide-react";
 import { PageHint } from "@/components/ui/page-hint";
@@ -381,13 +382,10 @@ function AccountListView() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Saved views
-  const [savedViews, setSavedViews] = useState<SavedView[]>(() => {
-    if (!viewsKey) return [];
-    try { return JSON.parse(localStorage.getItem(viewsKey) ?? "[]"); } catch { return []; }
-  });
-  const [activeViewId, setActiveViewId] = useState<string | null>(null);
-  const [dirtyViewId, setDirtyViewId] = useState<string | null>(null);
+  // Saved views are AUDIENCES now — server-side, so they follow a rep between
+  // browsers instead of living in this machine's localStorage, and the same
+  // saved definition can be used as a campaign audience. `viewsKey` is passed
+  // only so the hook can lift this browser's legacy views once.
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveViewName, setSaveViewName] = useState("");
   const [showViewsDropdown, setShowViewsDropdown] = useState(false);
@@ -413,9 +411,26 @@ function AccountListView() {
     catch {}
   }, [ownerFilters, abmTierFilters, abmStageFilters, segmentFilters, lsKey]);
 
-  function markDirty() {
-    if (activeViewId) { setDirtyViewId(activeViewId); setActiveViewId(null); }
-  }
+  const {
+    views: savedViews,
+    activeViewId,
+    dirtyViewId,
+    markDirty,
+    clearActive,
+    saveView: persistView,
+    updateViewFilters,
+    loadView: applyView,
+    removeView,
+  } = useAccountAudiences({
+    legacyViewsKey: viewsKey,
+    current: { ownerFilters, abmTierFilters, abmStageFilters, segmentFilters },
+    onApply: useCallback((f: AccountViewFilters) => {
+      setOwnerFilters(f.ownerFilters);
+      setAbmTierFilters(f.abmTierFilters);
+      setAbmStageFilters(f.abmStageFilters);
+      setSegmentFilters(f.segmentFilters);
+    }, []),
+  });
 
   function toggleOwner(name: string) {
     markDirty();
@@ -434,53 +449,24 @@ function AccountListView() {
     setSegmentFilters(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
   }
 
-  function currentFilters(): SavedView["filters"] {
-    return { ownerFilters, abmTierFilters, abmStageFilters, segmentFilters };
-  }
-
   function saveView() {
-    if (!saveViewName.trim() || !viewsKey) return;
-    const view: SavedView = {
-      id: Date.now().toString(),
-      name: saveViewName.trim(),
-      filters: currentFilters(),
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...savedViews, view];
-    setSavedViews(updated);
-    try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {}
-    setActiveViewId(view.id);
-    setDirtyViewId(null);
-    setShowSaveDialog(false);
-    setSaveViewName("");
+    void persistView(saveViewName).then(() => {
+      setShowSaveDialog(false);
+      setSaveViewName("");
+    });
   }
 
   function updateView(id: string) {
-    const updated = savedViews.map(v =>
-      v.id === id ? { ...v, filters: currentFilters() } : v
-    );
-    setSavedViews(updated);
-    if (viewsKey) { try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {} }
-    setActiveViewId(id);
-    setDirtyViewId(null);
+    void updateViewFilters(id);
   }
 
-  function loadView(view: SavedView) {
-    setOwnerFilters(view.filters.ownerFilters ?? []);
-    setAbmTierFilters(view.filters.abmTierFilters ?? []);
-    setAbmStageFilters(view.filters.abmStageFilters ?? []);
-    setSegmentFilters(view.filters.segmentFilters ?? []);
-    setActiveViewId(view.id);
-    setDirtyViewId(null);
+  function loadView(view: AccountView) {
+    applyView(view);
     setShowViewsDropdown(false);
   }
 
   function deleteView(id: string) {
-    const updated = savedViews.filter(v => v.id !== id);
-    setSavedViews(updated);
-    if (viewsKey) { try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {} }
-    if (activeViewId === id) setActiveViewId(null);
-    if (dirtyViewId === id) setDirtyViewId(null);
+    void removeView(id);
   }
 
   // New account form state
@@ -658,8 +644,7 @@ function AccountListView() {
 
   function clearFilters() {
     setSearch(""); setAbmTierFilters([]); setAbmStageFilters([]); setSegmentFilters([]); setOwnerFilters([]); setHeatFilter("");
-    setActiveViewId(null);
-    setDirtyViewId(null);
+    clearActive();
     if (lsKey) { try { localStorage.removeItem(lsKey); } catch {} }
   }
 
@@ -835,7 +820,7 @@ function AccountListView() {
                     <>
                       <button
                         type="button"
-                        onClick={() => { setAbmTierFilters([]); setActiveViewId(null); }}
+                        onClick={() => { setAbmTierFilters([]); markDirty(); }}
                         className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                       >
                         Clear selection
@@ -886,7 +871,7 @@ function AccountListView() {
                     <>
                       <button
                         type="button"
-                        onClick={() => { setOwnerFilters([]); setActiveViewId(null); }}
+                        onClick={() => { setOwnerFilters([]); markDirty(); }}
                         className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                       >
                         Clear selection
@@ -935,7 +920,7 @@ function AccountListView() {
                     <>
                       <button
                         type="button"
-                        onClick={() => { setAbmStageFilters([]); setActiveViewId(null); }}
+                        onClick={() => { setAbmStageFilters([]); markDirty(); }}
                         className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                       >
                         Clear selection
@@ -984,7 +969,7 @@ function AccountListView() {
                     <>
                       <button
                         type="button"
-                        onClick={() => { setSegmentFilters([]); setActiveViewId(null); }}
+                        onClick={() => { setSegmentFilters([]); markDirty(); }}
                         className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                       >
                         Clear selection
