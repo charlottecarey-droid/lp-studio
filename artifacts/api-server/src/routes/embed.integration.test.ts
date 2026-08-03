@@ -189,8 +189,10 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
         headers: { host },
       });
       expect(res.status).toBe(404);
-      // Friendly HTML for the iframe, not JSON.
+      // Friendly HTML for the iframe, not JSON — and it signals the loader
+      // so a data-hide fallback (the site's RainFocus widget) is restored.
       expect(String(res.headers["content-type"])).toContain("text/html");
+      expect(res.text).toContain("lp-embed-missing");
     }
   });
 
@@ -229,6 +231,9 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect(res.headers["cross-origin-resource-policy"]).toBe("cross-origin");
     expect(String(res.headers["cache-control"])).toContain("public");
     expect(res.text).toContain("lp-embed-height");
+    // Fallback-coexistence contract: data-hide + the dead-token signal.
+    expect(res.text).toContain("data-hide");
+    expect(res.text).toContain("lp-embed-missing");
   });
 
   it("404s when the underlying page is unpublished (revoke works)", async () => {

@@ -19,6 +19,15 @@
  * already uses `?agenda` for its own widget state, and colliding with it
  * would break both. `data-param` on the snippet overrides the name per site.
  *
+ * COEXISTING WITH THE SITE'S OWN AGENDA WIDGET: two snippet attributes make
+ * this widget an overlay on RainFocus rather than a replacement —
+ *   - omit `data-default` and the loader renders NOTHING for tokenless
+ *     visitors (RainFocus stays);
+ *   - `data-hide="<selector>"` names the RainFocus container: hidden when a
+ *     token renders, restored if the token is dead (the 404 page posts
+ *     `lp-embed-missing` and the loader removes itself), so a stale link
+ *     degrades to the site's normal agenda, never an apology frame.
+ *
  *  PUBLIC (no auth — the `/embed/` prefix is outside the routes/index.ts
  *  auth guard, which only protects `/lp/` and `/sales/`):
  *   - GET /embed/agenda.js       — the loader script. Served with
@@ -93,7 +102,33 @@ const LOADER_JS = `(function () {
   var token = "";
   try { token = new URLSearchParams(window.location.search).get(param) || ""; } catch (_) {}
   if (!token) token = script.getAttribute("data-default") || "";
+  // No token anywhere -> render NOTHING. This is the coexistence contract:
+  // a site that keeps its existing agenda widget (RainFocus) simply omits
+  // data-default, and that widget stays untouched for tokenless visitors.
   if (!token) return;
+
+  // data-hide: CSS selector for the site's own agenda widget (e.g. the
+  // RainFocus container). Hidden when we take over, restored if the token
+  // turns out to be dead — the personalised link then degrades to the
+  // site's normal agenda instead of an apology frame.
+  var hideSel = script.getAttribute("data-hide");
+  var hiddenEls = [];
+  function hideFallback() {
+    if (!hideSel) return;
+    try {
+      var els = document.querySelectorAll(hideSel);
+      for (var i = 0; i < els.length; i++) {
+        hiddenEls.push({ el: els[i], display: els[i].style.display });
+        els[i].style.display = "none";
+      }
+    } catch (_) {}
+  }
+  function restoreFallback() {
+    for (var i = 0; i < hiddenEls.length; i++) {
+      hiddenEls[i].el.style.display = hiddenEls[i].display;
+    }
+    hiddenEls = [];
+  }
 
   // Forward campaign params from the host page for visit attribution.
   var forwarded = "";
@@ -118,14 +153,28 @@ const LOADER_JS = `(function () {
   window.addEventListener("message", function (e) {
     if (e.origin !== origin || e.source !== iframe.contentWindow) return;
     var d = e.data;
-    if (!d || d.type !== "lp-embed-height") return;
-    var h = Number(d.height);
-    // 40000px cap: a page that sizes content in vh units would otherwise
-    // feedback-loop (taller iframe -> taller vh -> taller report, forever).
-    // The event-agenda block uses no vh sizing, so real agendas never hit it.
-    if (isFinite(h) && h > 0 && h <= 40000) iframe.style.height = Math.ceil(h) + "px";
+    if (!d) return;
+    if (d.type === "lp-embed-height") {
+      var h = Number(d.height);
+      // 40000px cap: a page that sizes content in vh units would otherwise
+      // feedback-loop (taller iframe -> taller vh -> taller report, forever).
+      // The event-agenda block uses no vh sizing, so real agendas never hit it.
+      if (isFinite(h) && h > 0 && h <= 40000) iframe.style.height = Math.ceil(h) + "px";
+      return;
+    }
+    if (d.type === "lp-embed-missing") {
+      // Dead token (revoked / unpublished / typo). With a fallback widget
+      // configured, disappear entirely and give the page back; without one,
+      // keep the frame — it shows the quiet "isn't available" sentence.
+      if (hideSel) {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+        restoreFallback();
+      }
+      return;
+    }
   });
 
+  hideFallback();
   var target = null;
   var sel = script.getAttribute("data-target");
   if (sel) { try { target = document.querySelector(sel); } catch (_) {} }
@@ -148,14 +197,21 @@ router.get("/embed/agenda.js", embedLimiter, (_req: Request, res: Response): voi
 });
 
 /** Friendly in-iframe 404 — an embedded frame showing raw JSON reads as a
- *  broken customer website; a quiet sentence does not. */
+ *  broken customer website; a quiet sentence does not. Also posts
+ *  `lp-embed-missing` to the parent: a loader configured with `data-hide`
+ *  removes the frame and restores the site's own agenda widget (RainFocus)
+ *  instead of showing the sentence. targetOrigin "*" is fine — the message
+ *  carries nothing, and the loader checks the source window regardless. */
 function embedNotFound(res: Response): void {
   allowFraming(res);
   res.status(404)
     .set("Content-Type", "text/html; charset=utf-8")
     .set("Cache-Control", "no-store")
     .send(
-      "<!doctype html><html><body style=\"margin:0;font-family:system-ui,sans-serif;color:#666;display:flex;align-items:center;justify-content:center;min-height:120px\"><p>This agenda isn’t available.</p></body></html>",
+      "<!doctype html><html><body style=\"margin:0;font-family:system-ui,sans-serif;color:#666;display:flex;align-items:center;justify-content:center;min-height:120px\">" +
+      "<p>This agenda isn’t available.</p>" +
+      "<script>try{if(window.parent!==window)window.parent.postMessage({type:\"lp-embed-missing\"},\"*\")}catch(e){}</script>" +
+      "</body></html>",
     );
 }
 
