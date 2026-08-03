@@ -5,7 +5,6 @@ import {
   Mail,
   Activity,
   Users,
-  PlusCircle,
   Globe,
   Paintbrush,
   Shield,
@@ -22,6 +21,8 @@ import {
   BookOpen,
   Plug,
   Sparkles,
+  Megaphone,
+  SquarePen,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -294,9 +295,18 @@ export function SalesTopNav() {
       permission: "sales_accounts",
       matchFn: (loc) => loc === "/sales/microsites" || loc === "/sales/pages",
     },
+    {
+      label: "Campaigns",
+      href: "/sales/campaigns",
+      icon: <Megaphone className="w-4 h-4" />,
+      permission: "sales_campaigns",
+      matchFn: (loc) => loc === "/sales/campaigns" || loc.startsWith("/sales/campaigns"),
+    },
   ];
 
-  // Tools dropdown items
+  // "Create" — the things a rep reaches for occasionally, as opposed to the
+  // places they live. Campaigns used to sit in here behind the ROI calculator;
+  // it's one of the four jobs this console exists for, so it's in the bar now.
   const toolsNav: NavItem[] = [
     {
       label: "Draft Email",
@@ -304,13 +314,6 @@ export function SalesTopNav() {
       icon: <Mail className="w-4 h-4" />,
       permission: "sales_outreach",
       matchFn: (loc) => loc === "/sales/draft-email" || loc.startsWith("/sales/draft-email/"),
-    },
-    {
-      label: "Campaigns",
-      href: "/sales/campaigns",
-      icon: <PlusCircle className="w-4 h-4" />,
-      permission: "sales_campaigns",
-      matchFn: (loc) => loc === "/sales/campaigns" || loc.startsWith("/sales/campaigns"),
     },
     // Hidden when a tenant turns the calculator off in Brand Settings. It's
     // opt-OUT: the models (time recovered, rework avoided) apply to any
@@ -462,14 +465,14 @@ export function SalesTopNav() {
                       : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
                 >
-                  <Wrench className={`w-3.5 h-3.5 ${isToolsActive ? "opacity-100" : "opacity-60"}`} />
-                  <span>Tools</span>
+                  <SquarePen className={`w-3.5 h-3.5 ${isToolsActive ? "opacity-100" : "opacity-60"}`} />
+                  <span>Create</span>
                   <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 p-1.5">
                 <DropdownMenuLabel className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground px-2">
-                  Sales Tools
+                  Create
                 </DropdownMenuLabel>
                 {visibleToolsNav.map((item) => (
                   <Link key={item.href} href={item.href}>
@@ -571,7 +574,7 @@ export function SalesTopNav() {
           {visibleToolsNav.length > 0 && (
             <>
               <div className="pt-3 mt-2 border-t border-white/8">
-                <span className="px-4 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white/25">Tools</span>
+                <span className="px-4 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white/25">Create</span>
               </div>
               {visibleToolsNav.map((item) => (
                 <Link key={item.href} href={item.href}>

@@ -54,11 +54,14 @@ describe("Sales Console nav", () => {
     authState.isAdmin = true;
   });
 
-  it("keeps the primary nav and the assistant in the bar", () => {
+  it("puts the four primary jobs in the bar, with Create for the rest", () => {
     render(<SalesTopNav />);
-    for (const label of ["Accounts", "Activity", "Contacts", "Pages", "Tools"]) {
+    // Campaigns is one of the jobs this console exists for — it used to be
+    // buried in the dropdown behind the ROI calculator.
+    for (const label of ["Accounts", "Activity", "Contacts", "Pages", "Campaigns", "Create"]) {
       expect(screen.getByText(label)).toBeTruthy();
     }
+    expect(screen.queryByText("Tools")).toBeNull();
     expect(screen.getByLabelText("Sidekick — sales assistant")).toBeTruthy();
   });
 
