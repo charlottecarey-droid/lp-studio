@@ -166,6 +166,11 @@ function ChatCaptureLauncher({
   variantId?: number;
   sessionId?: string;
 }) {
+  // `sessionId` is only set when an A/B test is running. POST /lp/track
+  // REQUIRES it, and JSON.stringify drops undefined keys — so on a plain page
+  // every chat-capture conversion 400'd silently and never reached lp_events.
+  // Same anonymous fallback BlockForm and BlockDandyFormRightAlt already use.
+  const [anonSessionId] = useState(() => `anon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -414,7 +419,7 @@ function ChatCaptureLauncher({
         // Conversion tracking — mirrors BlockForm (null-safe test/variant).
         try {
           const trackBody: Record<string, unknown> = {
-            sessionId,
+            sessionId: sessionId ?? anonSessionId,
             eventType: "conversion",
             conversionType: "form_submit",
           };
