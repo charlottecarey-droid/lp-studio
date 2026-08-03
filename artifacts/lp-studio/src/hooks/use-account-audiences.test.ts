@@ -2,7 +2,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 
-import { useAccountAudiences, type AccountViewFilters } from "./use-account-audiences";
+import { useAccountAudiences, useSavedAccountLists, type AccountViewFilters } from "./use-account-audiences";
 
 /**
  * Saved views moved from localStorage into audiences, which makes two things
@@ -161,5 +161,31 @@ describe("useAccountAudiences", () => {
 
     act(() => { result.current.clearActive(); });
     expect(result.current.dirtyViewId).toBeNull();
+  });
+
+  it("exposes only account-id audiences as Pages saved lists", async () => {
+    existing = [
+      audience(1, "Q3 push", { accountIds: [10, 11] }),
+      audience(2, "My ENT accounts", { owners: ["Charlotte"] }),
+    ];
+    const { result } = renderHook(() => useSavedAccountLists("microsites_saved_lists"));
+
+    await waitFor(() => expect(result.current.lists).toHaveLength(1));
+    expect(result.current.lists[0]).toMatchObject({ id: "1", name: "Q3 push", accountIds: [10, 11] });
+  });
+
+  it("lifts legacy saved lists, and won't save an empty one", async () => {
+    localStorage.setItem("microsites_saved_lists", JSON.stringify([
+      { id: "a", name: "Northeast", accountIds: [4, 5] },
+      { id: "b", name: "Empty", accountIds: [] },
+    ]));
+    const { result } = renderHook(() => useSavedAccountLists("microsites_saved_lists"));
+    await waitFor(() => expect(result.current.lists.length).toBeGreaterThan(0));
+
+    // The empty one is dropped — an audience of nobody isn't worth carrying.
+    expect(posted.map(p => p.name)).toEqual(["Northeast"]);
+
+    await act(async () => { await result.current.createList("Nobody", []); });
+    expect(posted.map(p => p.name)).toEqual(["Northeast"]);
   });
 });

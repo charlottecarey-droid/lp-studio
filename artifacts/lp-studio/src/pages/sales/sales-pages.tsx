@@ -43,6 +43,7 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModal";
 import { EmailPreviewModal } from "@/components/sales/EmailPreviewModal";
+import { useSavedAccountLists } from "@/hooks/use-account-audiences";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
@@ -86,22 +87,10 @@ function normalizeHotlink(hl: HotlinkEntryRaw): HotlinkEntry {
 // sales-pages-shared.ts for PageRow/KnownViewer/AlertEmail + fmtDwell/
 // pageMineRank/initials.
 
-interface SavedList {
-  id: string;
-  name: string;
-  accountIds: number[];
-}
-
+/** Legacy localStorage key — kept only as a one-time migration source; saved
+ *  lists are audiences now. */
 const LISTS_STORAGE_KEY = "microsites_saved_lists";
 
-function loadSavedLists(): SavedList[] {
-  try { return JSON.parse(localStorage.getItem(LISTS_STORAGE_KEY) ?? "[]"); }
-  catch { return []; }
-}
-
-function persistSavedLists(lists: SavedList[]): void {
-  localStorage.setItem(LISTS_STORAGE_KEY, JSON.stringify(lists));
-}
 
 interface Account {
   id: number;
@@ -259,7 +248,11 @@ export default function SalesPages() {
 
   // ── View filter + saved lists ──────────────────────────────────────────────
   const [viewFilter, setViewFilter] = useState<string>("all"); // "all" | "mine" | "list:{id}"
-  const [savedLists, setSavedLists] = useState<SavedList[]>(() => loadSavedLists());
+  // Saved lists are AUDIENCES now. They used to live in localStorage under one
+  // un-namespaced key, so they were per-browser and shared between every user
+  // of that browser; the key is passed only so this browser's existing lists
+  // get lifted once.
+  const { lists: savedLists, createList, removeList } = useSavedAccountLists(LISTS_STORAGE_KEY);
   const [buildListMode, setBuildListMode] = useState(false);
   const [buildListSelection, setBuildListSelection] = useState<Set<number>>(new Set());
   const [buildListName, setBuildListName] = useState("");
@@ -639,27 +632,20 @@ export default function SalesPages() {
 
   // ── Saved list helpers ─────────────────────────────────────────────────────
   function saveNewList() {
-    if (!buildListName.trim() || buildListSelection.size === 0) return;
-    const newList: SavedList = {
-      id: Date.now().toString(),
-      name: buildListName.trim(),
-      accountIds: [...buildListSelection],
-    };
-    const updated = [...savedLists, newList];
-    setSavedLists(updated);
-    persistSavedLists(updated);
-    setViewFilter(`list:${newList.id}`);
-    setBuildListMode(false);
-    setBuildListSelection(new Set());
-    setBuildListName("");
-    setShowListNameInput(false);
+    void createList(buildListName, [...buildListSelection]).then(created => {
+      if (!created) return;
+      setViewFilter(`list:${created.id}`);
+      setBuildListMode(false);
+      setBuildListSelection(new Set());
+      setBuildListName("");
+      setShowListNameInput(false);
+    });
   }
 
   function deleteList(listId: string) {
-    const updated = savedLists.filter(l => l.id !== listId);
-    setSavedLists(updated);
-    persistSavedLists(updated);
-    if (viewFilter === `list:${listId}`) setViewFilter("all");
+    void removeList(listId).then(() => {
+      if (viewFilter === `list:${listId}`) setViewFilter("all");
+    });
   }
 
   function toggleBuildSelection(accountId: number) {

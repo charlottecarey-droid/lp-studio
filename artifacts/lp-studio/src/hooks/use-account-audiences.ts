@@ -3,6 +3,7 @@ import {
   createAudience,
   deleteAudience,
   listAudiences,
+  migrateLegacySavedLists,
   migrateLegacySavedViews,
   updateAudience,
   type Audience,
@@ -67,6 +68,63 @@ function isAccountView(a: Audience): boolean {
 function hasAny(f: AccountViewFilters): boolean {
   return f.ownerFilters.length > 0 || f.abmTierFilters.length > 0
     || f.abmStageFilters.length > 0 || f.segmentFilters.length > 0;
+}
+
+/** A Pages "saved list": an audience defined by an explicit set of accounts. */
+export interface SavedAccountList {
+  id: string;
+  name: string;
+  accountIds: number[];
+}
+
+/**
+ * The Pages page's saved lists, backed by audiences.
+ *
+ * Same story as saved views — these lived in localStorage under a single
+ * un-namespaced key (`microsites_saved_lists`), so they were per-browser AND
+ * shared across every user of that browser. Now they're audiences with an
+ * explicit `accountIds` set, which also means a list built on Pages can be
+ * sent to as a campaign audience.
+ */
+export function useSavedAccountLists(legacyListsKey: string) {
+  const [lists, setLists] = useState<SavedAccountList[]>([]);
+  const migrated = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const all = await listAudiences().catch(() => [] as Audience[]);
+      if (!migrated.current) {
+        migrated.current = true;
+        const created = await migrateLegacySavedLists(legacyListsKey, all).catch(() => [] as Audience[]);
+        if (created.length > 0) all.push(...created);
+      }
+      if (cancelled) return;
+      setLists(
+        all
+          .filter(a => (a.filters?.accountIds?.length ?? 0) > 0)
+          .map(a => ({ id: String(a.id), name: a.name, accountIds: a.filters.accountIds ?? [] })),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [legacyListsKey]);
+
+  const createList = useCallback(async (name: string, accountIds: number[]): Promise<SavedAccountList | null> => {
+    const trimmed = name.trim();
+    if (!trimmed || accountIds.length === 0) return null;
+    const created = await createAudience({ name: trimmed, filters: { accountIds } }).catch(() => null);
+    if (!created) return null;
+    const list: SavedAccountList = { id: String(created.id), name: created.name, accountIds };
+    setLists(prev => [...prev, list]);
+    return list;
+  }, []);
+
+  const removeList = useCallback(async (id: string): Promise<void> => {
+    const ok = await deleteAudience(Number(id)).catch(() => false);
+    if (ok) setLists(prev => prev.filter(l => l.id !== id));
+  }, []);
+
+  return { lists, createList, removeList };
 }
 
 export function useAccountAudiences(opts: {
