@@ -1241,8 +1241,13 @@ function AgendaEditorDialog({
   const [accountSegment, setAccountSegment] = useState<string | null>(null);
   const [pageUrl, setPageUrl] = useState<string | null>(null);
   const [lpPageId, setLpPageId] = useState<number | null>(null);
+  // Opaque embed token (minted at first publish, stable after) — powers the
+  // customer-website widget: their page carries ?agenda=<token>, the loader
+  // snippet iframes the published page. See api routes/embed.ts.
+  const [embedToken, setEmbedToken] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "publish" | "rematch" | "blurbs" | "pdf" | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedEmbed, setCopiedEmbed] = useState<"param" | "snippet" | null>(null);
 
   const load = async () => {
     if (!agendaId) return;
@@ -1261,6 +1266,7 @@ function AgendaEditorDialog({
       setAccountSegment(data.account?.segment ?? null);
       setPageUrl(data.pageUrl ?? null);
       setLpPageId(data.agenda.lpPageId ?? null);
+      setEmbedToken(data.agenda.embedToken ?? null);
     } catch {
       toast({ title: "Couldn't load the agenda", variant: "destructive" });
       onClose();
@@ -1319,6 +1325,7 @@ function AgendaEditorDialog({
       const data = await res.json();
       setPageUrl(data.url);
       setLpPageId(data.pageId ?? null);
+      setEmbedToken(data.embedToken ?? null);
       // Tokens that filled vs. tokens left on the page verbatim. A typo like
       // {{compnay}} is deliberately not blanked, so it has to be surfaced or it
       // ships unnoticed. DTR tokens ({{keyword}}, {{city}}) show up here too and
@@ -1390,6 +1397,29 @@ function AgendaEditorDialog({
     await navigator.clipboard.writeText(`${window.location.origin}${pageUrl}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  /** The bit a rep appends to the CUSTOMER-site link they send this account:
+   *  theirsite.com/event-page?agenda=<token>. */
+  const copyEmbedParam = async () => {
+    if (!embedToken) return;
+    await navigator.clipboard.writeText(`?agenda=${embedToken}`);
+    setCopiedEmbed("param");
+    setTimeout(() => setCopiedEmbed(null), 1500);
+  };
+
+  /** One-time install for the customer's web team. data-default makes THIS
+   *  agenda the no-token fallback — normally that's a generic (non-account)
+   *  agenda, so the widget renders something for every visitor. Same-origin
+   *  convention as copyUrl: the app host doubles as the public page host. */
+  const copyEmbedSnippet = async () => {
+    if (!embedToken) return;
+    const snippet =
+      `<div id="lp-agenda"></div>\n` +
+      `<script async src="${window.location.origin}/api/embed/agenda.js" data-default="${embedToken}"></script>`;
+    await navigator.clipboard.writeText(snippet);
+    setCopiedEmbed("snippet");
+    setTimeout(() => setCopiedEmbed(null), 1500);
   };
 
   const exportPdf = async () => {
@@ -1469,6 +1499,22 @@ function AgendaEditorDialog({
                     </Button>
                   </a>
                 )}
+              </div>
+            )}
+
+            {pageUrl && embedToken && (
+              /* Website embed — for agendas rendered inside the customer's OWN
+                 event page (RainFocus-style). The snippet installs once; each
+                 agenda's ?agenda= param then picks what the widget renders. */
+              <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-muted/40">
+                <span className="text-xs font-medium shrink-0 text-muted-foreground">Embed</span>
+                <span className="text-xs font-mono truncate flex-1">?agenda={embedToken}</span>
+                <Button variant="ghost" size="sm" onClick={() => void copyEmbedParam()} title="Copy the link param to append to the customer-site URL for this account">
+                  {copiedEmbed === "param" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => void copyEmbedSnippet()} title="Copy the one-time script snippet for the customer's web team (this agenda becomes the default when no ?agenda= param is present)">
+                  {copiedEmbed === "snippet" ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />} Site snippet
+                </Button>
               </div>
             )}
 

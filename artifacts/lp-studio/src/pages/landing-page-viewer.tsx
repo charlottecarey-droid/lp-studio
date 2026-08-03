@@ -385,6 +385,40 @@ function LandingPageViewerInner() {
   // Personalized link token: ?_plToken=<token> — enables engagement attribution
   const plToken = searchParams.get("_plToken") ?? null;
 
+  // Embed mode: ?embed=1 — the page is inside a third-party iframe placed by
+  // the /api/embed/agenda.js loader on a customer's own website. The only
+  // behavioural difference is height reporting, so the parent's loader can
+  // auto-size the iframe instead of showing a scrollbar mid-page.
+  const isEmbed = searchParams.get("embed") === "1";
+  useEffect(() => {
+    if (!isEmbed || window.parent === window) return;
+    let raf = 0;
+    const post = () => {
+      raf = 0;
+      // targetOrigin "*" is deliberate: the embedding site's origin is
+      // unknown by design (any customer website), and a height number is
+      // not sensitive. The LOADER side is the strict one — it checks both
+      // origin and source before acting on this message.
+      window.parent.postMessage(
+        { type: "lp-embed-height", height: document.documentElement.scrollHeight },
+        "*",
+      );
+    };
+    const schedule = () => { if (!raf) raf = window.requestAnimationFrame(post); };
+    post();
+    // Blocks reveal on scroll/in-view and images load late — observe both
+    // root elements so every growth reposts, coalesced per frame.
+    const ro = new ResizeObserver(schedule);
+    ro.observe(document.documentElement);
+    ro.observe(document.body);
+    window.addEventListener("load", schedule);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("load", schedule);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [isEmbed]);
+
   // Sales hotlink token: ?hl=<token> — resolves contact for signal attribution
   const hlToken = searchParams.get("hl") ?? null;
   const [hotlinkData, setHotlinkData] = useState<{ hotlinkId: number; contactId: number; accountId: number; contactName: string | null } | null>(null);

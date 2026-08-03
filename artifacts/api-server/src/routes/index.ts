@@ -23,6 +23,7 @@ import pageRecipesRouter from "./pageRecipes";
 import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import tenantBlockGovernanceRouter from "./tenantBlockGovernance";
 import webhooksRouter from "./webhooks";
+import embedRouter from "./embed";
 import cspReportRouter from "./cspReport";
 import billingRouter from "./billing";
 import notificationsRouter from "./notifications";
@@ -95,6 +96,9 @@ router.use((req, _res, next) => {
 
 router.use(healthRouter);
 router.use(cspReportRouter);
+// Third-party agenda embeds — public by construction (the /embed/ prefix is
+// outside the /lp/ + /sales/ auth guard above); rate-limited in the router.
+router.use(embedRouter);
 // Note: /api/tenant-by-host was removed when task #364 switched R2 keying
 // from `<tenantId>/<slug>` to `<host>/<slug>`. The CF worker no longer
 // needs a host→tenant lookup — see cloudflare/og-bot-router/worker.js.

@@ -946,6 +946,13 @@
       "when": 1757990000000,
       "tag": "0134_crm_ids_per_tenant",
       "breakpoints": false
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1758000000000,
+      "tag": "0135_agenda_embed_token",
+      "breakpoints": false
     }
   ]
 }

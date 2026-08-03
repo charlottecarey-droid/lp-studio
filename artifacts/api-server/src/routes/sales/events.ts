@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "node:crypto";
 import { eq, and, desc, sql, asc, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
@@ -1602,6 +1603,22 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
 
     const title = `${accountName} — ${event.name} Agenda`;
 
+    /**
+     * Mint the embed token on first publish; NEVER rotate it after. Links
+     * carrying it live on the customer's own website (`?agenda=<token>` →
+     * /api/embed/agenda/:token), so a republish must not break them — same
+     * stability contract as lp_page_id/slug above. 16 random bytes,
+     * base64url (22 chars): opaque, unguessable, URL-safe.
+     */
+    let embedToken = agenda.embedToken;
+    if (!embedToken) {
+      embedToken = randomBytes(16).toString("base64url");
+      await db
+        .update(salesEventAgendasTable)
+        .set({ embedToken })
+        .where(eq(salesEventAgendasTable.id, agenda.id));
+    }
+
     if (agenda.lpPageId) {
       const [page] = await db
         .update(lpPagesTable)
@@ -1615,6 +1632,7 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
           .where(eq(salesEventAgendasTable.id, agenda.id));
         res.json({
           pageId: page.id, slug: page.slug, url: `/lp/${page.slug}`,
+          embedToken,
           tokens: { replaced: tokenReport.replaced, unfilled: tokenReport.unknown },
         });
         return;
@@ -1651,6 +1669,7 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
 
     res.json({
           pageId: page.id, slug: page.slug, url: `/lp/${page.slug}`,
+          embedToken,
           tokens: { replaced: tokenReport.replaced, unfilled: tokenReport.unknown },
         });
   } catch (err) {
