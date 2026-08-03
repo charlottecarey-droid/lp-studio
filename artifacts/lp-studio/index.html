@@ -32,6 +32,43 @@
          tracking hosts (lp.meetdandy.com → GTM; partners.meetdandy.com →
          RB2B + Apollo); the banner itself may show on any host when a page
          opts in. -->
+    <!-- OneTrust → GTM bridge. MUST be defined before the OneTrust SDK
+         initialises, which is why it lives here at the top of <head> rather
+         than in the app bundle.
+
+         OneTrust calls `OptanonWrapper()` once after it initialises and again
+         after every consent change. Setting `window.OnetrustActiveGroups` is
+         all OneTrust does by itself — announcing that to GTM is the site's
+         job, and LP Studio never did it. Meanwhile the GTM container
+         (GTM-NHJFVSJ) gates tags behind trigger groups whose second member
+         waits for a dataLayer event named `OneTrustGroupsUpdated`. Nothing on
+         these pages pushed it, so those groups never completed and their tags
+         never fired — even with consent fully granted.
+
+         Measured on lp.meetdandy.com/inside-dandy (2026-08-03) with
+         OnetrustActiveGroups = ",C0003,C0001,C0004,C0002,OSSTA_BG,":
+           - Webflow Optimize / Intellimize (needs C0003) never injected, so
+             `window.wf` was absent and no A/B conversion could be recorded —
+             and no visitor was ever bucketed into a variant either.
+           - The Meta Pixel and LinkedIn base libraries (need C0004) never
+             loaded, producing "fbq is not defined" and "window.lintrk is not
+             a function" while their event tags ran regardless.
+
+         This only ever forwards a decision OneTrust has already made; it
+         cannot grant consent that wasn't given. -->
+    <script>
+      window.OptanonWrapper = function () {
+        try {
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({
+            event: 'OneTrustGroupsUpdated',
+            OnetrustActiveGroups: window.OnetrustActiveGroups || '',
+          });
+        } catch (_) {
+          /* never let a consent bridge break the page */
+        }
+      };
+    </script>
     <script>
       (function () {
         var TRACKING_HOSTS = ['lp.meetdandy.com', 'partners.meetdandy.com'];
