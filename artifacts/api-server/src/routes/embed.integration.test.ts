@@ -203,6 +203,24 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect(res.status).toBe(404);
   });
 
+  it("stores a custom embed link-param per event, validated and resettable", async () => {
+    // Custom name (RainFocus squats on ?agenda for real customer sites).
+    const ok = await inject(app, { method: "PATCH", url: `/events/${eventId}`, body: { embedParam: "dandy_agenda" } });
+    expect(ok.status).toBe(200);
+    expect((ok.json as { event: { embedParam: string } }).event.embedParam).toBe("dandy_agenda");
+
+    // Not URL-param-safe → rejected, value untouched.
+    const bad = await inject(app, { method: "PATCH", url: `/events/${eventId}`, body: { embedParam: "has spaces&stuff" } });
+    expect(bad.status).toBe(400);
+    const row = await pool.query<{ embed_param: string }>(`SELECT embed_param FROM sales_events WHERE id = $1`, [eventId]);
+    expect(row.rows[0].embed_param).toBe("dandy_agenda");
+
+    // Empty resets to NULL = loader default.
+    const reset = await inject(app, { method: "PATCH", url: `/events/${eventId}`, body: { embedParam: "" } });
+    expect(reset.status).toBe(200);
+    expect((reset.json as { event: { embedParam: string | null } }).event.embedParam).toBeNull();
+  });
+
   it("serves the loader cross-origin-loadable and cacheable", async () => {
     const res = await inject(app, { method: "GET", url: "/embed/agenda.js" });
     expect(res.status).toBe(200);

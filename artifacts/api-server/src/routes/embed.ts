@@ -8,11 +8,16 @@
  *   <script async src="https://<tenant-host>/api/embed/agenda.js"
  *           data-default="<token-of-generic-agenda>"></script>
  *
- * Reps then send links to THAT page with `?agenda=<token>` appended. The
+ * Reps then send links to THAT page with `?lp_agenda=<token>` appended. The
  * loader reads the param, iframes `/api/embed/agenda/<token>`, and this
  * router 302s the iframe to the published `/lp/<slug>?embed=1` page. No
  * token on the URL → the `data-default` agenda renders, so the widget always
  * shows something.
+ *
+ * PARAM NAME: `lp_agenda`, NOT `agenda` — RainFocus (which runs on the same
+ * customer event pages this widget targets, e.g. procore.com/groundbreak)
+ * already uses `?agenda` for its own widget state, and colliding with it
+ * would break both. `data-param` on the snippet overrides the name per site.
  *
  *  PUBLIC (no auth — the `/embed/` prefix is outside the routes/index.ts
  *  auth guard, which only protects `/lp/` and `/sales/`):
@@ -82,7 +87,9 @@ const LOADER_JS = `(function () {
   if (!script) return;
   var origin;
   try { origin = new URL(script.src).origin; } catch (_) { return; }
-  var param = script.getAttribute("data-param") || "agenda";
+  // Default deliberately NOT "agenda" — RainFocus already claims that param
+  // on customer event pages. data-param overrides per site.
+  var param = script.getAttribute("data-param") || "lp_agenda";
   var token = "";
   try { token = new URLSearchParams(window.location.search).get(param) || ""; } catch (_) {}
   if (!token) token = script.getAttribute("data-default") || "";

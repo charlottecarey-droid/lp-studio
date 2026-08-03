@@ -69,6 +69,13 @@ export const salesEventsTable = pgTable("sales_events", {
   styleTemplatePageId: integer("style_template_page_id"),
   /** RainFocus credentials + auto-sync state. Token redacted by the API. */
   rainfocusConfig: jsonb("rainfocus_config").$type<RainfocusConfig>().notNull().default({}),
+  /** URL param name the customer-site embed widget reads for the agenda
+   *  token (migration 0136). NULL = the loader default ("lp_agenda").
+   *  Per-EVENT because one customer website hosts all of an event's
+   *  agendas, and the name must match whatever data-param their installed
+   *  snippet carries. Customisable because event platforms already squat on
+   *  the obvious names (RainFocus uses ?agenda on procore.com). */
+  embedParam: text("embed_param"),
   description: text("description"),
   status: text("status").notNull().default("draft"), // draft | active | archived
   createdBy: text("created_by"),

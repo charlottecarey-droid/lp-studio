@@ -308,6 +308,21 @@ router.patch("/events/:eventId", async (req, res): Promise<void> => {
     if (description !== undefined) patch.description = typeof description === "string" ? description : null;
     if (sourceUrl !== undefined) patch.sourceUrl = typeof sourceUrl === "string" ? sourceUrl : null;
     if (typeof status === "string" && ["draft", "active", "archived"].includes(status)) patch.status = status;
+    // Embed link-param name (see migration 0136): must be URL-param-safe
+    // because it's spliced verbatim into customer-site links AND read back
+    // by the loader via URLSearchParams. null/"" resets to the loader
+    // default ("lp_agenda").
+    const { embedParam } = req.body as { embedParam?: unknown };
+    if (embedParam !== undefined) {
+      if (embedParam === null || embedParam === "") {
+        patch.embedParam = null;
+      } else if (typeof embedParam === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(embedParam)) {
+        patch.embedParam = embedParam;
+      } else {
+        res.status(400).json({ error: "Embed param must be 1–32 letters, digits, hyphens or underscores." });
+        return;
+      }
+    }
     const { styleTemplatePageId } = req.body as { styleTemplatePageId?: unknown };
     if (styleTemplatePageId !== undefined) {
       if (styleTemplatePageId === null) {
@@ -1605,8 +1620,8 @@ router.post("/agendas/:agendaId/publish", async (req, res): Promise<void> => {
 
     /**
      * Mint the embed token on first publish; NEVER rotate it after. Links
-     * carrying it live on the customer's own website (`?agenda=<token>` →
-     * /api/embed/agenda/:token), so a republish must not break them — same
+     * carrying it live on the customer's own website (`?<embed_param>=<token>`
+     * → /api/embed/agenda/:token), so a republish must not break them — same
      * stability contract as lp_page_id/slug above. 16 random bytes,
      * base64url (22 chars): opaque, unguessable, URL-safe.
      */

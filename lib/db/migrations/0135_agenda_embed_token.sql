@@ -1,7 +1,8 @@
 -- Embed token for sales event agendas (Aug 2026).
 --
 -- Third-party sites (a customer's own event page) embed a published agenda by
--- token: their page carries ?agenda=<token>, a loader script iframes
+-- token: their page carries ?lp_agenda=<token> (param name per-event
+-- configurable — see 0136), a loader script iframes
 -- /api/embed/agenda/<token>, and the api-server 302s to the published
 -- /lp/<slug> page. The token exists so those URLs stay opaque — the page slug
 -- is agenda-<account>-<event>, which would leak the account list into any

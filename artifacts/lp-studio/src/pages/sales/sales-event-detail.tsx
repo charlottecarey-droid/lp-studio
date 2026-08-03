@@ -69,6 +69,9 @@ interface EventDetail {
   status: string;
   /** Page whose event-agenda styling every agenda of this event inherits. */
   styleTemplatePageId?: number | null;
+  /** Link-param name the customer-site embed widget reads. NULL/absent =
+   *  the loader default ("lp_agenda"). */
+  embedParam?: string | null;
   /** Token-free RainFocus state (the API redacts apiToken). */
   rainfocusConfig?: {
     connected?: boolean;
@@ -1242,12 +1245,47 @@ function AgendaEditorDialog({
   const [pageUrl, setPageUrl] = useState<string | null>(null);
   const [lpPageId, setLpPageId] = useState<number | null>(null);
   // Opaque embed token (minted at first publish, stable after) — powers the
-  // customer-website widget: their page carries ?agenda=<token>, the loader
-  // snippet iframes the published page. See api routes/embed.ts.
+  // customer-website widget: their page carries ?lp_agenda=<token>, the
+  // loader snippet iframes the published page. See api routes/embed.ts.
   const [embedToken, setEmbedToken] = useState<string | null>(null);
+  // Editable link-param name, persisted PER EVENT (all its agendas share the
+  // customer website, so every copied link and the installed snippet's
+  // data-param must agree). Blank = loader default. Customisable because
+  // event platforms squat on obvious names — RainFocus already uses ?agenda
+  // on the pages this widget targets.
+  const [embedParam, setEmbedParam] = useState("");
   const [busy, setBusy] = useState<"save" | "publish" | "rematch" | "blurbs" | "pdf" | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState<"param" | "snippet" | null>(null);
+
+  const DEFAULT_EMBED_PARAM = "lp_agenda";
+  const effectiveEmbedParam = embedParam.trim() || DEFAULT_EMBED_PARAM;
+
+  // Seed from the event row whenever the dialog (re)opens for an agenda.
+  useEffect(() => {
+    setEmbedParam(event?.embedParam ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agendaId, event?.embedParam]);
+
+  /** Persist the param name on blur. Server validates [A-Za-z0-9_-]{1,32};
+   *  empty resets to NULL (= loader default). */
+  const saveEmbedParam = async (value: string) => {
+    if (!event) return;
+    const trimmed = value.trim();
+    if ((event.embedParam ?? "") === trimmed) return;
+    const res = await fetch(`${API_BASE}/sales/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ embedParam: trimmed || null }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast({ title: "Couldn't save the embed param", description: data.error, variant: "destructive" });
+      setEmbedParam(event.embedParam ?? "");
+      return;
+    }
+    onChanged();
+  };
 
   const load = async () => {
     if (!agendaId) return;
@@ -1400,23 +1438,25 @@ function AgendaEditorDialog({
   };
 
   /** The bit a rep appends to the CUSTOMER-site link they send this account:
-   *  theirsite.com/event-page?agenda=<token>. */
+   *  theirsite.com/event-page?<param>=<token>. */
   const copyEmbedParam = async () => {
     if (!embedToken) return;
-    await navigator.clipboard.writeText(`?agenda=${embedToken}`);
+    await navigator.clipboard.writeText(`?${effectiveEmbedParam}=${embedToken}`);
     setCopiedEmbed("param");
     setTimeout(() => setCopiedEmbed(null), 1500);
   };
 
-  /** One-time install for the customer's web team. data-default makes THIS
-   *  agenda the no-token fallback — normally that's a generic (non-account)
-   *  agenda, so the widget renders something for every visitor. Same-origin
-   *  convention as copyUrl: the app host doubles as the public page host. */
+  /** One-time install for the customer's web team. data-param is always
+   *  explicit so the installed snippet and the copied links can't drift;
+   *  data-default makes THIS agenda the no-token fallback — normally a
+   *  generic (non-account) agenda, so the widget renders something for
+   *  every visitor. Same-origin convention as copyUrl: the app host
+   *  doubles as the public page host. */
   const copyEmbedSnippet = async () => {
     if (!embedToken) return;
     const snippet =
       `<div id="lp-agenda"></div>\n` +
-      `<script async src="${window.location.origin}/api/embed/agenda.js" data-default="${embedToken}"></script>`;
+      `<script async src="${window.location.origin}/api/embed/agenda.js" data-param="${effectiveEmbedParam}" data-default="${embedToken}"></script>`;
     await navigator.clipboard.writeText(snippet);
     setCopiedEmbed("snippet");
     setTimeout(() => setCopiedEmbed(null), 1500);
@@ -1505,14 +1545,27 @@ function AgendaEditorDialog({
             {pageUrl && embedToken && (
               /* Website embed — for agendas rendered inside the customer's OWN
                  event page (RainFocus-style). The snippet installs once; each
-                 agenda's ?agenda= param then picks what the widget renders. */
+                 agenda's link param then picks what the widget renders. The
+                 param name is per-event editable because event platforms
+                 squat on the obvious names (RainFocus uses ?agenda on the
+                 same pages). */
               <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-muted/40">
                 <span className="text-xs font-medium shrink-0 text-muted-foreground">Embed</span>
-                <span className="text-xs font-mono truncate flex-1">?agenda={embedToken}</span>
+                <span className="text-xs font-mono shrink-0">?</span>
+                <Input
+                  className="h-7 w-28 text-xs font-mono px-1.5"
+                  value={embedParam}
+                  placeholder={DEFAULT_EMBED_PARAM}
+                  maxLength={32}
+                  onChange={(e) => setEmbedParam(e.target.value)}
+                  onBlur={(e) => void saveEmbedParam(e.target.value)}
+                  title="Link-param name the widget reads on the customer's site — must match the installed snippet. Blank = lp_agenda."
+                />
+                <span className="text-xs font-mono truncate flex-1">={embedToken}</span>
                 <Button variant="ghost" size="sm" onClick={() => void copyEmbedParam()} title="Copy the link param to append to the customer-site URL for this account">
                   {copiedEmbed === "param" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => void copyEmbedSnippet()} title="Copy the one-time script snippet for the customer's web team (this agenda becomes the default when no ?agenda= param is present)">
+                <Button variant="outline" size="sm" onClick={() => void copyEmbedSnippet()} title="Copy the one-time script snippet for the customer's web team (this agenda becomes the default when the link param is absent)">
                   {copiedEmbed === "snippet" ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />} Site snippet
                 </Button>
               </div>
