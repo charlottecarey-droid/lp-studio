@@ -37,7 +37,7 @@
  *
  *  PUBLIC (no auth — the `/embed/` prefix is outside the routes/index.ts
  *  auth guard, which only protects `/lp/` and `/sales/`):
- *   - GET /embed/agenda.js       — the loader script. Served with
+ *   - GET /embed/agenda.js       — the agenda loader script. Served with
  *     `Cross-Origin-Resource-Policy: cross-origin`: helmet's default
  *     `same-origin` CORP would make the customer's `<script src>` tag fail.
  *   - GET /embed/agenda/:token   — resolve + redirect. The token is the
@@ -45,6 +45,10 @@
  *     slug is deliberately NOT accepted here — slugs read
  *     `agenda-<account>-<event>`, and URLs on a customer's site shouldn't
  *     leak their account list.
+ *   - GET /embed/page.js         — generic loader: any PUBLISHED landing
+ *     page inline in a section (or replacing one via data-hide). See its
+ *     own doc block for why it keys on slug and forwards all params.
+ *   - GET /embed/page/:slug      — resolve + redirect for the above.
  *
  * WHY A REDIRECT AND NOT A RENDER: the published /lp/ page (CF worker → SPA
  * viewer) already carries tracking, RSVP, .ics and brand styling, and —
@@ -214,6 +218,148 @@ const LOADER_JS = `(function () {
   else if (script.parentNode) script.parentNode.insertBefore(iframe, script);
 })();
 `;
+
+/**
+ * Generic landing-page loader — embeds ANY published page inline in a
+ * section of the customer's site, or in place of one of its own widgets
+ * (same data-hide contract as the agenda loader). Keyed by SLUG, not a
+ * minted token: pages are already public at /lp/<slug>, there is no
+ * account name inside a page slug to hide, and slug-keying makes every
+ * existing published page embeddable with no backfill.
+ *
+ *   <div id="lp-page"></div>
+ *   <script async src="https://<tenant-host>/api/embed/page.js"
+ *           data-page="<slug>" [data-hide="<selector>"] [data-target="<selector>"]></script>
+ *
+ * The HOST PAGE's entire query string is forwarded into the iframe (minus
+ * our own `embed` flag) — unlike the agenda loader's utm-only allowlist —
+ * because landing pages resolve DTR tokens ({{keyword}}, {{city}}, …)
+ * from the visitor's URL params at runtime, and an embed that dropped
+ * them would silently un-personalise dynamic-text pages. Forwarding is
+ * not a new exposure: the page accepts arbitrary params at its own URL.
+ */
+const LOADER_PAGE_JS = `(function () {
+  var script = document.currentScript;
+  if (!script) return;
+  var origin;
+  try { origin = new URL(script.src).origin; } catch (_) { return; }
+  var slug = script.getAttribute("data-page") || "";
+  if (!slug) return;
+
+  var hideSel = script.getAttribute("data-hide");
+  var hiddenEls = [];
+  function hideFallback() {
+    if (!hideSel) return;
+    try {
+      var els = document.querySelectorAll(hideSel);
+      for (var i = 0; i < els.length; i++) {
+        hiddenEls.push({ el: els[i], display: els[i].style.display });
+        els[i].style.display = "none";
+      }
+    } catch (_) {}
+  }
+  function restoreFallback() {
+    for (var i = 0; i < hiddenEls.length; i++) {
+      hiddenEls[i].el.style.display = hiddenEls[i].display;
+    }
+    hiddenEls = [];
+  }
+
+  // Forward the whole host-page query string so DTR personalisation works
+  // inside the embed exactly as it would at the page's own URL.
+  var forwarded = "";
+  try {
+    var src = new URLSearchParams(window.location.search);
+    src.delete("embed");
+    forwarded = src.toString();
+  } catch (_) {}
+
+  var iframe = document.createElement("iframe");
+  iframe.src = origin + "/api/embed/page/" + encodeURIComponent(slug) + (forwarded ? "?" + forwarded : "");
+  iframe.title = "Embedded page";
+  iframe.style.width = "100%";
+  iframe.style.border = "0";
+  iframe.style.display = "block";
+  iframe.style.minHeight = "480px";
+  iframe.setAttribute("loading", "lazy");
+
+  window.addEventListener("message", function (e) {
+    if (e.origin !== origin || e.source !== iframe.contentWindow) return;
+    var d = e.data;
+    if (!d) return;
+    if (d.type === "lp-embed-height") {
+      var h = Number(d.height);
+      // Same 40000px vh-feedback-loop guard as the agenda loader. NOTE:
+      // unlike agendas, arbitrary pages CAN carry min-h-screen heroes —
+      // those cap here instead of growing forever, at the cost of a
+      // scrollbar inside the frame. Prefer embedding non-viewport-sized
+      // pages.
+      if (isFinite(h) && h > 0 && h <= 40000) iframe.style.height = Math.ceil(h) + "px";
+      return;
+    }
+    if (d.type === "lp-embed-missing") {
+      // Unpublished/unknown page: give the section back to the site.
+      if (hideSel) {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+        restoreFallback();
+      }
+      return;
+    }
+  });
+
+  hideFallback();
+  var target = null;
+  var sel = script.getAttribute("data-target");
+  if (sel) { try { target = document.querySelector(sel); } catch (_) {} }
+  if (!target) target = document.getElementById("lp-page");
+  if (target) target.appendChild(iframe);
+  else if (script.parentNode) script.parentNode.insertBefore(iframe, script);
+})();
+`;
+
+router.get("/embed/page.js", embedLimiter, (_req: Request, res: Response): void => {
+  res.set("Content-Type", "application/javascript; charset=utf-8");
+  res.set("Cross-Origin-Resource-Policy", "cross-origin");
+  res.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(LOADER_PAGE_JS);
+});
+
+/**
+ * Resolve + redirect for the generic page loader. Tenant comes from the
+ * request host (slugs are unique only per tenant), so a snippet on
+ * procore.com pointing at the tenant's own host can only ever reach that
+ * tenant's pages.
+ */
+router.get("/embed/page/:slug", embedLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawSlug = req.params.slug;
+    const slug = (typeof rawSlug === "string" ? rawSlug : "").trim();
+    if (!slug || slug.length > 200) { embedNotFound(res); return; }
+
+    const host = getRequestHost(req);
+    const tenantMatch = host ? await findTenantByHost(host) : null;
+    if (!tenantMatch) { embedNotFound(res); return; }
+
+    const [page] = await db
+      .select({ slug: lpPagesTable.slug, status: lpPagesTable.status })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantMatch.tenantId), eq(lpPagesTable.slug, slug)));
+    if (!page || page.status !== "published") { embedNotFound(res); return; }
+
+    const qs = new URLSearchParams({ embed: "1" });
+    for (const [k, v] of Object.entries(req.query)) {
+      if (k === "embed") continue; // ours — the loader strips it too, belt and braces
+      if (typeof v === "string") qs.append(k, v);
+    }
+
+    allowFraming(res);
+    res.set("Cache-Control", "no-store");
+    res.redirect(302, `/lp/${encodeURIComponent(page.slug)}?${qs.toString()}`);
+  } catch (err) {
+    console.error("[embed] page resolve error", err);
+    res.status(500).set("Cache-Control", "no-store").send("Internal server error");
+  }
+});
 
 router.get("/embed/agenda.js", embedLimiter, (_req: Request, res: Response): void => {
   res.set("Content-Type", "application/javascript; charset=utf-8");

@@ -273,6 +273,40 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect(res.text).toContain("localStorage");
   });
 
+  it("embeds a regular published page by slug, forwarding ALL params for DTR", async () => {
+    const res = await inject(app, {
+      method: "GET",
+      url: `/embed/page/${pageSlug}?utm_source=procore&keyword=roofing&city=Austin`,
+      headers: { host: TENANT_DOMAIN },
+    });
+    expect(res.status).toBe(302);
+    const url = new URL(String(res.headers.location), "https://placeholder.invalid");
+    expect(url.pathname).toBe(`/lp/${pageSlug}`);
+    expect(url.searchParams.get("embed")).toBe("1");
+    // Unlike the agenda redirect's utm-allowlist, EVERYTHING forwards —
+    // dynamic-text pages resolve {{keyword}}/{{city}} from these.
+    expect(url.searchParams.get("keyword")).toBe("roofing");
+    expect(url.searchParams.get("city")).toBe("Austin");
+    expect(res.headers["x-frame-options"]).toBeUndefined();
+
+    // Wrong host and unknown slug both 404 with the loader signal.
+    const wrongHost = await inject(app, { method: "GET", url: `/embed/page/${pageSlug}`, headers: { host: OTHER_TENANT_DOMAIN } });
+    expect(wrongHost.status).toBe(404);
+    expect(wrongHost.text).toContain("lp-embed-missing");
+    const unknown = await inject(app, { method: "GET", url: `/embed/page/not-a-real-slug`, headers: { host: TENANT_DOMAIN } });
+    expect(unknown.status).toBe(404);
+  });
+
+  it("serves the page loader with the same cross-origin + fallback contract", async () => {
+    const res = await inject(app, { method: "GET", url: "/embed/page.js" });
+    expect(res.status).toBe(200);
+    expect(String(res.headers["content-type"])).toContain("javascript");
+    expect(res.headers["cross-origin-resource-policy"]).toBe("cross-origin");
+    expect(res.text).toContain("data-page");
+    expect(res.text).toContain("lp-embed-height");
+    expect(res.text).toContain("lp-embed-missing");
+  });
+
   it("404s when the underlying page is unpublished (revoke works)", async () => {
     await pool.query(`UPDATE lp_pages SET status = 'draft' WHERE tenant_id = $1`, [tenantId]);
     const res = await inject(app, {

@@ -32,6 +32,7 @@ import {
   Bell,
   BellRing,
   Mail,
+  Code2,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -1200,6 +1201,28 @@ export default function SalesPages() {
                                   }}
                                 >
                                   {copiedToken === copyKey ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                </Button>
+                                <Button
+                                  variant="ghost" size="icon"
+                                  className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
+                                  title="Copy embed snippet — renders this page inside another website (add data-hide=&quot;selector&quot; to replace an existing section)"
+                                  onClick={() => {
+                                    /* Same host-resolution order as getLpPageUrl: the loader
+                                       must be served from the host that owns the slug, or the
+                                       embed redirect resolves the wrong tenant. */
+                                    const embedOrigin = micrositeDomain
+                                      ? `https://${micrositeDomain}`
+                                      : tenantHost ? `https://${tenantHost}` : window.location.origin;
+                                    const snippet =
+                                      `<div id="lp-page"></div>\n` +
+                                      `<script async src="${embedOrigin}/api/embed/page.js" data-page="${row.pageSlug}"></script>`;
+                                    navigator.clipboard.writeText(snippet).then(() => {
+                                      setCopiedToken(`${copyKey}-embed`);
+                                      setTimeout(() => setCopiedToken(null), 2000);
+                                    });
+                                  }}
+                                >
+                                  {copiedToken === `${copyKey}-embed` ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Code2 className="w-3.5 h-3.5" />}
                                 </Button>
                                 <Button
                                   variant="ghost" size="icon"
