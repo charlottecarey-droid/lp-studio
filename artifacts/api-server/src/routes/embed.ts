@@ -28,6 +28,13 @@
  *     `lp-embed-missing` and the loader removes itself), so a stale link
  *     degrades to the site's normal agenda, never an apology frame.
  *
+ * STICKY PERSONALISATION: the loader stores a link's token in localStorage
+ * (key `lp-embed-token:<param>`), so a visitor who comes back WITHOUT the
+ * link — site nav, typed URL, days later — still sees their agenda.
+ * Precedence: URL param > stored > data-default; only URL tokens are
+ * stored. Dead tokens clear the stored value and cascade default → site
+ * widget, so storage can never pin a visitor to an apology frame.
+ *
  *  PUBLIC (no auth — the `/embed/` prefix is outside the routes/index.ts
  *  auth guard, which only protects `/lp/` and `/sales/`):
  *   - GET /embed/agenda.js       — the loader script. Served with
@@ -99,13 +106,26 @@ const LOADER_JS = `(function () {
   // Default deliberately NOT "agenda" — RainFocus already claims that param
   // on customer event pages. data-param overrides per site.
   var param = script.getAttribute("data-param") || "lp_agenda";
-  var token = "";
-  try { token = new URLSearchParams(window.location.search).get(param) || ""; } catch (_) {}
-  if (!token) token = script.getAttribute("data-default") || "";
+  var defaultToken = script.getAttribute("data-default") || "";
+  // Personalisation is sticky: the first visit through a personalised link
+  // stores its token, so coming back WITHOUT the link (site nav, typed URL,
+  // next week) still shows that account's agenda. Precedence: URL param
+  // (a newly clicked link always wins and re-personalises the browser) >
+  // stored token > data-default. Only URL tokens are stored — the generic
+  // default is not a personalisation. Storage failures (private mode,
+  // storage disabled) degrade silently to link-only behaviour, and a dead
+  // stored token self-heals below via the lp-embed-missing signal.
+  var storageKey = "lp-embed-token:" + param;
+  var urlToken = "";
+  try { urlToken = new URLSearchParams(window.location.search).get(param) || ""; } catch (_) {}
+  var stored = "";
+  try { stored = window.localStorage.getItem(storageKey) || ""; } catch (_) {}
+  var token = urlToken || stored || defaultToken;
   // No token anywhere -> render NOTHING. This is the coexistence contract:
   // a site that keeps its existing agenda widget (RainFocus) simply omits
   // data-default, and that widget stays untouched for tokenless visitors.
   if (!token) return;
+  if (urlToken) { try { window.localStorage.setItem(storageKey, urlToken); } catch (_) {} }
 
   // data-hide: CSS selector for the site's own agenda widget (e.g. the
   // RainFocus container). Hidden when we take over, restored if the token
@@ -142,6 +162,9 @@ const LOADER_JS = `(function () {
   } catch (_) {}
 
   var iframe = document.createElement("iframe");
+  // Guards the dead-token retry: once we're showing the default there is
+  // nothing further to fall back to, so a dead DEFAULT can't loop.
+  var triedDefault = token === defaultToken;
   iframe.src = origin + "/api/embed/agenda/" + encodeURIComponent(token) + (forwarded ? "?" + forwarded : "");
   iframe.title = "Event agenda";
   iframe.style.width = "100%";
@@ -163,9 +186,17 @@ const LOADER_JS = `(function () {
       return;
     }
     if (d.type === "lp-embed-missing") {
-      // Dead token (revoked / unpublished / typo). With a fallback widget
-      // configured, disappear entirely and give the page back; without one,
-      // keep the frame — it shows the quiet "isn't available" sentence.
+      // Dead token (revoked / unpublished / typo). Forget any stored
+      // personalisation, then behave like a tokenless visit: retry once
+      // with the generic default if one exists, else give the page back to
+      // the site's own widget, else keep the frame — it shows the quiet
+      // "isn't available" sentence.
+      try { window.localStorage.removeItem(storageKey); } catch (_) {}
+      if (defaultToken && !triedDefault) {
+        triedDefault = true;
+        iframe.src = origin + "/api/embed/agenda/" + encodeURIComponent(defaultToken) + (forwarded ? "?" + forwarded : "");
+        return;
+      }
       if (hideSel) {
         if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
         restoreFallback();

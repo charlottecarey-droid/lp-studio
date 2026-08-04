@@ -267,6 +267,10 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     // Fallback-coexistence contract: data-hide + the dead-token signal.
     expect(res.text).toContain("data-hide");
     expect(res.text).toContain("lp-embed-missing");
+    // Sticky-personalisation contract: tokens persist across linkless
+    // return visits and dead ones are forgotten.
+    expect(res.text).toContain("lp-embed-token:");
+    expect(res.text).toContain("localStorage");
   });
 
   it("404s when the underlying page is unpublished (revoke works)", async () => {
