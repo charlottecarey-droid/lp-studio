@@ -223,6 +223,39 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect((reset.json as { event: { embedParam: string | null } }).event.embedParam).toBeNull();
   });
 
+  it("stores the fallback selector and default agenda, minting a missing token", async () => {
+    const sel = await inject(app, { method: "PATCH", url: `/events/${eventId}`, body: { embedHideSelector: "#rainfocus-agenda" } });
+    expect(sel.status).toBe(200);
+    expect((sel.json as { event: { embedHideSelector: string } }).event.embedHideSelector).toBe("#rainfocus-agenda");
+
+    // Wipe the token to simulate an agenda published before the embed
+    // feature — choosing it as default must mint one.
+    await pool.query(`UPDATE sales_event_agendas SET embed_token = NULL WHERE id = $1`, [agendaId]);
+    const def = await inject(app, { method: "PATCH", url: `/events/${eventId}`, body: { embedDefaultAgendaId: agendaId } });
+    expect(def.status).toBe(200);
+    expect((def.json as { event: { embedDefaultAgendaId: number } }).event.embedDefaultAgendaId).toBe(agendaId);
+    const minted = await pool.query<{ embed_token: string }>(`SELECT embed_token FROM sales_event_agendas WHERE id = $1`, [agendaId]);
+    expect(minted.rows[0].embed_token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    // The freshly minted token is live for the rest of the suite.
+    embedToken = minted.rows[0].embed_token;
+
+    // A nonexistent agenda can't be the default.
+    const bad = await inject(app, { method: "PATCH", url: `/events/${eventId}`, body: { embedDefaultAgendaId: 999999999 } });
+    expect(bad.status).toBe(400);
+  });
+
+  it("lazy-mints a token on agenda read for pre-embed published agendas", async () => {
+    await pool.query(`UPDATE sales_event_agendas SET embed_token = NULL WHERE id = $1`, [agendaId]);
+    const res = await inject(app, { method: "GET", url: `/agendas/${agendaId}` });
+    expect(res.status).toBe(200);
+    const token = (res.json as { agenda: { embedToken: string } }).agenda.embedToken;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    // Persisted, not just echoed — the whole point is a stable link.
+    const row = await pool.query<{ embed_token: string }>(`SELECT embed_token FROM sales_event_agendas WHERE id = $1`, [agendaId]);
+    expect(row.rows[0].embed_token).toBe(token);
+    embedToken = token;
+  });
+
   it("serves the loader cross-origin-loadable and cacheable", async () => {
     const res = await inject(app, { method: "GET", url: "/embed/agenda.js" });
     expect(res.status).toBe(200);

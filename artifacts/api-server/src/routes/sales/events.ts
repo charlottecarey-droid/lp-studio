@@ -323,6 +323,59 @@ router.patch("/events/:eventId", async (req, res): Promise<void> => {
         return;
       }
     }
+    // CSS selector of the site's own agenda widget (snippet data-hide, see
+    // migration 0137). Free-form — selectors have no safe regex — but the
+    // snippet builder attribute-escapes it and the loader wraps
+    // querySelectorAll in try/catch, so a bad one degrades to "no hide".
+    const { embedHideSelector } = req.body as { embedHideSelector?: unknown };
+    if (embedHideSelector !== undefined) {
+      if (embedHideSelector === null || embedHideSelector === "") {
+        patch.embedHideSelector = null;
+      } else if (typeof embedHideSelector === "string" && embedHideSelector.trim().length <= 200) {
+        patch.embedHideSelector = embedHideSelector.trim();
+      } else {
+        res.status(400).json({ error: "Fallback selector must be 200 characters or fewer." });
+        return;
+      }
+    }
+    // Default agenda for tokenless visitors (snippet data-default). NULL =
+    // no default: the widget stays invisible and the site's own agenda
+    // (RainFocus) keeps the page. Choosing one mints its embed token if the
+    // agenda predates the embed feature.
+    const { embedDefaultAgendaId } = req.body as { embedDefaultAgendaId?: unknown };
+    if (embedDefaultAgendaId !== undefined) {
+      if (embedDefaultAgendaId === null) {
+        patch.embedDefaultAgendaId = null;
+      } else {
+        const defaultAgendaId = Number(embedDefaultAgendaId);
+        const [candidate] = Number.isFinite(defaultAgendaId)
+          ? await db
+              .select({
+                id: salesEventAgendasTable.id,
+                status: salesEventAgendasTable.status,
+                lpPageId: salesEventAgendasTable.lpPageId,
+                embedToken: salesEventAgendasTable.embedToken,
+              })
+              .from(salesEventAgendasTable)
+              .where(and(
+                eq(salesEventAgendasTable.tenantId, tenantId),
+                eq(salesEventAgendasTable.eventId, eventId),
+                eq(salesEventAgendasTable.id, defaultAgendaId),
+              ))
+          : [];
+        if (!candidate || candidate.status !== "published" || candidate.lpPageId == null) {
+          res.status(400).json({ error: "The default agenda must be a published agenda of this event." });
+          return;
+        }
+        if (!candidate.embedToken) {
+          await db
+            .update(salesEventAgendasTable)
+            .set({ embedToken: randomBytes(16).toString("base64url") })
+            .where(eq(salesEventAgendasTable.id, candidate.id));
+        }
+        patch.embedDefaultAgendaId = candidate.id;
+      }
+    }
     const { styleTemplatePageId } = req.body as { styleTemplatePageId?: unknown };
     if (styleTemplatePageId !== undefined) {
       if (styleTemplatePageId === null) {
@@ -1107,6 +1160,17 @@ router.get("/agendas/:agendaId", async (req, res): Promise<void> => {
         .from(lpPagesTable)
         .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, agenda.lpPageId)));
       pageSlug = page?.slug ?? null;
+    }
+    // Lazy-mint the embed token for agendas PUBLISHED BEFORE the embed
+    // feature existed — without this, their dialogs never show the Embed
+    // row until someone thinks to republish. Same never-rotate contract as
+    // the publish route; the write-on-GET is a one-time backfill per row.
+    if (!agenda.embedToken && agenda.status === "published" && agenda.lpPageId) {
+      agenda.embedToken = randomBytes(16).toString("base64url");
+      await db
+        .update(salesEventAgendasTable)
+        .set({ embedToken: agenda.embedToken })
+        .where(eq(salesEventAgendasTable.id, agenda.id));
     }
     res.json({
       agenda,

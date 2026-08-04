@@ -76,6 +76,15 @@ export const salesEventsTable = pgTable("sales_events", {
    *  snippet carries. Customisable because event platforms already squat on
    *  the obvious names (RainFocus uses ?agenda on procore.com). */
   embedParam: text("embed_param"),
+  /** CSS selector of the site's OWN agenda widget (e.g. the RainFocus
+   *  container) — emitted as the snippet's data-hide (migration 0137):
+   *  hidden while a tokenized agenda renders, restored on dead tokens. */
+  embedHideSelector: text("embed_hide_selector"),
+  /** Agenda whose token the snippet bakes in as data-default — what
+   *  tokenless visitors see. NULL = no default: the widget renders nothing
+   *  and the site's own agenda stays (migration 0137, FK SET NULL on
+   *  agenda delete). */
+  embedDefaultAgendaId: integer("embed_default_agenda_id"),
   description: text("description"),
   status: text("status").notNull().default("draft"), // draft | active | archived
   createdBy: text("created_by"),
