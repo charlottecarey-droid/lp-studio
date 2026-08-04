@@ -265,6 +265,16 @@ export function SalesTopNav() {
 
   // Primary nav — always visible in the top bar
   const primaryNav: NavItem[] = [
+    // Pages leads — it's the console's primary work product, so it gets the
+    // first slot ahead of Accounts (Charlotte, Aug 2026; previously it sat
+    // near the end of the row).
+    {
+      label: "Pages",
+      href: "/sales/pages",
+      icon: <Globe className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/pages" || loc === "/sales/microsites",
+    },
     {
       label: "Accounts",
       href: "/sales/accounts",
@@ -285,15 +295,6 @@ export function SalesTopNav() {
       icon: <Users className="w-4 h-4" />,
       permission: "sales_contacts",
       matchFn: (loc) => loc === "/sales/contacts" || loc.startsWith("/sales/contacts/"),
-    },
-    // Pages sits last, right before the Tools dropdown — it's the most-used
-    // tab, and end-of-row is the easiest slot to hit repeatedly.
-    {
-      label: "Pages",
-      href: "/sales/pages",
-      icon: <Globe className="w-4 h-4" />,
-      permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/pages" || loc === "/sales/microsites",
     },
     {
       label: "Campaigns",

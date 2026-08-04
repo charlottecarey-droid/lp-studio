@@ -65,6 +65,15 @@ describe("Sales Console nav", () => {
     expect(screen.getByLabelText("Sidekick — sales assistant")).toBeTruthy();
   });
 
+  it("leads with Pages — the primary work product sits before Accounts", () => {
+    render(<SalesTopNav />);
+    // DOM order is the contract: Pages takes the first slot (Charlotte,
+    // Aug 2026), demoting Accounts to second.
+    const pages = screen.getByText("Pages");
+    const accounts = screen.getByText("Accounts");
+    expect(pages.compareDocumentPosition(accounts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("reaches Settings through the account menu, not a separate gear", async () => {
     render(<SalesTopNav />);
     // Nothing in the bar is a standalone settings control any more.
