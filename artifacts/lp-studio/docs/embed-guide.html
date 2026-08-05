@@ -271,6 +271,48 @@
     color: var(--ink-soft);
     font-size: 14px;
   }
+
+  /* Printing / PDF. This doc gets forwarded and printed by web teams, so
+     it's a real output, not an afterthought: always the light palette (a
+     dark ground would burn a cartridge and read badly on paper), and
+     nothing that carries a step or a snippet may split across a page. */
+  @media print {
+    :root {
+      --ground: #FFFFFF;
+      --raised: #F6F7F6;
+      --ink: #16191D;
+      --ink-soft: #4A535C;
+      --rule: #D6DBD8;
+      --accent: #00594A;
+      --accent-live: #00594A;
+      --flag: #7A4F00;
+      --flag-face: #FAF3E4;
+      --code-ground: #F3F5F3;
+    }
+
+    body { background: #fff; font-size: 10.5pt; line-height: 1.55; }
+    .page { max-width: none; margin: 0; padding: 0; gap: 26px; }
+
+    h1 { font-size: 23pt; }
+    h2 { font-size: 14pt; break-after: avoid; }
+    h3 { break-after: avoid; }
+    pre code { font-size: 9pt; }
+
+    /* Keep a step with its snippet, and never split a code block or a
+       callout down the middle. */
+    pre, .exchange, .flag, footer,
+    ol.steps > li, details, tr { break-inside: avoid; }
+
+    /* Collapsed troubleshooting entries would print as headings with no
+       answers; the beforeprint handler opens them, this styles the result. */
+    details { border-bottom: 1px solid var(--rule); }
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+
+    a { color: inherit; text-decoration: underline; }
+    .table-scroll { overflow-x: visible; }
+    table { min-width: 0; }
+  }
 </style>
 
 <div class="page">
@@ -499,3 +541,11 @@
   </footer>
 
 </div>
+
+<script>
+  // Troubleshooting entries are collapsed for reading and expanded for
+  // printing -- a printed page of questions with no answers is useless.
+  addEventListener("beforeprint", function () {
+    document.querySelectorAll("details").forEach(function (d) { d.open = true; });
+  });
+</script>
