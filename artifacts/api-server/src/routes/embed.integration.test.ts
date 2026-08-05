@@ -158,7 +158,7 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
   it("redirects into the published page with embed=1, forwarding only campaign params", async () => {
     const res = await inject(app, {
       method: "GET",
-      url: `/embed/agenda/${embedToken}?utm_source=procore&utm_campaign=groundbreak&gclid=g123&evil=1&reviewToken=x`,
+      url: `/embed/agenda/${embedToken}?utm_source=procore&utm_campaign=groundbreak&gclid=g123&lpvh=900&evil=1&reviewToken=x`,
       headers: { host: TENANT_DOMAIN },
     });
     expect(res.status).toBe(302);
@@ -169,6 +169,9 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect(url.searchParams.get("utm_source")).toBe("procore");
     expect(url.searchParams.get("utm_campaign")).toBe("groundbreak");
     expect(url.searchParams.get("gclid")).toBe("g123");
+    // lpvh rides the allowlist too: the viewer sizes 100vh against the HOST
+    // page's height with it, and against the (growing) iframe without it.
+    expect(url.searchParams.get("lpvh")).toBe("900");
     // Anything not on the allowlist is dropped — the redirect must not be a
     // general query-string relay into our page URLs.
     expect(url.searchParams.get("evil")).toBeNull();
@@ -305,6 +308,11 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect(res.text).toContain("data-page");
     expect(res.text).toContain("lp-embed-height");
     expect(res.text).toContain("lp-embed-missing");
+    // Sends the HOST window's height so 100vh sizing inside the embed
+    // resolves against the reader's screen instead of the iframe we then
+    // size to fit — that pairing is what feeds back and lands ~3x too tall.
+    expect(res.text).toContain("lpvh");
+    expect(res.text).toContain("window.innerHeight");
   });
 
   it("404s when the underlying page is unpublished (revoke works)", async () => {

@@ -85,7 +85,7 @@ const embedLimiter = rateLimit({
 /** Query params forwarded from the host page through to the /lp/ page, so
  *  lp_page_visits attribution (extractUtm in tracking.ts) sees the campaign
  *  that brought the visitor to the CUSTOMER's page, not a bare iframe URL. */
-const FORWARDED_PARAMS = /^(utm_[a-z]+|gclid)$/i;
+const FORWARDED_PARAMS = /^(utm_[a-z]+|gclid|lpvh)$/i;
 
 /** Belt-and-braces framing headers for iframe-destined responses. */
 function allowFraming(res: Response): void {
@@ -154,7 +154,9 @@ const LOADER_JS = `(function () {
     hiddenEls = [];
   }
 
-  // Forward campaign params from the host page for visit attribution.
+  // Forward campaign params from the host page for visit attribution, plus
+  // lpvh — this window's height, which the agenda resolves its 100vh sizing
+  // against (see the page loader for why leaving it out loops).
   var forwarded = "";
   try {
     var src = new URLSearchParams(window.location.search);
@@ -162,6 +164,7 @@ const LOADER_JS = `(function () {
     src.forEach(function (v, k) {
       if (/^utm_[a-z]+$/i.test(k) || k.toLowerCase() === "gclid") out.append(k, v);
     });
+    out.set("lpvh", String(Math.max(320, Math.min(2000, Math.round(window.innerHeight) || 800))));
     forwarded = out.toString();
   } catch (_) {}
 
@@ -266,11 +269,15 @@ const LOADER_PAGE_JS = `(function () {
   }
 
   // Forward the whole host-page query string so DTR personalisation works
-  // inside the embed exactly as it would at the page's own URL.
+  // inside the embed exactly as it would at the page's own URL, plus lpvh —
+  // THIS window's height, which the page resolves its 100vh sizing against.
+  // Without it a full-screen hero sizes to the iframe, which we then size to
+  // the hero: a feedback loop that lands the page ~3x too tall.
   var forwarded = "";
   try {
     var src = new URLSearchParams(window.location.search);
     src.delete("embed");
+    src.set("lpvh", String(Math.max(320, Math.min(2000, Math.round(window.innerHeight) || 800))));
     forwarded = src.toString();
   } catch (_) {}
 

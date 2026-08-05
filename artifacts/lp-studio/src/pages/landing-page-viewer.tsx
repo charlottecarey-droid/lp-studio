@@ -390,6 +390,58 @@ function LandingPageViewerInner() {
   // behavioural difference is height reporting, so the parent's loader can
   // auto-size the iframe instead of showing a scrollbar mid-page.
   const isEmbed = searchParams.get("embed") === "1";
+
+  /**
+   * "Virtual viewport height" for an embedded page, in px, reported by the
+   * loader from the HOST page's window.
+   *
+   * WHY THIS EXISTS: `100vh` inside an iframe resolves against the IFRAME's
+   * height, and the embed loader sizes the iframe to its content — so a
+   * `min-h-screen` hero grew the iframe, which grew the hero, which grew the
+   * iframe. It settled ~3x too tall ("giant / zoomed in" on a real embed)
+   * rather than running away, because non-vh content bounds it, but the page
+   * was badly wrong either way.
+   *
+   * Resolving vh against the PARENT's viewport instead is both a fix and the
+   * original design intent: a full-screen hero should fill the reader's
+   * screen, and the reader's screen is the host page's, not the frame's. A
+   * fixed px value cannot feed back.
+   */
+  const embedVh = (() => {
+    const raw = parseInt(searchParams.get("lpvh") ?? "", 10);
+    // Clamp junk/hostile values; 800 is a reasonable desktop default when the
+    // loader is older than this code and sends nothing.
+    return Number.isFinite(raw) && raw >= 320 && raw <= 2000 ? raw : 800;
+  })();
+
+  useEffect(() => {
+    if (!isEmbed) return;
+    // Overrides every viewport-height pattern the block library actually
+    // uses: Tailwind `min-h-screen`/`h-screen`, arbitrary `min-h-[100svh]`,
+    // and React inline `minHeight: "100vh"` (the most common by far). The
+    // `:not()` on the plain-height rule matters — `min-height: 100vh`
+    // contains the substring `height: 100vh`, and pinning an explicit height
+    // on an element that only asked for a minimum would clip its content.
+    const style = document.createElement("style");
+    style.setAttribute("data-lp-embed-vh", "");
+    const V = "var(--lp-embed-vh)";
+    style.textContent = `
+:root { --lp-embed-vh: ${embedVh}px; }
+.min-h-screen,
+[class*="min-h-[100vh]"], [class*="min-h-[100svh]"], [class*="min-h-[100dvh]"],
+[style*="min-height: 100vh"], [style*="min-height:100vh"],
+[style*="min-height: 100svh"], [style*="min-height:100svh"],
+[style*="min-height: 100dvh"], [style*="min-height:100dvh"] { min-height: ${V} !important; }
+.h-screen, [class*="h-[100vh]"], [class*="h-[100svh]"], [class*="h-[100dvh]"],
+[style*="height: 100vh"]:not([style*="min-height: 100vh"]),
+[style*="height:100vh"]:not([style*="min-height:100vh"]),
+[style*="height: 100svh"]:not([style*="min-height: 100svh"]),
+[style*="height: 100dvh"]:not([style*="min-height: 100dvh"]) { height: ${V} !important; }
+`;
+    document.head.appendChild(style);
+    return () => { style.remove(); };
+  }, [isEmbed, embedVh]);
+
   useEffect(() => {
     if (!isEmbed || window.parent === window) return;
     let raf = 0;
