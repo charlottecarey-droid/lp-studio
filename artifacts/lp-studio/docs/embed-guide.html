@@ -1,0 +1,501 @@
+<title>Embedding an LP Studio page on your website</title>
+
+<style>
+  :root {
+    --ground: #FCFCFB;
+    --raised: #F3F5F3;
+    --ink: #1B1F24;
+    --ink-soft: #5A6470;
+    --rule: #E1E5E2;
+    --accent: #00594A;
+    --accent-live: #0E7A63;
+    --flag: #8A5A00;
+    --flag-face: #FBF4E6;
+    --code-ground: #F2F4F3;
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #12161B;
+      --raised: #1A2027;
+      --ink: #E6EAE8;
+      --ink-soft: #949FA8;
+      --rule: #29323A;
+      --accent: #6FD3B8;
+      --accent-live: #8BE0C8;
+      --flag: #E0B36A;
+      --flag-face: #241D10;
+      --code-ground: #1B2127;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #12161B;
+    --raised: #1A2027;
+    --ink: #E6EAE8;
+    --ink-soft: #949FA8;
+    --rule: #29323A;
+    --accent: #6FD3B8;
+    --accent-live: #8BE0C8;
+    --flag: #E0B36A;
+    --flag-face: #241D10;
+    --code-ground: #1B2127;
+  }
+
+  :root[data-theme="light"] {
+    --ground: #FCFCFB;
+    --raised: #F3F5F3;
+    --ink: #1B1F24;
+    --ink-soft: #5A6470;
+    --rule: #E1E5E2;
+    --accent: #00594A;
+    --accent-live: #0E7A63;
+    --flag: #8A5A00;
+    --flag-face: #FBF4E6;
+    --code-ground: #F2F4F3;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: var(--measure);
+    margin: 0 auto;
+    padding: 72px 24px 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 40px);
+    line-height: 1.15;
+    letter-spacing: -0.021em;
+    font-weight: 660;
+    text-wrap: balance;
+    margin: 10px 0 0;
+  }
+
+  .lede {
+    color: var(--ink-soft);
+    font-size: 18px;
+    margin: 16px 0 0;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-size: 21px;
+    letter-spacing: -0.011em;
+    font-weight: 640;
+    text-wrap: balance;
+    margin: 0 0 4px;
+    padding-top: 26px;
+    border-top: 1px solid var(--rule);
+  }
+
+  h3 {
+    font-size: 15.5px;
+    font-weight: 640;
+    margin: 22px 0 6px;
+  }
+
+  section { display: flex; flex-direction: column; gap: 12px; }
+  p { margin: 0; text-wrap: pretty; }
+  ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 7px; }
+  li::marker { color: var(--ink-soft); }
+  strong { font-weight: 640; }
+
+  a { color: var(--accent-live); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent-live);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.875em;
+    background: var(--code-ground);
+    padding: 0.12em 0.36em;
+    border-radius: 3px;
+    word-break: break-word;
+  }
+
+  pre {
+    background: var(--code-ground);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 15px 17px;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    word-break: normal;
+  }
+
+  /* Exchange card &mdash; what each side owes the other, up front. */
+  .exchange {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .exchange > div {
+    background: var(--raised);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .exchange h3 { margin: 0; font-size: 13px; letter-spacing: 0.02em; }
+  .exchange ul { padding-left: 17px; font-size: 14.5px; }
+
+  /* Install steps are genuinely sequential, so they're numbered. */
+  ol.steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    counter-reset: step;
+  }
+
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+
+  ol.steps > li::before {
+    content: counter(step);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    margin-top: 1px;
+  }
+
+  ol.steps .body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+  .table-scroll { overflow-x: auto; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14.5px;
+    min-width: 460px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 10px 14px 10px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  th {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  td:first-child { white-space: nowrap; padding-right: 20px; }
+
+  .flag {
+    background: var(--flag-face);
+    border-left: 2px solid var(--flag);
+    border-radius: 0 5px 5px 0;
+    padding: 14px 17px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-size: 15px;
+  }
+
+  .flag .eyebrow { color: var(--flag); }
+
+  details {
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 0;
+  }
+
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  details > *:not(summary) { margin-top: 9px; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    color: var(--ink-soft);
+    font-size: 14px;
+  }
+</style>
+
+<div class="page">
+
+  <header>
+    <p class="eyebrow">Integration guide</p>
+    <h1>Embedding an LP Studio page on your website</h1>
+    <p class="lede">
+      One script tag renders a hosted LP Studio page inside a section of your site &mdash; optionally
+      replacing a section you already have, and optionally personalized per visitor by a link
+      parameter. Roughly fifteen minutes of work, most of it verification.
+    </p>
+  </header>
+
+  <div class="exchange">
+    <div>
+      <h3>What you get from us</h3>
+      <ul>
+        <li>The snippet, with your host and page already filled in</li>
+        <li>The link parameter name, if you're using personalized links</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What we need from you</h3>
+      <ul>
+        <li>The CSS selector of the section the embed should replace, if any</li>
+        <li>Our host allowed in your <code>frame-src</code>, if you enforce a CSP</li>
+      </ul>
+    </div>
+  </div>
+
+  <section>
+    <h2>Installing</h2>
+
+    <ol class="steps">
+      <li>
+        <div class="body">
+          <h3 style="margin:0">Paste the snippet where the content should appear</h3>
+          <pre><code>&lt;div id="lp-page"&gt;&lt;/div&gt;
+&lt;script async src="https://YOUR-HOST/api/embed/page.js"
+        data-page="your-page-slug"&gt;&lt;/script&gt;</code></pre>
+          <p>
+            The script renders into the <code>&lt;div&gt;</code> above it. If your CMS separates
+            scripts from markup, put the div where the content belongs and point the script at it
+            with <code>data-target="#your-container"</code> instead.
+          </p>
+        </div>
+      </li>
+
+      <li>
+        <div class="body">
+          <h3 style="margin:0">To replace an existing section, name it</h3>
+          <pre><code>&lt;script async src="https://YOUR-HOST/api/embed/page.js"
+        data-page="your-page-slug"
+        data-hide="#the-section-to-replace"&gt;&lt;/script&gt;</code></pre>
+          <p>
+            That section is hidden while our content renders, and restored automatically if the
+            page is ever unpublished &mdash; so an expired embed falls back to your own content rather
+            than leaving a gap or an error.
+          </p>
+        </div>
+      </li>
+
+      <li>
+        <div class="body">
+          <h3 style="margin:0">Allow the frame in your CSP</h3>
+          <p>
+            If your site sends a <code>Content-Security-Policy</code> header, add our host to
+            <code>frame-src</code>. Without it the browser blocks the frame silently and the
+            section simply appears empty &mdash; this is the single most common reason a correct
+            snippet shows nothing.
+          </p>
+        </div>
+      </li>
+
+      <li>
+        <div class="body">
+          <h3 style="margin:0">Verify</h3>
+          <p>
+            Load the page. The content should appear and the container should size itself to fit,
+            with no inner scrollbar. If you used <code>data-hide</code>, your original section
+            should be gone. Check the browser console for CSP or network errors if not.
+          </p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Personalized links</h2>
+    <p>
+      For event agendas, the same page can render differently per visitor. Our team sends each
+      recipient a link to <em>your</em> page carrying a token &mdash; for example
+      <code>?lp_agenda=a1b2c3</code> &mdash; and the widget renders that recipient's version.
+    </p>
+    <pre><code>&lt;div id="lp-agenda"&gt;&lt;/div&gt;
+&lt;script async src="https://YOUR-HOST/api/embed/agenda.js"
+        data-param="lp_agenda"
+        data-hide="#your-existing-agenda"&gt;&lt;/script&gt;</code></pre>
+    <p>
+      Visitors arriving <em>without</em> a token see whatever you already had &mdash; the widget stays
+      out of the way entirely unless we also give you a <code>data-default</code> token. A visitor
+      who has used a personalized link once keeps seeing their version on later visits to that
+      page, even without the link.
+    </p>
+    <div class="flag">
+      <p class="eyebrow">Naming</p>
+      <p>
+        The parameter is <code>lp_agenda</code>, not <code>agenda</code> &mdash; RainFocus already uses
+        <code>?agenda</code> on event sites. If <code>lp_agenda</code> also collides with something
+        on your site, tell us and we'll change it; it's configurable on our end.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Attribute reference</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Attribute</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>data-page</code></td>
+            <td>Which page to render. Page embeds only.</td>
+          </tr>
+          <tr>
+            <td><code>data-param</code></td>
+            <td>URL parameter carrying the personalization token. Agenda embeds only.</td>
+          </tr>
+          <tr>
+            <td><code>data-default</code></td>
+            <td>What visitors without a token see. Omit to leave your own content in place.</td>
+          </tr>
+          <tr>
+            <td><code>data-hide</code></td>
+            <td>CSS selector of a section to replace. Restored automatically if the embed has nothing to show.</td>
+          </tr>
+          <tr>
+            <td><code>data-target</code></td>
+            <td>CSS selector of the container to render into, when it isn't adjacent to the script tag.</td>
+          </tr>
+          <tr>
+            <td><code>data-mode</code></td>
+            <td>Set to <code>page</code> for a full-page takeover, which keeps full-height heroes at true viewport height. Omit for a section.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the script does</h2>
+    <p>For anyone reviewing third-party code before it ships:</p>
+    <ul>
+      <li>Inserts one <code>&lt;iframe&gt;</code> pointing at our host, and sets its height from a
+        <code>postMessage</code> sent by that frame. Messages are accepted only from the frame it
+        created, and only that one message type.</li>
+      <li>Reads your page's query string, to pick which version to render and to carry campaign
+        parameters into the embedded page.</li>
+      <li>Stores a single token in <code>localStorage</code> on your domain, so a personalized
+        visitor stays personalized on return visits. Nothing else is written, and no cookies are
+        set on your domain.</li>
+      <li>Makes no requests other than to our host, and reads nothing else from your page.</li>
+    </ul>
+    <p>
+      Everything inside the frame is isolated from your site by the browser: our styles cannot
+      affect your page, and our code cannot read it.
+    </p>
+  </section>
+
+  <section>
+    <h2>If something looks wrong</h2>
+
+    <details>
+      <summary>Nothing renders at all</summary>
+      <p>
+        Usually the CSP <code>frame-src</code> step. Check the console for a blocked-frame error.
+        Otherwise, confirm the host in the snippet matches the one we gave you &mdash; the page is looked
+        up against whichever host requested it, so a mismatched host returns nothing even with a
+        valid page name.
+      </p>
+    </details>
+
+    <details>
+      <summary>The wrong content renders</summary>
+      <p>
+        Check <code>data-page</code> against the value we sent. It's a short name like
+        <code>sdp-slc</code>, not a full URL.
+      </p>
+    </details>
+
+    <details>
+      <summary>It's much taller than expected, or looks zoomed in</summary>
+      <p>
+        Tell us &mdash; that's ours to fix, not yours. It means the embedded page is sizing against the
+        frame rather than your page.
+      </p>
+    </details>
+
+    <details>
+      <summary>Your original section didn't disappear</summary>
+      <p>
+        The <code>data-hide</code> selector didn't match anything. Confirm it against the live DOM;
+        it must be a valid CSS selector, and IDs are the safest choice since utility classes change
+        when the page is restyled.
+      </p>
+    </details>
+
+    <details>
+      <summary>It vanished and our old section came back</summary>
+      <p>
+        That's the intended fallback: the page it pointed at is no longer published. Working as
+        designed on your side &mdash; ask us to republish.
+      </p>
+    </details>
+  </section>
+
+  <footer>
+    <p>
+      Questions, or a parameter name that collides with something on your site? Reply to whoever
+      sent you this and we'll adjust it &mdash; most of these settings are configurable without you
+      changing the snippet.
+    </p>
+  </footer>
+
+</div>
