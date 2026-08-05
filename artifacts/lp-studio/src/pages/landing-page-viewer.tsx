@@ -411,7 +411,20 @@ function LandingPageViewerInner() {
     const raw = parseInt(searchParams.get("lpvh") ?? "", 10);
     // Clamp junk/hostile values; 800 is a reasonable desktop default when the
     // loader is older than this code and sends nothing.
-    return Number.isFinite(raw) && raw >= 320 && raw <= 2000 ? raw : 800;
+    const hostVh = Number.isFinite(raw) && raw >= 320 && raw <= 2000 ? raw : 800;
+    /**
+     * A "full screen" hero inside an embed should NOT fill the reader's whole
+     * screen — the embed is one section of someone else's page, and a
+     * screen-filling hero means the reader sees nothing but our block, which
+     * reads as a takeover rather than a section. Scaling it here makes every
+     * page embed sensibly with zero per-page authoring: no embed-friendly
+     * variants, no per-section overrides.
+     *
+     * `lpmode=page` opts back into true full height for the deliberate
+     * whole-page-takeover case (the loader sets it from data-mode="page").
+     */
+    const fullBleed = searchParams.get("lpmode") === "page";
+    return Math.round(hostVh * (fullBleed ? 1 : 0.65));
   })();
 
   useEffect(() => {

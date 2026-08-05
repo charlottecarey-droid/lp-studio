@@ -313,6 +313,10 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     // size to fit — that pairing is what feeds back and lands ~3x too tall.
     expect(res.text).toContain("lpvh");
     expect(res.text).toContain("window.innerHeight");
+    // data-mode="page" opts a whole-page takeover back into full-height
+    // heroes; the default (section) scaling needs no per-page authoring.
+    expect(res.text).toContain("data-mode");
+    expect(res.text).toContain("lpmode");
   });
 
   it("404s when the underlying page is unpublished (revoke works)", async () => {

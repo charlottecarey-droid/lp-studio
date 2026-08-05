@@ -85,7 +85,7 @@ const embedLimiter = rateLimit({
 /** Query params forwarded from the host page through to the /lp/ page, so
  *  lp_page_visits attribution (extractUtm in tracking.ts) sees the campaign
  *  that brought the visitor to the CUSTOMER's page, not a bare iframe URL. */
-const FORWARDED_PARAMS = /^(utm_[a-z]+|gclid|lpvh)$/i;
+const FORWARDED_PARAMS = /^(utm_[a-z]+|gclid|lpvh|lpmode)$/i;
 
 /** Belt-and-braces framing headers for iframe-destined responses. */
 function allowFraming(res: Response): void {
@@ -165,6 +165,7 @@ const LOADER_JS = `(function () {
       if (/^utm_[a-z]+$/i.test(k) || k.toLowerCase() === "gclid") out.append(k, v);
     });
     out.set("lpvh", String(Math.max(320, Math.min(2000, Math.round(window.innerHeight) || 800))));
+    if (script.getAttribute("data-mode") === "page") out.set("lpmode", "page");
     forwarded = out.toString();
   } catch (_) {}
 
@@ -232,7 +233,14 @@ const LOADER_JS = `(function () {
  *
  *   <div id="lp-page"></div>
  *   <script async src="https://<tenant-host>/api/embed/page.js"
- *           data-page="<slug>" [data-hide="<selector>"] [data-target="<selector>"]></script>
+ *           data-page="<slug>" [data-hide="<selector>"] [data-target="<selector>"]
+ *           [data-mode="page"]></script>
+ *
+ * `data-mode="page"` marks a deliberate whole-page takeover, which keeps
+ * full-screen heroes at true viewport height. Omitted (the default) the
+ * embed is treated as a SECTION of the host page and viewport-height sizing
+ * is scaled down — so any page embeds sensibly without an embed-specific
+ * variant or per-section tuning.
  *
  * The HOST PAGE's entire query string is forwarded into the iframe (minus
  * our own `embed` flag) — unlike the agenda loader's utm-only allowlist —
@@ -278,6 +286,11 @@ const LOADER_PAGE_JS = `(function () {
     var src = new URLSearchParams(window.location.search);
     src.delete("embed");
     src.set("lpvh", String(Math.max(320, Math.min(2000, Math.round(window.innerHeight) || 800))));
+    // data-mode="page" = deliberate whole-page takeover, so full-screen
+    // heroes stay full-screen. Default (a section of the host page) scales
+    // them down, which is what makes any page embed sensibly with no
+    // per-page authoring.
+    if (script.getAttribute("data-mode") === "page") src.set("lpmode", "page");
     forwarded = src.toString();
   } catch (_) {}
 
