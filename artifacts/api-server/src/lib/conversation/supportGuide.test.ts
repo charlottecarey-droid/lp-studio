@@ -67,6 +67,18 @@ describe("selectGuideSections", () => {
     expect(picked.map((s) => s.slug)).toContain("lead-capture-chat-block");
   });
 
+  it("retrieves the embeds section however the question is phrased", () => {
+    // Three vocabularies for the same job — customers say "our website",
+    // web teams say "embed code", event teams name RainFocus.
+    for (const q of [
+      "how do I put a page on our customer's website?",
+      "where is the embed code for a landing page?",
+      "can the agenda show up on their site instead of RainFocus?",
+    ]) {
+      expect(selectGuideSections(q).map((s) => s.slug)).toContain("website-embeds");
+    }
+  });
+
   it("falls back to the intro sections when nothing matches", () => {
     const picked = selectGuideSections("zzz qqq xxyzzy");
     expect(picked.length).toBeGreaterThan(0);
