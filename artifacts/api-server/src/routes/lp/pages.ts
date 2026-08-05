@@ -1,6 +1,7 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
+import { randomBytes } from "node:crypto";
 import { eq, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
@@ -783,6 +784,42 @@ router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
     return;
   }
   res.json(page);
+});
+
+/**
+ * Mint (or return) this page's embed token — the opaque key a personalized
+ * link carries to select this page inside a website embed
+ * (`?lp_page=<token>` → GET /api/embed/p/:token, migration 0138).
+ *
+ * On demand rather than at publish: most pages are never embedded, and a
+ * token only exists to be put in a link. Never rotated once minted — the
+ * links live in emails we can't edit after sending.
+ *
+ * Published-only: an unpublished page's token would resolve to nothing, so
+ * handing one out would just produce a dead link.
+ */
+router.post("/lp/pages/:pageId/embed-token", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+
+  const [page] = await db
+    .select({ id: lpPagesTable.id, status: lpPagesTable.status, embedToken: lpPagesTable.embedToken })
+    .from(lpPagesTable)
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+  if (!page) { res.status(404).json({ error: "Page not found" }); return; }
+  if (page.status !== "published") {
+    res.status(409).json({ error: "Publish the page before creating an embed link." });
+    return;
+  }
+  if (page.embedToken) { res.json({ embedToken: page.embedToken }); return; }
+
+  const embedToken = randomBytes(16).toString("base64url");
+  await db
+    .update(lpPagesTable)
+    .set({ embedToken })
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+  res.json({ embedToken });
 });
 
 router.post("/lp/pages/:pageId/submit-review", async (req, res): Promise<void> => {

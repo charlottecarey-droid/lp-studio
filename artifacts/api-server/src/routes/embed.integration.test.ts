@@ -28,6 +28,7 @@ import { pool } from "@workspace/db";
 import { inject } from "../test-utils/injectRequest";
 import { invalidateTenantHostCache } from "../lib/tenantHosts";
 import eventsRouter from "./sales/events";
+import lpPagesRouter from "./lp/pages";
 import embedRouter from "./embed";
 
 const STAMP = Date.now();
@@ -99,6 +100,7 @@ beforeAll(async () => {
     next();
   });
   app.use(eventsRouter);
+  app.use(lpPagesRouter);
   app.use(embedRouter);
 
   const eventRes = await inject(app, {
@@ -132,12 +134,14 @@ afterAll(async () => {
 describe.skipIf(!dbAvailable)("agenda embed surface", () => {
   let embedToken: string;
   let pageSlug: string;
+  let pageId: number;
 
   it("publish mints an embed token and returns it", async () => {
     const res = await inject(app, { method: "POST", url: `/agendas/${agendaId}/publish` });
     expect(res.status).toBe(200);
-    const body = res.json as { slug: string; embedToken: string };
+    const body = res.json as { slug: string; embedToken: string; pageId: number };
     pageSlug = body.slug;
+    pageId = body.pageId;
     embedToken = body.embedToken;
     // 16 random bytes → 22 base64url chars, no padding.
     expect(embedToken).toMatch(/^[A-Za-z0-9_-]{22}$/);
@@ -300,6 +304,55 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect(unknown.status).toBe(404);
   });
 
+  it("renders a DIFFERENT page per visitor by token, scoped to the host's tenant", async () => {
+    // The whole point of the feature: one installed snippet, a personalized
+    // link per account. Mint a token the way the Pages row does.
+    const minted = await inject(app, { method: "POST", url: `/lp/pages/${pageId}/embed-token` });
+    expect(minted.status).toBe(200);
+    const token = (minted.json as { embedToken: string }).embedToken;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+
+    // Stable: a second call returns the same token, because it is already
+    // sitting in links we cannot edit after sending.
+    const again = await inject(app, { method: "POST", url: `/lp/pages/${pageId}/embed-token` });
+    expect((again.json as { embedToken: string }).embedToken).toBe(token);
+
+    const res = await inject(app, {
+      method: "GET",
+      url: `/embed/p/${token}?utm_source=email`,
+      headers: { host: TENANT_DOMAIN },
+    });
+    expect(res.status).toBe(302);
+    const url = new URL(String(res.headers.location), "https://placeholder.invalid");
+    expect(url.pathname).toBe(`/lp/${pageSlug}`);
+    expect(url.searchParams.get("embed")).toBe("1");
+    expect(url.searchParams.get("utm_source")).toBe("email");
+    expect(res.headers["x-frame-options"]).toBeUndefined();
+
+    // A token is not a skeleton key: it only works on its own tenant's host.
+    const crossTenant = await inject(app, {
+      method: "GET",
+      url: `/embed/p/${token}`,
+      headers: { host: OTHER_TENANT_DOMAIN },
+    });
+    expect(crossTenant.status).toBe(404);
+
+    const unknown = await inject(app, {
+      method: "GET",
+      url: "/embed/p/AAAAAAAAAAAAAAAAAAAAAA",
+      headers: { host: TENANT_DOMAIN },
+    });
+    expect(unknown.status).toBe(404);
+    expect(unknown.text).toContain("lp-embed-missing");
+  });
+
+  it("refuses an embed link for an unpublished page", async () => {
+    await pool.query(`UPDATE lp_pages SET status = 'draft' WHERE id = $1`, [pageId]);
+    const res = await inject(app, { method: "POST", url: `/lp/pages/${pageId}/embed-token` });
+    expect(res.status).toBe(409);
+    await pool.query(`UPDATE lp_pages SET status = 'published' WHERE id = $1`, [pageId]);
+  });
+
   it("serves the page loader with the same cross-origin + fallback contract", async () => {
     const res = await inject(app, { method: "GET", url: "/embed/page.js" });
     expect(res.status).toBe(200);
@@ -308,6 +361,11 @@ describe.skipIf(!dbAvailable)("agenda embed surface", () => {
     expect(res.text).toContain("data-page");
     expect(res.text).toContain("lp-embed-height");
     expect(res.text).toContain("lp-embed-missing");
+    // Personalized-link contract: reads a token param, remembers it, and
+    // routes to the token endpoint rather than the fixed slug.
+    expect(res.text).toContain("lp_page");
+    expect(res.text).toContain("/api/embed/p/");
+    expect(res.text).toContain("lp-embed-page:");
     // Sends the HOST window's height so 100vh sizing inside the embed
     // resolves against the reader's screen instead of the iframe we then
     // size to fit — that pairing is what feeds back and lands ~3x too tall.

@@ -233,8 +233,16 @@ const LOADER_JS = `(function () {
  *
  *   <div id="lp-page"></div>
  *   <script async src="https://<tenant-host>/api/embed/page.js"
- *           data-page="<slug>" [data-hide="<selector>"] [data-target="<selector>"]
- *           [data-mode="page"]></script>
+ *           data-page="<slug>" [data-param="lp_page"] [data-hide="<selector>"]
+ *           [data-target="<selector>"] [data-mode="page"]></script>
+ *
+ * PERSONALIZED PER VISITOR: a link carrying `?lp_page=<token>` selects WHICH
+ * page fills the slot, so one installed snippet serves a different page per
+ * account (`/embed/p/:token`). `data-page` is the fallback everyone else
+ * sees; omit it and an unpersonalized visitor gets nothing, leaving the
+ * host's own section in place. Tokens stick per browser like the agenda
+ * widget's, and a dead token falls back to the generic page before giving
+ * the section back.
  *
  * `data-mode="page"` marks a deliberate whole-page takeover, which keeps
  * full-screen heroes at true viewport height. Omitted (the default) the
@@ -254,8 +262,21 @@ const LOADER_PAGE_JS = `(function () {
   if (!script) return;
   var origin;
   try { origin = new URL(script.src).origin; } catch (_) { return; }
+  // Personalized links: ?<param>=<token> picks WHICH page fills this slot,
+  // so one installed snippet can render a different page per visitor.
+  // data-page is the fallback everyone else sees; omit it and an
+  // unpersonalized visitor gets nothing (leaving the host's own section in
+  // place, same contract as the agenda widget's data-default).
+  var param = script.getAttribute("data-param") || "lp_page";
+  var storageKey = "lp-embed-page:" + param;
+  var urlToken = "";
+  try { urlToken = new URLSearchParams(window.location.search).get(param) || ""; } catch (_) {}
+  var stored = "";
+  try { stored = window.localStorage.getItem(storageKey) || ""; } catch (_) {}
+  var token = urlToken || stored;
   var slug = script.getAttribute("data-page") || "";
-  if (!slug) return;
+  if (!token && !slug) return;
+  if (urlToken) { try { window.localStorage.setItem(storageKey, urlToken); } catch (_) {} }
 
   var hideSel = script.getAttribute("data-hide");
   var hiddenEls = [];
@@ -295,7 +316,12 @@ const LOADER_PAGE_JS = `(function () {
   } catch (_) {}
 
   var iframe = document.createElement("iframe");
-  iframe.src = origin + "/api/embed/page/" + encodeURIComponent(slug) + (forwarded ? "?" + forwarded : "");
+  // Token route when personalized, slug route otherwise.
+  var path = token
+    ? "/api/embed/p/" + encodeURIComponent(token)
+    : "/api/embed/page/" + encodeURIComponent(slug);
+  var triedFallback = !token;
+  iframe.src = origin + path + (forwarded ? "?" + forwarded : "");
   iframe.title = "Embedded page";
   iframe.style.width = "100%";
   iframe.style.border = "0";
@@ -318,7 +344,16 @@ const LOADER_PAGE_JS = `(function () {
       return;
     }
     if (d.type === "lp-embed-missing") {
-      // Unpublished/unknown page: give the section back to the site.
+      // Dead token (unpublished, revoked, mistyped): forget it, then fall
+      // back to the generic page if one is configured, and only failing
+      // that give the section back to the site. Mirrors the agenda loader
+      // so a stale personalized link can never strand a visitor.
+      try { window.localStorage.removeItem(storageKey); } catch (_) {}
+      if (slug && !triedFallback) {
+        triedFallback = true;
+        iframe.src = origin + "/api/embed/page/" + encodeURIComponent(slug) + (forwarded ? "?" + forwarded : "");
+        return;
+      }
       if (hideSel) {
         if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
         restoreFallback();
@@ -350,6 +385,22 @@ router.get("/embed/page.js", embedLimiter, (_req: Request, res: Response): void 
  * procore.com pointing at the tenant's own host can only ever reach that
  * tenant's pages.
  */
+/**
+ * Send the iframe on to the published page. Shared by the slug route (the
+ * generic embed everyone sees) and the token route (the personalized one),
+ * so the two can never drift on framing headers or param forwarding.
+ */
+function redirectToPage(req: Request, res: Response, slug: string): void {
+  const qs = new URLSearchParams({ embed: "1" });
+  for (const [k, v] of Object.entries(req.query)) {
+    if (k === "embed") continue; // ours — the loader strips it too, belt and braces
+    if (typeof v === "string") qs.append(k, v);
+  }
+  allowFraming(res);
+  res.set("Cache-Control", "no-store");
+  res.redirect(302, `/lp/${encodeURIComponent(slug)}?${qs.toString()}`);
+}
+
 router.get("/embed/page/:slug", embedLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const rawSlug = req.params.slug;
@@ -366,17 +417,43 @@ router.get("/embed/page/:slug", embedLimiter, async (req: Request, res: Response
       .where(and(eq(lpPagesTable.tenantId, tenantMatch.tenantId), eq(lpPagesTable.slug, slug)));
     if (!page || page.status !== "published") { embedNotFound(res); return; }
 
-    const qs = new URLSearchParams({ embed: "1" });
-    for (const [k, v] of Object.entries(req.query)) {
-      if (k === "embed") continue; // ours — the loader strips it too, belt and braces
-      if (typeof v === "string") qs.append(k, v);
-    }
-
-    allowFraming(res);
-    res.set("Cache-Control", "no-store");
-    res.redirect(302, `/lp/${encodeURIComponent(page.slug)}?${qs.toString()}`);
+    redirectToPage(req, res, page.slug);
   } catch (err) {
     console.error("[embed] page resolve error", err);
+    res.status(500).set("Cache-Control", "no-store").send("Internal server error");
+  }
+});
+
+/**
+ * Personalized variant: resolve a page by its opaque embed token, so one
+ * installed snippet can render a different page per visitor. The token is
+ * looked up with NO tenant (it's globally unique), then the request host's
+ * tenant is verified against the page's — without that check, one tenant's
+ * token on another tenant's host would cross the namespace.
+ */
+router.get("/embed/p/:token", embedLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawToken = req.params.token;
+    const token = (typeof rawToken === "string" ? rawToken : "").trim();
+    if (!token || token.length > 64) { embedNotFound(res); return; }
+
+    const [page] = await db
+      .select({
+        slug: lpPagesTable.slug,
+        status: lpPagesTable.status,
+        tenantId: lpPagesTable.tenantId,
+      })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.embedToken, token));
+    if (!page || page.status !== "published") { embedNotFound(res); return; }
+
+    const host = getRequestHost(req);
+    const tenantMatch = host ? await findTenantByHost(host) : null;
+    if (!tenantMatch || tenantMatch.tenantId !== page.tenantId) { embedNotFound(res); return; }
+
+    redirectToPage(req, res, page.slug);
+  } catch (err) {
+    console.error("[embed] page token resolve error", err);
     res.status(500).set("Cache-Control", "no-store").send("Internal server error");
   }
 });

@@ -1,5 +1,6 @@
 import { pgTable, text, serial, timestamp, jsonb, boolean, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 
 export const lpPagesTable = pgTable("lp_pages", {
@@ -177,11 +178,30 @@ export const lpPagesTable = pgTable("lp_pages", {
   // shown only in the Watch-It-Build receipt and then dropped. Shape:
   //   { imageFitFlags: ImageFitFlag[], critiqueAnnotations: CritiqueAnnotation[] }
   generationAnnotations: jsonb("generation_annotations"),
+  /** Opaque key that lets a personalized LINK select this page inside a
+   *  website embed (migration 0138) — the same contract as
+   *  `sales_event_agendas.embed_token` (0135), generalized from agendas to
+   *  any page so one snippet on a customer's site can render a different
+   *  page per visitor.
+   *
+   *  A token rather than the slug because these appear in URLs handed to
+   *  named accounts, and slugs read like `acme-corp-welcome`: the slug
+   *  would publish the account list to anyone who collects the links.
+   *
+   *  Minted on demand (nobody needs one until a link is copied) and never
+   *  rotated, because links live in emails we can't edit after sending. */
+  embedToken: text("embed_token"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   // Per-tenant uniqueness: each tenant can have its own page named "pricing".
   uniqueIndex("lp_pages_tenant_slug_unique").on(table.tenantId, table.slug),
+  // Globally unique BY DESIGN: the embed redirect resolves a token with no
+  // tenant in hand, then verifies the request host's tenant against the
+  // page's. Same rationale as 0135.
+  uniqueIndex("lp_pages_embed_token_key")
+    .on(table.embedToken)
+    .where(sql`${table.embedToken} IS NOT NULL`),
 ]);
 
 export const insertLpPageSchema = createInsertSchema(lpPagesTable).omit({ id: true, createdAt: true, updatedAt: true });
