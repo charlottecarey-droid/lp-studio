@@ -17,7 +17,18 @@ import { API_BASE, type Page } from "./types";
    independent. Remembering the last-used param per page keeps the snippet
    and every link minted for it on the same key. */
 const PARAM_STORAGE_PREFIX = "lpStudio.embedParam.";
+const MODE_STORAGE_PREFIX = "lpStudio.embedMode.";
 const DEFAULT_PARAM = "lp_page";
+
+type EmbedMode = "personalized" | "static";
+
+/* Static embeds get a page-specific param: the loader always listens for
+   tokens on its param (there is no off switch), so a unique name nobody
+   mints links for makes "this slot never personalizes" true by
+   construction. The shared lp_page default stays for personalized slots,
+   where any minted link matching any default snippet is the point. */
+const staticParamFor = (slug: string) =>
+  ("lp_" + slug.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "")).slice(0, 64) || DEFAULT_PARAM;
 
 export function EmbedDialog({ page, onClose }: { page: Page; onClose: () => void }) {
   const { domainContext, user } = useAuth();
@@ -30,9 +41,22 @@ export function EmbedDialog({ page, onClose }: { page: Page; onClose: () => void
     ? `https://${micrositeDomain}`
     : tenantHost ? `https://${tenantHost}` : window.location.origin;
 
-  const [param, setParam] = useState<string>(() => {
-    try { return window.localStorage.getItem(PARAM_STORAGE_PREFIX + page.id) || DEFAULT_PARAM; } catch { return DEFAULT_PARAM; }
+  const [mode, setMode] = useState<EmbedMode>(() => {
+    try { return window.localStorage.getItem(MODE_STORAGE_PREFIX + page.id) === "static" ? "static" : "personalized"; } catch { return "personalized"; }
   });
+  const [param, setParam] = useState<string>(() => {
+    try {
+      const stored = window.localStorage.getItem(PARAM_STORAGE_PREFIX + page.id);
+      if (stored) return stored;
+      return window.localStorage.getItem(MODE_STORAGE_PREFIX + page.id) === "static" ? staticParamFor(page.slug) : DEFAULT_PARAM;
+    } catch { return DEFAULT_PARAM; }
+  });
+
+  const pickMode = (m: EmbedMode) => {
+    setMode(m);
+    setParam(m === "static" ? staticParamFor(page.slug) : DEFAULT_PARAM);
+    try { window.localStorage.setItem(MODE_STORAGE_PREFIX + page.id, m); } catch {}
+  };
   const paramOk = /^[A-Za-z0-9_-]{1,64}$/.test(param);
   const [copied, setCopied] = useState<"snippet" | "link" | null>(null);
   const [minting, setMinting] = useState(false);
@@ -90,12 +114,29 @@ export function EmbedDialog({ page, onClose }: { page: Page; onClose: () => void
               Publish this page first — embeds only render published pages.
             </p>
           )}
-          <p className="text-sm text-muted-foreground">
-            The snippet renders this page inside another website. A link ending in the
-            personalized suffix makes that visitor's slot show a different page — every
-            slot on the site using the same link param follows the same link, so give
-            independent slots different param names.
-          </p>
+          <div>
+            <Label className="text-sm font-medium">How will this be used?</Label>
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
+              <button
+                type="button"
+                aria-pressed={mode === "static"}
+                onClick={() => pickMode("static")}
+                className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${mode === "static" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <span className="block text-[13px] font-semibold">Static widget</span>
+                <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">Every visitor sees this page. Nothing can personalize the slot.</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === "personalized"}
+                onClick={() => pickMode("personalized")}
+                className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${mode === "personalized" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <span className="block text-[13px] font-semibold">Personalized by links</span>
+                <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">A link's token picks which page fills the slot; this page is the fallback.</span>
+              </button>
+            </div>
+          </div>
           <div>
             <Label className="text-sm font-medium">Link param</Label>
             <Input
@@ -107,6 +148,11 @@ export function EmbedDialog({ page, onClose }: { page: Page; onClose: () => void
             {!paramOk && (
               <p className="text-xs text-red-500 mt-1">Letters, numbers, dashes and underscores only.</p>
             )}
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {mode === "static"
+                ? "Page-specific name, so links minted for other slots can never swap this one."
+                : "Slots sharing a param follow the same link — give independent slots different names, and mint links with the same param as the installed snippet."}
+            </p>
           </div>
           <div>
             <Label className="text-sm font-medium">Snippet <span className="text-muted-foreground font-normal">— paste where the content should appear</span></Label>
@@ -123,18 +169,22 @@ export function EmbedDialog({ page, onClose }: { page: Page; onClose: () => void
               {copied === "snippet" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               {copied === "snippet" ? "Copied" : "Copy snippet"}
             </Button>
-            <Button onClick={copyLink} disabled={!paramOk || !isPublished || minting} variant="outline" className="gap-2">
-              {minting ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : copied === "link" ? <Check className="w-3.5 h-3.5 text-emerald-500" />
-                : <Link2 className="w-3.5 h-3.5" />}
-              {copied === "link" ? "Copied" : "Copy personalized link suffix"}
-            </Button>
+            {mode === "personalized" && (
+              <Button onClick={copyLink} disabled={!paramOk || !isPublished || minting} variant="outline" className="gap-2">
+                {minting ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : copied === "link" ? <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  : <Link2 className="w-3.5 h-3.5" />}
+                {copied === "link" ? "Copied" : "Copy personalized link suffix"}
+              </Button>
+            )}
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            The suffix (<code>?{paramOk ? param : DEFAULT_PARAM}=…</code>) goes on the end of the
-            host site's URL — that visitor's slot then shows this page, and it sticks in their
-            browser on later visits.
-          </p>
+          {mode === "personalized" && (
+            <p className="text-[11px] text-muted-foreground">
+              The suffix (<code>?{paramOk ? param : DEFAULT_PARAM}=…</code>) goes on the end of the
+              host site's URL — that visitor's slot then shows this page, and it sticks in their
+              browser on later visits.
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -96,6 +96,35 @@ describe("EmbedDialog", () => {
     expect((screen.getByText("Copy personalized link suffix").closest("button") as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("static mode isolates the slot: page-specific param, no link minting", async () => {
+    render(<EmbedDialog page={makePage()} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByText("Static widget"));
+    // Param becomes page-specific so tokens minted for other slots can never
+    // swap this one — and the link button disappears (no tokens should exist).
+    expect((screen.getByPlaceholderText("lp_page") as HTMLInputElement).value).toBe("lp_pepperpointe");
+    expect(screen.queryByText("Copy personalized link suffix")).toBeNull();
+
+    fireEvent.click(screen.getByText("Copy snippet"));
+    await waitFor(() => expect(clipboardWrites.length).toBe(1));
+    expect(clipboardWrites[0]).toContain('data-param="lp_pepperpointe"');
+  });
+
+  it("remembers static mode per page", async () => {
+    const { unmount } = render(<EmbedDialog page={makePage()} onClose={() => {}} />);
+    fireEvent.click(screen.getByText("Static widget"));
+    unmount();
+
+    render(<EmbedDialog page={makePage()} onClose={() => {}} />);
+    expect(screen.queryByText("Copy personalized link suffix")).toBeNull();
+    expect((screen.getByPlaceholderText("lp_page") as HTMLInputElement).value).toBe("lp_pepperpointe");
+
+    // Switching back restores the shared personalized default.
+    fireEvent.click(screen.getByText("Personalized by links"));
+    expect((screen.getByPlaceholderText("lp_page") as HTMLInputElement).value).toBe("lp_page");
+    expect(screen.getByText("Copy personalized link suffix")).toBeTruthy();
+  });
+
   it("rejects param names that wouldn't survive a URL", () => {
     render(<EmbedDialog page={makePage()} onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText("lp_page"), { target: { value: "bad param!" } });
