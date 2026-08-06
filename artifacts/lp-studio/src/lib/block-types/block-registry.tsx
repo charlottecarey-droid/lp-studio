@@ -1650,8 +1650,10 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       headline: "What are remakes really costing you?",
       subheadline: "",
       scenarioLabel: "How would you describe your operation?",
+      /* Rates anchor to the roi-calculator block's benchmarks: Lean = its
+         "improved" rate (2%), Steady = its "current" rate (5%). */
       scenarios: [
-        { id: "lean", label: "Lean", description: "Tight remake rate, high chair utilization", remakeRate: 2.5 },
+        { id: "lean", label: "Lean", description: "Tight remake rate, high chair utilization", remakeRate: 2 },
         { id: "steady", label: "Steady", description: "Room to tighten, nothing alarming", remakeRate: 5 },
         { id: "scaling", label: "Scaling fast", description: "Growth has outpaced process", remakeRate: 8 },
       ],
@@ -1659,12 +1661,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       calculateLabel: "See what remakes are costing me",
       resultsLabel: "Your results",
       resultsSublabel: "Remake rate impact",
-      resultsHeadline: "Lost to remakes annually due to added lab spend and lost chair time",
+      resultsHeadline: "Lost to remakes annually across forfeited production, chair time, and lab costs",
       resultsPlaceholder: "Enter your numbers and we'll estimate what remakes cost across your organization.",
       resultsFootnote: "This is one lever. Scheduling, case acceptance, and treatment planning matter too.",
-      defaultRestorationsPerPractice: 60,
+      defaultRestorationsPerPractice: 250,
       defaultChairTimeHours: 1,
-      defaultLabCostPct: 15,
+      defaultLabCostPerCase: 50,
       defaultProductionPerHour: 500,
       backgroundStyle: "muted",
     }),

@@ -997,11 +997,13 @@ export interface RemakeCostCalculatorBlockProps {
   resultsPlaceholder: string;
   /** Perspective note under the results (e.g. "this is one lever…"). */
   resultsFootnote?: string;
-  /** Assumption defaults, overridable per visitor in the refine section. */
+  /** Assumption defaults, overridable per visitor in the refine section.
+   *  Benchmarks match the roi-calculator block's remake-impact section
+   *  (250 cases/mo, 1h chair time, $50 lab hard cost, $500/hr production). */
   defaultRestorationsPerPractice: number;
   defaultChairTimeHours: number;
-  /** Lab hard cost per case as a % of avg case value. */
-  defaultLabCostPct: number;
+  /** Lab hard cost per remake in dollars (the lab charges again). */
+  defaultLabCostPerCase: number;
   defaultProductionPerHour: number;
   backgroundStyle: BackgroundStyle;
   accentColor?: string;

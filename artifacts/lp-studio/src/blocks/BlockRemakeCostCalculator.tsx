@@ -132,22 +132,26 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
   const caseValue = num(caseValueStr);
   const canCalculate = practices !== null && practices > 0 && caseValue !== null && caseValue > 0;
 
+  // `?? 50` guards pages saved before the defaultLabCostPct → PerCase rename.
+  const labCostDefault = props.defaultLabCostPerCase ?? 50;
+
   const result = useMemo(() => {
     if (!canCalculate || !scenario) return null;
     const restorations = num(restorationsStr) ?? props.defaultRestorationsPerPractice;
     // Editing the rate in "refine" overrides the selected chip's benchmark.
     const remakeRate = num(remakeRateStr) ?? scenario.remakeRate;
     const chairTime = num(chairTimeStr) ?? props.defaultChairTimeHours;
-    const labCost = num(labCostStr) ?? (caseValue! * props.defaultLabCostPct) / 100;
+    const labCost = num(labCostStr) ?? labCostDefault;
     const prodPerHour = num(prodPerHourStr) ?? props.defaultProductionPerHour;
 
     const remakesPerPracticeYear = restorations * 12 * (remakeRate / 100);
-    const costPerRemake = labCost + chairTime * prodPerHour;
+    // Same remake economics as the roi-calculator block: each remake forfeits
+    // the case's full production value, burns chair time re-valued at
+    // production/hour, and pays the lab's per-case hard cost again.
+    const costPerRemake = caseValue! + chairTime * prodPerHour + labCost;
     const perPractice = remakesPerPracticeYear * costPerRemake;
     return { perPractice, total: perPractice * practices!, practices: practices! };
-  }, [canCalculate, scenario, practicesStr, caseValueStr, restorationsStr, remakeRateStr, chairTimeStr, labCostStr, prodPerHourStr, props, caseValue, practices]);
-
-  const derivedLabCost = caseValue !== null ? Math.round((caseValue * props.defaultLabCostPct) / 100) : null;
+  }, [canCalculate, scenario, practicesStr, caseValueStr, restorationsStr, remakeRateStr, chairTimeStr, labCostStr, prodPerHourStr, props, caseValue, practices, labCostDefault]);
   const showResults = revealed && result !== null;
 
   return (
@@ -217,7 +221,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
 
             <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
               <Field label="Number of practices" value={practicesStr} onChange={(v) => setPracticesStr(v)} placeholder="e.g. 12" />
-              <Field label="Avg case value ($)" value={caseValueStr} onChange={(v) => setCaseValueStr(v)} placeholder="e.g. 1200" prefix="$" />
+              <Field label="Avg case value ($)" value={caseValueStr} onChange={(v) => setCaseValueStr(v)} placeholder="e.g. 1500" prefix="$" />
             </div>
 
             <div>
@@ -255,7 +259,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                     label="Avg lab hard cost per case ($)"
                     value={labCostStr}
                     onChange={setLabCostStr}
-                    placeholder={derivedLabCost !== null ? `e.g. ${derivedLabCost}` : `${props.defaultLabCostPct}% of case value`}
+                    placeholder={`e.g. ${labCostDefault}`}
                     prefix="$"
                   />
                   <Field

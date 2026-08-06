@@ -35,7 +35,7 @@ export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props)
     onChange({ ...props, scenarios });
   };
 
-  const numField = (key: "defaultRestorationsPerPractice" | "defaultChairTimeHours" | "defaultLabCostPct" | "defaultProductionPerHour") =>
+  const numField = (key: "defaultRestorationsPerPractice" | "defaultChairTimeHours" | "defaultLabCostPerCase" | "defaultProductionPerHour") =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
       onChange({ ...props, [key]: parseFloat(e.target.value) || 0 });
 
@@ -80,8 +80,8 @@ export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props)
         <FieldRow label="Chair time (hrs)" hint="Per remake">
           <Input type="number" step={0.25} value={props.defaultChairTimeHours} onChange={numField("defaultChairTimeHours")} className="h-7 text-xs" />
         </FieldRow>
-        <FieldRow label="Lab cost (%)" hint="Of avg case value">
-          <Input type="number" value={props.defaultLabCostPct} onChange={numField("defaultLabCostPct")} className="h-7 text-xs" />
+        <FieldRow label="Lab cost ($)" hint="Per remake">
+          <Input type="number" value={props.defaultLabCostPerCase ?? 50} onChange={numField("defaultLabCostPerCase")} className="h-7 text-xs" />
         </FieldRow>
         <FieldRow label="Production / hr ($)">
           <Input type="number" value={props.defaultProductionPerHour} onChange={numField("defaultProductionPerHour")} className="h-7 text-xs" />
