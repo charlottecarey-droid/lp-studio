@@ -32,7 +32,6 @@ import {
   Bell,
   BellRing,
   Mail,
-  Code2,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -1201,55 +1200,6 @@ export default function SalesPages() {
                                   }}
                                 >
                                   {copiedToken === copyKey ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                                </Button>
-                                <Button
-                                  variant="ghost" size="icon"
-                                  className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
-                                  title="Copy personalized embed link — append to the host-site URL so this page fills their embedded slot for that recipient"
-                                  disabled={row.pageStatus !== "published"}
-                                  onClick={() => {
-                                    /* Token is minted on first copy: most pages are
-                                       never embedded, and it only exists to go in a
-                                       link. Published-only, enforced server-side too. */
-                                    fetch(`${API_BASE}/lp/pages/${row.pageId}/embed-token`, { method: "POST" })
-                                      .then(async (r) => {
-                                        const data = await r.json().catch(() => ({}));
-                                        if (!r.ok) throw new Error(data.error || "Couldn't create the link");
-                                        await navigator.clipboard.writeText(`?lp_page=${data.embedToken}`);
-                                        setCopiedToken(`${copyKey}-link`);
-                                        setTimeout(() => setCopiedToken(null), 2000);
-                                      })
-                                      .catch((e) => toast({ title: String(e.message || e), variant: "destructive" }));
-                                  }}
-                                >
-                                  {copiedToken === `${copyKey}-link` ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Link2 className="w-3.5 h-3.5" />}
-                                </Button>
-                                <Button
-                                  variant="ghost" size="icon"
-                                  className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
-                                  title="Copy embed snippet — renders this page inside another website (add data-hide=&quot;selector&quot; to replace an existing section)"
-                                  onClick={() => {
-                                    /* Same host-resolution order as getLpPageUrl: the loader
-                                       must be served from the host that owns the slug, or the
-                                       embed redirect resolves the wrong tenant. */
-                                    const embedOrigin = micrositeDomain
-                                      ? `https://${micrositeDomain}`
-                                      : tenantHost ? `https://${tenantHost}` : window.location.origin;
-                                    /* data-param is explicit so the installed snippet and
-                                       the personalized links copied from these rows can't
-                                       drift apart. data-page is the fallback everyone
-                                       without a link sees — drop it to leave the host's
-                                       own section in place instead. */
-                                    const snippet =
-                                      `<div id="lp-page"></div>\n` +
-                                      `<script async src="${embedOrigin}/api/embed/page.js" data-param="lp_page" data-page="${row.pageSlug}"></script>`;
-                                    navigator.clipboard.writeText(snippet).then(() => {
-                                      setCopiedToken(`${copyKey}-embed`);
-                                      setTimeout(() => setCopiedToken(null), 2000);
-                                    });
-                                  }}
-                                >
-                                  {copiedToken === `${copyKey}-embed` ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Code2 className="w-3.5 h-3.5" />}
                                 </Button>
                                 <Button
                                   variant="ghost" size="icon"

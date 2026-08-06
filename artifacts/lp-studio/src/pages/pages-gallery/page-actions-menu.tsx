@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Code2,
   Copy,
   FlaskConical,
   Link2,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_BASE, type Page } from "./types";
+import { EmbedDialog } from "./embed-dialog";
 import { SaveTemplateDialog } from "./save-template-dialog";
 
 export function PageActionsMenu({
@@ -36,6 +38,7 @@ export function PageActionsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [showEmbedDialog, setShowEmbedDialog] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,6 +87,11 @@ export function PageActionsMenu({
       icon: <Link2 className="w-3.5 h-3.5" />,
       label: "Personalized Links",
       onClick: () => { setOpen(false); onLinks(); },
+    },
+    {
+      icon: <Code2 className="w-3.5 h-3.5" />,
+      label: "Embed on a Website",
+      onClick: () => { setOpen(false); setShowEmbedDialog(true); },
     },
     {
       icon: <Share2 className="w-3.5 h-3.5" />,
@@ -158,6 +166,10 @@ export function PageActionsMenu({
           onClose={() => setShowTemplateDialog(false)}
           onSaved={onTemplateSaved}
         />
+      )}
+
+      {showEmbedDialog && (
+        <EmbedDialog page={page} onClose={() => setShowEmbedDialog(false)} />
       )}
     </>
   );
