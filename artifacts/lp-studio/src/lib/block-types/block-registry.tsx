@@ -53,6 +53,7 @@ import type {
   AiScanHeroBlockProps,
   ParallaxImageHeroBlockProps,
   RoiCalculatorBlockProps,
+  RemakeCostCalculatorBlockProps,
   DandyVersusBlockProps,
   DandyColumnsV2BlockProps,
   DandyColumnsV3BlockProps,
@@ -243,6 +244,8 @@ import type {
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
   EventPageBlockProps,
+  EventPageAgendaSectionBlockProps,
+  EventPageDetailsSectionBlockProps,
   ProductLaunchBlockProps,
   StoryHubBlockProps,
   EventLandingHeroBlockProps,
@@ -1636,6 +1639,52 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="82" y="37" width="26" height="5" rx="1.5" fill="white" opacity="0.15" />
         <rect x="82" y="48" width="26" height="7" rx="3.5" fill="#C7E738" />
         <rect x="8" y="52" width="48" height="6" rx="3" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "remake-cost-calculator",
+    label: "Remake Cost Calculator",
+    category: "Interactive",
+    defaultProps: (): RemakeCostCalculatorBlockProps => ({
+      headline: "What are remakes really costing you?",
+      subheadline: "",
+      scenarioLabel: "How would you describe your operation?",
+      scenarios: [
+        { id: "lean", label: "Lean", description: "Tight remake rate, high chair utilization", remakeRate: 2.5 },
+        { id: "steady", label: "Steady", description: "Room to tighten, nothing alarming", remakeRate: 5 },
+        { id: "scaling", label: "Scaling fast", description: "Growth has outpaced process", remakeRate: 8 },
+      ],
+      refineLabel: "Refine your estimate (optional)",
+      calculateLabel: "See what remakes are costing me",
+      resultsLabel: "Your results",
+      resultsSublabel: "Remake rate impact",
+      resultsHeadline: "Lost to remakes annually due to added lab spend and lost chair time",
+      resultsPlaceholder: "Enter your numbers and we'll estimate what remakes cost across your organization.",
+      resultsFootnote: "This is one lever. Scheduling, case acceptance, and treatment planning matter too.",
+      defaultRestorationsPerPractice: 60,
+      defaultChairTimeHours: 1,
+      defaultLabCostPct: 15,
+      defaultProductionPerHour: 500,
+      backgroundStyle: "muted",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#faf6ef" rx="4" />
+        <rect x="8" y="8" width="62" height="54" rx="4" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="12" y="13" width="17" height="10" rx="2" fill="#C7E738" opacity="0.35" />
+        <rect x="31" y="13" width="17" height="10" rx="2" fill="none" stroke="#e2e8f0" strokeWidth="0.8" />
+        <rect x="50" y="13" width="16" height="10" rx="2" fill="none" stroke="#e2e8f0" strokeWidth="0.8" />
+        <rect x="12" y="28" width="26" height="8" rx="2" fill="none" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="40" y="28" width="26" height="8" rx="2" fill="none" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="12" y="41" width="30" height="3" rx="1.5" fill="#94a3b8" opacity="0.5" />
+        <rect x="12" y="49" width="54" height="8" rx="4" fill="#003A30" />
+        <rect x="76" y="8" width="36" height="54" rx="4" fill="#003A30" />
+        <rect x="80" y="14" width="22" height="4" rx="1.5" fill="white" opacity="0.85" />
+        <rect x="80" y="21" width="16" height="2.5" rx="1" fill="white" opacity="0.4" />
+        <rect x="80" y="30" width="26" height="8" rx="1.5" fill="#C7E738" opacity="0.9" />
+        <rect x="80" y="42" width="24" height="2.5" rx="1" fill="white" opacity="0.5" />
+        <rect x="80" y="47" width="20" height="2.5" rx="1" fill="white" opacity="0.35" />
       </svg>
     ),
   },
@@ -3631,6 +3680,95 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="14" y="50" width="40" height="10" rx="2" fill="#141619"/>
         <rect x="58" y="50" width="48" height="10" rx="2" fill="#141619"/>
         <rect x="40" y="66" width="40" height="8" rx="1" fill="#b59a6e"/>
+      </svg>
+    ),
+  },
+  {
+    type: "event-page-agenda",
+    label: "Event Page: Agenda",
+    category: "Events",
+    defaultProps: (): EventPageAgendaSectionBlockProps => ({
+      eyebrow: "The Agenda",
+      headline: "Three Days, Full Access",
+      subtitle: "A curated experience designed for executives scaling DSOs — combining strategic insight, operational depth, and world-class hospitality.",
+      valueProps: [
+        "EXCLUSIVE 2026 PRODUCT ROADMAP ACCESS",
+        "Private 1:1 DSO strategy sessions",
+        "Automation infrastructure deep-dive",
+        "Peer networking with PE-backed DSO leaders",
+      ],
+      days: [
+        {
+          day: "Day One",
+          title: "Arrival",
+          description: "Arrive in Salt Lake City and settle into five-star luxury at The Grand America Hotel, then enjoy an intimate, fine dining experience with fellow DSO leaders.",
+          highlight: "After dinner, head to Delta Center for a thrilling professional hockey or basketball game from a private suite — complete with premium hospitality and elevated service. Build relationships with peers navigating the same growth, integration, and platform-scaling challenges you are.",
+        },
+        {
+          day: "Day Two",
+          title: "Lab Tour & Strategy",
+          description: "Gain unprecedented access to our Lehi and Provo Labs, including our brand-new Provo facility. See firsthand the automation infrastructure that's driving measurable same-store growth, EBITDA improvement, and remake elimination across the platform.",
+          highlight: "Receive exclusive insights into our 2026 product roadmap — shared with only our most strategic partners. Experience hands-on product demonstrations and get private 1:1 strategy sessions tailored to your DSO's growth targets and operational goals. Conclude the evening with unforgettable views at Van Ryder Rooftop Bar.",
+        },
+        {
+          day: "Day Three",
+          title: "Indulge Your Way",
+          description: "Choose how you want to wrap up the trip — you've earned it.",
+          highlight: "Unwind with a signature spa experience at the Grand America, enjoy an elevated après-ski escape in the Wasatch Mountains, or perfect your swing on one of Utah's premier golf courses.",
+        },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#0c0f12" rx="4"/>
+        <rect x="48" y="8" width="24" height="2" rx="1" fill="rgba(181,154,110,0.7)"/>
+        <rect x="30" y="14" width="60" height="6" rx="2" fill="rgba(238,234,227,0.85)"/>
+        <rect x="24" y="26" width="16" height="2" rx="1" fill="rgba(181,154,110,0.5)"/>
+        <rect x="48" y="26" width="20" height="2" rx="1" fill="rgba(181,154,110,0.5)"/>
+        <rect x="76" y="26" width="18" height="2" rx="1" fill="rgba(181,154,110,0.5)"/>
+        <rect x="10" y="36" width="100" height="1" fill="rgba(38,42,47,0.9)"/>
+        <rect x="10" y="42" width="14" height="2" rx="1" fill="#b59a6e"/>
+        <rect x="42" y="42" width="30" height="3" rx="1.5" fill="rgba(238,234,227,0.7)"/>
+        <rect x="42" y="48" width="60" height="1.5" rx="0.75" fill="rgba(122,128,136,0.5)"/>
+        <rect x="10" y="56" width="100" height="1" fill="rgba(38,42,47,0.9)"/>
+        <rect x="10" y="62" width="14" height="2" rx="1" fill="#b59a6e"/>
+        <rect x="42" y="62" width="34" height="3" rx="1.5" fill="rgba(238,234,227,0.7)"/>
+        <rect x="42" y="68" width="56" height="1.5" rx="0.75" fill="rgba(122,128,136,0.5)"/>
+      </svg>
+    ),
+  },
+  {
+    type: "event-page-details",
+    label: "Event Page: What to Expect",
+    category: "Events",
+    defaultProps: (): EventPageDetailsSectionBlockProps => ({
+      eyebrow: "The Details",
+      headline: "What to Expect",
+      subtitle: "Everything is taken care of. Focus on the conversations, insights, and relationships that will accelerate your platform's next phase of growth.",
+      details: [
+        { label: "When", value: "Rolling dates, 2026", sub: "Tuesday through Thursday" },
+        { label: "Where", value: "Salt Lake City, UT", sub: "The Grand America Hotel" },
+        { label: "Experience", value: "All-Inclusive", sub: "By invitation only" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#141619" rx="4"/>
+        <rect x="48" y="10" width="24" height="2" rx="1" fill="rgba(181,154,110,0.7)"/>
+        <rect x="32" y="16" width="56" height="6" rx="2" fill="rgba(238,234,227,0.85)"/>
+        <rect x="10" y="32" width="100" height="40" rx="1" fill="rgba(38,42,47,0.4)"/>
+        <rect x="11" y="33" width="32" height="38" fill="#141619"/>
+        <rect x="45" y="33" width="32" height="38" fill="#141619"/>
+        <rect x="79" y="33" width="30" height="38" fill="#141619"/>
+        <rect x="17" y="40" width="20" height="2" rx="1" fill="rgba(122,128,136,0.6)"/>
+        <rect x="15" y="48" width="24" height="3" rx="1.5" fill="rgba(238,234,227,0.8)"/>
+        <rect x="17" y="56" width="20" height="1.5" rx="0.75" fill="rgba(122,128,136,0.5)"/>
+        <rect x="51" y="40" width="20" height="2" rx="1" fill="rgba(122,128,136,0.6)"/>
+        <rect x="49" y="48" width="24" height="3" rx="1.5" fill="rgba(238,234,227,0.8)"/>
+        <rect x="51" y="56" width="20" height="1.5" rx="0.75" fill="rgba(122,128,136,0.5)"/>
+        <rect x="84" y="40" width="20" height="2" rx="1" fill="rgba(122,128,136,0.6)"/>
+        <rect x="82" y="48" width="24" height="3" rx="1.5" fill="rgba(238,234,227,0.8)"/>
+        <rect x="84" y="56" width="20" height="1.5" rx="0.75" fill="rgba(122,128,136,0.5)"/>
       </svg>
     ),
   },
@@ -9413,6 +9551,7 @@ export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }
 export function createBlock(type: "sticky-bar"): Extract<PageBlock, { type: "sticky-bar" }>;
 export function createBlock(type: "sticky-header"): Extract<PageBlock, { type: "sticky-header" }>;
 export function createBlock(type: "roi-calculator"): Extract<PageBlock, { type: "roi-calculator" }>;
+export function createBlock(type: "remake-cost-calculator"): Extract<PageBlock, { type: "remake-cost-calculator" }>;
 export function createBlock(type: "spacer"): Extract<PageBlock, { type: "spacer" }>;
 export function createBlock(type: "dso-insights-dashboard"): Extract<PageBlock, { type: "dso-insights-dashboard" }>;
 export function createBlock(type: "dso-lab-tour"): Extract<PageBlock, { type: "dso-lab-tour" }>;
@@ -9478,6 +9617,8 @@ export function createBlock(type: "case-modular"): Extract<PageBlock, { type: "c
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
 export function createBlock(type: "product-launch"): Extract<PageBlock, { type: "product-launch" }>;
 export function createBlock(type: "story-hub"): Extract<PageBlock, { type: "story-hub" }>;
+export function createBlock(type: "event-page-agenda"): Extract<PageBlock, { type: "event-page-agenda" }>;
+export function createBlock(type: "event-page-details"): Extract<PageBlock, { type: "event-page-details" }>;
 export function createBlock(type: "event-landing-hero"): Extract<PageBlock, { type: "event-landing-hero" }>;
 export function createBlock(type: "spatial-tour"): Extract<PageBlock, { type: "spatial-tour" }>;
 export function createBlock(type: "business-case-split"): Extract<PageBlock, { type: "business-case-split" }>;
@@ -9549,6 +9690,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "sticky-bar": return { id, type: "sticky-bar", props: props as StickyBarBlockProps };
     case "sticky-header": return { id, type: "sticky-header", props: props as StickyHeaderBlockProps };
     case "roi-calculator": return { id, type: "roi-calculator", props: props as RoiCalculatorBlockProps };
+    case "remake-cost-calculator": return { id, type: "remake-cost-calculator", props: props as RemakeCostCalculatorBlockProps };
     case "spacer": return { id, type: "spacer", props: props as SpacerBlockProps };
     case "dso-insights-dashboard": return { id, type: "dso-insights-dashboard", props: props as DsoInsightsDashboardBlockProps };
     case "dso-lab-tour": return { id, type: "dso-lab-tour", props: props as DsoLabTourBlockProps };
@@ -9605,6 +9747,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
     case "product-launch": return { id, type: "product-launch", props: props as ProductLaunchBlockProps };
     case "story-hub": return { id, type: "story-hub", props: props as StoryHubBlockProps };
+    case "event-page-agenda": return { id, type: "event-page-agenda", props: props as EventPageAgendaSectionBlockProps };
+    case "event-page-details": return { id, type: "event-page-details", props: props as EventPageDetailsSectionBlockProps };
     case "event-landing-hero": return { id, type: "event-landing-hero", props: props as EventLandingHeroBlockProps };
     case "spatial-tour": return { id, type: "spatial-tour", props: props as SpatialTourBlockProps };
     case "business-case-split": return { id, type: "business-case-split", props: props as BusinessCaseSplitBlockProps };

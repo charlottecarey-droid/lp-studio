@@ -45,6 +45,17 @@ describe("NO_REVEAL — June-2026 modern block wave", () => {
   );
 });
 
+describe("NO_REVEAL — extracted Event Page sections", () => {
+  // Same internal staggered whileInView reveals as their parent event-page;
+  // the outer reveal wrapper would double-animate them.
+  it.each(["event-page-agenda", "event-page-details"])(
+    "excludes %s from reveal wrapping",
+    (type) => {
+      expect(NO_REVEAL.has(type)).toBe(true);
+    },
+  );
+});
+
 describe("NO_REVEAL — internally-sticky blocks", () => {
   // Blocks that own an internal `position: sticky` panel break when wrapped in
   // the reveal motion.div: a transformed ancestor becomes the containing block,

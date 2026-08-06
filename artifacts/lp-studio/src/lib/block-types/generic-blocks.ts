@@ -965,6 +965,48 @@ export interface RoiCalculatorBlockProps extends CtaModalConfig {
   disclaimer?: string;
 }
 
+/** One operation-profile chip on the remake cost calculator. Selecting it
+ *  applies its remake rate as the estimate's benchmark assumption. */
+export interface RemakeCostScenario {
+  id: string;
+  label: string;
+  description: string;
+  /** Remake rate (%) this profile assumes. */
+  remakeRate: number;
+}
+
+/**
+ * Simplified remake-cost calculator: two visible inputs (practices + avg case
+ * value), an operation-profile chip row that supplies the remake-rate
+ * benchmark, and the remaining assumptions tucked into a collapsible "refine"
+ * section. Built to embed on marketing sites (no CTA of its own — the host
+ * page owns conversion; no vh sizing, no sticky, no scroll reveals).
+ */
+export interface RemakeCostCalculatorBlockProps {
+  headline: string;
+  subheadline?: string;
+  scenarioLabel: string;
+  scenarios: RemakeCostScenario[];
+  refineLabel: string;
+  calculateLabel: string;
+  resultsLabel: string;
+  resultsSublabel?: string;
+  /** Caption under the big annual-loss number. */
+  resultsHeadline: string;
+  /** Shown in the results panel before the visitor calculates. */
+  resultsPlaceholder: string;
+  /** Perspective note under the results (e.g. "this is one lever…"). */
+  resultsFootnote?: string;
+  /** Assumption defaults, overridable per visitor in the refine section. */
+  defaultRestorationsPerPractice: number;
+  defaultChairTimeHours: number;
+  /** Lab hard cost per case as a % of avg case value. */
+  defaultLabCostPct: number;
+  defaultProductionPerHour: number;
+  backgroundStyle: BackgroundStyle;
+  accentColor?: string;
+}
+
 export interface DandyVersusBlockProps {
   eyebrow?: string;
   headline: string;

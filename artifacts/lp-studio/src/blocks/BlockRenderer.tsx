@@ -2,6 +2,7 @@ import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, Co
 import { PageContextProvider } from "@/lib/page-context";
 import { getBlockSettingsCapabilities } from "@/lib/block-settings-capabilities";
 import { BlockRoiCalculator } from "./BlockRoiCalculator";
+import { BlockRemakeCostCalculator } from "./BlockRemakeCostCalculator";
 import { BlockDsoInsightsDashboard } from "./BlockDsoInsightsDashboard";
 import { BlockDsoLabTour } from "./BlockDsoLabTour";
 import { BlockDsoStatBar } from "./BlockDsoStatBar";
@@ -51,6 +52,8 @@ import { BlockDsoInsightsVideo } from "./BlockDsoInsightsVideo";
 import { BlockDsoCaseStudy } from "./BlockDsoCaseStudy";
 import { BlockOnePagerHero } from "./BlockOnePagerHero";
 import { BlockEventPage } from "./BlockEventPage";
+import { BlockEventPageAgenda } from "./BlockEventPageAgenda";
+import { BlockEventPageDetails } from "./BlockEventPageDetails";
 import { BlockProductLaunch } from "./BlockProductLaunch";
 import { BlockStoryHub } from "./BlockStoryHub";
 import { BlockBusinessCaseSplit } from "./BlockBusinessCaseSplit";
@@ -464,6 +467,9 @@ export const NO_REVEAL = new Set<string>([
   "glass-bento-features", "feature-tabs-showcase", "stat-counter-band",
   "testimonial-wall",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
+  // Extracted Event Page sections — same internal staggered whileInView
+  // reveals as their parent; the outer wrapper would double-animate them.
+  "event-page-agenda", "event-page-details",
   "business-case-split", "business-case-centered", "business-case-premium",
   "storybrand-journey", "exec-decision-brief", "challenger-insight",
   "deal-room", "account-microsite", "onboarding-hub", "value-renewal-review", "event-agenda", "event-activations",
@@ -994,6 +1000,14 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             isBuilder={isBuilder}
           />
         );
+      case "remake-cost-calculator":
+        return (
+          <BlockRemakeCostCalculator
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
       case "roi-calculator":
         return (
           <BlockRoiCalculator
@@ -1213,6 +1227,10 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
         return <BlockCaseModular props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "event-page-agenda":
+        return <BlockEventPageAgenda props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "event-page-details":
+        return <BlockEventPageDetails props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "product-launch":
         return <BlockProductLaunch props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "story-hub":

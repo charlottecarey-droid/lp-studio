@@ -37,7 +37,7 @@ function hexToRgb(hex: string): [number, number, number] {
   if (Number.isNaN(num)) return [0, 0, 0];
   return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
 }
-function rgba(hex: string, alpha: number): string {
+export function rgba(hex: string, alpha: number): string {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${r},${g},${b},${alpha})`;
 }

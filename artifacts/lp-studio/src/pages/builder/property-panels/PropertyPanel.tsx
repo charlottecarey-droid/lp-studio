@@ -166,6 +166,7 @@ import { PopupPanel } from "./PopupPanel";
 import { StickyBarPanel } from "./StickyBarPanel";
 import { SpacerPanel } from "./SpacerPanel";
 import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
+import { RemakeCostCalculatorPanel } from "./RemakeCostCalculatorPanel";
 import { DsoMeetTeamPanel } from "./DsoMeetTeamPanel";
 import { DsoPracticeNavPanel } from "./DsoPracticeNavPanel";
 import { DandyVersusPanel } from "./DandyVersusPanel";
@@ -186,6 +187,7 @@ import { DandyConversionPanel1Panel } from "./DandyConversionPanel1Panel";
 import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
 import { OnePagerHeroPanel } from "./OnePagerHeroPanel";
 import { EventPagePanel } from "./EventPagePanel";
+import { EventPageAgendaSectionPanel, EventPageDetailsSectionPanel } from "./EventPageSectionPanels";
 import { ProductLaunchPanel } from "./ProductLaunchPanel";
 import { StoryHubPanel } from "./StoryHubPanel";
 import { BentoShowcasePanel } from "./BentoShowcasePanel";
@@ -1989,6 +1991,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <SpacerPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "remake-cost-calculator":
+        return (
+          <RemakeCostCalculatorPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            bgOptions={bgOptions}
           />
         );
       case "roi-calculator":
@@ -6804,6 +6814,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "event-page-agenda":
+        return (
+          <EventPageAgendaSectionPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "event-page-details":
+        return (
+          <EventPageDetailsSectionPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
           />
         );
       case "product-launch":

@@ -214,6 +214,9 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
 
   // ── Interactive ─────────────────────────────────────────────────────────────
   "roi-calculator": ["content", "cta"],
+  // Deliberately NOT tagged "cta": it carries no CTA — built for website
+  // embeds where the host page owns conversion.
+  "remake-cost-calculator": ["content"],
 
   // ── DSO ─────────────────────────────────────────────────────────────────────
   "dso-insights-dashboard": ["features", "stats"],
@@ -266,6 +269,9 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
 
   // ── Events ──────────────────────────────────────────────────────────────────
   "event-page": ["content"],
+  // Standalone Event Page sections (extracted agenda + what-to-expect).
+  "event-page-agenda": ["content"],
+  "event-page-details": ["content"],
   "event-landing-hero": ["hero"],
   "product-launch": ["hero", "content"],
   "spatial-tour": ["media", "features"],

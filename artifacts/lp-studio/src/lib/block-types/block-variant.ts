@@ -47,6 +47,7 @@ import type {
   AiScanHeroBlockProps,
   ParallaxImageHeroBlockProps,
   RoiCalculatorBlockProps,
+  RemakeCostCalculatorBlockProps,
   DandyVersusBlockProps,
   DandyColumnsV2BlockProps,
   DandyColumnsV3BlockProps,
@@ -219,6 +220,8 @@ import type {
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
   EventPageBlockProps,
+  EventPageAgendaSectionBlockProps,
+  EventPageDetailsSectionBlockProps,
   ProductLaunchBlockProps,
   StoryHubBlockProps,
   EventLandingHeroBlockProps,
@@ -298,6 +301,7 @@ export type BlockVariant =
   | { type: "sticky-bar"; props: StickyBarBlockProps }
   | { type: "sticky-header"; props: StickyHeaderBlockProps }
   | { type: "roi-calculator"; props: RoiCalculatorBlockProps }
+  | { type: "remake-cost-calculator"; props: RemakeCostCalculatorBlockProps }
   | { type: "spacer"; props: SpacerBlockProps }
   | { type: "dso-insights-dashboard"; props: DsoInsightsDashboardBlockProps }
   | { type: "dso-lab-tour"; props: DsoLabTourBlockProps }
@@ -355,6 +359,8 @@ export type BlockVariant =
   | { type: "sticky-stack"; props: StickyStackBlockProps }
   | { type: "one-pager-hero"; props: OnePagerHeroBlockProps }
   | { type: "event-page"; props: EventPageBlockProps }
+  | { type: "event-page-agenda"; props: EventPageAgendaSectionBlockProps }
+  | { type: "event-page-details"; props: EventPageDetailsSectionBlockProps }
   | { type: "product-launch"; props: ProductLaunchBlockProps }
   | { type: "story-hub"; props: StoryHubBlockProps }
   | { type: "event-landing-hero"; props: EventLandingHeroBlockProps }

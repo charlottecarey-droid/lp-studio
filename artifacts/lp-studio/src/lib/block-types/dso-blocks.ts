@@ -1097,6 +1097,31 @@ export interface EventPageBlockProps {
   theme?: EventPageTheme;
 }
 
+/**
+ * Standalone section blocks extracted from the Event Page block (same theme
+ * system, same rendering), for pages that need the agenda or "what to expect"
+ * treatment without the full-page takeover — e.g. composing them alongside
+ * other blocks when the full Event Page can't fit everything.
+ */
+export interface EventPageAgendaSectionBlockProps {
+  eyebrow: string;
+  headline: string;
+  subtitle: string;
+  valueProps: string[];
+  days: EventPageAgendaDay[];
+  /** Same theme vocabulary as the Event Page block — copy the page's theme
+   *  values across and the section matches it exactly. */
+  theme?: EventPageTheme;
+}
+
+export interface EventPageDetailsSectionBlockProps {
+  eyebrow: string;
+  headline: string;
+  subtitle: string;
+  details: EventPageDetail[];
+  theme?: EventPageTheme;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PRODUCT LAUNCH / KEYNOTE — Apple-event reveal style landing page
 // ─────────────────────────────────────────────────────────────────────────────
