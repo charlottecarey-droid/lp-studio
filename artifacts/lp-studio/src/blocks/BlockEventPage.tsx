@@ -933,10 +933,13 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
             </motion.p>
           </motion.div>
 
+          {/* Columns via classes, never inline gridTemplateColumns — the
+              inline style outranks max-sm:grid-cols-1, so the grid never
+              stacked on phones. */}
           <motion.div
             initial={staticRender ? false : "hidden"} whileInView="visible" viewport={{ once: true }} variants={stagger}
-            style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", border: `1px solid rgba(38,42,47,0.3)`, backgroundColor: "rgba(38,42,47,0.3)" }}
-            className="max-sm:grid-cols-1"
+            style={{ display: "grid", gap: "1px", border: `1px solid rgba(38,42,47,0.3)`, backgroundColor: "rgba(38,42,47,0.3)" }}
+            className="grid-cols-1 sm:grid-cols-3"
           >
             {p.details.map((detail, i) => (
               <motion.div
