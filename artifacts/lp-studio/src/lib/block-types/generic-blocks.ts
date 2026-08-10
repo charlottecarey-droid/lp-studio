@@ -5061,6 +5061,9 @@ export type {
 export type {
   EventActivationsBlockProps,
   EventActivationItem,
+  EventBookingTeamMember,
+  BookingTeamHeadshotSize,
+  BookingTeamHeadshotShape,
 } from "@/blocks/BlockEventActivations";
 
 /**
