@@ -120,6 +120,9 @@ describe("BlockEventActivations — sections + guards", () => {
     expect(html).toContain("Book with Jamie");
     // Initials disc for the photoless members (AM = Alex Morgan).
     expect(html).toContain("AM");
+    // Flex-wrap + centered justification: a partial last row centers instead
+    // of leaving a hole where "someone is missing".
+    expect(html).toContain("justify-center");
     // The single-host lockup (default props carry a host bio) must NOT render.
     expect(html).not.toContain(EVENT_ACTIVATIONS_DEFAULT_PROPS.hostBio as string);
   });

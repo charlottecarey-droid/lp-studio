@@ -1326,20 +1326,23 @@ export function BlockEventActivations({
                 scheduling link (no bios). Same visual language as the single
                 lockup: framed headshots with the initials-disc fallback,
                 display-font names, kicker-style titles, activation-card-style
-                arrow links. Columns are enumerated Tailwind classes (an inline
-                gridTemplateColumns would beat the mobile stack — the Event
-                Page details bug). */}
+                arrow links. Flex-wrap rather than CSS grid so a PARTIAL last
+                row centers (5 people in 3 columns = 3 + a centered 2) instead
+                of leaving a hole; per-item width comes from enumerated
+                Tailwind basis classes (inline widths would beat the mobile
+                two-up — the Event Page details stacking bug). */}
             {props.bookingHostLayout === "team" && (props.bookingTeam?.length || isEditor) && (
               <div
-                className={cn(
-                  "grid justify-items-center",
-                  { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-2 md:grid-cols-3", 4: "grid-cols-2 md:grid-cols-4" }[
-                    props.bookingTeamColumns ?? 3
-                  ],
-                )}
+                className="flex flex-wrap justify-center"
                 style={{ marginTop: "clamp(1.75rem, 4vh, 2.5rem)", gap: "clamp(1.5rem, 3vw, 2.25rem) 1.25rem" }}
               >
                 {(props.bookingTeam ?? []).slice(0, 8).map((m, i) => {
+                  const basis = {
+                    1: "basis-full",
+                    2: "basis-[calc(50%-1.25rem)]",
+                    3: "basis-[calc(50%-1.25rem)] md:basis-[calc(33.333%-1.25rem)]",
+                    4: "basis-[calc(50%-1.25rem)] md:basis-[calc(25%-1.25rem)]",
+                  }[props.bookingTeamColumns ?? 3];
                   const size = { sm: 64, md: 88, lg: 120 }[props.bookingTeamHeadshotSize ?? "md"];
                   const radius = { circle: 9999, rounded: 16, square: 0 }[props.bookingTeamHeadshotShape ?? "circle"];
                   const editMember = (key: keyof EventBookingTeamMember) =>
@@ -1352,7 +1355,7 @@ export function BlockEventActivations({
                         }
                       : undefined;
                   return (
-                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.7rem", maxWidth: 220 }}>
+                    <div key={i} className={cn("flex flex-col items-center grow-0 shrink-0", basis)} style={{ gap: "0.7rem", maxWidth: 220 }}>
                       {m.imageUrl ? (
                         <div
                           style={{
