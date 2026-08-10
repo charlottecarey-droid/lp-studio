@@ -7,6 +7,7 @@ import { isValidHex, pickContrastingColor } from "@/lib/brand-config";
 import { mixHex } from "@/lib/section-ink";
 import { resolveSectionSurface, type BackgroundStyle, type ResolvedSectionSurface } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
+import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BlockForm } from "./BlockForm";
@@ -77,6 +78,26 @@ export interface EventActivationItem {
   linkText?: string;
   linkUrl?: string;
 }
+
+/** One person on the booking-team grid. `linkText`/`linkUrl` deliberately
+ *  avoid PRIMARY_CTA_KEYS aliases (same rule as activation items) so the
+ *  Page CTA can never rewrite a rep's personal scheduling link. */
+export interface EventBookingTeamMember {
+  imageUrl?: string;
+  imageAlt?: string;
+  /** CSS object-position focal point for the headshot. */
+  imageFocalPoint?: string;
+  name: string;
+  /** Role line under the name. */
+  title?: string;
+  /** Label of this person's meeting link. Hidden when empty. */
+  linkText?: string;
+  /** This person's own scheduling link. */
+  linkUrl?: string;
+}
+
+export type BookingTeamHeadshotSize = "sm" | "md" | "lg";
+export type BookingTeamHeadshotShape = "circle" | "rounded" | "square";
 
 export interface EventActivationsBlockProps {
   // ── Navbar ────────────────────────────────────────────────────────────────
@@ -185,6 +206,17 @@ export interface EventActivationsBlockProps {
   /** Show the meeting-host lockup (headshot + name/title/bio) above the
    *  button/form. Default true; also hidden when no host fields are set. */
   showBookingHost?: boolean;
+  /** "single" (default) = the one-host lockup above; "team" = a grid of up
+   *  to 8 people, each with headshot + name/title + their OWN meeting link
+   *  (no bios). The single-host fields are ignored in team mode. */
+  bookingHostLayout?: "single" | "team";
+  bookingTeam?: EventBookingTeamMember[];
+  /** Team-grid columns on desktop, 1–4 (up to 2 rows / 8 people). Default 3. */
+  bookingTeamColumns?: 1 | 2 | 3 | 4;
+  /** Headshot size on the team grid. Default "md" (the single-host 88px). */
+  bookingTeamHeadshotSize?: BookingTeamHeadshotSize;
+  /** Headshot shape on the team grid. Default "circle". */
+  bookingTeamHeadshotShape?: BookingTeamHeadshotShape;
   /** Headshot of the person the visitor will meet. Falls back to an
    *  initials disc when empty but a name is set. */
   hostImageUrl?: string;
@@ -514,6 +546,12 @@ export function BlockEventActivations({
     brand,
   );
   const bookPal = paletteFor(bookSurf, props.bookingHeadlineColor);
+  // Team-grid meeting links: same derivation as the activation-card links,
+  // contrast-checked against the booking surface instead of the card.
+  const bookLink = pickContrastingColor(primary, bookSurf.base, [
+    mixHex(primary, "#000000", 0.7),
+    bookPal.ink,
+  ]);
 
   // ── CTA palette (parity with event-landing-hero): explicit prop wins, else
   //    tenant brand vars so the rest of the brand system still applies. ──────
@@ -1284,11 +1322,130 @@ export function BlockEventActivations({
               </p>
             )}
 
+            {/* Team layout — a grid of up to 8 people, each with their own
+                scheduling link (no bios). Same visual language as the single
+                lockup: framed headshots with the initials-disc fallback,
+                display-font names, kicker-style titles, activation-card-style
+                arrow links. Columns are enumerated Tailwind classes (an inline
+                gridTemplateColumns would beat the mobile stack — the Event
+                Page details bug). */}
+            {props.bookingHostLayout === "team" && (props.bookingTeam?.length || isEditor) && (
+              <div
+                className={cn(
+                  "grid justify-items-center",
+                  { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-2 md:grid-cols-3", 4: "grid-cols-2 md:grid-cols-4" }[
+                    props.bookingTeamColumns ?? 3
+                  ],
+                )}
+                style={{ marginTop: "clamp(1.75rem, 4vh, 2.5rem)", gap: "clamp(1.5rem, 3vw, 2.25rem) 1.25rem" }}
+              >
+                {(props.bookingTeam ?? []).slice(0, 8).map((m, i) => {
+                  const size = { sm: 64, md: 88, lg: 120 }[props.bookingTeamHeadshotSize ?? "md"];
+                  const radius = { circle: 9999, rounded: 16, square: 0 }[props.bookingTeamHeadshotShape ?? "circle"];
+                  const editMember = (key: keyof EventBookingTeamMember) =>
+                    onFieldChange
+                      ? (v: string) => {
+                          const bookingTeam = (props.bookingTeam ?? []).map((tm, idx) =>
+                            idx === i ? { ...tm, [key]: v } : tm,
+                          );
+                          onFieldChange({ ...props, bookingTeam });
+                        }
+                      : undefined;
+                  return (
+                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.7rem", maxWidth: 220 }}>
+                      {m.imageUrl ? (
+                        <div
+                          style={{
+                            width: size,
+                            height: size,
+                            borderRadius: radius,
+                            overflow: "hidden",
+                            boxShadow: "0 8px 24px rgba(16,24,40,0.14)",
+                            border: `3px solid ${paper}`,
+                            outline: `1px solid ${bookPal.hairline}`,
+                          }}
+                        >
+                          <InlineImage
+                            src={m.imageUrl}
+                            alt={m.imageAlt ?? m.name ?? "Team member"}
+                            onUpdate={editMember("imageUrl")}
+                            onAltUpdate={editMember("imageAlt")}
+                            focalPoint={m.imageFocalPoint}
+                            onFocalUpdate={editMember("imageFocalPoint")}
+                            wrapperClassName="block w-full h-full"
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          aria-hidden
+                          style={{
+                            width: size,
+                            height: size,
+                            borderRadius: radius,
+                            background: bookPal.chipBg,
+                            color: bookPal.chipInk,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontFamily: DISPLAY,
+                            fontSize: size * 0.32,
+                            fontWeight: 700,
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          {(m.name ?? "")
+                            .trim()
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((w) => w[0]?.toUpperCase() ?? "")
+                            .join("")}
+                        </div>
+                      )}
+                      {(m.name || isEditor) && (
+                        <p style={{ margin: 0, fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 700, letterSpacing: "-0.01em", color: bookPal.ink, textAlign: "center" }}>
+                          <InlineText as="span" value={m.name ?? ""} onUpdate={editMember("name")} style={{ fontFamily: DISPLAY }} />
+                        </p>
+                      )}
+                      {(m.title || isEditor) && (
+                        <p style={{ margin: "-0.35rem 0 0 0", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: bookPal.kicker, fontFamily: BODY, textAlign: "center" }}>
+                          <InlineText as="span" value={m.title ?? ""} onUpdate={editMember("title")} style={{ fontFamily: BODY }} />
+                        </p>
+                      )}
+                      {(m.linkText || isEditor) && (
+                        <a
+                          href={m.linkUrl || `#${bookingAnchor}`}
+                          onClick={(e) => handleAnchor(e, m.linkUrl || `#${bookingAnchor}`)}
+                          style={{
+                            marginTop: "0.1rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            color: bookLink,
+                            fontWeight: 700,
+                            fontSize: "0.875rem",
+                            textDecoration: "none",
+                            fontFamily: BODY,
+                          }}
+                        >
+                          <InlineText as="span" value={m.linkText ?? ""} onUpdate={editMember("linkText")} style={{ fontFamily: BODY }} />
+                          <ArrowRight aria-hidden style={{ width: 14, height: 14 }} />
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Meeting-host lockup — who the visitor is actually booking time
                 with. Headshot falls back to an initials disc so a rep without
                 a photo still gets a face-like anchor. Hidden via the toggle or
                 when every host field is empty. */}
-            {props.showBookingHost !== false &&
+            {props.bookingHostLayout !== "team" &&
+              props.showBookingHost !== false &&
               (props.hostName || props.hostTitle || props.hostBio || props.hostImageUrl || isEditor) && (
               <div
                 style={{

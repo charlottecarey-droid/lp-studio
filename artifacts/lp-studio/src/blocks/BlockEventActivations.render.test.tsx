@@ -106,6 +106,42 @@ describe("BlockEventActivations — sections + guards", () => {
     expect(html).toContain("Book a meeting onsite");
   });
 
+  it("team layout renders each member with their own meeting link and hides the single host", () => {
+    const html = render({
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      bookingHostLayout: "team",
+      bookingTeam: [
+        { name: "Alex Morgan", title: "VP, Partnerships", linkText: "Book with Alex", linkUrl: "https://cal.example.com/alex" },
+        { name: "Jamie Ruiz", title: "Enterprise AE", linkText: "Book with Jamie", linkUrl: "https://cal.example.com/jamie" },
+      ],
+    });
+    expect(html).toContain("Alex Morgan");
+    expect(html).toContain('href="https://cal.example.com/alex"');
+    expect(html).toContain("Book with Jamie");
+    // Initials disc for the photoless members (AM = Alex Morgan).
+    expect(html).toContain("AM");
+    // The single-host lockup (default props carry a host bio) must NOT render.
+    expect(html).not.toContain(EVENT_ACTIVATIONS_DEFAULT_PROPS.hostBio as string);
+  });
+
+  it("team grid caps at 8 people", () => {
+    const team = Array.from({ length: 10 }, (_, i) => ({ name: `Person ${i + 1}` }));
+    const html = render({ ...EVENT_ACTIVATIONS_DEFAULT_PROPS, bookingHostLayout: "team", bookingTeam: team });
+    expect(html).toContain("Person 8");
+    expect(html).not.toContain("Person 9");
+  });
+
+  it("headshot shape option drops the circle radius", () => {
+    const base = {
+      ...EVENT_ACTIVATIONS_DEFAULT_PROPS,
+      bookingHostLayout: "team" as const,
+      bookingTeam: [{ name: "Alex Morgan", imageUrl: "https://example.com/a.jpg" }],
+    };
+    expect(render({ ...base, bookingTeamHeadshotShape: "square" })).toContain("border-radius:0");
+    expect(render({ ...base, bookingTeamHeadshotShape: "rounded" })).toContain("border-radius:16px");
+    expect(render(base)).toContain("border-radius:9999");
+  });
+
   it("re-inks the activations band when a dark preset background is chosen", () => {
     const html = render({
       ...EVENT_ACTIVATIONS_DEFAULT_PROPS,

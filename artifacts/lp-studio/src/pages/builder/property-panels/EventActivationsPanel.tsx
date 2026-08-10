@@ -17,6 +17,7 @@ import { SectionBackgroundControl } from "./SectionBackgroundControl";
 import type {
   EventActivationsBlockProps,
   EventActivationItem,
+  EventBookingTeamMember,
   EventVideoPlayMode,
 } from "@/blocks/BlockEventActivations";
 
@@ -627,6 +628,119 @@ export function EventActivationsPanel({ props, onChange }: Props) {
                 />
               </div>
               {props.showBookingHost !== false && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Layout</Label>
+                  <Select
+                    value={props.bookingHostLayout ?? "single"}
+                    onValueChange={(v) => set("bookingHostLayout", v as "single" | "team")}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single host (headshot + bio)</SelectItem>
+                      <SelectItem value="team">Team grid (up to 8, own meeting links)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {props.showBookingHost !== false && props.bookingHostLayout === "team" && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Columns</Label>
+                      <Select
+                        value={String(props.bookingTeamColumns ?? 3)}
+                        onValueChange={(v) => set("bookingTeamColumns", Number(v) as 1 | 2 | 3 | 4)}
+                      >
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Headshot size</Label>
+                      <Select
+                        value={props.bookingTeamHeadshotSize ?? "md"}
+                        onValueChange={(v) => set("bookingTeamHeadshotSize", v as "sm" | "md" | "lg")}
+                      >
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sm">Small</SelectItem>
+                          <SelectItem value="md">Medium</SelectItem>
+                          <SelectItem value="lg">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Shape</Label>
+                      <Select
+                        value={props.bookingTeamHeadshotShape ?? "circle"}
+                        onValueChange={(v) => set("bookingTeamHeadshotShape", v as "circle" | "rounded" | "square")}
+                      >
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="circle">Circle</SelectItem>
+                          <SelectItem value="rounded">Rounded</SelectItem>
+                          <SelectItem value="square">Square</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {(props.bookingTeam ?? []).map((m, i) => {
+                    const patchMember = (patch: Partial<EventBookingTeamMember>) => {
+                      const bookingTeam = (props.bookingTeam ?? []).map((tm, idx) => (idx === i ? { ...tm, ...patch } : tm));
+                      onChange({ ...props, bookingTeam });
+                    };
+                    return (
+                      <div key={i} className="space-y-2 rounded-md border p-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[11px] font-medium text-muted-foreground">Person {i + 1}</Label>
+                          <button
+                            type="button"
+                            onClick={() => onChange({ ...props, bookingTeam: (props.bookingTeam ?? []).filter((_, idx) => idx !== i) })}
+                            className="p-1 text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <ImagePicker
+                          label="Headshot"
+                          value={m.imageUrl ?? ""}
+                          onChange={(v) => patchMember({ imageUrl: v })}
+                          placeholder="https://…"
+                        />
+                        {m.imageUrl && (
+                          <FocalPointPicker
+                            label="Focal point"
+                            value={m.imageFocalPoint ?? "50% 50%"}
+                            onChange={(v) => patchMember({ imageFocalPoint: v })}
+                            previewUrl={m.imageUrl}
+                          />
+                        )}
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input value={m.name ?? ""} onChange={(e) => patchMember({ name: e.target.value })} className="h-8 text-xs" placeholder="Name" />
+                          <Input value={m.title ?? ""} onChange={(e) => patchMember({ title: e.target.value })} className="h-8 text-xs" placeholder="Title" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input value={m.linkText ?? ""} onChange={(e) => patchMember({ linkText: e.target.value })} className="h-8 text-xs" placeholder="Link label (Book a meeting)" />
+                          <Input value={m.linkUrl ?? ""} onChange={(e) => patchMember({ linkUrl: e.target.value })} className="h-8 text-xs" placeholder="https://calendly.com/…" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(props.bookingTeam ?? []).length < 8 ? (
+                    <Button
+                      type="button" variant="outline" size="sm" className="h-7 text-xs w-full"
+                      onClick={() => onChange({ ...props, bookingTeam: [...(props.bookingTeam ?? []), { name: "", title: "", linkText: "Book a meeting", linkUrl: "" }] })}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add person
+                    </Button>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">Team grid fits up to 8 people (2 rows of 4).</p>
+                  )}
+                </div>
+              )}
+              {props.showBookingHost !== false && (props.bookingHostLayout ?? "single") === "single" && (
                 <div className="space-y-2">
                   <ImagePicker
                     label="Headshot"
