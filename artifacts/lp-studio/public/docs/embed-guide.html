@@ -404,9 +404,10 @@
   <section>
     <h2>Personalized links</h2>
     <p>
-      For event agendas, the same page can render differently per visitor. Our team sends each
-      recipient a link to <em>your</em> page carrying a token &mdash; for example
-      <code>?lp_agenda=a1b2c3</code> &mdash; and the widget renders that recipient's version.
+      The same slot can render differently per visitor. Our team sends each recipient a link to
+      <em>your</em> page carrying a token &mdash; for example <code>?lp_agenda=a1b2c3</code> for an
+      event agenda, or <code>?lp_page=&hellip;</code> for a page embed &mdash; and the widget renders
+      that recipient's version.
     </p>
     <pre><code>&lt;div id="lp-agenda"&gt;&lt;/div&gt;
 &lt;script async src="https://YOUR-HOST/api/embed/agenda.js"
@@ -414,16 +415,19 @@
         data-hide="#your-existing-agenda"&gt;&lt;/script&gt;</code></pre>
     <p>
       Visitors arriving <em>without</em> a token see whatever you already had &mdash; the widget stays
-      out of the way entirely unless we also give you a <code>data-default</code> token. A visitor
-      who has used a personalized link once keeps seeing their version on later visits to that
-      page, even without the link.
+      out of the way entirely unless we also configure a fallback (a <code>data-default</code>
+      token on agenda embeds; the <code>data-page</code> page on page embeds). A visitor who has
+      used a personalized link once keeps seeing their version on later visits to that page, even
+      without the link.
     </p>
     <div class="flag">
       <p class="eyebrow">Naming</p>
       <p>
         The parameter is <code>lp_agenda</code>, not <code>agenda</code> &mdash; RainFocus already uses
-        <code>?agenda</code> on event sites. If <code>lp_agenda</code> also collides with something
-        on your site, tell us and we'll change it; it's configurable on our end.
+        <code>?agenda</code> on event sites. If a name collides with something on your site, tell
+        us and we'll change it; it's configurable on our end. And if you install more than one
+        embed, each gets its <em>own</em> parameter name (we supply them) &mdash; that's what keeps a
+        link meant for one slot from ever affecting another.
       </p>
     </div>
   </section>
@@ -438,15 +442,18 @@
         <tbody>
           <tr>
             <td><code>data-page</code></td>
-            <td>Which page to render. Page embeds only.</td>
+            <td>Which page to render &mdash; and, when personalized links are in play, the fallback
+              everyone without a link sees. Page embeds only.</td>
           </tr>
           <tr>
             <td><code>data-param</code></td>
-            <td>URL parameter carrying the personalization token. Agenda embeds only.</td>
+            <td>URL parameter carrying the personalization token. We supply the name; each embed
+              on your site gets its own.</td>
           </tr>
           <tr>
             <td><code>data-default</code></td>
-            <td>What visitors without a token see. Omit to leave your own content in place.</td>
+            <td>What visitors without a token see. Agenda embeds only &mdash; page embeds use
+              <code>data-page</code> as the fallback. Omit to leave your own content in place.</td>
           </tr>
           <tr>
             <td><code>data-hide</code></td>
