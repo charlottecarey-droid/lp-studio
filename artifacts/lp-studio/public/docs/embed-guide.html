@@ -548,4 +548,10 @@
   addEventListener("beforeprint", function () {
     document.querySelectorAll("details").forEach(function (d) { d.open = true; });
   });
+  // ?print=1 (the in-app "Install guide (PDF)" buttons) opens the print
+  // dialog on load -- "Save as PDF" is the download path; no server-side
+  // PDF generation involved.
+  if (new URLSearchParams(location.search).has("print")) {
+    addEventListener("load", function () { setTimeout(function () { window.print(); }, 300); });
+  }
 </script>

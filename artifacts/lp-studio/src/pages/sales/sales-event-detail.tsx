@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import {
-  BarChart3, CalendarDays, Check, Code2, Copy, ExternalLink, FileDown, FileUp, Globe, MapPin, Pencil, Pin,
+  BarChart3, CalendarDays, Check, Code2, Copy, ExternalLink, FileDown, FileUp, Globe, Link2, MapPin, Pencil, Pin,
   Plus, RefreshCw, Sparkles, Trash2, Users, Zap, Loader2, AlertTriangle, Download, ChevronDown, Palette } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -917,9 +917,19 @@ function EventEmbedDialog({ event, agendas, onChanged }: {
           <div className="space-y-1.5">
             <Label>Install snippet</Label>
             <pre className="text-xs font-mono bg-muted/60 border rounded-md p-3 whitespace-pre-wrap break-all">{snippet}</pre>
-            <Button variant="outline" size="sm" onClick={() => void copySnippet()}>
-              {copiedSnippet ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />} Copy snippet
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => void copySnippet()}>
+                {copiedSnippet ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />} Copy snippet
+              </Button>
+              {/* Opens the web-team install guide with the print dialog up —
+                  "Save as PDF" is the download; the guide's print CSS forces
+                  the light palette and keeps snippets with their steps. */}
+              <a href="/docs/embed-guide.html?print=1" target="_blank" rel="noreferrer">
+                <Button variant="ghost" size="sm" title="The one-pager for the customer's web team — opens ready to save as PDF">
+                  <FileDown className="w-3.5 h-3.5 mr-1.5" /> Install guide (PDF)
+                </Button>
+              </a>
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -1869,6 +1879,46 @@ export default function SalesEventDetail() {
   const [editorAgendaId, setEditorAgendaId] = useState<number | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<EventSession | null>(null);
   const [agendaToDelete, setAgendaToDelete] = useState<AgendaRow | null>(null);
+  const [copiedAgendaLinkId, setCopiedAgendaLinkId] = useState<number | null>(null);
+
+  /* Per-account personalized links: `?<param>=<token>` appended to the
+     customer-site URL selects that account's agenda in the installed widget.
+     Param comes from the event (embed dialog) so rows and snippet can't
+     drift; tokens are minted lazily by the agendas list for published rows. */
+  const effectiveEmbedParam = event?.embedParam?.trim() || DEFAULT_EMBED_PARAM;
+  const agendaLinkSuffix = (a: AgendaRow) =>
+    a.embedToken ? `?${effectiveEmbedParam}=${a.embedToken}` : null;
+
+  const copyAgendaLink = async (a: AgendaRow) => {
+    const suffix = agendaLinkSuffix(a);
+    if (!suffix) return;
+    await navigator.clipboard.writeText(suffix);
+    setCopiedAgendaLinkId(a.id);
+    setTimeout(() => setCopiedAgendaLinkId(null), 1500);
+  };
+
+  const exportAgendaLinks = () => {
+    const esc = (v: string | number | null | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [
+      ["Account", "Status", "Sessions", "Agenda page", "Personalized link (append to the customer-site URL)"].join(","),
+      ...agendas.map((a) =>
+        [
+          esc(a.accountName ?? `Agenda #${a.id}`),
+          esc(a.status),
+          esc(a.selections.length),
+          esc(a.pageUrl ? `${window.location.origin}${a.pageUrl}` : ""),
+          esc(agendaLinkSuffix(a) ?? ""),
+        ].join(","),
+      ),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${(event?.name ?? "event").replace(/[^\w-]+/g, "-")}-agenda-links.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const load = async () => {
     try {
@@ -2107,10 +2157,21 @@ export default function SalesEventDetail() {
 
         {/* ── Agendas ── */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <Users className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
-            Account agendas ({agendas.length})
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Users className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+              Account agendas ({agendas.length})
+            </h2>
+            {agendas.length > 0 && (
+              <Button
+                variant="outline" size="sm" className="h-8"
+                title="Download a CSV of every account's agenda page and personalized link"
+                onClick={exportAgendaLinks}
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" /> Export links (CSV)
+              </Button>
+            )}
+          </div>
           {agendas.length === 0 ? (
             <Card className="p-6 text-sm text-muted-foreground">
               No agendas yet. {sessions.length === 0 ? "Import or add the session catalog first, then" : "Pick an account and"} build the first one — matching does the heavy lifting.
@@ -2134,6 +2195,15 @@ export default function SalesEventDetail() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {a.embedToken && (
+                        <Button
+                          variant="ghost" size="sm"
+                          title={`Copy this account's personalized link (?${effectiveEmbedParam}=…) — append it to the customer-site URL`}
+                          onClick={() => void copyAgendaLink(a)}
+                        >
+                          {copiedAgendaLinkId === a.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Link2 className="w-3.5 h-3.5" />}
+                        </Button>
+                      )}
                       {a.pageUrl && (
                         <a href={a.pageUrl} target="_blank" rel="noreferrer">
                           <Button variant="ghost" size="sm"><ExternalLink className="w-3.5 h-3.5" /></Button>

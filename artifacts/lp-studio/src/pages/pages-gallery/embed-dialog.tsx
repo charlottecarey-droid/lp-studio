@@ -185,6 +185,14 @@ export function EmbedDialog({ page, onClose }: { page: Page; onClose: () => void
               browser on later visits.
             </p>
           )}
+          <a
+            href="/docs/embed-guide.html?print=1"
+            target="_blank"
+            rel="noreferrer"
+            className="block text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Install guide for the host site's web team (opens ready to save as PDF)
+          </a>
         </div>
       </DialogContent>
     </Dialog>

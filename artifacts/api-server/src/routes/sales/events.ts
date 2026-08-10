@@ -1063,6 +1063,19 @@ router.get("/events/:eventId/agendas", async (req, res): Promise<void> => {
       .leftJoin(lpPagesTable, eq(salesEventAgendasTable.lpPageId, lpPagesTable.id))
       .where(and(eq(salesEventAgendasTable.tenantId, tenantId), eq(salesEventAgendasTable.eventId, eventId)))
       .orderBy(desc(salesEventAgendasTable.updatedAt));
+    // Lazily mint embed tokens for published agendas that predate the embed
+    // feature (same rule as the single-agenda GET) — the list drives the
+    // per-row link copy and the links CSV export, so published rows must
+    // always carry one.
+    for (const r of rows) {
+      if (!r.agenda.embedToken && r.agenda.status === "published" && r.agenda.lpPageId) {
+        r.agenda.embedToken = randomBytes(16).toString("base64url");
+        await db
+          .update(salesEventAgendasTable)
+          .set({ embedToken: r.agenda.embedToken })
+          .where(and(eq(salesEventAgendasTable.tenantId, tenantId), eq(salesEventAgendasTable.id, r.agenda.id)));
+      }
+    }
     res.json({
       agendas: rows.map((r) => ({
         ...r.agenda,
