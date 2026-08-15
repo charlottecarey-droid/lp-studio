@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import { isLikelyHtml, sanitizeInlineHtml } from "../lib/sanitize-inline-html";
 
 interface WordRevealProps {
@@ -18,6 +19,7 @@ export function WordReveal({
   brightColor = "#ffffff",
 }: WordRevealProps) {
   const ref = useRef<HTMLSpanElement>(null);
+  const staticRender = useStaticRender();
 
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -42,6 +44,18 @@ export function WordReveal({
         style={{ display: "inline", color: brightColor, ...style }}
         dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(text) }}
       />
+    );
+  }
+
+  // Static render (template previews, thumbnails, builder canvas, disabled
+  // animations): the scroll progress never advances there, which left every
+  // word stuck at the dim color — headline copy at ~20% opacity. Render the
+  // final (bright) frame; the per-word reveal is a live-scroll enhancement.
+  if (staticRender) {
+    return (
+      <span ref={ref} className={className} style={{ display: "inline", color: brightColor, ...style }}>
+        {text.trim()}
+      </span>
     );
   }
 

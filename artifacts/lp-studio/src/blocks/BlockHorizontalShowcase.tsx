@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { HorizontalShowcaseBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -65,7 +66,12 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
 
   // Track must travel (count - 1) panel widths from right to left.
   // We add a small lead-in so the first panel sits centered before scrolling.
-  const x = useTransform(scrollYProgress, [0.05, 0.95], ["0vw", `-${(count - 1) * 100}vw`]);
+  // Static renders pin the track to the first panel — scroll tracking
+  // misfires inside preview dialogs/capture iframes and a garbage progress
+  // value would translate every panel off-screen (blank preview).
+  const staticRender = useStaticRender();
+  const xLive = useTransform(scrollYProgress, [0.05, 0.95], ["0vw", `-${(count - 1) * 100}vw`]);
+  const x = staticRender ? "0vw" : xLive;
 
   return (
     <div

@@ -271,11 +271,20 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId,
     target: heroRef,
     offset: ["start start", "end start"],
   });
-  const heroImgY = useTransform(heroScroll, [0, 1], ["0%", "30%"]);
-  const heroImgScale = useTransform(heroScroll, [0, 1], [1, 1.15]);
-  const heroOverlay = useTransform(heroScroll, [0, 0.5], [0.6, 0.95]);
-  const heroContentY = useTransform(heroScroll, [0, 1], ["0%", "20%"]);
-  const heroContentOpacity = useTransform(heroScroll, [0, 0.6], [1, 0]);
+  const heroImgYLive = useTransform(heroScroll, [0, 1], ["0%", "30%"]);
+  const heroImgScaleLive = useTransform(heroScroll, [0, 1], [1, 1.15]);
+  const heroOverlayLive = useTransform(heroScroll, [0, 0.5], [0.6, 0.95]);
+  const heroContentYLive = useTransform(heroScroll, [0, 1], ["0%", "20%"]);
+  const heroContentOpacityLive = useTransform(heroScroll, [0, 0.6], [1, 0]);
+  // Static renders (preview dialogs, thumbnails, builder) must pin the rest
+  // frame: scroll tracking misfires in those surfaces and was driving the
+  // overlay toward 0.95 / the content toward opacity 0 — a black hero band
+  // with no headline in the template library.
+  const heroImgY = staticRender ? "0%" : heroImgYLive;
+  const heroImgScale = staticRender ? 1 : heroImgScaleLive;
+  const heroOverlay = staticRender ? 0.6 : heroOverlayLive;
+  const heroContentY = staticRender ? "0%" : heroContentYLive;
+  const heroContentOpacity = staticRender ? 1 : heroContentOpacityLive;
 
   // Photo carousel state
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "center", slidesToScroll: 1 });

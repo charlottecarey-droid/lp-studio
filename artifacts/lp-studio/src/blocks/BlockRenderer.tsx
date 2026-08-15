@@ -1833,11 +1833,17 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
   const wrapped = wrapWithSettings(inner, outerSettings, animationsEnabled);
   const final = shouldReveal ? <Reveal>{wrapped}</Reveal> : wrapped;
 
-  // On the builder canvas, blocks' own entrance animations (whileInView /
-  // mount fades) must render their FINAL frame — the canvas is the WYSIWYG
-  // reference for what publishes, and half-run animations read as
-  // transparent copy. Blocks consult this via useStaticRender().
-  const body = isBuilder ? (
+  // Blocks' own entrance animations (whileInView / mount fades) and
+  // scroll-driven fades must render their FINAL frame in two situations:
+  //  - the builder canvas — it is the WYSIWYG reference for what publishes,
+  //    and half-run animations read as transparent copy;
+  //  - anywhere animations are disabled (template-library preview modals,
+  //    generation live preview, pages with animations turned off). Skipping
+  //    only the outer <Reveal> used to leave block-internal reveals armed,
+  //    and inside dialogs/scaled panes their observers and scroll tracking
+  //    misfire — hero copy stranded at opacity 0 or scroll-faded to black.
+  // Blocks consult this via useStaticRender().
+  const body = isBuilder || !animationsEnabled ? (
     <StaticRenderContext.Provider value={true}>{final}</StaticRenderContext.Provider>
   ) : (
     final

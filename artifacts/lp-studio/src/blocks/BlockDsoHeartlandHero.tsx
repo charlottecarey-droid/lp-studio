@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useAnimInitial } from "@/lib/reveal-fallback";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { useRef, useState, useCallback, type CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
@@ -124,8 +124,12 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
   const contentY    = useTransform(scrollYProgress, [0, 1], ["0px", "60px"]);
-  const scrollOpacity = p.disableScrollFade ? 1 : heroOpacity;
-  const scrollY       = p.disableScrollFade ? "0px" : contentY;
+  // Static renders must also skip the scroll fade: inside preview dialogs and
+  // capture iframes the scroll tracking computes garbage progress, dimming the
+  // whole hero (the "very transparent everything" template-preview bug).
+  const staticRender = useStaticRender();
+  const scrollOpacity = staticRender || p.disableScrollFade ? 1 : heroOpacity;
+  const scrollY       = staticRender || p.disableScrollFade ? "0px" : contentY;
 
   const layout = p.layout ?? "full-bleed";
   const isSplit = layout === "split";

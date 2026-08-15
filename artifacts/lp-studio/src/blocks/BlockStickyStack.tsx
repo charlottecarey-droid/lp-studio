@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
+import { useStaticRender } from "@/lib/reveal-fallback";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { StickyStackBlockProps, StickyStackCard } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -170,9 +171,16 @@ function CardLayer({
   const isLast = index === total - 1;
   const recedeAt = isLast ? 1 : end;
 
-  const scale = useTransform(scrollYProgress, [start, recedeAt], [1, isLast ? 1 : 0.92]);
-  const y = useTransform(scrollYProgress, [start, recedeAt], [0, isLast ? 0 : -40]);
-  const opacity = useTransform(scrollYProgress, [start, recedeAt - 0.02, recedeAt], [1, 1, isLast ? 1 : 0.6]);
+  // Static renders pin every card to its rest frame — scroll tracking
+  // misfires inside preview dialogs/capture iframes and a garbage progress
+  // value would leave cards dimmed and receded.
+  const staticRender = useStaticRender();
+  const scaleLive = useTransform(scrollYProgress, [start, recedeAt], [1, isLast ? 1 : 0.92]);
+  const yLive = useTransform(scrollYProgress, [start, recedeAt], [0, isLast ? 0 : -40]);
+  const opacityLive = useTransform(scrollYProgress, [start, recedeAt - 0.02, recedeAt], [1, 1, isLast ? 1 : 0.6]);
+  const scale = staticRender ? 1 : scaleLive;
+  const y = staticRender ? 0 : yLive;
+  const opacity = staticRender ? 1 : opacityLive;
 
   // Stagger top so each subsequent card sits a tiny bit lower on the stack
   // — gives a deck-of-cards feel when one is receding.

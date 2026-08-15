@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { motion, useScroll, useTransform, useSpring, useReducedMotion } from "framer-motion";
-import { useAnimInitial } from "@/lib/reveal-fallback";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { ArrowRight, Menu } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { ParallaxLayersHeroBlockProps } from "@/lib/block-types";
@@ -93,7 +93,11 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
   const yBg = useTransform(scrollYProgress, [0, 1], [0, 200 * mult]);
   const yMid = useTransform(scrollYProgress, [0, 1], [0, -100 * mult]);
   const yFront = useTransform(scrollYProgress, [0, 1], [0, -300 * mult]);
-  const opacityFade = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  // Pinned to opacity 1 under a static render: scroll tracking misfires in
+  // preview dialogs/capture iframes and would fade the hero copy out.
+  const staticRender = useStaticRender();
+  const opacityFadeLive = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const opacityFade = staticRender ? 1 : opacityFadeLive;
 
   const springConfig = { stiffness: 50, damping: 20 };
   const mouseX = useSpring(mousePosition.x, springConfig);

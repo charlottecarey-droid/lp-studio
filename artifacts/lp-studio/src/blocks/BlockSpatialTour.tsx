@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
-import { useAnimInitial } from "@/lib/reveal-fallback";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
 import { VideoModal } from "@/components/VideoModal";
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
@@ -863,11 +863,18 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
   const trailerUrl = p.heroTrailerUrl || p.heroVideoUrl;
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   // Scroll-ducking: the video stage fades + scales as the user scrolls past
-  // the hero so it never competes with the copy below.
-  const stageOpacity = useTransform(scrollYProgress, [0, 0.55, 0.9], [1, 0.65, 0.15]);
-  const stageScale = useTransform(scrollYProgress, [0, 1], [1, 1.06]);
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0.4]);
-  const contentY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  // the hero so it never competes with the copy below. Pinned to the rest
+  // frame under a static render — scroll tracking misfires inside preview
+  // dialogs/capture iframes and was dimming the hero.
+  const staticRender = useStaticRender();
+  const stageOpacityLive = useTransform(scrollYProgress, [0, 0.55, 0.9], [1, 0.65, 0.15]);
+  const stageScaleLive = useTransform(scrollYProgress, [0, 1], [1, 1.06]);
+  const contentOpacityLive = useTransform(scrollYProgress, [0, 0.7], [1, 0.4]);
+  const contentYLive = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const stageOpacity = staticRender ? 1 : stageOpacityLive;
+  const stageScale = staticRender ? 1 : stageScaleLive;
+  const contentOpacity = staticRender ? 1 : contentOpacityLive;
+  const contentY = staticRender ? 0 : contentYLive;
   const hasVideo = !!p.heroVideoUrl && !reducedMotion;
 
   return (

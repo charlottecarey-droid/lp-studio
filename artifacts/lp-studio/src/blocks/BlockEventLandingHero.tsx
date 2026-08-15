@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useAnimInitial } from "@/lib/reveal-fallback";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { ChevronDown } from "lucide-react";
 import type { EventLandingHeroBlockProps, FormBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -125,14 +125,18 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
     ?? (showDetailsSection ? detailsAnchorId : undefined);
 
   const sectionRef = useRef<HTMLElement>(null);
-  // Static renders get the final frame instead of entrance fades — the
-  // scroll-driven contentOpacity below already starts at 1, so it's safe.
+  // Static renders get the final frame instead of entrance fades.
   // See lib/reveal-fallback.ts.
   const anim = useAnimInitial();
+  const staticRender = useStaticRender();
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
-  // Subtle parallax on the bg image and gentle fade on the foreground.
-  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+  // Subtle parallax on the bg image and gentle fade on the foreground. Pinned
+  // to the rest frame under a static render: scroll tracking misfires inside
+  // preview dialogs/capture iframes and was fading the hero copy out.
+  const bgYLive = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
+  const contentOpacityLive = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+  const bgY = staticRender ? "0%" : bgYLive;
+  const contentOpacity = staticRender ? 1 : contentOpacityLive;
 
   // Brand-aware CTA palette, with optional per-instance overrides. When the
   // user supplies an explicit color it wins; otherwise we fall back to the
