@@ -26,6 +26,7 @@ import onePagerTemplatesRouter from "./one-pager-templates";
 import webOnePagerRouter from "./web-one-pager";
 import eventsRouter from "./events";
 import resendWebhookRouter from "./resend-webhook";
+import webhookSecretsRouter from "./webhook-secrets";
 import brandContextRouter from "./brand-context";
 import brandFontRouter from "./brand-font";
 import { requirePlanFeature } from "../../middleware/requirePlanFeature";
@@ -90,6 +91,7 @@ router.use(onePagerTemplatesRouter);
 router.use(webOnePagerRouter);
 router.use(eventsRouter);
 router.use("/webhooks", resendWebhookRouter);
+router.use(webhookSecretsRouter);
 router.use(brandContextRouter);
 
 export default router;

@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, CheckCircle2, AlertCircle, AlertTriangle, Cloud, Loader2, Lock } from "lucide-react";
 import { IntegrationsContent } from "@/pages/integrations";
+import { VisitorWebhooksSection } from "@/pages/settings/VisitorWebhooksSection";
 
 const API_BASE = "/api";
 
@@ -179,6 +180,8 @@ export function IntegrationsSettingsContent() {
           })}
         </div>
       </section>
+
+      <VisitorWebhooksSection />
 
       <section>
         <h2 className="text-lg font-semibold">Lead delivery</h2>
