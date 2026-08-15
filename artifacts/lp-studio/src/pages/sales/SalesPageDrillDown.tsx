@@ -74,6 +74,9 @@ interface VisitRow {
   id: string | number;
   source: string;
   resolved: boolean;
+  /** How an anonymous row became known: form submit ("lead") or a sales
+   * hotlink the dwell beacon attributed ("hotlink"). */
+  resolvedVia?: "lead" | "hotlink" | null;
   visitedAt: string;
   contactName: string | null;
   company: string | null;
@@ -379,7 +382,9 @@ export function SalesPageDrillDown({
                               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-primary/10 text-primary shrink-0">Link</span>
                             )}
                             {v.resolved && v.source === "anonymous" && (
-                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-emerald-100 text-emerald-700 shrink-0">Lead</span>
+                              v.resolvedVia === "hotlink"
+                                ? <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-primary/10 text-primary shrink-0">Link</span>
+                                : <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-emerald-100 text-emerald-700 shrink-0">Lead</span>
                             )}
                             {v.converted && (
                               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-emerald-100 text-emerald-700 shrink-0">Converted</span>

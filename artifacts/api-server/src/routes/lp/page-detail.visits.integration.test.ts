@@ -39,11 +39,15 @@ let app: Express;
 const createdTenantIds: number[] = [];
 const createdSids: string[] = [];
 const createdPageIds: number[] = [];
+// sales_accounts has no FK cascade off tenants — delete explicitly
+// (contacts cascade off the account; hotlinks cascade off the page).
+const createdAccountIds: number[] = [];
 
 interface VisitRow {
   id: string;
   source: "anonymous" | "personalized";
   resolved?: boolean;
+  resolvedVia?: "lead" | "hotlink" | null;
   visitedAt: string;
   contactName: string | null;
   company: string | null;
@@ -166,6 +170,41 @@ async function seedPersonalizedVisit(
   );
 }
 
+/**
+ * Seed a sales hotlink chain (account → contact → hotlink) plus an anonymous
+ * visit whose hotlink_id is stamped — the state the dwell beacon produces
+ * after validating the visitor's ?hl= token. The visits feed should resolve
+ * the row to the hotlink's contact ("Link" identity).
+ */
+async function seedHotlinkVisit(
+  tenantId: number,
+  pageId: number,
+  sessionId: string,
+  minutesAgo: number,
+): Promise<void> {
+  const accountRes = await pool.query<{ id: number }>(
+    `INSERT INTO sales_accounts (tenant_id, name, display_name)
+     VALUES ($1, 'it-hotlink-account', 'Hotlink Dental') RETURNING id`,
+    [tenantId],
+  );
+  createdAccountIds.push(accountRes.rows[0].id);
+  const contactRes = await pool.query<{ id: number }>(
+    `INSERT INTO sales_contacts (tenant_id, account_id, first_name, last_name, email)
+     VALUES ($1, $2, 'Hana', 'Hotlink', 'hana@hotlink.test') RETURNING id`,
+    [tenantId, accountRes.rows[0].id],
+  );
+  const hlRes = await pool.query<{ id: number }>(
+    `INSERT INTO sales_hotlinks (tenant_id, token, contact_id, page_id)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [tenantId, `it-hl-${randomUUID()}`.slice(0, 32), contactRes.rows[0].id, pageId],
+  );
+  await pool.query(
+    `INSERT INTO lp_page_visits (page_id, session_id, city, country, hotlink_id, dwell_seconds, created_at)
+     VALUES ($1, $2, 'Denver', 'US', $3, 42, now() - ($4 || ' minutes')::interval)`,
+    [pageId, sessionId, hlRes.rows[0].id, String(minutesAgo)],
+  );
+}
+
 function authed(sid: string, url: string) {
   return inject(app, { method: "GET", url, headers: { cookie: `${SESSION_COOKIE}=${sid}` } });
 }
@@ -186,6 +225,9 @@ afterAll(async () => {
   }
   for (const id of createdPageIds) {
     await pool.query(`DELETE FROM lp_pages WHERE id = $1`, [id]).catch(() => {});
+  }
+  for (const id of createdAccountIds) {
+    await pool.query(`DELETE FROM sales_accounts WHERE id = $1`, [id]).catch(() => {});
   }
   for (const sid of createdSids) {
     await pool.query(`DELETE FROM app_sessions WHERE sid = $1`, [sid]).catch(() => {});
@@ -324,6 +366,73 @@ describe.skipIf(!dbAvailable)("GET /lp/analytics/pages/:pageId/visits", () => {
     const searchBody = searchRes.json as VisitsBody;
     expect(searchBody.total).toBe(1);
     expect(searchBody.visits[0].company).toBe("Globex");
+  });
+
+  it("resolves a hotlink-attributed visit to the hotlink's contact (resolvedVia=hotlink)", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const pageId = await seedPage(tenantId);
+    const hlSession = `it-sess-${randomUUID()}`;
+    const anonSession = `it-sess-${randomUUID()}`;
+
+    // One visit stamped with a hotlink id (what the dwell beacon writes after
+    // validating the ?hl= token), one plain anonymous visit.
+    await seedHotlinkVisit(tenantId, pageId, hlSession, 5);
+    await seedAnonVisit(pageId, anonSession, 15);
+
+    const res = await authed(sid, `/lp/analytics/pages/${pageId}/visits`);
+    expect(res.status).toBe(200);
+    const body = res.json as VisitsBody;
+    expect(body.total).toBe(2);
+
+    const known = body.visits.find((v) => v.contactName !== null);
+    expect(known).toBeTruthy();
+    expect(known!.source).toBe("anonymous");
+    expect(known!.resolved).toBe(true);
+    expect(known!.resolvedVia).toBe("hotlink");
+    expect(known!.contactName).toBe("Hana Hotlink");
+    // Company prefers the account's clean display_name over the raw name.
+    expect(known!.company).toBe("Hotlink Dental");
+    expect(known!.email).toBe("hana@hotlink.test");
+
+    const unknown = body.visits.find((v) => v.contactName === null);
+    expect(unknown!.resolved).toBeFalsy();
+    expect(unknown!.resolvedVia ?? null).toBeNull();
+
+    // knownOnly includes the hotlink-resolved row and excludes the plain one.
+    const knownOnlyRes = await authed(
+      sid,
+      `/lp/analytics/pages/${pageId}/visits?knownOnly=true`,
+    );
+    const knownBody = knownOnlyRes.json as VisitsBody;
+    expect(knownBody.total).toBe(1);
+    expect(knownBody.visits[0].contactName).toBe("Hana Hotlink");
+  });
+
+  it("prefers lead-form identity over hotlink identity when a session has both", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const pageId = await seedPage(tenantId);
+    const session = `it-sess-${randomUUID()}`;
+
+    // The visit arrived via a hotlink AND the same session submitted a lead
+    // form — the form's self-reported identity wins (a forwarded hotlink can
+    // be opened by someone other than the contact it was minted for).
+    await seedHotlinkVisit(tenantId, pageId, session, 5);
+    await seedLead(tenantId, pageId, session, {
+      firstName: "Selma",
+      lastName: "Submitter",
+      email: "selma@formfill.test",
+    });
+
+    const res = await authed(sid, `/lp/analytics/pages/${pageId}/visits`);
+    const body = res.json as VisitsBody;
+    expect(body.total).toBe(1);
+    expect(body.visits[0].resolved).toBe(true);
+    expect(body.visits[0].resolvedVia).toBe("lead");
+    expect(body.visits[0].contactName).toBe("Selma Submitter");
+    expect(body.visits[0].email).toBe("selma@formfill.test");
+    // The lead omitted a company — the field stays per-field coalesced, so the
+    // hotlink account's display name still fills it in.
+    expect(body.visits[0].company).toBe("Hotlink Dental");
   });
 
   it("rejects unauthenticated requests", async () => {

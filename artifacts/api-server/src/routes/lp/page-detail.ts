@@ -463,9 +463,18 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           'pv-' || pv.id AS id,
           'anonymous' AS source,
           pv.created_at AS visited_at,
-          li.contact_name,
-          li.company,
-          li.email,
+          -- Identity resolution, most-specific first: a lead the session
+          -- actually submitted beats the hotlink's addressee (a forwarded
+          -- link can be opened by someone other than the contact it was
+          -- minted for). hotlink_id is stamped by the dwell beacon after the
+          -- server re-validates the raw ?hl= token against this page.
+          COALESCE(li.contact_name, NULLIF(TRIM(hc.first_name || ' ' || hc.last_name), '')) AS contact_name,
+          COALESCE(li.company, ha.display_name, ha.name) AS company,
+          COALESCE(li.email, hc.email) AS email,
+          CASE
+            WHEN li.contact_name IS NOT NULL OR li.company IS NOT NULL OR li.email IS NOT NULL THEN 'lead'
+            WHEN hc.id IS NOT NULL THEN 'hotlink'
+          END AS resolved_via,
           pv.city, pv.region, pv.country, pv.country_code,
           pv.utm_source, pv.utm_medium, pv.utm_campaign,
           pv.session_id,
@@ -478,6 +487,9 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           ) AS converted
         FROM lp_page_visits pv
         LEFT JOIN lead_identity li ON li.session_id = pv.session_id
+        LEFT JOIN sales_hotlinks hlk ON hlk.id = pv.hotlink_id
+        LEFT JOIN sales_contacts hc ON hc.id = hlk.contact_id
+        LEFT JOIN sales_accounts ha ON ha.id = hc.account_id
         WHERE pv.page_id = ${pageId} AND pv.created_at > ${curStart}
         UNION ALL
         SELECT
@@ -485,6 +497,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           'personalized' AS source,
           plv.visited_at AS visited_at,
           pl.contact_name, pl.company, pl.email,
+          NULL::text AS resolved_via,
           plv.city, plv.region, plv.country, NULL::text AS country_code,
           NULL::text AS utm_source, NULL::text AS utm_medium, NULL::text AS utm_campaign,
           NULL::text AS session_id,
@@ -502,9 +515,10 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
     `;
 
     const conds = [sql`1 = 1`];
-    // "Known only" now matches both personalized (hotlink) visits AND anonymous
-    // page visits we resolved to a lead identity above (contact_name/company/
-    // email populated by the lead_identity join).
+    // "Known only" matches personalized-link visits AND anonymous page visits
+    // resolved to an identity above — via the lead_identity join (form
+    // submits) or the hotlink→contact join (contact_name/company/email are
+    // the coalesced aliases, so both mechanisms pass this filter).
     if (knownOnly) {
       conds.push(
         sql`(source = 'personalized' OR contact_name IS NOT NULL OR company IS NOT NULL OR email IS NOT NULL)`,
@@ -539,6 +553,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
       contact_name: string | null;
       company: string | null;
       email: string | null;
+      resolved_via: "lead" | "hotlink" | null;
       city: string | null;
       region: string | null;
       country: string | null;
@@ -676,14 +691,17 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
       const clicks = isAnon ? eng?.clicks ?? 0 : Number(r.clicks ?? 0) || 0;
       const device = isAnon ? eng?.device ?? null : null;
       const detail = isAnon && r.session_id ? detailBySession.get(r.session_id) : undefined;
-      // An anonymous page visit we matched to a submitted lead is actually a
-      // known visitor — surface that so the UI labels the row "Lead" and shows
-      // the resolved name instead of "Anonymous".
+      // An anonymous page visit we matched to a known human — either the
+      // session submitted a lead form ("lead") or it arrived through a sales
+      // hotlink the dwell beacon attributed ("hotlink"). Surface both the
+      // flag and the mechanism so the UI can label the row (Lead vs Link)
+      // and show the resolved name instead of "Anonymous".
       const resolved = isAnon && Boolean(r.contact_name || r.company || r.email);
       return {
         id: r.id,
         source: r.source,
         resolved,
+        resolvedVia: resolved ? r.resolved_via : null,
         visitedAt: r.visited_at,
         contactName: r.contact_name,
         company: r.company,

@@ -22,6 +22,11 @@ export function useDwellTracker(
   pageId: number | undefined | null,
   sessionId: string | undefined | null,
   enabled = true,
+  // Raw ?hl= sales-hotlink token, forwarded with each flush so the server can
+  // attribute this session's visit row to the hotlink's contact (it
+  // re-validates the token against the page — the client never sends a
+  // numeric hotlink id).
+  hlToken: string | null = null,
 ) {
   useEffect(() => {
     if (!enabled || !pageId || !sessionId) return;
@@ -40,7 +45,7 @@ export function useDwellTracker(
       const seconds = totalSeconds();
       if (seconds < 1 || seconds <= lastSentSeconds) return;
       lastSentSeconds = seconds;
-      const payload = JSON.stringify({ pageId, sessionId, seconds });
+      const payload = JSON.stringify({ pageId, sessionId, seconds, ...(hlToken ? { hlToken } : {}) });
       // Blob wrapper so sendBeacon posts Content-Type: application/json —
       // its text/plain default bypasses express.json() (see heatmap hook).
       if (useBeacon && navigator.sendBeacon) {
@@ -88,5 +93,5 @@ export function useDwellTracker(
       pause();
       send(true);
     };
-  }, [enabled, pageId, sessionId]);
+  }, [enabled, pageId, sessionId, hlToken]);
 }

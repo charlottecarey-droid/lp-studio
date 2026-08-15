@@ -683,8 +683,10 @@ function LandingPageViewerInner() {
   })();
   useHeatmapTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId);
   // Time-on-page beacon (Sales Pages analytics) — same gating as the heatmap:
-  // real visitors only, never builder/preview sessions.
-  useDwellTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId);
+  // real visitors only, never builder/preview sessions. The raw ?hl= token
+  // rides along so the server can attribute this session's visit to the
+  // hotlink's contact (known-visitor rows in the Pages view).
+  useDwellTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId, hlToken);
 
   useEffect(() => {
     let cancelled = false;

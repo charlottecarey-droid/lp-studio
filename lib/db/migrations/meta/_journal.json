@@ -974,6 +974,13 @@
       "when": 1758030000000,
       "tag": "0138_page_embed_token",
       "breakpoints": false
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1758030010000,
+      "tag": "0139_page_visit_hotlink",
+      "breakpoints": false
     }
   ]
 }

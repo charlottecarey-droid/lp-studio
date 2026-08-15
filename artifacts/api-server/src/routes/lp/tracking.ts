@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
-import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
+import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable, salesHotlinksTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
 import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveHeroImage, toPlainCardText, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
@@ -326,10 +326,11 @@ const trackEventLimiter = rateLimit({
  * body instead of api-zod — the payload is three fields and public.
  */
 router.post("/lp/track/dwell", trackEventLimiter, async (req, res): Promise<void> => {
-  const body = (req.body ?? {}) as { pageId?: unknown; sessionId?: unknown; seconds?: unknown };
+  const body = (req.body ?? {}) as { pageId?: unknown; sessionId?: unknown; seconds?: unknown; hlToken?: unknown };
   const pageId = typeof body.pageId === "number" ? Math.floor(body.pageId) : NaN;
   const sessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
   const secondsRaw = typeof body.seconds === "number" ? Math.floor(body.seconds) : NaN;
+  const hlToken = typeof body.hlToken === "string" ? body.hlToken.trim() : "";
   if (!Number.isFinite(pageId) || pageId <= 0 || !sessionId || sessionId.length > 128 || !Number.isFinite(secondsRaw) || secondsRaw < 1) {
     res.status(400).json({ error: "Invalid dwell payload" });
     return;
@@ -338,10 +339,30 @@ router.post("/lp/track/dwell", trackEventLimiter, async (req, res): Promise<void
   // payload) can never poison averages.
   const seconds = Math.min(secondsRaw, 1800);
   try {
+    // Hotlink attribution: the viewer forwards the raw ?hl= token with each
+    // dwell flush. The client's numeric hotlinkId is never trusted — we
+    // re-resolve the (unguessable, unique) token here and only stamp it when
+    // the hotlink actually points at the page being reported. Riding on the
+    // repeating dwell beacon (rather than a one-shot call) makes attribution
+    // immune to the race with the fire-and-forget visit insert in the page
+    // config handler: if the visit row doesn't exist yet, a later flush
+    // stamps it. COALESCE keeps the first attribution — a session can't be
+    // re-attributed to a different contact by replaying another token.
+    let hotlinkId: number | null = null;
+    if (hlToken && hlToken.length <= 64) {
+      const [hl] = await db
+        .select({ id: salesHotlinksTable.id, pageId: salesHotlinksTable.pageId })
+        .from(salesHotlinksTable)
+        .where(eq(salesHotlinksTable.token, hlToken));
+      if (hl && hl.pageId === pageId) hotlinkId = hl.id;
+    }
     await db
       .update(lpPageVisitsTable)
       .set({
         dwellSeconds: sql`GREATEST(COALESCE(${lpPageVisitsTable.dwellSeconds}, 0), ${seconds})`,
+        ...(hotlinkId != null
+          ? { hotlinkId: sql`COALESCE(${lpPageVisitsTable.hotlinkId}, ${hotlinkId})` }
+          : {}),
       })
       .where(and(eq(lpPageVisitsTable.pageId, pageId), eq(lpPageVisitsTable.sessionId, sessionId)));
     res.json({ ok: true });

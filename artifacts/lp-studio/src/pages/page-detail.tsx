@@ -144,9 +144,12 @@ interface AdMapping {
 interface VisitRow {
   id: string;
   source: "anonymous" | "personalized";
-  // True when an anonymous page visit was matched to a submitted lead, so a
+  // True when an anonymous page visit was matched to a known human, so a
   // real name is available even though the row originated as an anonymous visit.
   resolved?: boolean;
+  // How it was matched: form submit ("lead") or sales-hotlink attribution
+  // stamped by the dwell beacon ("hotlink").
+  resolvedVia?: "lead" | "hotlink" | null;
   visitedAt: string;
   contactName: string | null;
   company: string | null;
@@ -425,7 +428,7 @@ function VisitDetail({ visit: v }: { visit: VisitRow }) {
             v.source === "personalized"
               ? "Known contact"
               : v.resolved
-                ? "Lead"
+                ? (v.resolvedVia === "hotlink" ? "Link" : "Lead")
                 : "Anonymous"
           }
         />
@@ -657,7 +660,7 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
                       </td>
                       <td className="px-3 py-2.5">
                         <Badge variant={isKnown ? "default" : "secondary"}>
-                          {v.source === "personalized" ? "Known" : v.resolved ? "Lead" : "Anonymous"}
+                          {v.source === "personalized" ? "Known" : v.resolved ? (v.resolvedVia === "hotlink" ? "Link" : "Lead") : "Anonymous"}
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5 text-muted-foreground">
