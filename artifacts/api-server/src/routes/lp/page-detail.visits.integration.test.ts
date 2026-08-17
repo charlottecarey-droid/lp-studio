@@ -435,6 +435,26 @@ describe.skipIf(!dbAvailable)("GET /lp/analytics/pages/:pageId/visits", () => {
     expect(body.visits[0].company).toBe("Hotlink Dental");
   });
 
+  it("summary LEADS tile counts lp_leads rows in the window (not lp_events)", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const pageId = await seedPage(tenantId);
+
+    // Two leads: one inside the 30-day window, one outside. Neither has any
+    // lp_events conversion row — the tile must count lead ROWS (historical
+    // leads predate page-attributed conversion events entirely).
+    await seedLead(tenantId, pageId, `it-sess-${randomUUID()}`, { email: "in-window@x.test" });
+    await pool.query(
+      `INSERT INTO lp_leads (tenant_id, page_id, fields, created_at)
+       VALUES ($1, $2, '{"email":"old@x.test"}', now() - interval '45 days')`,
+      [tenantId, pageId],
+    );
+
+    const res = await authed(sid, `/lp/analytics/pages/${pageId}/summary`);
+    expect(res.status).toBe(200);
+    const body = res.json as { metrics: { leads: { value: number } } };
+    expect(body.metrics.leads.value).toBe(1);
+  });
+
   it("rejects unauthenticated requests", async () => {
     const { tenantId, sid } = await seedTenant();
     const pageId = await seedPage(tenantId);

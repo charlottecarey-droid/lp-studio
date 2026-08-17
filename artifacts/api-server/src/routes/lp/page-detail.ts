@@ -133,7 +133,7 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
       anonVisits,
       persVisits,
       uniqueRows,
-      anonConv,
+      leadRows,
       persConv,
       known,
       scroll,
@@ -172,12 +172,17 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
         LEFT JOIN lead_identity li ON li.session_id = pv.session_id
         WHERE pv.page_id = ${pageId} AND pv.session_id IS NOT NULL
       `),
-      // anonymous conversions (lp_events.page_id)
+      // Captured leads — count the ACTUAL lp_leads rows, not conversion
+      // events. lp_events rows historically landed with page_id NULL (the
+      // form clients didn't send pageId until Aug 2026), so an event-based
+      // count reads 0 forever on pages with real leads; lead rows are also
+      // the truthful number (a form that double-fires events still writes
+      // one lead).
       db.execute(sql`
         SELECT
           count(*) FILTER (WHERE created_at > ${curStart}) AS cur,
           count(*) FILTER (WHERE created_at > ${prevStart} AND created_at <= ${curStart}) AS prev
-        FROM lp_events WHERE page_id = ${pageId} AND event_type = 'conversion'
+        FROM lp_leads WHERE page_id = ${pageId} AND tenant_id = ${tenantId}
       `),
       // personalized conversions (cta_clicks > 0)
       db.execute(sql`
@@ -240,8 +245,10 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
     const visitsCur = num(anonVisits.rows, "cur") + num(persVisits.rows, "cur");
     const visitsPrev = num(anonVisits.rows, "prev") + num(persVisits.rows, "prev");
 
-    const convCur = num(anonConv.rows, "cur") + num(persConv.rows, "cur");
-    const convPrev = num(anonConv.rows, "prev") + num(persConv.rows, "prev");
+    // "Conversions" = captured leads + personalized-link CTA clicks. Feeds
+    // both the LEADS tile and the conversion rate.
+    const convCur = num(leadRows.rows, "cur") + num(persConv.rows, "cur");
+    const convPrev = num(leadRows.rows, "prev") + num(persConv.rows, "prev");
 
     const rateCur = visitsCur > 0 ? (convCur / visitsCur) * 100 : 0;
     const ratePrev = visitsPrev > 0 ? (convPrev / visitsPrev) * 100 : 0;

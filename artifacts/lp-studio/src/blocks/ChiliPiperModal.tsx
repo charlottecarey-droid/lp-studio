@@ -156,7 +156,11 @@ export function useChiliPiperBookingTracking({
           await fetch(`${API_BASE}/lp/leads`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fields, pageId, variantId }),
+            // sessionId links this booking lead to the visitor's page session
+            // so the visits table can de-anonymize it (same contract as the
+            // BlockForm lead POST). Anon fallback ids are deliberately NOT
+            // sent — they match no visit row and would just be noise.
+            body: JSON.stringify({ fields, pageId, variantId, ...(sessionId ? { sessionId } : {}) }),
           });
         } catch {
         }

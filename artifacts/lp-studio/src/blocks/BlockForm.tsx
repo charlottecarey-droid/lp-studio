@@ -586,6 +586,12 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           };
           if (testId != null) trackBody.testId = testId;
           if (variantId != null) trackBody.variantId = variantId;
+          // Page + form attribution on the event row itself. Without pageId
+          // the row lands with page_id NULL and every page-scoped counter
+          // (the Pages-view LEADS tile, the visits table's Converted flag)
+          // reads 0 no matter how many forms actually submitted.
+          if (pageId != null) trackBody.pageId = pageId;
+          if (props.formId != null) trackBody.formId = props.formId;
           await fetch(`${API_BASE}/lp/track`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

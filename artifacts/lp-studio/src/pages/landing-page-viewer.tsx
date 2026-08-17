@@ -1116,7 +1116,12 @@ function LandingPageViewerInner() {
                 style={block.blockSettings?.animationStyle ?? "fade-up"}
                 enabled={animationsEnabled && !NO_REVEAL.has(block.type)}
               >
-                <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} pageCta={builderPage.ctaDefault ?? null} />
+                {/* sessionId must flow into the block tree here too (not just the
+                    A/B-variant render below): BlockForm only includes it in the
+                    lead POST when the prop is set, and without it every lead on
+                    a plain builder page stores session_id NULL — which is why
+                    the visits table could never de-anonymize form fills. */}
+                <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} sessionId={sessionId} pageVars={pageVars} pageCta={builderPage.ctaDefault ?? null} />
               </ScrollReveal>
             </BlockErrorBoundary>
           );
