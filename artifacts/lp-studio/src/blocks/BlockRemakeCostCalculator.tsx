@@ -178,7 +178,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
       style={{ fontSize: `${fontScale}rem`, padding: outerPadding ? `${outerPadding}px` : undefined }}
     >
       <div className="max-w-[1100px] mx-auto">
-        {(props.headline || onFieldChange) && (
+        {props.showHeader !== false && (props.headline || onFieldChange) && (
           <div className="text-center mb-10">
             <InlineText
               as="h2"

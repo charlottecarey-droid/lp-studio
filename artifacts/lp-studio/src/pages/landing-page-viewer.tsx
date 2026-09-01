@@ -438,8 +438,12 @@ function LandingPageViewerInner() {
     const style = document.createElement("style");
     style.setAttribute("data-lp-embed-vh", "");
     const V = "var(--lp-embed-vh)";
+    // Transparent page ground: if the iframe is ever taller than the content
+    // (host set a fixed height, or a resize message was missed), the gap
+    // shows the HOST page's background instead of our app-background grey.
     style.textContent = `
 :root { --lp-embed-vh: ${embedVh}px; }
+html, body { background: transparent !important; }
 .min-h-screen,
 [class*="min-h-[100vh]"], [class*="min-h-[100svh]"], [class*="min-h-[100dvh]"],
 [style*="min-height: 100vh"], [style*="min-height:100vh"],
@@ -464,15 +468,20 @@ function LandingPageViewerInner() {
       // unknown by design (any customer website), and a height number is
       // not sensitive. The LOADER side is the strict one — it checks both
       // origin and source before acting on this message.
+      // body.scrollHeight, NOT documentElement.scrollHeight: the latter is
+      // floored at the iframe's own viewport height, so once the iframe grew
+      // (visitor expanded a collapsible) the reported height could never
+      // shrink back — collapsing left a dead band of page background below
+      // the content. body's scrollHeight tracks the content both ways.
       window.parent.postMessage(
-        { type: "lp-embed-height", height: document.documentElement.scrollHeight },
+        { type: "lp-embed-height", height: document.body.scrollHeight },
         "*",
       );
     };
     const schedule = () => { if (!raf) raf = window.requestAnimationFrame(post); };
     post();
     // Blocks reveal on scroll/in-view and images load late — observe both
-    // root elements so every growth reposts, coalesced per frame.
+    // root elements so every growth (and shrink) reposts, coalesced per frame.
     const ro = new ResizeObserver(schedule);
     ro.observe(document.documentElement);
     ro.observe(document.body);

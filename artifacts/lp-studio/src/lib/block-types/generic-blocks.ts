@@ -1014,6 +1014,9 @@ export interface RemakeCostCalculatorBlockProps {
   /** Outer padding around the block in px (clamped 0–160; 0 = default).
    *  Defaults to none because the embed host page owns spacing. */
   outerPadding?: number;
+  /** false hides the headline + subheadline entirely (no header spacing) —
+   *  for embeds where the host page provides its own heading. Default true. */
+  showHeader?: boolean;
 }
 
 export interface DandyVersusBlockProps {

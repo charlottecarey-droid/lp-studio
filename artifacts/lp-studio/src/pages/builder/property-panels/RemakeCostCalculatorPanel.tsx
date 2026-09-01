@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -26,6 +27,20 @@ function FieldRow({ label, children, hint }: { label: string; children: React.Re
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-4 mb-2">{children}</p>;
+}
+
+/** Discrete font sizes — the underlying prop stays a numeric multiplier, so
+ *  pages saved with the old free slider keep working (snapped to nearest). */
+const FONT_SIZES = [
+  { label: "Small", value: 0.85 },
+  { label: "Medium (default)", value: 1 },
+  { label: "Large", value: 1.15 },
+  { label: "X-Large", value: 1.3 },
+] as const;
+
+function nearestFontSize(scale: number): number {
+  return FONT_SIZES.reduce((best, o) =>
+    Math.abs(o.value - scale) < Math.abs(best - scale) ? o.value : best, FONT_SIZES[0].value);
 }
 
 export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props) {
@@ -116,14 +131,23 @@ export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props)
       </FieldRow>
 
       <SectionHeading>Appearance</SectionHeading>
-      <FieldRow label={`Font size — ${(props.fontScale ?? 1).toFixed(2)}×`} hint="Scales every font in the block; use it to match the host site's type.">
-        <Slider
-          min={0.6}
-          max={1.8}
-          step={0.05}
-          value={[props.fontScale ?? 1]}
-          onValueChange={(v) => onChange({ ...props, fontScale: v[0] })}
+      <div className="flex items-center justify-between">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Show Headline & Subheadline</Label>
+        <Switch
+          checked={props.showHeader !== false}
+          onCheckedChange={v => onChange({ ...props, showHeader: v })}
         />
+      </div>
+      <FieldRow label="Font size" hint="Scales every font in the block; use it to match the host site's type.">
+        <Select
+          value={String(nearestFontSize(props.fontScale ?? 1))}
+          onValueChange={v => onChange({ ...props, fontScale: parseFloat(v) })}
+        >
+          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {FONT_SIZES.map(o => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </FieldRow>
       <FieldRow label={`Outer padding — ${props.outerPadding ?? 0}px`} hint="Space around the block. 0 lets the embed host page own spacing.">
         <Slider
