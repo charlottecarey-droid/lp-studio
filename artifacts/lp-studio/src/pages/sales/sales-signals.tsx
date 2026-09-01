@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { format } from "date-fns";
 import {
   Activity,
+  Download,
   Trash2,
   Filter,
   Globe,
@@ -201,6 +202,16 @@ export default function SalesSignals() {
     }
   }
 
+  // Server-side CSV download (SFDC account id/name/owner, person, signal type,
+  // known + assumed email). Honors the active type filter; Content-Disposition
+  // is `attachment`, so assign() downloads without navigating away.
+  function exportCsv() {
+    const params = new URLSearchParams();
+    if (filter) params.set("type", filter);
+    const qs = params.toString();
+    window.location.assign(`${API_BASE}/sales/signals/export.csv${qs ? `?${qs}` : ""}`);
+  }
+
   const acctFilterActive = acctAccountNames !== null && !acctBannerDismissed;
 
   // Apply account filter to signals
@@ -275,15 +286,27 @@ export default function SalesSignals() {
                   </Button>
                 </>
               ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmClear(true)}
-                  className="gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive shrink-0"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Clear all
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={exportCsv}
+                    className="gap-1.5 text-xs shrink-0"
+                    title={filter ? `Export ${filter.replace(/_/g, " ")} signals as CSV` : "Export all signals as CSV"}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmClear(true)}
+                    className="gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Clear all
+                  </Button>
+                </>
               )
             ) : null
           }

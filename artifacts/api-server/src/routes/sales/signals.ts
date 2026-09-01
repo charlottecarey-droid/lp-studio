@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Response } from "express";
-import { eq, desc, and, gte, count, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, gte, count, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesSignalsTable,
@@ -12,6 +12,7 @@ import { sfdcService } from "../../lib/sfdc-service";
 import { marketoService } from "../../lib/marketo-service";
 import { restoreRows } from "../../lib/restoreRows";
 import { resolveSignalLinkage } from "../../lib/signalAttribution";
+import { guessAssumedEmail, type KnownEmailContact } from "../../lib/sales/assumed-email";
 
 const router = Router();
 
@@ -155,6 +156,231 @@ router.get("/signals", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("GET /sales/signals error:", err);
     res.status(500).json({ error: "Failed to load signals" });
+  }
+});
+
+// ─── GET /sales/signals/export.csv — download the feed as CSV ──────────────
+//
+// One row per signal, resolved to a person + account the way the feed is:
+// contact join first, then a tenant-scoped match on any email left in
+// metadata, then the identity fields integrations leave in metadata
+// (visitor_identified). Contacts with no email on file get a guessed
+// "assumed_email" derived from the naming pattern of the account's KNOWN
+// emails (see lib/sales/assumed-email.ts) — clearly separated from the real
+// `email` column so nobody mistakes a guess for CRM data.
+
+router.get("/signals/export.csv", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { type, accountId, contactId } = req.query;
+
+    const conditions: ReturnType<typeof eq>[] = [
+      eq(salesSignalsTable.tenantId, tenantId),
+    ];
+    if (type && typeof type === "string") {
+      conditions.push(eq(salesSignalsTable.type, type));
+    }
+    if (accountId) {
+      conditions.push(eq(salesSignalsTable.accountId, Number(accountId)));
+    }
+    if (contactId) {
+      conditions.push(eq(salesSignalsTable.contactId, Number(contactId)));
+    }
+
+    // Hard cap keeps the response bounded; newest signals win.
+    const rows = await db
+      .select({
+        type: salesSignalsTable.type,
+        source: salesSignalsTable.source,
+        metadata: salesSignalsTable.metadata,
+        createdAt: salesSignalsTable.createdAt,
+        signalAccountId: salesSignalsTable.accountId,
+        accountSfdcId: salesAccountsTable.salesforceId,
+        accountName: sql<string | null>`COALESCE(${salesAccountsTable.displayName}, ${salesAccountsTable.name})`,
+        accountOwner: salesAccountsTable.owner,
+        accountDomain: salesAccountsTable.domain,
+        contactFirstName: salesContactsTable.firstName,
+        contactLastName: salesContactsTable.lastName,
+        contactTitle: salesContactsTable.title,
+        contactEmail: salesContactsTable.email,
+        contactAccountId: salesContactsTable.accountId,
+      })
+      .from(salesSignalsTable)
+      .leftJoin(salesAccountsTable, eq(salesSignalsTable.accountId, salesAccountsTable.id))
+      .leftJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
+      .where(and(...conditions))
+      .orderBy(desc(salesSignalsTable.createdAt))
+      .limit(10_000);
+
+    type MetaRec = Record<string, unknown>;
+    const metaStr = (meta: MetaRec, key: string): string | null => {
+      const v = meta[key];
+      return typeof v === "string" && v.trim() ? v.trim() : null;
+    };
+
+    // Pass A — rows with no contact join but an email in metadata: resolve the
+    // person via one batched, strictly tenant-scoped lookup (same rule as the
+    // feed: never a global match, which would leak attribution across tenants).
+    const unresolvedEmails = Array.from(new Set(
+      rows
+        .filter((r) => !r.contactFirstName && !r.contactLastName && !r.contactEmail)
+        .map((r) => metaStr((r.metadata ?? {}) as MetaRec, "email")?.toLowerCase() ?? "")
+        .filter((e) => e.length > 0),
+    ));
+    const emailToContact = new Map<string, {
+      firstName: string | null; lastName: string | null; title: string | null;
+      email: string | null; accountId: number | null;
+    }>();
+    if (unresolvedEmails.length > 0) {
+      const matched = await db
+        .select({
+          firstName: salesContactsTable.firstName,
+          lastName: salesContactsTable.lastName,
+          title: salesContactsTable.title,
+          email: salesContactsTable.email,
+          accountId: salesContactsTable.accountId,
+        })
+        .from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          inArray(sql`lower(${salesContactsTable.email})`, unresolvedEmails),
+        ));
+      for (const c of matched) {
+        if (c.email) emailToContact.set(c.email.trim().toLowerCase(), c);
+      }
+    }
+
+    const resolved = rows.map((r) => {
+      const meta = (r.metadata ?? {}) as MetaRec;
+      const metaEmail = metaStr(meta, "email");
+      const noJoin = !r.contactFirstName && !r.contactLastName && !r.contactEmail;
+      const viaEmail = noJoin && metaEmail ? emailToContact.get(metaEmail.toLowerCase()) : undefined;
+      return {
+        type: r.type,
+        source: r.source,
+        createdAt: r.createdAt,
+        firstName: r.contactFirstName ?? viaEmail?.firstName ?? metaStr(meta, "firstName"),
+        lastName: r.contactLastName ?? viaEmail?.lastName ?? metaStr(meta, "lastName"),
+        title: r.contactTitle ?? viaEmail?.title ?? metaStr(meta, "title"),
+        email: r.contactEmail ?? viaEmail?.email ?? metaEmail,
+        accountRowId: r.signalAccountId ?? viaEmail?.accountId ?? r.contactAccountId ?? null,
+        accountSfdcId: r.accountSfdcId,
+        accountName: r.accountName ?? metaStr(meta, "companyName"),
+        accountOwner: r.accountOwner,
+        accountDomain: r.accountDomain,
+      };
+    });
+
+    // Pass B — backfill account columns for rows whose account came from the
+    // contact (or email match) rather than the signal itself.
+    const missingAccountIds = Array.from(new Set(
+      resolved
+        .filter((r) => r.accountRowId !== null && !r.accountSfdcId && !r.accountName)
+        .map((r) => r.accountRowId as number),
+    ));
+    if (missingAccountIds.length > 0) {
+      const accounts = await db
+        .select({
+          id: salesAccountsTable.id,
+          sfdcId: salesAccountsTable.salesforceId,
+          name: sql<string | null>`COALESCE(${salesAccountsTable.displayName}, ${salesAccountsTable.name})`,
+          owner: salesAccountsTable.owner,
+          domain: salesAccountsTable.domain,
+        })
+        .from(salesAccountsTable)
+        .where(and(
+          eq(salesAccountsTable.tenantId, tenantId),
+          inArray(salesAccountsTable.id, missingAccountIds),
+        ));
+      const byId = new Map(accounts.map((a) => [a.id, a]));
+      for (const r of resolved) {
+        if (r.accountRowId === null || r.accountSfdcId || r.accountName) continue;
+        const a = byId.get(r.accountRowId);
+        if (!a) continue;
+        r.accountSfdcId = a.sfdcId;
+        r.accountName = a.name;
+        r.accountOwner = a.owner;
+        r.accountDomain = a.domain;
+      }
+    }
+
+    // Pass C — assumed emails. For every named person with no email but a
+    // known account, fetch that account's known emails once and guess from
+    // the majority naming pattern + corporate domain.
+    const guessAccountIds = Array.from(new Set(
+      resolved
+        .filter((r) => !r.email && (r.firstName || r.lastName) && r.accountRowId !== null)
+        .map((r) => r.accountRowId as number),
+    ));
+    const knownByAccount = new Map<number, KnownEmailContact[]>();
+    if (guessAccountIds.length > 0) {
+      const known = await db
+        .select({
+          accountId: salesContactsTable.accountId,
+          firstName: salesContactsTable.firstName,
+          lastName: salesContactsTable.lastName,
+          email: salesContactsTable.email,
+        })
+        .from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          inArray(salesContactsTable.accountId, guessAccountIds),
+          isNotNull(salesContactsTable.email),
+        ));
+      for (const c of known) {
+        if (!c.email) continue;
+        const list = knownByAccount.get(c.accountId) ?? [];
+        list.push({ firstName: c.firstName, lastName: c.lastName, email: c.email });
+        knownByAccount.set(c.accountId, list);
+      }
+    }
+
+    const escapeCsv = (val: unknown): string => {
+      const str = val == null ? "" : String(val);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headers = [
+      "sfdc_account_id", "account_name", "account_owner",
+      "first_name", "last_name", "title", "signal_type",
+      "email", "assumed_email", "source", "signal_date",
+    ];
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="signals-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.write(headers.join(",") + "\r\n");
+
+    for (const r of resolved) {
+      const assumedEmail = !r.email && (r.firstName || r.lastName) && r.accountRowId !== null
+        ? guessAssumedEmail(
+            { firstName: r.firstName, lastName: r.lastName },
+            knownByAccount.get(r.accountRowId) ?? [],
+            r.accountDomain,
+          )
+        : null;
+      res.write([
+        escapeCsv(r.accountSfdcId),
+        escapeCsv(r.accountName),
+        escapeCsv(r.accountOwner),
+        escapeCsv(r.firstName),
+        escapeCsv(r.lastName),
+        escapeCsv(r.title),
+        escapeCsv(r.type),
+        escapeCsv(r.email),
+        escapeCsv(assumedEmail),
+        escapeCsv(r.source),
+        r.createdAt ? r.createdAt.toISOString() : "",
+      ].join(",") + "\r\n");
+    }
+
+    res.end();
+  } catch (err) {
+    console.error("GET /sales/signals/export.csv error:", err);
+    if (!res.headersSent) res.status(500).json({ error: "Failed to export signals" });
+    else res.end();
   }
 });
 
