@@ -3,7 +3,6 @@ import { ChevronRight } from "lucide-react";
 import type { RemakeCostCalculatorBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
@@ -17,6 +16,10 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
  * no vh sizing, no sticky positioning (useless inside an embed iframe —
  * the iframe never scrolls internally), and no scroll reveals (fail-open
  * contract satisfied by having no hidden initial states at all).
+ *
+ * The host page also owns spacing, so the section has NO outer padding.
+ * All type is em-based off the section's font-size so `fontScale` resizes
+ * the whole block uniformly (matching the host site's larger type).
  */
 
 interface Props {
@@ -52,6 +55,13 @@ function num(v: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Clamp the font-scale multiplier so users can't blow up the layout. */
+function clampScale(v: unknown, fallback = 1): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0.6, Math.min(1.8, n));
+}
+
 const Field = ({
   label,
   value,
@@ -69,14 +79,14 @@ const Field = ({
 }) => (
   <div>
     <label
-      className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block"
+      className="text-[0.75em] font-semibold text-foreground uppercase tracking-wider mb-1.5 block"
       style={{ fontFamily: BODY }}
     >
       {label}
     </label>
     <div className="relative">
       {prefix && (
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none" style={{ fontFamily: BODY }}>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[0.9375em] text-muted-foreground pointer-events-none" style={{ fontFamily: BODY }}>
           {prefix}
         </span>
       )}
@@ -88,12 +98,12 @@ const Field = ({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "w-full rounded-lg border border-border bg-[hsl(42,25%,98%)] py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/25",
+          "w-full rounded-lg border border-border bg-[hsl(42,25%,98%)] py-2.5 text-[1em] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/25",
           prefix ? "pl-7 pr-3" : suffix ? "pl-3 pr-8" : "px-3",
         )}
       />
       {suffix && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none" style={{ fontFamily: BODY }}>
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[0.9375em] text-muted-foreground pointer-events-none" style={{ fontFamily: BODY }}>
           {suffix}
         </span>
       )}
@@ -102,7 +112,7 @@ const Field = ({
 );
 
 export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props) {
-  const sectionPy = SECTION_PY[brand.sectionPadding];
+  const fontScale = clampScale(props.fontScale);
   const accentColor = props.accentColor ?? brand.accentColor ?? "var(--brand-accent, #C7E738)";
   const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "muted" }, "#ffffff", brand).isDark;
   const headlineColor = dark ? "#fff" : "#0a1628";
@@ -155,8 +165,11 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
   const showResults = revealed && result !== null;
 
   return (
-    <section className={cn("w-full", BG_STYLES[props.backgroundStyle ?? "muted"] ?? BG_STYLES["muted"], sectionPy)}>
-      <div className="max-w-[1100px] mx-auto px-6 md:px-10">
+    <section
+      className={cn("w-full", BG_STYLES[props.backgroundStyle ?? "muted"] ?? BG_STYLES["muted"])}
+      style={{ fontSize: `${fontScale}rem` }}
+    >
+      <div className="max-w-[1100px] mx-auto">
         {(props.headline || onFieldChange) && (
           <div className="text-center mb-10">
             <InlineText
@@ -165,12 +178,12 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
               onUpdate={field("headline")}
               style={{
                 fontFamily: DISPLAY,
-                fontSize: "clamp(1.875rem,3.5vw,2.75rem)",
+                fontSize: `clamp(2.125em, calc(4vw * ${fontScale}), 3.25em)`,
                 fontWeight: 600,
-                lineHeight: 1.15,
+                lineHeight: 1.12,
                 letterSpacing: "-0.02em",
                 color: headlineColor,
-                marginBottom: "0.75rem",
+                marginBottom: "0.75em",
               }}
             />
             {(props.subheadline || onFieldChange) && (
@@ -179,7 +192,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                 value={props.subheadline ?? ""}
                 onUpdate={field("subheadline")}
                 multiline
-                style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: subColor, maxWidth: 560, margin: "0 auto", fontFamily: BODY }}
+                style={{ fontSize: "1.1875em", lineHeight: 1.65, color: subColor, maxWidth: "34em", margin: "0 auto", fontFamily: BODY }}
               />
             )}
           </div>
@@ -193,7 +206,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                 as="p"
                 value={props.scenarioLabel ?? ""}
                 onUpdate={field("scenarioLabel")}
-                className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2.5 block"
+                className="text-[0.75em] font-semibold text-foreground uppercase tracking-wider mb-2.5 block"
                 style={{ fontFamily: BODY }}
               />
               <div className="grid sm:grid-cols-3 gap-2.5">
@@ -211,8 +224,8 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                       )}
                       style={selected ? { backgroundColor: `color-mix(in srgb, ${accentColor} 18%, white)` } : undefined}
                     >
-                      <span className="block text-[13px] font-semibold text-foreground" style={{ fontFamily: BODY }}>{s.label}</span>
-                      <span className="block text-[11px] leading-snug text-muted-foreground mt-0.5" style={{ fontFamily: BODY }}>{s.description}</span>
+                      <span className="block text-[0.9375em] font-semibold text-foreground" style={{ fontFamily: BODY }}>{s.label}</span>
+                      <span className="block text-[0.8125em] leading-snug text-muted-foreground mt-0.5" style={{ fontFamily: BODY }}>{s.description}</span>
                     </button>
                   );
                 })}
@@ -228,10 +241,10 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
               <button
                 type="button"
                 onClick={() => setRefineOpen((o) => !o)}
-                className="flex items-center gap-1 text-[13px] font-semibold transition-colors hover:opacity-80"
+                className="flex items-center gap-1 text-[0.875em] font-semibold transition-colors hover:opacity-80"
                 style={{ color: PRIMARY, fontFamily: BODY }}
               >
-                <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", refineOpen && "rotate-90")} />
+                <ChevronRight className={cn("w-[1em] h-[1em] transition-transform", refineOpen && "rotate-90")} />
                 {props.refineLabel}
               </button>
               {refineOpen && (
@@ -277,7 +290,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
               type="button"
               disabled={!canCalculate}
               onClick={() => setRevealed(true)}
-              className="w-full rounded-full py-3.5 text-sm font-bold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed mt-auto"
+              className="w-full rounded-full py-3.5 text-[0.9375em] font-bold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed mt-auto"
               style={{ backgroundColor: PRIMARY, fontFamily: BODY }}
             >
               {props.calculateLabel}
@@ -294,7 +307,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                 as="h3"
                 value={props.resultsLabel ?? ""}
                 onUpdate={field("resultsLabel")}
-                className="text-2xl font-medium text-white tracking-tight"
+                className="text-[1.625em] font-medium text-white tracking-tight"
                 style={{ fontFamily: DISPLAY }}
               />
               {(props.resultsSublabel || onFieldChange) && (
@@ -302,14 +315,14 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                   as="p"
                   value={props.resultsSublabel ?? ""}
                   onUpdate={field("resultsSublabel")}
-                  className="text-[13px] text-white/55 mt-1"
+                  className="text-[0.875em] text-white/55 mt-1"
                   style={{ fontFamily: BODY }}
                 />
               )}
 
               {showResults ? (
                 <div className="mt-6">
-                  <p className="text-5xl md:text-[3.4rem] font-bold text-white tracking-tight leading-none" style={{ fontFamily: BODY }}>
+                  <p className="text-[3.25em] md:text-[3.75em] font-bold text-white tracking-tight leading-none" style={{ fontFamily: BODY }}>
                     {fmtDollar(result!.total)}
                   </p>
                   <InlineText
@@ -317,16 +330,16 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                     value={props.resultsHeadline ?? ""}
                     onUpdate={field("resultsHeadline")}
                     multiline
-                    className="text-sm text-white/70 leading-relaxed mt-3"
+                    className="text-[0.9375em] text-white/70 leading-relaxed mt-3"
                     style={{ fontFamily: BODY }}
                   />
-                  <p className="text-sm font-semibold text-white mt-3" style={{ fontFamily: BODY }}>
+                  <p className="text-[0.9375em] font-semibold text-white mt-3" style={{ fontFamily: BODY }}>
                     {fmtDollar(result!.perPractice)} per practice, per year
                   </p>
                 </div>
               ) : (
                 <div className="mt-6">
-                  <p className="text-5xl md:text-[3.4rem] font-bold text-white/25 tracking-tight leading-none" style={{ fontFamily: BODY }}>
+                  <p className="text-[3.25em] md:text-[3.75em] font-bold text-white/25 tracking-tight leading-none" style={{ fontFamily: BODY }}>
                     $0
                   </p>
                   <InlineText
@@ -334,7 +347,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                     value={props.resultsPlaceholder ?? ""}
                     onUpdate={field("resultsPlaceholder")}
                     multiline
-                    className="text-sm text-white/55 leading-relaxed mt-3"
+                    className="text-[0.9375em] text-white/55 leading-relaxed mt-3"
                     style={{ fontFamily: BODY }}
                   />
                 </div>
@@ -348,7 +361,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                     value={props.resultsFootnote ?? ""}
                     onUpdate={field("resultsFootnote")}
                     multiline
-                    className="text-[13px] text-white/60 leading-relaxed"
+                    className="text-[0.875em] text-white/60 leading-relaxed"
                     style={{ fontFamily: BODY }}
                   />
                 </div>

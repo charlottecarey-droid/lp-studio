@@ -1007,6 +1007,10 @@ export interface RemakeCostCalculatorBlockProps {
   defaultProductionPerHour: number;
   backgroundStyle: BackgroundStyle;
   accentColor?: string;
+  /** Whole-block type multiplier (clamped 0.6–1.8; 1 = default). All the
+   *  block's font sizes are em-based, so this resizes everything uniformly —
+   *  lets the embed match the host site's type scale. */
+  fontScale?: number;
 }
 
 export interface DandyVersusBlockProps {

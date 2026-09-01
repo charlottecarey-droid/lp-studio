@@ -4,6 +4,7 @@ import type { RemakeCostCalculatorBlockProps, RemakeCostScenario } from "@/lib/b
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandSwatches } from "@/components/BrandSwatches";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -115,6 +116,15 @@ export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props)
       </FieldRow>
 
       <SectionHeading>Appearance</SectionHeading>
+      <FieldRow label={`Font size — ${(props.fontScale ?? 1).toFixed(2)}×`} hint="Scales every font in the block; use it to match the host site's type.">
+        <Slider
+          min={0.6}
+          max={1.8}
+          step={0.05}
+          value={[props.fontScale ?? 1]}
+          onValueChange={(v) => onChange({ ...props, fontScale: v[0] })}
+        />
+      </FieldRow>
       <FieldRow label="Background">
         <Select value={props.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...props, backgroundStyle: v as RemakeCostCalculatorBlockProps["backgroundStyle"] })}>
           <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>

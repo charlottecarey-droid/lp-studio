@@ -1669,6 +1669,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       defaultLabCostPerCase: 50,
       defaultProductionPerHour: 500,
       backgroundStyle: "muted",
+      fontScale: 1,
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
