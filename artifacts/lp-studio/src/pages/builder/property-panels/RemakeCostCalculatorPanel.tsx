@@ -125,6 +125,15 @@ export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props)
           onValueChange={(v) => onChange({ ...props, fontScale: v[0] })}
         />
       </FieldRow>
+      <FieldRow label={`Outer padding — ${props.outerPadding ?? 0}px`} hint="Space around the block. 0 lets the embed host page own spacing.">
+        <Slider
+          min={0}
+          max={160}
+          step={4}
+          value={[props.outerPadding ?? 0]}
+          onValueChange={(v) => onChange({ ...props, outerPadding: v[0] })}
+        />
+      </FieldRow>
       <FieldRow label="Background">
         <Select value={props.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...props, backgroundStyle: v as RemakeCostCalculatorBlockProps["backgroundStyle"] })}>
           <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>

@@ -1011,6 +1011,9 @@ export interface RemakeCostCalculatorBlockProps {
    *  block's font sizes are em-based, so this resizes everything uniformly —
    *  lets the embed match the host site's type scale. */
   fontScale?: number;
+  /** Outer padding around the block in px (clamped 0–160; 0 = default).
+   *  Defaults to none because the embed host page owns spacing. */
+  outerPadding?: number;
 }
 
 export interface DandyVersusBlockProps {

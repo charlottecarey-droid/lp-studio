@@ -62,6 +62,13 @@ function clampScale(v: unknown, fallback = 1): number {
   return Math.max(0.6, Math.min(1.8, n));
 }
 
+/** Clamp the outer padding (px). Defaults to 0 — the embed host owns spacing. */
+function clampPadding(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(160, n));
+}
+
 const Field = ({
   label,
   value,
@@ -113,6 +120,7 @@ const Field = ({
 
 export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props) {
   const fontScale = clampScale(props.fontScale);
+  const outerPadding = clampPadding(props.outerPadding);
   const accentColor = props.accentColor ?? brand.accentColor ?? "var(--brand-accent, #C7E738)";
   const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "muted" }, "#ffffff", brand).isDark;
   const headlineColor = dark ? "#fff" : "#0a1628";
@@ -167,7 +175,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
   return (
     <section
       className={cn("w-full", BG_STYLES[props.backgroundStyle ?? "muted"] ?? BG_STYLES["muted"])}
-      style={{ fontSize: `${fontScale}rem` }}
+      style={{ fontSize: `${fontScale}rem`, padding: outerPadding ? `${outerPadding}px` : undefined }}
     >
       <div className="max-w-[1100px] mx-auto">
         {(props.headline || onFieldChange) && (
