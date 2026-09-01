@@ -20,41 +20,6 @@
         window.webkit.messageHandlers = {};
       }
     </script>
-    <!-- OneTrust → GTM bridge. MUST be defined before the OneTrust SDK
-         initialises (OneTrust itself is loaded BY GTM, not by us), which is
-         why it lives here rather than in the app bundle.
-
-         TEMPORARY, and marked for deletion. The GTM container currently gates
-         tags behind trigger groups whose second member waits for a dataLayer
-         event named `OneTrustGroupsUpdated`. That event appears exactly once
-         in the published container — as the listener — and nothing pushes it,
-         so those groups never complete. Measured on
-         lp.meetdandy.com/inside-dandy 2026-08-03 with consent fully granted
-         (`,C0003,C0001,C0004,C0002,`): Webflow Optimize (needs C0003) was
-         never injected, and the Meta Pixel + LinkedIn base libraries (need
-         C0004) never loaded — the "fbq is not defined" / "window.lintrk is
-         not a function" console errors.
-
-         REMOVE THIS once the container re-triggers those groups on Consent
-         Mode / gtm.init_consent instead of the legacy event. Deleting it
-         before that silently re-breaks all three integrations.
-
-         It only forwards a decision OneTrust has already made; it cannot
-         grant consent that wasn't given, and it sets no Consent Mode
-         defaults — OneTrust's own GTM template owns those. -->
-    <script>
-      window.OptanonWrapper = function () {
-        try {
-          window.dataLayer = window.dataLayer || [];
-          window.dataLayer.push({
-            event: 'OneTrustGroupsUpdated',
-            OnetrustActiveGroups: window.OnetrustActiveGroups || '',
-          });
-        } catch (_) {
-          /* never let a consent bridge break the page */
-        }
-      };
-    </script>
     <!-- Google Tag Manager — lp.meetdandy.com only. Intentionally NOT loaded
          on partners.meetdandy.com (the GTM container ships marketing popups
          we don't want firing for partner traffic). -->
