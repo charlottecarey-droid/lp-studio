@@ -413,6 +413,32 @@ export class MarketoService {
   }
 
   /**
+   * Munchkin ID for site-wide visitor tracking on the tenant's public pages
+   * (the viewer loads munchkin.js and inits with this — that's what writes
+   * the _mkto_trk cookie so page visits show as web activity on the lead).
+   * Like getFormSyncCredentials, this deliberately IGNORES sync_enabled:
+   * visitor tracking follows the connection itself, not the bidirectional
+   * Sales Console sync. Newest connected row wins. No credentials touched.
+   */
+  async getMunchkinId(tenantId: number): Promise<string | null> {
+    try {
+      const [connection] = await db
+        .select({ munchkinId: marketoConnectionsTable.munchkinId })
+        .from(marketoConnectionsTable)
+        .where(and(
+          eq(marketoConnectionsTable.tenantId, tenantId),
+          eq(marketoConnectionsTable.status, "connected"),
+        ))
+        .orderBy(desc(marketoConnectionsTable.createdAt))
+        .limit(1);
+      return connection?.munchkinId ?? null;
+    } catch (err) {
+      logger.error({ err, tenantId }, "Error retrieving Marketo Munchkin id");
+      return null;
+    }
+  }
+
+  /**
    * Tenant-scoped load of a single connection row. Returns null when the row
    * does not belong to the given tenant (fail closed).
    */

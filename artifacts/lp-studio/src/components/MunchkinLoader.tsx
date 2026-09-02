@@ -43,16 +43,16 @@ function loadMunchkinScript(): Promise<void> {
  * `Munchkin.init(munchkinId)` exactly once per Munchkin ID per page load.
  *
  * The Munchkin script is what associates a visitor's browser with their
- * Marketo lead record via a first-party `_mkto_trk` cookie. Without it
- * any Forms2 submit (including BlockForm's hidden "ghost" submit) lands
- * in Marketo as an anonymous lead and Smart Campaigns / GA4 listeners
- * tied to "this visitor's existing session" never fire.
+ * Marketo lead record via a first-party `_mkto_trk` cookie — page views
+ * show as web activity on the lead (via mkt_tok on Marketo email links,
+ * or a Forms2 submit), and without it any Forms2 submit (including
+ * BlockForm's hidden "ghost" submit) lands in Marketo as anonymous.
  *
- * Mount this anywhere we know a Marketo Munchkin ID — it's idempotent
- * across remounts and across multiple instances on the same page.
- * Renders nothing.
+ * Call this wherever we know a Marketo Munchkin ID — pass null/undefined
+ * to do nothing (keeps the hook unconditional at call sites). Idempotent
+ * across remounts and multiple callers on the same page.
  */
-export function MunchkinLoader({ munchkinId }: { munchkinId: string }) {
+export function useMunchkin(munchkinId: string | null | undefined) {
   useEffect(() => {
     if (!munchkinId) return;
     if (initedIds.has(munchkinId)) return;
@@ -79,5 +79,10 @@ export function MunchkinLoader({ munchkinId }: { munchkinId: string }) {
       cancelled = true;
     };
   }, [munchkinId]);
+}
+
+/** Component form of {@link useMunchkin} for JSX call sites. Renders nothing. */
+export function MunchkinLoader({ munchkinId }: { munchkinId: string }) {
+  useMunchkin(munchkinId);
   return null;
 }

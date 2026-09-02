@@ -27,6 +27,7 @@ import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-type
 import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { useDwellTracker } from "@/hooks/use-dwell-tracker";
+import { useMunchkin } from "@/components/MunchkinLoader";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, getBrandButtonCss, getBrandButtonShapeCss, getBrandSurfaceCss, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
@@ -691,6 +692,18 @@ html, body { background: transparent !important; }
     return undefined;
   })();
   useHeatmapTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId);
+  // Marketo Munchkin — site-wide visitor tracking for tenants with a
+  // connected Marketo instance (e.g. every page on lp.meetdandy.com). The
+  // server stamps munchkinId on both builder and A/B config responses
+  // (omitted for editor session-resolved views); preview/builder sessions
+  // never fire it. Same loader the Forms2 ghost submit uses, so the
+  // _mkto_trk cookie is shared.
+  const munchkinId = (() => {
+    if (!config || isPreviewMode) return null;
+    const raw = (config as { munchkinId?: unknown }).munchkinId;
+    return typeof raw === "string" && raw.trim() ? raw : null;
+  })();
+  useMunchkin(munchkinId);
   // Time-on-page beacon (Sales Pages analytics) — same gating as the heatmap:
   // real visitors only, never builder/preview sessions. The raw ?hl= token
   // rides along so the server can attribute this session's visit to the

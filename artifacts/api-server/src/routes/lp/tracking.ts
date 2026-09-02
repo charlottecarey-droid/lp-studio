@@ -16,6 +16,7 @@ import { findTenantByHost, getActiveHostsForTenant, extractWildcardSlug } from "
 import { getRequestHost } from "../../lib/requestHost";
 import { SESSION_COOKIE, optionalAuth, type AuthUser } from "../../middleware/requireAuth";
 import { hydrateCustomSchemaBlocks } from "./hydrate-custom-schema";
+import { marketoService } from "../../lib/marketo-service";
 
 /**
  * Resolve tenant id for a public, slug-based request from the request host.
@@ -768,6 +769,12 @@ router.get("/lp/page/:slug", optionalAuth, async (req, res): Promise<void> => {
       // host. Gated on the live visitor's request host. null = render nothing.
       const provenance = await resolveProvenance(builderPage, getRequestHost(req));
 
+      // Marketo Munchkin — tenants with a connected Marketo instance get
+      // site-wide visitor tracking on their public pages (the viewer loads
+      // munchkin.js with this id). Session-resolved views are editors on the
+      // app host — keep their browsing out of Marketo web activity.
+      const munchkinId = viaSession ? null : await marketoService.getMunchkinId(builderPage.tenantId);
+
       res.json({
         pageType: "builder",
         id: builderPage.id,
@@ -784,6 +791,7 @@ router.get("/lp/page/:slug", optionalAuth, async (req, res): Promise<void> => {
         robots,
         provenance,
         accountNameApollo,
+        munchkinId,
         // Page-level default CTA + "Match style from URL" overrides. The
         // viewer applies both (pageCta prop / mergePageStyleOverrides) but
         // they were omitted here, so published pages silently rendered
@@ -907,6 +915,10 @@ router.get("/lp/page/:slug", optionalAuth, async (req, res): Promise<void> => {
 
   const enrichedVariant = await enrichVariant(assignedVariant!);
 
+  // Same site-wide Munchkin contract as the builder branch — A/B pages are
+  // public visitor traffic too (the preview branch above returned already).
+  const abMunchkinId = await marketoService.getMunchkinId(test.tenantId);
+
   // If the variant has no linked page, check if there's a builder page with this slug
   // This covers the case where a test was created on a builder page without linking variants
   const enrichedHasPage = "linkedPage" in enrichedVariant && enrichedVariant.linkedPage != null;
@@ -954,6 +966,7 @@ router.get("/lp/page/:slug", optionalAuth, async (req, res): Promise<void> => {
       pageVariables: (basePage.pageVariables && typeof basePage.pageVariables === "object" && !Array.isArray(basePage.pageVariables))
         ? basePage.pageVariables as Record<string, string>
         : {},
+      munchkinId: abMunchkinId,
       // Embed A/B test info for tracking
       testId: test.id,
       testName: test.name,
@@ -973,6 +986,7 @@ router.get("/lp/page/:slug", optionalAuth, async (req, res): Promise<void> => {
     sessionId,
     assignedVariant: enrichedVariant,
     status: test.status,
+    munchkinId: abMunchkinId,
   });
 });
 

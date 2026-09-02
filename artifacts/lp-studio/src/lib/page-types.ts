@@ -30,6 +30,13 @@ export interface BuilderPageResponse {
   provenance?: { tenantName: string; accountName: string | null } | null;
   accountNameApollo?: string;
   /**
+   * Marketo Munchkin ID (e.g. "103-HKO-179") when the page's tenant has a
+   * connected Marketo instance — the viewer loads munchkin.js and inits it
+   * for site-wide web-activity tracking. null/absent (including on editor
+   * session-resolved views) = no Munchkin. Also stamped on A/B responses.
+   */
+  munchkinId?: string | null;
+  /**
    * Page-record variables (lp_pages.pageVariables jsonb). Includes the
    * reserved `__linkedFormStyle` key when the editor has configured per-page
    * colour overrides for the in-modal linked form. Use
