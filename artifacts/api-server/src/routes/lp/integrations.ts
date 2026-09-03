@@ -409,6 +409,9 @@ export async function syncLeadToMarketo(
   perFormFieldMappings?: Record<string, string>,
   perFormEnabled?: boolean,
   tenantId = 1,
+  // Visitor's raw _mkto_trk cookie (from the submit POST) — associates the
+  // upserted lead with the visitor's Munchkin web activity. See syncToMarketo.
+  mktoTrk?: string | null,
 ): Promise<void> {
   if (perFormEnabled === false) return;
   // Unified store (Phase 2): the tenant's marketo_connections row. Keys off
@@ -417,7 +420,7 @@ export async function syncLeadToMarketo(
   const creds = await marketoService.getFormSyncCredentials(tenantId);
   if (!creds) return;
   const { syncToMarketo } = await import("../../lib/notifications");
-  await syncToMarketo({ ...creds, fieldMappings: perFormFieldMappings }, payload);
+  await syncToMarketo({ ...creds, fieldMappings: perFormFieldMappings }, payload, { mktoTrk });
 }
 
 export default router;

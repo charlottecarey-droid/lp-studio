@@ -552,6 +552,20 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
       if (sessionId) body.sessionId = sessionId;
       if (props.formId != null) body.formId = props.formId;
 
+      // Visitor's Marketo Munchkin cookie — sent OUTSIDE `fields` (an unknown
+      // CRM field name makes Marketo skip the whole lead) so the server can
+      // associate the synced lead with this browser's web activity via the
+      // Associate Lead API. The Forms2 ghost submit that used to carry the
+      // cookie is disabled; without this, page visits stay anonymous or stick
+      // to whatever stale lead the cookie was last associated with.
+      try {
+        const trk = document.cookie
+          .split("; ")
+          .find((c) => c.startsWith("_mkto_trk="))
+          ?.slice("_mkto_trk=".length);
+        if (trk) body.mktoTrk = trk;
+      } catch { /* cookie access can throw in sandboxed embeds; never block the submit */ }
+
       if (pageId != null) {
         const resp = await fetch(`${API_BASE}/lp/leads`, {
           method: "POST",

@@ -46,6 +46,11 @@ const SubmitLeadBody = z.object({
   formId: z.number().int().positive().optional(),
   fields: z.record(z.unknown()),
   sessionId: z.string().optional(),
+  // Visitor's raw _mkto_trk Munchkin cookie, captured by BlockForm at submit.
+  // Carried OUTSIDE `fields` so it can never leak into CRM field payloads
+  // (one unknown field name makes Marketo skip the whole lead). Used only to
+  // associate the synced Marketo lead with the visitor's web activity.
+  mktoTrk: z.string().max(500).optional(),
   utmSource: z.string().optional(),
   utmMedium: z.string().optional(),
   utmCampaign: z.string().optional(),
@@ -638,7 +643,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         : (fields as Record<string, unknown>);
       const crmPayload: LeadPayload = { ...payload, fields: crmFields };
 
-      await syncLeadToMarketo(crmPayload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId).catch(err =>
+      await syncLeadToMarketo(crmPayload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId, parsed.data.mktoTrk).catch(err =>
         console.error("Marketo sync error for lead", lead.id, ":", err)
       );
       await syncLeadToSheets({

@@ -978,7 +978,21 @@ async function getMarketoToken(config: MarketoConfig): Promise<string> {
   return token;
 }
 
-export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): Promise<void> {
+export async function syncToMarketo(
+  config: MarketoConfig,
+  lead: LeadPayload,
+  opts?: {
+    /**
+     * The visitor's raw `_mkto_trk` cookie value, captured client-side at
+     * submit. When present (and shaped like a real Munchkin cookie), the
+     * upserted lead is associated with it via Marketo's Associate Lead API so
+     * the visitor's web activity lands on THIS lead. Carried outside
+     * `lead.fields` deliberately — an unknown field name makes createOrUpdate
+     * skip the whole record.
+     */
+    mktoTrk?: string | null;
+  },
+): Promise<void> {
   try {
     const token = await getMarketoToken(config);
     const mappings = config.fieldMappings ?? {};
@@ -1058,6 +1072,36 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
       logger.warn({ leadId: lead.leadId, marketoLeadId: record?.id, status: record?.status, sentFields, reasons }, "Marketo accepted lead but rejected some fields");
     } else {
       logger.info({ leadId: lead.leadId, marketoLeadId: record?.id, status: record?.status, sentFieldCount: sentFields.length }, "Lead synced to Marketo");
+    }
+
+    // Munchkin cookie → lead association. Without this, the REST upsert
+    // creates/updates the lead but the visitor's web activity stays anonymous
+    // — or stuck on a stale ghost-submit-era lead their cookie was bound to —
+    // because the Forms2 ghost submit that used to carry the cookie is
+    // disabled (GHOST_SUBMIT_ENABLED=false). The shape check keeps arbitrary
+    // client input out of the URL; a "skipped" status still returns the
+    // matched lead's id, so existing leads associate too. Best-effort: an
+    // association failure never fails the sync.
+    const trk = (opts?.mktoTrk ?? "").trim();
+    const marketoLeadId = record?.id;
+    if (marketoLeadId && trk.length <= 500 && /^id:[A-Za-z0-9-]+&token:[\w.-]+$/.test(trk)) {
+      try {
+        const assocRes = await retryFetch(
+          `${marketoRestBase(config)}/v1/leads/${marketoLeadId}/associate.json?cookie=${encodeURIComponent(trk)}`,
+          {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+          },
+        );
+        const assocBody = await assocRes.json().catch(() => null) as { success?: boolean; errors?: unknown } | null;
+        if (!assocRes.ok || !assocBody?.success) {
+          logger.warn({ leadId: lead.leadId, marketoLeadId, status: assocRes.status, assocBody }, "Marketo cookie association failed");
+        } else {
+          logger.info({ leadId: lead.leadId, marketoLeadId }, "Marketo cookie associated with lead");
+        }
+      } catch (err) {
+        logger.warn({ err, leadId: lead.leadId, marketoLeadId }, "Marketo cookie association threw");
+      }
     }
   } catch (err) {
     logger.error({ err, leadId: lead.leadId }, "Failed to sync lead to Marketo");
