@@ -12,10 +12,13 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
  * scenario chips, everything else collapsed behind "refine your estimate".
  *
  * Built for the customer-website embed: the host page owns conversion, so
- * there is deliberately NO CTA (also keeps it out of page-CTA following),
- * no vh sizing, no sticky positioning (useless inside an embed iframe —
- * the iframe never scrolls internally), and no scroll reveals (fail-open
- * contract satisfied by having no hidden initial states at all).
+ * there is deliberately NO page-CTA-following button. The optional
+ * "analysis" link in the results panel (analysisCtaLabel/Href) is a plain
+ * anchor the host page points wherever it likes — its prop names stay off
+ * the CTA alias lists on purpose. No vh sizing, no sticky positioning
+ * (useless inside an embed iframe — the iframe never scrolls internally),
+ * and no scroll reveals (fail-open contract satisfied by having no hidden
+ * initial states at all).
  *
  * The host page also owns spacing, so the section has NO outer padding.
  * All type is em-based off the section's font-size so `fontScale` resizes
@@ -359,6 +362,20 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                     style={{ fontFamily: BODY }}
                   />
                 </div>
+              )}
+
+              {(props.analysisCtaLabel ?? "").trim() !== "" && (
+                <a
+                  href={(props.analysisCtaHref ?? "").trim() || "#"}
+                  target={props.analysisCtaOpenInParent ? "_top" : undefined}
+                  // In the builder the anchor target doesn't exist — don't jump the canvas.
+                  onClick={onFieldChange ? (e) => e.preventDefault() : undefined}
+                  className="self-start inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[0.875em] font-bold uppercase tracking-widest transition-all hover:brightness-95 active:scale-[0.99] mt-6"
+                  style={{ color: PRIMARY, fontFamily: BODY }}
+                >
+                  {props.analysisCtaLabel}
+                  <ChevronRight className="w-[1em] h-[1em]" />
+                </a>
               )}
 
               {(props.resultsFootnote || onFieldChange) && (

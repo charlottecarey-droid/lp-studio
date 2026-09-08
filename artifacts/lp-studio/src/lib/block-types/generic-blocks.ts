@@ -997,6 +997,21 @@ export interface RemakeCostCalculatorBlockProps {
   resultsPlaceholder: string;
   /** Perspective note under the results (e.g. "this is one lever…"). */
   resultsFootnote?: string;
+  /** Optional plain-link button in the results panel (e.g. "Get Full
+   *  Analysis" anchoring to a section of the host page). Hidden when the
+   *  label is empty. Deliberately NOT named with cta/primaryCta prefixes — this block
+   *  stays out of page-CTA following (the host page owns conversion). */
+  analysisCtaLabel?: string;
+  /** Destination for the analysis button — typically an anchor ("#full-analysis")
+   *  or an absolute URL. Falls back to "#" when the label is set without it. */
+  analysisCtaHref?: string;
+  /** Renders the analysis button with target="_top" — for the customer-website
+   *  iframe embed, where the destination lives on the host page rather than
+   *  inside the iframe. NOTE: a bare "#hash" still resolves against the EMBED
+   *  document's URL, so combine this with the full host-page URL + hash (the
+   *  browser treats it as a same-document scroll when the host is already on
+   *  that URL). Default false. */
+  analysisCtaOpenInParent?: boolean;
   /** Assumption defaults, overridable per visitor in the refine section.
    *  Benchmarks match the roi-calculator block's remake-impact section
    *  (250 cases/mo, 1h chair time, $50 lab hard cost, $500/hr production). */

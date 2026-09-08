@@ -129,6 +129,24 @@ export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props)
       <FieldRow label="Footnote (optional)">
         <Textarea value={props.resultsFootnote ?? ""} onChange={e => onChange({ ...props, resultsFootnote: e.target.value })} rows={2} className="text-xs resize-none" />
       </FieldRow>
+      <FieldRow label="Analysis Button Label (optional)" hint="Leave empty to hide the button.">
+        <Input value={props.analysisCtaLabel ?? ""} onChange={e => onChange({ ...props, analysisCtaLabel: e.target.value })} placeholder="e.g. Get Full Analysis" className="text-sm" />
+      </FieldRow>
+      <FieldRow label="Analysis Button Link" hint='Anchor on the host page (e.g. "#full-analysis") or a full URL.'>
+        <Input value={props.analysisCtaHref ?? ""} onChange={e => onChange({ ...props, analysisCtaHref: e.target.value })} placeholder="#full-analysis" className="text-sm font-mono" />
+      </FieldRow>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Open in Parent Page</Label>
+          <Switch
+            checked={props.analysisCtaOpenInParent === true}
+            onCheckedChange={v => onChange({ ...props, analysisCtaOpenInParent: v })}
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          For the customer-site iframe embed. Use the full host-page URL plus the #anchor — a bare "#anchor" resolves against the embed's own URL.
+        </p>
+      </div>
 
       <SectionHeading>Appearance</SectionHeading>
       <div className="flex items-center justify-between">
