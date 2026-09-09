@@ -305,11 +305,12 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
               )}
             </div>
 
+            <div className="mt-auto pt-5 border-t border-[#0a1628]/[0.06]">
             <button
               type="button"
               disabled={!canCalculate}
               onClick={() => setRevealed(true)}
-              className="w-full rounded-full py-3.5 text-[0.9375em] font-bold uppercase tracking-widest transition-all enabled:hover:brightness-110 enabled:active:scale-[0.99] disabled:cursor-not-allowed mt-auto"
+              className="w-full rounded-full py-3.5 text-[0.9375em] font-bold uppercase tracking-widest transition-all enabled:hover:brightness-110 enabled:active:scale-[0.99] disabled:cursor-not-allowed"
               style={
                 canCalculate
                   ? {
@@ -328,12 +329,13 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
             >
               {props.calculateLabel}
             </button>
+            </div>
           </div>
 
           {/* ── RIGHT: results panel ── */}
           <div className="lg:col-span-2">
             <div
-              className="relative isolate overflow-hidden rounded-[20px] p-6 md:p-8 h-full flex flex-col ring-1 ring-inset ring-white/10 shadow-[0_24px_48px_-20px_rgba(11,59,43,0.45)]"
+              className="relative isolate overflow-hidden rounded-[20px] p-6 md:p-8 h-full flex flex-col text-center ring-1 ring-inset ring-white/10 shadow-[0_24px_48px_-20px_rgba(11,59,43,0.45)]"
               style={{ background: `linear-gradient(150deg, color-mix(in srgb, ${PRIMARY} 88%, #1a4a3a) 0%, ${PRIMARY} 55%, color-mix(in srgb, ${PRIMARY} 82%, black) 100%)` }}
             >
               {/* Soft accent glow, behind the content (isolate + -z-10). */}
@@ -359,68 +361,80 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                 />
               )}
 
-              {showResults ? (
-                <div className="mt-6">
-                  <p
-                    className="text-[3.25em] md:text-[3.75em] font-bold text-white tracking-tight leading-none"
-                    style={{ fontFamily: BRAND_NUMBERS_STACK, fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {fmtDollar(result!.total)}
-                  </p>
-                  <InlineText
-                    as="p"
-                    value={props.resultsHeadline ?? ""}
-                    onUpdate={field("resultsHeadline")}
-                    multiline
-                    className="text-[0.9375em] text-white/70 leading-relaxed mt-3"
-                    style={{ fontFamily: BODY }}
-                  />
-                  <p className="text-[0.9375em] font-semibold text-white mt-3" style={{ fontFamily: BODY }}>
-                    {fmtDollar(result!.perPractice)} per practice, per year
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-6">
-                  <p
-                    className="text-[3.25em] md:text-[3.75em] font-bold text-white/20 tracking-tight leading-none"
-                    style={{ fontFamily: BRAND_NUMBERS_STACK, fontVariantNumeric: "tabular-nums" }}
-                  >
-                    $0
-                  </p>
-                  <InlineText
-                    as="p"
-                    value={props.resultsPlaceholder ?? ""}
-                    onUpdate={field("resultsPlaceholder")}
-                    multiline
-                    className="text-[0.9375em] text-white/55 leading-relaxed mt-3"
-                    style={{ fontFamily: BODY }}
-                  />
-                </div>
-              )}
+              {/* Stat group — my-auto centers it between the header above and
+                  the footnote below, so the panel reads composed at any height. */}
+              <div className="my-auto py-6">
+                {showResults ? (
+                  <>
+                    <p
+                      className="text-[3.25em] md:text-[3.75em] font-bold text-white tracking-tight leading-none"
+                      style={{ fontFamily: BRAND_NUMBERS_STACK, fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {fmtDollar(result!.total)}
+                    </p>
+                    <InlineText
+                      as="p"
+                      value={props.resultsHeadline ?? ""}
+                      onUpdate={field("resultsHeadline")}
+                      multiline
+                      className="text-[0.9375em] text-white/70 leading-relaxed mt-3 mx-auto max-w-[22em]"
+                      style={{ fontFamily: BODY }}
+                    />
+                    <div
+                      className="inline-flex items-baseline gap-1.5 rounded-full bg-white/[0.08] ring-1 ring-inset ring-white/10 px-4 py-2 mt-5 text-[0.875em] text-white/80"
+                      style={{ fontFamily: BODY }}
+                    >
+                      <span className="font-bold text-white" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {fmtDollar(result!.perPractice)}
+                      </span>
+                      per practice, per year
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p
+                      className="text-[3.25em] md:text-[3.75em] font-bold text-white/20 tracking-tight leading-none"
+                      style={{ fontFamily: BRAND_NUMBERS_STACK, fontVariantNumeric: "tabular-nums" }}
+                    >
+                      $0
+                    </p>
+                    <InlineText
+                      as="p"
+                      value={props.resultsPlaceholder ?? ""}
+                      onUpdate={field("resultsPlaceholder")}
+                      multiline
+                      className="text-[0.9375em] text-white/55 leading-relaxed mt-3 mx-auto max-w-[22em]"
+                      style={{ fontFamily: BODY }}
+                    />
+                  </>
+                )}
 
-              {(props.analysisCtaLabel ?? "").trim() !== "" && (
-                <a
-                  href={(props.analysisCtaHref ?? "").trim() || "#"}
-                  target={props.analysisCtaOpenInParent ? "_top" : undefined}
-                  // In the builder the anchor target doesn't exist — don't jump the canvas.
-                  onClick={onFieldChange ? (e) => e.preventDefault() : undefined}
-                  className="group self-start inline-flex items-center gap-2 rounded-full px-6 py-3 text-[0.8125em] font-bold uppercase tracking-[0.12em] transition-all hover:brightness-105 hover:-translate-y-px active:scale-[0.99] mt-6 shadow-[0_12px_24px_-10px_rgba(0,0,0,0.5)]"
-                  style={{ backgroundColor: accentColor, color: analysisBtnText, fontFamily: BODY }}
-                >
-                  {props.analysisCtaLabel}
-                  <ChevronRight className="w-[1em] h-[1em] transition-transform group-hover:translate-x-0.5" />
-                </a>
-              )}
+                {(props.analysisCtaLabel ?? "").trim() !== "" && (
+                  <div className="mt-7">
+                    <a
+                      href={(props.analysisCtaHref ?? "").trim() || "#"}
+                      target={props.analysisCtaOpenInParent ? "_top" : undefined}
+                      // In the builder the anchor target doesn't exist — don't jump the canvas.
+                      onClick={onFieldChange ? (e) => e.preventDefault() : undefined}
+                      className="group inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[0.8125em] font-bold uppercase tracking-[0.12em] transition-all hover:brightness-105 hover:-translate-y-px active:scale-[0.99] shadow-[0_12px_24px_-10px_rgba(0,0,0,0.5)]"
+                      style={{ backgroundColor: accentColor, color: analysisBtnText, fontFamily: BODY }}
+                    >
+                      {props.analysisCtaLabel}
+                      <ChevronRight className="w-[1em] h-[1em] transition-transform group-hover:translate-x-0.5" />
+                    </a>
+                  </div>
+                )}
+              </div>
 
               {(props.resultsFootnote || onFieldChange) && (
-                <div className="mt-auto pt-6">
+                <div className="pt-2">
                   <div className="border-t border-white/15 mb-4" />
                   <InlineText
                     as="p"
                     value={props.resultsFootnote ?? ""}
                     onUpdate={field("resultsFootnote")}
                     multiline
-                    className="text-[0.875em] text-white/60 leading-relaxed"
+                    className="text-[0.8125em] text-white/55 leading-relaxed mx-auto max-w-[26em]"
                     style={{ fontFamily: BODY }}
                   />
                 </div>
