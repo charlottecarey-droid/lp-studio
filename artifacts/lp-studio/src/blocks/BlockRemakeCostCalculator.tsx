@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import type { RemakeCostCalculatorBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
-import type { BrandConfig } from "@/lib/brand-config";
+import { isValidHex, pickContrastingColor, type BrandConfig } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "../lib/brand-fonts";
 
 /**
  * Two-field remake cost calculator (practices + avg case value), benchmark
@@ -108,7 +108,7 @@ const Field = ({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "w-full rounded-lg border border-border bg-[hsl(42,25%,98%)] py-2.5 text-[1em] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/25",
+          "w-full rounded-xl border border-[#0a1628]/10 bg-white py-3 text-[1em] text-foreground placeholder:text-muted-foreground/50 shadow-[inset_0_1px_2px_rgba(10,22,40,0.04)] transition-colors hover:border-[#0a1628]/20 focus:outline-none focus:border-[var(--brand-primary,#0B3B2B)]/40 focus:ring-2 focus:ring-[var(--brand-primary)]/15",
           prefix ? "pl-7 pr-3" : suffix ? "pl-3 pr-8" : "px-3",
         )}
       />
@@ -125,6 +125,12 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
   const fontScale = clampScale(props.fontScale);
   const outerPadding = clampPadding(props.outerPadding);
   const accentColor = props.accentColor ?? brand.accentColor ?? "var(--brand-accent, #C7E738)";
+  // Analysis-button ink over the accent fill. When the accent is a real hex,
+  // pick a contrast-safe color (brand primary first — the Dandy lime-on-green
+  // pairing); a CSS-var accent means the default lime, where deep green reads.
+  const analysisBtnText = isValidHex(accentColor)
+    ? pickContrastingColor(brand.primaryColor, accentColor, ["#0a1628", "#ffffff"])
+    : "var(--brand-primary, #0B3B2B)";
   const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "muted" }, "#ffffff", brand).isDark;
   const headlineColor = dark ? "#fff" : "#0a1628";
   const subColor = dark ? "rgba(255,255,255,0.72)" : "#6b7280";
@@ -211,7 +217,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
 
         <div className="grid lg:grid-cols-5 gap-6 items-stretch">
           {/* ── LEFT: input card ── */}
-          <div className="lg:col-span-3 bg-white border border-border rounded-2xl p-6 md:p-8 flex flex-col gap-6">
+          <div className="lg:col-span-3 bg-white rounded-[20px] p-6 md:p-8 flex flex-col gap-6 border border-[#0a1628]/[0.06] shadow-[0_1px_2px_rgba(10,22,40,0.04),0_16px_40px_-16px_rgba(10,22,40,0.14)]">
             <div>
               <InlineText
                 as="p"
@@ -230,10 +236,12 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                       onClick={() => { setScenarioId(s.id); setRemakeRateStr(""); }}
                       aria-pressed={selected}
                       className={cn(
-                        "text-left rounded-xl border px-3.5 py-3 transition-colors",
-                        selected ? "border-[var(--brand-primary,#0B3B2B)]" : "border-border bg-[hsl(42,25%,98%)] hover:border-muted-foreground/40",
+                        "text-left rounded-xl border px-3.5 py-3 transition-all duration-150",
+                        selected
+                          ? "border-[var(--brand-primary,#0B3B2B)] shadow-[0_6px_16px_-8px_rgba(11,59,43,0.4)]"
+                          : "border-[#0a1628]/10 bg-white hover:border-[#0a1628]/25 hover:shadow-[0_4px_12px_-6px_rgba(10,22,40,0.16)]",
                       )}
-                      style={selected ? { backgroundColor: `color-mix(in srgb, ${accentColor} 18%, white)` } : undefined}
+                      style={selected ? { backgroundColor: `color-mix(in srgb, ${accentColor} 16%, white)` } : undefined}
                     >
                       <span className="block text-[0.9375em] font-semibold text-foreground" style={{ fontFamily: BODY }}>{s.label}</span>
                       <span className="block text-[0.8125em] leading-snug text-muted-foreground mt-0.5" style={{ fontFamily: BODY }}>{s.description}</span>
@@ -301,8 +309,22 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
               type="button"
               disabled={!canCalculate}
               onClick={() => setRevealed(true)}
-              className="w-full rounded-full py-3.5 text-[0.9375em] font-bold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed mt-auto"
-              style={{ backgroundColor: PRIMARY, fontFamily: BODY }}
+              className="w-full rounded-full py-3.5 text-[0.9375em] font-bold uppercase tracking-widest transition-all enabled:hover:brightness-110 enabled:active:scale-[0.99] disabled:cursor-not-allowed mt-auto"
+              style={
+                canCalculate
+                  ? {
+                      backgroundColor: PRIMARY,
+                      color: "#fff",
+                      fontFamily: BODY,
+                      boxShadow: `0 12px 28px -12px color-mix(in srgb, ${PRIMARY} 60%, transparent)`,
+                    }
+                  : {
+                      // Quiet neutral resting state — a washed-out primary reads broken.
+                      backgroundColor: "color-mix(in srgb, #0a1628 6%, white)",
+                      color: "rgba(10, 22, 40, 0.35)",
+                      fontFamily: BODY,
+                    }
+              }
             >
               {props.calculateLabel}
             </button>
@@ -311,9 +333,15 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
           {/* ── RIGHT: results panel ── */}
           <div className="lg:col-span-2">
             <div
-              className="rounded-2xl p-6 md:p-8 h-full flex flex-col"
+              className="relative isolate overflow-hidden rounded-[20px] p-6 md:p-8 h-full flex flex-col ring-1 ring-inset ring-white/10 shadow-[0_24px_48px_-20px_rgba(11,59,43,0.45)]"
               style={{ background: `linear-gradient(150deg, color-mix(in srgb, ${PRIMARY} 88%, #1a4a3a) 0%, ${PRIMARY} 55%, color-mix(in srgb, ${PRIMARY} 82%, black) 100%)` }}
             >
+              {/* Soft accent glow, behind the content (isolate + -z-10). */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -z-10 -top-24 -right-24 w-80 h-80 rounded-full opacity-20"
+                style={{ background: `radial-gradient(closest-side, ${accentColor}, transparent 72%)` }}
+              />
               <InlineText
                 as="h3"
                 value={props.resultsLabel ?? ""}
@@ -326,14 +354,17 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                   as="p"
                   value={props.resultsSublabel ?? ""}
                   onUpdate={field("resultsSublabel")}
-                  className="text-[0.875em] text-white/55 mt-1"
+                  className="text-[0.75em] font-semibold uppercase tracking-[0.14em] text-white/50 mt-2"
                   style={{ fontFamily: BODY }}
                 />
               )}
 
               {showResults ? (
                 <div className="mt-6">
-                  <p className="text-[3.25em] md:text-[3.75em] font-bold text-white tracking-tight leading-none" style={{ fontFamily: BODY }}>
+                  <p
+                    className="text-[3.25em] md:text-[3.75em] font-bold text-white tracking-tight leading-none"
+                    style={{ fontFamily: BRAND_NUMBERS_STACK, fontVariantNumeric: "tabular-nums" }}
+                  >
                     {fmtDollar(result!.total)}
                   </p>
                   <InlineText
@@ -350,7 +381,10 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                 </div>
               ) : (
                 <div className="mt-6">
-                  <p className="text-[3.25em] md:text-[3.75em] font-bold text-white/25 tracking-tight leading-none" style={{ fontFamily: BODY }}>
+                  <p
+                    className="text-[3.25em] md:text-[3.75em] font-bold text-white/20 tracking-tight leading-none"
+                    style={{ fontFamily: BRAND_NUMBERS_STACK, fontVariantNumeric: "tabular-nums" }}
+                  >
                     $0
                   </p>
                   <InlineText
@@ -370,11 +404,11 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                   target={props.analysisCtaOpenInParent ? "_top" : undefined}
                   // In the builder the anchor target doesn't exist — don't jump the canvas.
                   onClick={onFieldChange ? (e) => e.preventDefault() : undefined}
-                  className="self-start inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[0.875em] font-bold uppercase tracking-widest transition-all hover:brightness-95 active:scale-[0.99] mt-6"
-                  style={{ color: PRIMARY, fontFamily: BODY }}
+                  className="group self-start inline-flex items-center gap-2 rounded-full px-6 py-3 text-[0.8125em] font-bold uppercase tracking-[0.12em] transition-all hover:brightness-105 hover:-translate-y-px active:scale-[0.99] mt-6 shadow-[0_12px_24px_-10px_rgba(0,0,0,0.5)]"
+                  style={{ backgroundColor: accentColor, color: analysisBtnText, fontFamily: BODY }}
                 >
                   {props.analysisCtaLabel}
-                  <ChevronRight className="w-[1em] h-[1em]" />
+                  <ChevronRight className="w-[1em] h-[1em] transition-transform group-hover:translate-x-0.5" />
                 </a>
               )}
 
