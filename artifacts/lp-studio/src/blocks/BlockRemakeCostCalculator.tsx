@@ -131,6 +131,12 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
   const analysisBtnText = isValidHex(accentColor)
     ? pickContrastingColor(brand.primaryColor, accentColor, ["#0a1628", "#ffffff"])
     : "var(--brand-primary, #0B3B2B)";
+
+  // Results-panel alignment. text-align also places the inline-flex chip and
+  // button; the width-capped paragraphs need their auto margins to follow.
+  const resultsAlign = props.resultsAlign ?? "center";
+  const alignText = resultsAlign === "left" ? "text-left" : resultsAlign === "right" ? "text-right" : "text-center";
+  const alignCapped = resultsAlign === "left" ? "" : resultsAlign === "right" ? "ml-auto" : "mx-auto";
   const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "muted" }, "#ffffff", brand).isDark;
   const headlineColor = dark ? "#fff" : "#0a1628";
   const subColor = dark ? "rgba(255,255,255,0.72)" : "#6b7280";
@@ -335,15 +341,20 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
           {/* ── RIGHT: results panel ── */}
           <div className="lg:col-span-2">
             <div
-              className="relative isolate overflow-hidden rounded-[20px] p-6 md:p-8 h-full flex flex-col text-center ring-1 ring-inset ring-white/10 shadow-[0_24px_48px_-20px_rgba(11,59,43,0.45)]"
+              className={cn(
+                "relative isolate overflow-hidden rounded-[20px] p-6 md:p-8 h-full flex flex-col ring-1 ring-inset ring-white/10 shadow-[0_24px_48px_-20px_rgba(11,59,43,0.45)]",
+                alignText,
+              )}
               style={{ background: `linear-gradient(150deg, color-mix(in srgb, ${PRIMARY} 88%, #1a4a3a) 0%, ${PRIMARY} 55%, color-mix(in srgb, ${PRIMARY} 82%, black) 100%)` }}
             >
-              {/* Soft accent glow, behind the content (isolate + -z-10). */}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -z-10 -top-24 -right-24 w-80 h-80 rounded-full opacity-20"
-                style={{ background: `radial-gradient(closest-side, ${accentColor}, transparent 72%)` }}
-              />
+              {props.showResultsGlow !== false && (
+                /* Soft accent glow, behind the content (isolate + -z-10). */
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -z-10 -top-24 -right-24 w-80 h-80 rounded-full opacity-20"
+                  style={{ background: `radial-gradient(closest-side, ${accentColor}, transparent 72%)` }}
+                />
+              )}
               <InlineText
                 as="h3"
                 value={props.resultsLabel ?? ""}
@@ -377,7 +388,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                       value={props.resultsHeadline ?? ""}
                       onUpdate={field("resultsHeadline")}
                       multiline
-                      className="text-[0.9375em] text-white/70 leading-relaxed mt-3 mx-auto max-w-[22em]"
+                      className={`text-[0.9375em] text-white/70 leading-relaxed mt-3 max-w-[22em] ${alignCapped}`}
                       style={{ fontFamily: BODY }}
                     />
                     <div
@@ -403,7 +414,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                       value={props.resultsPlaceholder ?? ""}
                       onUpdate={field("resultsPlaceholder")}
                       multiline
-                      className="text-[0.9375em] text-white/55 leading-relaxed mt-3 mx-auto max-w-[22em]"
+                      className={`text-[0.9375em] text-white/55 leading-relaxed mt-3 max-w-[22em] ${alignCapped}`}
                       style={{ fontFamily: BODY }}
                     />
                   </>
@@ -434,7 +445,7 @@ export function BlockRemakeCostCalculator({ props, brand, onFieldChange }: Props
                     value={props.resultsFootnote ?? ""}
                     onUpdate={field("resultsFootnote")}
                     multiline
-                    className="text-[0.8125em] text-white/55 leading-relaxed mx-auto max-w-[26em]"
+                    className={`text-[0.8125em] text-white/55 leading-relaxed max-w-[26em] ${alignCapped}`}
                     style={{ fontFamily: BODY }}
                   />
                 </div>

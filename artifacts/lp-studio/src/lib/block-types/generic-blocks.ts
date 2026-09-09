@@ -1032,6 +1032,10 @@ export interface RemakeCostCalculatorBlockProps {
   /** false hides the headline + subheadline entirely (no header spacing) —
    *  for embeds where the host page provides its own heading. Default true. */
   showHeader?: boolean;
+  /** false removes the soft accent glow in the results panel's corner. Default true. */
+  showResultsGlow?: boolean;
+  /** Text/content alignment inside the results panel. Default "center". */
+  resultsAlign?: "left" | "center" | "right";
 }
 
 export interface DandyVersusBlockProps {

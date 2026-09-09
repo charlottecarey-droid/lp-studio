@@ -156,6 +156,26 @@ export function RemakeCostCalculatorPanel({ props, onChange, bgOptions }: Props)
           onCheckedChange={v => onChange({ ...props, showHeader: v })}
         />
       </div>
+      <div className="flex items-center justify-between">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Results Panel Glow</Label>
+        <Switch
+          checked={props.showResultsGlow !== false}
+          onCheckedChange={v => onChange({ ...props, showResultsGlow: v })}
+        />
+      </div>
+      <FieldRow label="Results Alignment">
+        <Select
+          value={props.resultsAlign ?? "center"}
+          onValueChange={v => onChange({ ...props, resultsAlign: v as RemakeCostCalculatorBlockProps["resultsAlign"] })}
+        >
+          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="left">Left</SelectItem>
+            <SelectItem value="center">Centered (default)</SelectItem>
+            <SelectItem value="right">Right</SelectItem>
+          </SelectContent>
+        </Select>
+      </FieldRow>
       <FieldRow label="Font size" hint="Scales every font in the block; use it to match the host site's type.">
         <Select
           value={String(nearestFontSize(props.fontScale ?? 1))}
