@@ -15,12 +15,13 @@ export default function Navbar() {
   }, []);
 
   // Route-based top nav — consistent across every marketing page so
-  // prospects can move between them without hunting.
+  // prospects can move between them without hunting. Compare dropped from
+  // the top nav (Option B redesign, Sept 2026) — it's a bottom-funnel page,
+  // linked from the footer; 5 items matches the modern flat-nav norm.
   const navLinks = [
     { label: "For Marketing", href: "/for-marketing", active: location === "/for-marketing" },
     { label: "For Sales", href: "/for-sales", active: location === "/for-sales" },
     { label: "Features", href: "/features", active: location === "/features" },
-    { label: "Compare", href: "/compare", active: location === "/compare" },
     { label: "Pricing", href: "/pricing", active: location === "/pricing" },
     { label: "Blog", href: "/blog", active: location === "/blog" || location.startsWith("/blog/") },
   ];

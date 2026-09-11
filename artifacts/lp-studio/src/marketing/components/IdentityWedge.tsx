@@ -4,10 +4,11 @@ import ContactDetailModal, {
   type ContactDetail,
 } from "./ContactDetailModal";
 
-// John Donahoe (VISITS[1]) is the row we pre-open in the contact-detail
-// modal once the analytics section scrolls into view. Picked deliberately:
-// recognizable executive name (vs Sarah Chen Acme Corp which reads more
-// generic), so the contact-page surface lands as "this is the real app".
+// David Park (VISITS[1]) is the row we pre-open in the contact-detail modal
+// once the analytics section scrolls into view — a C-suite title so the
+// contact-page surface lands as "this is the real app". Every person and
+// company in VISITS is fictional (Cobalt Systems universe); never put a real
+// person or org here.
 const PREOPEN_INDEX = 1;
 
 // IdentityWedge — the post-Mutiny-pivot differentiator made tangible. The
@@ -203,16 +204,18 @@ function StatCard({ s }: { s: (typeof STATS)[number] }) {
 // Exported so /features can reuse this inside a BrowserFrame without the
 // wedge framing (eyebrow + "Mutiny resolves accounts" callout) that lives on
 // the homepage. Same surface, less positioning.
-export function AnalyticsMock() {
-  // Modal state — the contact-detail modal is pre-opened on John Donahoe
+export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
+  // Modal state — the contact-detail modal is pre-opened on David Park
   // so visitors immediately see the surface and learn that visit rows are
   // clickable. Closing it (×, Esc, backdrop) reveals the table; clicking
   // any other named row opens that contact instead.
   // Initialize deterministically to the pre-opened desktop row so the first
   // client render matches the prerendered desktop HTML (no hydration
   // mismatch). The mobile suppression happens after mount in the effect below.
+  // preOpen=false (homepage Capabilities tab) starts on the visits table —
+  // the compact tab panel has no room for the modal to lead.
   const [openContact, setOpenContact] = useState<VisitRow | null>(
-    VISITS[PREOPEN_INDEX] ?? null,
+    preOpen ? VISITS[PREOPEN_INDEX] ?? null : null,
   );
 
   // Don't auto-open the contact-detail modal on mobile — it covers the whole

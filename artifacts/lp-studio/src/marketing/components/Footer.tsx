@@ -1,15 +1,15 @@
 import navyDepthIcon from "@assets/lp-icon-indigo-depth.svg";
 
-// All in-page hashes target ids that actually exist on the new home —
-// see home.tsx (FeatureRow id="builder", id="generate", id="templates",
-// id="sales-console") plus the section ids on Integrations / Pricing /
-// FAQ. The legacy /#features, /#waitlist, /#testimonials hashes pointed
-// at sections that were cut in the homepage rewrite and are gone.
+// Every in-page hash targets an id that actually exists on the page it
+// links to (Option B redesign, Sept 2026): builder/analytics live on
+// /features, generate on /for-marketing, the FAQ on /pricing. The old
+// /#builder and /#generate hashes pointed at homepage FeatureRows that
+// were removed months ago and silently scrolled nowhere.
 const productLinks = [
-  { label: "Visual Builder", href: "/#builder" },
-  { label: "AI Generation", href: "/#generate" },
+  { label: "Visual Builder", href: "/features#builder" },
+  { label: "AI Generation", href: "/for-marketing#generate" },
   { label: "Campaigns", href: "/for-marketing#campaigns" },
-  { label: "Analytics", href: "/#analytics" },
+  { label: "Analytics", href: "/features#analytics" },
   { label: "For Marketing", href: "/for-marketing" },
   { label: "For Sales", href: "/for-sales" },
   { label: "Integrations", href: "/docs/integrations" },
@@ -26,7 +26,7 @@ const pricingLinks = [
 
 const companyLinks = [
   { label: "Blog", href: "/blog" },
-  { label: "FAQ", href: "/#faq" },
+  { label: "FAQ", href: "/pricing#faq" },
 ];
 
 const legalLinks = [

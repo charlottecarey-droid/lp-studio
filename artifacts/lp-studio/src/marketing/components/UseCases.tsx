@@ -19,12 +19,12 @@ const cases: UseCase[] = [
     num: "01",
     name: "Sales",
     headline: "From prompt to pipeline.",
+    // Trimmed to 3 bullets (Option B copy contract, Sept 2026) — the cut
+    // lines live on in /for-sales, which this card links to.
     items: [
       "Live pages embedded right in your 1:1 outreach",
-      "The exact case study each buyer relates to",
       "Their logo and use case, not a generic deck",
       "See who viewed, and for how long",
-      "No design tickets, no waiting on marketing",
     ],
     accent: "var(--indigo)",
     cta: { label: "Explore for sales", href: "/for-sales" },
@@ -36,9 +36,7 @@ const cases: UseCase[] = [
     items: [
       "A/B and multivariate testing",
       "Pull your brand from any URL — colors, fonts, logo",
-      "Save your own templates and reuse them anywhere",
       "Sync to your MAP, or send straight from LP Studio",
-      "AI writes from your media library, with approved stats only",
     ],
     accent: "var(--coral)",
     cta: { label: "Explore for marketing", href: "/for-marketing" },
