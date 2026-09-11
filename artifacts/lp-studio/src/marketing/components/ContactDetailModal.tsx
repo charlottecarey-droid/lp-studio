@@ -62,7 +62,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
   useEffect(() => {
     // `preventScroll: true` keeps the browser from scrolling the modal
     // into view when focus moves to the close button. Without it, the
-    // modal is pre-opened on John Donahoe at page mount and the focus
+    // modal is pre-opened on David Park at page mount and the focus
     // call yanks the viewport down to the IdentityWedge section on /for-
     // sales (and /new), which is jarring on landing.
     closeButtonRef.current?.focus({ preventScroll: true });

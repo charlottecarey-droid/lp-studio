@@ -113,7 +113,7 @@ export default function DraftEmailOverlay() {
                     color: "var(--ink)",
                   }}
                 >
-                  Draft email — John Donahoe
+                  Draft email — Elena Marsh
                 </div>
                 <div
                   style={{
@@ -122,7 +122,7 @@ export default function DraftEmailOverlay() {
                     marginTop: 2,
                   }}
                 >
-                  Athletic Director · Stanford University
+                  VP, Retail Experience · Field Co.
                 </div>
               </div>
             </div>
@@ -223,7 +223,7 @@ export default function DraftEmailOverlay() {
                     color: "color-mix(in srgb, var(--ink) 80%, transparent)",
                   }}
                 >
-                  Contact brief — John Donahoe
+                  Contact brief — Elena Marsh
                 </span>
                 <Icon
                   name={briefOpen ? "chevron-up" : "chevron-down"}
@@ -237,19 +237,19 @@ export default function DraftEmailOverlay() {
                   <ul style={{ listStyle: "none", padding: 0, margin: "0 0 14px" }}>
                     <li style={BULLET}>
                       <Dot />
-                      Athletic Director at Stanford University since September
-                      2025; formerly President &amp; CEO of Nike (January
-                      2020–October 2024).
+                      VP of Retail Experience at Field Co. since 2024; owns the
+                      flagship program and the 2027 concept-store rollout.
                     </li>
                     <li style={BULLET}>
                       <Dot />
-                      Previous CEO roles at ServiceNow (named CEO February
-                      2017) and eBay/PayPal; early career at Bain &amp; Company.
+                      Previously led store design across 40+ locations at a
+                      national outdoor retailer; started in brand-side visual
+                      merchandising.
                     </li>
                     <li style={BULLET}>
                       <Dot />
-                      Public leadership themes emphasize continual reinvention
-                      and investing in mental, physical, and emotional health.
+                      Public talks emphasize spaces that carry the brand story
+                      without inflating build costs.
                     </li>
                   </ul>
                   <p style={SECTION_LABEL}>What they care about</p>
@@ -317,9 +317,9 @@ export default function DraftEmailOverlay() {
                 whiteSpace: "pre-wrap",
               }}
             >
-              {`Hi John,
+              {`Hi Elena,
 
-Scaling flagship and concept stores can slip into excess that muddies Nike's core story and inflates build costs.
+Scaling flagship and concept stores can slip into excess that muddies Field Co.'s core story and inflates build costs.
 
 Royal Design practices intentional luxury — spaces feel premium because every element is considered and necessary, not piled on.`}
             </div>
@@ -530,12 +530,12 @@ function GmailCompose() {
                     fontWeight: 700,
                   }}
                 >
-                  JD
+                  EM
                 </span>
-                John Donahoe
+                Elena Marsh
               </span>
               <span style={{ color: "#5F6368", fontSize: 12 }}>
-                &lt;john.donahoe@nike.com&gt;
+                &lt;elena.marsh@fieldco.com&gt;
               </span>
             </span>
           }
@@ -558,9 +558,9 @@ function GmailCompose() {
           minHeight: 180,
         }}
       >
-        {`Hi John,
+        {`Hi Elena,
 
-Scaling flagship and concept stores can slip into excess that muddies Nike's core story and inflates build costs.
+Scaling flagship and concept stores can slip into excess that muddies Field Co.'s core story and inflates build costs.
 
 Royal Design practices intentional luxury — spaces feel premium because every element is considered and necessary, not piled on.
 
