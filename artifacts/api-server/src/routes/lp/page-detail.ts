@@ -482,6 +482,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
             WHEN li.contact_name IS NOT NULL OR li.company IS NOT NULL OR li.email IS NOT NULL THEN 'lead'
             WHEN hc.id IS NOT NULL THEN 'hotlink'
           END AS resolved_via,
+          hlk.token AS hotlink_token,
           pv.city, pv.region, pv.country, pv.country_code,
           pv.utm_source, pv.utm_medium, pv.utm_campaign,
           pv.session_id,
@@ -505,6 +506,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           plv.visited_at AS visited_at,
           pl.contact_name, pl.company, pl.email,
           NULL::text AS resolved_via,
+          pl.token AS hotlink_token,
           plv.city, plv.region, plv.country, NULL::text AS country_code,
           NULL::text AS utm_source, NULL::text AS utm_medium, NULL::text AS utm_campaign,
           NULL::text AS session_id,
@@ -561,6 +563,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
       company: string | null;
       email: string | null;
       resolved_via: "lead" | "hotlink" | null;
+      hotlink_token: string | null;
       city: string | null;
       region: string | null;
       country: string | null;
@@ -709,6 +712,10 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
         source: r.source,
         resolved,
         resolvedVia: resolved ? r.resolved_via : null,
+        // The /p/ or ?hl= token this visit arrived through (both streams), so
+        // the UI can show WHICH link was used even once the row has a name —
+        // and even when the hotlink has no contact to resolve a name from.
+        hotlinkToken: r.hotlink_token,
         visitedAt: r.visited_at,
         contactName: r.contact_name,
         company: r.company,

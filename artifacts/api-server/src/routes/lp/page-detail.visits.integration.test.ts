@@ -48,6 +48,7 @@ interface VisitRow {
   source: "anonymous" | "personalized";
   resolved?: boolean;
   resolvedVia?: "lead" | "hotlink" | null;
+  hotlinkToken?: string | null;
   visitedAt: string;
   contactName: string | null;
   company: string | null;
@@ -181,7 +182,7 @@ async function seedHotlinkVisit(
   pageId: number,
   sessionId: string,
   minutesAgo: number,
-): Promise<void> {
+): Promise<string> {
   const accountRes = await pool.query<{ id: number }>(
     `INSERT INTO sales_accounts (tenant_id, name, display_name)
      VALUES ($1, 'it-hotlink-account', 'Hotlink Dental') RETURNING id`,
@@ -193,16 +194,18 @@ async function seedHotlinkVisit(
      VALUES ($1, $2, 'Hana', 'Hotlink', 'hana@hotlink.test') RETURNING id`,
     [tenantId, accountRes.rows[0].id],
   );
+  const token = `it-hl-${randomUUID()}`.slice(0, 32);
   const hlRes = await pool.query<{ id: number }>(
     `INSERT INTO sales_hotlinks (tenant_id, token, contact_id, page_id)
      VALUES ($1, $2, $3, $4) RETURNING id`,
-    [tenantId, `it-hl-${randomUUID()}`.slice(0, 32), contactRes.rows[0].id, pageId],
+    [tenantId, token, contactRes.rows[0].id, pageId],
   );
   await pool.query(
     `INSERT INTO lp_page_visits (page_id, session_id, city, country, hotlink_id, dwell_seconds, created_at)
      VALUES ($1, $2, 'Denver', 'US', $3, 42, now() - ($4 || ' minutes')::interval)`,
     [pageId, sessionId, hlRes.rows[0].id, String(minutesAgo)],
   );
+  return token;
 }
 
 function authed(sid: string, url: string) {
@@ -376,7 +379,7 @@ describe.skipIf(!dbAvailable)("GET /lp/analytics/pages/:pageId/visits", () => {
 
     // One visit stamped with a hotlink id (what the dwell beacon writes after
     // validating the ?hl= token), one plain anonymous visit.
-    await seedHotlinkVisit(tenantId, pageId, hlSession, 5);
+    const hlToken = await seedHotlinkVisit(tenantId, pageId, hlSession, 5);
     await seedAnonVisit(pageId, anonSession, 15);
 
     const res = await authed(sid, `/lp/analytics/pages/${pageId}/visits`);
@@ -393,10 +396,13 @@ describe.skipIf(!dbAvailable)("GET /lp/analytics/pages/:pageId/visits", () => {
     // Company prefers the account's clean display_name over the raw name.
     expect(known!.company).toBe("Hotlink Dental");
     expect(known!.email).toBe("hana@hotlink.test");
+    // The link itself rides along so the UI can show WHICH hotlink was used.
+    expect(known!.hotlinkToken).toBe(hlToken);
 
     const unknown = body.visits.find((v) => v.contactName === null);
     expect(unknown!.resolved).toBeFalsy();
     expect(unknown!.resolvedVia ?? null).toBeNull();
+    expect(unknown!.hotlinkToken ?? null).toBeNull();
 
     // knownOnly includes the hotlink-resolved row and excludes the plain one.
     const knownOnlyRes = await authed(

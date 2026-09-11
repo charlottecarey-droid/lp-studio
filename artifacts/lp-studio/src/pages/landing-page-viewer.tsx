@@ -506,6 +506,27 @@ html, body { background: transparent !important; }
       .catch(() => {});
   }, [hlToken]);
 
+  // Token for DWELL attribution only. The /p/:token resolver redirects to a
+  // clean URL and stashes the token in sessionStorage (hl_ctx), so ?hl= is
+  // absent on that path — without this fallback the dwell beacon carries no
+  // token, lp_page_visits.hotlink_id is never stamped, and a known hotlink
+  // viewer lists as "Anonymous visitor" in Recent visits. Must NOT feed the
+  // resolve fetch above: every /sales/resolve call inserts a page_view
+  // signal, and the /p/ resolver already fired it. The dwell endpoint
+  // re-validates the token against this page, so a stale hl_ctx from a
+  // different page is a no-op.
+  const dwellHlToken = useMemo(() => {
+    if (hlToken) return hlToken;
+    try {
+      const raw = sessionStorage.getItem("hl_ctx");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { token?: unknown };
+      return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
+    } catch {
+      return null;
+    }
+  }, [hlToken]);
+
   const sessionId = useVisitorSession(slug);
   const trackEvent = useTrackEvent();
 
@@ -705,10 +726,11 @@ html, body { background: transparent !important; }
   })();
   useMunchkin(munchkinId);
   // Time-on-page beacon (Sales Pages analytics) — same gating as the heatmap:
-  // real visitors only, never builder/preview sessions. The raw ?hl= token
-  // rides along so the server can attribute this session's visit to the
-  // hotlink's contact (known-visitor rows in the Pages view).
-  useDwellTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId, hlToken);
+  // real visitors only, never builder/preview sessions. The raw hotlink token
+  // (?hl= or the /p/ resolver's sessionStorage stash) rides along so the
+  // server can attribute this session's visit to the hotlink's contact
+  // (known-visitor rows in the Pages view).
+  useDwellTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId, dwellHlToken);
 
   useEffect(() => {
     let cancelled = false;

@@ -77,6 +77,9 @@ interface VisitRow {
   /** How an anonymous row became known: form submit ("lead") or a sales
    * hotlink the dwell beacon attributed ("hotlink"). */
   resolvedVia?: "lead" | "hotlink" | null;
+  /** Token of the /p/ or ?hl= link this visit arrived through (either
+   *  stream), so the exact link stays visible even once the row has a name. */
+  hotlinkToken?: string | null;
   visitedAt: string;
   contactName: string | null;
   company: string | null;
@@ -353,6 +356,7 @@ export function SalesPageDrillDown({
                       <div className="flex items-center gap-2.5 px-3 py-1.5 bg-muted/40">
                         <span className="w-6 shrink-0" aria-hidden />
                         <span className="flex-1 min-w-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Visitor</span>
+                        <span className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Link</span>
                         <span className="w-14 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Time</span>
                         <span className="w-12 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scroll</span>
                         <span className="w-16 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">When</span>
@@ -378,17 +382,21 @@ export function SalesPageDrillDown({
                                 ].filter(Boolean).join(" · ") || "—"}
                               </p>
                             </div>
-                            {v.source === "personalized" && (
-                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-primary/10 text-primary shrink-0">Link</span>
-                            )}
-                            {v.resolved && v.source === "anonymous" && (
-                              v.resolvedVia === "hotlink"
-                                ? <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-primary/10 text-primary shrink-0">Link</span>
-                                : <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-emerald-100 text-emerald-700 shrink-0">Lead</span>
+                            {v.resolved && v.source === "anonymous" && v.resolvedVia === "lead" && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-emerald-100 text-emerald-700 shrink-0">Lead</span>
                             )}
                             {v.converted && (
                               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-px rounded bg-emerald-100 text-emerald-700 shrink-0">Converted</span>
                             )}
+                            {/* The exact personalized link this visit came through.
+                                Replaces the old "Link" badges — the token says both
+                                THAT it was a link and WHICH one. */}
+                            <span
+                              className={`w-20 shrink-0 font-mono text-[10px] truncate ${v.hotlinkToken ? "text-muted-foreground" : "text-muted-foreground/40"}`}
+                              title={v.hotlinkToken ? `Visited via /p/${v.hotlinkToken}` : "Not via a personalized link"}
+                            >
+                              {v.hotlinkToken ? `/p/${v.hotlinkToken}` : "—"}
+                            </span>
                             <span
                               className={`w-14 shrink-0 text-right text-[11px] tabular-nums ${v.dwellSeconds != null ? "text-foreground" : "text-muted-foreground/50"}`}
                               title={v.dwellSeconds != null ? "Time on page for this visit" : "No time recorded for this visit"}
