@@ -305,34 +305,18 @@ function Capabilities() {
       body: "Person-level visits, a conversion score, and the specific fix — not just pageviews.",
       cta: { label: "See the analytics", href: "/features#analytics" },
       visual: (
-        // Height-capped with a bottom fade: the full analytics surface is
-        // ~1,000px tall (it leads on /features#analytics); the tab panel
-        // shows the stat row + top visit rows and fades out.
-        <div
-          style={{
-            position: "relative",
-            maxHeight: 560,
-            borderRadius: 14,
-            overflow: "hidden",
-            border: "1px solid var(--hairline-strong)",
-            boxShadow:
-              "0 1px 0 rgba(255,255,255,0.8) inset, 0 24px 50px -24px rgba(26,24,21,0.22)",
-          }}
+        // Curated compact crop of the /features analytics surface, in the
+        // same browser chrome the other tabs use: no app-header buttons or
+        // search chrome, fewer columns, first named rows + one anonymous —
+        // the person-level payoff is visible without scrolling or fading.
+        <VisualCard
+          url="app.lpstudio.ai/analytics/pages/cobalt-pilot"
+          status={{ label: "Live", color: "var(--sage)" }}
         >
-          <AnalyticsMock preOpen={false} />
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 110,
-              background: "linear-gradient(180deg, transparent, var(--cream))",
-              pointerEvents: "none",
-            }}
-          />
-        </div>
+          <div style={{ margin: "-18px -20px -20px" }}>
+            <AnalyticsMock preOpen={false} compact />
+          </div>
+        </VisualCard>
       ),
     },
   ];
@@ -430,7 +414,34 @@ function Capabilities() {
               </svg>
             </a>
           </div>
-          <div className="md:col-span-7">{tab.visual}</div>
+          {/* Staged mock — the BuildSection's contained-card idiom: tinted
+              rounded-3xl pedestal + soft indigo glow behind the product
+              surface, so the mock reads as a presented artifact rather than
+              a raw screenshot. */}
+          <div className="md:col-span-7">
+            <div
+              className="relative rounded-3xl paper-grain"
+              style={{
+                padding: "clamp(16px, 2.6vw, 30px)",
+                background:
+                  "linear-gradient(150deg, var(--tint-lavender) 0%, var(--cream-2) 55%, var(--tint-blush) 100%)",
+                border: "1px solid var(--hairline)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.55), 0 28px 56px -34px rgba(37,33,77,0.28)",
+              }}
+            >
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none rounded-3xl"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at 28% 18%, color-mix(in srgb, var(--indigo) 11%, transparent) 0%, transparent 62%)",
+                  filter: "blur(18px)",
+                }}
+              />
+              <div className="relative">{tab.visual}</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

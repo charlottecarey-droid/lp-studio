@@ -204,7 +204,14 @@ function StatCard({ s }: { s: (typeof STATS)[number] }) {
 // Exported so /features can reuse this inside a BrowserFrame without the
 // wedge framing (eyebrow + "Mutiny resolves accounts" callout) that lives on
 // the homepage. Same surface, less positioning.
-export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
+export function AnalyticsMock({
+  preOpen = true,
+  compact = false,
+}: { preOpen?: boolean; compact?: boolean } = {}) {
+  // compact (homepage Capabilities tab): a curated crop of the same surface —
+  // no breadcrumb / action buttons / time range / search chrome, fewer
+  // columns, and only the first named rows + one anonymous row, so the
+  // person-level identity payoff is visible without scrolling or fading.
   // Modal state — the contact-detail modal is pre-opened on David Park
   // so visitors immediately see the surface and learn that visit rows are
   // clickable. Closing it (×, Esc, backdrop) reveals the table; clicking
@@ -228,11 +235,22 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
     }
   }, []);
 
+  const tableCols = compact
+    ? "26px 1.7fr 0.95fr 0.9fr 0.6fr 0.95fr 0.65fr"
+    : "26px 1.6fr 0.9fr 1.2fr 0.7fr 0.85fr 0.55fr 0.85fr 0.55fr";
+  const rowPad = compact ? "13px 18px" : "13px 22px";
+  const visibleRows = compact
+    ? [
+        ...VISITS.filter((v) => !v.anonymous).slice(0, 4),
+        ...VISITS.filter((v) => v.anonymous).slice(0, 1),
+      ]
+    : VISITS;
+
   return (
     <div
       style={{
         background: "var(--cream)",
-        padding: "22px 26px 26px",
+        padding: compact ? "20px 22px 22px" : "22px 26px 26px",
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
         // Make this the containing block for the absolutely-positioned
         // contact-detail modal so the modal stays within the analytics
@@ -241,28 +259,30 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
       }}
     >
       {/* Breadcrumb */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 9,
-          fontSize: 13,
-          color: "var(--ink-mute)",
-          marginBottom: 16,
-        }}
-      >
-        <span style={{ color: "var(--indigo)" }}>Analytics</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-        <span style={{ color: "var(--indigo)" }}>Pages</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-        <span style={{ color: "var(--ink)", fontWeight: 500 }}>
-          Cobalt Systems · Enterprise Pilot
-        </span>
-      </div>
+      {!compact && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            fontSize: 13,
+            color: "var(--ink-mute)",
+            marginBottom: 16,
+          }}
+        >
+          <span style={{ color: "var(--indigo)" }}>Analytics</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+          <span style={{ color: "var(--indigo)" }}>Pages</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+          <span style={{ color: "var(--ink)", fontWeight: 500 }}>
+            Cobalt Systems · Enterprise Pilot
+          </span>
+        </div>
+      )}
 
       {/* Title row + action buttons */}
       <div
@@ -287,7 +307,7 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
             <h3
               className="font-display"
               style={{
-                fontSize: 26,
+                fontSize: compact ? 21 : 26,
                 fontWeight: 600,
                 letterSpacing: "-0.025em",
                 color: "var(--ink)",
@@ -339,6 +359,7 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
           </div>
         </div>
 
+        {!compact && (
         <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
           {[
             { label: "Copy URL", iconPath: "M16 1H4a2 2 0 00-2 2v14h2V3h12V1zm3 4H8a2 2 0 00-2 2v14a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z" },
@@ -391,9 +412,11 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
             Unpublish
           </span>
         </div>
+        )}
       </div>
 
       {/* Time range tabs */}
+      {!compact && (
       <div
         style={{
           display: "inline-flex",
@@ -432,13 +455,14 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
           );
         })}
       </div>
+      )}
 
       {/* Stat cards row */}
       <div
         className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
         style={{
-          gap: 12,
-          marginTop: 18,
+          gap: compact ? 10 : 12,
+          marginTop: compact ? 16 : 18,
         }}
       >
         {STATS.map((s) => (
@@ -480,12 +504,13 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
             style={{
               fontSize: 12.5,
               color: "var(--ink-mute)",
-              margin: "5px 0 12px",
+              margin: compact ? "5px 0 0" : "5px 0 12px",
             }}
           >
             Every recorded visit, with resolved identity for personalized links.
           </p>
 
+          {!compact && (
           <div
             style={{
               display: "flex",
@@ -534,18 +559,18 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
               </span>
             ))}
           </div>
+          )}
         </div>
 
         {/* Table — horizontally scrollable on small screens */}
         <div style={{ position: "relative" }}>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 720 }}>
+            <div style={{ minWidth: compact ? 0 : 720 }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns:
-              "26px 1.6fr 0.9fr 1.2fr 0.7fr 0.85fr 0.55fr 0.85fr 0.55fr",
-            padding: "10px 22px",
+            gridTemplateColumns: tableCols,
+            padding: compact ? "10px 18px" : "10px 22px",
             background: "color-mix(in srgb, var(--ink) 3%, var(--paper))",
             borderTop: "1px solid var(--hairline)",
             borderBottom: "1px solid var(--hairline)",
@@ -560,15 +585,15 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
           <div />
           <div>Visitor</div>
           <div>Source</div>
-          <div>Location</div>
-          <div>Device</div>
+          {!compact && <div>Location</div>}
+          {!compact && <div>Device</div>}
           <div>Scroll</div>
           <div style={{ textAlign: "right" }}>Clicks</div>
           <div>Conv.</div>
           <div style={{ textAlign: "right" }}>When</div>
         </div>
 
-        {VISITS.map((v, i) => {
+        {visibleRows.map((v, i) => {
           const src = SOURCE_STYLE[v.source];
           const cta = CTA_STATE[v.ctaState];
           const clickable = !v.anonymous;
@@ -605,9 +630,8 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
               }
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "26px 1.6fr 0.9fr 1.2fr 0.7fr 0.85fr 0.55fr 0.85fr 0.55fr",
-                padding: "13px 22px",
+                gridTemplateColumns: tableCols,
+                padding: rowPad,
                 alignItems: "center",
                 borderTop: i === 0 ? "none" : "1px solid var(--hairline)",
                 fontSize: 13,
@@ -687,6 +711,7 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
                   {v.source}
                 </span>
               </div>
+              {!compact && (
               <div
                 style={{
                   fontSize: 12.5,
@@ -702,9 +727,12 @@ export function AnalyticsMock({ preOpen = true }: { preOpen?: boolean } = {}) {
                 <span style={{ fontSize: 14 }}>{v.location.flag}</span>
                 {v.location.place}
               </div>
+              )}
+              {!compact && (
               <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
                 {v.device}
               </div>
+              )}
               <div>
                 <div
                   style={{
