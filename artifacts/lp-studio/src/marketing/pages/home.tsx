@@ -370,13 +370,16 @@ function Capabilities() {
 
         {/* Active panel — text left, mock right. key remounts the panel per
             tab so the fade re-runs and stateful mocks (AnalyticsMock) reset. */}
+        {/* lg (not md) split: below 1024px the visual takes the full row —
+            the mocks' internal grids need the width, and a 7/12 slice of a
+            tablet viewport crushes them. */}
         <div
           key={tab.key}
-          className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-14 items-center mt-10 md:mt-12"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center mt-10 md:mt-12"
           style={{ animation: "lpcap-fade 320ms ease" }}
         >
           <style>{`@keyframes lpcap-fade { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }`}</style>
-          <div className="md:col-span-5">
+          <div className="lg:col-span-5">
             <h3 className="font-display text-display-md" style={{ color: "var(--ink)", margin: 0 }}>
               {tab.title}
             </h3>
@@ -418,7 +421,7 @@ function Capabilities() {
               rounded-3xl pedestal + soft indigo glow behind the product
               surface, so the mock reads as a presented artifact rather than
               a raw screenshot. */}
-          <div className="md:col-span-7">
+          <div className="lg:col-span-7">
             <div
               className="relative rounded-3xl paper-grain"
               style={{

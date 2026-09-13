@@ -457,12 +457,20 @@ export function AnalyticsMock({
       </div>
       )}
 
-      {/* Stat cards row */}
+      {/* Stat cards row — compact sizes by the CONTAINER (auto-fit), not the
+          viewport: inside the homepage tab panel the viewport-based md:
+          columns crush the tiles at tablet widths. */}
       <div
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
+        className={compact ? undefined : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6"}
         style={{
           gap: compact ? 10 : 12,
           marginTop: compact ? 16 : 18,
+          ...(compact
+            ? {
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(104px, 1fr))",
+              }
+            : null),
         }}
       >
         {STATS.map((s) => (
@@ -565,11 +573,14 @@ export function AnalyticsMock({
         {/* Table — horizontally scrollable on small screens */}
         <div style={{ position: "relative" }}>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: compact ? 0 : 720 }}>
+            {/* compact keeps a floor so narrow containers scroll the table
+                sideways instead of crushing the columns into each other */}
+            <div style={{ minWidth: compact ? 560 : 720 }}>
         <div
           style={{
             display: "grid",
             gridTemplateColumns: tableCols,
+            columnGap: compact ? 12 : 0,
             padding: compact ? "10px 18px" : "10px 22px",
             background: "color-mix(in srgb, var(--ink) 3%, var(--paper))",
             borderTop: "1px solid var(--hairline)",
@@ -631,6 +642,7 @@ export function AnalyticsMock({
               style={{
                 display: "grid",
                 gridTemplateColumns: tableCols,
+                columnGap: compact ? 12 : 0,
                 padding: rowPad,
                 alignItems: "center",
                 borderTop: i === 0 ? "none" : "1px solid var(--hairline)",
@@ -817,10 +829,13 @@ export function AnalyticsMock({
         })}
             </div>
           </div>
-          {/* Right-edge fade hint (mobile only) signalling more columns */}
+          {/* Right-edge fade hint signalling more columns — viewport-gated in
+              the full surface; in compact the container can be narrow at any
+              viewport, so it always renders (invisible once nothing scrolls,
+              save a faint dim over the last column). */}
           <div
             aria-hidden
-            className="md:hidden"
+            className={compact ? undefined : "md:hidden"}
             style={{
               position: "absolute",
               top: 0,
