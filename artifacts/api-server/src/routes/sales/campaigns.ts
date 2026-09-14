@@ -401,6 +401,92 @@ router.get("/campaigns", async (req, res): Promise<void> => {
 // form "enroll submitters into a campaign" selector). Returns only id/name/
 // status so it's cheap to load from the form-settings UI. Declared BEFORE
 // /campaigns/:id so "options" isn't swallowed by the :id route.
+// ─── GET /sales/campaigns/performance ───────────────────────
+//
+// One aggregate per campaign, computed in Postgres.
+//
+// This replaces the Performance tab's original approach: fetch the 500 most
+// recent signals and tally them in the browser. That was wrong twice over. It
+// read `signal.campaignId`, which the signals API does not return — the
+// campaign lives in `metadata.campaignId` — so every signal was skipped and
+// every campaign read 0. And even with the field fixed, a 500-row cap cannot
+// count a 7,000-recipient send; the numbers would have been quietly short
+// rather than obviously zero, which is worse.
+//
+// Counts come from sales_email_sends, one row per recipient, so opens and
+// clicks are UNIQUE RECIPIENTS — the industry convention for open/click rate,
+// and not the same as the raw event count in the signals feed. Rates are
+// denominated on sends that actually went out, not on the campaign's
+// recipient_count column: that column is rewritten to the remaining set each
+// time a send resumes, so it understates a campaign that was retried.
+//
+// MUST stay above `/campaigns/:id` — Express matches in order and would
+// otherwise read "performance" as an id.
+router.get("/campaigns/performance", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+    const result = await db.execute(sql`
+      SELECT
+        c.id,
+        c.name,
+        c.status,
+        c.sent_at,
+        c.recipient_count,
+        COUNT(s.id) FILTER (WHERE s.status NOT IN ('failed', 'queued'))::int AS sent,
+        COUNT(s.id) FILTER (WHERE s.status = 'failed')::int                  AS failed,
+        COUNT(s.id) FILTER (WHERE s.opened_at IS NOT NULL)::int              AS opens,
+        COUNT(s.id) FILTER (WHERE s.clicked_at IS NOT NULL)::int             AS clicks,
+        COUNT(s.id) FILTER (WHERE s.unsubscribed_at IS NOT NULL)::int        AS unsubscribes,
+        COUNT(s.id) FILTER (WHERE s.status = 'bounced')::int                 AS bounces
+      FROM sales_email_campaigns c
+      LEFT JOIN sales_email_sends s ON s.campaign_id = c.id
+      WHERE c.tenant_id = ${tenantId}
+      GROUP BY c.id, c.name, c.status, c.sent_at, c.recipient_count
+      ORDER BY c.sent_at DESC NULLS LAST, c.id DESC
+    `);
+
+    // Lifetime opt-outs for this tenant. Every unsubscribe before migration
+    // 0140 is undatable and unattributable, so per-campaign columns start from
+    // the deploy. Reporting the lifetime total next to the attributed total
+    // makes that gap visible instead of letting old campaigns read as zero
+    // churn — see `attributed` vs `lifetime` in the response.
+    const [unsubTotals] = await db.select({ lifetime: sql<number>`COUNT(*)::int` })
+      .from(salesContactsTable)
+      .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
+        eq(salesContactsTable.status, "unsubscribed"),
+      ));
+
+    const campaigns = result.rows.map((r: Record<string, unknown>) => ({
+      id: Number(r.id),
+      name: String(r.name),
+      status: String(r.status),
+      sentAt: r.sent_at ? new Date(r.sent_at as string).toISOString() : null,
+      // What the campaign row claims vs what actually went out. They diverge on
+      // a resumed send; the UI reports `sent`.
+      recipientCount: Number(r.recipient_count ?? 0),
+      sent: Number(r.sent ?? 0),
+      failed: Number(r.failed ?? 0),
+      opens: Number(r.opens ?? 0),
+      clicks: Number(r.clicks ?? 0),
+      unsubscribes: Number(r.unsubscribes ?? 0),
+      bounces: Number(r.bounces ?? 0),
+    }));
+
+    res.json({
+      campaigns,
+      unsubscribes: {
+        attributed: campaigns.reduce((n, c) => n + c.unsubscribes, 0),
+        lifetime: Number(unsubTotals?.lifetime ?? 0),
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /sales/campaigns/performance error");
+    res.status(500).json({ error: "Failed to load campaign performance" });
+  }
+});
+
 router.get("/campaigns/options", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;

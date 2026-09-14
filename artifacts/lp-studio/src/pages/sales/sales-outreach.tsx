@@ -1597,126 +1597,172 @@ function SentTab() {
 
 // ─── Performance Tab ────────────────────────────────────────
 
-interface Signal {
-  id: number;
-  type: string;
-  campaignId?: number;
-}
-
 interface CampaignPerformance {
   id: number;
   name: string;
   status: string;
-  recipientCount: number;
   sentAt: string | null;
+  /** What the campaign row claims. Understates a send that was resumed. */
+  recipientCount: number;
+  /** Rows that actually went out — the denominator for every rate below. */
+  sent: number;
+  failed: number;
   opens: number;
   clicks: number;
-  formSubmits: number;
+  unsubscribes: number;
+  bounces: number;
+}
+
+interface PerformanceResponse {
+  campaigns: CampaignPerformance[];
+  unsubscribes: { attributed: number; lifetime: number };
+}
+
+/** Percentage of `sent`, or an em dash when there is nothing to divide by. */
+function rate(part: number, whole: number): string {
+  if (whole <= 0) return "—";
+  return `${((part / whole) * 100).toFixed(1)}%`;
 }
 
 function PerformanceTab() {
-  const [campaigns, setCampaigns] = useState<CampaignPerformance[]>([]);
+  const [data, setData] = useState<PerformanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : { data: [] }).then(res => Array.isArray(res) ? res : res.data ?? []),
-    ])
-      .then(([campaignList, signals]) => {
-        const campaignMap = new Map<number, CampaignPerformance>();
-
-        campaignList.forEach((c: Campaign) => {
-          campaignMap.set(c.id, {
-            id: c.id,
-            name: c.name,
-            status: c.status,
-            recipientCount: c.recipientCount,
-            sentAt: c.sentAt,
-            opens: 0,
-            clicks: 0,
-            formSubmits: 0,
-          });
-        });
-
-        signals.forEach((s: Signal) => {
-          if (s.campaignId && campaignMap.has(s.campaignId)) {
-            const perf = campaignMap.get(s.campaignId)!;
-            if (s.type === "email_open") perf.opens++;
-            else if (s.type === "email_click") perf.clicks++;
-            else if (s.type === "form_submit") perf.formSubmits++;
-          }
-        });
-
-        setCampaigns(Array.from(campaignMap.values()));
+    // One aggregate call. The previous version pulled the 500 most recent
+    // signals and counted them here, which could not have worked: it read
+    // `signal.campaignId`, a field the signals API does not return (the
+    // campaign sits in `metadata.campaignId`), so every row was skipped and
+    // every campaign showed 0. Counting in the browser was also capped at 500
+    // signals regardless — hopeless against a 7,000-recipient send.
+    fetch(`${API_BASE}/sales/campaigns/performance`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<PerformanceResponse>;
       })
-      .catch(() => {})
+      .then(setData)
+      // Surface the failure. Silently rendering an empty table is how a broken
+      // dashboard passes for an accurate one reporting no activity.
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
+  const campaigns = data?.campaigns ?? [];
+  const unattributedUnsubs = Math.max(
+    0,
+    (data?.unsubscribes.lifetime ?? 0) - (data?.unsubscribes.attributed ?? 0),
+  );
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-3">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-[64px] rounded-xl" />)}
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <Card className="flex items-center gap-4 p-6 rounded-2xl border border-dashed border-destructive/40">
+        <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+          <TrendingUp className="w-6 h-6 text-destructive" />
+        </div>
+        <div>
+          <p className="font-semibold text-foreground">Couldn't load performance</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            These numbers are unavailable right now — they are not zero. Refresh to try again.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (campaigns.length === 0) {
+    return (
+      <Card className="flex items-center gap-4 p-6 rounded-2xl border border-dashed border-border">
+        <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+          <TrendingUp className="w-6 h-6 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="font-semibold text-foreground">No campaigns yet</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Create and send campaigns to see performance analytics</p>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      {loading ? (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-[64px] rounded-xl" />)}
-        </div>
-      ) : campaigns.length === 0 ? (
-        <Card className="flex items-center gap-4 p-6 rounded-2xl border border-dashed border-border">
-          <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
-            <TrendingUp className="w-6 h-6 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-semibold text-foreground">No campaigns yet</p>
-            <p className="text-sm text-muted-foreground mt-0.5">Create and send campaigns to see performance analytics</p>
-          </div>
-        </Card>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/60">
-                <th className="text-left font-semibold text-foreground px-4 py-3">Campaign Name</th>
-                <th className="text-left font-semibold text-foreground px-4 py-3">Status</th>
-                <th className="text-right font-semibold text-foreground px-4 py-3">Recipients</th>
-                <th className="text-right font-semibold text-foreground px-4 py-3">Opens</th>
-                <th className="text-right font-semibold text-foreground px-4 py-3">Open Rate</th>
-                <th className="text-right font-semibold text-foreground px-4 py-3">Clicks</th>
-                <th className="text-right font-semibold text-foreground px-4 py-3">Click Rate</th>
-                <th className="text-right font-semibold text-foreground px-4 py-3">Sent Date</th>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border/60">
+              <th className="text-left font-semibold text-foreground px-4 py-3">Campaign Name</th>
+              <th className="text-left font-semibold text-foreground px-4 py-3">Status</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Delivered</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Opens</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Open Rate</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Clicks</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Click Rate</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3 whitespace-nowrap">
+                Unsubs
+                <InfoTip content="Opt-outs from this campaign's unsubscribe link. Counted from the date per-campaign tracking shipped — earlier opt-outs have no campaign recorded and appear in the total below the table." />
+              </th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Unsub Rate</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Bounces</th>
+              <th className="text-right font-semibold text-foreground px-4 py-3">Sent Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {campaigns.map(c => (
+              <tr key={c.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                <td className="px-4 py-3 text-foreground font-medium">{c.name}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    c.status === "draft" ? "bg-muted text-muted-foreground" :
+                    c.status === "sending" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  }`}>
+                    {c.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right text-muted-foreground">{c.sent.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground">{c.opens.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground">{rate(c.opens, c.sent)}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground">{c.clicks.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground">{rate(c.clicks, c.sent)}</td>
+                <td className={`px-4 py-3 text-right ${c.unsubscribes > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                  {c.unsubscribes.toLocaleString()}
+                </td>
+                <td className="px-4 py-3 text-right text-muted-foreground">{rate(c.unsubscribes, c.sent)}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground">{c.bounces.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground">
+                  {c.sentAt ? format(new Date(c.sentAt), "MMM d, yyyy") : "—"}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {campaigns.map(c => {
-                const openRate = c.recipientCount > 0 ? ((c.opens / c.recipientCount) * 100).toFixed(1) : "—";
-                const clickRate = c.recipientCount > 0 ? ((c.clicks / c.recipientCount) * 100).toFixed(1) : "—";
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-                return (
-                  <tr key={c.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 text-foreground font-medium">{c.name}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        c.status === "draft" ? "bg-muted text-muted-foreground" :
-                        c.status === "sending" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
-                        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      }`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{c.recipientCount}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{c.opens}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{openRate}%</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{c.clicks}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{clickRate}%</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">
-                      {c.sentAt ? format(new Date(c.sentAt), "MMM d, yyyy") : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 text-sm text-muted-foreground">
+        <span>
+          <span className="font-semibold text-foreground">{(data?.unsubscribes.lifetime ?? 0).toLocaleString()}</span>
+          {" "}contacts unsubscribed all-time
+        </span>
+        {unattributedUnsubs > 0 && (
+          <span>
+            {unattributedUnsubs.toLocaleString()} of them opted out before per-campaign tracking
+            shipped, so they are not counted against any campaign above.
+          </span>
+        )}
+      </div>
+
+      <p className="px-4 text-xs text-muted-foreground">
+        Opens and clicks count unique recipients, not total events — so they will read lower than the
+        raw activity in Signals. Rates are a share of messages delivered.
+      </p>
     </div>
   );
 }
