@@ -58,11 +58,16 @@ export const salesEmailSendsTable = pgTable("sales_email_sends", {
   contactId: integer("contact_id").notNull().references(() => salesContactsTable.id, { onDelete: "cascade" }),
   hotlinkId: integer("hotlink_id").references(() => salesHotlinksTable.id, { onDelete: "set null" }),
   email: text("email").notNull(),
-  status: text("status").notNull().default("queued"), // queued | sent | delivered | opened | clicked | bounced | failed
+  status: text("status").notNull().default("queued"), // queued | sent | delivered | opened | clicked | bounced | complained | failed
   sentAt: timestamp("sent_at", { withTimezone: true }),
   openedAt: timestamp("opened_at", { withTimezone: true }),
   clickedAt: timestamp("clicked_at", { withTimezone: true }),
   bouncedAt: timestamp("bounced_at", { withTimezone: true }),
+  // Set when THIS send's unsubscribe link was used (migration 0140). The
+  // opt-out also flips sales_contacts.status, but that column carries no date
+  // and no campaign — this is what makes unsubscribes attributable per
+  // campaign. NULL for every send that predates the column.
+  unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
