@@ -236,6 +236,31 @@ function injectTrackingPixel(html: string, trackUrl: string): string {
   return html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
 }
 
+// Rewrite every http(s) link in an outgoing email through /track/click so that
+// a click stamps `clickedAt` on the send row — the number the Performance tab
+// reports. Two links are deliberately left alone:
+//   - the unsubscribe link (wrapping it would record a "click" for someone
+//     opting out, and inflate click rate with the opposite of engagement),
+//   - anything already pointing at /api/sales/track/ (no double-wrapping).
+// `escapeAndLinkifyPlainText` HTML-escapes before it linkifies, so a captured
+// href can carry `&amp;` where the real URL has `&`; unescape before encoding
+// or the redirect target arrives mangled.
+export function rewriteLinksForClickTracking(html: string, host: string, sendId: number): string {
+  return html.replace(/href=(["'])(https?:\/\/[^"']+)\1/gi, (match, quote: string, rawUrl: string) => {
+    if (rawUrl.includes("/api/sales/unsubscribe")) return match;
+    if (rawUrl.includes("/api/sales/track/")) return match;
+    const url = rawUrl.replace(/&amp;/g, "&");
+    return `href=${quote}${host}/api/sales/track/click?sendId=${sendId}&url=${encodeURIComponent(url)}${quote}`;
+  });
+}
+
+// Apply open- and click-tracking to a rendered email body. Click rewriting runs
+// first so the pixel URL it appends is never itself rewritten.
+export function applyEmailTracking(html: string, host: string, sendId: number): string {
+  const tracked = rewriteLinksForClickTracking(html, host, sendId);
+  return injectTrackingPixel(tracked, `${host}/api/sales/track/open?id=${sendId}`);
+}
+
 /**
  * Returns true if any of the given strings contain a `{{microsite_url}}`-style
  * token (or any common alias — link, microsite, personalized_link, page_url).
@@ -607,11 +632,16 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     }
 
     // Idempotency guard: skip contacts already sent to in this campaign
+    // NOT `status = 'sent'`: once open/click tracking lands, a delivered row
+    // advances to delivered/opened/clicked/bounced/complained, and an equality
+    // check on 'sent' would let a re-send email those contacts a second time.
+    // Skip every row except the two that mean "never went out" — 'failed', and
+    // 'queued' rows orphaned by a crash between the insert and the Resend call.
     const existingSends = await db.select({ contactId: salesEmailSendsTable.contactId })
       .from(salesEmailSendsTable)
       .where(and(
         eq(salesEmailSendsTable.campaignId, campaignId),
-        eq(salesEmailSendsTable.status, "sent"),
+        notInArray(salesEmailSendsTable.status, ["failed", "queued"]),
       ));
     const alreadySentIds = new Set(existingSends.map(s => s.contactId));
     // `sendable`/`skippedCount` are re-derived UNDER the claim lock below (this
@@ -699,7 +729,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         .from(salesEmailSendsTable)
         .where(and(
           eq(salesEmailSendsTable.campaignId, campaignId),
-          eq(salesEmailSendsTable.status, "sent"),
+          notInArray(salesEmailSendsTable.status, ["failed", "queued"]),
         ));
       const sentNow = new Set(sentRows.map(r => r.contactId));
       const remaining = sendable.filter(c => !sentNow.has(c.id));
@@ -821,35 +851,73 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         emailHtml = html;
       }
 
+      // Claim the per-contact send row BEFORE calling Resend. The tracking
+      // pixel and the click redirects both address this row by id, so the row
+      // has to exist before the body is rendered — this is why the insert moved
+      // ahead of the send rather than following it. A 'queued' row means
+      // "claimed, not yet out the door": the idempotency filters above skip
+      // every status except 'failed' and 'queued', so a row orphaned by a crash
+      // between here and the Resend call is retried rather than silently
+      // swallowing a recipient.
+      let sendRowId: number | null = null;
+      try {
+        const [claimed] = await withDbRetry(() => db.insert(salesEmailSendsTable).values({
+          campaignId,
+          contactId: contact.id,
+          hotlinkId: hotlink?.id ?? null,
+          email: contact.email!,
+          status: "queued",
+        }).returning({ id: salesEmailSendsTable.id }));
+        sendRowId = claimed?.id ?? null;
+      } catch (insErr) {
+        logger.error({ err: insErr, contactId: contact.id, campaignId }, "send-record claim failed (sending this one untracked)");
+      }
+
+      // No row means no id to track against. Send anyway — a lost open beats a
+      // lost email — and record the outcome below.
+      const trackedHtml = sendRowId !== null
+        ? applyEmailTracking(emailHtml, host, sendRowId)
+        : emailHtml;
+
       const payload = {
         from: sender.from,
         ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
         to: [contact.email!],
         subject,
-        html: emailHtml,
+        html: trackedHtml,
       };
 
       const result = await sendViaResend(payload);
 
-      // Durable per-contact record. Persist IMMEDIATELY (autocommit, not batched
-      // at the end) so a crash mid-loop leaves a 'sent' row for every contact we
-      // already emailed — the idempotency filter above then skips them on retry
-      // instead of double-sending. A failed insert after a successful send is
-      // logged but does not abort the loop (the email already went out).
+      // Settle the claimed row. A failed write after a successful send is
+      // logged but never aborts the loop — the email already went out.
       try {
-        await withDbRetry(() => db.insert(salesEmailSendsTable).values({
-          campaignId,
-          contactId: contact.id,
-          hotlinkId: hotlink?.id ?? null,
-          email: contact.email!,
-          status: result.ok ? "sent" : "failed",
-          sentAt: result.ok ? new Date() : null,
-          metadata: result.ok
-            ? (result.resendId ? { resendId: result.resendId } : {})
-            : { error: result.error },
-        }));
-      } catch (insErr) {
-        logger.error({ err: insErr, contactId: contact.id, campaignId }, "send-record insert failed (email status unchanged)");
+        if (sendRowId !== null) {
+          await withDbRetry(() => db.update(salesEmailSendsTable)
+            .set({
+              status: result.ok ? "sent" : "failed",
+              sentAt: result.ok ? new Date() : null,
+              metadata: result.ok
+                ? (result.resendId ? { resendId: result.resendId } : {})
+                : { error: result.error },
+            })
+            .where(eq(salesEmailSendsTable.id, sendRowId)));
+        } else {
+          // The claim failed, so fall back to the original insert-after-send.
+          await withDbRetry(() => db.insert(salesEmailSendsTable).values({
+            campaignId,
+            contactId: contact.id,
+            hotlinkId: hotlink?.id ?? null,
+            email: contact.email!,
+            status: result.ok ? "sent" : "failed",
+            sentAt: result.ok ? new Date() : null,
+            metadata: result.ok
+              ? (result.resendId ? { resendId: result.resendId } : {})
+              : { error: result.error },
+          }));
+        }
+      } catch (settleErr) {
+        logger.error({ err: settleErr, contactId: contact.id, campaignId, sendRowId }, "send-record settle failed (email status unchanged)");
       }
 
       if (result.ok) {
