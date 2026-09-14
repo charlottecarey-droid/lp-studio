@@ -50,16 +50,26 @@ const SENDING_HEARTBEAT_MS = 2 * 60 * 1000;
 const UNSUB_SECRET: string = process.env.UNSUB_SECRET ?? randomBytes(32).toString("hex");
 const UNSUB_TOKEN_EXPIRY_DAYS = 30;
 
-// New tokens bind tenantId into the HMAC so a token for tenant A can never be
+// Tokens bind tenantId into the HMAC so a token for tenant A can never be
 // replayed to unsubscribe a contact id that belongs to tenant B. The unsubscribe
-// route also re-scopes its UPDATE to this tenantId. Format (base64url of):
-//   `${tenantId}.${contactId}.${expiresAt}.${mac}`  (4 parts)
-// Legacy tokens (3 parts, no tenant) are still honored within a grace window so
-// links already in inboxes keep working through the rollout.
-function makeUnsubToken(tenantId: number, contactId: number): string {
+// route also re-scopes its UPDATE to this tenantId.
+//
+// Current format (base64url of), 5 parts:
+//   `${tenantId}.${contactId}.${campaignId}.${expiresAt}.${mac}`
+// campaignId is 0 for sends with no campaign (one-off and test emails). It is
+// carried here because it is the ONLY point where the campaign is still known:
+// the unsubscribe arrives as a bare GET from an inbox, and without this the
+// opt-out cannot be attributed to the send that provoked it.
+//
+// Older formats stay honored within their expiry window so links already
+// sitting in inboxes keep working through the rollout:
+//   4 parts — tenant-bound, no campaign  (attribution falls back, see route)
+//   3 parts — legacy, no tenant either
+export function makeUnsubToken(tenantId: number, contactId: number, campaignId: number | null = null): string {
   const expiresAt = Math.floor(Date.now() / 1000) + (UNSUB_TOKEN_EXPIRY_DAYS * 24 * 60 * 60);
-  const mac = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${expiresAt}`).digest("hex");
-  return Buffer.from(`${tenantId}.${contactId}.${expiresAt}.${mac}`).toString("base64url");
+  const cid = campaignId ?? 0;
+  const mac = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${cid}.${expiresAt}`).digest("hex");
+  return Buffer.from(`${tenantId}.${contactId}.${cid}.${expiresAt}.${mac}`).toString("base64url");
 }
 
 // Constant-time HMAC comparison — never short-circuit on the first mismatched
@@ -74,11 +84,25 @@ function macEquals(a: string, b: string): boolean {
   }
 }
 
-function verifyUnsubToken(token: string): { tenantId: number | null; contactId: number } | null {
+export function verifyUnsubToken(token: string): { tenantId: number | null; contactId: number; campaignId: number | null } | null {
   try {
     const decoded = Buffer.from(token, "base64url").toString("utf8");
     const parts = decoded.split(".");
     const now = Math.floor(Date.now() / 1000);
+
+    if (parts.length === 5) {
+      // Current format: tenant-bound and campaign-attributed.
+      const [tenantStr, idStr, campaignStr, expiryStr, mac] = parts;
+      const tenantId = parseInt(tenantStr, 10);
+      const contactId = parseInt(idStr, 10);
+      const campaignId = parseInt(campaignStr, 10);
+      const expiresAt = parseInt(expiryStr, 10);
+      if (isNaN(tenantId) || isNaN(contactId) || isNaN(campaignId) || isNaN(expiresAt)) return null;
+      if (now > expiresAt) return null;
+      const expected = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${campaignId}.${expiresAt}`).digest("hex");
+      if (!macEquals(mac, expected)) return null;
+      return { tenantId, contactId, campaignId: campaignId > 0 ? campaignId : null };
+    }
 
     if (parts.length === 4) {
       // Current format: tenant-bound.
@@ -89,7 +113,7 @@ function verifyUnsubToken(token: string): { tenantId: number | null; contactId: 
       if (isNaN(tenantId) || isNaN(contactId) || isNaN(expiresAt)) return null;
       if (now > expiresAt) return null;
       const expected = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${expiresAt}`).digest("hex");
-      return macEquals(mac, expected) ? { tenantId, contactId } : null;
+      return macEquals(mac, expected) ? { tenantId, contactId, campaignId: null } : null;
     }
 
     if (parts.length === 3) {
@@ -100,7 +124,7 @@ function verifyUnsubToken(token: string): { tenantId: number | null; contactId: 
       if (isNaN(contactId) || isNaN(expiresAt)) return null;
       if (now > expiresAt) return null;
       const expected = createHmac("sha256", UNSUB_SECRET).update(`${contactId}.${expiresAt}`).digest("hex");
-      return macEquals(mac, expected) ? { tenantId: null, contactId } : null;
+      return macEquals(mac, expected) ? { tenantId: null, contactId, campaignId: null } : null;
     }
 
     return null;
@@ -121,16 +145,48 @@ router.get("/unsubscribe", async (req, res): Promise<void> => {
     res.status(400).send("<h2>Invalid or expired unsubscribe link.</h2>");
     return;
   }
-  const { tenantId, contactId } = verified;
+  const { tenantId, contactId, campaignId } = verified;
   try {
-    // Scope the UPDATE to the token's tenant when present (current 4-part
-    // tokens). Legacy 3-part tokens carry no tenant, so they fall back to the
-    // contact id alone within their grace window.
+    // Scope the UPDATE to the token's tenant when present (current 5-part and
+    // 4-part tokens). Legacy 3-part tokens carry no tenant, so they fall back
+    // to the contact id alone within their grace window.
     await db.update(salesContactsTable)
       .set({ status: "unsubscribed" })
       .where(tenantId !== null
         ? and(eq(salesContactsTable.id, contactId), eq(salesContactsTable.tenantId, tenantId))
         : eq(salesContactsTable.id, contactId));
+
+    // Stamp the send this opt-out came from, so Campaigns > Performance can
+    // report unsubscribes per campaign. Deliberately NOT written to the signals
+    // feed: an unsubscribe is a campaign metric, and the feed is for buying
+    // signals — mixing them in makes reps chase people who just left.
+    //
+    // Best-effort by design. The contact is already unsubscribed by the update
+    // above (the thing we owe the recipient); if attribution fails, a missing
+    // stat must never turn into "we couldn't unsubscribe you".
+    try {
+      const target = campaignId !== null
+        // 5-part token: the exact send that carried this link.
+        ? and(
+            eq(salesEmailSendsTable.contactId, contactId),
+            eq(salesEmailSendsTable.campaignId, campaignId),
+          )
+        // Older token with no campaign: attribute to this contact's most recent
+        // send, which is the one they were almost certainly looking at.
+        : eq(salesEmailSendsTable.id, sql`(
+            SELECT id FROM sales_email_sends
+            WHERE contact_id = ${contactId} AND sent_at IS NOT NULL
+            ORDER BY sent_at DESC LIMIT 1
+          )`);
+
+      await db.update(salesEmailSendsTable)
+        // COALESCE, not a plain set: a second click on the same link (or a
+        // mail client prefetching it) must not move the original opt-out date.
+        .set({ unsubscribedAt: sql`COALESCE(${salesEmailSendsTable.unsubscribedAt}, now())` })
+        .where(target);
+    } catch (attributionErr) {
+      logger.error({ err: attributionErr, contactId, campaignId }, "unsubscribe recorded, campaign attribution failed");
+    }
     res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed</title>
 <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafb}
 .box{text-align:center;padding:48px;max-width:400px}h1{color:#003A30;margin-bottom:12px}p{color:#555;line-height:1.6}</style></head>
@@ -786,7 +842,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     let linkFailures = 0;
 
     for (const contact of sendable) {
-      const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id)}`;
+      const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id, campaignId)}`;
       const companyName = contact.accountId ? (accountNameById.get(contact.accountId) ?? "") : "";
       const vars: Record<string, string> = {
         "{{first_name}}": contact.firstName ?? "",
