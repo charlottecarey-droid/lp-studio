@@ -22,6 +22,7 @@ import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import { resolveTenantSender } from "../../lib/tenantSender";
 import { isTransientDbError, withDbRetry } from "../../lib/dbResilience";
 import { ensureHotlinkForContact } from "../../lib/ensureHotlink";
+import { isLikelyBot } from "../../lib/emailTrackingHeuristics";
 
 const router = Router();
 
@@ -322,16 +323,6 @@ async function sendViaResend(payload: {
   }
 }
 
-// Bot/prefetch tolerance: Gmail and Apple Mail Privacy proxies prefetch the
-// pixel and rewrite URLs within milliseconds of send. We ignore any open or
-// click that fires inside this window so dashboards reflect real recipient
-// activity, not security scanners. The pixel and redirect still serve as
-// usual — only the DB stamp + signal are suppressed.
-const BOT_GRACE_MS = 2000;
-function isLikelyBot(sentAt: Date | null | undefined): boolean {
-  if (!sentAt) return false;
-  return Date.now() - new Date(sentAt).getTime() < BOT_GRACE_MS;
-}
 
 // ─── Campaign CRUD ──────────────────────────────────────────
 
