@@ -1013,6 +1013,16 @@ export async function syncToMarketo(
       const canon = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, "");
       const submittedCanonKeys = new Set(Object.keys(lead.fields).map(canon));
       const mappedTargets = new Set(Object.keys(marketoFields));
+      // `fieldMappings` is keyed by the form's LABEL ("UTM Source"), while the
+      // keys below are URL-param style ("utm_source"). Index the mapping by the
+      // same canonical form so either spelling resolves to the tenant's REST
+      // field name. Without this, a label-keyed mapping (what the Forms UI
+      // writes — see BlockForm's `fieldMappings` docs) never matched here and
+      // every UTM was silently dropped on forms with no hidden UTM fields.
+      const canonMappings = new Map<string, string>();
+      for (const [label, target] of Object.entries(mappings)) {
+        if (target) canonMappings.set(canon(label), target);
+      }
       const utmPairs: Array<[string, string | null | undefined]> = [
         ["utm_source",   lead.utm.source],
         ["utm_medium",   lead.utm.medium],
@@ -1026,7 +1036,7 @@ export async function syncToMarketo(
         // to the same canonical UTM key (e.g. "UTM Source" → "utmsource").
         if (submittedCanonKeys.has(canon(key))) continue;
         // Otherwise honor an explicit mapping for the URL-param key, if any.
-        const explicit = mappings[key];
+        const explicit = mappings[key] ?? canonMappings.get(canon(key));
         if (explicit && !mappedTargets.has(explicit)) {
           marketoFields[explicit] = value;
         }
