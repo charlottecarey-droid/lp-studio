@@ -785,6 +785,13 @@ export interface LeadPayload {
     term?: string | null;
     content?: string | null;
   };
+  clickIds?: {
+    gclid?: string | null;
+    fbclid?: string | null;
+    gbraid?: string | null;
+    wbraid?: string | null;
+    msclkid?: string | null;
+  };
 }
 
 export interface EmailRecipient {
@@ -1009,7 +1016,7 @@ export async function syncToMarketo(
     // utm_source), and (b) refuse to inject a raw lowercase key like
     // "utm_source" when no mapping exists, since it is unlikely to be a valid
     // Marketo REST field name and would poison the whole sync.
-    if (lead.utm) {
+    if (lead.utm || lead.clickIds) {
       const canon = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, "");
       const submittedCanonKeys = new Set(Object.keys(lead.fields).map(canon));
       const mappedTargets = new Set(Object.keys(marketoFields));
@@ -1023,20 +1030,30 @@ export async function syncToMarketo(
       for (const [label, target] of Object.entries(mappings)) {
         if (target) canonMappings.set(canon(label), target);
       }
-      const utmPairs: Array<[string, string | null | undefined]> = [
-        ["utm_source",   lead.utm.source],
-        ["utm_medium",   lead.utm.medium],
-        ["utm_campaign", lead.utm.campaign],
-        ["utm_term",     lead.utm.term],
-        ["utm_content",  lead.utm.content],
+      // [canonical aliases, value]. The first alias is the URL-param spelling;
+      // the rest are label spellings a tenant may have mapped instead, since
+      // "Microsoft Click ID" does not collapse to "msclkid" on its own.
+      const attributionPairs: Array<[string[], string | null | undefined]> = [
+        [["utm_source"],                    lead.utm?.source],
+        [["utm_medium"],                    lead.utm?.medium],
+        [["utm_campaign"],                  lead.utm?.campaign],
+        [["utm_term"],                      lead.utm?.term],
+        [["utm_content"],                   lead.utm?.content],
+        [["gclid", "google click id"],      lead.clickIds?.gclid],
+        [["fbclid", "facebook click id"],   lead.clickIds?.fbclid],
+        [["gbraid"],                        lead.clickIds?.gbraid],
+        [["wbraid"],                        lead.clickIds?.wbraid],
+        [["msclkid", "microsoft click id"], lead.clickIds?.msclkid],
       ];
-      for (const [key, value] of utmPairs) {
+      for (const [aliases, value] of attributionPairs) {
         if (!value) continue;
         // Skip if the form already submitted any field whose label collapses
-        // to the same canonical UTM key (e.g. "UTM Source" → "utmsource").
-        if (submittedCanonKeys.has(canon(key))) continue;
-        // Otherwise honor an explicit mapping for the URL-param key, if any.
-        const explicit = mappings[key] ?? canonMappings.get(canon(key));
+        // to one of these aliases (e.g. "UTM Source" → "utmsource").
+        if (aliases.some(a => submittedCanonKeys.has(canon(a)))) continue;
+        // Otherwise honor an explicit mapping for any of the aliases, if any.
+        const key = aliases[0];
+        const explicit = mappings[key]
+          ?? aliases.map(a => canonMappings.get(canon(a))).find(Boolean);
         if (explicit && !mappedTargets.has(explicit)) {
           marketoFields[explicit] = value;
         }

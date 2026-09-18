@@ -61,7 +61,10 @@ function config(fieldMappings: Record<string, string>): MarketoConfig {
   } as MarketoConfig;
 }
 
-function lead(fields: Record<string, unknown> = { "Email Address": "jane@acme.com" }): LeadPayload {
+function lead(
+  fields: Record<string, unknown> = { "Email Address": "jane@acme.com" },
+  clickIds?: Record<string, string>,
+): LeadPayload {
   return {
     leadId: 1,
     pageId: 2,
@@ -76,6 +79,7 @@ function lead(fields: Record<string, unknown> = { "Email Address": "jane@acme.co
       term: "digital dentures",
       content: "variant-b",
     },
+    ...(clickIds ? { clickIds } : {}),
   } as LeadPayload;
 }
 
@@ -127,10 +131,32 @@ describe.skipIf(!process.env.DATABASE_URL)("syncToMarketo UTM auto-injection", (
     expect(sentFields()).toMatchObject({ UTM_Source__c: "hidden-field-value" });
   });
 
+  it("injects ad click IDs through their mapped field names", async () => {
+    await syncToMarketo(
+      config({ ...LABEL_KEYED, GCLID: "GCLID__c", FBCLID: "FBCLID__c", GBRAID: "gBRAID" }),
+      lead(undefined, { gclid: "Cj0KCQ", fbclid: "IwAR1", gbraid: "0AAAAA" }),
+    );
+    expect(sentFields()).toMatchObject({
+      GCLID__c: "Cj0KCQ",
+      FBCLID__c: "IwAR1",
+      gBRAID: "0AAAAA",
+    });
+  });
+
+  it("resolves a click ID mapped under its human label rather than its param name", async () => {
+    // "Microsoft Click ID" does not collapse to "msclkid", so the alias list
+    // is what makes this tenant's mapping resolve.
+    await syncToMarketo(
+      config({ "Email Address": "email", "Microsoft Click ID": "microsoftClickID" }),
+      lead(undefined, { msclkid: "abc123" }),
+    );
+    expect(sentFields()).toMatchObject({ microsoftClickID: "abc123" });
+  });
+
   it("never injects a raw lowercase URL-param key when no mapping exists", async () => {
-    await syncToMarketo(config({ "Email Address": "email" }), lead());
+    await syncToMarketo(config({ "Email Address": "email" }), lead(undefined, { gclid: "Cj0KCQ", msclkid: "abc123" }));
     const f = sentFields();
-    for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"]) {
+    for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "msclkid"]) {
       expect(f).not.toHaveProperty(k);
     }
     expect(Object.keys(f)).toEqual(["email"]);

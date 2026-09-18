@@ -56,6 +56,15 @@ const SubmitLeadBody = z.object({
   utmCampaign: z.string().optional(),
   utmTerm: z.string().optional(),
   utmContent: z.string().optional(),
+  // Ad click IDs, carried OUTSIDE `fields` for the same reason as mktoTrk.
+  // Not persisted as lead columns (no migration yet) — they ride through to
+  // the CRM syncs, and land in the fields JSON whenever the form carries the
+  // matching hidden attribution field.
+  gclid: z.string().max(500).optional(),
+  fbclid: z.string().max(500).optional(),
+  gbraid: z.string().max(500).optional(),
+  wbraid: z.string().max(500).optional(),
+  msclkid: z.string().max(500).optional(),
 });
 
 // Table schema extension type for idempotency key (if column exists)
@@ -522,6 +531,13 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           campaign: utmCampaign,
           term: utmTerm,
           content: utmContent,
+        },
+        clickIds: {
+          gclid: parsed.data.gclid ?? null,
+          fbclid: parsed.data.fbclid ?? null,
+          gbraid: parsed.data.gbraid ?? null,
+          wbraid: parsed.data.wbraid ?? null,
+          msclkid: parsed.data.msclkid ?? null,
         },
       };
 
