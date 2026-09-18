@@ -1,4 +1,4 @@
-import { and, eq, ilike, sql } from "drizzle-orm";
+import { and, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 
@@ -241,6 +241,48 @@ export async function resolveSignalLinkage(
   }
 
   return { contactId, accountId };
+}
+
+/**
+ * Backfill a matched contact's LinkedIn URL from an inbound engagement signal.
+ *
+ * Integrations (letterdrop / rb2b / apollo) routinely carry a LinkedIn profile
+ * URL for a person the CRM import never had one for. `resolveSignalLinkage`
+ * already USES that URL to match a contact; this writes it back so the value
+ * lands on the contact record itself — which is what the contact detail panel
+ * and the signals CSV export both read.
+ *
+ * FILL-ONLY, never overwrite: the update is gated on the stored value being
+ * NULL or blank, so a LinkedIn URL already on the record (CRM-sourced, or
+ * hand-corrected by a rep) always wins over whatever the wire sent. Combined
+ * with the tenant predicate this is safe to call on every ingest.
+ *
+ * Returns true when a row was actually filled — callers log it so the effect
+ * is visible in the ingest logs rather than silent.
+ */
+export async function fillContactLinkedinUrl(
+  tenantId: number | null | undefined,
+  contactId: number | null | undefined,
+  linkedinUrl: string | null | undefined,
+): Promise<boolean> {
+  if (tenantId == null || contactId == null) return false;
+  const url = (linkedinUrl ?? "").trim();
+  if (!url) return false;
+
+  const filled = await db
+    .update(salesContactsTable)
+    .set({ linkedinUrl: url })
+    .where(and(
+      eq(salesContactsTable.id, contactId),
+      eq(salesContactsTable.tenantId, tenantId),
+      or(
+        isNull(salesContactsTable.linkedinUrl),
+        eq(sql`btrim(${salesContactsTable.linkedinUrl})`, ""),
+      ),
+    ))
+    .returning({ id: salesContactsTable.id });
+
+  return filled.length > 0;
 }
 
 export interface SignalAttributionBackfillV2Result {
