@@ -72,6 +72,7 @@ const ATTRIBUTION_BODY_KEYS: Record<string, string> = {
   utmCampaign: "utm_campaign",
   utmTerm:     "utm_term",
   utmContent:  "utm_content",
+  utmAdId:     "utm_ad_id",
   gclid:       "gclid",
   fbclid:      "fbclid",
   gbraid:      "gbraid",
@@ -91,11 +92,16 @@ export function buildAttributionBody(): Record<string, string> {
     const value = readPersistedParam(param);
     if (value) out[bodyKey] = value;
   }
+  // Not a URL param — parsed out of the GA4 `_ga` cookie, so it only exists
+  // once GA has run. Sent alongside the rest so a tenant mapping a GA client
+  // ID field does not need a hidden form field to fill it.
+  const gaClientId = readGaClientId();
+  if (gaClientId) out.gaClientId = gaClientId;
   return out;
 }
 
 // Read the GA4 client ID from the `_ga` cookie (format: GA1.2.<clientId-2-parts>.<timestamp>).
-function readGaClientId(): string {
+export function readGaClientId(): string {
   if (typeof document === "undefined") return "";
   const m = document.cookie.match(/(?:^|;\s*)_ga=([^;]+)/);
   if (!m) return "";

@@ -64,6 +64,7 @@ function config(fieldMappings: Record<string, string>): MarketoConfig {
 function lead(
   fields: Record<string, unknown> = { "Email Address": "jane@acme.com" },
   clickIds?: Record<string, string>,
+  extra?: Partial<LeadPayload>,
 ): LeadPayload {
   return {
     leadId: 1,
@@ -80,6 +81,7 @@ function lead(
       content: "variant-b",
     },
     ...(clickIds ? { clickIds } : {}),
+    ...extra,
   } as LeadPayload;
 }
 
@@ -153,10 +155,26 @@ describe.skipIf(!process.env.DATABASE_URL)("syncToMarketo UTM auto-injection", (
     expect(sentFields()).toMatchObject({ microsoftClickID: "abc123" });
   });
 
+  it("injects the ad id and the GA client ID through their mapped field names", async () => {
+    // Both are spelled without separators in Dandy's Marketo ("UTM Ad Id",
+    // "GACLIENTID"), so the canonical collapse is doing the work here.
+    await syncToMarketo(
+      config({ "Email Address": "email", "UTM Ad Id": "UTM_Ad_Id__c", GACLIENTID: "GACLIENTID__c" }),
+      lead(undefined, undefined, {
+        utm: { source: "google", adId: "1234567890" },
+        gaClientId: "123456789.1700000000",
+      }),
+    );
+    expect(sentFields()).toMatchObject({
+      UTM_Ad_Id__c: "1234567890",
+      GACLIENTID__c: "123456789.1700000000",
+    });
+  });
+
   it("never injects a raw lowercase URL-param key when no mapping exists", async () => {
     await syncToMarketo(config({ "Email Address": "email" }), lead(undefined, { gclid: "Cj0KCQ", msclkid: "abc123" }));
     const f = sentFields();
-    for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "msclkid"]) {
+    for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "msclkid", "utm_ad_id", "ga_client_id"]) {
       expect(f).not.toHaveProperty(k);
     }
     expect(Object.keys(f)).toEqual(["email"]);

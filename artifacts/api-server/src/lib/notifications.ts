@@ -784,7 +784,10 @@ export interface LeadPayload {
     campaign?: string | null;
     term?: string | null;
     content?: string | null;
+    adId?: string | null;
   };
+  /** GA4 client ID from the visitor's `_ga` cookie. */
+  gaClientId?: string | null;
   clickIds?: {
     gclid?: string | null;
     fbclid?: string | null;
@@ -1016,7 +1019,7 @@ export async function syncToMarketo(
     // utm_source), and (b) refuse to inject a raw lowercase key like
     // "utm_source" when no mapping exists, since it is unlikely to be a valid
     // Marketo REST field name and would poison the whole sync.
-    if (lead.utm || lead.clickIds) {
+    if (lead.utm || lead.clickIds || lead.gaClientId) {
       const canon = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, "");
       const submittedCanonKeys = new Set(Object.keys(lead.fields).map(canon));
       const mappedTargets = new Set(Object.keys(marketoFields));
@@ -1039,6 +1042,8 @@ export async function syncToMarketo(
         [["utm_campaign"],                  lead.utm?.campaign],
         [["utm_term"],                      lead.utm?.term],
         [["utm_content"],                   lead.utm?.content],
+        [["utm_ad_id"],                     lead.utm?.adId],
+        [["ga_client_id"],                  lead.gaClientId],
         [["gclid", "google click id"],      lead.clickIds?.gclid],
         [["fbclid", "facebook click id"],   lead.clickIds?.fbclid],
         [["gbraid"],                        lead.clickIds?.gbraid],
