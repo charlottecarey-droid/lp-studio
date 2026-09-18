@@ -510,6 +510,67 @@ export async function runSignalAttributionBackfillV3(): Promise<SignalAttributio
   return { skipped: false, accountByNormalizedName };
 }
 
+const CONTACT_LINKEDIN_MARKER_V1 = "sales_contact_linkedin_url_backfill_v1";
+
+export interface ContactLinkedinBackfillResult {
+  skipped: boolean;
+  /** Contacts whose blank linkedin_url was filled from signal metadata. */
+  contactsFilled: number;
+}
+
+/**
+ * Retroactive contact LinkedIn-URL backfill v1 (Sept 2026). The live ingest
+ * paths now call `fillContactLinkedinUrl`, but every signal recorded BEFORE
+ * that left its LinkedIn URL in `sales_signals.metadata` only — so contacts the
+ * CRM imported without one stayed blank on the contact page and in the CSV
+ * export even though we had the URL on file.
+ *
+ * Fills `sales_contacts.linkedin_url` from the metadata of that contact's OWN
+ * signals. Same guarantees as the attribution backfills:
+ *   • tenant-scoped via the signal→contact join (a signal only ever points at a
+ *     contact in its own tenant, and the predicate re-asserts it)
+ *   • FILL-ONLY — `WHERE c.linkedin_url IS NULL OR btrim(...) = ''`, so CRM and
+ *     rep-entered values are never overwritten
+ *   • fail-closed on ambiguity — `HAVING count(DISTINCT ...) = 1`, so a contact
+ *     whose signals disagree about the URL is left alone rather than guessed at
+ *   • idempotent, marker-gated, non-fatal
+ *
+ * Canonicalisation is used only to DETECT disagreement; the value written is
+ * the original URL as it arrived, so the stored link stays clickable.
+ */
+export async function runContactLinkedinBackfillV1(): Promise<ContactLinkedinBackfillResult> {
+  const marker = await db.execute(
+    sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${CONTACT_LINKEDIN_MARKER_V1}`,
+  );
+  if ((marker.rows ?? []).length > 0) {
+    return { skipped: true, contactsFilled: 0 };
+  }
+
+  const filled = await db.execute(sql`
+    UPDATE sales_contacts c
+       SET linkedin_url = m.linkedin_url
+      FROM (
+        SELECT s.contact_id,
+               s.tenant_id,
+               (array_agg(btrim(s.metadata ->> 'linkedinUrl')))[1] AS linkedin_url
+          FROM sales_signals s
+         WHERE s.contact_id IS NOT NULL
+           AND COALESCE(btrim(s.metadata ->> 'linkedinUrl'), '') <> ''
+         GROUP BY s.contact_id, s.tenant_id
+        HAVING count(DISTINCT regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(btrim(s.metadata ->> 'linkedinUrl')), '^https?://', ''), '^www\\.', ''), '[?#].*$', ''), '/+$', '')) = 1
+      ) m
+     WHERE c.id = m.contact_id
+       AND c.tenant_id = m.tenant_id
+       AND (c.linkedin_url IS NULL OR btrim(c.linkedin_url) = '')
+  `);
+
+  await db.execute(
+    sql`INSERT INTO _schema_migration_markers (key) VALUES (${CONTACT_LINKEDIN_MARKER_V1}) ON CONFLICT DO NOTHING`,
+  );
+
+  return { skipped: false, contactsFilled: filled.rowCount ?? 0 };
+}
+
 export function readableSignalSource(type: string): string {
   const map: Record<string, string> = {
     email_open: "Opened email",

@@ -246,6 +246,10 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
       companyName,
     });
 
+      // Same fill-only write-back as the letterdrop path: put the LinkedIn URL
+      // on the matched contact when the CRM record has none.
+      const linkedinFilled = await fillContactLinkedinUrl(tenantId, contactId, linkedinUrl);
+
     logger.info(
       {
         tenantId,
@@ -257,6 +261,7 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
         hasCompanyDomain: Boolean(companyDomain),
         accountMatched: Boolean(accountId),
         contactMatched: Boolean(contactId),
+        linkedinFilled,
       },
       "rb2b webhook received",
     );
@@ -372,6 +377,10 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
       companyName,
     });
 
+      // Same fill-only write-back as the letterdrop path: put the LinkedIn URL
+      // on the matched contact when the CRM record has none.
+      const linkedinFilled = await fillContactLinkedinUrl(tenantId, contactId, linkedinUrl);
+
     logger.info(
       {
         tenantId,
@@ -383,6 +392,7 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
         hasCompanyDomain: Boolean(resolvedDomain),
         accountMatched: Boolean(accountId),
         contactMatched: Boolean(contactId),
+        linkedinFilled,
       },
       "apollo webhook received",
     );
