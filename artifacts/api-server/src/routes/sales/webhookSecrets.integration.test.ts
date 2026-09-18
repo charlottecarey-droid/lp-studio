@@ -66,6 +66,14 @@ async function seedTenant(plan: "growth" | "free"): Promise<{ tenantId: number; 
   return { tenantId, sid };
 }
 
+type SecretRow = { integration: string; secret: string | null };
+
+/** `InjectResponse.json` is deliberately `unknown` (the body may not be JSON),
+ *  so every read narrows here rather than widening the shared helper. */
+function body<T>(res: { json: unknown }): T {
+  return res.json as T;
+}
+
 function authed(sid: string, method: string, url: string, body?: unknown) {
   return inject(app, {
     method,
@@ -100,27 +108,27 @@ describe.skipIf(!dbAvailable)("visitor-identification webhook secrets API", () =
     // Fresh tenant: stable three-entry list, all unconfigured.
     const initial = await authed(sid, "GET", "/sales/webhook-secrets");
     expect(initial.status).toBe(200);
-    const initialSecrets = initial.json.secrets as Array<{ integration: string; secret: string | null }>;
+    const initialSecrets = body<{ secrets: SecretRow[] }>(initial).secrets;
     expect(initialSecrets.map((s) => s.integration).sort()).toEqual(["apollo", "letterdrop", "rb2b"]);
     expect(initialSecrets.every((s) => s.secret === null)).toBe(true);
 
     // Generate (rotate with no existing row).
     const gen = await authed(sid, "POST", "/sales/webhook-secrets/letterdrop/rotate");
     expect(gen.status).toBe(201);
-    const first = gen.json as { integration: string; secret: string };
+    const first = body<{ integration: string; secret: string }>(gen);
     expect(first.integration).toBe("letterdrop");
     expect(first.secret).toMatch(/^[A-Za-z0-9_-]{32}$/); // base64url(24 bytes)
 
     // GET reflects it.
     const afterGen = await authed(sid, "GET", "/sales/webhook-secrets");
-    const ldEntry = (afterGen.json.secrets as Array<{ integration: string; secret: string | null }>)
+    const ldEntry = body<{ secrets: SecretRow[] }>(afterGen).secrets
       .find((s) => s.integration === "letterdrop");
     expect(ldEntry?.secret).toBe(first.secret);
 
     // Rotate replaces — new secret, old row gone, exactly one row remains.
     const rot = await authed(sid, "POST", "/sales/webhook-secrets/letterdrop/rotate");
     expect(rot.status).toBe(201);
-    const second = rot.json as { secret: string };
+    const second = body<{ secret: string }>(rot);
     expect(second.secret).not.toBe(first.secret);
     const rows = await pool.query(
       `SELECT secret FROM tenant_webhook_secrets WHERE tenant_id = $1 AND integration = 'letterdrop'`,
@@ -132,7 +140,7 @@ describe.skipIf(!dbAvailable)("visitor-identification webhook secrets API", () =
     const del = await authed(sid, "DELETE", "/sales/webhook-secrets/letterdrop");
     expect(del.status).toBe(204);
     const afterDel = await authed(sid, "GET", "/sales/webhook-secrets");
-    const ldAfterDel = (afterDel.json.secrets as Array<{ integration: string; secret: string | null }>)
+    const ldAfterDel = body<{ secrets: SecretRow[] }>(afterDel).secrets
       .find((s) => s.integration === "letterdrop");
     expect(ldAfterDel?.secret).toBeNull();
 
@@ -149,7 +157,7 @@ describe.skipIf(!dbAvailable)("visitor-identification webhook secrets API", () =
     expect(gen.status).toBe(201);
 
     const bView = await authed(b.sid, "GET", "/sales/webhook-secrets");
-    const rb2bForB = (bView.json.secrets as Array<{ integration: string; secret: string | null }>)
+    const rb2bForB = body<{ secrets: SecretRow[] }>(bView).secrets
       .find((s) => s.integration === "rb2b");
     expect(rb2bForB?.secret).toBeNull();
   });

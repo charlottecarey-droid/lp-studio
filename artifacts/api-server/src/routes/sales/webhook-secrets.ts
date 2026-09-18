@@ -27,8 +27,13 @@ import { logger } from "../../lib/logger";
 const INTEGRATIONS = ["rb2b", "apollo", "letterdrop"] as const;
 type Integration = (typeof INTEGRATIONS)[number];
 
-function parseIntegration(raw: string): Integration | null {
-  return (INTEGRATIONS as readonly string[]).includes(raw) ? (raw as Integration) : null;
+/** `req.params` values are typed `string | string[]`; anything that isn't a
+ *  single known integration name is rejected (an array would stringify to
+ *  "a,b" and fail the membership test anyway — this just says so explicitly). */
+function parseIntegration(raw: string | string[] | undefined): Integration | null {
+  return typeof raw === "string" && (INTEGRATIONS as readonly string[]).includes(raw)
+    ? (raw as Integration)
+    : null;
 }
 
 /** Same construction the migration seed used — ~192 bits, 32 chars base64url. */
