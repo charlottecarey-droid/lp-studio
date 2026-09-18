@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
 import { motion, useInView, type TargetAndTransition } from "framer-motion";
 import { safeNavigate } from "@/lib/safe-url";
+import { installAttributionLinkForwarding } from "@/lib/attribution-links";
 import { StaticRenderContext, useRevealFallback } from "@/lib/reveal-fallback";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -362,6 +363,11 @@ export default function LandingPageViewer() {
 }
 
 function LandingPageViewerInner() {
+  // Forward campaign attribution onto first-party outbound links (see
+  // lib/attribution-links). Without this every CTA hands the destination a
+  // bare URL and the lead that converts there has no attribution.
+  useEffect(() => installAttributionLinkForwarding(), []);
+
   const [, paramsLp] = useRoute("/lp/:slug");
   const [, paramsPreview] = useRoute("/preview/:slug");
   const [, paramsShort] = useRoute("/:slug");

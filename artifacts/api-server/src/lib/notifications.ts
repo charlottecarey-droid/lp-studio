@@ -784,6 +784,16 @@ export interface LeadPayload {
     campaign?: string | null;
     term?: string | null;
     content?: string | null;
+    adId?: string | null;
+  };
+  /** GA4 client ID from the visitor's `_ga` cookie. */
+  gaClientId?: string | null;
+  clickIds?: {
+    gclid?: string | null;
+    fbclid?: string | null;
+    gbraid?: string | null;
+    wbraid?: string | null;
+    msclkid?: string | null;
   };
 }
 
@@ -1009,24 +1019,46 @@ export async function syncToMarketo(
     // utm_source), and (b) refuse to inject a raw lowercase key like
     // "utm_source" when no mapping exists, since it is unlikely to be a valid
     // Marketo REST field name and would poison the whole sync.
-    if (lead.utm) {
+    if (lead.utm || lead.clickIds || lead.gaClientId) {
       const canon = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, "");
       const submittedCanonKeys = new Set(Object.keys(lead.fields).map(canon));
       const mappedTargets = new Set(Object.keys(marketoFields));
-      const utmPairs: Array<[string, string | null | undefined]> = [
-        ["utm_source",   lead.utm.source],
-        ["utm_medium",   lead.utm.medium],
-        ["utm_campaign", lead.utm.campaign],
-        ["utm_term",     lead.utm.term],
-        ["utm_content",  lead.utm.content],
+      // `fieldMappings` is keyed by the form's LABEL ("UTM Source"), while the
+      // keys below are URL-param style ("utm_source"). Index the mapping by the
+      // same canonical form so either spelling resolves to the tenant's REST
+      // field name. Without this, a label-keyed mapping (what the Forms UI
+      // writes — see BlockForm's `fieldMappings` docs) never matched here and
+      // every UTM was silently dropped on forms with no hidden UTM fields.
+      const canonMappings = new Map<string, string>();
+      for (const [label, target] of Object.entries(mappings)) {
+        if (target) canonMappings.set(canon(label), target);
+      }
+      // [canonical aliases, value]. The first alias is the URL-param spelling;
+      // the rest are label spellings a tenant may have mapped instead, since
+      // "Microsoft Click ID" does not collapse to "msclkid" on its own.
+      const attributionPairs: Array<[string[], string | null | undefined]> = [
+        [["utm_source"],                    lead.utm?.source],
+        [["utm_medium"],                    lead.utm?.medium],
+        [["utm_campaign"],                  lead.utm?.campaign],
+        [["utm_term"],                      lead.utm?.term],
+        [["utm_content"],                   lead.utm?.content],
+        [["utm_ad_id"],                     lead.utm?.adId],
+        [["ga_client_id"],                  lead.gaClientId],
+        [["gclid", "google click id"],      lead.clickIds?.gclid],
+        [["fbclid", "facebook click id"],   lead.clickIds?.fbclid],
+        [["gbraid"],                        lead.clickIds?.gbraid],
+        [["wbraid"],                        lead.clickIds?.wbraid],
+        [["msclkid", "microsoft click id"], lead.clickIds?.msclkid],
       ];
-      for (const [key, value] of utmPairs) {
+      for (const [aliases, value] of attributionPairs) {
         if (!value) continue;
         // Skip if the form already submitted any field whose label collapses
-        // to the same canonical UTM key (e.g. "UTM Source" → "utmsource").
-        if (submittedCanonKeys.has(canon(key))) continue;
-        // Otherwise honor an explicit mapping for the URL-param key, if any.
-        const explicit = mappings[key];
+        // to one of these aliases (e.g. "UTM Source" → "utmsource").
+        if (aliases.some(a => submittedCanonKeys.has(canon(a)))) continue;
+        // Otherwise honor an explicit mapping for any of the aliases, if any.
+        const key = aliases[0];
+        const explicit = mappings[key]
+          ?? aliases.map(a => canonMappings.get(canon(a))).find(Boolean);
         if (explicit && !mappedTargets.has(explicit)) {
           marketoFields[explicit] = value;
         }

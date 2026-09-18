@@ -11,7 +11,7 @@ import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { type FormStyling, mergeFormStyling } from "@/lib/form-styling";
-import { buildGlobalFormSubmissionFields, evalCondition } from "@/lib/global-form-submission";
+import { buildAttributionBody, buildGlobalFormSubmissionFields, evalCondition } from "@/lib/global-form-submission";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -527,25 +527,16 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
     const allFields = buildGlobalFormSubmissionFields(allSteps, fieldValues);
 
     try {
-      // Extract UTM params from the current page URL so they are stored as
-      // dedicated columns on the lead (not just buried in the fields JSON).
-      const urlParams = new URLSearchParams(window.location.search);
-      const utmBody: Record<string, string> = {};
-      const UTM_KEYS: [string, string][] = [
-        ["utm_source", "utmSource"],
-        ["utm_medium", "utmMedium"],
-        ["utm_campaign", "utmCampaign"],
-        ["utm_term", "utmTerm"],
-        ["utm_content", "utmContent"],
-      ];
-      for (const [param, key] of UTM_KEYS) {
-        const val = urlParams.get(param);
-        if (val) utmBody[key] = val;
-      }
+      // Attribution params (UTM five + ad click IDs), sent outside `fields` so
+      // the UTMs land in dedicated lead columns and the click IDs can reach
+      // the CRM sync even when the form carries no hidden attribution fields.
+      // Reads the live query string first, then the localStorage copy written
+      // on first hit, so converting on a later page still carries attribution.
+      const attributionBody = buildAttributionBody();
 
       const body: Record<string, unknown> = {
         fields: allFields,
-        ...utmBody,
+        ...attributionBody,
       };
       if (pageId != null) body.pageId = pageId;
       if (variantId != null) body.variantId = variantId;

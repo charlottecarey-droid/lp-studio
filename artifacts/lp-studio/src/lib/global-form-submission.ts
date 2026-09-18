@@ -49,7 +49,7 @@ const URL_PARAM_TOKENS: Record<string, string> = {
 };
 const LS_PREFIX = "lpstudio_attr_";
 
-function readPersistedParam(name: string): string {
+export function readPersistedParam(name: string): string {
   if (typeof window === "undefined") return "";
   const live = new URLSearchParams(window.location.search).get(name);
   if (live) {
@@ -59,8 +59,49 @@ function readPersistedParam(name: string): string {
   try { return window.localStorage.getItem(LS_PREFIX + name) ?? ""; } catch { return ""; }
 }
 
+/**
+ * Attribution params sent alongside `fields` on a lead submit, as
+ * `{ requestBodyKey: urlParamName }`. The UTM five land in dedicated
+ * lp_leads columns; the click IDs ride through to the CRM sync only (no
+ * column yet — they are also persisted in the fields JSON whenever the form
+ * carries the matching hidden field).
+ */
+const ATTRIBUTION_BODY_KEYS: Record<string, string> = {
+  utmSource:   "utm_source",
+  utmMedium:   "utm_medium",
+  utmCampaign: "utm_campaign",
+  utmTerm:     "utm_term",
+  utmContent:  "utm_content",
+  utmAdId:     "utm_ad_id",
+  gclid:       "gclid",
+  fbclid:      "fbclid",
+  gbraid:      "gbraid",
+  wbraid:      "wbraid",
+  msclkid:     "msclkid",
+};
+
+/**
+ * Collect the attribution params for a lead submit body. Reads the live query
+ * string first and falls back to the localStorage copy written on first hit,
+ * so a visitor who lands on an ad URL and converts two pages later still
+ * carries their attribution — the URL-only read this replaced did not.
+ */
+export function buildAttributionBody(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [bodyKey, param] of Object.entries(ATTRIBUTION_BODY_KEYS)) {
+    const value = readPersistedParam(param);
+    if (value) out[bodyKey] = value;
+  }
+  // Not a URL param — parsed out of the GA4 `_ga` cookie, so it only exists
+  // once GA has run. Sent alongside the rest so a tenant mapping a GA client
+  // ID field does not need a hidden form field to fill it.
+  const gaClientId = readGaClientId();
+  if (gaClientId) out.gaClientId = gaClientId;
+  return out;
+}
+
 // Read the GA4 client ID from the `_ga` cookie (format: GA1.2.<clientId-2-parts>.<timestamp>).
-function readGaClientId(): string {
+export function readGaClientId(): string {
   if (typeof document === "undefined") return "";
   const m = document.cookie.match(/(?:^|;\s*)_ga=([^;]+)/);
   if (!m) return "";
