@@ -23,6 +23,9 @@
     },
     {
       "path": "./lib/notification-variables"
+    },
+    {
+      "path": "./lib/lead-utils"
     }
   ]
 }
