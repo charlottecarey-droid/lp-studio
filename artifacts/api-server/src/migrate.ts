@@ -2879,6 +2879,27 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Sept 2026 — contact LinkedIn-URL backfill v1: the ingest paths now write
+    // a lead's LinkedIn URL onto the matched contact, but signals recorded
+    // before that left it in metadata only, so contacts imported without one
+    // stayed blank on the contact page and in the signals CSV. Fills from the
+    // contact's own signals; fill-only, fail-closed on disagreement,
+    // marker-gated, non-fatal.
+    await runStep("contact linkedin_url backfill v1 (from signal metadata)", async () => {
+    try {
+      const { runContactLinkedinBackfillV1 } = await import("./lib/signalAttribution");
+      const result = await runContactLinkedinBackfillV1();
+      if (!result.skipped) {
+        logger.info(
+          { contactsFilled: result.contactsFilled },
+          "contact linkedin_url backfill v1 applied",
+        );
+      }
+    } catch (backfillErr) {
+      logger.error({ err: backfillErr }, "contact linkedin_url backfill v1 failed (non-fatal)");
+    }
+    });
+
     // July 2026 — clean account display names. CRM-imported names carry
     // dedupe decoration ("Heartland Dental-HQ") that leaked into the console
     // UI and generated pages. display_name is the documented clean-display

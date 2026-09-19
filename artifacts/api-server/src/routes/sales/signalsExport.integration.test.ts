@@ -78,11 +78,12 @@ async function seedAccount(tenantId: number, salesforceId: string, name: string,
 async function seedContact(
   tenantId: number, accountId: number,
   firstName: string, lastName: string, email: string | null, title: string | null,
+  linkedinUrl: string | null = null,
 ): Promise<number> {
   const r = await pool.query<{ id: number }>(
-    `INSERT INTO sales_contacts (tenant_id, account_id, first_name, last_name, email, title)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [tenantId, accountId, firstName, lastName, email, title],
+    `INSERT INTO sales_contacts (tenant_id, account_id, first_name, last_name, email, title, linkedin_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [tenantId, accountId, firstName, lastName, email, title, linkedinUrl],
   );
   return r.rows[0].id;
 }
@@ -145,7 +146,7 @@ describe.skipIf(!dbAvailable)("signals CSV export", () => {
     const other = await seedTenant(); // decoy tenant for the scoping check
 
     const acme = await seedAccount(tenantId, "001ACME0000000AAA", "Acme Dental", "Riley Rep", "acmedental.com");
-    const john = await seedContact(tenantId, acme, "John", "Smith", "jsmith@acmedental.com", "COO");
+    const john = await seedContact(tenantId, acme, "John", "Smith", "jsmith@acmedental.com", "COO", "https://www.linkedin.com/in/johnsmith");
     void john;
     await seedContact(tenantId, acme, "Sara", "Lee", "slee@acmedental.com", "CFO");
     const jane = await seedContact(tenantId, acme, "Jane", "Doe", null, "CEO");
@@ -164,7 +165,7 @@ describe.skipIf(!dbAvailable)("signals CSV export", () => {
     // Metadata-only identity (visitor_identified) with a cross-tenant email decoy.
     await seedSignal(tenantId, {
       type: "visitor_identified", source: "rb2b",
-      metadata: { firstName: "Vic", lastName: "Visitor", title: "Office Manager", companyName: "Mystery Co", email: "vic@mystery.example" },
+      metadata: { firstName: "Vic", lastName: "Visitor", title: "Office Manager", companyName: "Mystery Co", email: "vic@mystery.example", linkedinUrl: "https://www.linkedin.com/in/vicvisitor" },
     });
 
     const res = await exportCsv(sid);
@@ -185,6 +186,7 @@ describe.skipIf(!dbAvailable)("signals CSV export", () => {
       title: "COO",
       email: "jsmith@acmedental.com",
       assumed_email: "",
+      linkedin_url: "https://www.linkedin.com/in/johnsmith", // from the contact record
       source: "campaign-42",
     });
 
@@ -195,6 +197,7 @@ describe.skipIf(!dbAvailable)("signals CSV export", () => {
       title: "CEO",
       email: "",
       assumed_email: "jdoe@acmedental.com", // flast is the account's majority pattern
+      linkedin_url: "", // contact has none and the signal carried none
     });
 
     const submitted = byType.get("form_submit")!;
@@ -215,6 +218,7 @@ describe.skipIf(!dbAvailable)("signals CSV export", () => {
       last_name: "Visitor",
       title: "Office Manager",
       email: "vic@mystery.example",
+      linkedin_url: "https://www.linkedin.com/in/vicvisitor", // metadata fallback — never resolved to a contact
     });
 
     // Type filter narrows the file.

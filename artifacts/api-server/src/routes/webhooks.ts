@@ -29,7 +29,7 @@ import {
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { broadcastSignal } from "./sales/signals";
-import { resolveSignalLinkage, deriveDomainFromEmail } from "../lib/signalAttribution";
+import { resolveSignalLinkage, deriveDomainFromEmail, fillContactLinkedinUrl } from "../lib/signalAttribution";
 import { logger } from "../lib/logger";
 
 // ─── Payload schemas ──────────────────────────────────────────
@@ -246,6 +246,10 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
       companyName,
     });
 
+      // Same fill-only write-back as the letterdrop path: put the LinkedIn URL
+      // on the matched contact when the CRM record has none.
+      const linkedinFilled = await fillContactLinkedinUrl(tenantId, contactId, linkedinUrl);
+
     logger.info(
       {
         tenantId,
@@ -257,6 +261,7 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
         hasCompanyDomain: Boolean(companyDomain),
         accountMatched: Boolean(accountId),
         contactMatched: Boolean(contactId),
+        linkedinFilled,
       },
       "rb2b webhook received",
     );
@@ -372,6 +377,10 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
       companyName,
     });
 
+      // Same fill-only write-back as the letterdrop path: put the LinkedIn URL
+      // on the matched contact when the CRM record has none.
+      const linkedinFilled = await fillContactLinkedinUrl(tenantId, contactId, linkedinUrl);
+
     logger.info(
       {
         tenantId,
@@ -383,6 +392,7 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
         hasCompanyDomain: Boolean(resolvedDomain),
         accountMatched: Boolean(accountId),
         contactMatched: Boolean(contactId),
+        linkedinFilled,
       },
       "apollo webhook received",
     );
@@ -504,6 +514,12 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
         companyName,
       });
 
+      // Persist the LinkedIn URL onto the matched contact when the CRM record
+      // carries none. Without this the URL only ever lived in signal metadata,
+      // so the contact detail panel and the signals CSV both showed it blank.
+      // Fill-only — an existing value is never overwritten.
+      const linkedinFilled = await fillContactLinkedinUrl(tenantId, contactId, linkedinUrl);
+
       logger.info(
         {
           tenantId,
@@ -516,6 +532,7 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
           hasActivity: Boolean(activityType || lastActivity),
           accountMatched: Boolean(accountId),
           contactMatched: Boolean(contactId),
+          linkedinFilled,
         },
         "letterdrop webhook received",
       );

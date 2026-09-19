@@ -203,6 +203,7 @@ router.get("/signals/export.csv", async (req, res): Promise<void> => {
         contactLastName: salesContactsTable.lastName,
         contactTitle: salesContactsTable.title,
         contactEmail: salesContactsTable.email,
+        contactLinkedinUrl: salesContactsTable.linkedinUrl,
         contactAccountId: salesContactsTable.accountId,
       })
       .from(salesSignalsTable)
@@ -229,7 +230,7 @@ router.get("/signals/export.csv", async (req, res): Promise<void> => {
     ));
     const emailToContact = new Map<string, {
       firstName: string | null; lastName: string | null; title: string | null;
-      email: string | null; accountId: number | null;
+      email: string | null; linkedinUrl: string | null; accountId: number | null;
     }>();
     if (unresolvedEmails.length > 0) {
       const matched = await db
@@ -238,6 +239,7 @@ router.get("/signals/export.csv", async (req, res): Promise<void> => {
           lastName: salesContactsTable.lastName,
           title: salesContactsTable.title,
           email: salesContactsTable.email,
+          linkedinUrl: salesContactsTable.linkedinUrl,
           accountId: salesContactsTable.accountId,
         })
         .from(salesContactsTable)
@@ -263,6 +265,10 @@ router.get("/signals/export.csv", async (req, res): Promise<void> => {
         lastName: r.contactLastName ?? viaEmail?.lastName ?? metaStr(meta, "lastName"),
         title: r.contactTitle ?? viaEmail?.title ?? metaStr(meta, "title"),
         email: r.contactEmail ?? viaEmail?.email ?? metaEmail,
+        // Contact column first (Phase 1 backfills it from the wire), then the
+        // email-matched contact, then whatever the integration left in metadata
+        // — so a signal that never resolved to a CRM row still exports a URL.
+        linkedinUrl: r.contactLinkedinUrl ?? viaEmail?.linkedinUrl ?? metaStr(meta, "linkedinUrl"),
         accountRowId: r.signalAccountId ?? viaEmail?.accountId ?? r.contactAccountId ?? null,
         accountSfdcId: r.accountSfdcId,
         accountName: r.accountName ?? metaStr(meta, "companyName"),
@@ -346,7 +352,7 @@ router.get("/signals/export.csv", async (req, res): Promise<void> => {
     const headers = [
       "sfdc_account_id", "account_name", "account_owner",
       "first_name", "last_name", "title", "signal_type",
-      "email", "assumed_email", "source", "signal_date",
+      "email", "assumed_email", "linkedin_url", "source", "signal_date",
     ];
 
     res.setHeader("Content-Type", "text/csv");
@@ -371,6 +377,7 @@ router.get("/signals/export.csv", async (req, res): Promise<void> => {
         escapeCsv(r.type),
         escapeCsv(r.email),
         escapeCsv(assumedEmail),
+        escapeCsv(r.linkedinUrl),
         escapeCsv(r.source),
         r.createdAt ? r.createdAt.toISOString() : "",
       ].join(",") + "\r\n");
