@@ -29,7 +29,13 @@ catalog:
   vite: ^7.3.3
   zod: ^3.25.76
 
-ignoredBuiltDependencies: []
+# Declared explicitly so no install has an "unapproved" build script to warn
+# or error about. These three are not in onlyBuiltDependencies and have never
+# been built here; naming them keeps ERR_PNPM_IGNORED_BUILDS from failing CI.
+ignoredBuiltDependencies:
+  - '@sentry/cli'
+  - core-js
+  - protobufjs
 
 minimumReleaseAge: 1440
 

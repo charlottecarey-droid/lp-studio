@@ -52,6 +52,7 @@ import {
   MIGRATION_LOCK_CLASSID,
   MIGRATION_LOCK_OBJID,
 } from "./migrate";
+import { dbAvailable } from "./test-utils/dbAvailable";
 
 const CONNECTION_STRING =
   process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
@@ -187,7 +188,13 @@ describe("toDirectConnectionString", () => {
   });
 });
 
-const integrationDescribe = CONNECTION_STRING ? describe : describe.skip;
+// Gate on REACHABILITY, not just on the variable being set. CI deliberately
+// exports an unreachable DATABASE_URL (postgres://ci:ci@127.0.0.1:5432/
+// ci_unreachable) so DB suites self-skip; this suite only checked that the
+// string was truthy, so it tried to dial 127.0.0.1:5432 and died with
+// ECONNREFUSED. Every other integration suite already uses `dbAvailable` —
+// this one just predated the helper.
+const integrationDescribe = CONNECTION_STRING && dbAvailable ? describe : describe.skip;
 
 integrationDescribe("acquireMigrationLock (integration)", () => {
   let leakedHolder: pg.Client | null = null;
