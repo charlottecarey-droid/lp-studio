@@ -22,6 +22,7 @@ import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import { resolveTenantSender } from "../../lib/tenantSender";
 import { isTransientDbError, withDbRetry } from "../../lib/dbResilience";
 import { ensureHotlinkForContact } from "../../lib/ensureHotlink";
+import { isLikelyBot } from "../../lib/emailTrackingHeuristics";
 
 const router = Router();
 
@@ -49,16 +50,26 @@ const SENDING_HEARTBEAT_MS = 2 * 60 * 1000;
 const UNSUB_SECRET: string = process.env.UNSUB_SECRET ?? randomBytes(32).toString("hex");
 const UNSUB_TOKEN_EXPIRY_DAYS = 30;
 
-// New tokens bind tenantId into the HMAC so a token for tenant A can never be
+// Tokens bind tenantId into the HMAC so a token for tenant A can never be
 // replayed to unsubscribe a contact id that belongs to tenant B. The unsubscribe
-// route also re-scopes its UPDATE to this tenantId. Format (base64url of):
-//   `${tenantId}.${contactId}.${expiresAt}.${mac}`  (4 parts)
-// Legacy tokens (3 parts, no tenant) are still honored within a grace window so
-// links already in inboxes keep working through the rollout.
-function makeUnsubToken(tenantId: number, contactId: number): string {
+// route also re-scopes its UPDATE to this tenantId.
+//
+// Current format (base64url of), 5 parts:
+//   `${tenantId}.${contactId}.${campaignId}.${expiresAt}.${mac}`
+// campaignId is 0 for sends with no campaign (one-off and test emails). It is
+// carried here because it is the ONLY point where the campaign is still known:
+// the unsubscribe arrives as a bare GET from an inbox, and without this the
+// opt-out cannot be attributed to the send that provoked it.
+//
+// Older formats stay honored within their expiry window so links already
+// sitting in inboxes keep working through the rollout:
+//   4 parts — tenant-bound, no campaign  (attribution falls back, see route)
+//   3 parts — legacy, no tenant either
+export function makeUnsubToken(tenantId: number, contactId: number, campaignId: number | null = null): string {
   const expiresAt = Math.floor(Date.now() / 1000) + (UNSUB_TOKEN_EXPIRY_DAYS * 24 * 60 * 60);
-  const mac = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${expiresAt}`).digest("hex");
-  return Buffer.from(`${tenantId}.${contactId}.${expiresAt}.${mac}`).toString("base64url");
+  const cid = campaignId ?? 0;
+  const mac = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${cid}.${expiresAt}`).digest("hex");
+  return Buffer.from(`${tenantId}.${contactId}.${cid}.${expiresAt}.${mac}`).toString("base64url");
 }
 
 // Constant-time HMAC comparison — never short-circuit on the first mismatched
@@ -73,11 +84,25 @@ function macEquals(a: string, b: string): boolean {
   }
 }
 
-function verifyUnsubToken(token: string): { tenantId: number | null; contactId: number } | null {
+export function verifyUnsubToken(token: string): { tenantId: number | null; contactId: number; campaignId: number | null } | null {
   try {
     const decoded = Buffer.from(token, "base64url").toString("utf8");
     const parts = decoded.split(".");
     const now = Math.floor(Date.now() / 1000);
+
+    if (parts.length === 5) {
+      // Current format: tenant-bound and campaign-attributed.
+      const [tenantStr, idStr, campaignStr, expiryStr, mac] = parts;
+      const tenantId = parseInt(tenantStr, 10);
+      const contactId = parseInt(idStr, 10);
+      const campaignId = parseInt(campaignStr, 10);
+      const expiresAt = parseInt(expiryStr, 10);
+      if (isNaN(tenantId) || isNaN(contactId) || isNaN(campaignId) || isNaN(expiresAt)) return null;
+      if (now > expiresAt) return null;
+      const expected = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${campaignId}.${expiresAt}`).digest("hex");
+      if (!macEquals(mac, expected)) return null;
+      return { tenantId, contactId, campaignId: campaignId > 0 ? campaignId : null };
+    }
 
     if (parts.length === 4) {
       // Current format: tenant-bound.
@@ -88,7 +113,7 @@ function verifyUnsubToken(token: string): { tenantId: number | null; contactId: 
       if (isNaN(tenantId) || isNaN(contactId) || isNaN(expiresAt)) return null;
       if (now > expiresAt) return null;
       const expected = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${expiresAt}`).digest("hex");
-      return macEquals(mac, expected) ? { tenantId, contactId } : null;
+      return macEquals(mac, expected) ? { tenantId, contactId, campaignId: null } : null;
     }
 
     if (parts.length === 3) {
@@ -99,7 +124,7 @@ function verifyUnsubToken(token: string): { tenantId: number | null; contactId: 
       if (isNaN(contactId) || isNaN(expiresAt)) return null;
       if (now > expiresAt) return null;
       const expected = createHmac("sha256", UNSUB_SECRET).update(`${contactId}.${expiresAt}`).digest("hex");
-      return macEquals(mac, expected) ? { tenantId: null, contactId } : null;
+      return macEquals(mac, expected) ? { tenantId: null, contactId, campaignId: null } : null;
     }
 
     return null;
@@ -120,16 +145,48 @@ router.get("/unsubscribe", async (req, res): Promise<void> => {
     res.status(400).send("<h2>Invalid or expired unsubscribe link.</h2>");
     return;
   }
-  const { tenantId, contactId } = verified;
+  const { tenantId, contactId, campaignId } = verified;
   try {
-    // Scope the UPDATE to the token's tenant when present (current 4-part
-    // tokens). Legacy 3-part tokens carry no tenant, so they fall back to the
-    // contact id alone within their grace window.
+    // Scope the UPDATE to the token's tenant when present (current 5-part and
+    // 4-part tokens). Legacy 3-part tokens carry no tenant, so they fall back
+    // to the contact id alone within their grace window.
     await db.update(salesContactsTable)
       .set({ status: "unsubscribed" })
       .where(tenantId !== null
         ? and(eq(salesContactsTable.id, contactId), eq(salesContactsTable.tenantId, tenantId))
         : eq(salesContactsTable.id, contactId));
+
+    // Stamp the send this opt-out came from, so Campaigns > Performance can
+    // report unsubscribes per campaign. Deliberately NOT written to the signals
+    // feed: an unsubscribe is a campaign metric, and the feed is for buying
+    // signals — mixing them in makes reps chase people who just left.
+    //
+    // Best-effort by design. The contact is already unsubscribed by the update
+    // above (the thing we owe the recipient); if attribution fails, a missing
+    // stat must never turn into "we couldn't unsubscribe you".
+    try {
+      const target = campaignId !== null
+        // 5-part token: the exact send that carried this link.
+        ? and(
+            eq(salesEmailSendsTable.contactId, contactId),
+            eq(salesEmailSendsTable.campaignId, campaignId),
+          )
+        // Older token with no campaign: attribute to this contact's most recent
+        // send, which is the one they were almost certainly looking at.
+        : eq(salesEmailSendsTable.id, sql`(
+            SELECT id FROM sales_email_sends
+            WHERE contact_id = ${contactId} AND sent_at IS NOT NULL
+            ORDER BY sent_at DESC LIMIT 1
+          )`);
+
+      await db.update(salesEmailSendsTable)
+        // COALESCE, not a plain set: a second click on the same link (or a
+        // mail client prefetching it) must not move the original opt-out date.
+        .set({ unsubscribedAt: sql`COALESCE(${salesEmailSendsTable.unsubscribedAt}, now())` })
+        .where(target);
+    } catch (attributionErr) {
+      logger.error({ err: attributionErr, contactId, campaignId }, "unsubscribe recorded, campaign attribution failed");
+    }
     res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed</title>
 <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafb}
 .box{text-align:center;padding:48px;max-width:400px}h1{color:#003A30;margin-bottom:12px}p{color:#555;line-height:1.6}</style></head>
@@ -236,6 +293,31 @@ function injectTrackingPixel(html: string, trackUrl: string): string {
   return html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
 }
 
+// Rewrite every http(s) link in an outgoing email through /track/click so that
+// a click stamps `clickedAt` on the send row — the number the Performance tab
+// reports. Two links are deliberately left alone:
+//   - the unsubscribe link (wrapping it would record a "click" for someone
+//     opting out, and inflate click rate with the opposite of engagement),
+//   - anything already pointing at /api/sales/track/ (no double-wrapping).
+// `escapeAndLinkifyPlainText` HTML-escapes before it linkifies, so a captured
+// href can carry `&amp;` where the real URL has `&`; unescape before encoding
+// or the redirect target arrives mangled.
+export function rewriteLinksForClickTracking(html: string, host: string, sendId: number): string {
+  return html.replace(/href=(["'])(https?:\/\/[^"']+)\1/gi, (match, quote: string, rawUrl: string) => {
+    if (rawUrl.includes("/api/sales/unsubscribe")) return match;
+    if (rawUrl.includes("/api/sales/track/")) return match;
+    const url = rawUrl.replace(/&amp;/g, "&");
+    return `href=${quote}${host}/api/sales/track/click?sendId=${sendId}&url=${encodeURIComponent(url)}${quote}`;
+  });
+}
+
+// Apply open- and click-tracking to a rendered email body. Click rewriting runs
+// first so the pixel URL it appends is never itself rewritten.
+export function applyEmailTracking(html: string, host: string, sendId: number): string {
+  const tracked = rewriteLinksForClickTracking(html, host, sendId);
+  return injectTrackingPixel(tracked, `${host}/api/sales/track/open?id=${sendId}`);
+}
+
 /**
  * Returns true if any of the given strings contain a `{{microsite_url}}`-style
  * token (or any common alias — link, microsite, personalized_link, page_url).
@@ -297,16 +379,6 @@ async function sendViaResend(payload: {
   }
 }
 
-// Bot/prefetch tolerance: Gmail and Apple Mail Privacy proxies prefetch the
-// pixel and rewrite URLs within milliseconds of send. We ignore any open or
-// click that fires inside this window so dashboards reflect real recipient
-// activity, not security scanners. The pixel and redirect still serve as
-// usual — only the DB stamp + signal are suppressed.
-const BOT_GRACE_MS = 2000;
-function isLikelyBot(sentAt: Date | null | undefined): boolean {
-  if (!sentAt) return false;
-  return Date.now() - new Date(sentAt).getTime() < BOT_GRACE_MS;
-}
 
 // ─── Campaign CRUD ──────────────────────────────────────────
 
@@ -329,6 +401,92 @@ router.get("/campaigns", async (req, res): Promise<void> => {
 // form "enroll submitters into a campaign" selector). Returns only id/name/
 // status so it's cheap to load from the form-settings UI. Declared BEFORE
 // /campaigns/:id so "options" isn't swallowed by the :id route.
+// ─── GET /sales/campaigns/performance ───────────────────────
+//
+// One aggregate per campaign, computed in Postgres.
+//
+// This replaces the Performance tab's original approach: fetch the 500 most
+// recent signals and tally them in the browser. That was wrong twice over. It
+// read `signal.campaignId`, which the signals API does not return — the
+// campaign lives in `metadata.campaignId` — so every signal was skipped and
+// every campaign read 0. And even with the field fixed, a 500-row cap cannot
+// count a 7,000-recipient send; the numbers would have been quietly short
+// rather than obviously zero, which is worse.
+//
+// Counts come from sales_email_sends, one row per recipient, so opens and
+// clicks are UNIQUE RECIPIENTS — the industry convention for open/click rate,
+// and not the same as the raw event count in the signals feed. Rates are
+// denominated on sends that actually went out, not on the campaign's
+// recipient_count column: that column is rewritten to the remaining set each
+// time a send resumes, so it understates a campaign that was retried.
+//
+// MUST stay above `/campaigns/:id` — Express matches in order and would
+// otherwise read "performance" as an id.
+router.get("/campaigns/performance", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+    const result = await db.execute(sql`
+      SELECT
+        c.id,
+        c.name,
+        c.status,
+        c.sent_at,
+        c.recipient_count,
+        COUNT(s.id) FILTER (WHERE s.status NOT IN ('failed', 'queued'))::int AS sent,
+        COUNT(s.id) FILTER (WHERE s.status = 'failed')::int                  AS failed,
+        COUNT(s.id) FILTER (WHERE s.opened_at IS NOT NULL)::int              AS opens,
+        COUNT(s.id) FILTER (WHERE s.clicked_at IS NOT NULL)::int             AS clicks,
+        COUNT(s.id) FILTER (WHERE s.unsubscribed_at IS NOT NULL)::int        AS unsubscribes,
+        COUNT(s.id) FILTER (WHERE s.status = 'bounced')::int                 AS bounces
+      FROM sales_email_campaigns c
+      LEFT JOIN sales_email_sends s ON s.campaign_id = c.id
+      WHERE c.tenant_id = ${tenantId}
+      GROUP BY c.id, c.name, c.status, c.sent_at, c.recipient_count
+      ORDER BY c.sent_at DESC NULLS LAST, c.id DESC
+    `);
+
+    // Lifetime opt-outs for this tenant. Every unsubscribe before migration
+    // 0140 is undatable and unattributable, so per-campaign columns start from
+    // the deploy. Reporting the lifetime total next to the attributed total
+    // makes that gap visible instead of letting old campaigns read as zero
+    // churn — see `attributed` vs `lifetime` in the response.
+    const [unsubTotals] = await db.select({ lifetime: sql<number>`COUNT(*)::int` })
+      .from(salesContactsTable)
+      .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
+        eq(salesContactsTable.status, "unsubscribed"),
+      ));
+
+    const campaigns = result.rows.map((r: Record<string, unknown>) => ({
+      id: Number(r.id),
+      name: String(r.name),
+      status: String(r.status),
+      sentAt: r.sent_at ? new Date(r.sent_at as string).toISOString() : null,
+      // What the campaign row claims vs what actually went out. They diverge on
+      // a resumed send; the UI reports `sent`.
+      recipientCount: Number(r.recipient_count ?? 0),
+      sent: Number(r.sent ?? 0),
+      failed: Number(r.failed ?? 0),
+      opens: Number(r.opens ?? 0),
+      clicks: Number(r.clicks ?? 0),
+      unsubscribes: Number(r.unsubscribes ?? 0),
+      bounces: Number(r.bounces ?? 0),
+    }));
+
+    res.json({
+      campaigns,
+      unsubscribes: {
+        attributed: campaigns.reduce((n, c) => n + c.unsubscribes, 0),
+        lifetime: Number(unsubTotals?.lifetime ?? 0),
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /sales/campaigns/performance error");
+    res.status(500).json({ error: "Failed to load campaign performance" });
+  }
+});
+
 router.get("/campaigns/options", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -607,11 +765,16 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     }
 
     // Idempotency guard: skip contacts already sent to in this campaign
+    // NOT `status = 'sent'`: once open/click tracking lands, a delivered row
+    // advances to delivered/opened/clicked/bounced/complained, and an equality
+    // check on 'sent' would let a re-send email those contacts a second time.
+    // Skip every row except the two that mean "never went out" — 'failed', and
+    // 'queued' rows orphaned by a crash between the insert and the Resend call.
     const existingSends = await db.select({ contactId: salesEmailSendsTable.contactId })
       .from(salesEmailSendsTable)
       .where(and(
         eq(salesEmailSendsTable.campaignId, campaignId),
-        eq(salesEmailSendsTable.status, "sent"),
+        notInArray(salesEmailSendsTable.status, ["failed", "queued"]),
       ));
     const alreadySentIds = new Set(existingSends.map(s => s.contactId));
     // `sendable`/`skippedCount` are re-derived UNDER the claim lock below (this
@@ -699,7 +862,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         .from(salesEmailSendsTable)
         .where(and(
           eq(salesEmailSendsTable.campaignId, campaignId),
-          eq(salesEmailSendsTable.status, "sent"),
+          notInArray(salesEmailSendsTable.status, ["failed", "queued"]),
         ));
       const sentNow = new Set(sentRows.map(r => r.contactId));
       const remaining = sendable.filter(c => !sentNow.has(c.id));
@@ -765,7 +928,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     let linkFailures = 0;
 
     for (const contact of sendable) {
-      const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id)}`;
+      const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id, campaignId)}`;
       const companyName = contact.accountId ? (accountNameById.get(contact.accountId) ?? "") : "";
       const vars: Record<string, string> = {
         "{{first_name}}": contact.firstName ?? "",
@@ -821,35 +984,73 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         emailHtml = html;
       }
 
+      // Claim the per-contact send row BEFORE calling Resend. The tracking
+      // pixel and the click redirects both address this row by id, so the row
+      // has to exist before the body is rendered — this is why the insert moved
+      // ahead of the send rather than following it. A 'queued' row means
+      // "claimed, not yet out the door": the idempotency filters above skip
+      // every status except 'failed' and 'queued', so a row orphaned by a crash
+      // between here and the Resend call is retried rather than silently
+      // swallowing a recipient.
+      let sendRowId: number | null = null;
+      try {
+        const [claimed] = await withDbRetry(() => db.insert(salesEmailSendsTable).values({
+          campaignId,
+          contactId: contact.id,
+          hotlinkId: hotlink?.id ?? null,
+          email: contact.email!,
+          status: "queued",
+        }).returning({ id: salesEmailSendsTable.id }));
+        sendRowId = claimed?.id ?? null;
+      } catch (insErr) {
+        logger.error({ err: insErr, contactId: contact.id, campaignId }, "send-record claim failed (sending this one untracked)");
+      }
+
+      // No row means no id to track against. Send anyway — a lost open beats a
+      // lost email — and record the outcome below.
+      const trackedHtml = sendRowId !== null
+        ? applyEmailTracking(emailHtml, host, sendRowId)
+        : emailHtml;
+
       const payload = {
         from: sender.from,
         ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
         to: [contact.email!],
         subject,
-        html: emailHtml,
+        html: trackedHtml,
       };
 
       const result = await sendViaResend(payload);
 
-      // Durable per-contact record. Persist IMMEDIATELY (autocommit, not batched
-      // at the end) so a crash mid-loop leaves a 'sent' row for every contact we
-      // already emailed — the idempotency filter above then skips them on retry
-      // instead of double-sending. A failed insert after a successful send is
-      // logged but does not abort the loop (the email already went out).
+      // Settle the claimed row. A failed write after a successful send is
+      // logged but never aborts the loop — the email already went out.
       try {
-        await withDbRetry(() => db.insert(salesEmailSendsTable).values({
-          campaignId,
-          contactId: contact.id,
-          hotlinkId: hotlink?.id ?? null,
-          email: contact.email!,
-          status: result.ok ? "sent" : "failed",
-          sentAt: result.ok ? new Date() : null,
-          metadata: result.ok
-            ? (result.resendId ? { resendId: result.resendId } : {})
-            : { error: result.error },
-        }));
-      } catch (insErr) {
-        logger.error({ err: insErr, contactId: contact.id, campaignId }, "send-record insert failed (email status unchanged)");
+        if (sendRowId !== null) {
+          await withDbRetry(() => db.update(salesEmailSendsTable)
+            .set({
+              status: result.ok ? "sent" : "failed",
+              sentAt: result.ok ? new Date() : null,
+              metadata: result.ok
+                ? (result.resendId ? { resendId: result.resendId } : {})
+                : { error: result.error },
+            })
+            .where(eq(salesEmailSendsTable.id, sendRowId)));
+        } else {
+          // The claim failed, so fall back to the original insert-after-send.
+          await withDbRetry(() => db.insert(salesEmailSendsTable).values({
+            campaignId,
+            contactId: contact.id,
+            hotlinkId: hotlink?.id ?? null,
+            email: contact.email!,
+            status: result.ok ? "sent" : "failed",
+            sentAt: result.ok ? new Date() : null,
+            metadata: result.ok
+              ? (result.resendId ? { resendId: result.resendId } : {})
+              : { error: result.error },
+          }));
+        }
+      } catch (settleErr) {
+        logger.error({ err: settleErr, contactId: contact.id, campaignId, sendRowId }, "send-record settle failed (email status unchanged)");
       }
 
       if (result.ok) {

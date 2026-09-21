@@ -104,10 +104,11 @@ const PRESETS: Preset[] = [
     category: "AI Revenue Workspace",
     nav: ["For Marketing", "For Sales", "Templates", "Pricing"],
     // Deliberately does NOT repeat the homepage hero ("Describe a page. /
-    // Watch it build." lives right above this section) — the demo page goes
-    // a level deeper and teaches what's inside the app.
-    headline1: "Skip the brief.",
-    headline2: "Ship the page.",
+    // Watch it build." lives right above this section) NOR the dark FinalCta
+    // ("Skip the brief. / Ship the page." — the old typed headline duplicated
+    // it verbatim). Teaches app breadth instead.
+    headline1: "Pages, microsites,",
+    headline2: "and proof they work.",
     subhead:
       "Personalized, on-brand landing pages — live in minutes, measured from the first visit.",
     primaryCta: "Start free",
@@ -961,7 +962,11 @@ export function BuildSection() {
 
   return (
     <section id="build" ref={ref} className="relative bg-background">
-      <div className="relative h-[650vh]">
+      {/* 420vh scroll track (was 650vh) — Option B redesign, Sept 2026: the
+          demo keeps every beat (assemble → wrap → edit → publish) but spends
+          ~35% less scroll on it. All choreography constants are progress
+          fractions, so they scale with the track. */}
+      <div className="relative h-[420vh]">
         <div className="sticky top-0 flex h-screen flex-col overflow-hidden">
           {/* Stage — a CONTAINED studio card, not full bleed (July 2026,
               parity with the scroll-saga original's contained feel): the

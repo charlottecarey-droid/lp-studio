@@ -7,11 +7,14 @@ import { useInView } from "../hooks/useInView";
 // so AE prospects see exactly what their CRM will look like once the sync
 // is wired.
 //
-// The activity feed mirrors John Donahoe's engagement history from
+// The activity feed mirrors David Park's engagement history from
 // IdentityWedge's contact-detail modal so the demo reads as coherent: same
-// person, same events, two different surfaces. Production-fidelity bar:
-// the SF panel must read as real Lightning UI (proper navy chrome, cloud
-// mark, blue-tinted secondary text, custom-field badges).
+// person, same events, two different surfaces. All demo people/companies are
+// FICTIONAL (Cobalt Systems universe) — the original Nike/John Donahoe copy
+// was scrubbed Sept 2026; never reintroduce a real person or org here.
+// Production-fidelity bar: the SF panel must read as real Lightning UI
+// (proper navy chrome, cloud mark, blue-tinted secondary text, custom-field
+// badges).
 
 interface ActivityRow {
   ts: string;
@@ -20,55 +23,55 @@ interface ActivityRow {
   meta: string;
 }
 
-// Mirrors buildEngagementHistory(VISITS[1] /* John Donahoe */) in IdentityWedge.tsx.
+// Mirrors buildEngagementHistory(VISITS[1] /* David Park */) in IdentityWedge.tsx.
 // Reverse-chronological touch sequence ending at the most recent visit.
 const ACTIVITY: ActivityRow[] = [
   {
     ts: "5h ago",
     kind: "click",
     label: "Clicked CTA",
-    meta: "Nike · Executive Microsite — Pricing block · View plans",
+    meta: "Cobalt Systems · Enterprise Pilot — Pricing block · View plans",
   },
   {
     ts: "5h ago",
     kind: "return",
     label: "Returned to Page",
-    meta: "Nike · Executive Microsite — scrolled 78% · Desktop · 6m on page",
+    meta: "Cobalt Systems · Enterprise Pilot — scrolled 78% · Desktop · 6m on page",
   },
   {
     ts: "yesterday",
     kind: "forward",
     label: "Forwarded Link",
-    meta: "Nike · Executive Microsite — shared with a teammate at Nike (opened from a new IP)",
+    meta: "Cobalt Systems · Enterprise Pilot — shared with a teammate at Cobalt (opened from a new IP)",
   },
   {
     ts: "2d ago",
     kind: "first",
     label: "First Visit",
-    meta: "Nike · Executive Microsite — entered via Email link · Beaverton, Oregon",
+    meta: "Cobalt Systems · Enterprise Pilot — entered via Email link · San Francisco, California",
   },
   {
     ts: "3d ago",
     kind: "email-click",
     label: "Clicked Email Link",
-    meta: "Outbound — \"How Nike hits 2027 plan\" · clicked CTA in body",
+    meta: "Outbound — \"How Cobalt hits the 2027 plan\" · clicked CTA in body",
   },
   {
     ts: "3d ago",
     kind: "email-open",
     label: "Opened Email",
-    meta: "Outbound — \"How Nike hits 2027 plan\" · opened on desktop",
+    meta: "Outbound — \"How Cobalt hits the 2027 plan\" · opened on desktop",
   },
 ];
 
 const SF_FIELDS: { label: string; value: string; custom?: boolean }[] = [
-  { label: "Name",                       value: "John Donahoe" },
-  { label: "Title",                      value: "President & CEO" },
-  { label: "Account",                    value: "Nike, Inc." },
+  { label: "Name",                       value: "David Park" },
+  { label: "Title",                      value: "Chief Financial Officer" },
+  { label: "Account",                    value: "Cobalt Systems" },
   { label: "Last microsite visit",       value: "Today · 5h ago",                  custom: true },
   { label: "Last page viewed",           value: "/pricing",                         custom: true },
   { label: "Total time on site (30d)",   value: "14m 22s",                          custom: true },
-  { label: "Forwarded to",               value: "David Park · CFO, Nike",          custom: true },
+  { label: "Forwarded to",               value: "Sarah Chen · VP Sourcing, Cobalt", custom: true },
   { label: "Booked demo",                value: "—",                                custom: true },
 ];
 
@@ -146,7 +149,7 @@ export default function SalesforceSyncDemo() {
               flexDirection: "column",
             }}
           >
-            <PanelHeader chrome="LP Studio · Activity · John Donahoe" />
+            <PanelHeader chrome="LP Studio · Activity · David Park" />
             <div style={{ padding: "10px 8px 14px", display: "flex", flexDirection: "column" }}>
               {ACTIVITY.map((a, i) => (
                 <ActivityItem key={i} row={a} divider={i < ACTIVITY.length - 1} />
@@ -488,7 +491,7 @@ function SalesforcePanel() {
             boxShadow: "0 4px 10px -3px rgba(0,161,224,0.35)",
           }}
         >
-          JD
+          DP
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div
@@ -511,11 +514,11 @@ function SalesforcePanel() {
               letterSpacing: "-0.01em",
             }}
           >
-            John Donahoe
+            David Park
           </div>
           <div style={{ marginTop: 1, fontSize: 12, color: SF_MUTED }}>
-            President &amp; CEO ·{" "}
-            <span style={{ color: SF_LINK, fontWeight: 500 }}>Nike, Inc.</span>
+            Chief Financial Officer ·{" "}
+            <span style={{ color: SF_LINK, fontWeight: 500 }}>Cobalt Systems</span>
           </div>
         </div>
         {/* Action chips — Edit / Follow (Lightning-style) */}

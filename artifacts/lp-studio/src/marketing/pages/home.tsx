@@ -3,18 +3,16 @@ import AnnouncementBanner from "../components/AnnouncementBanner";
 import { normalizeBannerBg } from "@/lib/banner-color";
 import HeroScene from "../components/HeroScene";
 import PromptCard from "../components/PromptCard";
-import BetaOfferCallout from "../components/BetaOfferCallout";
+import ProofStrip from "../components/ProofStrip";
 import { BuildSection } from "../components/BuildSection";
 import UseCases from "../components/UseCases";
-import IdentityWedge from "../components/IdentityWedge";
-import AnalyticsScene from "../components/AnalyticsScene";
-import Integrations from "../components/Integrations";
-import Pricing from "../components/Pricing";
-import FAQ from "../components/FAQ";
+import { AnalyticsMock } from "../components/IdentityWedge";
+import { IntegrationsStrip } from "../components/Integrations";
+import PricingTeaser from "../components/PricingTeaser";
 import FinalCta from "../components/FinalCta";
-import FromTheBlog from "../components/FromTheBlog";
 import Footer from "../components/Footer";
 import { useEffect, useState } from "react";
+import { useInView } from "../hooks/useInView";
 import { usePageMeta } from "../hooks/usePageMeta";
 
 // Built-in defaults for the marketing homepage share card (Open Graph). These
@@ -105,31 +103,28 @@ function resolveHomepageOg(raw: Partial<HomepageOgConfig> | null | undefined): H
   return { title, description, imageUrl, imageWidth, imageHeight };
 }
 
-// Homepage at the apex /. Order is intentional:
+// Homepage at the apex /. Product-led restructure (Option B, Sept 2026):
+// 9 sections, ~650 words — down from 12 sections / ~3,000 words. Order:
 //
 //   1   HeroScene + PromptCard — v3 editorial hero + Mad Libs prompt card
-//   2   BuildSection           — pinned scroll-saga page-assembles demo
-//   3   UseCases               — 4 concrete page types (ABM · A/B variants ·
-//                                 brand-locked blocks · success page)
-//   4   WhatsInside            — "What's inside" zigzag: Brand →
-//                                 For Marketing → For Sales → Compare
-//   9   IdentityWedge          — Analytics page mock; the deterministic-identity wedge
-//  10   AnalyticsScene         — Page Detail / Conversion Score + visit timeline
-//  11   Integrations           — Marketo / SF / HubSpot / Apollo / RB2B / etc.
-//  12   Pricing                — Full 4-tier + Enterprise + collapsible map
-//  13   FAQ                    — 6-7 questions, corrected Mutiny answer
-//  14   FinalCta + Footer      — Dark "Skip the brief. Ship the page." closer
+//   2   ProofStrip             — live beta counter + true product stats
+//   3   BuildSection           — pinned scroll-saga demo (track 650→420vh)
+//   4   Capabilities           — ONE tabbed section absorbing the old
+//                                 WhatsInside zigzag + IdentityWedge +
+//                                 AnalyticsScene (mocks reused as panels)
+//   5   UseCases               — persona router (Sales / Marketing cards)
+//   6   IntegrationsStrip      — one-row marks; full section on /features
+//   7   PricingTeaser          — 3 tiers from PLAN_CONFIG; truth on /pricing
+//   8   FinalCta + Footer      — Dark "Skip the brief. Ship the page." closer
 //
-// CampaignsScene was on this page (used to be #9, between Sales Console
-// and IdentityWedge). It got pulled out and moved to /for-marketing
-// because the orchestration + backflow story it tells is a marketing-
-// persona story, not a generic homepage story. IdentityWedge + Analytics
-// now carry the "reveal → optimize" arc by themselves on the homepage.
+// What left the homepage (nothing left the SITE):
+//   IdentityWedge → /for-sales (num 04); AnalyticsScene's job → the
+//   Capabilities analytics tab + /features#analytics; full Pricing + FAQ →
+//   /pricing; Integrations full section → /features + /for-marketing;
+//   FromTheBlog → footer Blog link. Compare left the top nav for the footer.
 //
-// The Generate / Templates / Sales Console FeatureRows that used to sit
-// between WhatsInside (#4) and IdentityWedge (#9) were removed to shorten
-// the homepage — WhatsInside already routes to those stories and the same
-// embeds still live on /features (the depth page) and the persona routes.
+// Copy contract (redesign): one H2 ≤8 words + ≤2 sentences per section,
+// bullets ≤3 — depth lives on /features and the persona routes.
 
 export default function Home() {
   // Marketing homepage share card (Open Graph). The values are superadmin-
@@ -199,55 +194,35 @@ export default function Home() {
         {/* 1 — v3 editorial hero + Mad Libs prompt card */}
         <HeroScene />
         <PromptCard />
-        {/* Founding-beta spots — live numbers from /api/lp/beta-offer, the same
-            source the signup cap enforces. Hidden when the offer is off. */}
-        <BetaOfferCallout />
 
-        {/* 2 — Watch a page assemble: the Lovable scroll-saga pinned
+        {/* 2 — Proof strip: live founding-beta counter (same /api/lp/beta-offer
+            source the signup cap enforces — replaced BetaOfferCallout) + true
+            product stats. No logo wall until real customer proof exists. */}
+        <ProofStrip />
+
+        {/* 3 — Watch a page assemble: the Lovable scroll-saga pinned
             scrollytelling (BuildSection) — page assembles inside a browser
             frame, then the frame gets wrapped by the builder UI with live
-            layers / accent / inline-edit interactions. Replaces
-            AssembleSceneV2 (kept on disk for reference). */}
+            layers / accent / inline-edit interactions. */}
         <BuildSection />
 
-        {/* 3 — Use cases: 4 concrete page types with mini live-page
-            previews (ABM hero · A/B variants · brand-locked blocks ·
-            success page). */}
+        {/* 4 — Capabilities: tabbed Brand / Campaigns / Microsites /
+            Analytics — the old zigzag + IdentityWedge + AnalyticsScene
+            jobs in one section, reusing their mocks as tab panels. */}
+        <Capabilities />
+
+        {/* 5 — Use cases: the Sales / Marketing persona router. */}
         <UseCases />
 
-        {/* 4 — "What's inside" — OG DeepFeatures-style zigzag with four
-            rows (Brand · For Marketing · For Sales · Compare) on a
-            shared spine. The Brand row used to be a heavy standalone
-            FeatureRow lower on the page; it's now a compact mock here. */}
-        <WhatsInside />
+        {/* 6 — Integrations, one row: full grouped section stays on
+            /features and /for-marketing. */}
+        <IntegrationsStrip />
 
-        {/* 9 — Identity wedge: the "know exactly who's on the page,
-            not just which account" differentiator vs Mutiny. */}
-        <IdentityWedge />
+        {/* 7 — Pricing teaser: three PLAN_CONFIG tiers; the full cards +
+            Enterprise + feature map render on /pricing (with the FAQ). */}
+        <PricingTeaser />
 
-        {/* 10 — Analytics: Page Detail Conversion Score with "why this
-            score" + visit timeline. Closes the reveal → optimize loop.
-            (CampaignsScene moved to /for-marketing — it's a persona-
-            page story, not a homepage story.) */}
-        <AnalyticsScene />
-
-        {/* 11 — Integrations: Marketo / Salesforce / HubSpot / Apollo /
-            Google Sheets / GA4 / RB2B / Chili Piper / Resend / Asana /
-            Webhooks. */}
-        <Integrations />
-
-        {/* 12 — Pricing: full 4-tier + Enterprise + collapsible feature map
-            (collapsed by default on the homepage; open on /pricing). */}
-        <Pricing />
-
-        {/* 13 — FAQ: 6-7 questions including the corrected Mutiny answer */}
-        <FAQ />
-
-        {/* 13.5 — From the blog: latest 2-3 published posts. Self-hides when the
-            blog is empty / unreachable so the homepage never shows a blank shell. */}
-        <FromTheBlog />
-
-        {/* 14 — Final CTA + Footer */}
+        {/* 8 — Final CTA + Footer */}
         <FinalCta />
       </main>
       <Footer />
@@ -255,373 +230,224 @@ export default function Home() {
   );
 }
 
-// WhatsInside — OG DeepFeatures-style "What's inside" section: hairline
-// eyebrow + big headline + subhead, then a vertical spine on the left
-// connecting four zigzag FeatureRow rows that alternate
-// visual-left/text-right ↔ text-left/visual-right. The lead-off row is
-// the brand-tokens story ("On-brand in 20 seconds"), which used to be
-// its own oversized FeatureRow lower on the page — it's now compact and
-// pulls weight in the right spot. The remaining rows point at the deep-
-// dive marketing routes: /for-marketing, /for-sales, /compare.
-interface WhatsInsideRow {
-  marker: string;
-  eyebrow: string;
+// Capabilities — the old "What's inside" zigzag (four full rows, ~3,000px of
+// scroll) compressed into ONE tabbed section (Option B redesign, Sept 2026).
+// The product mocks still carry the weight: BrandVisual / MarketingVisual /
+// SalesVisual below, plus AnalyticsMock reused from IdentityWedge. (The
+// IdentityWedge + AnalyticsScene sections left the homepage — the wedge still
+// renders on /for-sales, the analytics surface on /features#analytics.)
+// The Compare row moved to the footer: bottom-funnel, not a browse story.
+interface CapabilityTab {
+  key: string;
+  label: string;
   title: React.ReactNode;
   body: string;
-  bullets: string[];
   cta: { label: string; href: string };
   visual: React.ReactNode;
-  /** "left" puts the visual on the left, text on the right. "right" reverses. */
-  side: "left" | "right";
 }
 
 const WHATS_INSIDE_INDIGO = "#3C38B8";
 
-function WhatsInside() {
-  const rows: WhatsInsideRow[] = [
+function Capabilities() {
+  const [active, setActive] = useState(0);
+  const { ref, inView } = useInView();
+
+  const tabs: CapabilityTab[] = [
     {
-      marker: "01",
-      eyebrow: "Brand & content",
+      key: "brand",
+      label: "Brand engine",
       title: (
         <>
           <span style={{ color: WHATS_INSIDE_INDIGO }}>On-brand</span> in twenty
           seconds.
         </>
       ),
-      body: "Paste your site. LP Studio extracts your logos, colors, type, voice and content — then proposes every brand token for you to review and apply. Everything you ship after is on-brand by default.",
-      bullets: [
-        "Scrapes your homepage + sub-pages",
-        "Logos, colors, type, voice, photography",
-        "Approved-facts library powers AI copy",
-      ],
-      cta: { label: "Explore features", href: "/features#brand" },
+      body: "Paste your site — logos, colors, type, and voice become tokens every page you ship obeys.",
+      cta: { label: "Explore the brand engine", href: "/features#brand" },
       visual: <BrandVisual />,
-      side: "left",
     },
     {
-      marker: "02",
-      eyebrow: "For Marketing",
+      key: "campaigns",
+      label: "Campaigns & A/B",
       title: (
         <>
-          <span style={{ color: WHATS_INSIDE_INDIGO }}>Campaigns</span> without the
-          design queue.
+          <span style={{ color: WHATS_INSIDE_INDIGO }}>Campaigns</span> without
+          the design queue.
         </>
       ),
-      body: "Generate on-brand pages from a prompt, A/B test every variant with Smart Traffic auto-routing the winner, and hand off leads to the MAP your demand-gen team already runs.",
-      bullets: [
-        "Prompt-to-page in under a minute",
-        "A/B + Smart Traffic auto-routing",
-        "Marketo + HubSpot + GA4 lead handoff",
-      ],
+      body: "Prompt-to-page in under a minute, A/B with Smart Traffic routing the winner, leads handed to your MAP.",
       cta: { label: "Explore for marketing", href: "/for-marketing" },
       visual: <MarketingVisual />,
-      side: "right",
     },
     {
-      marker: "03",
-      eyebrow: "For Sales & RevOps",
+      key: "microsites",
+      label: "Sales microsites",
       title: (
         <>
           <span style={{ color: WHATS_INSIDE_INDIGO }}>ABM</span> that hits the
           right person.
         </>
       ),
-      body: "A microsite for every account, AI-drafted outreach grounded in a contact brief, and per-recipient identity baked into every link — synced back to Salesforce on the right contact.",
-      bullets: [
-        "One-click per-account microsites",
-        "AI outreach drafted from contact briefs",
-        "Per-recipient identity in every URL",
-      ],
+      body: "A microsite for every account, per-recipient identity in every link — synced back to Salesforce.",
       cta: { label: "Explore for sales", href: "/for-sales" },
       visual: <SalesVisual />,
-      side: "left",
     },
     {
-      marker: "04",
-      eyebrow: "Side-by-side",
+      key: "analytics",
+      label: "Identity & analytics",
       title: (
         <>
-          See where{" "}
-          <span style={{ color: WHATS_INSIDE_INDIGO }}>we win</span>.
+          Know{" "}
+          <span style={{ color: WHATS_INSIDE_INDIGO }}>who&apos;s on the page</span>{" "}
+          — and what to fix.
         </>
       ),
-      body: "A straight comparison vs Webflow, Unbounce, and Mutiny — where each one is strong, and the specific moments LP Studio is the better call.",
-      bullets: [
-        "Capability matrix across 4 vendors",
-        "Where each competitor is genuinely strong",
-        "Migration plan — point your DNS in an afternoon",
-      ],
-      cta: { label: "See the matrix", href: "/compare" },
-      visual: <CompareVisual />,
-      side: "right",
+      body: "Person-level visits, a conversion score, and the specific fix — not just pageviews.",
+      cta: { label: "See the analytics", href: "/features#analytics" },
+      visual: (
+        // Curated compact crop of the /features analytics surface, in the
+        // same browser chrome the other tabs use: no app-header buttons or
+        // search chrome, fewer columns, first named rows + one anonymous —
+        // the person-level payoff is visible without scrolling or fading.
+        <VisualCard
+          url="app.lpstudio.ai/analytics/pages/cobalt-pilot"
+          status={{ label: "Live", color: "var(--sage)" }}
+        >
+          <div style={{ margin: "-18px -20px -20px" }}>
+            <AnalyticsMock preOpen={false} compact />
+          </div>
+        </VisualCard>
+      ),
     },
   ];
+  const tab = tabs[active];
 
   return (
     <section
-      className="px-6 py-28 md:py-36 relative overflow-hidden"
-      style={{ background: "var(--cream)", borderTop: "1px solid var(--hairline)" }}
+      className="px-6 py-28 md:py-36"
+      style={{ background: "var(--cream-2)", borderTop: "1px solid var(--hairline)" }}
     >
-      {/* Soft accent orb at the section's top */}
       <div
-        aria-hidden="true"
-        className="absolute pointer-events-none"
+        ref={ref}
+        className="max-w-[1180px] mx-auto"
         style={{
-          top: "8%",
-          right: "-10%",
-          width: 520,
-          height: 520,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(75,71,229,0.10) 0%, rgba(75,71,229,0) 70%)",
-          filter: "blur(6px)",
+          opacity: inView ? 1 : 0,
+          transform: inView ? "none" : "translateY(20px)",
+          transition: "opacity 0.7s ease, transform 0.7s ease",
         }}
-      />
+      >
+        <div className="marker marker-rule mb-6">The studio</div>
+        <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
+          Everything after &ldquo;generate.&rdquo;
+        </h2>
 
-      <div className="max-w-[1180px] mx-auto relative">
-        <div className="max-w-3xl mb-20 md:mb-24">
-          <div className="flex items-center gap-3 mb-6">
-            <span
-              aria-hidden="true"
-              style={{
-                width: 36,
-                height: 1,
-                background: "var(--ink-faint)",
-              }}
-            />
-            <span
-              className="font-mono uppercase"
-              style={{
-                color: "var(--ink-soft)",
-                fontSize: 11,
-                letterSpacing: "0.22em",
-                fontWeight: 600,
-              }}
-            >
-              What&apos;s inside
-            </span>
-          </div>
-          <h2
-            className="font-display text-display-lg"
-            style={{ color: "var(--ink)" }}
-          >
-            Brand-locked AI that doesn&apos;t sound like AI.
-          </h2>
-          <p
-            className="mt-6 text-[17px] leading-[1.55]"
-            style={{ color: "var(--ink-soft)", maxWidth: 580 }}
-          >
-            Three things the cobbled-together stack of Webflow, Mutiny, and
-            Outreach can&apos;t do.
-          </p>
+        {/* Tab pills */}
+        <div className="flex flex-wrap gap-2.5 mt-10" role="tablist" aria-label="Capabilities">
+          {tabs.map((t, i) => {
+            const selected = i === active;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setActive(i)}
+                className="px-5 py-2.5 text-[14px] font-semibold rounded-full transition-all"
+                style={{
+                  background: selected ? "var(--navy)" : "transparent",
+                  color: selected ? "var(--cream)" : "var(--ink-soft)",
+                  border: selected
+                    ? "1px solid var(--navy)"
+                    : "1px solid var(--hairline-strong)",
+                  cursor: "pointer",
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Connecting spine on the left, behind the row stack */}
-        <div className="relative">
-          <div
-            aria-hidden="true"
-            className="absolute hidden md:block pointer-events-none"
-            style={{
-              left: -4,
-              top: 0,
-              bottom: 0,
-              width: 1,
-              background:
-                "linear-gradient(180deg, rgba(26,24,21,0) 0%, rgba(26,24,21,0.18) 8%, rgba(26,24,21,0.18) 92%, rgba(26,24,21,0) 100%)",
-            }}
-          />
-
-          <div className="space-y-32 md:space-y-40">
-            {rows.map((r, i) => (
-              <WhatsInsideRowEl key={r.marker} row={r} index={i} total={rows.length} />
-            ))}
+        {/* Active panel — text left, mock right. key remounts the panel per
+            tab so the fade re-runs and stateful mocks (AnalyticsMock) reset. */}
+        {/* lg (not md) split: below 1024px the visual takes the full row —
+            the mocks' internal grids need the width, and a 7/12 slice of a
+            tablet viewport crushes them. */}
+        <div
+          key={tab.key}
+          className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center mt-10 md:mt-12"
+          style={{ animation: "lpcap-fade 320ms ease" }}
+        >
+          <style>{`@keyframes lpcap-fade { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }`}</style>
+          <div className="lg:col-span-5">
+            <h3 className="font-display text-display-md" style={{ color: "var(--ink)", margin: 0 }}>
+              {tab.title}
+            </h3>
+            <p
+              className="mt-5 text-[16px] leading-[1.6]"
+              style={{ color: "var(--ink-soft)", maxWidth: 460 }}
+            >
+              {tab.body}
+            </p>
+            <a
+              href={tab.cta.href}
+              className="inline-flex items-center gap-1.5 mt-7 px-4 py-2 text-[13px] font-medium transition-all"
+              style={{
+                background: "var(--navy)",
+                color: "var(--cream)",
+                borderRadius: 8,
+                textDecoration: "none",
+                boxShadow:
+                  "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)",
+              }}
+            >
+              {tab.cta.label}
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+          {/* Staged mock — the BuildSection's contained-card idiom: tinted
+              rounded-3xl pedestal + soft indigo glow behind the product
+              surface, so the mock reads as a presented artifact rather than
+              a raw screenshot. */}
+          <div className="lg:col-span-7">
+            <div
+              className="relative rounded-3xl paper-grain"
+              style={{
+                padding: "clamp(16px, 2.6vw, 30px)",
+                background:
+                  "linear-gradient(150deg, var(--tint-lavender) 0%, var(--cream-2) 55%, var(--tint-blush) 100%)",
+                border: "1px solid var(--hairline)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.55), 0 28px 56px -34px rgba(37,33,77,0.28)",
+              }}
+            >
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none rounded-3xl"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at 28% 18%, color-mix(in srgb, var(--indigo) 11%, transparent) 0%, transparent 62%)",
+                  filter: "blur(18px)",
+                }}
+              />
+              <div className="relative">{tab.visual}</div>
+            </div>
           </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function WhatsInsideRowEl({
-  row,
-  index,
-  total,
-}: {
-  row: WhatsInsideRow;
-  index: number;
-  total: number;
-}) {
-  const textCol = (
-    <div className="relative">
-      {/* Spine marker — square indigo tile with the marker number */}
-      <div
-        aria-hidden="true"
-        className="absolute hidden md:flex items-center justify-center"
-        style={{
-          left: -22,
-          top: 4,
-          width: 36,
-          height: 36,
-          borderRadius: 8,
-          background: `linear-gradient(135deg, ${WHATS_INSIDE_INDIGO} 0%, color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 60%, #000) 100%)`,
-          color: "#FFFFFF",
-          boxShadow: `0 6px 16px -6px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 55%, transparent), inset 0 1px 0 rgba(255,255,255,0.3)`,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
-            fontWeight: 700,
-            fontSize: 13,
-            letterSpacing: "-0.005em",
-          }}
-        >
-          {row.marker}
-        </span>
-      </div>
-
-      <div className="flex items-baseline gap-3 mb-5 md:pl-5">
-        <span
-          className="font-mono uppercase md:hidden"
-          style={{ color: WHATS_INSIDE_INDIGO, fontSize: 11, letterSpacing: "0.18em", fontWeight: 700 }}
-        >
-          {row.marker}
-        </span>
-        <span
-          className="font-mono uppercase inline-flex items-center gap-1.5 px-2 py-1 rounded-full"
-          style={{
-            color: WHATS_INSIDE_INDIGO,
-            background: "rgba(75,71,229,0.08)",
-            border: "1px solid rgba(75,71,229,0.18)",
-            fontSize: 10.5,
-            letterSpacing: "0.18em",
-            fontWeight: 700,
-          }}
-        >
-          <span
-            style={{
-              width: 5,
-              height: 5,
-              borderRadius: 999,
-              background: WHATS_INSIDE_INDIGO,
-              boxShadow: `0 0 5px ${WHATS_INSIDE_INDIGO}`,
-            }}
-          />
-          {row.eyebrow}
-        </span>
-      </div>
-      {/* Same display treatment as the Analytics h2 (text-display-md) so
-          the row headlines carry the same weight as sibling sections. */}
-      <h3
-        className="font-display text-display-md md:pl-5"
-        style={{ color: "var(--ink)", margin: 0 }}
-      >
-        {row.title}
-      </h3>
-      <p
-        className="mt-6 text-[16px] leading-[1.6] md:pl-5"
-        style={{ color: "var(--ink-soft)", maxWidth: 520 }}
-      >
-        {row.body}
-      </p>
-      <ul className="mt-7 space-y-3 md:pl-5" style={{ listStyle: "none", padding: 0, margin: "28px 0 0" }}>
-        {row.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-3 text-[14.5px]" style={{ color: "var(--ink-2)" }}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={WHATS_INSIDE_INDIGO}
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ marginTop: 4, flexShrink: 0 }}
-              aria-hidden="true"
-            >
-              <path d="M5 12.5L10 17.5L20 7.5" />
-            </svg>
-            {b}
-          </li>
-        ))}
-      </ul>
-
-      {/* CTA + step indicator */}
-      <div className="mt-8 md:pl-5 flex items-center gap-6 flex-wrap">
-        <a
-          href={row.cta.href}
-          className="px-4 py-2 text-[13px] font-medium transition-all inline-flex items-center gap-1.5"
-          style={{
-            background: "var(--navy)",
-            color: "var(--cream)",
-            borderRadius: 8,
-            textDecoration: "none",
-            boxShadow:
-              "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--navy-2)";
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow =
-              "0 1px 2px rgba(26, 24, 21, 0.10), 0 8px 18px -6px rgba(26, 24, 21, 0.32)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "var(--navy)";
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)";
-          }}
-        >
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
-            <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
-          </svg>
-          {row.cta.label}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M5 12h14M13 5l7 7-7 7" />
-          </svg>
-        </a>
-        <div className="flex items-center gap-1.5">
-          {Array.from({ length: total }).map((_, i) => (
-            <span
-              key={i}
-              style={{
-                display: "inline-block",
-                width: i === index ? 20 : 6,
-                height: 6,
-                borderRadius: 999,
-                background:
-                  i === index
-                    ? `linear-gradient(90deg, ${WHATS_INSIDE_INDIGO} 0%, #6C68F0 100%)`
-                    : "rgba(26,24,21,0.18)",
-                transition: "width 240ms ease",
-              }}
-            />
-          ))}
-          <span
-            className="ml-2 text-[11px] uppercase"
-            style={{ color: "var(--ink-mute)", letterSpacing: "0.18em", fontWeight: 600 }}
-          >
-            {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center relative">
-      {row.side === "left" ? (
-        <>
-          <div className="order-2 md:order-1">{row.visual}</div>
-          <div className="order-1 md:order-2">{textCol}</div>
-        </>
-      ) : (
-        <>
-          {textCol}
-          {row.visual}
-        </>
-      )}
-    </div>
   );
 }
 

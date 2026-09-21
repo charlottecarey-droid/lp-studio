@@ -447,6 +447,81 @@ export default function Integrations() {
   );
 }
 
+/**
+ * IntegrationsStrip — one-row compact version for the homepage (Option B
+ * redesign, Sept 2026). The full Integrations section above (featured
+ * Salesforce panel + 3 grouped tile grids) still renders on /features and
+ * /for-marketing; the homepage only needs the "your stack is covered" beat,
+ * so it gets a single line + a row of marks that all link into the docs.
+ */
+export function IntegrationsStrip() {
+  const { ref, inView } = useInView();
+  const marks: Integration[] = [
+    { name: "Salesforce", color: "#00A1E0", mark: SalesforceMark, href: `${DOCS}#salesforce` },
+    ...LEAD_HANDOFF,
+    ...SCHEDULING_OPS,
+    ...SIGNALS_ANALYTICS,
+  ];
+  return (
+    <section
+      className="px-6 py-14 md:py-16"
+      style={{ background: "var(--cream)", borderTop: "1px solid var(--hairline)" }}
+    >
+      <div
+        ref={ref}
+        className="max-w-[1180px] mx-auto flex flex-col items-center gap-7"
+        style={{
+          opacity: inView ? 1 : 0,
+          transform: inView ? "none" : "translateY(16px)",
+          transition: "opacity 0.7s ease, transform 0.7s ease",
+        }}
+      >
+        <p className="text-[15px] m-0 text-center" style={{ color: "var(--ink-soft)" }}>
+          Plays well with the tools your revenue team already runs.
+        </p>
+        <div className="flex flex-wrap items-center justify-center" style={{ gap: "14px 26px" }}>
+          {marks.map((m) => {
+            const MarkComp = m.mark;
+            return (
+              <a
+                key={m.name}
+                href={m.href}
+                className="inline-flex items-center gap-2 transition-opacity"
+                style={{ textDecoration: "none", opacity: 0.72 }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.72")}
+                aria-label={`${m.name} integration docs`}
+              >
+                <span className="inline-flex items-center justify-center" style={{ width: 24, height: 24 }}>
+                  <MarkComp color="var(--ink-soft)" />
+                </span>
+                <span
+                  className="text-[13.5px]"
+                  style={{
+                    color: "var(--ink-soft)",
+                    fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {m.name}
+                </span>
+              </a>
+            );
+          })}
+        </div>
+        <a
+          href={DOCS}
+          className="text-[14px] font-semibold transition-colors"
+          style={{ color: "var(--indigo)", textDecoration: "none" }}
+        >
+          All integrations →
+        </a>
+      </div>
+    </section>
+  );
+}
+
 const tileBase: CSSProperties = {
   background: "var(--paper)",
   border: "1px solid var(--hairline)",

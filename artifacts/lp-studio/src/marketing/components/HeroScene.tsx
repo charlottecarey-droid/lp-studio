@@ -105,8 +105,8 @@ export default function HeroScene() {
             textWrap: "balance",
           }}
         >
-          Type a prompt, paste a URL, or drop a screenshot — and get a
-          real, on-brand page in under a minute.
+          Type a prompt or paste a URL. Get a real, on-brand page in
+          under a minute.
         </p>
 
       </div>

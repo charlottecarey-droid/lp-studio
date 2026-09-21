@@ -981,6 +981,13 @@
       "when": 1758030010000,
       "tag": "0139_page_visit_hotlink",
       "breakpoints": false
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1758030020000,
+      "tag": "0140_email_send_unsubscribed_at",
+      "breakpoints": false
     }
   ]
 }
