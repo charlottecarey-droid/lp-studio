@@ -79,6 +79,18 @@ function buildFullBleedScrim(strength: number): string {
   return `linear-gradient(90deg, ${horizontal}), linear-gradient(0deg, ${vertical})`;
 }
 
+// Editor-controlled horizontal content padding (`heroSidePadding`). Applied via
+// a CSS var so phones cap it at 24px — a desktop-sized gutter would otherwise
+// squeeze the copy into a sliver on narrow screens.
+const SIDE_PAD_CSS = `
+  .hl-px { padding-left: var(--hl-px); padding-right: var(--hl-px); }
+  @media (max-width: 767px) {
+    .hl-px { padding-left: min(var(--hl-px), 24px); padding-right: min(var(--hl-px), 24px); }
+  }
+`;
+const sidePadVar = (px: number): CSSProperties =>
+  ({ ["--hl-px" as string]: `${Math.max(0, px)}px` }) as CSSProperties;
+
 
 export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId, onFieldChange }: Props) {
   // Static renders (template-library preview, thumbnails, builder) get the
@@ -134,7 +146,10 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   const layout = p.layout ?? "full-bleed";
   const isSplit = layout === "split";
   const isSplitVideo = layout === "split-video";
-  const isStackedVideo = layout === "stacked-video";
+  // "centered" is the stacked layout minus the media showcase: centered
+  // headline + CTAs (+ stats) with no video/image below.
+  const isCentered = layout === "centered";
+  const isStackedVideo = layout === "stacked-video" || isCentered;
 
   // Uniform dimming overlay for the panel-based layouts (split / split-video /
   // stacked-video). Unlike the full-bleed scrim, the asset here sits in its own
@@ -597,6 +612,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           className="relative overflow-hidden heartland-split"
           style={{ minHeight: "100vh" }}
         >
+          <style>{SIDE_PAD_CSS}</style>
           <style>{`
             @media (max-width: 767px) {
               .heartland-split .hl-split-row {
@@ -627,8 +643,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           >
             {/* ── Content column ── */}
             <motion.div
-              style={{ opacity: scrollOpacity, y: scrollY, flex: "0 0 55%", padding: "7rem 3rem 4rem", minWidth: 0 }}
-              className="relative z-10 flex flex-col justify-center hl-split-content"
+              style={{ opacity: scrollOpacity, y: scrollY, flex: "0 0 55%", paddingTop: "7rem", paddingBottom: "4rem", minWidth: 0, ...sidePadVar(p.heroSidePadding ?? 48) }}
+              className="relative z-10 flex flex-col justify-center hl-split-content hl-px"
             >
               {(p.eyebrow || onFieldChange) && (
                 <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
@@ -742,6 +758,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section ref={heroRef} className="relative overflow-hidden" style={{ paddingTop: splitTopPad }}>
+          <style>{SIDE_PAD_CSS}</style>
           {navBar}
           <div
             style={{
@@ -755,8 +772,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           >
             {/* ── Content column ── */}
             <motion.div
-              style={{ opacity: scrollOpacity, y: scrollY, flex: `0 0 ${splitContentW}%`, padding: `2rem ${splitSidePad}px`, minWidth: 0 }}
-              className="relative z-10 flex flex-col justify-center"
+              style={{ opacity: scrollOpacity, y: scrollY, flex: `0 0 ${splitContentW}%`, paddingTop: "2rem", paddingBottom: "2rem", minWidth: 0, ...sidePadVar(splitSidePad) }}
+              className="relative z-10 flex flex-col justify-center hl-px"
             >
               {(p.eyebrow || onFieldChange) && (
                 <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
@@ -900,32 +917,37 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   /* ── STACKED-VIDEO LAYOUT ─────────────────────────────────── */
   if (isStackedVideo) {
     const stackedTopPad = p.heroTopPadding ?? 128;
-    const stackedMinH = p.heroMinHeight;
+    // Centered has no showcase to give the hero its height, so it defaults to
+    // a 70vh band with the copy vertically centred inside it.
+    const stackedMinH = p.heroMinHeight ?? (isCentered ? 70 : undefined);
     const stackedHScale = (p.heroHeadingSize ?? 100) / 100;
     const stackedVideoMaxW = p.heroVideoWidth ?? 1100;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section
           ref={heroRef}
-          className="relative overflow-hidden"
+          className={isCentered ? "relative overflow-hidden flex flex-col" : "relative overflow-hidden"}
           style={stackedMinH ? { minHeight: `${stackedMinH}vh` } : undefined}
         >
+          <style>{SIDE_PAD_CSS}</style>
           {navBar}
 
           {/* ── Centered text content ── */}
           <motion.div
             style={{ opacity: scrollOpacity, y: scrollY }}
-            className="relative z-10 w-full"
+            className={isCentered ? "relative z-10 w-full flex-1 flex flex-col justify-center" : "relative z-10 w-full"}
           >
             <div
+              className="hl-px"
               style={{
-                maxWidth: 720,
+                maxWidth: 720 + 2 * (p.heroSidePadding ?? 32),
                 margin: "0 auto",
+                width: "100%",
+                boxSizing: "border-box",
                 paddingTop: stackedTopPad,
-                paddingLeft: "2rem",
-                paddingRight: "2rem",
                 paddingBottom: "3rem",
                 textAlign: "center",
+                ...sidePadVar(p.heroSidePadding ?? 32),
               }}
             >
               {(p.eyebrow || onFieldChange) && (
@@ -958,6 +980,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               )}
 
               {/* CTAs */}
+              {ctaStyle === "email-capture" ? (
+                <div style={{ display: "flex", justifyContent: "center" }}>{emailCaptureForm}</div>
+              ) : (
               <motion.div
                 initial={anim({ opacity: 0, y: 14 })}
                 animate={{ opacity: 1, y: 0 }}
@@ -986,9 +1011,11 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                   </a>
                 )}
               </motion.div>
+              )}
             </div>
 
             {/* ── Large video showcase ── */}
+            {!isCentered && (
             <motion.div
               initial={anim({ opacity: 0, y: 32 })}
               animate={{ opacity: 1, y: 0 }}
@@ -1127,8 +1154,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 )}
               </div>
             </motion.div>
+            )}
 
-            {/* ── Stats below video ── */}
+            {/* ── Stats below video (below the CTAs when centered) ── */}
             {p.stats && p.stats.length > 0 && (
               <motion.div
                 initial={anim({ opacity: 0, y: 10 })}
@@ -1143,7 +1171,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 style={{
                   maxWidth: 1100,
                   margin: "0 auto",
-                  padding: "1.5rem 1.5rem 5rem",
+                  padding: isCentered ? "1.5rem 1.5rem 4rem" : "1.5rem 1.5rem 5rem",
                   ["--dso-stats-count" as string]: String(Math.min(p.stats.length, 4)),
                   borderTop: "1px solid rgba(255,255,255,0.10)",
                 }}
@@ -1300,7 +1328,14 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           style={{ opacity: scrollOpacity, y: scrollY }}
           className="relative z-10 flex flex-col justify-center flex-1 w-full pt-20"
         >
-          <div className="max-w-[1200px] mx-auto px-6 md:px-10 w-full">
+          {/* Unset = the original centred 1200px column. Once an editor sets a
+              side padding the column spans the full width with that gutter,
+              so the copy can line up with the nav instead of floating inward. */}
+          {p.heroSidePadding != null && <style>{SIDE_PAD_CSS}</style>}
+          <div
+            className={p.heroSidePadding != null ? "w-full hl-px" : "max-w-[1200px] mx-auto px-6 md:px-10 w-full"}
+            style={p.heroSidePadding != null ? sidePadVar(p.heroSidePadding) : undefined}
+          >
             {(p.eyebrow || onFieldChange) && (
               <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                 <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />

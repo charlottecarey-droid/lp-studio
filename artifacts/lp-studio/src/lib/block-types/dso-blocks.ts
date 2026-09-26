@@ -117,7 +117,9 @@ export interface DsoHeartlandHeroBlockProps {
    *  "video" (default) keeps the current video player; "image" swaps it for a
    *  static image (`heroImageUrl`) in the same framed showcase. */
   stackedMediaType?: "video" | "image";
-  layout?: "full-bleed" | "split" | "split-video" | "stacked-video";
+  /** `centered` = the stacked layout without the media showcase (centered
+   *  headline + CTAs, stats below). */
+  layout?: "full-bleed" | "split" | "split-video" | "stacked-video" | "centered";
   heroImageUrl?: string;
   heroImageSide?: "left" | "right";
   /** How the hero image fits its column. `cover` crops to fill (good for photos);
@@ -135,6 +137,10 @@ export interface DsoHeartlandHeroBlockProps {
   heroVideoUrl?: string;
   heroTopPadding?: number;
   heroMinHeight?: number;
+  /** Horizontal content padding (px), all layouts. Full-bleed: unset keeps the
+   *  centred 1200px column; set = full-width column with this gutter. Split /
+   *  split-video default 48, stacked / centered default 32. Capped at 24px on
+   *  phones. */
   heroSidePadding?: number;
   heroHeadingSize?: number;
   heroVideoWidth?: number;
