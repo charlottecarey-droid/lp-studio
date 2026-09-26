@@ -83,6 +83,23 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
       "Image-led and kinetic: big full-bleed visuals, short punchy copy, minimal bullet lists. Every section should have a strong visual anchor; keep text blocks tight.",
   },
   {
+    id: "freeform-product-stack",
+    label: "Product stack",
+    description: "a Ramp-style product page where the software itself is the imagery — product clips in glow panels on warm paper",
+    skeleton: [
+      "glow-video-hero",
+      "video-step-showcase OR feature-tabs-showcase",
+      "glow-stat-band OR stat-counter-band",
+      "video-zigzag OR zigzag-features",
+      "benchmark-bars OR features-comparison-checklist",
+      "video-card-trio OR glass-bento-features",
+      "dso-faq",
+      "glow-final-cta OR aurora-cta-finale",
+    ],
+    styleNotes:
+      "Warm off-white paper, near-black type, ONE accent glow. Big tight headlines, short declarative sentences, minimal chrome. The product is the art direction: screenshots and clips inside glow panels, no stock photography. The stat band, benchmark bars and quotes only when the brief carries REAL numbers, results and attributions — otherwise drop those slots.",
+  },
+  {
     id: "freeform-data-led",
     label: "Data-led",
     description: "a proof-first page that leads with numbers, comparisons, and case results",

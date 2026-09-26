@@ -28,9 +28,10 @@ import {
 } from "./page-recipes";
 
 describe("recipe sets", () => {
-  it("has 4-5 freeform recipes, 3 per DSO path, 4+ microsite recipes, all with unique ids and non-empty skeletons", () => {
+  it("has 4-6 freeform recipes, 3 per DSO path, 4+ microsite recipes, all with unique ids and non-empty skeletons", () => {
     expect(FREEFORM_RECIPES.length).toBeGreaterThanOrEqual(4);
-    expect(FREEFORM_RECIPES.length).toBeLessThanOrEqual(5);
+    // Sept 2026: +1 for the "Product stack" recipe (Stack block family).
+    expect(FREEFORM_RECIPES.length).toBeLessThanOrEqual(6);
     expect(DSO_RECIPES).toHaveLength(3);
     expect(DSO_PRACTICES_RECIPES).toHaveLength(3);
     expect(MICROSITE_RECIPES.length).toBeGreaterThanOrEqual(4);
@@ -121,9 +122,11 @@ describe("pickRecipe — least-recently-used with random fallback", () => {
   });
 
   it("ignores duplicate later mentions — recency is the FIRST (most recent) occurrence", () => {
-    const [a, b, c, d, e] = recipes.map((r) => r.id);
-    // b is stalest: a,c,d,e all used more recently; b only appears at the end.
-    const recent = [a, c, d, e, b];
+    // Enumerate EVERY recipe so none is "never used" (never-used beats used).
+    const [a, b, ...rest] = recipes.map((r) => r.id);
+    // b is stalest: a + every other recipe were used more recently; b only
+    // appears at the end.
+    const recent = [a, ...rest, b];
     expect(pickRecipe(recipes, recent, () => 0)?.id).toBe(b);
   });
 

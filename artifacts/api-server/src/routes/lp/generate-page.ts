@@ -2441,6 +2441,13 @@ export function collectImageSlots(
   // product-detail; dandy-vertical-tabs tabs keep the lp-feature treatment.
   const tabsPurpose = blockType === "feature-tabs-showcase" ? "product-detail" : "lp-feature";
   pushArrField(props.tabs, "imageUrl", tabsPurpose, it => `${it.title ?? ""} ${it.description ?? ""}`);
+  // Stack family (Sept 2026): glow-video-hero's `mediaImageUrl` is the poster /
+  // graphic inside the hero's glow panel — hero-grade. video-step-showcase
+  // steps[].imageUrl are per-step product shots (distinct from the
+  // how-it-works `image` key above); zigzag rows[].imageUrl and card-trio
+  // cards[].imageUrl are already covered by the generic rows/cards passes.
+  pushScalar("mediaImageUrl", "lp-hero", blockContext);
+  pushArrField(props.steps, "imageUrl", "product-detail", it => `${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
   // event-page (self-contained full-page block) gallery photos[].src — supporting
@@ -3737,6 +3744,25 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         }
         return tab;
       });
+    }
+    // Stack family (Sept 2026): video slots stay empty (tenant recordings);
+    // the sibling image slot doubles as poster / graphic. The hero panel is a
+    // hero-grade product shot; step / row / card slots are product-detail
+    // shots matched on the item's own subject (biasPage=false, like tabs).
+    if (blockType === "glow-video-hero" && !props.mediaImageUrl && !props.mediaVideoUrl) {
+      props.mediaImageUrl = pick(blockContext, images, usedIds, "lp-hero");
+    }
+    if (blockType === "video-step-showcase" || blockType === "video-zigzag" || blockType === "video-card-trio") {
+      const key = blockType === "video-step-showcase" ? "steps" : blockType === "video-zigzag" ? "rows" : "cards";
+      if (Array.isArray(props[key])) {
+        props[key] = (props[key] as Record<string, unknown>[]).map((item) => {
+          if (!item.imageUrl && !item.videoUrl) {
+            const ctx = `${item.title ?? ""} ${item.body ?? ""}`;
+            return { ...item, imageUrl: pick(ctx, images, usedIds, "product-detail", false) };
+          }
+          return item;
+        });
+      }
     }
     // NOTE: testimonial-wall avatars/logos and launch-spotlight-hero trust
     // logos are intentionally NOT auto-filled (tenant-supplied customer
@@ -6865,6 +6891,17 @@ const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
   `- "stat-counter-band": Full-width metrics band — 3–4 oversized numerals (brand numbers font) that count up when scrolled into view; affixes like "$", "%", "+", "M+" are preserved. Use REAL numbers from the brief or brand context — NEVER invent precise stats. Props: kicker (4–8 words section heading), background ("brand-dark"|"mesh"|"light"), showBorders (true), stats (array of EXACTLY 3–4 of {value (metric with optional affixes, e.g. "99.2%", "$4M+", "12,000+"), label (2–5 words naming a specific audience or outcome)}).`,
   `- "testimonial-wall": Social proof as a masonry wall of quote cards (1/2/3 responsive columns) with star ratings and an optional featured card with an accent border. Avatars and company logos are tenant-supplied — cards gracefully fall back to initials circles. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist than the ideal count, emit fewer items. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), columns (2 or 3), testimonials (array of EXACTLY 4–6 of {quote (20–50 words, names a specific outcome or metric — not generic praise), name (full name), role (title, company), rating (4 or 5, or omit to hide stars), featured (true on AT MOST one card)} — NEVER set avatarUrl or logoUrl).`,
   `- "glass-pricing-tiers": Modern pricing — 2–4 glass / soft-shadow tier cards with EXACTLY ONE featured tier (accent glow + badge), an accessible monthly/annual toggle with an animated price swap, per-tier feature lists and CTAs. Use ONLY when the USER REQUEST or BRAND CONTEXT provides real pricing — NEVER invent specific prices. Props: eyebrow (1–3 words), headline (4–9 words), subheadline (12–24 words), showToggle (boolean), monthlyLabel ("Monthly"), annualLabel ("Annual"), annualSavingsLabel (e.g. "Save 20%"), annualNote ("billed annually"), defaultPeriod ("monthly"|"annual"), variant ("dark"|"light"), footnote (6–14 words reassurance, e.g. "No credit card required. Cancel anytime."), tiers (array of EXACTLY 2–4 of {name (1–3 words), monthlyPrice (e.g. "$49"), annualPrice (discounted per-month rate, e.g. "$39"), period ("/mo"), description (8–16 words), inheritsLabel (e.g. "Everything in Starter, plus" — OMIT on the first tier), features (array of 4–6 short phrases, 3–7 words each), ctaText (2–4 words), ctaUrl ("#"), ctaVariant ("solid"|"ghost"), featured (true on EXACTLY ONE tier), badge ("Most popular" — featured tier only)}).`,
+  // ── Stack family (Sept 2026): Ramp-style glow/video blocks. Video slots are
+  // ALWAYS "" (tenant product recordings attached in the builder — the model
+  // must never invent a URL); the sibling image slot doubles as poster/graphic
+  // and is server-filled. Stats / benchmark figures / quotes only from REAL data.
+  `- "glow-video-hero": Statement hero on warm paper — a small icon eyebrow, an oversized tight display headline, a one-line subheadline, a pill CTA pair, then a WIDE product video / screenshot inside a gradient-glow panel that fades into the page (the media reads as a graphic, not a player), plus an optional trusted-by logo row. Does NOT render a nav — precede it with a "nav-header". Use for modern product / platform pages. Props: eyebrow (3–7 words), eyebrowIcon (Lucide icon NAME, e.g. "Sparkles","Layers","Zap"), headline (3–7 words — a question or bold statement), subheadline (12–22 words), ctaText (2–4 words), ctaUrl ("#"), ctaSecondaryText (2–3 words or ""), ctaSecondaryUrl ("#"), mediaVideoUrl ("" — ALWAYS blank), mediaImageUrl ("" — server fills), mediaImageAlt (4–8 words), logosLabel (""), logos ([] — tenant assets, NEVER set).`,
+  `- "video-step-showcase": "Set up fast. Scale even faster." — a centered headline over a two-column stage: 3–4 steps on one side (the active step expands and auto-advances on a timer) and a sticky glow panel on the other whose product clip switches per step. Props: eyebrow ("" or 1–3 words), headline (4–8 words), subheadline ("" or 12–20 words), autoAdvanceSeconds (7), mediaSide ("right"|"left"), steps (array of EXACTLY 3–4 of {title (3–5 words, imperative), body (16–26 words), videoUrl ("" — ALWAYS blank), imageUrl ("" — server fills), imageAlt (4–8 words)}).`,
+  `- "glow-stat-band": Near-black full-width band — a two-line headline, 2–4 oversized count-up stat cards painted with the accent glow, and an optional row of up to 4 short customer quotes with small avatars. Use ONLY real numbers and real quotes from the brief / brand context — NEVER invent stats or attributions; set showQuotes false and quotes [] when none exist. Props: headline (3–5 words), headlineLine2 (3–6 words), stats (array of EXACTLY 2–4 of {prefix ("Up to"|"Over"|""), value (figure with affix, e.g. "60%","9x","$1.2M"), label (6–12 words completing the sentence)}), showQuotes (boolean), quotes (array of 0–4 of {quote (18–32 words), author (full name), role (title, company)}).`,
+  `- "video-zigzag": "Your work. Your way." — a centered header, then 3–4 alternating rows: a product clip in a gradient-glow panel on one side and a compact lockup (title, body, optional arrow link) on the other. A premium, product-led alternative to zigzag-features. Props: eyebrow (""), headline (3–6 words), subheadline (10–18 words), startSide ("left"|"right"), rows (array of EXACTLY 3–4 of {title (3–6 words ending in a period), body (18–30 words), videoUrl ("" — ALWAYS blank), imageUrl ("" — server fills), imageAlt (4–8 words), linkText ("" or 2–3 words), linkUrl ("#")}).`,
+  `- "benchmark-bars": Head-to-head benchmark chart — a headline + body, a small caption, and 2–4 tall cards that ARE the bars (each fills from the bottom to its value; the highlighted card fills with the accent glow, the others show a gap figure like "+10.1 pts" above their fill), plus a methodology footnote. Use ONLY when the brief / brand context provides real comparative results — NEVER invent benchmark figures and NEVER name competitors that were not given. Props: eyebrow (""), headline (6–12 words), subheadline (20–34 words), chartLabel (4–8 words), bars (array of EXACTLY 2–4 of {label (2–5 words), value (integer 0–100 = fill height), delta ("" on the highlighted bar, otherwise a short gap figure), highlighted (true on EXACTLY ONE bar, listed FIRST)}), footnote (20–40 words on methodology, or "").`,
+  `- "video-card-trio": "Auditable. Private. Secured." — a centered headline, then EXACTLY 3 (or 4) tall cards each led by a looping product clip / illustration that blends into the card's glow, with a title and one-line body beneath. Props: eyebrow (""), headline (3–5 words — often three one-word sentences), subheadline (10–16 words), playMode ("inview"), cards (array of EXACTLY 3–4 of {title (3–6 words ending in a period), body (14–24 words), icon (Lucide icon NAME or ""), videoUrl ("" — ALWAYS blank), imageUrl ("" — server fills), imageAlt (4–8 words)}).`,
+  `- "glow-final-cta": Quiet closing block on the page surface — a centered two-line display headline, an optional one-line subheadline, a pill CTA pair, and the accent glow rising softly from the bottom edge. Use as the LAST content block before the footer (the light alternative to "aurora-cta-finale"). Props: headline (4–8 words restating the promise), subheadline ("" or 10–18 words), ctaText (2–4 words), ctaUrl ("#"), ctaSecondaryText ("" or 2–3 words), ctaSecondaryUrl ("#"), footnote ("" or 4–8 words).`,
   `- "aurora-cta-finale": The page's closing argument — a deep dark full-width CTA with slow-drifting aurora glows in brand tones, an oversized display headline, a large pill CTA pair, a short reassurance row, and a faint oversized brand watermark. Use as the LAST content block before the footer (a premium alternative to "bottom-cta"). Props: eyebrow (2–4 words), headline (4–9 words restating the page's core promise), subheadline (12–24 words removing the last objection), ctaText (2–4 words, action verb first), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), reassurances (array of EXACTLY 2–3 of {icon (one of "CheckCircle2","Sparkles","Shield","Zap","CreditCard","Clock","Lock","Star","Globe","Heart"), text (2–5 words)}), watermarkText (the brand name, or "" to use it automatically), showWatermark (boolean, default true).`,
 ];
 
