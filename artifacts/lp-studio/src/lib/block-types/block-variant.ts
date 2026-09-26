@@ -164,6 +164,13 @@ import type {
   BentoMosaicHeroBlockProps,
   KineticTypeHeroBlockProps,
   GlassBentoFeaturesBlockProps,
+  GlowVideoHeroBlockProps,
+  VideoStepShowcaseBlockProps,
+  GlowStatBandBlockProps,
+  VideoZigzagBlockProps,
+  BenchmarkBarsBlockProps,
+  VideoCardTrioBlockProps,
+  GlowFinalCtaBlockProps,
   FeatureTabsShowcaseBlockProps,
   StatCounterBandBlockProps,
   TestimonialWallBlockProps,
@@ -445,6 +452,13 @@ export type BlockVariant =
   | { type: "bento-mosaic-hero"; props: BentoMosaicHeroBlockProps }
   | { type: "kinetic-type-hero"; props: KineticTypeHeroBlockProps }
   | { type: "glass-bento-features"; props: GlassBentoFeaturesBlockProps }
+  | { type: "glow-video-hero"; props: GlowVideoHeroBlockProps }
+  | { type: "video-step-showcase"; props: VideoStepShowcaseBlockProps }
+  | { type: "glow-stat-band"; props: GlowStatBandBlockProps }
+  | { type: "video-zigzag"; props: VideoZigzagBlockProps }
+  | { type: "benchmark-bars"; props: BenchmarkBarsBlockProps }
+  | { type: "video-card-trio"; props: VideoCardTrioBlockProps }
+  | { type: "glow-final-cta"; props: GlowFinalCtaBlockProps }
   | { type: "feature-tabs-showcase"; props: FeatureTabsShowcaseBlockProps }
   | { type: "stat-counter-band"; props: StatCounterBandBlockProps }
   | { type: "testimonial-wall"; props: TestimonialWallBlockProps }

@@ -4991,6 +4991,15 @@ export type {
   GlassBentoCard,
   GlassBentoCardSpan,
 } from "@/blocks/BlockGlassBentoFeatures";
+
+/* ── Stack family (Sept 2026): glow/video blocks — props live in the component files. */
+export type { GlowVideoHeroBlockProps } from "@/blocks/BlockGlowVideoHero";
+export type { VideoStepShowcaseBlockProps, VideoStepItem } from "@/blocks/BlockVideoStepShowcase";
+export type { GlowStatBandBlockProps, GlowStatItem, GlowStatQuote } from "@/blocks/BlockGlowStatBand";
+export type { VideoZigzagBlockProps, VideoZigzagRow } from "@/blocks/BlockVideoZigzag";
+export type { BenchmarkBarsBlockProps, BenchmarkBar } from "@/blocks/BlockBenchmarkBars";
+export type { VideoCardTrioBlockProps, VideoTrioCard } from "@/blocks/BlockVideoCardTrio";
+export type { GlowFinalCtaBlockProps } from "@/blocks/BlockGlowFinalCta";
 export type {
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,

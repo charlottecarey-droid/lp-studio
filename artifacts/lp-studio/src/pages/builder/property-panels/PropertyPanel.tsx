@@ -204,6 +204,13 @@ import { LaunchSpotlightHeroPanel } from "./LaunchSpotlightHeroPanel";
 import { BentoMosaicHeroPanel } from "./BentoMosaicHeroPanel";
 import { KineticTypeHeroPanel } from "./KineticTypeHeroPanel";
 import { GlassBentoFeaturesPanel } from "./GlassBentoFeaturesPanel";
+import { GlowVideoHeroPanel } from "./GlowVideoHeroPanel";
+import { VideoStepShowcasePanel } from "./VideoStepShowcasePanel";
+import { GlowStatBandPanel } from "./GlowStatBandPanel";
+import { VideoZigzagPanel } from "./VideoZigzagPanel";
+import { BenchmarkBarsPanel } from "./BenchmarkBarsPanel";
+import { VideoCardTrioPanel } from "./VideoCardTrioPanel";
+import { GlowFinalCtaPanel } from "./GlowFinalCtaPanel";
 import { FeatureTabsShowcasePanel } from "./FeatureTabsShowcasePanel";
 import { StatCounterBandPanel } from "./StatCounterBandPanel";
 import { TestimonialWallPanel } from "./TestimonialWallPanel";
@@ -1565,6 +1572,57 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <GlassBentoFeaturesPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "glow-video-hero":
+        return (
+          <GlowVideoHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "video-step-showcase":
+        return (
+          <VideoStepShowcasePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "glow-stat-band":
+        return (
+          <GlowStatBandPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "video-zigzag":
+        return (
+          <VideoZigzagPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "benchmark-bars":
+        return (
+          <BenchmarkBarsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "video-card-trio":
+        return (
+          <VideoCardTrioPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "glow-final-cta":
+        return (
+          <GlowFinalCtaPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "feature-tabs-showcase":

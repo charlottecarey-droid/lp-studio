@@ -150,6 +150,13 @@ import { BlockLaunchSpotlightHero } from "./BlockLaunchSpotlightHero";
 import { BlockBentoMosaicHero } from "./BlockBentoMosaicHero";
 import { BlockKineticTypeHero } from "./BlockKineticTypeHero";
 import { BlockGlassBentoFeatures } from "./BlockGlassBentoFeatures";
+import { BlockGlowVideoHero } from "./BlockGlowVideoHero";
+import { BlockVideoStepShowcase } from "./BlockVideoStepShowcase";
+import { BlockGlowStatBand } from "./BlockGlowStatBand";
+import { BlockVideoZigzag } from "./BlockVideoZigzag";
+import { BlockBenchmarkBars } from "./BlockBenchmarkBars";
+import { BlockVideoCardTrio } from "./BlockVideoCardTrio";
+import { BlockGlowFinalCta } from "./BlockGlowFinalCta";
 import { BlockFeatureTabsShowcase } from "./BlockFeatureTabsShowcase";
 import { BlockStatCounterBand } from "./BlockStatCounterBand";
 import { BlockTestimonialWall } from "./BlockTestimonialWall";
@@ -466,6 +473,11 @@ export const NO_REVEAL = new Set<string>([
   "launch-spotlight-hero", "bento-mosaic-hero", "kinetic-type-hero",
   "glass-bento-features", "feature-tabs-showcase", "stat-counter-band",
   "testimonial-wall",
+  // Stack family (Sept 2026): first-paint hero with its own entrance, plus
+  // sections that own staggered whileInView reveals, a sticky media panel,
+  // count-ups, and scroll-linked bar fills. glow-final-cta stays eligible.
+  "glow-video-hero", "video-step-showcase", "glow-stat-band", "video-zigzag",
+  "benchmark-bars", "video-card-trio",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   // Extracted Event Page sections — same internal staggered whileInView
   // reveals as their parent; the outer wrapper would double-animate them.
@@ -1551,6 +1563,82 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
           <BlockGlassBentoFeatures
             props={block.props}
             brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "glow-video-hero":
+        return (
+          <BlockGlowVideoHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "video-step-showcase":
+        return (
+          <BlockVideoStepShowcase
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "glow-stat-band":
+        return (
+          <BlockGlowStatBand
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "video-zigzag":
+        return (
+          <BlockVideoZigzag
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "benchmark-bars":
+        return (
+          <BlockBenchmarkBars
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "video-card-trio":
+        return (
+          <BlockVideoCardTrio
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "glow-final-cta":
+        return (
+          <BlockGlowFinalCta
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

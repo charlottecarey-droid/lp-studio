@@ -113,6 +113,8 @@ export const HERO_TYPES = new Set([
   "event-activations",
   // Webinar Hub leads with an event hero (and carries its own CTA + lead form).
   "webinar-hub",
+  // Stack family glow hero (Sept 2026).
+  "glow-video-hero",
 ]);
 
 // Calls-to-action: explicit CTA strips, buttons, and interactive conversion
@@ -124,6 +126,8 @@ export const CTA_TYPES = new Set([
   // Family D final-CTA section blocks (all carry the "cta" role).
   "full-bleed-final-cta", "split-form-final-cta", "stat-backed-final-cta",
   "social-urgency-final-cta", "gradient-glow-final-cta", "video-background-final-cta",
+  // Stack family closing block.
+  "glow-final-cta",
 ]);
 
 // Lead-capture / conversion paths: forms, email capture, booking, reservations.
@@ -173,6 +177,8 @@ export const AUTHORITY_TYPES = new Set([
   "pas-stat-agitate", "stat-backed-final-cta",
   // June-2026 count-up metrics band (carries the "stats" role).
   "stat-counter-band",
+  // Stack family glow stat band (stats + quote row).
+  "glow-stat-band",
 ]);
 
 // Structured content sections AI engines can extract organized answers from.
@@ -212,6 +218,8 @@ export const STRUCTURED_TYPES = new Set([
   "icon-row", "media-cards-row",
   // PAS icon grid carries the "features" role.
   "pas-icon-grid",
+  // Stack family feature showcases (Sept 2026, all carry the "features" role).
+  "video-step-showcase", "video-zigzag", "video-card-trio",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").
@@ -220,6 +228,8 @@ export const COMPARISON_TYPES = new Set([
   "features-comparison-checklist",
   // PAS before/after contrast block carries the "comparison" role.
   "pas-before-after",
+  // Stack family benchmark chart.
+  "benchmark-bars",
 ]);
 
 // FAQ / Q&A blocks reinforce the question-answer GEO signal.

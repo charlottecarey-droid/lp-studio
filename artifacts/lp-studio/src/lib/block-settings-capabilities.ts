@@ -201,6 +201,15 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "glass-pricing-tiers": SELF_STYLED,
   "aurora-cta-finale": SELF_STYLED,
 
+  // Stack family (Sept 2026): every block owns its surface, glow and inks
+  "glow-video-hero": HERO_LIKE,
+  "video-step-showcase": SELF_STYLED,
+  "glow-stat-band": SELF_STYLED,
+  "video-zigzag": SELF_STYLED,
+  "benchmark-bars": SELF_STYLED,
+  "video-card-trio": SELF_STYLED,
+  "glow-final-cta": SELF_STYLED,
+
   // Full-page template monoliths: own their entire surface, palette, and motion
   "storybrand-journey": SELF_STYLED,
   "exec-decision-brief": SELF_STYLED,

@@ -45,6 +45,28 @@ describe("NO_REVEAL — June-2026 modern block wave", () => {
   );
 });
 
+describe("NO_REVEAL — Stack family (Sept 2026)", () => {
+  // The glow hero is first-paint with its own entrance; the sections own
+  // staggered whileInView reveals, a sticky media panel (step showcase),
+  // count-ups (stat band) and scroll-linked bar fills (benchmark bars) — the
+  // outer reveal wrapper would double-animate them and its transform breaks
+  // position:sticky / useInView math.
+  it.each([
+    "glow-video-hero",
+    "video-step-showcase",
+    "glow-stat-band",
+    "video-zigzag",
+    "benchmark-bars",
+    "video-card-trio",
+  ])("excludes %s from reveal wrapping", (type) => {
+    expect(NO_REVEAL.has(type)).toBe(true);
+  });
+
+  it("keeps glow-final-cta eligible for the viewer reveal (no internal scroll-linked motion)", () => {
+    expect(NO_REVEAL.has("glow-final-cta")).toBe(false);
+  });
+});
+
 describe("NO_REVEAL — extracted Event Page sections", () => {
   // Same internal staggered whileInView reveals as their parent event-page;
   // the outer reveal wrapper would double-animate them.

@@ -164,6 +164,13 @@ import type {
   FeatureTabsShowcaseBlockProps,
   StatCounterBandBlockProps,
   TestimonialWallBlockProps,
+  GlowVideoHeroBlockProps,
+  VideoStepShowcaseBlockProps,
+  GlowStatBandBlockProps,
+  VideoZigzagBlockProps,
+  BenchmarkBarsBlockProps,
+  VideoCardTrioBlockProps,
+  GlowFinalCtaBlockProps,
   GlassPricingTiersBlockProps,
   AuroraCtaFinaleBlockProps,
   StorybrandJourneyBlockProps,
@@ -184,6 +191,13 @@ import type {
 // the only runtime lib→blocks imports and the components import nothing back
 // from block-types at runtime (their block-types imports are type-only).
 import { GLASS_BENTO_DEFAULT_PROPS } from "@/blocks/BlockGlassBentoFeatures";
+import { GLOW_VIDEO_HERO_DEFAULT_PROPS } from "@/blocks/BlockGlowVideoHero";
+import { VIDEO_STEP_SHOWCASE_DEFAULT_PROPS } from "@/blocks/BlockVideoStepShowcase";
+import { GLOW_STAT_BAND_DEFAULT_PROPS } from "@/blocks/BlockGlowStatBand";
+import { VIDEO_ZIGZAG_DEFAULT_PROPS } from "@/blocks/BlockVideoZigzag";
+import { BENCHMARK_BARS_DEFAULT_PROPS } from "@/blocks/BlockBenchmarkBars";
+import { VIDEO_CARD_TRIO_DEFAULT_PROPS } from "@/blocks/BlockVideoCardTrio";
+import { GLOW_FINAL_CTA_DEFAULT_PROPS } from "@/blocks/BlockGlowFinalCta";
 import { FEATURE_TABS_DEFAULT_PROPS } from "@/blocks/BlockFeatureTabsShowcase";
 import { STAT_COUNTER_DEFAULT_PROPS } from "@/blocks/BlockStatCounterBand";
 import { TESTIMONIAL_WALL_DEFAULT_PROPS } from "@/blocks/BlockTestimonialWall";
@@ -9103,6 +9117,139 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  // ── Stack family (Sept 2026): Ramp-style glow/video blocks ───────────────
+  {
+    type: "glow-video-hero",
+    label: "Hero — Glow Video",
+    category: "Showcase",
+    defaultProps: (): GlowVideoHeroBlockProps => structuredClone(GLOW_VIDEO_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="gvhT" cx="50%" cy="100%" r="70%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#EDEBE6" /></radialGradient></defs>
+        <rect width="120" height="70" fill="#F5F4F0" rx="4" />
+        <rect x="30" y="10" width="60" height="6" rx="2" fill="#0B0B0F" />
+        <rect x="42" y="20" width="36" height="3" rx="1.5" fill="#0B0B0F" opacity="0.4" />
+        <rect x="49" y="27" width="22" height="6" rx="3" fill="#D9E84A" />
+        <rect x="14" y="40" width="92" height="40" rx="6" fill="url(#gvhT)" />
+        <rect x="22" y="46" width="76" height="30" rx="3" fill="#ffffff" opacity="0.85" />
+        <rect x="27" y="51" width="30" height="3" rx="1.5" fill="#0B0B0F" opacity="0.5" />
+        <rect x="27" y="58" width="50" height="3" rx="1.5" fill="#0B0B0F" opacity="0.2" />
+      </svg>
+    ),
+  },
+  {
+    type: "video-step-showcase",
+    label: "Features — Video Steps",
+    category: "Showcase",
+    defaultProps: (): VideoStepShowcaseBlockProps => structuredClone(VIDEO_STEP_SHOWCASE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="vssT" cx="10%" cy="100%" r="90%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#EDEBE6" /></radialGradient></defs>
+        <rect width="120" height="70" fill="#F5F4F0" rx="4" />
+        <rect x="28" y="8" width="64" height="5" rx="2" fill="#0B0B0F" />
+        <rect x="10" y="24" width="30" height="4" rx="2" fill="#0B0B0F" />
+        <rect x="10" y="31" width="36" height="2" rx="1" fill="#0B0B0F" opacity="0.4" />
+        <rect x="10" y="35" width="26" height="2" rx="1" fill="#0B0B0F" opacity="0.4" />
+        <rect x="10" y="40" width="34" height="1.5" rx="0.75" fill="#D9E84A" />
+        <rect x="10" y="48" width="26" height="3" rx="1.5" fill="#0B0B0F" opacity="0.3" />
+        <rect x="10" y="58" width="22" height="3" rx="1.5" fill="#0B0B0F" opacity="0.3" />
+        <rect x="54" y="20" width="56" height="44" rx="5" fill="url(#vssT)" />
+        <rect x="62" y="28" width="48" height="36" rx="3" fill="#ffffff" opacity="0.85" />
+      </svg>
+    ),
+  },
+  {
+    type: "glow-stat-band",
+    label: "Stats — Glow Band",
+    category: "Showcase",
+    defaultProps: (): GlowStatBandBlockProps => structuredClone(GLOW_STAT_BAND_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="gsbT" cx="10%" cy="100%" r="90%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#F5F4F0" /></radialGradient></defs>
+        <rect width="120" height="70" fill="#121212" rx="4" />
+        <rect x="30" y="8" width="60" height="5" rx="2" fill="#ffffff" />
+        <rect x="8" y="20" width="50" height="34" rx="4" fill="url(#gsbT)" />
+        <rect x="62" y="20" width="50" height="34" rx="4" fill="url(#gsbT)" />
+        <rect x="14" y="38" width="22" height="9" rx="1" fill="#0B0B0F" />
+        <rect x="68" y="38" width="18" height="9" rx="1" fill="#0B0B0F" />
+        {[0,1,2,3].map(i => <rect key={i} x={8 + i * 27} y="60" width="22" height="2" rx="1" fill="#ffffff" opacity="0.4" />)}
+      </svg>
+    ),
+  },
+  {
+    type: "video-zigzag",
+    label: "Features — Video Zigzag",
+    category: "Showcase",
+    defaultProps: (): VideoZigzagBlockProps => structuredClone(VIDEO_ZIGZAG_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="vzzT" cx="10%" cy="100%" r="90%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#EDEBE6" /></radialGradient></defs>
+        <rect width="120" height="70" fill="#F5F4F0" rx="4" />
+        <rect x="8" y="8" width="56" height="24" rx="4" fill="url(#vzzT)" />
+        <rect x="72" y="14" width="34" height="4" rx="2" fill="#0B0B0F" />
+        <rect x="72" y="21" width="40" height="2" rx="1" fill="#0B0B0F" opacity="0.4" />
+        <rect x="56" y="38" width="56" height="24" rx="4" fill="url(#vzzT)" />
+        <rect x="8" y="44" width="34" height="4" rx="2" fill="#0B0B0F" />
+        <rect x="8" y="51" width="40" height="2" rx="1" fill="#0B0B0F" opacity="0.4" />
+      </svg>
+    ),
+  },
+  {
+    type: "benchmark-bars",
+    label: "Comparison — Benchmark Bars",
+    category: "Showcase",
+    defaultProps: (): BenchmarkBarsBlockProps => structuredClone(BENCHMARK_BARS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="bbrT" cx="10%" cy="100%" r="90%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#EDEBE6" /></radialGradient></defs>
+        <rect width="120" height="70" fill="#F5F4F0" rx="4" />
+        <rect x="8" y="8" width="70" height="5" rx="2" fill="#0B0B0F" />
+        <rect x="8" y="16" width="50" height="2" rx="1" fill="#0B0B0F" opacity="0.4" />
+        <rect x="8" y="24" width="32" height="40" rx="4" fill="#ffffff" stroke="#e2e2dd" />
+        <rect x="8" y="24" width="32" height="40" rx="4" fill="url(#bbrT)" />
+        <rect x="44" y="24" width="32" height="40" rx="4" fill="#ffffff" stroke="#e2e2dd" />
+        <rect x="44" y="36" width="32" height="28" rx="4" fill="#0B0B0F" opacity="0.06" />
+        <rect x="80" y="24" width="32" height="40" rx="4" fill="#ffffff" stroke="#e2e2dd" />
+        <rect x="80" y="46" width="32" height="18" rx="4" fill="#0B0B0F" opacity="0.06" />
+      </svg>
+    ),
+  },
+  {
+    type: "video-card-trio",
+    label: "Features — Video Card Trio",
+    category: "Showcase",
+    defaultProps: (): VideoCardTrioBlockProps => structuredClone(VIDEO_CARD_TRIO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="vctT" cx="10%" cy="100%" r="90%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#EDEBE6" /></radialGradient></defs>
+        <rect width="120" height="70" fill="#F5F4F0" rx="4" />
+        <rect x="26" y="8" width="68" height="5" rx="2" fill="#0B0B0F" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={8 + i * 36} y="20" width="32" height="44" rx="4" fill="url(#vctT)" />
+            <rect x={12 + i * 36} y="24" width="24" height="18" rx="2" fill="#ffffff" opacity="0.85" />
+            <rect x={12 + i * 36} y="48" width="18" height="3" rx="1.5" fill="#0B0B0F" />
+            <rect x={12 + i * 36} y="54" width="24" height="2" rx="1" fill="#0B0B0F" opacity="0.4" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "glow-final-cta",
+    label: "Final CTA — Glow",
+    category: "CTA",
+    defaultProps: (): GlowFinalCtaBlockProps => structuredClone(GLOW_FINAL_CTA_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="gfcT" cx="50%" cy="120%" r="70%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#F5F4F0" /></radialGradient></defs>
+        <rect width="120" height="70" fill="url(#gfcT)" rx="4" />
+        <rect x="24" y="20" width="72" height="7" rx="2" fill="#0B0B0F" />
+        <rect x="36" y="31" width="48" height="3" rx="1.5" fill="#0B0B0F" opacity="0.4" />
+        <rect x="46" y="42" width="28" height="9" rx="4.5" fill="#0B0B0F" />
+      </svg>
+    ),
+  },
   {
     type: "glass-pricing-tiers",
     label: "Pricing — Glass Tiers",
@@ -9417,6 +9564,13 @@ export function createBlock(type: "launch-spotlight-hero"): Extract<PageBlock, {
 export function createBlock(type: "bento-mosaic-hero"): Extract<PageBlock, { type: "bento-mosaic-hero" }>;
 export function createBlock(type: "kinetic-type-hero"): Extract<PageBlock, { type: "kinetic-type-hero" }>;
 export function createBlock(type: "glass-bento-features"): Extract<PageBlock, { type: "glass-bento-features" }>;
+export function createBlock(type: "glow-video-hero"): Extract<PageBlock, { type: "glow-video-hero" }>;
+export function createBlock(type: "video-step-showcase"): Extract<PageBlock, { type: "video-step-showcase" }>;
+export function createBlock(type: "glow-stat-band"): Extract<PageBlock, { type: "glow-stat-band" }>;
+export function createBlock(type: "video-zigzag"): Extract<PageBlock, { type: "video-zigzag" }>;
+export function createBlock(type: "benchmark-bars"): Extract<PageBlock, { type: "benchmark-bars" }>;
+export function createBlock(type: "video-card-trio"): Extract<PageBlock, { type: "video-card-trio" }>;
+export function createBlock(type: "glow-final-cta"): Extract<PageBlock, { type: "glow-final-cta" }>;
 export function createBlock(type: "feature-tabs-showcase"): Extract<PageBlock, { type: "feature-tabs-showcase" }>;
 export function createBlock(type: "stat-counter-band"): Extract<PageBlock, { type: "stat-counter-band" }>;
 export function createBlock(type: "testimonial-wall"): Extract<PageBlock, { type: "testimonial-wall" }>;
@@ -9780,6 +9934,13 @@ export function createBlock(type: BlockType): PageBlock {
     case "bento-mosaic-hero": return { id, type: "bento-mosaic-hero", props: props as BentoMosaicHeroBlockProps };
     case "kinetic-type-hero": return { id, type: "kinetic-type-hero", props: props as KineticTypeHeroBlockProps };
     case "glass-bento-features": return { id, type: "glass-bento-features", props: props as GlassBentoFeaturesBlockProps };
+    case "glow-video-hero": return { id, type: "glow-video-hero", props: props as GlowVideoHeroBlockProps };
+    case "video-step-showcase": return { id, type: "video-step-showcase", props: props as VideoStepShowcaseBlockProps };
+    case "glow-stat-band": return { id, type: "glow-stat-band", props: props as GlowStatBandBlockProps };
+    case "video-zigzag": return { id, type: "video-zigzag", props: props as VideoZigzagBlockProps };
+    case "benchmark-bars": return { id, type: "benchmark-bars", props: props as BenchmarkBarsBlockProps };
+    case "video-card-trio": return { id, type: "video-card-trio", props: props as VideoCardTrioBlockProps };
+    case "glow-final-cta": return { id, type: "glow-final-cta", props: props as GlowFinalCtaBlockProps };
     case "feature-tabs-showcase": return { id, type: "feature-tabs-showcase", props: props as FeatureTabsShowcaseBlockProps };
     case "stat-counter-band": return { id, type: "stat-counter-band", props: props as StatCounterBandBlockProps };
     case "testimonial-wall": return { id, type: "testimonial-wall", props: props as TestimonialWallBlockProps };
