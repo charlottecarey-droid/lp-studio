@@ -172,6 +172,12 @@ import type {
   VideoCardTrioBlockProps,
   GlowFinalCtaBlockProps,
   GlowFormHeroBlockProps,
+  InviteDemoHeroBlockProps,
+  InviteDetailsBlockProps,
+  InviteAgendaBlockProps,
+  InviteShowcaseBlockProps,
+  InviteProofBlockProps,
+  InviteReserveBlockProps,
   GlassPricingTiersBlockProps,
   AuroraCtaFinaleBlockProps,
   StorybrandJourneyBlockProps,
@@ -200,6 +206,12 @@ import { BENCHMARK_BARS_DEFAULT_PROPS } from "@/blocks/BlockBenchmarkBars";
 import { VIDEO_CARD_TRIO_DEFAULT_PROPS } from "@/blocks/BlockVideoCardTrio";
 import { GLOW_FINAL_CTA_DEFAULT_PROPS } from "@/blocks/BlockGlowFinalCta";
 import { GLOW_FORM_HERO_DEFAULT_PROPS } from "@/blocks/BlockGlowFormHero";
+import { INVITE_DEMO_HERO_DEFAULT_PROPS } from "@/blocks/BlockInviteDemoHero";
+import { INVITE_DETAILS_DEFAULT_PROPS } from "@/blocks/BlockInviteDetails";
+import { INVITE_AGENDA_DEFAULT_PROPS } from "@/blocks/BlockInviteAgenda";
+import { INVITE_SHOWCASE_DEFAULT_PROPS } from "@/blocks/BlockInviteShowcase";
+import { INVITE_PROOF_DEFAULT_PROPS } from "@/blocks/BlockInviteProof";
+import { INVITE_RESERVE_DEFAULT_PROPS } from "@/blocks/BlockInviteReserve";
 import { FEATURE_TABS_DEFAULT_PROPS } from "@/blocks/BlockFeatureTabsShowcase";
 import { STAT_COUNTER_DEFAULT_PROPS } from "@/blocks/BlockStatCounterBand";
 import { TESTIMONIAL_WALL_DEFAULT_PROPS } from "@/blocks/BlockTestimonialWall";
@@ -9275,6 +9287,61 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  // ── Invite family (Sept 2026): dark editorial invitation-style demo page ──
+  {
+    type: "invite-demo-hero",
+    label: "Hero — Invite (Book a Session)",
+    category: "Showcase",
+    defaultProps: (): InviteDemoHeroBlockProps => structuredClone(INVITE_DEMO_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="30" y="14" width="60" height="3" rx="1.5" fill="#D9E84A" opacity="0.7" /><rect x="22" y="24" width="76" height="9" rx="2" fill="#ffffff" /><rect x="30" y="37" width="60" height="9" rx="2" fill="#ffffff" /><rect x="46" y="52" width="28" height="8" rx="4" fill="#D9E84A" /></svg>
+    ),
+  },
+  {
+    type: "invite-details",
+    label: "Invite — The Details",
+    category: "Showcase",
+    defaultProps: (): InviteDetailsBlockProps => structuredClone(INVITE_DETAILS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="40" y="10" width="40" height="5" rx="2" fill="#ffffff" /><line x1="8" y1="24" x2="112" y2="24" stroke="#ffffff" strokeOpacity="0.2" /><line x1="8" y1="62" x2="112" y2="62" stroke="#ffffff" strokeOpacity="0.2" /><line x1="8" y1="24" x2="8" y2="62" stroke="#ffffff" strokeOpacity="0.2" /><rect x="14" y="32" width="8" height="1.5" fill="#D9E84A" /><rect x="14" y="40" width="22" height="5" rx="1" fill="#ffffff" opacity="0.9" /><rect x="14" y="50" width="18" height="2" rx="1" fill="#ffffff" opacity="0.4" /><line x1="43" y1="24" x2="43" y2="62" stroke="#ffffff" strokeOpacity="0.2" /><rect x="49" y="32" width="8" height="1.5" fill="#D9E84A" /><rect x="49" y="40" width="22" height="5" rx="1" fill="#ffffff" opacity="0.9" /><rect x="49" y="50" width="18" height="2" rx="1" fill="#ffffff" opacity="0.4" /><line x1="78" y1="24" x2="78" y2="62" stroke="#ffffff" strokeOpacity="0.2" /><rect x="84" y="32" width="8" height="1.5" fill="#D9E84A" /><rect x="84" y="40" width="22" height="5" rx="1" fill="#ffffff" opacity="0.9" /><rect x="84" y="50" width="18" height="2" rx="1" fill="#ffffff" opacity="0.4" /></svg>
+    ),
+  },
+  {
+    type: "invite-agenda",
+    label: "Invite — The Agenda",
+    category: "Showcase",
+    defaultProps: (): InviteAgendaBlockProps => structuredClone(INVITE_AGENDA_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="36" y="8" width="48" height="5" rx="2" fill="#ffffff" /><line x1="8" y1="22" x2="112" y2="22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="8" y="27" width="16" height="2" rx="1" fill="#D9E84A" opacity="0.8" /><rect x="40" y="26" width="34" height="4" rx="1" fill="#ffffff" opacity="0.9" /><rect x="40" y="32" width="60" height="2" rx="1" fill="#ffffff" opacity="0.35" /><line x1="8" y1="38" x2="112" y2="38" stroke="#ffffff" strokeOpacity="0.2" /><rect x="8" y="43" width="16" height="2" rx="1" fill="#D9E84A" opacity="0.8" /><rect x="40" y="42" width="34" height="4" rx="1" fill="#ffffff" opacity="0.9" /><rect x="40" y="48" width="60" height="2" rx="1" fill="#ffffff" opacity="0.35" /><line x1="8" y1="54" x2="112" y2="54" stroke="#ffffff" strokeOpacity="0.2" /><rect x="8" y="59" width="16" height="2" rx="1" fill="#D9E84A" opacity="0.8" /><rect x="40" y="58" width="34" height="4" rx="1" fill="#ffffff" opacity="0.9" /><rect x="40" y="64" width="60" height="2" rx="1" fill="#ffffff" opacity="0.35" /></svg>
+    ),
+  },
+  {
+    type: "invite-showcase",
+    label: "Invite — Showcase",
+    category: "Showcase",
+    defaultProps: (): InviteShowcaseBlockProps => structuredClone(INVITE_SHOWCASE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="10" width="12" height="1.5" fill="#D9E84A" /><rect x="8" y="16" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="26" width="30" height="7" rx="2" fill="#D9E84A" /><rect x="8" y="40" width="104" height="24" rx="4" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="14" y="46" width="60" height="3" rx="1" fill="#ffffff" opacity="0.5" /></svg>
+    ),
+  },
+  {
+    type: "invite-proof",
+    label: "Invite — Proof",
+    category: "Showcase",
+    defaultProps: (): InviteProofBlockProps => structuredClone(INVITE_PROOF_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="30" y="10" width="60" height="6" rx="2" fill="#ffffff" opacity="0.95" /><rect x="40" y="19" width="40" height="6" rx="2" fill="#ffffff" opacity="0.95" /><rect x="48" y="30" width="24" height="2" rx="1" fill="#D9E84A" /><line x1="8" y1="42" x2="112" y2="42" stroke="#ffffff" strokeOpacity="0.2" /><line x1="8" y1="64" x2="112" y2="64" stroke="#ffffff" strokeOpacity="0.2" /><rect x="16" y="47" width="16" height="8" rx="1" fill="#ffffff" /><rect x="51" y="47" width="16" height="8" rx="1" fill="#ffffff" /><rect x="86" y="47" width="16" height="8" rx="1" fill="#ffffff" /></svg>
+    ),
+  },
+  {
+    type: "invite-reserve",
+    label: "Invite — Reserve (Form)",
+    category: "CTA",
+    defaultProps: (): InviteReserveBlockProps => structuredClone(INVITE_RESERVE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#D9E84A" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="36" height="7" rx="2" fill="#ffffff" /><rect x="62" y="10" width="50" height="52" rx="5" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="68" y="16" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="25" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="34" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="43" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="50" width="38" height="7" rx="3.5" fill="#D9E84A" /></svg>
+    ),
+  },
   {
     type: "glass-pricing-tiers",
     label: "Pricing — Glass Tiers",
@@ -9597,6 +9664,12 @@ export function createBlock(type: "benchmark-bars"): Extract<PageBlock, { type: 
 export function createBlock(type: "video-card-trio"): Extract<PageBlock, { type: "video-card-trio" }>;
 export function createBlock(type: "glow-final-cta"): Extract<PageBlock, { type: "glow-final-cta" }>;
 export function createBlock(type: "glow-form-hero"): Extract<PageBlock, { type: "glow-form-hero" }>;
+export function createBlock(type: "invite-demo-hero"): Extract<PageBlock, { type: "invite-demo-hero" }>;
+export function createBlock(type: "invite-details"): Extract<PageBlock, { type: "invite-details" }>;
+export function createBlock(type: "invite-agenda"): Extract<PageBlock, { type: "invite-agenda" }>;
+export function createBlock(type: "invite-showcase"): Extract<PageBlock, { type: "invite-showcase" }>;
+export function createBlock(type: "invite-proof"): Extract<PageBlock, { type: "invite-proof" }>;
+export function createBlock(type: "invite-reserve"): Extract<PageBlock, { type: "invite-reserve" }>;
 export function createBlock(type: "feature-tabs-showcase"): Extract<PageBlock, { type: "feature-tabs-showcase" }>;
 export function createBlock(type: "stat-counter-band"): Extract<PageBlock, { type: "stat-counter-band" }>;
 export function createBlock(type: "testimonial-wall"): Extract<PageBlock, { type: "testimonial-wall" }>;
@@ -9968,6 +10041,12 @@ export function createBlock(type: BlockType): PageBlock {
     case "video-card-trio": return { id, type: "video-card-trio", props: props as VideoCardTrioBlockProps };
     case "glow-final-cta": return { id, type: "glow-final-cta", props: props as GlowFinalCtaBlockProps };
     case "glow-form-hero": return { id, type: "glow-form-hero", props: props as GlowFormHeroBlockProps };
+    case "invite-demo-hero": return { id, type: "invite-demo-hero", props: props as InviteDemoHeroBlockProps };
+    case "invite-details": return { id, type: "invite-details", props: props as InviteDetailsBlockProps };
+    case "invite-agenda": return { id, type: "invite-agenda", props: props as InviteAgendaBlockProps };
+    case "invite-showcase": return { id, type: "invite-showcase", props: props as InviteShowcaseBlockProps };
+    case "invite-proof": return { id, type: "invite-proof", props: props as InviteProofBlockProps };
+    case "invite-reserve": return { id, type: "invite-reserve", props: props as InviteReserveBlockProps };
     case "feature-tabs-showcase": return { id, type: "feature-tabs-showcase", props: props as FeatureTabsShowcaseBlockProps };
     case "stat-counter-band": return { id, type: "stat-counter-band", props: props as StatCounterBandBlockProps };
     case "testimonial-wall": return { id, type: "testimonial-wall", props: props as TestimonialWallBlockProps };

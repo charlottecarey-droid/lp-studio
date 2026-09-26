@@ -5001,6 +5001,15 @@ export type { BenchmarkBarsBlockProps, BenchmarkBar } from "@/blocks/BlockBenchm
 export type { VideoCardTrioBlockProps, VideoTrioCard } from "@/blocks/BlockVideoCardTrio";
 export type { GlowFinalCtaBlockProps } from "@/blocks/BlockGlowFinalCta";
 export type { GlowFormHeroBlockProps, GlowFormField } from "@/blocks/BlockGlowFormHero";
+
+/* ── Invite family (Sept 2026): dark editorial invitation-style demo page. */
+export type { InviteDemoHeroBlockProps, InviteFact } from "@/blocks/BlockInviteDemoHero";
+export type { InviteDetailsBlockProps, InviteDetailItem } from "@/blocks/BlockInviteDetails";
+export type { InviteAgendaBlockProps, InviteAgendaItem } from "@/blocks/BlockInviteAgenda";
+export type { InviteShowcaseBlockProps, InviteShowcaseFeature } from "@/blocks/BlockInviteShowcase";
+export type { InviteProofBlockProps, InviteProofStat } from "@/blocks/BlockInviteProof";
+export type { InviteReserveBlockProps } from "@/blocks/BlockInviteReserve";
+export type { InviteFormConfig, InviteFormField } from "@/blocks/invite/InviteLeadForm";
 export type {
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,

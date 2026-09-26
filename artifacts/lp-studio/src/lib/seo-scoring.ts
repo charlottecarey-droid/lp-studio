@@ -116,6 +116,8 @@ export const HERO_TYPES = new Set([
   // Stack family glow hero (Sept 2026).
   "glow-video-hero",
   "glow-form-hero",
+  // Invite family self-nav hero (Sept 2026).
+  "invite-demo-hero",
 ]);
 
 // Calls-to-action: explicit CTA strips, buttons, and interactive conversion
@@ -129,6 +131,8 @@ export const CTA_TYPES = new Set([
   "social-urgency-final-cta", "gradient-glow-final-cta", "video-background-final-cta",
   // Stack family closing block.
   "glow-final-cta",
+  // Invite family reservation section.
+  "invite-reserve",
 ]);
 
 // Lead-capture / conversion paths: forms, email capture, booking, reservations.
@@ -139,6 +143,8 @@ export const LEAD_CAPTURE_TYPES = new Set([
   "split-form-final-cta",
   // Stack family demo-booking hero (inline lead form).
   "glow-form-hero",
+  // Invite family reservation form.
+  "invite-reserve",
 ]);
 
 // Social proof: testimonials, customer stories, case studies, results galleries.
@@ -168,6 +174,8 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "social-urgency-final-cta",
   // June-2026 masonry quote wall (graduated SOCIAL-PROOF family).
   "testimonial-wall",
+  // Invite family proof band (pull quote + stats).
+  "invite-proof",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
@@ -223,6 +231,8 @@ export const STRUCTURED_TYPES = new Set([
   "pas-icon-grid",
   // Stack family feature showcases (Sept 2026, all carry the "features" role).
   "video-step-showcase", "video-zigzag", "video-card-trio",
+  // Invite family structured sections.
+  "invite-details", "invite-agenda", "invite-showcase",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").

@@ -204,6 +204,12 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   // Stack family (Sept 2026): every block owns its surface, glow and inks
   "glow-video-hero": HERO_LIKE,
   "glow-form-hero": HERO_LIKE,
+  "invite-demo-hero": HERO_LIKE,
+  "invite-details": SELF_STYLED,
+  "invite-agenda": SELF_STYLED,
+  "invite-showcase": SELF_STYLED,
+  "invite-proof": SELF_STYLED,
+  "invite-reserve": SELF_STYLED,
   "video-step-showcase": SELF_STYLED,
   "glow-stat-band": SELF_STYLED,
   "video-zigzag": SELF_STYLED,

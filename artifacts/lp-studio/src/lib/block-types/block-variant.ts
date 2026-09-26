@@ -172,6 +172,12 @@ import type {
   VideoCardTrioBlockProps,
   GlowFinalCtaBlockProps,
   GlowFormHeroBlockProps,
+  InviteDemoHeroBlockProps,
+  InviteDetailsBlockProps,
+  InviteAgendaBlockProps,
+  InviteShowcaseBlockProps,
+  InviteProofBlockProps,
+  InviteReserveBlockProps,
   FeatureTabsShowcaseBlockProps,
   StatCounterBandBlockProps,
   TestimonialWallBlockProps,
@@ -461,6 +467,12 @@ export type BlockVariant =
   | { type: "video-card-trio"; props: VideoCardTrioBlockProps }
   | { type: "glow-final-cta"; props: GlowFinalCtaBlockProps }
   | { type: "glow-form-hero"; props: GlowFormHeroBlockProps }
+  | { type: "invite-demo-hero"; props: InviteDemoHeroBlockProps }
+  | { type: "invite-details"; props: InviteDetailsBlockProps }
+  | { type: "invite-agenda"; props: InviteAgendaBlockProps }
+  | { type: "invite-showcase"; props: InviteShowcaseBlockProps }
+  | { type: "invite-proof"; props: InviteProofBlockProps }
+  | { type: "invite-reserve"; props: InviteReserveBlockProps }
   | { type: "feature-tabs-showcase"; props: FeatureTabsShowcaseBlockProps }
   | { type: "stat-counter-band"; props: StatCounterBandBlockProps }
   | { type: "testimonial-wall"; props: TestimonialWallBlockProps }

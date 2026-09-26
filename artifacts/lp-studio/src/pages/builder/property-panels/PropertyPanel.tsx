@@ -212,6 +212,8 @@ import { BenchmarkBarsPanel } from "./BenchmarkBarsPanel";
 import { VideoCardTrioPanel } from "./VideoCardTrioPanel";
 import { GlowFinalCtaPanel } from "./GlowFinalCtaPanel";
 import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
+import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
+import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
 import { FeatureTabsShowcasePanel } from "./FeatureTabsShowcasePanel";
 import { StatCounterBandPanel } from "./StatCounterBandPanel";
 import { TestimonialWallPanel } from "./TestimonialWallPanel";
@@ -1629,6 +1631,48 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "glow-form-hero":
         return (
           <GlowFormHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "invite-demo-hero":
+        return (
+          <InviteDemoHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "invite-details":
+        return (
+          <InviteDetailsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "invite-agenda":
+        return (
+          <InviteAgendaPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "invite-showcase":
+        return (
+          <InviteShowcasePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "invite-proof":
+        return (
+          <InviteProofPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "invite-reserve":
+        return (
+          <InviteReservePanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

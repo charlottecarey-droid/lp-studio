@@ -324,6 +324,13 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   // Stack family (Sept 2026): Ramp-style glow/video blocks.
   "glow-video-hero": ["hero", "media"],
   "glow-form-hero": ["hero", "form", "cta"],
+  // Invite family (Sept 2026): dark editorial invitation-style demo page.
+  "invite-demo-hero": ["hero", "media", "cta"],
+  "invite-details": ["features"],
+  "invite-agenda": ["features"],
+  "invite-showcase": ["features", "media"],
+  "invite-proof": ["social-proof", "stats"],
+  "invite-reserve": ["form", "cta"],
   "video-step-showcase": ["features", "media"],
   "glow-stat-band": ["stats", "social-proof"],
   "video-zigzag": ["features", "media"],

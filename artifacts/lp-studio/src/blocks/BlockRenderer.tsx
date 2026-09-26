@@ -158,6 +158,12 @@ import { BlockBenchmarkBars } from "./BlockBenchmarkBars";
 import { BlockVideoCardTrio } from "./BlockVideoCardTrio";
 import { BlockGlowFinalCta } from "./BlockGlowFinalCta";
 import { BlockGlowFormHero } from "./BlockGlowFormHero";
+import { BlockInviteDemoHero } from "./BlockInviteDemoHero";
+import { BlockInviteDetails } from "./BlockInviteDetails";
+import { BlockInviteAgenda } from "./BlockInviteAgenda";
+import { BlockInviteShowcase } from "./BlockInviteShowcase";
+import { BlockInviteProof } from "./BlockInviteProof";
+import { BlockInviteReserve } from "./BlockInviteReserve";
 import { BlockFeatureTabsShowcase } from "./BlockFeatureTabsShowcase";
 import { BlockStatCounterBand } from "./BlockStatCounterBand";
 import { BlockTestimonialWall } from "./BlockTestimonialWall";
@@ -480,6 +486,8 @@ export const NO_REVEAL = new Set<string>([
   "glow-video-hero", "video-step-showcase", "glow-stat-band", "video-zigzag",
   "benchmark-bars", "video-card-trio",
   "glow-form-hero",
+  // Invite family: self-nav sticky hero + sections with their own staggered reveals.
+  "invite-demo-hero", "invite-details", "invite-agenda", "invite-showcase", "invite-proof", "invite-reserve",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   // Extracted Event Page sections — same internal staggered whileInView
   // reveals as their parent; the outer wrapper would double-animate them.
@@ -1649,6 +1657,71 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "glow-form-hero":
         return (
           <BlockGlowFormHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "invite-demo-hero":
+        return (
+          <BlockInviteDemoHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "invite-details":
+        return (
+          <BlockInviteDetails
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "invite-agenda":
+        return (
+          <BlockInviteAgenda
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "invite-showcase":
+        return (
+          <BlockInviteShowcase
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "invite-proof":
+        return (
+          <BlockInviteProof
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "invite-reserve":
+        return (
+          <BlockInviteReserve
             props={block.props}
             brand={brand}
             pageId={pageId}
