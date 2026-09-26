@@ -2205,7 +2205,9 @@ async function runMigrationsBody(): Promise<void> {
       // video-zigzag, benchmark-bars, video-card-trio, glow-final-cta).
       // v38: seed "Dandy for DSOs — Product Stack" (global-dandy-for-dsos), the
       // Stack-family replacement candidate for meetdandy.com/dso.
-      const SEED_MARKER = "global_templates_seed_v38";
+      // v39: seed "Book a DSO Working Session — Product Stack"
+      // (global-dandy-dso-demo), the Stack-family demo-booking page.
+      const SEED_MARKER = "global_templates_seed_v39";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
