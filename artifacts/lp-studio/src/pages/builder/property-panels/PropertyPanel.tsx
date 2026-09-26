@@ -3594,8 +3594,9 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             )}
 
-            {/* Full-bleed media */}
-            {(p.layout ?? "full-bleed") === "full-bleed" && (
+            {/* Background media — full-bleed, stacked-video and centered layouts
+                (the 2-column layouts show the asset in their own panel instead). */}
+            {["full-bleed", "stacked-video", "centered"].includes(p.layout ?? "full-bleed") && (
               <>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Background image (optional)</Label>

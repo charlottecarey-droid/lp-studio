@@ -367,3 +367,31 @@ describe("BlockDsoHeartlandHero accent legibility on the dark hero", () => {
     expect(normHex(declOf(ctaStyle, "color"))).toBe("#abcdef");
   });
 });
+
+describe("dso-heartland-hero — stacked / centered layouts honour the background asset", () => {
+  // Sept 2026: these layouts painted only the flat background preset and
+  // silently ignored `backgroundImageUrl` / `backgroundVideoUrl` (Charlotte:
+  // "I have one selected but it does not show up"). They now render the same
+  // asset layer as full-bleed — asset, brand tint, a symmetric scrim — and
+  // brighten the subheadline over it.
+  it.each(["stacked-video", "centered"] as const)("%s renders the background photo with tint + scrim and brightens the sub", (layout) => {
+    const markup = render(baseProps({ layout, backgroundImageUrl: LIGHT_BUSY_IMAGE }));
+    expect(markup).toContain(`src="${LIGHT_BUSY_IMAGE}"`);
+    expect(hasOverlayTintLayer(markup)).toBe(true);
+    expect(markup).toMatch(/linear-gradient\(180deg, rgba\(0,0,0,0\.5[0-9]*\)/);
+    const color = colorOf(styleOfElementContaining(markup, SUBHEADLINE));
+    expect(color).toMatch(/rgba\(255,\s*255,\s*255/);
+  });
+
+  it("stacked-video renders the background clip when a video is set", () => {
+    const markup = render(baseProps({ layout: "stacked-video", backgroundVideoUrl: BUSY_CLIP }));
+    expect(markup).toMatch(new RegExp(`<video[^>]*src="${BUSY_CLIP}"`));
+  });
+
+  it("stacked-video without an asset keeps the flat preset (no scrim, muted sub)", () => {
+    const markup = render(baseProps({ layout: "stacked-video" }));
+    expect(markup).not.toContain("linear-gradient(180deg, rgba(0,0,0");
+    expect(markup).not.toMatch(/<img[^>]*aria-hidden="true"/);
+  });
+});
+

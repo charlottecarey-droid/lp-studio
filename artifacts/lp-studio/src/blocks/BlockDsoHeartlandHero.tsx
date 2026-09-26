@@ -79,6 +79,17 @@ function buildFullBleedScrim(strength: number): string {
   return `linear-gradient(90deg, ${horizontal}), linear-gradient(0deg, ${vertical})`;
 }
 
+// Legibility scrim for the STACKED / CENTERED layouts when a background asset
+// sits behind the centred copy. The copy is centred horizontally and sits in
+// the upper half (the showcase fills the lower half), so the darkening is
+// symmetric left/right and heaviest at the top and bottom edges, easing in the
+// middle where the showcase panel carries its own frame.
+function buildStackedScrim(strength: number): string {
+  const s = Math.max(0, strength);
+  const a = (alpha: number) => `rgba(0,0,0,${Math.min(1, +(alpha * s).toFixed(3))})`;
+  return `linear-gradient(180deg, ${a(0.58)} 0%, ${a(0.34)} 38%, ${a(0.22)} 62%, ${a(0.5)} 100%)`;
+}
+
 // Editor-controlled horizontal content padding (`heroSidePadding`). Applied via
 // a CSS var so phones cap it at 24px — a desktop-sized gutter would otherwise
 // squeeze the copy into a sliver on narrow screens.
@@ -914,6 +925,98 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     );
   }
 
+  /* ── Shared background-asset layer (full-bleed + stacked/centered) ── */
+  const overlayOpacity = ((p.overlayOpacity ?? 55) / 100).toFixed(2);
+  // When a real photo/clip sits BEHIND the copy, the muted-grey subheadline is
+  // the weakest element over a light/busy asset (the headline is large white +
+  // shadow, and the scrim darkens its region). Brighten the secondary copy in
+  // that case only — the curated gradient default keeps the muted tone.
+  const hasFullBleedAsset = !!(p.backgroundVideoUrl || p.backgroundImageUrl);
+  const fullBleedSubColor = hasFullBleedAsset ? "rgba(255,255,255,0.86)" : MUTED_FG;
+  // Editor-tunable legibility scrim. Defaults to 100% = the built-in safe scrim.
+  const fullBleedScrim = buildFullBleedScrim((p.scrimStrength ?? 100) / 100);
+  // Optional edge fade: melts the background asset (and its overlays) into the
+  // section background via a CSS mask. Only meaningful when a real asset exists.
+  const edgeFade = p.edgeFade ?? "none";
+  // "both" caps at 50 so the top/bottom gradient stops never cross.
+  const edgeFadeSize = Math.min(edgeFade === "both" ? 50 : 60, Math.max(5, p.edgeFadeSize ?? 30));
+  const edgeFadeMask =
+    edgeFade === "top"
+      ? `linear-gradient(to bottom, transparent 0%, black ${edgeFadeSize}%)`
+      : edgeFade === "bottom"
+        ? `linear-gradient(to bottom, black ${100 - edgeFadeSize}%, transparent 100%)`
+        : edgeFade === "both"
+          ? `linear-gradient(to bottom, transparent 0%, black ${edgeFadeSize}%, black ${100 - edgeFadeSize}%, transparent 100%)`
+          : undefined;
+  const edgeFadeMaskStyle: CSSProperties | undefined = edgeFadeMask
+    ? { maskImage: edgeFadeMask, WebkitMaskImage: edgeFadeMask }
+    : undefined;
+  // Renders the editor-chosen background photo/clip with the brand tint,
+  // a layout-specific legibility scrim and the optional edge fade. Returns
+  // null when no asset is set so each layout keeps its own curated default.
+  // Shared by the full-bleed layout and (Sept 2026) the stacked / centered
+  // layouts, which previously ignored `backgroundImageUrl` / `backgroundVideoUrl`.
+  const assetBackground = (scrim: string) => {
+    if (p.backgroundVideoUrl) {
+      return (
+        <div className="absolute inset-0">
+          <div className="absolute inset-0" style={edgeFadeMaskStyle}>
+            <video
+              ref={attachBgVideo}
+              src={p.backgroundVideoUrl}
+              autoPlay
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+            />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
+                opacity: overlayOpacity,
+              }}
+            />
+            <div className="absolute inset-0 pointer-events-none" style={{ background: scrim }} />
+          </div>
+          <MuteToggleButton muted={bgVideoMuted} onClick={toggleBgMute} className="absolute bottom-4 right-4 z-20" />
+        </div>
+      );
+    }
+    if (p.backgroundImageUrl) {
+      const fbFit = p.heroImageFit ?? "cover";
+      const fbPos = p.heroImagePosition ?? "center";
+      const fbScale = p.heroImageScale ?? 1;
+      const fbPad = p.heroImagePadding ?? 0;
+      return (
+        <div className="absolute inset-0" style={{ padding: fbPad, ...edgeFadeMaskStyle }}>
+          <img
+            src={p.backgroundImageUrl}
+            alt=""
+            aria-hidden="true"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: fbFit,
+              objectPosition: fbPos,
+              transform: fbScale !== 1 ? `scale(${fbScale})` : undefined,
+              transformOrigin: fbPos,
+            }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
+              opacity: overlayOpacity,
+            }}
+          />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: scrim }} />
+        </div>
+      );
+    }
+    return null;
+  };
+  const stackedScrim = buildStackedScrim((p.scrimStrength ?? 100) / 100);
+
   /* ── STACKED-VIDEO LAYOUT ─────────────────────────────────── */
   if (isStackedVideo) {
     const stackedTopPad = p.heroTopPadding ?? 128;
@@ -931,6 +1034,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           style={stackedMinH ? { minHeight: `${stackedMinH}vh` } : undefined}
         >
           <style>{SIDE_PAD_CSS}</style>
+          {/* Optional background photo/clip (same asset + tint + edge-fade
+              controls as full-bleed) behind the centred copy and showcase. */}
+          {assetBackground(stackedScrim)}
           {navBar}
 
           {/* ── Centered text content ── */}
@@ -975,7 +1081,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               </motion.h1>
 
               {(p.subheadline || onFieldChange) && (
-                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: p.heroTextWidth ? Math.round(stackedTextW * 0.72) : 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: hasFullBleedAsset ? "rgba(255,255,255,0.86)" : MUTED_FG, lineHeight: 1.7, maxWidth: p.heroTextWidth ? Math.round(stackedTextW * 0.72) : 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
                   <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
@@ -1216,31 +1322,6 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   }
 
   /* ── FULL-BLEED LAYOUT (default) ──────────────────────────── */
-  const overlayOpacity = ((p.overlayOpacity ?? 55) / 100).toFixed(2);
-  // When a real photo/clip sits BEHIND the copy, the muted-grey subheadline is
-  // the weakest element over a light/busy asset (the headline is large white +
-  // shadow, and the scrim darkens its region). Brighten the secondary copy in
-  // that case only — the curated gradient default keeps the muted tone.
-  const hasFullBleedAsset = !!(p.backgroundVideoUrl || p.backgroundImageUrl);
-  const fullBleedSubColor = hasFullBleedAsset ? "rgba(255,255,255,0.86)" : MUTED_FG;
-  // Editor-tunable legibility scrim. Defaults to 100% = the built-in safe scrim.
-  const fullBleedScrim = buildFullBleedScrim((p.scrimStrength ?? 100) / 100);
-  // Optional edge fade: melts the background asset (and its overlays) into the
-  // section background via a CSS mask. Only meaningful when a real asset exists.
-  const edgeFade = p.edgeFade ?? "none";
-  // "both" caps at 50 so the top/bottom gradient stops never cross.
-  const edgeFadeSize = Math.min(edgeFade === "both" ? 50 : 60, Math.max(5, p.edgeFadeSize ?? 30));
-  const edgeFadeMask =
-    edgeFade === "top"
-      ? `linear-gradient(to bottom, transparent 0%, black ${edgeFadeSize}%)`
-      : edgeFade === "bottom"
-        ? `linear-gradient(to bottom, black ${100 - edgeFadeSize}%, transparent 100%)`
-        : edgeFade === "both"
-          ? `linear-gradient(to bottom, transparent 0%, black ${edgeFadeSize}%, black ${100 - edgeFadeSize}%, transparent 100%)`
-          : undefined;
-  const edgeFadeMaskStyle: CSSProperties | undefined = edgeFadeMask
-    ? { maskImage: edgeFadeMask, WebkitMaskImage: edgeFadeMask }
-    : undefined;
   return (
     <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
       <section
@@ -1249,67 +1330,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         style={{ minHeight: "100vh" }}
       >
         {/* ── Background ──────────────────────────────────── */}
-        {p.backgroundVideoUrl ? (
-          <div className="absolute inset-0">
-            <div className="absolute inset-0" style={edgeFadeMaskStyle}>
-              <video
-                ref={attachBgVideo}
-                src={p.backgroundVideoUrl}
-                autoPlay
-                loop
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
-                  opacity: overlayOpacity,
-                }}
-              />
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{ background: fullBleedScrim }}
-              />
-            </div>
-            <MuteToggleButton muted={bgVideoMuted} onClick={toggleBgMute} className="absolute bottom-4 right-4 z-20" />
-          </div>
-        ) : p.backgroundImageUrl ? (
-          (() => {
-            const fbFit = p.heroImageFit ?? "cover";
-            const fbPos = p.heroImagePosition ?? "center";
-            const fbScale = p.heroImageScale ?? 1;
-            const fbPad = p.heroImagePadding ?? 0;
-            return (
-          <div className="absolute inset-0" style={{ padding: fbPad, ...edgeFadeMaskStyle }}>
-            <img
-              src={p.backgroundImageUrl}
-              alt=""
-              aria-hidden="true"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: fbFit,
-                objectPosition: fbPos,
-                transform: fbScale !== 1 ? `scale(${fbScale})` : undefined,
-                transformOrigin: fbPos,
-              }}
-            />
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
-                opacity: overlayOpacity,
-              }}
-            />
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: fullBleedScrim }}
-            />
-          </div>
-            );
-          })()
-        ) : (
+        {assetBackground(fullBleedScrim) ?? (
           <div
             className="absolute inset-0"
             style={{
