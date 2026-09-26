@@ -115,6 +115,7 @@ export const HERO_TYPES = new Set([
   "webinar-hub",
   // Stack family glow hero (Sept 2026).
   "glow-video-hero",
+  "glow-form-hero",
 ]);
 
 // Calls-to-action: explicit CTA strips, buttons, and interactive conversion
@@ -136,6 +137,8 @@ export const LEAD_CAPTURE_TYPES = new Set([
   "dso-cta-capture", "id-form", "id-reservation-pass",
   // Final-CTA block with an inline email-capture form.
   "split-form-final-cta",
+  // Stack family demo-booking hero (inline lead form).
+  "glow-form-hero",
 ]);
 
 // Social proof: testimonials, customer stories, case studies, results galleries.

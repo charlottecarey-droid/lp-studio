@@ -157,6 +157,7 @@ import { BlockVideoZigzag } from "./BlockVideoZigzag";
 import { BlockBenchmarkBars } from "./BlockBenchmarkBars";
 import { BlockVideoCardTrio } from "./BlockVideoCardTrio";
 import { BlockGlowFinalCta } from "./BlockGlowFinalCta";
+import { BlockGlowFormHero } from "./BlockGlowFormHero";
 import { BlockFeatureTabsShowcase } from "./BlockFeatureTabsShowcase";
 import { BlockStatCounterBand } from "./BlockStatCounterBand";
 import { BlockTestimonialWall } from "./BlockTestimonialWall";
@@ -478,6 +479,7 @@ export const NO_REVEAL = new Set<string>([
   // count-ups, and scroll-linked bar fills. glow-final-cta stays eligible.
   "glow-video-hero", "video-step-showcase", "glow-stat-band", "video-zigzag",
   "benchmark-bars", "video-card-trio",
+  "glow-form-hero",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   // Extracted Event Page sections — same internal staggered whileInView
   // reveals as their parent; the outer wrapper would double-animate them.
@@ -1639,6 +1641,18 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             pageId={pageId}
             variantId={variantId}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "glow-form-hero":
+        return (
+          <BlockGlowFormHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

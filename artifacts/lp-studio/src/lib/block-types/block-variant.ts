@@ -171,6 +171,7 @@ import type {
   BenchmarkBarsBlockProps,
   VideoCardTrioBlockProps,
   GlowFinalCtaBlockProps,
+  GlowFormHeroBlockProps,
   FeatureTabsShowcaseBlockProps,
   StatCounterBandBlockProps,
   TestimonialWallBlockProps,
@@ -459,6 +460,7 @@ export type BlockVariant =
   | { type: "benchmark-bars"; props: BenchmarkBarsBlockProps }
   | { type: "video-card-trio"; props: VideoCardTrioBlockProps }
   | { type: "glow-final-cta"; props: GlowFinalCtaBlockProps }
+  | { type: "glow-form-hero"; props: GlowFormHeroBlockProps }
   | { type: "feature-tabs-showcase"; props: FeatureTabsShowcaseBlockProps }
   | { type: "stat-counter-band"; props: StatCounterBandBlockProps }
   | { type: "testimonial-wall"; props: TestimonialWallBlockProps }

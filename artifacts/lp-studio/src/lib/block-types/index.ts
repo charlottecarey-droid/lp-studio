@@ -322,6 +322,8 @@ export type {
   VideoCardTrioBlockProps,
   VideoTrioCard,
   GlowFinalCtaBlockProps,
+  GlowFormHeroBlockProps,
+  GlowFormField,
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,
   StatCounterBandBlockProps,

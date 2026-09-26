@@ -5000,6 +5000,7 @@ export type { VideoZigzagBlockProps, VideoZigzagRow } from "@/blocks/BlockVideoZ
 export type { BenchmarkBarsBlockProps, BenchmarkBar } from "@/blocks/BlockBenchmarkBars";
 export type { VideoCardTrioBlockProps, VideoTrioCard } from "@/blocks/BlockVideoCardTrio";
 export type { GlowFinalCtaBlockProps } from "@/blocks/BlockGlowFinalCta";
+export type { GlowFormHeroBlockProps, GlowFormField } from "@/blocks/BlockGlowFormHero";
 export type {
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,

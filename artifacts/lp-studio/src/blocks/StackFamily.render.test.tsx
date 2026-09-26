@@ -26,6 +26,7 @@ import { BlockVideoZigzag } from "./BlockVideoZigzag";
 import { BlockBenchmarkBars } from "./BlockBenchmarkBars";
 import { BlockVideoCardTrio } from "./BlockVideoCardTrio";
 import { BlockGlowFinalCta } from "./BlockGlowFinalCta";
+import { BlockGlowFormHero } from "./BlockGlowFormHero";
 
 const FAMILY = [
   ["glow-video-hero", BlockGlowVideoHero],
@@ -35,6 +36,7 @@ const FAMILY = [
   ["benchmark-bars", BlockBenchmarkBars],
   ["video-card-trio", BlockVideoCardTrio],
   ["glow-final-cta", BlockGlowFinalCta],
+  ["glow-form-hero", BlockGlowFormHero],
 ] as const;
 
 function defaultsFor(type: string): Record<string, unknown> {
@@ -130,6 +132,32 @@ describe("Stack family — media contract", () => {
     });
     expect(html).toMatch(/<iframe[^>]*youtube\.com\/embed\/abc123/);
     expect(html).not.toContain("<video");
+  });
+});
+
+describe("glow-form-hero — lead form contract", () => {
+  it("renders the configured native fields, a required email, and the submit button", () => {
+    const html = renderStatic(BlockGlowFormHero as never, {
+      ...defaultsFor("glow-form-hero"),
+      fields: ["firstName", "lastName", "email", "company", "locations"],
+      chilipiperUrl: "https://example.chilipiper.com/round-robin/x",
+      riskLine: "30 minutes. No commitment.",
+    });
+    expect(html).toMatch(/<form/);
+    expect(html).toMatch(/name="firstName"/);
+    expect(html).toMatch(/name="lastName"/);
+    expect(html).toMatch(/name="email"[^>]*required|required[^>]*name="email"/);
+    expect(html).toMatch(/name="company"/);
+    expect(html).toMatch(/<select[^>]*name="locations"/);
+    expect(html).not.toMatch(/name="phone"/);
+    expect(html).toContain("30 minutes. No commitment.");
+    expect(html).toContain("or pick a time now");
+    expect(html).not.toContain("<video");
+  });
+
+  it("omits the pick-a-time link when no booking URL is set", () => {
+    const html = renderStatic(BlockGlowFormHero as never, { ...defaultsFor("glow-form-hero"), chilipiperUrl: "" });
+    expect(html).not.toContain("or pick a time now");
   });
 });
 

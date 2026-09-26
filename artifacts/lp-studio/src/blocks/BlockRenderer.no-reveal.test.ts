@@ -58,6 +58,7 @@ describe("NO_REVEAL — Stack family (Sept 2026)", () => {
     "video-zigzag",
     "benchmark-bars",
     "video-card-trio",
+    "glow-form-hero",
   ])("excludes %s from reveal wrapping", (type) => {
     expect(NO_REVEAL.has(type)).toBe(true);
   });

@@ -171,6 +171,7 @@ import type {
   BenchmarkBarsBlockProps,
   VideoCardTrioBlockProps,
   GlowFinalCtaBlockProps,
+  GlowFormHeroBlockProps,
   GlassPricingTiersBlockProps,
   AuroraCtaFinaleBlockProps,
   StorybrandJourneyBlockProps,
@@ -198,6 +199,7 @@ import { VIDEO_ZIGZAG_DEFAULT_PROPS } from "@/blocks/BlockVideoZigzag";
 import { BENCHMARK_BARS_DEFAULT_PROPS } from "@/blocks/BlockBenchmarkBars";
 import { VIDEO_CARD_TRIO_DEFAULT_PROPS } from "@/blocks/BlockVideoCardTrio";
 import { GLOW_FINAL_CTA_DEFAULT_PROPS } from "@/blocks/BlockGlowFinalCta";
+import { GLOW_FORM_HERO_DEFAULT_PROPS } from "@/blocks/BlockGlowFormHero";
 import { FEATURE_TABS_DEFAULT_PROPS } from "@/blocks/BlockFeatureTabsShowcase";
 import { STAT_COUNTER_DEFAULT_PROPS } from "@/blocks/BlockStatCounterBand";
 import { TESTIMONIAL_WALL_DEFAULT_PROPS } from "@/blocks/BlockTestimonialWall";
@@ -9251,6 +9253,29 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "glow-form-hero",
+    label: "Hero — Glow Form (Book a Demo)",
+    category: "Showcase",
+    defaultProps: (): GlowFormHeroBlockProps => structuredClone(GLOW_FORM_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs><radialGradient id="gfhT" cx="100%" cy="100%" r="90%"><stop offset="0%" stopColor="#D9E84A" /><stop offset="100%" stopColor="#EDEBE6" /></radialGradient></defs>
+        <rect width="120" height="70" fill="#F5F4F0" rx="4" />
+        <rect x="8" y="14" width="46" height="7" rx="2" fill="#0B0B0F" />
+        <rect x="8" y="24" width="40" height="3" rx="1.5" fill="#0B0B0F" opacity="0.4" />
+        <rect x="8" y="33" width="34" height="2.5" rx="1.25" fill="#0B0B0F" opacity="0.5" />
+        <rect x="8" y="39" width="30" height="2.5" rx="1.25" fill="#0B0B0F" opacity="0.5" />
+        <rect x="8" y="45" width="36" height="2.5" rx="1.25" fill="#0B0B0F" opacity="0.5" />
+        <rect x="62" y="8" width="50" height="54" rx="6" fill="url(#gfhT)" />
+        <rect x="67" y="13" width="40" height="44" rx="4" fill="#ffffff" />
+        <rect x="71" y="19" width="32" height="6" rx="2" fill="#0B0B0F" opacity="0.1" />
+        <rect x="71" y="28" width="32" height="6" rx="2" fill="#0B0B0F" opacity="0.1" />
+        <rect x="71" y="37" width="32" height="6" rx="2" fill="#0B0B0F" opacity="0.1" />
+        <rect x="71" y="47" width="32" height="7" rx="3.5" fill="#D9E84A" />
+      </svg>
+    ),
+  },
+  {
     type: "glass-pricing-tiers",
     label: "Pricing — Glass Tiers",
     category: "Showcase",
@@ -9571,6 +9596,7 @@ export function createBlock(type: "video-zigzag"): Extract<PageBlock, { type: "v
 export function createBlock(type: "benchmark-bars"): Extract<PageBlock, { type: "benchmark-bars" }>;
 export function createBlock(type: "video-card-trio"): Extract<PageBlock, { type: "video-card-trio" }>;
 export function createBlock(type: "glow-final-cta"): Extract<PageBlock, { type: "glow-final-cta" }>;
+export function createBlock(type: "glow-form-hero"): Extract<PageBlock, { type: "glow-form-hero" }>;
 export function createBlock(type: "feature-tabs-showcase"): Extract<PageBlock, { type: "feature-tabs-showcase" }>;
 export function createBlock(type: "stat-counter-band"): Extract<PageBlock, { type: "stat-counter-band" }>;
 export function createBlock(type: "testimonial-wall"): Extract<PageBlock, { type: "testimonial-wall" }>;
@@ -9941,6 +9967,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "benchmark-bars": return { id, type: "benchmark-bars", props: props as BenchmarkBarsBlockProps };
     case "video-card-trio": return { id, type: "video-card-trio", props: props as VideoCardTrioBlockProps };
     case "glow-final-cta": return { id, type: "glow-final-cta", props: props as GlowFinalCtaBlockProps };
+    case "glow-form-hero": return { id, type: "glow-form-hero", props: props as GlowFormHeroBlockProps };
     case "feature-tabs-showcase": return { id, type: "feature-tabs-showcase", props: props as FeatureTabsShowcaseBlockProps };
     case "stat-counter-band": return { id, type: "stat-counter-band", props: props as StatCounterBandBlockProps };
     case "testimonial-wall": return { id, type: "testimonial-wall", props: props as TestimonialWallBlockProps };

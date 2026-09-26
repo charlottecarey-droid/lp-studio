@@ -323,6 +323,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "aurora-cta-finale": ["cta"],
   // Stack family (Sept 2026): Ramp-style glow/video blocks.
   "glow-video-hero": ["hero", "media"],
+  "glow-form-hero": ["hero", "form", "cta"],
   "video-step-showcase": ["features", "media"],
   "glow-stat-band": ["stats", "social-proof"],
   "video-zigzag": ["features", "media"],

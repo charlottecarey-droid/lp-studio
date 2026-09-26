@@ -211,6 +211,7 @@ import { VideoZigzagPanel } from "./VideoZigzagPanel";
 import { BenchmarkBarsPanel } from "./BenchmarkBarsPanel";
 import { VideoCardTrioPanel } from "./VideoCardTrioPanel";
 import { GlowFinalCtaPanel } from "./GlowFinalCtaPanel";
+import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
 import { FeatureTabsShowcasePanel } from "./FeatureTabsShowcasePanel";
 import { StatCounterBandPanel } from "./StatCounterBandPanel";
 import { TestimonialWallPanel } from "./TestimonialWallPanel";
@@ -1623,6 +1624,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             ctaSource={ctaSource}
+          />
+        );
+      case "glow-form-hero":
+        return (
+          <GlowFormHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
           />
         );
       case "feature-tabs-showcase":
