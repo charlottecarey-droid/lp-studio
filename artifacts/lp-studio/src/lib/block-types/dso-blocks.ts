@@ -143,6 +143,10 @@ export interface DsoHeartlandHeroBlockProps {
    *  phones. */
   heroSidePadding?: number;
   heroHeadingSize?: number;
+  /** Max width (px) of the headline/text block. Full-bleed default 760 (headline),
+   *  stacked-video / centered default 720 (whole centered text column). The
+   *  subheadline scales with it. Not used by the split layouts (column-sized). */
+  heroTextWidth?: number;
   heroVideoWidth?: number;
   disableScrollFade?: boolean;
   videoAutoplay?: boolean;

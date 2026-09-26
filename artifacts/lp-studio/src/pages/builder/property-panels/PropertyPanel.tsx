@@ -3279,6 +3279,67 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             </div>
 
+            {/* Spacing & width — all layouts */}
+            {(() => {
+              const layout = p.layout ?? "full-bleed";
+              const fallback = layout === "split" || layout === "split-video" ? 48 : layout === "full-bleed" ? 40 : 32;
+              const isAuto = layout === "full-bleed" && p.heroSidePadding == null;
+              const hasTextWidth = layout === "full-bleed" || layout === "stacked-video" || layout === "centered";
+              const textWFallback = layout === "full-bleed" ? 760 : 720;
+              return (
+                <div className="space-y-4 border border-border rounded-lg p-3">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Spacing &amp; width</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Side padding</Label>
+                      <div className="flex items-center gap-2">
+                        {layout === "full-bleed" && !isAuto && (
+                          <button type="button" className="text-[11px] text-primary hover:underline" onClick={() => onChange({ ...block, props: { ...p, heroSidePadding: undefined } })}>
+                            Reset
+                          </button>
+                        )}
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {isAuto ? "Auto" : `${p.heroSidePadding ?? fallback}px`}
+                        </span>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={240}
+                      step={4}
+                      value={p.heroSidePadding ?? fallback}
+                      onChange={e => onChange({ ...block, props: { ...p, heroSidePadding: Number(e.target.value) } })}
+                      className="w-full accent-primary"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      {layout === "full-bleed"
+                        ? "Auto keeps the copy in a centered 1200px column. Drag to run it full-width with this gutter instead (24px lines up with the nav)."
+                        : "Space between the screen edge and the text. Capped at 24px on phones."}
+                    </p>
+                  </div>
+                  {hasTextWidth && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Text width</Label>
+                        <span className="text-xs text-muted-foreground tabular-nums">{p.heroTextWidth ?? textWFallback}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={400}
+                        max={1400}
+                        step={20}
+                        value={p.heroTextWidth ?? textWFallback}
+                        onChange={e => onChange({ ...block, props: { ...p, heroTextWidth: Number(e.target.value) } })}
+                        className="w-full accent-primary"
+                      />
+                      <p className="text-[11px] text-muted-foreground">Widen so the headline wraps onto fewer lines. The subheadline widens with it.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Background color */}
             <div className="space-y-1.5">
               <Label className="text-xs">Background color</Label>
@@ -3369,44 +3430,6 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                   ))}
                   {nav.length === 0 && <p className="text-[11px] text-muted-foreground">Use #section-id to smooth-scroll to other blocks on this page.</p>}
-                </div>
-              );
-            })()}
-
-            {/* Content side padding — all layouts */}
-            {(() => {
-              const layout = p.layout ?? "full-bleed";
-              const fallback = layout === "split" || layout === "split-video" ? 48 : layout === "full-bleed" ? 40 : 32;
-              const isAuto = layout === "full-bleed" && p.heroSidePadding == null;
-              return (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Content side padding</Label>
-                    <div className="flex items-center gap-2">
-                      {layout === "full-bleed" && !isAuto && (
-                        <button type="button" className="text-[11px] text-primary hover:underline" onClick={() => onChange({ ...block, props: { ...p, heroSidePadding: undefined } })}>
-                          Reset
-                        </button>
-                      )}
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {isAuto ? "Auto" : `${p.heroSidePadding ?? fallback}px`}
-                      </span>
-                    </div>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={240}
-                    step={4}
-                    value={p.heroSidePadding ?? fallback}
-                    onChange={e => onChange({ ...block, props: { ...p, heroSidePadding: Number(e.target.value) } })}
-                    className="w-full accent-primary"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    {layout === "full-bleed"
-                      ? "Auto keeps the copy in a centered 1200px column. Set a value to run it full-width with this gutter (24px lines up with the nav)."
-                      : "Horizontal padding around the text. Capped at 24px on phones."}
-                  </p>
                 </div>
               );
             })()}

@@ -922,6 +922,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     const stackedMinH = p.heroMinHeight ?? (isCentered ? 70 : undefined);
     const stackedHScale = (p.heroHeadingSize ?? 100) / 100;
     const stackedVideoMaxW = p.heroVideoWidth ?? 1100;
+    const stackedTextW = p.heroTextWidth ?? 720;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section
@@ -940,7 +941,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             <div
               className="hl-px"
               style={{
-                maxWidth: 720 + 2 * (p.heroSidePadding ?? 32),
+                maxWidth: stackedTextW + 2 * (p.heroSidePadding ?? 32),
                 margin: "0 auto",
                 width: "100%",
                 boxSizing: "border-box",
@@ -974,7 +975,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               </motion.h1>
 
               {(p.subheadline || onFieldChange) && (
-                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
+                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: p.heroTextWidth ? Math.round(stackedTextW * 0.72) : 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
                   <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: MUTED_FG, fontFamily: BODY }} />
                 </motion.p>
               )}
@@ -1353,7 +1354,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 lineHeight: 1.05,
                 letterSpacing: "-0.02em",
                 color: "#fff",
-                maxWidth: 760,
+                maxWidth: p.heroTextWidth ?? 760,
                 textShadow: "0 2px 40px rgba(0,0,0,0.35)",
               }}
             >
@@ -1361,7 +1362,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             </motion.h1>
 
             {(p.subheadline || onFieldChange) && (
-              <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: 520, fontFamily: BODY }}>
+              <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: p.heroTextWidth ? Math.round(p.heroTextWidth * 0.68) : 520, fontFamily: BODY }}>
                 <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: fullBleedSubColor, fontFamily: BODY }} />
               </motion.p>
             )}
