@@ -2199,7 +2199,11 @@ async function runMigrationsBody(): Promise<void> {
       // "Event RSVP" flagship (global-flagship-event-rsvp). The legacy row is
       // removed by the dedicated delete step below; this bump seeds the
       // replacement.
-      const SEED_MARKER = "global_templates_seed_v36";
+      // v37: seed the "Dandy Hub & Insights — Product Stack" dental template
+      // (global-dandy-hub-insights), the first page built from the Sept-2026
+      // Stack block family (glow-video-hero, video-step-showcase, glow-stat-band,
+      // video-zigzag, benchmark-bars, video-card-trio, glow-final-cta).
+      const SEED_MARKER = "global_templates_seed_v37";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

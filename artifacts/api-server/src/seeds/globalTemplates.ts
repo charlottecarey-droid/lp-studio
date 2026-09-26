@@ -167,6 +167,7 @@ function genericNav(brand: string, n: number) {
 // ─── Templates ───────────────────────────────────────────────────────────────
 
 import { INDUSTRY_TEMPLATE_SEEDS } from "./industryTemplates";
+import { HUB_INSIGHTS_TEMPLATE_SEEDS } from "./hubInsightsTemplate";
 
 const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   // 1. SaaS Product Landing
@@ -4547,6 +4548,7 @@ const COMBINED: GlobalTemplateSeed[] = [
   ...DISTINCTIVE_TEMPLATE_SEEDS,
   ...TEMPLATE_PAGE_SEEDS,
   ...SHOWCASE_TEMPLATE_SEEDS,
+  ...HUB_INSIGHTS_TEMPLATE_SEEDS,
   ...BUSINESS_CASE_TEMPLATE_SEEDS,
   ...GENERIC_TEMPLATE_SEEDS,
   ...INDUSTRY_TEMPLATE_SEEDS_RANKED,
