@@ -35,6 +35,8 @@ export interface VideoTrioCard {
   imageUrl?: string;
   imageAlt?: string;
   imageFocal?: string;
+  /** Optional per-card blend override. */
+  mediaBlend?: MediaBlend;
 }
 
 export interface VideoCardTrioBlockProps {
@@ -148,7 +150,7 @@ export function BlockVideoCardTrio({ props, brand, onFieldChange }: Props) {
                   imageUrl={card.imageUrl}
                   imageAlt={card.imageAlt ?? card.title}
                   imageFocal={card.imageFocal}
-                  blend={props.mediaBlend}
+                  blend={card.mediaBlend ?? props.mediaBlend}
                   edgeFade={props.mediaEdgeFade !== false}
                   aspect="4/3"
                   playMode={props.playMode ?? "inview"}

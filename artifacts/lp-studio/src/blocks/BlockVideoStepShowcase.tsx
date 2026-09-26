@@ -32,6 +32,8 @@ export interface VideoStepItem {
   imageUrl?: string;
   imageAlt?: string;
   imageFocal?: string;
+  /** Optional per-step blend override. */
+  mediaBlend?: MediaBlend;
 }
 
 export interface VideoStepShowcaseBlockProps {
@@ -244,7 +246,7 @@ export function BlockVideoStepShowcase({ props, brand, onFieldChange }: Props) {
                           imageUrl={step.imageUrl}
                           imageAlt={step.imageAlt ?? step.title}
                           imageFocal={step.imageFocal}
-                          blend={props.mediaBlend}
+                          blend={step.mediaBlend ?? props.mediaBlend}
                           edgeFade={props.mediaEdgeFade !== false}
                           aspect={props.mediaAspect ?? "4/3"}
                           playMode="inview"

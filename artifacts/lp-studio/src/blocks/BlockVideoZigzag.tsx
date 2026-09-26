@@ -31,6 +31,8 @@ export interface VideoZigzagRow {
   imageUrl?: string;
   imageAlt?: string;
   imageFocal?: string;
+  /** Optional per-row blend override (e.g. "none" for a clip with its own colored background). */
+  mediaBlend?: MediaBlend;
   /** Per-row link — deliberately NOT ctaText/ctaUrl so the Page CTA never rewrites it. */
   linkText?: string;
   linkUrl?: string;
@@ -157,7 +159,7 @@ export function BlockVideoZigzag({ props, brand, onFieldChange }: Props) {
                         imageUrl={row.imageUrl}
                         imageAlt={row.imageAlt ?? row.title}
                         imageFocal={row.imageFocal}
-                        blend={props.mediaBlend}
+                        blend={row.mediaBlend ?? props.mediaBlend}
                         edgeFade={props.mediaEdgeFade !== false}
                         aspect={props.mediaAspect ?? "4/3"}
                         playMode="inview"

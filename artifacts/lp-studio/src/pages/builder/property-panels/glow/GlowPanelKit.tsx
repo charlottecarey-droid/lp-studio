@@ -95,10 +95,19 @@ export function moveItem<T>(list: T[], i: number, dir: -1 | 1): T[] {
   return next;
 }
 
+const BLEND_OPTIONS: Array<{ value: MediaBlend; label: string }> = [
+  { value: "auto", label: "Auto — multiply on light, screen on dark" },
+  { value: "multiply", label: "Multiply — white in the clip disappears" },
+  { value: "screen", label: "Screen — black in the clip disappears" },
+  { value: "none", label: "None — opaque media" },
+];
+
 export interface MediaSlotValue {
   videoUrl?: string;
   imageUrl?: string;
   imageAlt?: string;
+  /** Per-item blend override; undefined = follow the block setting. */
+  mediaBlend?: MediaBlend;
 }
 
 /** Video + poster/image + alt for one media slot. */
@@ -125,8 +134,19 @@ export function MediaSlotFields({
         placeholder="Alt text (accessibility)"
         className="h-8 text-xs"
       />
+      <Field label="Blend for this clip">
+        <Select value={value.mediaBlend ?? "inherit"} onValueChange={(v) => onChange({ mediaBlend: v === "inherit" ? undefined : (v as MediaBlend) })}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="inherit" className="text-xs">Follow block setting</SelectItem>
+            {BLEND_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
       <p className="text-[10px] text-muted-foreground leading-relaxed">
-        Leave both empty to show the built-in placeholder graphic. Product screen recordings on a white background blend best.
+        Leave both empty to show the built-in placeholder graphic. White-background screen recordings blend best; a clip with its own colored background usually wants "None".
       </p>
     </div>
   );
@@ -139,12 +159,6 @@ export interface MediaOptionsValue {
   playMode?: MediaPlayMode;
 }
 
-const BLEND_OPTIONS: Array<{ value: MediaBlend; label: string }> = [
-  { value: "auto", label: "Auto — multiply on light, screen on dark" },
-  { value: "multiply", label: "Multiply — white in the clip disappears" },
-  { value: "screen", label: "Screen — black in the clip disappears" },
-  { value: "none", label: "None — opaque media" },
-];
 
 const ASPECT_OPTIONS: Array<{ value: MediaAspect; label: string }> = [
   { value: "16/9", label: "16:9 — wide" },
