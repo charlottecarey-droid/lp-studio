@@ -2203,7 +2203,9 @@ async function runMigrationsBody(): Promise<void> {
       // (global-dandy-hub-insights), the first page built from the Sept-2026
       // Stack block family (glow-video-hero, video-step-showcase, glow-stat-band,
       // video-zigzag, benchmark-bars, video-card-trio, glow-final-cta).
-      const SEED_MARKER = "global_templates_seed_v37";
+      // v38: seed "Dandy for DSOs — Product Stack" (global-dandy-for-dsos), the
+      // Stack-family replacement candidate for meetdandy.com/dso.
+      const SEED_MARKER = "global_templates_seed_v38";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
