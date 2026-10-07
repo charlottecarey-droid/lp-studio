@@ -2209,7 +2209,9 @@ async function runMigrationsBody(): Promise<void> {
       // (global-dandy-dso-demo), the Stack-family demo-booking page.
       // v40: seed "DSO Working Session — Invitation" (global-dandy-dso-invite),
       // the Invite-family demo page modelled on the lab-tour event pages.
-      const SEED_MARKER = "global_templates_seed_v40";
+      // v41: seed "Lab Tour in a Box — Meta Quest Setup" (global-dandy-quest-kit),
+      // the Kit-family page the VR lab-tour kit's QR code opens.
+      const SEED_MARKER = "global_templates_seed_v41";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
