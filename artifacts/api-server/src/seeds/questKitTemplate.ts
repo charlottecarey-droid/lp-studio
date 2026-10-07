@@ -10,6 +10,8 @@
 // stream / play / download). Images are the kit's own product shots, bundled
 // under /images/kit/. The access code is deliberately NOT seeded — codes are
 // per kit; the cells render blank with "Your code is on the card in the box."
+// unless the QR link carries it as ?code=482193 (codeParam), in which case the
+// visitor sees their own code filled in.
 // The in-depth guide link (kit-support guideUrl) is blank until Charlotte
 // uploads the guide — the link hides itself on the live page until then.
 
@@ -132,7 +134,9 @@ const blocks: Block[] = [
         },
       ],
       code: "",
+      codeParam: "code",
       codeLabel: "Your code is on the card in the box.",
+      codeFilledLabel: "This is your kit's code — enter it exactly as shown.",
       anchorId: "steps",
     },
   },

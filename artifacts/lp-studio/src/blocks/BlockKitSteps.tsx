@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Download, Play, Wifi } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -13,8 +14,10 @@ import { INVITE_BODY, INVITE_DISPLAY, INVITE_NUMBERS, Kicker, displayStyle, reso
  * two-digit number, a title, a short body, an optional italic tip, an
  * optional help link — and, per step, an optional inline visual:
  *
- *   "code"   six entry cells (filled from `code` when set, else blanks) and
- *            a caption telling the reader where their code is;
+ *   "code"   six entry cells and a caption. Filled from the URL query
+ *            parameter named by `codeParam` (default "code", so a kit's QR
+ *            can encode lp.example.com/quest?code=482193), else from the
+ *            `code` prop, else blank with "your code is on the card";
  *   "store"  a faux store listing (icon, app name, store line, "Get" pill);
  *   "stream" the "Stream · Play · Download" chip row.
  *
@@ -44,9 +47,14 @@ export interface KitStepsBlockProps {
   headline?: string;
   subheadline?: string;
   steps: KitStep[];
-  /** Six-digit access code to show in the "code" visual. Blank = empty cells. */
+  /** Fallback six-digit access code for the "code" visual when the URL carries none. Blank = empty cells. */
   code?: string;
+  /** Query-string parameter that supplies the code per visitor ("code" → ?code=482193). Blank disables. */
+  codeParam?: string;
+  /** Caption under the cells when they are blank. */
   codeLabel?: string;
+  /** Caption under the cells when a code is showing. */
+  codeFilledLabel?: string;
   anchorId?: string;
   bgColor?: string;
   accentColor?: string;
@@ -71,11 +79,35 @@ export const KIT_STEPS_DEFAULT_PROPS: KitStepsBlockProps = {
     { title: "Stream, play or download", body: "Stream instantly over Wi-Fi, or download once and watch anywhere — no connection needed afterwards.", visual: "stream", visualLabel: "Stream · Play · Download" },
   ],
   code: "",
+  codeParam: "code",
   codeLabel: "Your code is on the card in the box.",
+  codeFilledLabel: "This is your kit's code — enter it exactly as shown.",
   anchorId: "steps",
 };
 
 const CHIP_ICONS = [Wifi, Play, Download];
+
+/** Digits of the access code carried in a query string (`?code=48-21 93` → "482193"), or "". Pure, for tests. */
+export function readCodeFromSearch(search: string, param: string | undefined): string {
+  if (!param) return "";
+  try {
+    const raw = new URLSearchParams(search).get(param) ?? "";
+    return raw.replace(/\D/g, "").slice(0, 6);
+  } catch {
+    return "";
+  }
+}
+
+/** The visitor's code from the current URL — read after mount so SSR / static
+ *  renders and the first client paint agree (blank), then fill in. */
+function useUrlCode(param: string | undefined): string {
+  const [code, setCode] = useState("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setCode(readCodeFromSearch(window.location.search, param));
+  }, [param]);
+  return code;
+}
 
 function CodeCells({ code, label, palette }: { code?: string; label?: string; palette: InvitePalette }) {
   const digits = (code ?? "").replace(/\D/g, "").slice(0, 6).split("");
@@ -147,6 +179,9 @@ export function BlockKitSteps({ props, brand, onFieldChange }: Props) {
   const pal = resolveInvitePalette(props, brand);
   const isEditor = !!onFieldChange;
   const steps = props.steps && props.steps.length > 0 ? props.steps : KIT_STEPS_DEFAULT_PROPS.steps;
+  const urlCode = useUrlCode(props.codeParam ?? "code");
+  const code = urlCode || props.code || "";
+  const codeCaption = code.replace(/\D/g, "").length === 6 ? (props.codeFilledLabel ?? KIT_STEPS_DEFAULT_PROPS.codeFilledLabel) : props.codeLabel;
 
   const field = (key: keyof KitStepsBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as KitStepsBlockProps[typeof key] }) : undefined;
@@ -200,7 +235,7 @@ export function BlockKitSteps({ props, brand, onFieldChange }: Props) {
                   </p>
                 )}
 
-                {s.visual === "code" && <CodeCells code={props.code} label={props.codeLabel} palette={pal} />}
+                {s.visual === "code" && <CodeCells code={code} label={codeCaption} palette={pal} />}
                 {s.visual === "store" && <StoreListing name={s.visualLabel || "App"} sub={s.visualSub} palette={pal} />}
                 {s.visual === "stream" && <StreamChips labels={s.visualLabel || "Stream · Play · Download"} palette={pal} />}
 

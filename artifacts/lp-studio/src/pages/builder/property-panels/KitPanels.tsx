@@ -177,9 +177,16 @@ export function KitStepsPanel({ props, onChange }: { props: KitStepsBlockProps; 
     <div className="space-y-3">
       <HeaderFields props={props} update={update} blockType="kit-steps" />
       <PanelSection title="Access code" hint="Shown in the code cells of any step using that visual" defaultOpen>
+        <Field label="URL parameter that carries each visitor's code">
+          <Input value={props.codeParam ?? ""} onChange={(e) => update({ codeParam: e.target.value.trim() })} className="h-8 text-xs font-mono" placeholder="code" />
+          <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">
+            Encode the code in each kit's QR link, e.g. <span className="font-mono">…/quest?{props.codeParam || "code"}=482193</span>, and the cells fill in for that visitor. Blank disables.
+          </p>
+        </Field>
+        <Field label="Fallback code when the URL has none (blank = empty cells)"><Input value={props.code ?? ""} onChange={(e) => update({ code: e.target.value.replace(/\D/g, "").slice(0, 6) })} className="h-8 text-xs font-mono" inputMode="numeric" placeholder="······" /></Field>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Six-digit code (blank = empty cells)"><Input value={props.code ?? ""} onChange={(e) => update({ code: e.target.value.replace(/\D/g, "").slice(0, 6) })} className="h-8 text-xs font-mono" inputMode="numeric" placeholder="······" /></Field>
-          <Field label="Caption under the cells"><Input value={props.codeLabel ?? ""} onChange={(e) => update({ codeLabel: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label="Caption when blank"><Input value={props.codeLabel ?? ""} onChange={(e) => update({ codeLabel: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label="Caption when a code shows"><Input value={props.codeFilledLabel ?? ""} onChange={(e) => update({ codeFilledLabel: e.target.value })} className="h-8 text-xs" /></Field>
         </div>
       </PanelSection>
       <PanelSection title={`Steps (${steps.length})`} defaultOpen>

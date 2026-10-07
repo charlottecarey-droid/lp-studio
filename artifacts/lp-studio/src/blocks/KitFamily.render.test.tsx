@@ -22,7 +22,7 @@ import { BLOCK_REGISTRY } from "@/lib/block-types";
 import { resolveInvitePalette } from "@/lib/invite-theme";
 import { BlockKitHero } from "./BlockKitHero";
 import { BlockKitContents } from "./BlockKitContents";
-import { BlockKitSteps } from "./BlockKitSteps";
+import { BlockKitSteps, readCodeFromSearch } from "./BlockKitSteps";
 import { BlockKitSupport } from "./BlockKitSupport";
 
 const FAMILY = [
@@ -96,6 +96,22 @@ describe("kit-steps — inline visuals", () => {
     const filled = render(BlockKitSteps as never, { ...defaultsFor("kit-steps"), code: "48-21 93" }, true);
     expect(filled).toContain("Access code 4 8 2 1 9 3");
     expect(filled).toMatch(/>4<\/span>/);
+  });
+
+  it("reads the visitor's code from the configured query parameter, digits only, capped at six", () => {
+    expect(readCodeFromSearch("?code=482193", "code")).toBe("482193");
+    expect(readCodeFromSearch("?utm=x&code=48-21%2093", "code")).toBe("482193");
+    expect(readCodeFromSearch("?code=1234567890", "code")).toBe("123456");
+    expect(readCodeFromSearch("?kit=777111", "kit")).toBe("777111");
+    expect(readCodeFromSearch("?code=482193", "")).toBe("");
+    expect(readCodeFromSearch("?code=482193", undefined)).toBe("");
+    expect(readCodeFromSearch("", "code")).toBe("");
+  });
+
+  it("switches the caption once a code is showing", () => {
+    const filled = render(BlockKitSteps as never, { ...defaultsFor("kit-steps"), code: "482193" }, true);
+    expect(filled).toContain("enter it exactly as shown");
+    expect(filled).not.toContain("Your code is on the card in the box.");
   });
 
   it("renders the store listing and the stream chips from the step visuals", () => {
