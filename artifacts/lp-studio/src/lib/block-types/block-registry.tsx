@@ -178,6 +178,10 @@ import type {
   InviteShowcaseBlockProps,
   InviteProofBlockProps,
   InviteReserveBlockProps,
+  KitHeroBlockProps,
+  KitContentsBlockProps,
+  KitStepsBlockProps,
+  KitSupportBlockProps,
   GlassPricingTiersBlockProps,
   AuroraCtaFinaleBlockProps,
   StorybrandJourneyBlockProps,
@@ -212,6 +216,10 @@ import { INVITE_AGENDA_DEFAULT_PROPS } from "@/blocks/BlockInviteAgenda";
 import { INVITE_SHOWCASE_DEFAULT_PROPS } from "@/blocks/BlockInviteShowcase";
 import { INVITE_PROOF_DEFAULT_PROPS } from "@/blocks/BlockInviteProof";
 import { INVITE_RESERVE_DEFAULT_PROPS } from "@/blocks/BlockInviteReserve";
+import { KIT_HERO_DEFAULT_PROPS } from "@/blocks/BlockKitHero";
+import { KIT_CONTENTS_DEFAULT_PROPS } from "@/blocks/BlockKitContents";
+import { KIT_STEPS_DEFAULT_PROPS } from "@/blocks/BlockKitSteps";
+import { KIT_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockKitSupport";
 import { FEATURE_TABS_DEFAULT_PROPS } from "@/blocks/BlockFeatureTabsShowcase";
 import { STAT_COUNTER_DEFAULT_PROPS } from "@/blocks/BlockStatCounterBand";
 import { TESTIMONIAL_WALL_DEFAULT_PROPS } from "@/blocks/BlockTestimonialWall";
@@ -9342,6 +9350,43 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#D9E84A" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="36" height="7" rx="2" fill="#ffffff" /><rect x="62" y="10" width="50" height="52" rx="5" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="68" y="16" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="25" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="34" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="43" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="50" width="38" height="7" rx="3.5" fill="#D9E84A" /></svg>
     ),
   },
+  // ── Kit family (Oct 2026): the page a physical kit's QR code opens ──────
+  {
+    type: "kit-hero",
+    label: "Hero — Kit (Unbox & Set Up)",
+    category: "Showcase",
+    defaultProps: (): KitHeroBlockProps => structuredClone(KIT_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="14" height="1.5" fill="#D9E84A" opacity="0.8" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="36" height="7" rx="2" fill="#ffffff" /><rect x="8" y="44" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="66" y="10" width="46" height="38" rx="6" fill="#F4F3EF" /><ellipse cx="89" cy="29" rx="16" ry="9" fill="#d9d9d4" /><rect x="60" y="40" width="22" height="18" rx="4" fill="#F4F3EF" transform="rotate(-6 71 49)" /><rect x="66" y="46" width="10" height="7" rx="1" fill="#0b3b31" transform="rotate(-6 71 49)" /></svg>
+    ),
+  },
+  {
+    type: "kit-contents",
+    label: "Kit — What's in the Box",
+    category: "Showcase",
+    defaultProps: (): KitContentsBlockProps => structuredClone(KIT_CONTENTS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="40" y="8" width="40" height="5" rx="2" fill="#ffffff" /><rect x="8" y="22" width="32" height="24" rx="4" fill="#F4F3EF" /><rect x="44" y="22" width="32" height="24" rx="4" fill="#F4F3EF" /><rect x="80" y="22" width="32" height="24" rx="4" fill="#F4F3EF" /><rect x="8" y="52" width="6" height="1.5" fill="#D9E84A" /><rect x="8" y="56" width="22" height="3" rx="1" fill="#ffffff" opacity="0.9" /><rect x="44" y="52" width="6" height="1.5" fill="#D9E84A" /><rect x="44" y="56" width="22" height="3" rx="1" fill="#ffffff" opacity="0.9" /><rect x="80" y="52" width="6" height="1.5" fill="#D9E84A" /><rect x="80" y="56" width="22" height="3" rx="1" fill="#ffffff" opacity="0.9" /></svg>
+    ),
+  },
+  {
+    type: "kit-steps",
+    label: "Kit — Setup Steps",
+    category: "Showcase",
+    defaultProps: (): KitStepsBlockProps => structuredClone(KIT_STEPS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="36" y="6" width="48" height="5" rx="2" fill="#ffffff" /><line x1="12" y1="18" x2="108" y2="18" stroke="#ffffff" strokeOpacity="0.2" /><text x="12" y="30" fill="#D9E84A" fontSize="9" fontFamily="serif">01</text><rect x="30" y="23" width="40" height="3.5" rx="1" fill="#ffffff" opacity="0.9" /><rect x="30" y="29" width="70" height="2" rx="1" fill="#ffffff" opacity="0.35" /><line x1="12" y1="36" x2="108" y2="36" stroke="#ffffff" strokeOpacity="0.2" /><text x="12" y="48" fill="#D9E84A" fontSize="9" fontFamily="serif">02</text><rect x="30" y="41" width="40" height="3.5" rx="1" fill="#ffffff" opacity="0.9" /><rect x="30" y="48" width="7" height="8" rx="1.5" fill="#0b2a22" stroke="#D9E84A" strokeOpacity="0.9" /><rect x="39" y="48" width="7" height="8" rx="1.5" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.25" /><rect x="48" y="48" width="7" height="8" rx="1.5" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.25" /><rect x="57" y="48" width="7" height="8" rx="1.5" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.25" /><line x1="12" y1="62" x2="108" y2="62" stroke="#ffffff" strokeOpacity="0.2" /></svg>
+    ),
+  },
+  {
+    type: "kit-support",
+    label: "Kit — Need a Hand? (Close)",
+    category: "CTA",
+    defaultProps: (): KitSupportBlockProps => structuredClone(KIT_SUPPORT_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#D9E84A" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="30" height="7" rx="2" fill="#ffffff" /><rect x="8" y="44" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="66" y="12" width="46" height="46" rx="6" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="72" y="20" width="10" height="1.5" fill="#D9E84A" /><rect x="72" y="26" width="30" height="5" rx="1.5" fill="#ffffff" opacity="0.9" /><rect x="72" y="34" width="34" height="2" rx="1" fill="#ffffff" opacity="0.35" /><rect x="72" y="46" width="24" height="7" rx="3.5" fill="none" stroke="#ffffff" strokeOpacity="0.4" /></svg>
+    ),
+  },
   {
     type: "glass-pricing-tiers",
     label: "Pricing — Glass Tiers",
@@ -9670,6 +9715,10 @@ export function createBlock(type: "invite-agenda"): Extract<PageBlock, { type: "
 export function createBlock(type: "invite-showcase"): Extract<PageBlock, { type: "invite-showcase" }>;
 export function createBlock(type: "invite-proof"): Extract<PageBlock, { type: "invite-proof" }>;
 export function createBlock(type: "invite-reserve"): Extract<PageBlock, { type: "invite-reserve" }>;
+export function createBlock(type: "kit-hero"): Extract<PageBlock, { type: "kit-hero" }>;
+export function createBlock(type: "kit-contents"): Extract<PageBlock, { type: "kit-contents" }>;
+export function createBlock(type: "kit-steps"): Extract<PageBlock, { type: "kit-steps" }>;
+export function createBlock(type: "kit-support"): Extract<PageBlock, { type: "kit-support" }>;
 export function createBlock(type: "feature-tabs-showcase"): Extract<PageBlock, { type: "feature-tabs-showcase" }>;
 export function createBlock(type: "stat-counter-band"): Extract<PageBlock, { type: "stat-counter-band" }>;
 export function createBlock(type: "testimonial-wall"): Extract<PageBlock, { type: "testimonial-wall" }>;
@@ -10047,6 +10096,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "invite-showcase": return { id, type: "invite-showcase", props: props as InviteShowcaseBlockProps };
     case "invite-proof": return { id, type: "invite-proof", props: props as InviteProofBlockProps };
     case "invite-reserve": return { id, type: "invite-reserve", props: props as InviteReserveBlockProps };
+    case "kit-hero": return { id, type: "kit-hero", props: props as KitHeroBlockProps };
+    case "kit-contents": return { id, type: "kit-contents", props: props as KitContentsBlockProps };
+    case "kit-steps": return { id, type: "kit-steps", props: props as KitStepsBlockProps };
+    case "kit-support": return { id, type: "kit-support", props: props as KitSupportBlockProps };
     case "feature-tabs-showcase": return { id, type: "feature-tabs-showcase", props: props as FeatureTabsShowcaseBlockProps };
     case "stat-counter-band": return { id, type: "stat-counter-band", props: props as StatCounterBandBlockProps };
     case "testimonial-wall": return { id, type: "testimonial-wall", props: props as TestimonialWallBlockProps };

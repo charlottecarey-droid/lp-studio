@@ -331,6 +331,11 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "invite-showcase": ["features", "media"],
   "invite-proof": ["social-proof", "stats"],
   "invite-reserve": ["form", "cta"],
+  // Kit family (Oct 2026): the page a physical kit's QR code opens.
+  "kit-hero": ["hero", "media", "cta"],
+  "kit-contents": ["features", "media"],
+  "kit-steps": ["features"],
+  "kit-support": ["cta"],
   "video-step-showcase": ["features", "media"],
   "glow-stat-band": ["stats", "social-proof"],
   "video-zigzag": ["features", "media"],

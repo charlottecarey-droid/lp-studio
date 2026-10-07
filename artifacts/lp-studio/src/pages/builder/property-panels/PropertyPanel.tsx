@@ -214,6 +214,7 @@ import { GlowFinalCtaPanel } from "./GlowFinalCtaPanel";
 import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
 import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
 import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
+import { KitHeroPanel, KitContentsPanel, KitStepsPanel, KitSupportPanel } from "./KitPanels";
 import { FeatureTabsShowcasePanel } from "./FeatureTabsShowcasePanel";
 import { StatCounterBandPanel } from "./StatCounterBandPanel";
 import { TestimonialWallPanel } from "./TestimonialWallPanel";
@@ -1673,6 +1674,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "invite-reserve":
         return (
           <InviteReservePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "kit-hero":
+        return (
+          <KitHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "kit-contents":
+        return (
+          <KitContentsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "kit-steps":
+        return (
+          <KitStepsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "kit-support":
+        return (
+          <KitSupportPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

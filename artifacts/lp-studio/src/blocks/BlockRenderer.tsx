@@ -164,6 +164,10 @@ import { BlockInviteAgenda } from "./BlockInviteAgenda";
 import { BlockInviteShowcase } from "./BlockInviteShowcase";
 import { BlockInviteProof } from "./BlockInviteProof";
 import { BlockInviteReserve } from "./BlockInviteReserve";
+import { BlockKitHero } from "./BlockKitHero";
+import { BlockKitContents } from "./BlockKitContents";
+import { BlockKitSteps } from "./BlockKitSteps";
+import { BlockKitSupport } from "./BlockKitSupport";
 import { BlockFeatureTabsShowcase } from "./BlockFeatureTabsShowcase";
 import { BlockStatCounterBand } from "./BlockStatCounterBand";
 import { BlockTestimonialWall } from "./BlockTestimonialWall";
@@ -488,6 +492,8 @@ export const NO_REVEAL = new Set<string>([
   "glow-form-hero",
   // Invite family: self-nav sticky hero + sections with their own staggered reveals.
   "invite-demo-hero", "invite-details", "invite-agenda", "invite-showcase", "invite-proof", "invite-reserve",
+  // Kit family: self-nav hero with floating product stage + sections with their own staggered reveals.
+  "kit-hero", "kit-contents", "kit-steps", "kit-support",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   // Extracted Event Page sections — same internal staggered whileInView
   // reveals as their parent; the outer wrapper would double-animate them.
@@ -1726,6 +1732,50 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             brand={brand}
             pageId={pageId}
             variantId={variantId}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "kit-hero":
+        return (
+          <BlockKitHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "kit-contents":
+        return (
+          <BlockKitContents
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "kit-steps":
+        return (
+          <BlockKitSteps
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "kit-support":
+        return (
+          <BlockKitSupport
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

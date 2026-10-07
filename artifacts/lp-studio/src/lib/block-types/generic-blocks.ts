@@ -5010,6 +5010,13 @@ export type { InviteShowcaseBlockProps, InviteShowcaseFeature } from "@/blocks/B
 export type { InviteProofBlockProps, InviteProofStat } from "@/blocks/BlockInviteProof";
 export type { InviteReserveBlockProps } from "@/blocks/BlockInviteReserve";
 export type { InviteFormConfig, InviteFormField } from "@/blocks/invite/InviteLeadForm";
+
+/* ── Kit family (Oct 2026): the page a physical kit's QR code opens (unbox → set up → get help). */
+export type { KitHeroBlockProps, KitFact } from "@/blocks/BlockKitHero";
+export type { KitContentsBlockProps, KitContentsItem } from "@/blocks/BlockKitContents";
+export type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockKitSteps";
+export type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
+export type { KitTileFit } from "@/blocks/kit/KitProductTile";
 export type {
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,

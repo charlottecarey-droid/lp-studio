@@ -178,6 +178,10 @@ import type {
   InviteShowcaseBlockProps,
   InviteProofBlockProps,
   InviteReserveBlockProps,
+  KitHeroBlockProps,
+  KitContentsBlockProps,
+  KitStepsBlockProps,
+  KitSupportBlockProps,
   FeatureTabsShowcaseBlockProps,
   StatCounterBandBlockProps,
   TestimonialWallBlockProps,
@@ -473,6 +477,10 @@ export type BlockVariant =
   | { type: "invite-showcase"; props: InviteShowcaseBlockProps }
   | { type: "invite-proof"; props: InviteProofBlockProps }
   | { type: "invite-reserve"; props: InviteReserveBlockProps }
+  | { type: "kit-hero"; props: KitHeroBlockProps }
+  | { type: "kit-contents"; props: KitContentsBlockProps }
+  | { type: "kit-steps"; props: KitStepsBlockProps }
+  | { type: "kit-support"; props: KitSupportBlockProps }
   | { type: "feature-tabs-showcase"; props: FeatureTabsShowcaseBlockProps }
   | { type: "stat-counter-band"; props: StatCounterBandBlockProps }
   | { type: "testimonial-wall"; props: TestimonialWallBlockProps }

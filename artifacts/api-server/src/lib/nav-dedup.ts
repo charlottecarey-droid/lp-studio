@@ -27,6 +27,7 @@ export const SELF_NAV_TYPES = new Set([
   "full-bleed-hero",
   "dso-heartland-hero",
   "invite-demo-hero",
+  "kit-hero",
   "hero",
   "cinematic-video-hero",
   "aurora-gradient-hero",

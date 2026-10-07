@@ -65,6 +65,10 @@ describe("NO_REVEAL — Stack family (Sept 2026)", () => {
     "invite-showcase",
     "invite-proof",
     "invite-reserve",
+    "kit-hero",
+    "kit-contents",
+    "kit-steps",
+    "kit-support",
   ])("excludes %s from reveal wrapping", (type) => {
     expect(NO_REVEAL.has(type)).toBe(true);
   });

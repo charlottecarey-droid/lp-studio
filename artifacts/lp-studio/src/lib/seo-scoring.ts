@@ -118,6 +118,8 @@ export const HERO_TYPES = new Set([
   "glow-form-hero",
   // Invite family self-nav hero (Sept 2026).
   "invite-demo-hero",
+  // Kit family self-nav hero (Oct 2026).
+  "kit-hero",
 ]);
 
 // Calls-to-action: explicit CTA strips, buttons, and interactive conversion
@@ -133,6 +135,8 @@ export const CTA_TYPES = new Set([
   "glow-final-cta",
   // Invite family reservation section.
   "invite-reserve",
+  // Kit family close (support CTA).
+  "kit-support",
 ]);
 
 // Lead-capture / conversion paths: forms, email capture, booking, reservations.
@@ -233,6 +237,8 @@ export const STRUCTURED_TYPES = new Set([
   "video-step-showcase", "video-zigzag", "video-card-trio",
   // Invite family structured sections.
   "invite-details", "invite-agenda", "invite-showcase",
+  // Kit family structured sections.
+  "kit-contents", "kit-steps",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").
