@@ -10,6 +10,8 @@
 // stream / play / download). Images are the kit's own product shots, bundled
 // under /images/kit/. The access code is deliberately NOT seeded — codes are
 // per kit; the cells render blank with "Your code is on the card in the box."
+// The in-depth guide link (kit-support guideUrl) is blank until Charlotte
+// uploads the guide — the link hides itself on the live page until then.
 
 import type { GlobalTemplateSeed } from "./globalTemplates";
 
@@ -25,6 +27,8 @@ const IMG_BOX = "/images/kit/lab-tour-box.webp";
 const IMG_DENTURE = "/images/kit/fusion-denture.webp";
 const META_HELP_URL = "https://www.meta.com/help/quest/";
 const LIVE_TOUR_URL = "https://www.meetdandy.com/get-started/";
+const TALK_TO_SALES_URL = "https://www.meetdandy.com/get-started/";
+const IMG_LAB_FLOOR = "/event-assets/carousel-lab-floor.jpg";
 
 const blocks: Block[] = [
   {
@@ -138,17 +142,16 @@ const blocks: Block[] = [
     props: {
       kicker: "Need a hand?",
       headline: "Stuck on a step?\nWe'll get you inside.",
-      body: "Reply to the email that came with your kit, or reach the Dandy team directly — a real person answers.",
-      ctaText: "Email the Dandy team",
-      ctaUrl: "",
-      email: "",
-      phone: "",
-      hoursNote: "Weekdays, 9am–6pm ET",
-      shareKicker: "Then",
-      shareHeadline: "Share the experience.",
-      shareBody: "Pass the headset around the office. When your team has seen the lab, bring them to the real one.",
-      linkText: "Book a live lab tour",
-      linkUrl: LIVE_TOUR_URL,
+      body: "The full guide walks through every screen on the headset. And once your team has taken the tour, come see the real lab.",
+      guideText: "Download the step-by-step guide",
+      guideUrl: "",
+      ctaText: "See the lab in person",
+      ctaUrl: LIVE_TOUR_URL,
+      ctaSecondaryText: "Talk to sales",
+      ctaSecondaryUrl: TALK_TO_SALES_URL,
+      imageUrl: IMG_LAB_FLOOR,
+      imageAlt: "A row of milling machines on the Dandy lab floor",
+      imageCaption: "The Dandy lab floor",
       anchorId: "help",
     },
   },
@@ -187,7 +190,7 @@ export const QUEST_KIT_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     title: "Lab Tour in a Box — Meta Quest Setup",
     templateLabel: "Lab Tour in a Box — Meta Quest Setup",
     templateDescription:
-      "The page a kit's QR code opens: dark hero with the headset and box on floating product tiles, what's in the box, five numbered setup steps (Meta account → Immersa → six-digit code → Dandy experience → stream / download) with inline code cells and a store listing, and a need-a-hand close with a share-the-experience panel.",
+      "The page a kit's QR code opens: dark hero with the headset and box on floating product tiles, what's in the box, five numbered setup steps (Meta account → Immersa → six-digit code → Dandy experience → stream / download) with inline code cells and a store listing, and a need-a-hand close: guide download link, see-the-lab / talk-to-sales buttons over a lab-floor photo.",
     ogImage: "/images/kit/quest-headset.webp",
     industry: "dental",
     premiumRank: 8,

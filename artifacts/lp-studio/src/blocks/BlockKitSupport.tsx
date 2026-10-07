@@ -1,36 +1,42 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Clock, Mail, Phone } from "lucide-react";
+import { ArrowRight, ArrowUpRight, FileDown } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
-import { INVITE_BODY, INVITE_CSS, INVITE_DISPLAY, INVITE_PILL_CLASS, Kicker, displayStyle, pillStyle, resolveInvitePalette } from "@/lib/invite-theme";
+import { InlineImage } from "@/components/InlineImage";
+import { INVITE_BODY, INVITE_CSS, INVITE_PILL_CLASS, Kicker, displayStyle, pillStyle, resolveInvitePalette } from "@/lib/invite-theme";
 
 /* ----------------------------------------------------------------------------
  * Kit Support — type "kit-support"
  *
- * The close of a kit page: "NEED A HAND?" with a headline, a sentence, one
- * pill CTA (usually mailto:) and the contact rows (email / phone / hours), and
- * beside it a hairline panel that asks the recipient to share the experience
- * — with a secondary link (book the live tour, talk to the team).
+ * The close of a kit page, centered: "NEED A HAND?", a headline, a sentence,
+ * a text link to the in-depth guide (PDF / doc), two pill CTAs side by side
+ * (see the lab in person · talk to sales), and beneath them a wide framed
+ * photo of the lab that fades into the surface — the thing the first CTA
+ * promises.
  *
- * `ctaText`/`ctaUrl` is the block's primary action and follows the Page CTA;
- * the share panel's `linkText`/`linkUrl` deliberately does not.
+ * `ctaText`/`ctaUrl` is the primary button and follows the Page CTA;
+ * `ctaSecondaryText`/`ctaSecondaryUrl` is the official secondary alias
+ * family so the Page CTA never rewrites it; `guideText`/`guideUrl` is a plain
+ * link. All three render only when both their text and URL are set (editor
+ * shows them regardless so they can be filled in).
  * -------------------------------------------------------------------------- */
 
 export interface KitSupportBlockProps {
   kicker?: string;
   headline?: string;
   body?: string;
+  /** Text link to the in-depth guide (PDF, doc, help page). */
+  guideText?: string;
+  guideUrl?: string;
   ctaText?: string;
   ctaUrl?: string;
-  email?: string;
-  phone?: string;
-  hoursNote?: string;
-  shareKicker?: string;
-  shareHeadline?: string;
-  shareBody?: string;
-  linkText?: string;
-  linkUrl?: string;
+  ctaSecondaryText?: string;
+  ctaSecondaryUrl?: string;
+  /** The lab photo under the CTAs. */
+  imageUrl?: string;
+  imageAlt?: string;
+  imageCaption?: string;
   anchorId?: string;
   bgColor?: string;
   accentColor?: string;
@@ -47,19 +53,20 @@ interface Props {
 export const KIT_SUPPORT_DEFAULT_PROPS: KitSupportBlockProps = {
   kicker: "Need a hand?",
   headline: "Stuck on a step?\nWe'll get you in.",
-  body: "Reply to the email that came with your kit, or reach the team directly — a real person answers.",
-  ctaText: "Email the team",
+  body: "The full guide walks through every screen. And when your team has seen the tour, come see the real thing.",
+  guideText: "Download the step-by-step guide",
+  guideUrl: "",
+  ctaText: "See the lab in person",
   ctaUrl: "",
-  email: "",
-  phone: "",
-  hoursNote: "Weekdays, 9am–6pm ET",
-  shareKicker: "Then",
-  shareHeadline: "Share the experience.",
-  shareBody: "Pass the headset around the office, then bring the whole team for the real thing.",
-  linkText: "Book a live tour",
-  linkUrl: "",
+  ctaSecondaryText: "Talk to sales",
+  ctaSecondaryUrl: "",
+  imageUrl: "",
+  imageAlt: "",
+  imageCaption: "",
   anchorId: "help",
 };
+
+const external = (url?: string) => !!url && !url.startsWith("#") && !url.startsWith("mailto:") && !url.startsWith("tel:");
 
 export function BlockKitSupport({ props, brand, onCtaClick, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
@@ -70,98 +77,124 @@ export function BlockKitSupport({ props, brand, onCtaClick, onFieldChange }: Pro
   const field = (key: keyof KitSupportBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as KitSupportBlockProps[typeof key] }) : undefined;
 
-  const ctaHref = props.ctaUrl || (props.email ? `mailto:${props.email}` : "");
-  const rows = [
-    { Icon: Mail, value: props.email, href: props.email ? `mailto:${props.email}` : undefined, key: "email" as const },
-    { Icon: Phone, value: props.phone, href: props.phone ? `tel:${props.phone.replace(/[^\d+]/g, "")}` : undefined, key: "phone" as const },
-    { Icon: Clock, value: props.hoursNote, href: undefined, key: "hoursNote" as const },
-  ].filter((r) => r.value || isEditor);
+  const showGuide = isEditor || (!!props.guideText && !!props.guideUrl);
+  const showPrimary = isEditor || (!!props.ctaText && !!props.ctaUrl);
+  const showSecondary = isEditor || (!!props.ctaSecondaryText && !!props.ctaSecondaryUrl);
+  const showImage = isEditor || !!props.imageUrl;
+
+  const rise = (delay: number) => ({
+    initial: reduced ? false : anim({ opacity: 0, y: 16 }),
+    whileInView: reduced ? undefined : { opacity: 1, y: 0 },
+    viewport: { once: true, margin: "-60px" },
+    transition: { duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] as const },
+  });
 
   return (
     <section id={props.anchorId || "help"} className="relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY }}>
       <style>{INVITE_CSS}</style>
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true" style={{ background: `radial-gradient(60% 50% at 20% 100%, color-mix(in srgb, ${pal.accent} 12%, transparent) 0%, transparent 70%)` }} />
-      <div className="relative mx-auto w-full max-w-[1240px] px-6 py-20 lg:px-10 lg:py-28">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-10">
-          <motion.div
-            initial={reduced ? false : anim({ opacity: 0, y: 16 })}
-            whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col gap-6 lg:col-span-7"
-          >
-            {(props.kicker || isEditor) && <Kicker palette={pal} align="left"><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></Kicker>}
-            <h2 className="max-w-[14ch] whitespace-pre-line" style={displayStyle("clamp(2.4rem, 5vw, 4.2rem)")}>
-              <InlineText as="span" value={props.headline ?? ""} onUpdate={field("headline")} multiline />
-            </h2>
-            {(props.body || isEditor) && (
-              <p className="max-w-[48ch] text-[15px] leading-relaxed lg:text-base" style={{ color: pal.muted }}>
-                <InlineText as="span" value={props.body ?? ""} onUpdate={field("body")} multiline />
-              </p>
-            )}
-            {(props.ctaText || isEditor) && (
-              <div>
-                <a href={ctaHref || "#"} onClick={() => onCtaClick?.()} className={INVITE_PILL_CLASS} style={pillStyle(pal)}>
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true" style={{ background: `radial-gradient(60% 40% at 50% 0%, color-mix(in srgb, ${pal.accent} 10%, transparent) 0%, transparent 70%)` }} />
+      <div className="relative mx-auto w-full max-w-[1240px] px-6 pt-20 lg:px-10 lg:pt-28" style={{ paddingBottom: showImage ? 0 : undefined }}>
+        <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
+          {(props.kicker || isEditor) && (
+            <motion.div {...rise(0)} className="mb-6">
+              <Kicker palette={pal}><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></Kicker>
+            </motion.div>
+          )}
+          <motion.h2 {...rise(0.06)} className="max-w-[16ch] whitespace-pre-line" style={displayStyle("clamp(2.4rem, 5vw, 4.2rem)")}>
+            <InlineText as="span" value={props.headline ?? ""} onUpdate={field("headline")} multiline />
+          </motion.h2>
+          {(props.body || isEditor) && (
+            <motion.p {...rise(0.12)} className="mt-6 max-w-[50ch] text-[15px] leading-relaxed lg:text-base" style={{ color: pal.muted }}>
+              <InlineText as="span" value={props.body ?? ""} onUpdate={field("body")} multiline />
+            </motion.p>
+          )}
+
+          {showGuide && (
+            <motion.div {...rise(0.18)} className="mt-7">
+              <a
+                href={props.guideUrl || "#"}
+                target={external(props.guideUrl) ? "_blank" : undefined}
+                rel={external(props.guideUrl) ? "noopener noreferrer" : undefined}
+                className="kit-guide inline-flex min-h-[44px] items-center gap-2 text-[15px] font-semibold underline decoration-1 underline-offset-[6px]"
+                style={{ color: pal.accent, textDecorationColor: `color-mix(in srgb, ${pal.accent} 55%, transparent)` }}
+              >
+                <FileDown className="h-4 w-4" aria-hidden />
+                <InlineText as="span" value={props.guideText ?? ""} onUpdate={field("guideText")} />
+              </a>
+            </motion.div>
+          )}
+
+          {(showPrimary || showSecondary) && (
+            <motion.div {...rise(0.24)} className="mt-9 flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
+              {showPrimary && (
+                <a
+                  href={props.ctaUrl || "#"}
+                  onClick={() => onCtaClick?.()}
+                  target={external(props.ctaUrl) ? "_blank" : undefined}
+                  rel={external(props.ctaUrl) ? "noopener noreferrer" : undefined}
+                  className={INVITE_PILL_CLASS}
+                  style={pillStyle(pal)}
+                >
                   <InlineText as="span" value={props.ctaText ?? ""} onUpdate={field("ctaText")} />
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </a>
-              </div>
-            )}
-            {rows.length > 0 && (
-              <ul className="mt-2 flex flex-col divide-y" style={{ borderTop: `1px solid ${pal.hairline}`, borderBottom: `1px solid ${pal.hairline}`, borderColor: pal.hairline }}>
-                {rows.map(({ Icon, value, href, key }) => (
-                  <li key={key} className="flex items-center gap-4 py-3.5 text-[15px]" style={{ borderColor: pal.hairline }}>
-                    <Icon className="h-4 w-4 shrink-0" style={{ color: pal.accent }} aria-hidden />
-                    {href && !isEditor ? (
-                      <a href={href} className="underline-offset-4 hover:underline">{value}</a>
-                    ) : (
-                      <InlineText as="span" value={value ?? ""} onUpdate={field(key)} />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </motion.div>
+              )}
+              {showSecondary && (
+                <a
+                  href={props.ctaSecondaryUrl || "#"}
+                  target={external(props.ctaSecondaryUrl) ? "_blank" : undefined}
+                  rel={external(props.ctaSecondaryUrl) ? "noopener noreferrer" : undefined}
+                  className={INVITE_PILL_CLASS}
+                  style={pillStyle(pal, "ghost")}
+                >
+                  <InlineText as="span" value={props.ctaSecondaryText ?? ""} onUpdate={field("ctaSecondaryText")} />
+                  <ArrowUpRight className="h-4 w-4" aria-hidden />
+                </a>
+              )}
+            </motion.div>
+          )}
+        </div>
 
-          <motion.aside
-            initial={reduced ? false : anim({ opacity: 0, y: 16 })}
+        {showImage && (
+          <motion.figure
+            initial={reduced ? false : anim({ opacity: 0, y: 28 })}
             whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col justify-between gap-8 rounded-[24px] p-7 lg:col-span-5 lg:p-9"
-            style={{ background: pal.panel, border: `1px solid ${pal.hairline}` }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="relative mx-auto mt-14 w-full max-w-[1100px] lg:mt-20"
           >
-            <div className="flex flex-col gap-4">
-              {(props.shareKicker || isEditor) && (
-                <p className="text-[11px] font-semibold uppercase tracking-[0.26em]" style={{ color: pal.accent }}>
-                  <InlineText as="span" value={props.shareKicker ?? ""} onUpdate={field("shareKicker")} />
-                </p>
-              )}
-              {(props.shareHeadline || isEditor) && (
-                <h3 className="text-2xl lg:text-[1.9rem]" style={{ fontFamily: INVITE_DISPLAY, fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-                  <InlineText as="span" value={props.shareHeadline ?? ""} onUpdate={field("shareHeadline")} multiline />
-                </h3>
-              )}
-              {(props.shareBody || isEditor) && (
-                <p className="text-[15px] leading-relaxed" style={{ color: pal.muted }}>
-                  <InlineText as="span" value={props.shareBody ?? ""} onUpdate={field("shareBody")} multiline />
-                </p>
+            <div
+              className="relative overflow-hidden rounded-t-[26px]"
+              style={{
+                aspectRatio: "16 / 8",
+                background: pal.panel,
+                border: `1px solid ${pal.hairline}`,
+                borderBottom: "none",
+                boxShadow: `0 -30px 90px -50px color-mix(in srgb, ${pal.accent} 35%, transparent)`,
+              }}
+            >
+              <InlineImage
+                src={props.imageUrl ?? ""}
+                alt={props.imageAlt ?? ""}
+                onUpdate={field("imageUrl")}
+                onAltUpdate={field("imageAlt")}
+                wrapperClassName="absolute inset-0"
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+              {/* Fade the photo into the surface so the section ends on the brand colour, not a hard photo edge. */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%]" aria-hidden="true" style={{ background: `linear-gradient(180deg, transparent, ${pal.bg})` }} />
+              {(props.imageCaption || isEditor) && (
+                <figcaption className="absolute inset-x-0 bottom-0 flex items-center gap-3 px-6 pb-6 text-[11px] font-semibold uppercase tracking-[0.24em] lg:px-8 lg:pb-8" style={{ color: pal.faint }}>
+                  <span aria-hidden="true" className="block h-px w-6" style={{ background: pal.accent, opacity: 0.8 }} />
+                  <InlineText as="span" value={props.imageCaption ?? ""} onUpdate={field("imageCaption")} />
+                </figcaption>
               )}
             </div>
-            {((props.linkText && props.linkUrl) || isEditor) && (
-              <a
-                href={props.linkUrl || "#"}
-                target={props.linkUrl && !props.linkUrl.startsWith("#") ? "_blank" : undefined}
-                rel={props.linkUrl && !props.linkUrl.startsWith("#") ? "noopener noreferrer" : undefined}
-                className={INVITE_PILL_CLASS}
-                style={pillStyle(pal, "ghost")}
-              >
-                <InlineText as="span" value={props.linkText ?? ""} onUpdate={field("linkText")} />
-                <ArrowUpRight className="h-4 w-4" aria-hidden />
-              </a>
-            )}
-          </motion.aside>
-        </div>
+          </motion.figure>
+        )}
+        {!showImage && <div className="h-20 lg:h-28" aria-hidden="true" />}
       </div>
     </section>
   );

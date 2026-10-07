@@ -227,28 +227,34 @@ export function KitSupportPanel({ props, onChange }: { props: KitSupportBlockPro
   return (
     <div className="space-y-3">
       <BlockRefreshButton blockType="kit-support" fields={["kicker", "headline", "body"]} values={{ kicker: props.kicker ?? "", headline: props.headline ?? "", body: props.body ?? "" }} onApply={(u) => update(u)} />
-      <PanelSection title="Help" defaultOpen>
+      <PanelSection title="Copy" defaultOpen>
         <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Headline (line breaks allowed)"><Textarea value={props.headline ?? ""} onChange={(e) => update({ headline: e.target.value })} rows={2} className="text-xs" /></Field>
         <Field label="Body"><Textarea value={props.body ?? ""} onChange={(e) => update({ body: e.target.value })} rows={2} className="text-xs" /></Field>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="CTA text"><Input value={props.ctaText ?? ""} onChange={(e) => update({ ctaText: e.target.value })} className="h-8 text-xs" /></Field>
-          <Field label="CTA URL (blank = mailto the email below)"><Input value={props.ctaUrl ?? ""} onChange={(e) => update({ ctaUrl: e.target.value })} className="h-8 text-xs" placeholder="mailto:…" /></Field>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Email"><Input value={props.email ?? ""} onChange={(e) => update({ email: e.target.value })} className="h-8 text-xs" type="email" /></Field>
-          <Field label="Phone"><Input value={props.phone ?? ""} onChange={(e) => update({ phone: e.target.value })} className="h-8 text-xs" /></Field>
-        </div>
-        <Field label="Hours note"><Input value={props.hoursNote ?? ""} onChange={(e) => update({ hoursNote: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Anchor id"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="help" /></Field>
       </PanelSection>
-      <PanelSection title="Share panel" defaultOpen>
-        <Field label="Kicker"><Input value={props.shareKicker ?? ""} onChange={(e) => update({ shareKicker: e.target.value })} className="h-8 text-xs" /></Field>
-        <Field label="Headline"><Input value={props.shareHeadline ?? ""} onChange={(e) => update({ shareHeadline: e.target.value })} className="h-8 text-xs" /></Field>
-        <Field label="Body"><Textarea value={props.shareBody ?? ""} onChange={(e) => update({ shareBody: e.target.value })} rows={2} className="text-xs" /></Field>
+      <PanelSection title="Guide link" hint="Text link above the buttons — a PDF, doc or help page" defaultOpen>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Link text"><Input value={props.linkText ?? ""} onChange={(e) => update({ linkText: e.target.value })} className="h-8 text-xs" /></Field>
-          <Field label="Link URL"><Input value={props.linkUrl ?? ""} onChange={(e) => update({ linkUrl: e.target.value })} className="h-8 text-xs" placeholder="https://" /></Field>
+          <Field label="Link text"><Input value={props.guideText ?? ""} onChange={(e) => update({ guideText: e.target.value })} className="h-8 text-xs" placeholder="Download the step-by-step guide" /></Field>
+          <Field label="Link URL"><Input value={props.guideUrl ?? ""} onChange={(e) => update({ guideUrl: e.target.value })} className="h-8 text-xs" placeholder="https://…/guide.pdf" /></Field>
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">Hidden on the live page until both text and URL are set.</p>
+      </PanelSection>
+      <PanelSection title="Buttons" defaultOpen>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Primary button text"><Input value={props.ctaText ?? ""} onChange={(e) => update({ ctaText: e.target.value })} className="h-8 text-xs" placeholder="See the lab in person" /></Field>
+          <Field label="Primary button URL"><Input value={props.ctaUrl ?? ""} onChange={(e) => update({ ctaUrl: e.target.value })} className="h-8 text-xs" placeholder="https://" /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Secondary button text"><Input value={props.ctaSecondaryText ?? ""} onChange={(e) => update({ ctaSecondaryText: e.target.value })} className="h-8 text-xs" placeholder="Talk to sales" /></Field>
+          <Field label="Secondary button URL"><Input value={props.ctaSecondaryUrl ?? ""} onChange={(e) => update({ ctaSecondaryUrl: e.target.value })} className="h-8 text-xs" placeholder="https://" /></Field>
+        </div>
+      </PanelSection>
+      <PanelSection title="Lab photo" defaultOpen>
+        <Field label="Image"><ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" /></Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Alt text"><Input value={props.imageAlt ?? ""} onChange={(e) => update({ imageAlt: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label="Caption (optional)"><Input value={props.imageCaption ?? ""} onChange={(e) => update({ imageCaption: e.target.value })} className="h-8 text-xs" placeholder="The lab floor" /></Field>
         </div>
       </PanelSection>
       <PanelSection title="Colors"><InviteColorFields value={props} onChange={(p) => update(p)} /></PanelSection>

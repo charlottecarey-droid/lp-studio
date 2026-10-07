@@ -76,7 +76,7 @@ describe("kit-hero — own top bar + product stage contract", () => {
 
   it("multiplies a contain-fit product shot onto the light tile and covers with a cover-fit one", () => {
     const html = render(BlockKitHero as never, { ...defaultsFor("kit-hero"), heroImageUrl: "/images/kit/a.webp", secondaryImageUrl: "/images/kit/b.webp" }, true);
-    const imgs = html.match(/<img[^>]*>/g) ?? [];
+    const imgs: string[] = html.match(/<img[^>]*>/g) ?? [];
     const a = imgs.find((t) => t.includes('src="/images/kit/a.webp"')) ?? "";
     const b = imgs.find((t) => t.includes('src="/images/kit/b.webp"')) ?? "";
     expect(a).toContain("mix-blend-mode:multiply");
@@ -116,17 +116,31 @@ describe("kit-steps — inline visuals", () => {
   });
 });
 
-describe("kit-support — contact contract", () => {
-  it("falls back to mailto: for the CTA when only an email is given and renders tel: for the phone", () => {
-    const html = render(BlockKitSupport as never, { ...defaultsFor("kit-support"), email: "help@example.com", phone: "(555) 010-2030", linkUrl: "https://example.com/tour" }, true);
-    expect(html).toContain('href="mailto:help@example.com"');
-    expect(html).toContain('href="tel:5550102030"');
-    expect(html).toMatch(/<a[^>]*href="https:\/\/example\.com\/tour"[^>]*target="_blank"/);
+describe("kit-support — guide link, two CTAs, lab photo", () => {
+  it("renders the guide link and both buttons only when text AND url are set, with the photo and its fade", () => {
+    const html = render(BlockKitSupport as never, {
+      ...defaultsFor("kit-support"),
+      guideUrl: "https://example.com/guide.pdf",
+      ctaUrl: "https://example.com/tour",
+      ctaSecondaryUrl: "https://example.com/sales",
+      imageUrl: "/event-assets/lab.jpg",
+      imageCaption: "The lab floor",
+    }, true);
+    expect(html).toMatch(/<a[^>]*href="https:\/\/example\.com\/guide\.pdf"[^>]*target="_blank"/);
+    expect(html).toContain("Download the step-by-step guide");
+    expect(html).toContain('href="https://example.com/tour"');
+    expect(html).toContain('href="https://example.com/sales"');
+    expect(html).toMatch(/<img[^>]*src="\/event-assets\/lab\.jpg"/);
+    expect(html).toContain("The lab floor");
     expect(html).toContain('id="help"');
   });
 
-  it("omits the share link without a URL", () => {
-    const html = render(BlockKitSupport as never, { ...defaultsFor("kit-support"), linkUrl: "" }, true);
-    expect(html).not.toContain("Book a live tour");
+  it("hides the guide link, the buttons and the photo on the live page while their URLs are blank", () => {
+    const html = render(BlockKitSupport as never, defaultsFor("kit-support"), true);
+    expect(html).not.toContain("Download the step-by-step guide");
+    expect(html).not.toContain("See the lab in person");
+    expect(html).not.toContain("Talk to sales");
+    expect(html).not.toMatch(/<img/);
+    expect(html).toContain("Stuck on a step?");
   });
 });
