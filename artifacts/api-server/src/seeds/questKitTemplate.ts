@@ -12,8 +12,8 @@
 // per kit; the cells render blank with "Your code is on the card in the box."
 // unless the QR link carries it as ?code=482193 (codeParam), in which case the
 // visitor sees their own code filled in.
-// The in-depth guide link (kit-support guideUrl) is blank until Charlotte
-// uploads the guide — the link hides itself on the live page until then.
+// The in-depth guide link (kit-support guideUrl) points at the bundled SOP PDF
+// under public/docs/.
 
 import type { GlobalTemplateSeed } from "./globalTemplates";
 
@@ -31,6 +31,9 @@ const META_HELP_URL = "https://www.meta.com/help/quest/";
 const LIVE_TOUR_URL = "https://www.meetdandy.com/get-started/";
 const TALK_TO_SALES_URL = "https://www.meetdandy.com/get-started/";
 const IMG_LAB_FLOOR = "/event-assets/carousel-lab-floor.jpg";
+// The in-depth setup SOP (6 pages), bundled with the app. Source HTML lives in
+// docs/sop/; re-render with Playwright (see docs/sop/README.md) when it changes.
+const GUIDE_PDF_URL = "/docs/dandy-meta-quest-setup-sop.pdf";
 
 const blocks: Block[] = [
   {
@@ -148,7 +151,7 @@ const blocks: Block[] = [
       headline: "Stuck on a step?\nWe'll get you inside.",
       body: "The full guide walks through every screen on the headset. And once your team has taken the tour, come see the real lab.",
       guideText: "Download the step-by-step guide",
-      guideUrl: "",
+      guideUrl: GUIDE_PDF_URL,
       ctaText: "See the lab in person",
       ctaUrl: LIVE_TOUR_URL,
       ctaSecondaryText: "Talk to sales",

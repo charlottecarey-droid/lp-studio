@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Meet Dandy Meta Quest Setup — Standard Operating Procedure</title>
+<style>
+  @page { size: Letter; margin: 0.85in 0.9in 0.9in 0.9in; }
+  :root {
+    --ink: #0b0b0f;
+    --forest: #003a30;
+    --muted: #5a615e;
+    --hairline: #dcdfdd;
+    --tint: #f1f5f3;
+    --lime: #c7e738;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    font-size: 11.5pt;
+    line-height: 1.5;
+  }
+  /* Cover */
+  .cover {
+    height: 9.25in; /* Letter minus margins */
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    page-break-after: always;
+  }
+  .cover img { width: 3.6in; height: auto; margin-bottom: 0.45in; }
+  .cover h1 { font-size: 30pt; font-weight: 500; letter-spacing: -0.02em; color: var(--forest); margin: 0 0 0.12in; }
+  .cover .sub { font-size: 14pt; color: var(--ink); margin: 0 0 0.5in; }
+  .cover .meta { font-size: 9.5pt; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .cover .meta span + span::before { content: "·"; margin: 0 0.7em; }
+
+  h2 { font-size: 15pt; font-weight: 600; color: var(--forest); margin: 0.35in 0 0.12in; letter-spacing: -0.01em; }
+  h2:first-child { margin-top: 0; }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--forest); font-weight: 600; }
+  h3 { font-size: 11.5pt; font-weight: 600; margin: 0.18in 0 0.06in; color: var(--ink); }
+  p { margin: 0 0 0.1in; }
+  ul, ol { margin: 0 0 0.12in; padding-left: 1.45em; }
+  li { margin: 0 0 0.06in; }
+  li ul, li ol { margin-top: 0.05in; margin-bottom: 0.03in; }
+  b { font-weight: 600; }
+  .ui { font-weight: 600; }
+  .tip {
+    margin: 0.12in 0 0.16in; padding: 0.11in 0.16in; border-left: 3px solid var(--lime); background: var(--tint);
+    font-size: 10.5pt; line-height: 1.45; break-inside: avoid;
+  }
+  .tip b { color: var(--forest); }
+  table { width: 100%; border-collapse: collapse; font-size: 10.5pt; margin: 0.08in 0 0.15in; }
+  th, td { text-align: left; vertical-align: top; padding: 0.08in 0.1in; border-bottom: 1px solid var(--hairline); }
+  th { font-weight: 600; color: var(--forest); border-bottom: 1.5px solid var(--forest); font-size: 10pt; text-transform: uppercase; letter-spacing: 0.08em; }
+  td:first-child { width: 36%; font-weight: 600; }
+  tr { break-inside: avoid; }
+  .section { break-inside: avoid-page; }
+  .keep { break-inside: avoid; }
+  .footer-note { margin-top: 0.3in; padding-top: 0.14in; border-top: 1px solid var(--hairline); font-size: 9.5pt; color: var(--muted); }
+  .footer-note a { color: var(--forest); text-decoration: none; }
+  .pb { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <img src="../../artifacts/lp-studio/public/dandy-logo.svg" alt="Dandy" />
+  <h1>Meet Dandy Meta Quest Setup</h1>
+  <p class="sub">Standard Operating Procedure</p>
+  <p class="meta"><span>Lab Tour in a Box</span><span>Meta Quest 3</span><span>Version 1.0 · October 2026</span></p>
+</section>
+
+<h2>What You’ll Need</h2>
+<ul>
+  <li><b>Your Dandy Lab Tour in a Box kit:</b> the Meta Quest 3 headset, two Touch Plus controllers, the USB‑C charging cable and power adapter, a Dandy Fusion Denture, and the access card with your six‑digit Dandy code.</li>
+  <li><b>A smartphone</b> (iPhone or Android) with Bluetooth turned on, to run the free <span class="ui">Meta Horizon</span> app during first‑time setup.</li>
+  <li><b>A Wi‑Fi network and its password.</b> Home or office Wi‑Fi works best. Guest networks that open a sign‑in page (hotels, some conference centers) may not connect; a phone hotspot is a reliable fallback.</li>
+  <li><b>A Meta account</b> (free). You can create one during setup with just an email address — no Facebook account is required. You must be 13 or older.</li>
+  <li><b>About 10 minutes</b> and a clear space of at least 3 ft × 3 ft. The lab tour is designed to be watched seated or standing in place.</li>
+</ul>
+
+<h2>Before You Start</h2>
+<ol>
+  <li><b>Charge the headset.</b> Plug the included USB‑C cable into the port on the <b>left side</b> of the headset and into the power adapter. The side LED is <b>orange</b> while charging and <b>green</b> when full; a full charge takes about 2½ hours. Setup includes a software update, so keep the headset plugged in until it finishes.</li>
+  <li><b>Unwrap.</b> Peel the protective film off both lenses and remove the paper from the head strap.</li>
+  <li><b>Wake the controllers.</b> Pull the paper battery tab out of each controller. Each one runs on a single AA battery, already installed.</li>
+  <li><b>Keep the lenses out of direct sunlight.</b> Sunlight focused through the lenses permanently damages the display. Store the headset in its box, away from windows.</li>
+</ol>
+
+<div class="section">
+<h2><span class="num">1.</span>Set Up Your Meta Account and Headset</h2>
+<h3>On your phone</h3>
+<ol>
+  <li>Install the <span class="ui">Meta Horizon</span> app from the Apple App Store or Google Play.</li>
+  <li>Open the app and <span class="ui">Log in</span>, or choose <span class="ui">Create account</span> and sign up with your email address and birthday. When prompted, pick a display name and username for your Meta Horizon profile.</li>
+  <li>Make sure Bluetooth is on (and, on Android, that nearby‑device sharing is allowed). The app uses it to find the headset.</li>
+</ol>
+<h3>On the headset</h3>
+<ol start="4">
+  <li><b>Power on.</b> Press and hold the power button on the left side for about three seconds, until you hear a chime and see the Meta logo.</li>
+  <li><b>Put it on and adjust the fit.</b> Loosen the back and top straps, seat the headset against your face, then tighten the split straps and the top strap so the weight sits on the top of your head rather than your cheeks. Turn the lens‑spacing wheel on the underside of the headset until the picture is sharp.</li>
+  <li><b>Pair the controllers.</b> Hold the <span class="ui">Menu</span> button on the left controller and the <span class="ui">Meta</span> button on the right controller for about two seconds. A short buzz and a blinking white light mean they are connected. Slip the wrist straps on.</li>
+  <li><b>Choose your language and connect to Wi‑Fi.</b> Point the controller at your network, press the trigger to select it, and type the password on the floating keyboard.</li>
+  <li><b>Pair the headset with your phone.</b> The headset displays a five‑digit pairing code. In the Meta Horizon app, tap <span class="ui">Menu</span> → <span class="ui">Devices</span> → <span class="ui">Pair new headset</span> → <span class="ui">Meta Quest 3</span>, then enter the code when asked. The phone finishes signing the headset into your Meta account.</li>
+  <li><b>Let the update install.</b> The headset downloads and installs its latest software. Allow 5–15 minutes and keep it plugged in. The Store and Library only appear once this finishes.</li>
+  <li><b>Create your boundary.</b> The first time you enter VR you are asked to set a boundary. Choose <span class="ui">Stationary</span> — it creates a 3 ft × 3 ft area around where you are standing or sitting, which is all the lab tour needs. Confirm the floor level if prompted.</li>
+</ol>
+<div class="tip"><b>Tip:</b> The phone app is only needed for this first setup. Everyone who uses the headset afterwards can skip straight to step 2. If you don’t see the option to add a headset in the app, update the app, fully close it, and reopen it.</div>
+</div>
+
+<div class="section">
+<h2><span class="num">2.</span>Download Immersa from the Horizon Store</h2>
+<ol>
+  <li>Press the <span class="ui">Meta</span> button on the right controller to open the <span class="ui">Navigator</span>, the menu bar that appears in front of you.</li>
+  <li>Select the <span class="ui">Meta Horizon Store</span> (the shopping‑bag icon).</li>
+  <li>Select the search icon at the top of the Store, type <span class="ui">Immersa</span>, and select it from the results.</li>
+  <li>Select <span class="ui">Get</span>. The app is free; it downloads and installs automatically.</li>
+  <li>When the button changes to <span class="ui">Open</span>, select it. From now on you’ll also find Immersa in your <span class="ui">Library</span> (the grid icon in the Navigator).</li>
+</ol>
+<div class="tip"><b>Tip:</b> If the Library looks empty after installing, the headset may be signed in to a different Meta Horizon profile. Open <span class="ui">Settings</span> → <span class="ui">Accounts</span> and switch back to the profile you created in step 1.</div>
+</div>
+
+<div class="section">
+<h2><span class="num">3.</span>Enter Your Six‑Digit Dandy Code</h2>
+<ol>
+  <li>Open <span class="ui">Immersa</span>.</li>
+  <li>When Immersa asks for an access code, enter the <b>six digits printed on the card in your kit</b>. If you scanned the card’s QR code, the same code is shown on the page it opened (lp.meetdandy.com/quest).</li>
+  <li>Point the controller at each digit and press the trigger, then select <span class="ui">Continue</span>.</li>
+</ol>
+<div class="tip"><b>Tip:</b> Codes are specific to your kit. If the card is missing or the code is rejected, contact your Dandy representative and we’ll issue a new one.</div>
+</div>
+
+<div class="section">
+<h2><span class="num">4.</span>Open the Dandy Experience</h2>
+<ol>
+  <li>Once the code is accepted you land in the dedicated <b>Dandy</b> space inside Immersa.</li>
+  <li>Select the <b>Dandy Lab Tour</b> to open it.</li>
+  <li>Get comfortable. If the picture isn’t centered in front of you, hold the <span class="ui">Meta</span> button on the right controller for a second to recenter the view. Volume buttons are on the underside of the headset, on the right.</li>
+</ol>
+</div>
+
+<div class="section">
+<h2><span class="num">5.</span>Stream, Play or Download</h2>
+<ul>
+  <li><b>Stream</b> plays the tour immediately over Wi‑Fi. Use it when you have a solid connection and want to start right away.</li>
+  <li><b>Download</b> saves the tour to the headset so it plays anywhere, with no Wi‑Fi. We recommend downloading before you pass the headset around the office or take it to an event.</li>
+  <li><b>Play</b> starts the tour. Point and press the trigger to pause, resume, or skip. Hold the <span class="ui">Meta</span> button to recenter at any time.</li>
+  <li><b>To exit,</b> press the <span class="ui">Meta</span> button and select <span class="ui">Quit</span>, or simply take the headset off — it goes to sleep on its own.</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Sharing the Headset with Your Team</h2>
+<ul>
+  <li><b>Hand‑off checklist:</b> wipe the facial interface, hand the headset over with the controllers, have the next person adjust the straps and the lens‑spacing wheel, and open Immersa → Dandy Lab Tour. If Immersa asks for the code again, re‑enter the code from your card.</li>
+  <li><b>Cleaning:</b> use non‑abrasive antibacterial wipes on the straps and facial interface (no alcohol or abrasive cleaners). Clean the lenses and the front camera glass with a <b>dry</b> optical microfiber cloth only.</li>
+  <li><b>Battery:</b> the headset runs for roughly two hours of use. Plug it in between sessions so it’s ready for the next person.</li>
+  <li><b>Then share the real thing:</b> when your team has seen the lab, book a live tour or talk to the Dandy team from lp.meetdandy.com/quest.</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Troubleshooting</h2>
+<table>
+  <tr><th>Problem</th><th>Try this</th></tr>
+  <tr><td>The headset won’t turn on</td><td>Charge it for at least 30 minutes with the included cable and adapter (18 W or higher), then hold the power button for three seconds.</td></tr>
+  <tr><td>The pairing code never appeared, or setup was already completed</td><td>On the headset, open <span class="ui">Settings</span> → <span class="ui">System</span> → <span class="ui">About</span> to see the pairing code. Make sure the phone’s Bluetooth is on and that the phone and headset are on the same Wi‑Fi network.</td></tr>
+  <tr><td>Controllers won’t pair</td><td>Hold <span class="ui">Menu</span> (left) and <span class="ui">Meta</span> (right) for two seconds. Replace the AA battery if the light never comes on. To factory‑reset a controller: right — hold <span class="ui">A</span> and tap <span class="ui">Meta</span> five times; left — hold <span class="ui">X</span> and tap <span class="ui">Menu</span> five times. The light blinks orange/white, then turns light blue.</td></tr>
+  <tr><td>Wi‑Fi won’t connect</td><td>Forget the network and join it again, or try the 2.4 GHz band. Restart the headset (hold power → <span class="ui">Restart</span>). Networks with a sign‑in page may not work — use a phone hotspot instead.</td></tr>
+  <tr><td>The picture is blurry</td><td>Reseat the headset on your face and retighten the straps, then turn the lens‑spacing wheel slowly until text is sharp. If you wear glasses, keep them on.</td></tr>
+  <tr><td>A boundary grid keeps appearing</td><td>Press <span class="ui">Meta</span> → <span class="ui">Quick controls</span> → <span class="ui">Boundary</span> and switch to <span class="ui">Stationary</span>, or clear the area around you and redraw it.</td></tr>
+  <tr><td>Immersa isn’t in the Store search</td><td>Check the spelling, then make sure the headset update has finished: <span class="ui">Settings</span> → <span class="ui">System</span> → <span class="ui">Software update</span>.</td></tr>
+  <tr><td>The code is rejected</td><td>Re‑enter the six digits from the card carefully. If it still fails, contact your Dandy representative for a replacement code.</td></tr>
+  <tr><td>The update is stuck</td><td>Keep the headset plugged in and give it 15 minutes. If nothing changes, hold the power button and choose <span class="ui">Restart</span>.</td></tr>
+</table>
+</div>
+
+<p class="footer-note">Need a hand? Reply to the email that came with your kit or visit <a href="https://lp.meetdandy.com/quest">lp.meetdandy.com/quest</a>. Meta Quest, Meta Horizon and the Meta logo are trademarks of Meta Platforms, Inc. Immersa is a trademark of its respective owner. Menu names follow Meta’s help center as of October 2026 and may change with headset software updates.</p>
+
+</body>
+</html>
