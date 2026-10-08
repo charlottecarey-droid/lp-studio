@@ -176,6 +176,15 @@ export default function Footer() {
             >
               Terms
             </a>
+            <a
+              href="/sms-opt-in"
+              className="font-mono uppercase transition-colors"
+              style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--coral)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
+            >
+              SMS terms
+            </a>
           </div>
         </div>
       </div>

@@ -44,7 +44,7 @@ export default function Privacy() {
             className="font-mono uppercase"
             style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
           >
-            Last updated: May 2026
+            Last updated: October 2026
           </p>
         </div>
 
@@ -86,6 +86,11 @@ export default function Privacy() {
               <li><strong style={{ color: "var(--ink)" }}>Your organization</strong> — workspace admins in your account can see member activity within their workspace</li>
               <li><strong style={{ color: "var(--ink)" }}>Law enforcement</strong> when required by law or to protect our rights</li>
             </ul>
+          </Section>
+
+          <Section title="3a. SMS / Text Messaging">
+            <p>If you provide a mobile number during sign-up, we use it solely to send a one-time verification code and to enforce our one-free-trial-per-person policy (for which we store a salted hash of the number rather than the number itself). We do not send marketing or recurring text messages. Message and data rates may apply; reply STOP to opt out or HELP for help. Full program details are on our <LegalLink href="/sms-opt-in">SMS opt-in page</LegalLink>.</p>
+            <p className="mt-3"><strong style={{ color: "var(--ink)" }}>No mobile information will be shared with third parties or affiliates for marketing or promotional purposes.</strong> Text messaging originator opt-in data and consent will not be shared with any third parties, other than the messaging provider that delivers the code on our behalf.</p>
           </Section>
 
           <Section title="4. Data Retention">

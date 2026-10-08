@@ -155,7 +155,26 @@ export function PhoneVerify({
             By tapping “Send code,” you consent to receive a one-time
             verification code from LP Studio at the number provided via SMS. This
             is a one-time message for account verification — we won’t send
-            marketing texts. Message and data rates may apply.
+            marketing texts. Message and data rates may apply. Reply STOP to opt
+            out, HELP for help. See our{" "}
+            <a
+              href="https://lpstudio.ai/sms-opt-in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              SMS terms
+            </a>{" "}
+            and{" "}
+            <a
+              href="https://lpstudio.ai/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Privacy Policy
+            </a>
+            .
           </p>
         </form>
       ) : (

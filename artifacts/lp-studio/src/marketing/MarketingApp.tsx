@@ -9,6 +9,7 @@ import ComparePage from "./pages/compare";
 import PricingPage from "./pages/pricing";
 import Privacy from "./pages/privacy";
 import Terms from "./pages/terms";
+import SmsOptIn from "./pages/sms-opt-in";
 import IntegrationsDocs from "./pages/integrations-docs";
 import BlogIndex from "./pages/blog-index";
 import BlogPost from "./pages/blog-post";
@@ -36,6 +37,11 @@ export default function MarketingApp() {
       <Route path="/pricing" component={PricingPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      {/* Public SMS consent + program disclosures (Twilio/carrier verification). */}
+      <Route path="/sms-opt-in" component={SmsOptIn} />
+      <Route path="/opt-in">
+        {() => <Redirect to="/sms-opt-in" replace />}
+      </Route>
       <Route path="/docs/integrations" component={IntegrationsDocs} />
       {/* First-party marketing blog — index + per-post (SEO/GEO). */}
       <Route path="/blog" component={BlogIndex} />

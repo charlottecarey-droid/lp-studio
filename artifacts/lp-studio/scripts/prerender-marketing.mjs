@@ -66,6 +66,9 @@ const MARKETING_ROUTES = [
   { path: "/pricing", outFile: "pricing/index.html" },
   { path: "/privacy", outFile: "privacy/index.html" },
   { path: "/terms", outFile: "terms/index.html" },
+  // Public SMS opt-in / messaging-program page (Twilio + carrier verification
+  // reviewers fetch it without JS — it must be real HTML).
+  { path: "/sms-opt-in", outFile: "sms-opt-in/index.html" },
   { path: "/docs/integrations", outFile: "docs/integrations/index.html" },
   // Legacy single-purpose Zapier doc. The SPA route redirects it to the hub's
   // #zapier section, so this snapshot captures the hub HTML — old links and OG
