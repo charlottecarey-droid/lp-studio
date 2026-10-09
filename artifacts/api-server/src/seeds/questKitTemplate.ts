@@ -31,6 +31,8 @@ const META_HELP_URL = "https://www.meta.com/help/quest/";
 const LIVE_TOUR_URL = "https://www.meetdandy.com/get-started/";
 const TALK_TO_SALES_URL = "https://www.meetdandy.com/get-started/";
 const IMG_LAB_FLOOR = "/event-assets/carousel-lab-floor.jpg";
+// Bundled digital-lab footage (same clip the Hub & Insights / DSO pages use); the photo above is its poster.
+const VIDEO_LAB_FLOOR = "/videos/dandy-digital-lab.mp4";
 // The in-depth setup SOP (6 pages), bundled with the app. Source HTML lives in
 // docs/sop/; re-render with Playwright (see docs/sop/README.md) when it changes.
 const GUIDE_PDF_URL = "/docs/dandy-meta-quest-setup-sop.pdf";
@@ -156,6 +158,8 @@ const blocks: Block[] = [
       ctaUrl: LIVE_TOUR_URL,
       ctaSecondaryText: "Talk to sales",
       ctaSecondaryUrl: TALK_TO_SALES_URL,
+      mediaVideoUrl: VIDEO_LAB_FLOOR,
+      mediaPlayMode: "inview",
       imageUrl: IMG_LAB_FLOOR,
       imageAlt: "A row of milling machines on the Dandy lab floor",
       imageCaption: "The Dandy lab floor",
@@ -197,7 +201,7 @@ export const QUEST_KIT_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     title: "Lab Tour in a Box — Meta Quest Setup",
     templateLabel: "Lab Tour in a Box — Meta Quest Setup",
     templateDescription:
-      "The page a kit's QR code opens: dark hero with the headset and box on floating product tiles, what's in the box, five numbered setup steps (Meta account → Immersa → six-digit code → Dandy experience → stream / download) with inline code cells and a store listing, and a need-a-hand close: guide download link, see-the-lab / talk-to-sales buttons over a lab-floor photo.",
+      "The page a kit's QR code opens: dark hero with the headset and box on floating product tiles, what's in the box, five numbered setup steps (Meta account → Immersa → six-digit code → Dandy experience → stream / download) with inline code cells and a store listing, and a need-a-hand close: guide download link, see-the-lab / talk-to-sales buttons over lab-floor footage (photo poster).",
     ogImage: "/images/kit/quest-headset.webp",
     industry: "dental",
     premiumRank: 8,

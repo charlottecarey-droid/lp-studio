@@ -9,11 +9,13 @@ import type { KitContentsBlockProps, KitContentsItem } from "@/blocks/BlockKitCo
 import type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockKitSteps";
 import type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
 import type { KitTileFit } from "@/blocks/kit/KitProductTile";
+import type { MediaPlayMode } from "@/lib/glow-media";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
+import { VideoPicker } from "@/components/VideoPicker";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
@@ -257,8 +259,21 @@ export function KitSupportPanel({ props, onChange }: { props: KitSupportBlockPro
           <Field label="Secondary button URL"><Input value={props.ctaSecondaryUrl ?? ""} onChange={(e) => update({ ctaSecondaryUrl: e.target.value })} className="h-8 text-xs" placeholder="https://" /></Field>
         </div>
       </PanelSection>
-      <PanelSection title="Lab photo" defaultOpen>
-        <Field label="Image"><ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" /></Field>
+      <PanelSection title="Lab photo or clip" defaultOpen>
+        <VideoPicker value={props.mediaVideoUrl ?? ""} onChange={(v) => update({ mediaVideoUrl: v })} label="Clip (optional — mp4 / webm, or YouTube / Vimeo / Wistia link)" />
+        {props.mediaVideoUrl && (
+          <Field label="Plays">
+            <Select value={props.mediaPlayMode ?? "inview"} onValueChange={(v) => update({ mediaPlayMode: v as MediaPlayMode })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inview" className="text-xs">While on screen (muted, loops)</SelectItem>
+                <SelectItem value="hover" className="text-xs">On hover / tap</SelectItem>
+                <SelectItem value="always" className="text-xs">Always</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
+        <Field label={props.mediaVideoUrl ? "Poster image (shown until the clip plays)" : "Image"}><ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" /></Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Alt text"><Input value={props.imageAlt ?? ""} onChange={(e) => update({ imageAlt: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label="Caption (optional)"><Input value={props.imageCaption ?? ""} onChange={(e) => update({ imageCaption: e.target.value })} className="h-8 text-xs" placeholder="The lab floor" /></Field>

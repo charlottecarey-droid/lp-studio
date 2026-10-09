@@ -151,6 +151,19 @@ describe("kit-support — guide link, two CTAs, lab photo", () => {
     expect(html).toContain('id="help"');
   });
 
+  it("renders an ambient clip in the media frame when mediaVideoUrl is set, with the photo as its poster", () => {
+    const html = render(BlockKitSupport as never, { ...defaultsFor("kit-support"), mediaVideoUrl: "/videos/lab.mp4", imageUrl: "/event-assets/lab.jpg" }, true);
+    expect(html).toMatch(/<video[^>]*src="\/videos\/lab\.mp4"/);
+    expect(html).toMatch(/<video[^>]*muted/);
+    expect(html).toContain('poster="/event-assets/lab.jpg"');
+  });
+
+  it("never declares the Page CTA's videoUrl slot (the clip lives on mediaVideoUrl)", () => {
+    const defaults = defaultsFor("kit-support");
+    expect(defaults).not.toHaveProperty("videoUrl");
+    expect(defaults).toHaveProperty("mediaVideoUrl");
+  });
+
   it("hides the guide link, the buttons and the photo on the live page while their URLs are blank", () => {
     const html = render(BlockKitSupport as never, defaultsFor("kit-support"), true);
     expect(html).not.toContain("Download the step-by-step guide");

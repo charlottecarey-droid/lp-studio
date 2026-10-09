@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { BlendMedia, type MediaPlayMode } from "@/lib/glow-media";
 import { INVITE_BODY, INVITE_CSS, INVITE_PILL_CLASS, Kicker, displayStyle, pillStyle, resolveInvitePalette } from "@/lib/invite-theme";
 
 /* ----------------------------------------------------------------------------
@@ -12,8 +13,10 @@ import { INVITE_BODY, INVITE_CSS, INVITE_PILL_CLASS, Kicker, displayStyle, pillS
  * The close of a kit page, centered: "NEED A HAND?", a headline, a sentence,
  * a text link to the in-depth guide (PDF / doc), two pill CTAs side by side
  * (see the lab in person · talk to sales), and beneath them a wide framed
- * photo of the lab that fades into the surface — the thing the first CTA
- * promises.
+ * photo — or an ambient clip — of the lab that fades into the surface, the
+ * thing the first CTA promises. The clip slot is `mediaVideoUrl` (NOT
+ * `videoUrl`, which on a block with ctaText/ctaUrl is the Page CTA's
+ * video-modal slot); the image doubles as its poster.
  *
  * `ctaText`/`ctaUrl` is the primary button and follows the Page CTA;
  * `ctaSecondaryText`/`ctaSecondaryUrl` is the official secondary alias
@@ -33,7 +36,10 @@ export interface KitSupportBlockProps {
   ctaUrl?: string;
   ctaSecondaryText?: string;
   ctaSecondaryUrl?: string;
-  /** The lab photo under the CTAs. */
+  /** Optional ambient clip under the CTAs (mp4/webm, or YouTube / Vimeo / Wistia). Plays muted, loops, pauses off screen. */
+  mediaVideoUrl?: string;
+  mediaPlayMode?: MediaPlayMode;
+  /** The lab photo under the CTAs — the clip's poster when a clip is set. */
   imageUrl?: string;
   imageAlt?: string;
   imageCaption?: string;
@@ -60,6 +66,8 @@ export const KIT_SUPPORT_DEFAULT_PROPS: KitSupportBlockProps = {
   ctaUrl: "",
   ctaSecondaryText: "Talk to sales",
   ctaSecondaryUrl: "",
+  mediaVideoUrl: "",
+  mediaPlayMode: "inview",
   imageUrl: "",
   imageAlt: "",
   imageCaption: "",
@@ -80,7 +88,8 @@ export function BlockKitSupport({ props, brand, onCtaClick, onFieldChange }: Pro
   const showGuide = isEditor || (!!props.guideText && !!props.guideUrl);
   const showPrimary = isEditor || (!!props.ctaText && !!props.ctaUrl);
   const showSecondary = isEditor || (!!props.ctaSecondaryText && !!props.ctaSecondaryUrl);
-  const showImage = isEditor || !!props.imageUrl;
+  const hasVideo = !!props.mediaVideoUrl;
+  const showImage = isEditor || !!props.imageUrl || hasVideo;
 
   const rise = (delay: number) => ({
     initial: reduced ? false : anim({ opacity: 0, y: 16 }),
@@ -173,17 +182,35 @@ export function BlockKitSupport({ props, brand, onCtaClick, onFieldChange }: Pro
                 boxShadow: `0 -30px 90px -50px color-mix(in srgb, ${pal.accent} 35%, transparent)`,
               }}
             >
-              <InlineImage
-                src={props.imageUrl ?? ""}
-                alt={props.imageAlt ?? ""}
-                onUpdate={field("imageUrl")}
-                onAltUpdate={field("imageAlt")}
-                wrapperClassName="absolute inset-0"
-                className="absolute inset-0 h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-              />
-              {/* Fade the photo into the surface so the section ends on the brand colour, not a hard photo edge. */}
+              {hasVideo ? (
+                <BlendMedia
+                  videoUrl={props.mediaVideoUrl}
+                  imageUrl={props.imageUrl}
+                  imageAlt={props.imageAlt}
+                  blend="none"
+                  edgeFade={false}
+                  fit="cover"
+                  playMode={props.mediaPlayMode ?? "inview"}
+                  palette={{ dark: true, accent: pal.accent, glow: pal.accent }}
+                  title={props.imageCaption || props.headline}
+                  className="absolute inset-0 h-full"
+                  style={{ aspectRatio: "auto" }}
+                  onImageUpdate={field("imageUrl")}
+                  onAltUpdate={field("imageAlt")}
+                />
+              ) : (
+                <InlineImage
+                  src={props.imageUrl ?? ""}
+                  alt={props.imageAlt ?? ""}
+                  onUpdate={field("imageUrl")}
+                  onAltUpdate={field("imageAlt")}
+                  wrapperClassName="absolute inset-0"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+              {/* Fade the media into the surface so the section ends on the brand colour, not a hard edge. */}
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%]" aria-hidden="true" style={{ background: `linear-gradient(180deg, transparent, ${pal.bg})` }} />
               {(props.imageCaption || isEditor) && (
                 <figcaption className="absolute inset-x-0 bottom-0 flex items-center gap-3 px-6 pb-6 text-[11px] font-semibold uppercase tracking-[0.24em] lg:px-8 lg:pb-8" style={{ color: pal.faint }}>
