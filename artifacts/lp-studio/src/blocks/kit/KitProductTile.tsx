@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { InlineImage } from "@/components/InlineImage";
+import { BlendMedia, type MediaPlayMode } from "@/lib/glow-media";
 import type { InvitePalette } from "@/lib/invite-theme";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +18,16 @@ import { cn } from "@/lib/utils";
  * Without an image (registry defaults, unconfigured block) the tile still
  * looks designed: a soft gradient and a glyph, never an empty rectangle or a
  * broken `<img src="">`.
+ *
+ * `videoUrl` swaps the image for an ambient clip (shared BlendMedia: muted,
+ * loops, pauses off screen; the image is its poster). `frame: "none"` drops
+ * the light surface, hairline and shadow so a transparent PNG or a clip
+ * with its own dark backdrop blends straight into the section — no multiply
+ * in that mode, since there is no light surface to multiply onto. Default
+ * is the framed tile, byte-for-byte what shipped before these options.
  */
+
+export type KitTileFrame = "tile" | "none";
 
 export type KitTileFit = "contain" | "cover";
 
@@ -33,12 +43,19 @@ export function KitProductTile({
   className,
   style,
   imgClassName,
+  videoUrl,
+  playMode = "inview",
+  frame = "tile",
   onUpdate,
   onAltUpdate,
 }: {
   src?: string;
   alt?: string;
   fit?: KitTileFit;
+  /** Ambient clip (mp4/webm or YouTube/Vimeo/Wistia); `src` becomes its poster. */
+  videoUrl?: string;
+  playMode?: MediaPlayMode;
+  frame?: KitTileFrame;
   tileColor: string;
   palette: InvitePalette;
   /** Glyph shown when there is no image. */
@@ -50,16 +67,35 @@ export function KitProductTile({
   onAltUpdate?: (alt: string) => void;
 }) {
   const hasSrc = !!src && src.trim().length > 0;
+  const hasVideo = !!videoUrl && videoUrl.trim().length > 0;
   const isEditor = !!onUpdate;
+  const framed = frame !== "none";
   return (
     <div
       className={cn("relative overflow-hidden", className)}
+      data-kit-frame={frame}
       style={{
-        background: `radial-gradient(120% 90% at 30% 10%, #FFFFFF 0%, ${tileColor} 60%, color-mix(in srgb, ${tileColor} 86%, #000) 100%)`,
-        ...style,
+        background: framed ? `radial-gradient(120% 90% at 30% 10%, #FFFFFF 0%, ${tileColor} 60%, color-mix(in srgb, ${tileColor} 86%, #000) 100%)` : "transparent",
+        ...(framed ? style : { ...style, boxShadow: "none", border: "none" }),
       }}
     >
-      {hasSrc || isEditor ? (
+      {hasVideo ? (
+        <BlendMedia
+          videoUrl={videoUrl}
+          imageUrl={src}
+          imageAlt={alt}
+          blend={framed && fit === "contain" ? "multiply" : "none"}
+          edgeFade={false}
+          fit={fit}
+          playMode={playMode}
+          palette={{ dark: !framed, accent: palette.accent, glow: palette.accent }}
+          title={alt}
+          className="absolute inset-0 h-full"
+          style={{ aspectRatio: "auto" }}
+          onImageUpdate={onUpdate}
+          onAltUpdate={onAltUpdate}
+        />
+      ) : hasSrc || isEditor ? (
         <InlineImage
           src={src ?? ""}
           alt={alt ?? ""}
@@ -67,7 +103,7 @@ export function KitProductTile({
           onAltUpdate={onAltUpdate}
           wrapperClassName="absolute inset-0"
           className={cn("absolute inset-0 h-full w-full", fit === "cover" ? "object-cover" : "object-contain p-[7%]", imgClassName)}
-          style={fit === "contain" ? { mixBlendMode: "multiply" } : undefined}
+          style={fit === "contain" && framed ? { mixBlendMode: "multiply" } : undefined}
           loading="lazy"
           decoding="async"
         />

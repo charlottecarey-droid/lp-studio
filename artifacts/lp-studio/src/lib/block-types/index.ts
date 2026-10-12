@@ -346,6 +346,7 @@ export type {
   KitStepVisual,
   KitSupportBlockProps,
   KitTileFit,
+  KitTileFrame,
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,
   StatCounterBandBlockProps,

@@ -86,6 +86,30 @@ describe("kit-hero — own top bar + product stage contract", () => {
   });
 });
 
+describe("kit-hero — clip + frame options (default = framed tile, no clip)", () => {
+  it("renders a clip on either tile with the image as its poster, and never declares the Page CTA video keys", () => {
+    const defaults = defaultsFor("kit-hero");
+    expect(defaults).not.toHaveProperty("videoUrl");
+    expect(defaults).not.toHaveProperty("secondaryVideoUrl");
+    expect(defaults.heroFrame).toBe("tile");
+    expect(defaults.secondaryFrame).toBe("tile");
+    const html = render(BlockKitHero as never, { ...defaults, heroMediaVideoUrl: "/videos/a.mp4", heroImageUrl: "/images/kit/a.webp", secondaryMediaVideoUrl: "https://www.youtube.com/watch?v=abc123", secondaryImageUrl: "/images/kit/b.webp" }, true);
+    expect(html).toMatch(/<video[^>]*src="\/videos\/a\.mp4"/);
+    expect(html).toContain('poster="/images/kit/a.webp"');
+    expect(html).toMatch(/<iframe[^>]*youtube/);
+  });
+
+  it("frame=none drops the light surface, hairline shadow and the multiply blend so the asset sits on the section", () => {
+    const framed = render(BlockKitHero as never, { ...defaultsFor("kit-hero"), heroImageUrl: "/images/kit/a.webp" }, true);
+    expect(framed).toMatch(/data-kit-frame="tile"[^>]*style="[^"]*radial-gradient/);
+    expect(framed).toContain("mix-blend-mode:multiply");
+    const bare = render(BlockKitHero as never, { ...defaultsFor("kit-hero"), heroImageUrl: "/images/kit/a.webp", heroFrame: "none", secondaryFrame: "none" }, true);
+    expect(bare).toMatch(/data-kit-frame="none"[^>]*style="[^"]*background:transparent/);
+    expect(bare).not.toContain("mix-blend-mode:multiply");
+    expect(bare).not.toMatch(/data-kit-frame="none"[^>]*style="[^"]*0 0 0 1px/);
+  });
+});
+
 describe("kit-steps — inline visuals", () => {
   it("renders six empty code cells by default and fills them when a code is set", () => {
     const empty = render(BlockKitSteps as never, defaultsFor("kit-steps"), true);

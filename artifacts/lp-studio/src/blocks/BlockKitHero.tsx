@@ -4,7 +4,8 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import { INVITE_BODY, INVITE_CSS, INVITE_PILL_CLASS, Kicker, displayStyle, pillStyle, resolveInvitePalette } from "@/lib/invite-theme";
-import { KIT_TILE_DEFAULT, KitProductTile, type KitTileFit } from "./kit/KitProductTile";
+import { KIT_TILE_DEFAULT, KitProductTile, type KitTileFit, type KitTileFrame } from "./kit/KitProductTile";
+import type { MediaPlayMode } from "@/lib/glow-media";
 import { cn } from "@/lib/utils";
 
 /* ----------------------------------------------------------------------------
@@ -41,10 +42,18 @@ export interface KitHeroBlockProps {
   heroImageUrl?: string;
   heroImageAlt?: string;
   heroImageFit?: KitTileFit;
+  /** Optional clip on the big tile; the image becomes its poster. NOT `videoUrl` (Page CTA modal slot on a hero). */
+  heroMediaVideoUrl?: string;
+  /** "tile" (default) = light surface + hairline + shadow; "none" = blends into the section. */
+  heroFrame?: KitTileFrame;
   /** The box / packaging, shown on the smaller offset tile. */
   secondaryImageUrl?: string;
   secondaryImageAlt?: string;
   secondaryImageFit?: KitTileFit;
+  /** Optional clip on the small tile. NOT `secondaryVideoUrl` (secondary-CTA video alias). */
+  secondaryMediaVideoUrl?: string;
+  secondaryFrame?: KitTileFrame;
+  mediaPlayMode?: MediaPlayMode;
   /** Light tile surface. Default off-white. */
   tileColor?: string;
   /** Viewport height of the hero in vh. Default 88. */
@@ -79,9 +88,14 @@ export const KIT_HERO_DEFAULT_PROPS: KitHeroBlockProps = {
   heroImageUrl: "",
   heroImageAlt: "",
   heroImageFit: "contain",
+  heroMediaVideoUrl: "",
+  heroFrame: "tile",
   secondaryImageUrl: "",
   secondaryImageAlt: "",
   secondaryImageFit: "cover",
+  secondaryMediaVideoUrl: "",
+  secondaryFrame: "tile",
+  mediaPlayMode: "inview",
   tileColor: KIT_TILE_DEFAULT,
   minHeightVh: 88,
 };
@@ -212,6 +226,9 @@ export function BlockKitHero({ props, brand, onCtaClick, onFieldChange }: Props)
               src={props.heroImageUrl}
               alt={props.heroImageAlt}
               fit={props.heroImageFit ?? "contain"}
+              videoUrl={props.heroMediaVideoUrl}
+              playMode={props.mediaPlayMode ?? "inview"}
+              frame={props.heroFrame ?? "tile"}
               tileColor={tile}
               palette={pal}
               fallback={<Headset className="h-1/2 w-1/2" strokeWidth={1.25} />}
@@ -231,6 +248,9 @@ export function BlockKitHero({ props, brand, onCtaClick, onFieldChange }: Props)
               src={props.secondaryImageUrl}
               alt={props.secondaryImageAlt}
               fit={props.secondaryImageFit ?? "cover"}
+              videoUrl={props.secondaryMediaVideoUrl}
+              playMode={props.mediaPlayMode ?? "inview"}
+              frame={props.secondaryFrame ?? "tile"}
               tileColor={tile}
               palette={pal}
               fallback={<Package className="h-1/2 w-1/2" strokeWidth={1.25} />}

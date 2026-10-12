@@ -5016,7 +5016,7 @@ export type { KitHeroBlockProps, KitFact } from "@/blocks/BlockKitHero";
 export type { KitContentsBlockProps, KitContentsItem } from "@/blocks/BlockKitContents";
 export type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockKitSteps";
 export type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
-export type { KitTileFit } from "@/blocks/kit/KitProductTile";
+export type { KitTileFit, KitTileFrame } from "@/blocks/kit/KitProductTile";
 export type {
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,

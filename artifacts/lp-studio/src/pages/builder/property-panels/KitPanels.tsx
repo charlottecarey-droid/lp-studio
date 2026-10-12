@@ -8,7 +8,7 @@ import type { KitHeroBlockProps } from "@/blocks/BlockKitHero";
 import type { KitContentsBlockProps, KitContentsItem } from "@/blocks/BlockKitContents";
 import type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockKitSteps";
 import type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
-import type { KitTileFit } from "@/blocks/kit/KitProductTile";
+import type { KitTileFit, KitTileFrame } from "@/blocks/kit/KitProductTile";
 import type { MediaPlayMode } from "@/lib/glow-media";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,6 +52,18 @@ function FitSelect({ value, onChange }: { value: KitTileFit | undefined; onChang
       <SelectContent>
         <SelectItem value="contain" className="text-xs">Product on the tile (white backdrop disappears)</SelectItem>
         <SelectItem value="cover" className="text-xs">Fill the tile (photo is the backdrop)</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function FrameSelect({ value, onChange }: { value: KitTileFrame | undefined; onChange: (v: KitTileFrame) => void }) {
+  return (
+    <Select value={value ?? "tile"} onValueChange={(v) => onChange(v as KitTileFrame)}>
+      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="tile" className="text-xs">Framed tile (light surface, hairline, shadow)</SelectItem>
+        <SelectItem value="none" className="text-xs">No frame — blends into the background</SelectItem>
       </SelectContent>
     </Select>
   );
@@ -106,17 +118,39 @@ export function KitHeroPanel({ props, onChange }: { props: KitHeroBlockProps; on
         </div>
       </PanelSection>
 
-      <PanelSection title="Product stage" defaultOpen>
-        <Field label="Device image (big tile)"><ImagePicker value={props.heroImageUrl ?? ""} onChange={(v) => update({ heroImageUrl: v })} placeholder="Upload or paste image URL" /></Field>
+      <PanelSection title="Product stage — big tile" defaultOpen>
+        <Field label={props.heroMediaVideoUrl ? "Poster image (shown until the clip plays)" : "Device image"}><ImagePicker value={props.heroImageUrl ?? ""} onChange={(v) => update({ heroImageUrl: v })} placeholder="Upload or paste image URL" /></Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Alt text"><Input value={props.heroImageAlt ?? ""} onChange={(e) => update({ heroImageAlt: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label="Fit"><FitSelect value={props.heroImageFit} onChange={(v) => update({ heroImageFit: v })} /></Field>
         </div>
-        <Field label="Box / packaging image (small tile)"><ImagePicker value={props.secondaryImageUrl ?? ""} onChange={(v) => update({ secondaryImageUrl: v })} placeholder="Upload or paste image URL" /></Field>
+        <VideoPicker value={props.heroMediaVideoUrl ?? ""} onChange={(v) => update({ heroMediaVideoUrl: v })} label="Clip (optional — mp4 / webm, or YouTube / Vimeo / Wistia link)" />
+        <Field label="Frame"><FrameSelect value={props.heroFrame} onChange={(v) => update({ heroFrame: v })} /></Field>
+      </PanelSection>
+
+      <PanelSection title="Product stage — small tile" defaultOpen>
+        <Field label={props.secondaryMediaVideoUrl ? "Poster image (shown until the clip plays)" : "Box / packaging image"}><ImagePicker value={props.secondaryImageUrl ?? ""} onChange={(v) => update({ secondaryImageUrl: v })} placeholder="Upload or paste image URL" /></Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Alt text"><Input value={props.secondaryImageAlt ?? ""} onChange={(e) => update({ secondaryImageAlt: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label="Fit"><FitSelect value={props.secondaryImageFit ?? "cover"} onChange={(v) => update({ secondaryImageFit: v })} /></Field>
         </div>
+        <VideoPicker value={props.secondaryMediaVideoUrl ?? ""} onChange={(v) => update({ secondaryMediaVideoUrl: v })} label="Clip (optional)" />
+        <Field label="Frame"><FrameSelect value={props.secondaryFrame} onChange={(v) => update({ secondaryFrame: v })} /></Field>
+      </PanelSection>
+
+      <PanelSection title="Product stage — shared">
+        {(props.heroMediaVideoUrl || props.secondaryMediaVideoUrl) && (
+          <Field label="Clips play">
+            <Select value={props.mediaPlayMode ?? "inview"} onValueChange={(v) => update({ mediaPlayMode: v as MediaPlayMode })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inview" className="text-xs">While on screen (muted, loops)</SelectItem>
+                <SelectItem value="hover" className="text-xs">On hover / tap</SelectItem>
+                <SelectItem value="always" className="text-xs">Always</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <TileColorField value={props.tileColor} onChange={(v) => update({ tileColor: v })} />
         <Field label={`Hero height: ${props.minHeightVh ?? 88}vh`}>
           <input type="range" min={60} max={100} value={props.minHeightVh ?? 88} onChange={(e) => update({ minHeightVh: Number(e.target.value) })} className="w-full" />
