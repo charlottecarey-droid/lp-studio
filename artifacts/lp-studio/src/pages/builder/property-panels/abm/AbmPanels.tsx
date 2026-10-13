@@ -313,8 +313,12 @@ export function AbmIntegrationsRowPanel({ props, onChange }: P<AbmIntegrationsRo
           ))}
         </div>
         <AddButton label="Add app" disabled={items.length >= 12} onClick={() => set([...items, { name: "New app" }])} />
-        <Field label={`Tile size: ${props.tileSize ?? 96}px`}>
-          <input type="range" min={64} max={140} step={4} value={props.tileSize ?? 96} onChange={(e) => update({ tileSize: Number(e.target.value) })} className="w-full" />
+        <Field label={`Tile size: ${Number(props.tileSize) || 96}px`}>
+          <input type="range" min={48} max={160} step={4} value={Number(props.tileSize) || 96} onChange={(e) => update({ tileSize: Number(e.target.value) })} className="w-full" />
+        </Field>
+        <Field label={`Icon size inside the tile: ${Number(props.iconScale) || 64}%`}>
+          <input type="range" min={40} max={100} step={4} value={Number(props.iconScale) || 64} onChange={(e) => update({ iconScale: Number(e.target.value) })} className="w-full" />
+          <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">100% fills the tile edge to edge; around 60% leaves the usual app-icon breathing room.</p>
         </Field>
       </PanelSection>
       <AbmStyleSection value={props} onChange={(p) => update(p)} defaultBg="#F5F1ED" />
@@ -394,8 +398,12 @@ export function AbmLogoStripPanel({ props, onChange }: P<AbmLogoStripBlockProps>
           <Label className="text-[11px] text-muted-foreground">Grayscale image logos</Label>
           <Switch checked={!!props.grayscale} onCheckedChange={(c) => update({ grayscale: c })} />
         </div>
-        <Field label={`Logo height: ${props.logoHeight ?? 32}px`}>
-          <input type="range" min={20} max={64} step={2} value={props.logoHeight ?? 32} onChange={(e) => update({ logoHeight: Number(e.target.value) })} className="w-full" />
+        <Field label={`Logo height: ${Number(props.logoHeight) || 32}px`}>
+          <input type="range" min={16} max={120} step={2} value={Number(props.logoHeight) || 32} onChange={(e) => update({ logoHeight: Number(e.target.value) })} className="w-full" />
+        </Field>
+        <Field label={`Max logo width: ${Number(props.logoMaxWidth) || (Number(props.logoHeight) || 32) * 5}px${props.logoMaxWidth ? "" : " (auto, 5× height)"}`}>
+          <input type="range" min={80} max={400} step={10} value={Number(props.logoMaxWidth) || (Number(props.logoHeight) || 32) * 5} onChange={(e) => update({ logoMaxWidth: Number(e.target.value) })} className="w-full" />
+          <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">Wide wordmarks are limited by width, not height — raise this if a logo still looks small after raising the height.</p>
         </Field>
       </PanelSection>
       <AbmStyleSection value={props} onChange={(p) => update(p)} />

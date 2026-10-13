@@ -5,6 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { ABM_BODY, ABM_CONTAINER, ABM_CSS, displayStyle, resolveAbmPalette, type AbmStyleProps } from "@/lib/abm-theme";
 import { cn } from "@/lib/utils";
+import { coerceSize } from "./BlockAbmIntegrationsRow";
 
 /* ----------------------------------------------------------------------------
  * ABM Logo Strip — type "abm-logo-strip"
@@ -26,8 +27,10 @@ export interface AbmLogoStripBlockProps extends AbmStyleProps {
   logos: AbmLogo[];
   /** Render image logos in grayscale (quiet, like the reference page). Default off. */
   grayscale?: boolean;
-  /** Logo height in px. Default 32. */
-  logoHeight?: number;
+  /** Logo height in px (16–120), or "small" | "medium" | "large". Default 32. */
+  logoHeight?: number | string;
+  /** Max logo width in px (80–400). Default = 5× the height, so wide wordmarks are not squeezed. */
+  logoMaxWidth?: number | string;
   anchorId?: string;
 }
 
@@ -51,7 +54,8 @@ export function BlockAbmLogoStrip({ props, brand, onFieldChange }: Props) {
   const pal = resolveAbmPalette(props, brand, "#FFFFFF");
   const isEditor = !!onFieldChange;
   const logos = props.logos ?? [];
-  const h = Math.max(16, Math.min(80, props.logoHeight ?? 32));
+  const h = Math.max(16, Math.min(120, coerceSize(props.logoHeight, { small: 24, medium: 32, large: 48 }, 32)));
+  const maxW = Math.max(80, Math.min(400, coerceSize(props.logoMaxWidth, { small: h * 3, medium: h * 5, large: h * 8 }, h * 5)));
 
   const field = (key: keyof AbmLogoStripBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as AbmLogoStripBlockProps[typeof key] }) : undefined;
@@ -81,8 +85,8 @@ export function BlockAbmLogoStrip({ props, brand, onFieldChange }: Props) {
               <InlineImage
                 src={l.imageUrl ?? ""}
                 alt={l.imageAlt || l.name}
-                className="w-auto max-w-[140px] object-contain"
-                style={{ height: h, filter: props.grayscale ? "grayscale(1)" : undefined, opacity: props.grayscale ? 0.75 : 1 }}
+                className="w-auto object-contain"
+                style={{ height: h, maxWidth: maxW, filter: props.grayscale ? "grayscale(1)" : undefined, opacity: props.grayscale ? 0.75 : 1 }}
                 loading="lazy"
                 onUpdate={updateLogo ? (v) => updateLogo(i, { imageUrl: v }) : undefined}
                 onAltUpdate={updateLogo ? (v) => updateLogo(i, { imageAlt: v }) : undefined}

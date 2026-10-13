@@ -192,6 +192,28 @@ describe("sections — content contracts", () => {
     expect(html).toContain(">MT<"); // Microsoft Teams
   });
 
+  it("abm-integrations-row + abm-logo-strip accept word / string sizes from AI flows and never collapse to NaN", () => {
+    // Regression: a sales-flow page arrived with tileSize "medium"; Math.min on
+    // a string produced NaN, the tile lost its box and icons rendered at
+    // natural size ("integration images are super big").
+    const d = defaultsFor("abm-integrations-row");
+    const items = [{ name: "Slack", iconUrl: "/i/slack.png" }];
+    const medium = render(BlockAbmIntegrationsRow as never, { ...d, items, tileSize: "medium", iconScale: "large" });
+    expect(medium).toContain("width:96px;height:96px");
+    expect(medium).toContain("padding:8%");
+    expect(medium).not.toContain("NaN");
+    const numeric = render(BlockAbmIntegrationsRow as never, { ...d, items, tileSize: "128", iconScale: 100 });
+    expect(numeric).toContain("width:128px;height:128px");
+    expect(numeric).toContain("padding:0%");
+
+    const l = defaultsFor("abm-logo-strip");
+    const logos = [{ name: "Acme", imageUrl: "/i/acme.svg" }];
+    const big = render(BlockAbmLogoStrip as never, { ...l, logos, logoHeight: 80 });
+    expect(big).toContain("height:80px;max-width:400px");
+    const capped = render(BlockAbmLogoStrip as never, { ...l, logos, logoHeight: "large", logoMaxWidth: "120" });
+    expect(capped).toContain("height:48px;max-width:120px");
+  });
+
   it("abm-story-quote paints the contrast card with the brand primary on a light section and wraps the quote in curly quotes", () => {
     const html = render(BlockAbmStoryQuote as never, defaultsFor("abm-story-quote"));
     expect(html).toContain(`background:${DEFAULT_BRAND.primaryColor}`);

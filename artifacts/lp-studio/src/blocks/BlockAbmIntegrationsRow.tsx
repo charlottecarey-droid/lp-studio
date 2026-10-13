@@ -28,8 +28,10 @@ export interface AbmIntegrationsRowBlockProps extends AbmStyleProps {
   linkText?: string;
   linkUrl?: string;
   items: AbmIntegration[];
-  /** Tile size in px. Default 96. */
-  tileSize?: number;
+  /** Tile size in px (48–160), or "small" | "medium" | "large". Default 96. */
+  tileSize?: number | string;
+  /** How much of the tile the icon fills, in % (40–100). Default 64. */
+  iconScale?: number | string;
   anchorId?: string;
 }
 
@@ -37,6 +39,19 @@ interface Props {
   props: AbmIntegrationsRowBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: AbmIntegrationsRowBlockProps) => void;
+}
+
+/** Size props arrive as numbers from the panel but as strings from AI flows
+ *  ("96", "medium"). Coerce defensively: a NaN here collapses the layout. */
+export function coerceSize(raw: unknown, words: Record<"small" | "medium" | "large", number>, fallback: number): number {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const key = raw.trim().toLowerCase();
+    if (key in words) return words[key as keyof typeof words];
+    const n = parseFloat(key);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
 }
 
 export const ABM_INTEGRATIONS_ROW_DEFAULT_PROPS: AbmIntegrationsRowBlockProps = {
@@ -54,6 +69,7 @@ export const ABM_INTEGRATIONS_ROW_DEFAULT_PROPS: AbmIntegrationsRowBlockProps = 
     { name: "Analytics" },
   ],
   tileSize: 96,
+  iconScale: 64,
   anchorId: "integrations",
   backgroundStyle: "muted",
 };
@@ -64,7 +80,9 @@ export function BlockAbmIntegrationsRow({ props, brand, onFieldChange }: Props) 
   const pal = resolveAbmPalette(props, brand, "#F5F1ED");
   const isEditor = !!onFieldChange;
   const items = props.items ?? [];
-  const size = Math.max(56, Math.min(160, props.tileSize ?? 96));
+  const size = Math.max(48, Math.min(160, coerceSize(props.tileSize, { small: 72, medium: 96, large: 128 }, 96)));
+  const iconScale = Math.max(40, Math.min(100, coerceSize(props.iconScale, { small: 48, medium: 64, large: 84 }, 64)));
+  const iconPad = `${Math.round((100 - iconScale) / 2)}%`;
 
   const field = (key: keyof AbmIntegrationsRowBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as AbmIntegrationsRowBlockProps[typeof key] }) : undefined;
@@ -110,7 +128,8 @@ export function BlockAbmIntegrationsRow({ props, brand, onFieldChange }: Props) 
                   <InlineImage
                     src={it.iconUrl ?? ""}
                     alt={it.iconAlt || it.name}
-                    className="h-full w-full object-contain p-[18%]"
+                    className="h-full w-full object-contain"
+                    style={{ padding: iconPad }}
                     wrapperClassName="absolute inset-0"
                     loading="lazy"
                     onUpdate={updateItem ? (v) => updateItem(i, { iconUrl: v }) : undefined}
