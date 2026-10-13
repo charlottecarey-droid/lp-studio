@@ -5017,6 +5017,21 @@ export type { KitContentsBlockProps, KitContentsItem } from "@/blocks/BlockKitCo
 export type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockKitSteps";
 export type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
 export type { KitTileFit, KitTileFrame } from "@/blocks/kit/KitProductTile";
+
+/* ── ABM account-page family (Oct 2026): brand-aware replica of the enterprise 1:1 account page idiom. */
+export type { AbmSplitHeroBlockProps } from "@/blocks/BlockAbmSplitHero";
+export type { AbmPhoneShowcaseBlockProps, AbmPillar } from "@/blocks/BlockAbmPhoneShowcase";
+export type { AbmSolutionTabsBlockProps, AbmSolutionTab } from "@/blocks/BlockAbmSolutionTabs";
+export type { AbmIntegrationsRowBlockProps, AbmIntegration } from "@/blocks/BlockAbmIntegrationsRow";
+export type { AbmStoryQuoteBlockProps } from "@/blocks/BlockAbmStoryQuote";
+export type { AbmLogoStripBlockProps, AbmLogo } from "@/blocks/BlockAbmLogoStrip";
+export type { AbmRoiStatsBlockProps, AbmStat } from "@/blocks/BlockAbmRoiStats";
+export type { AbmFeatureGridBlockProps, AbmFeature } from "@/blocks/BlockAbmFeatureGrid";
+export type { AbmReadingTilesBlockProps, AbmReadingItem } from "@/blocks/BlockAbmReadingTiles";
+export type { AbmAccountTeamBlockProps, AbmTeamMember } from "@/blocks/BlockAbmAccountTeam";
+export type { AbmRatingsCtaBlockProps, AbmRating } from "@/blocks/BlockAbmRatingsCta";
+export type { AbmCtaProps } from "@/blocks/abm/AbmCta";
+export type { AbmNavLink } from "@/blocks/abm/AbmNavBar";
 export type {
   FeatureTabsShowcaseBlockProps,
   FeatureTabItem,

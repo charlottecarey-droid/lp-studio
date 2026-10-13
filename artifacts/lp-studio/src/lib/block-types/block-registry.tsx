@@ -182,6 +182,17 @@ import type {
   KitContentsBlockProps,
   KitStepsBlockProps,
   KitSupportBlockProps,
+  AbmSplitHeroBlockProps,
+  AbmPhoneShowcaseBlockProps,
+  AbmSolutionTabsBlockProps,
+  AbmIntegrationsRowBlockProps,
+  AbmStoryQuoteBlockProps,
+  AbmLogoStripBlockProps,
+  AbmRoiStatsBlockProps,
+  AbmFeatureGridBlockProps,
+  AbmReadingTilesBlockProps,
+  AbmAccountTeamBlockProps,
+  AbmRatingsCtaBlockProps,
   GlassPricingTiersBlockProps,
   AuroraCtaFinaleBlockProps,
   StorybrandJourneyBlockProps,
@@ -220,6 +231,17 @@ import { KIT_HERO_DEFAULT_PROPS } from "@/blocks/BlockKitHero";
 import { KIT_CONTENTS_DEFAULT_PROPS } from "@/blocks/BlockKitContents";
 import { KIT_STEPS_DEFAULT_PROPS } from "@/blocks/BlockKitSteps";
 import { KIT_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockKitSupport";
+import { ABM_SPLIT_HERO_DEFAULT_PROPS } from "@/blocks/BlockAbmSplitHero";
+import { ABM_PHONE_SHOWCASE_DEFAULT_PROPS } from "@/blocks/BlockAbmPhoneShowcase";
+import { ABM_SOLUTION_TABS_DEFAULT_PROPS } from "@/blocks/BlockAbmSolutionTabs";
+import { ABM_INTEGRATIONS_ROW_DEFAULT_PROPS } from "@/blocks/BlockAbmIntegrationsRow";
+import { ABM_STORY_QUOTE_DEFAULT_PROPS } from "@/blocks/BlockAbmStoryQuote";
+import { ABM_LOGO_STRIP_DEFAULT_PROPS } from "@/blocks/BlockAbmLogoStrip";
+import { ABM_ROI_STATS_DEFAULT_PROPS } from "@/blocks/BlockAbmRoiStats";
+import { ABM_FEATURE_GRID_DEFAULT_PROPS } from "@/blocks/BlockAbmFeatureGrid";
+import { ABM_READING_TILES_DEFAULT_PROPS } from "@/blocks/BlockAbmReadingTiles";
+import { ABM_ACCOUNT_TEAM_DEFAULT_PROPS } from "@/blocks/BlockAbmAccountTeam";
+import { ABM_RATINGS_CTA_DEFAULT_PROPS } from "@/blocks/BlockAbmRatingsCta";
 import { FEATURE_TABS_DEFAULT_PROPS } from "@/blocks/BlockFeatureTabsShowcase";
 import { STAT_COUNTER_DEFAULT_PROPS } from "@/blocks/BlockStatCounterBand";
 import { TESTIMONIAL_WALL_DEFAULT_PROPS } from "@/blocks/BlockTestimonialWall";
@@ -9387,6 +9409,106 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#D9E84A" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="30" height="7" rx="2" fill="#ffffff" /><rect x="8" y="44" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="66" y="12" width="46" height="46" rx="6" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="72" y="20" width="10" height="1.5" fill="#D9E84A" /><rect x="72" y="26" width="30" height="5" rx="1.5" fill="#ffffff" opacity="0.9" /><rect x="72" y="34" width="34" height="2" rx="1" fill="#ffffff" opacity="0.35" /><rect x="72" y="46" width="24" height="7" rx="3.5" fill="none" stroke="#ffffff" strokeOpacity="0.4" /></svg>
     ),
   },
+  // ── ABM account-page family (Oct 2026): brand-aware replica of the enterprise 1:1 account page idiom ──
+  {
+    type: "abm-split-hero",
+    label: "Hero — Account Page (Split + Nav)",
+    category: "Hero" as BlockCategory,
+    defaultProps: (): AbmSplitHeroBlockProps => structuredClone(ABM_SPLIT_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#0B0B0F" rx="4" /><rect x="0" y="0" width="120" height="12" fill="#ffffff" /><rect x="6" y="4" width="16" height="4" rx="1" fill="#0B0B0F" /><rect x="88" y="3" width="26" height="6" rx="1.5" fill="#F97316" /><circle cx="9" cy="22" r="2" fill="#F97316" /><rect x="14" y="20.5" width="30" height="3" rx="1" fill="#F97316" opacity="0.8" /><rect x="6" y="28" width="46" height="8" rx="2" fill="#ffffff" /><rect x="6" y="39" width="40" height="3" rx="1" fill="#ffffff" opacity="0.5" /><rect x="6" y="44" width="34" height="3" rx="1" fill="#ffffff" opacity="0.5" /><rect x="6" y="53" width="30" height="9" rx="2" fill="#F97316" /><rect x="62" y="18" width="52" height="44" rx="2" fill="#3b82f6" opacity="0.6" /></svg>
+    ),
+  },
+  {
+    type: "abm-phone-showcase",
+    label: "Account Page — Phone Showcase",
+    category: "Showcase",
+    defaultProps: (): AbmPhoneShowcaseBlockProps => structuredClone(ABM_PHONE_SHOWCASE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#ffffff" rx="4" /><rect x="14" y="8" width="26" height="58" rx="7" fill="#161618" /><rect x="17" y="12" width="20" height="50" rx="4" fill="#e2e8f0" /><rect x="52" y="12" width="52" height="8" rx="2" fill="#0B0B0F" /><rect x="52" y="24" width="56" height="3" rx="1" fill="#94a3b8" /><path d="M54 36 l3 3 l6 -6" stroke="#F97316" strokeWidth="2" fill="none" /><rect x="66" y="34" width="38" height="3" rx="1" fill="#0B0B0F" /><path d="M54 48 l3 3 l6 -6" stroke="#F97316" strokeWidth="2" fill="none" /><rect x="66" y="46" width="38" height="3" rx="1" fill="#0B0B0F" /><path d="M54 60 l3 3 l6 -6" stroke="#F97316" strokeWidth="2" fill="none" /><rect x="66" y="58" width="38" height="3" rx="1" fill="#0B0B0F" /></svg>
+    ),
+  },
+  {
+    type: "abm-solution-tabs",
+    label: "Account Page — Solution Tabs",
+    category: "Features",
+    defaultProps: (): AbmSolutionTabsBlockProps => structuredClone(ABM_SOLUTION_TABS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#ffffff" rx="4" /><rect x="28" y="6" width="64" height="6" rx="2" fill="#0B0B0F" /><rect x="8" y="18" width="24" height="10" rx="2" fill="#ffffff" stroke="#e7e5e4" /><rect x="8" y="27" width="24" height="2" fill="#F97316" /><rect x="34" y="18" width="24" height="10" rx="2" fill="#f5f1ed" /><rect x="60" y="18" width="24" height="10" rx="2" fill="#f5f1ed" /><rect x="86" y="18" width="24" height="10" rx="2" fill="#f5f1ed" /><rect x="8" y="36" width="36" height="5" rx="1" fill="#0B0B0F" /><rect x="8" y="44" width="44" height="2" rx="1" fill="#94a3b8" /><rect x="8" y="49" width="40" height="2" rx="1" fill="#94a3b8" /><rect x="8" y="56" width="22" height="7" rx="1.5" fill="#F97316" /><rect x="62" y="36" width="50" height="28" rx="2" fill="#e2e8f0" /></svg>
+    ),
+  },
+  {
+    type: "abm-integrations-row",
+    label: "Account Page — Integrations Row",
+    category: "Features",
+    defaultProps: (): AbmIntegrationsRowBlockProps => structuredClone(ABM_INTEGRATIONS_ROW_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#f5f1ed" rx="4" /><rect x="22" y="8" width="76" height="6" rx="2" fill="#0B0B0F" /><rect x="34" y="18" width="52" height="2" rx="1" fill="#94a3b8" /><rect x="44" y="24" width="32" height="2" rx="1" fill="#F97316" /><rect x="8" y="34" width="18" height="18" rx="4" fill="#ffffff" /><rect x="30" y="34" width="18" height="18" rx="4" fill="#ffffff" /><rect x="52" y="34" width="18" height="18" rx="4" fill="#ffffff" /><rect x="74" y="34" width="18" height="18" rx="4" fill="#ffffff" /><rect x="96" y="34" width="18" height="18" rx="4" fill="#ffffff" /><rect x="10" y="56" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="32" y="56" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="54" y="56" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="76" y="56" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="98" y="56" width="14" height="2" rx="1" fill="#94a3b8" /></svg>
+    ),
+  },
+  {
+    type: "abm-story-quote",
+    label: "Account Page — Customer Story Quote",
+    category: "Social Proof",
+    defaultProps: (): AbmStoryQuoteBlockProps => structuredClone(ABM_STORY_QUOTE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#ffffff" rx="4" /><rect x="6" y="8" width="54" height="54" fill="#0B0B0F" /><rect x="12" y="16" width="20" height="2" rx="1" fill="#94a3b8" /><rect x="12" y="24" width="42" height="5" rx="1" fill="#ffffff" /><rect x="12" y="31" width="38" height="5" rx="1" fill="#ffffff" /><rect x="12" y="38" width="30" height="5" rx="1" fill="#ffffff" /><rect x="12" y="50" width="18" height="2.5" rx="1" fill="#ffffff" /><rect x="12" y="55" width="22" height="2" rx="1" fill="#94a3b8" /><rect x="60" y="8" width="54" height="54" fill="#64748b" /></svg>
+    ),
+  },
+  {
+    type: "abm-logo-strip",
+    label: "Account Page — Logo Strip",
+    category: "Social Proof",
+    defaultProps: (): AbmLogoStripBlockProps => structuredClone(ABM_LOGO_STRIP_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#ffffff" rx="4" /><rect x="30" y="16" width="60" height="6" rx="2" fill="#0B0B0F" /><rect x="8" y="40" width="18" height="6" rx="1" fill="#475569" /><rect x="30" y="40" width="18" height="6" rx="1" fill="#475569" /><rect x="52" y="40" width="18" height="6" rx="1" fill="#475569" /><rect x="74" y="40" width="18" height="6" rx="1" fill="#475569" /><rect x="96" y="40" width="18" height="6" rx="1" fill="#475569" /></svg>
+    ),
+  },
+  {
+    type: "abm-roi-stats",
+    label: "Account Page — ROI Stats",
+    category: "Social Proof",
+    defaultProps: (): AbmRoiStatsBlockProps => structuredClone(ABM_ROI_STATS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#f5f1ed" rx="4" /><rect x="36" y="8" width="48" height="6" rx="2" fill="#0B0B0F" /><text x="12" y="36" fill="#0B0B0F" fontSize="16" fontWeight="700" fontFamily="sans-serif">95%</text><text x="48" y="36" fill="#0B0B0F" fontSize="16" fontWeight="700" fontFamily="sans-serif">97%</text><text x="84" y="36" fill="#0B0B0F" fontSize="16" fontWeight="700" fontFamily="sans-serif">95%</text><rect x="10" y="40" width="26" height="2" rx="1" fill="#64748b" /><rect x="46" y="40" width="26" height="2" rx="1" fill="#64748b" /><rect x="82" y="40" width="26" height="2" rx="1" fill="#64748b" /><rect x="44" y="50" width="32" height="9" rx="2" fill="#0B0B0F" /></svg>
+    ),
+  },
+  {
+    type: "abm-feature-grid",
+    label: "Account Page — Feature Grid",
+    category: "Features",
+    defaultProps: (): AbmFeatureGridBlockProps => structuredClone(ABM_FEATURE_GRID_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#ffffff" rx="4" /><rect x="30" y="6" width="60" height="6" rx="2" fill="#0B0B0F" /><rect x="8" y="22" width="6" height="6" rx="1" fill="#F97316" /><rect x="17" y="23" width="22" height="4" rx="1" fill="#0B0B0F" /><rect x="8" y="31" width="32" height="2" rx="1" fill="#94a3b8" /><rect x="8" y="35" width="28" height="2" rx="1" fill="#94a3b8" /><rect x="46" y="22" width="6" height="6" rx="1" fill="#F97316" /><rect x="55" y="23" width="22" height="4" rx="1" fill="#0B0B0F" /><rect x="46" y="31" width="32" height="2" rx="1" fill="#94a3b8" /><rect x="46" y="35" width="28" height="2" rx="1" fill="#94a3b8" /><rect x="84" y="22" width="6" height="6" rx="1" fill="#F97316" /><rect x="93" y="23" width="20" height="4" rx="1" fill="#0B0B0F" /><rect x="84" y="31" width="30" height="2" rx="1" fill="#94a3b8" /><rect x="84" y="35" width="26" height="2" rx="1" fill="#94a3b8" /><rect x="8" y="46" width="6" height="6" rx="1" fill="#F97316" /><rect x="17" y="47" width="22" height="4" rx="1" fill="#0B0B0F" /><rect x="8" y="55" width="32" height="2" rx="1" fill="#94a3b8" /><rect x="46" y="46" width="6" height="6" rx="1" fill="#F97316" /><rect x="55" y="47" width="22" height="4" rx="1" fill="#0B0B0F" /><rect x="46" y="55" width="32" height="2" rx="1" fill="#94a3b8" /></svg>
+    ),
+  },
+  {
+    type: "abm-reading-tiles",
+    label: "Account Page — Recommended Reading",
+    category: "Content",
+    defaultProps: (): AbmReadingTilesBlockProps => structuredClone(ABM_READING_TILES_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#f5f1ed" rx="4" /><rect x="30" y="6" width="60" height="6" rx="2" fill="#0B0B0F" /><rect x="8" y="18" width="32" height="20" rx="1" fill="#64748b" /><rect x="8" y="42" width="12" height="2" rx="1" fill="#94a3b8" /><rect x="8" y="47" width="28" height="3" rx="1" fill="#0B0B0F" /><rect x="8" y="53" width="30" height="2" rx="1" fill="#94a3b8" /><rect x="44" y="18" width="32" height="20" rx="1" fill="#64748b" /><rect x="44" y="42" width="12" height="2" rx="1" fill="#94a3b8" /><rect x="44" y="47" width="28" height="3" rx="1" fill="#0B0B0F" /><rect x="44" y="53" width="30" height="2" rx="1" fill="#94a3b8" /><rect x="80" y="18" width="32" height="20" rx="1" fill="#64748b" /><rect x="80" y="42" width="12" height="2" rx="1" fill="#94a3b8" /><rect x="80" y="47" width="28" height="3" rx="1" fill="#0B0B0F" /><rect x="80" y="53" width="30" height="2" rx="1" fill="#94a3b8" /></svg>
+    ),
+  },
+  {
+    type: "abm-account-team",
+    label: "Account Page — Meet Your Team",
+    category: "Social Proof",
+    defaultProps: (): AbmAccountTeamBlockProps => structuredClone(ABM_ACCOUNT_TEAM_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#ffffff" rx="4" /><rect x="30" y="8" width="60" height="6" rx="2" fill="#0B0B0F" /><circle cx="18" cy="34" r="9" fill="#cbd5e1" /><circle cx="39" cy="34" r="9" fill="#cbd5e1" /><circle cx="60" cy="34" r="9" fill="#cbd5e1" /><circle cx="81" cy="34" r="9" fill="#cbd5e1" /><circle cx="102" cy="34" r="9" fill="#cbd5e1" /><rect x="10" y="48" width="16" height="3" rx="1" fill="#0B0B0F" /><rect x="31" y="48" width="16" height="3" rx="1" fill="#0B0B0F" /><rect x="52" y="48" width="16" height="3" rx="1" fill="#0B0B0F" /><rect x="73" y="48" width="16" height="3" rx="1" fill="#0B0B0F" /><rect x="94" y="48" width="16" height="3" rx="1" fill="#0B0B0F" /><rect x="11" y="54" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="32" y="54" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="53" y="54" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="74" y="54" width="14" height="2" rx="1" fill="#94a3b8" /><rect x="95" y="54" width="14" height="2" rx="1" fill="#94a3b8" /></svg>
+    ),
+  },
+  {
+    type: "abm-ratings-cta",
+    label: "Account Page — Ratings Close (CTA)",
+    category: "CTA",
+    defaultProps: (): AbmRatingsCtaBlockProps => structuredClone(ABM_RATINGS_CTA_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#0B0B0F" rx="4" /><rect x="8" y="16" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="26" width="38" height="7" rx="2" fill="#ffffff" /><rect x="8" y="36" width="30" height="7" rx="2" fill="#ffffff" /><rect x="8" y="50" width="26" height="9" rx="2" fill="#F97316" /><rect x="64" y="18" width="20" height="4" rx="1" fill="#ffffff" /><rect x="64" y="25" width="22" height="3" rx="1" fill="#F97316" /><rect x="92" y="18" width="20" height="4" rx="1" fill="#ffffff" /><rect x="92" y="25" width="22" height="3" rx="1" fill="#F97316" /><rect x="64" y="40" width="20" height="4" rx="1" fill="#ffffff" /><rect x="64" y="47" width="22" height="3" rx="1" fill="#F97316" /><rect x="92" y="40" width="20" height="4" rx="1" fill="#ffffff" /><rect x="92" y="47" width="22" height="3" rx="1" fill="#F97316" /></svg>
+    ),
+  },
   {
     type: "glass-pricing-tiers",
     label: "Pricing — Glass Tiers",
@@ -9719,6 +9841,17 @@ export function createBlock(type: "kit-hero"): Extract<PageBlock, { type: "kit-h
 export function createBlock(type: "kit-contents"): Extract<PageBlock, { type: "kit-contents" }>;
 export function createBlock(type: "kit-steps"): Extract<PageBlock, { type: "kit-steps" }>;
 export function createBlock(type: "kit-support"): Extract<PageBlock, { type: "kit-support" }>;
+export function createBlock(type: "abm-split-hero"): Extract<PageBlock, { type: "abm-split-hero" }>;
+export function createBlock(type: "abm-phone-showcase"): Extract<PageBlock, { type: "abm-phone-showcase" }>;
+export function createBlock(type: "abm-solution-tabs"): Extract<PageBlock, { type: "abm-solution-tabs" }>;
+export function createBlock(type: "abm-integrations-row"): Extract<PageBlock, { type: "abm-integrations-row" }>;
+export function createBlock(type: "abm-story-quote"): Extract<PageBlock, { type: "abm-story-quote" }>;
+export function createBlock(type: "abm-logo-strip"): Extract<PageBlock, { type: "abm-logo-strip" }>;
+export function createBlock(type: "abm-roi-stats"): Extract<PageBlock, { type: "abm-roi-stats" }>;
+export function createBlock(type: "abm-feature-grid"): Extract<PageBlock, { type: "abm-feature-grid" }>;
+export function createBlock(type: "abm-reading-tiles"): Extract<PageBlock, { type: "abm-reading-tiles" }>;
+export function createBlock(type: "abm-account-team"): Extract<PageBlock, { type: "abm-account-team" }>;
+export function createBlock(type: "abm-ratings-cta"): Extract<PageBlock, { type: "abm-ratings-cta" }>;
 export function createBlock(type: "feature-tabs-showcase"): Extract<PageBlock, { type: "feature-tabs-showcase" }>;
 export function createBlock(type: "stat-counter-band"): Extract<PageBlock, { type: "stat-counter-band" }>;
 export function createBlock(type: "testimonial-wall"): Extract<PageBlock, { type: "testimonial-wall" }>;
@@ -10100,6 +10233,17 @@ export function createBlock(type: BlockType): PageBlock {
     case "kit-contents": return { id, type: "kit-contents", props: props as KitContentsBlockProps };
     case "kit-steps": return { id, type: "kit-steps", props: props as KitStepsBlockProps };
     case "kit-support": return { id, type: "kit-support", props: props as KitSupportBlockProps };
+    case "abm-split-hero": return { id, type: "abm-split-hero", props: props as AbmSplitHeroBlockProps };
+    case "abm-phone-showcase": return { id, type: "abm-phone-showcase", props: props as AbmPhoneShowcaseBlockProps };
+    case "abm-solution-tabs": return { id, type: "abm-solution-tabs", props: props as AbmSolutionTabsBlockProps };
+    case "abm-integrations-row": return { id, type: "abm-integrations-row", props: props as AbmIntegrationsRowBlockProps };
+    case "abm-story-quote": return { id, type: "abm-story-quote", props: props as AbmStoryQuoteBlockProps };
+    case "abm-logo-strip": return { id, type: "abm-logo-strip", props: props as AbmLogoStripBlockProps };
+    case "abm-roi-stats": return { id, type: "abm-roi-stats", props: props as AbmRoiStatsBlockProps };
+    case "abm-feature-grid": return { id, type: "abm-feature-grid", props: props as AbmFeatureGridBlockProps };
+    case "abm-reading-tiles": return { id, type: "abm-reading-tiles", props: props as AbmReadingTilesBlockProps };
+    case "abm-account-team": return { id, type: "abm-account-team", props: props as AbmAccountTeamBlockProps };
+    case "abm-ratings-cta": return { id, type: "abm-ratings-cta", props: props as AbmRatingsCtaBlockProps };
     case "feature-tabs-showcase": return { id, type: "feature-tabs-showcase", props: props as FeatureTabsShowcaseBlockProps };
     case "stat-counter-band": return { id, type: "stat-counter-band", props: props as StatCounterBandBlockProps };
     case "testimonial-wall": return { id, type: "testimonial-wall", props: props as TestimonialWallBlockProps };

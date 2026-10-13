@@ -69,6 +69,17 @@ describe("NO_REVEAL — Stack family (Sept 2026)", () => {
     "kit-contents",
     "kit-steps",
     "kit-support",
+    "abm-split-hero",
+    "abm-phone-showcase",
+    "abm-solution-tabs",
+    "abm-integrations-row",
+    "abm-story-quote",
+    "abm-logo-strip",
+    "abm-roi-stats",
+    "abm-feature-grid",
+    "abm-reading-tiles",
+    "abm-account-team",
+    "abm-ratings-cta",
   ])("excludes %s from reveal wrapping", (type) => {
     expect(NO_REVEAL.has(type)).toBe(true);
   });

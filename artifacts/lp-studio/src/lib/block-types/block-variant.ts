@@ -182,6 +182,17 @@ import type {
   KitContentsBlockProps,
   KitStepsBlockProps,
   KitSupportBlockProps,
+  AbmSplitHeroBlockProps,
+  AbmPhoneShowcaseBlockProps,
+  AbmSolutionTabsBlockProps,
+  AbmIntegrationsRowBlockProps,
+  AbmStoryQuoteBlockProps,
+  AbmLogoStripBlockProps,
+  AbmRoiStatsBlockProps,
+  AbmFeatureGridBlockProps,
+  AbmReadingTilesBlockProps,
+  AbmAccountTeamBlockProps,
+  AbmRatingsCtaBlockProps,
   FeatureTabsShowcaseBlockProps,
   StatCounterBandBlockProps,
   TestimonialWallBlockProps,
@@ -481,6 +492,17 @@ export type BlockVariant =
   | { type: "kit-contents"; props: KitContentsBlockProps }
   | { type: "kit-steps"; props: KitStepsBlockProps }
   | { type: "kit-support"; props: KitSupportBlockProps }
+  | { type: "abm-split-hero"; props: AbmSplitHeroBlockProps }
+  | { type: "abm-phone-showcase"; props: AbmPhoneShowcaseBlockProps }
+  | { type: "abm-solution-tabs"; props: AbmSolutionTabsBlockProps }
+  | { type: "abm-integrations-row"; props: AbmIntegrationsRowBlockProps }
+  | { type: "abm-story-quote"; props: AbmStoryQuoteBlockProps }
+  | { type: "abm-logo-strip"; props: AbmLogoStripBlockProps }
+  | { type: "abm-roi-stats"; props: AbmRoiStatsBlockProps }
+  | { type: "abm-feature-grid"; props: AbmFeatureGridBlockProps }
+  | { type: "abm-reading-tiles"; props: AbmReadingTilesBlockProps }
+  | { type: "abm-account-team"; props: AbmAccountTeamBlockProps }
+  | { type: "abm-ratings-cta"; props: AbmRatingsCtaBlockProps }
   | { type: "feature-tabs-showcase"; props: FeatureTabsShowcaseBlockProps }
   | { type: "stat-counter-band"; props: StatCounterBandBlockProps }
   | { type: "testimonial-wall"; props: TestimonialWallBlockProps }

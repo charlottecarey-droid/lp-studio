@@ -168,6 +168,17 @@ import { BlockKitHero } from "./BlockKitHero";
 import { BlockKitContents } from "./BlockKitContents";
 import { BlockKitSteps } from "./BlockKitSteps";
 import { BlockKitSupport } from "./BlockKitSupport";
+import { BlockAbmSplitHero } from "./BlockAbmSplitHero";
+import { BlockAbmPhoneShowcase } from "./BlockAbmPhoneShowcase";
+import { BlockAbmSolutionTabs } from "./BlockAbmSolutionTabs";
+import { BlockAbmIntegrationsRow } from "./BlockAbmIntegrationsRow";
+import { BlockAbmStoryQuote } from "./BlockAbmStoryQuote";
+import { BlockAbmLogoStrip } from "./BlockAbmLogoStrip";
+import { BlockAbmRoiStats } from "./BlockAbmRoiStats";
+import { BlockAbmFeatureGrid } from "./BlockAbmFeatureGrid";
+import { BlockAbmReadingTiles } from "./BlockAbmReadingTiles";
+import { BlockAbmAccountTeam } from "./BlockAbmAccountTeam";
+import { BlockAbmRatingsCta } from "./BlockAbmRatingsCta";
 import { BlockFeatureTabsShowcase } from "./BlockFeatureTabsShowcase";
 import { BlockStatCounterBand } from "./BlockStatCounterBand";
 import { BlockTestimonialWall } from "./BlockTestimonialWall";
@@ -494,6 +505,8 @@ export const NO_REVEAL = new Set<string>([
   "invite-demo-hero", "invite-details", "invite-agenda", "invite-showcase", "invite-proof", "invite-reserve",
   // Kit family: self-nav hero with floating product stage + sections with their own staggered reveals.
   "kit-hero", "kit-contents", "kit-steps", "kit-support",
+  // ABM account-page family: self-nav hero + sections with their own staggered reveals.
+  "abm-split-hero", "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-story-quote", "abm-logo-strip", "abm-roi-stats", "abm-feature-grid", "abm-reading-tiles", "abm-account-team", "abm-ratings-cta",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   // Extracted Event Page sections — same internal staggered whileInView
   // reveals as their parent; the outer wrapper would double-animate them.
@@ -1775,6 +1788,128 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
           <BlockKitSupport
             props={block.props}
             brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-split-hero":
+        return (
+          <BlockAbmSplitHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-phone-showcase":
+        return (
+          <BlockAbmPhoneShowcase
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-solution-tabs":
+        return (
+          <BlockAbmSolutionTabs
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-integrations-row":
+        return (
+          <BlockAbmIntegrationsRow
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-story-quote":
+        return (
+          <BlockAbmStoryQuote
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-logo-strip":
+        return (
+          <BlockAbmLogoStrip
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-roi-stats":
+        return (
+          <BlockAbmRoiStats
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-feature-grid":
+        return (
+          <BlockAbmFeatureGrid
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-reading-tiles":
+        return (
+          <BlockAbmReadingTiles
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-account-team":
+        return (
+          <BlockAbmAccountTeam
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "abm-ratings-cta":
+        return (
+          <BlockAbmRatingsCta
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })

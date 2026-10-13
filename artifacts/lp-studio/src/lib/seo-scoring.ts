@@ -120,6 +120,8 @@ export const HERO_TYPES = new Set([
   "invite-demo-hero",
   // Kit family self-nav hero (Oct 2026).
   "kit-hero",
+  // ABM account-page family self-nav hero (Oct 2026).
+  "abm-split-hero",
 ]);
 
 // Calls-to-action: explicit CTA strips, buttons, and interactive conversion
@@ -137,6 +139,8 @@ export const CTA_TYPES = new Set([
   "invite-reserve",
   // Kit family close (support CTA).
   "kit-support",
+  // ABM account-page family: ROI band + ratings close carry the page CTA.
+  "abm-roi-stats", "abm-ratings-cta",
 ]);
 
 // Lead-capture / conversion paths: forms, email capture, booking, reservations.
@@ -180,6 +184,8 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "testimonial-wall",
   // Invite family proof band (pull quote + stats).
   "invite-proof",
+  // ABM account-page family proof: story quote, logo strip, account team.
+  "abm-story-quote", "abm-logo-strip", "abm-account-team",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
@@ -239,6 +245,8 @@ export const STRUCTURED_TYPES = new Set([
   "invite-details", "invite-agenda", "invite-showcase",
   // Kit family structured sections.
   "kit-contents", "kit-steps",
+  // ABM account-page family structured sections.
+  "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-feature-grid", "abm-reading-tiles",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").

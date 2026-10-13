@@ -172,6 +172,7 @@ import { DANDY_FOR_DSOS_TEMPLATE_SEEDS } from "./dandyForDsosTemplate";
 import { DSO_DEMO_TEMPLATE_SEEDS } from "./dsoDemoTemplate";
 import { DSO_INVITE_TEMPLATE_SEEDS } from "./dsoInviteTemplate";
 import { QUEST_KIT_TEMPLATE_SEEDS } from "./questKitTemplate";
+import { ABM_ACCOUNT_PAGE_TEMPLATE_SEEDS } from "./abmAccountPageTemplate";
 
 const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   // 1. SaaS Product Landing
@@ -4557,6 +4558,7 @@ const COMBINED: GlobalTemplateSeed[] = [
   ...DSO_DEMO_TEMPLATE_SEEDS,
   ...DSO_INVITE_TEMPLATE_SEEDS,
   ...QUEST_KIT_TEMPLATE_SEEDS,
+  ...ABM_ACCOUNT_PAGE_TEMPLATE_SEEDS,
   ...BUSINESS_CASE_TEMPLATE_SEEDS,
   ...GENERIC_TEMPLATE_SEEDS,
   ...INDUSTRY_TEMPLATE_SEEDS_RANKED,

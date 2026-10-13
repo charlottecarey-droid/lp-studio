@@ -38,6 +38,7 @@ const EXPECTED_ALL_IN_ONE_SLUGS = [
   "global-challenger-insight",
   "global-deal-room",
   "global-account-microsite",
+  "global-abm-account-page",
   "global-onboarding-hub",
   "global-value-renewal-review",
   "global-event-agenda",

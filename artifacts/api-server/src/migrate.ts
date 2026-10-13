@@ -2211,7 +2211,9 @@ async function runMigrationsBody(): Promise<void> {
       // the Invite-family demo page modelled on the lab-tour event pages.
       // v41: seed "Lab Tour in a Box — Meta Quest Setup" (global-dandy-quest-kit),
       // the Kit-family page the VR lab-tour kit's QR code opens.
-      const SEED_MARKER = "global_templates_seed_v41";
+      // v42: seed "Enterprise Account Page" (global-abm-account-page), the
+      // ABM-family 1:1 account microsite (11 generic abm-* section blocks).
+      const SEED_MARKER = "global_templates_seed_v42";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

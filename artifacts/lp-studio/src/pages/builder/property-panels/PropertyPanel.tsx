@@ -215,6 +215,19 @@ import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
 import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
 import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
 import { KitHeroPanel, KitContentsPanel, KitStepsPanel, KitSupportPanel } from "./KitPanels";
+import {
+  AbmSplitHeroPanel,
+  AbmPhoneShowcasePanel,
+  AbmSolutionTabsPanel,
+  AbmIntegrationsRowPanel,
+  AbmStoryQuotePanel,
+  AbmLogoStripPanel,
+  AbmRoiStatsPanel,
+  AbmFeatureGridPanel,
+  AbmReadingTilesPanel,
+  AbmAccountTeamPanel,
+  AbmRatingsCtaPanel,
+} from "./abm/AbmPanels";
 import { FeatureTabsShowcasePanel } from "./FeatureTabsShowcasePanel";
 import { StatCounterBandPanel } from "./StatCounterBandPanel";
 import { TestimonialWallPanel } from "./TestimonialWallPanel";
@@ -1704,6 +1717,87 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <KitSupportPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-split-hero":
+        return (
+          <AbmSplitHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "abm-phone-showcase":
+        return (
+          <AbmPhoneShowcasePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-solution-tabs":
+        return (
+          <AbmSolutionTabsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "abm-integrations-row":
+        return (
+          <AbmIntegrationsRowPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-story-quote":
+        return (
+          <AbmStoryQuotePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-logo-strip":
+        return (
+          <AbmLogoStripPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-roi-stats":
+        return (
+          <AbmRoiStatsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "abm-feature-grid":
+        return (
+          <AbmFeatureGridPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-reading-tiles":
+        return (
+          <AbmReadingTilesPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-account-team":
+        return (
+          <AbmAccountTeamPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "abm-ratings-cta":
+        return (
+          <AbmRatingsCtaPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "feature-tabs-showcase":
