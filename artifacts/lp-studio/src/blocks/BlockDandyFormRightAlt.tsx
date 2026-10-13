@@ -540,7 +540,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
 
   return (
     <section className="w-full py-20 md:py-28" style={{ background: surface.background }}>
-      <div className="max-w-7xl mx-auto px-6 md:px-10">
+      <div className="max-w-page mx-auto px-6 md:px-10">
         {headlineLayout === "centered-over-block" && (
           <div className="mb-14 md:mb-16">
             {headlineGroup(true)}

@@ -102,7 +102,7 @@ export function BlockKitSupport({ props, brand, onCtaClick, onFieldChange }: Pro
     <section id={props.anchorId || "help"} className="relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY }}>
       <style>{INVITE_CSS}</style>
       <div className="pointer-events-none absolute inset-0" aria-hidden="true" style={{ background: `radial-gradient(60% 40% at 50% 0%, color-mix(in srgb, ${pal.accent} 10%, transparent) 0%, transparent 70%)` }} />
-      <div className="relative mx-auto w-full max-w-[1240px] px-6 pt-20 lg:px-10 lg:pt-28" style={{ paddingBottom: showImage ? 0 : undefined }}>
+      <div className="relative mx-auto w-full max-w-page px-6 pt-20 lg:px-10 lg:pt-28" style={{ paddingBottom: showImage ? 0 : undefined }}>
         <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
           {(props.kicker || isEditor) && (
             <motion.div {...rise(0)} className="mb-6">

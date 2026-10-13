@@ -77,7 +77,7 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
 
   return (
     <footer style={{ backgroundColor: bgHex, color: onBg }} className="w-full">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-20 pb-12">
+      <div className="max-w-page mx-auto px-6 lg:px-10 pt-20 pb-12">
         <div className="flex flex-col md:flex-row gap-12 md:gap-20">
           <div className="flex-shrink-0">
             {(() => {

@@ -60,7 +60,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
     >
       {/* sticky panel */}
       <div className={cn("flex items-center overflow-hidden bg-[#FDFCFA]", isBuilder ? "py-16 md:py-24" : "sticky top-0 h-screen")}>
-        <div className="w-full max-w-7xl mx-auto px-6 md:px-10">
+        <div className="w-full max-w-page mx-auto px-6 md:px-10">
 
           {/* section header (shows above columns always) */}
           {(props.eyebrow || props.headline || props.subheadline) && (

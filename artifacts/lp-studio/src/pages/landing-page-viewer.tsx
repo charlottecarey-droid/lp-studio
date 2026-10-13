@@ -1434,7 +1434,7 @@ html, body { background: transparent !important; }
         "relative w-full px-6 flex flex-col items-center justify-center flex-1 bg-background"
       )}>
         <div className={cn(
-          "max-w-7xl mx-auto w-full",
+          "max-w-page mx-auto w-full",
           isSplit ? "grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center" : "flex flex-col items-center text-center"
         )}>
           
@@ -1539,7 +1539,7 @@ html, body { background: transparent !important; }
       {/* 5. Trust Bar */}
       {dtrConf.trustBar?.enabled && (
         <section className="w-full bg-[#F8FAF9] py-12 border-y border-slate-100">
-          <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 divide-x-0 md:divide-x divide-slate-200">
+          <div className="max-w-page mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 divide-x-0 md:divide-x divide-slate-200">
             {dtrConf.trustBar.items.map((item, i) => (
               <div key={i} className="flex flex-col items-center text-center px-4">
                 <span className="text-3xl md:text-4xl font-display font-bold text-foreground mb-1">{item.value}</span>
@@ -1687,7 +1687,7 @@ html, body { background: transparent !important; }
       {/* 10. Benefits Grid */}
       {dtrConf.benefits?.enabled && (
         <section className={cn("w-full bg-background px-6", sectionPy)}>
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-page mx-auto">
             {dtrConf.benefits.headline && (
               <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-foreground mb-16 max-w-3xl mx-auto leading-tight">
                 {dtrConf.benefits.headline}
@@ -1761,7 +1761,7 @@ html, body { background: transparent !important; }
       {/* 13. Product Grid */}
       {dtrConf.productGrid?.enabled && (
         <section className={cn("w-full bg-background px-6", sectionPy)}>
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-page mx-auto">
             <div className="text-center max-w-3xl mx-auto mb-16">
               {dtrConf.productGrid.headline && (
                 <h2 className="text-3xl md:text-5xl font-display font-bold text-foreground mb-6">

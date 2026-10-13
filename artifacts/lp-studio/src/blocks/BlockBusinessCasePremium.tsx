@@ -169,7 +169,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
   };
 
   const renderHeaderBar = () => (
-    <div className="absolute top-0 left-0 right-0 z-20 p-6 flex justify-between items-center gap-4 max-w-7xl mx-auto">
+    <div className="absolute top-0 left-0 right-0 z-20 p-6 flex justify-between items-center gap-4 max-w-page mx-auto">
       <div className="flex items-center gap-6">
         {brand ? (
           <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
@@ -438,7 +438,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
     }
     return (
       <div className="border-t" style={{ borderColor: `${bg}1a` }}>
-        <div className="max-w-7xl mx-auto px-6 lg:px-16 py-10 grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="max-w-page mx-auto px-6 lg:px-16 py-10 grid grid-cols-2 md:grid-cols-4 gap-8">
           {heroStats.map((s, i) => (
             <div key={i}>
               <div
@@ -496,7 +496,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
       {/* 2. Situation / Demand */}
       {props.showSituation !== false && (
       <>
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <Reveal isBuilder={isBuilder} className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
             {(props.situationEyebrow || onFieldChange) && (
@@ -587,14 +587,14 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
         </Reveal>
       </section>
 
-      <hr className="border-t border-black/10 max-w-7xl mx-auto" />
+      <hr className="border-t border-black/10 max-w-page mx-auto" />
       </>
       )}
 
       {/* 3. Signal */}
       {props.showSignal !== false && (
       <section
-        className="py-24 px-6 lg:px-16 max-w-7xl mx-auto my-24"
+        className="py-24 px-6 lg:px-16 max-w-page mx-auto my-24"
         style={{ background: dark, color: bg }}
       >
         <div className="mb-16">
@@ -723,7 +723,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
 
       {/* 4. Cost / Operational layer */}
       {props.showCost !== false && (
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <div className="text-center mb-16">
           {(props.costEyebrow || onFieldChange) && (
             <InlineText
@@ -879,7 +879,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
 
       {/* 6. Math */}
       {props.showMath !== false && (
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <div className="max-w-3xl mb-12">
           {props.mathEyebrow && (
             <div
@@ -996,7 +996,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
         className="py-24 px-6 relative"
         style={{ background: bg, boxShadow: `inset 0 0 0 100vmax ${ink}14` }}
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-page mx-auto">
           {props.proofEyebrow && (
             <div
               className="text-xs font-semibold tracking-[0.2em] uppercase mb-4 text-center"
@@ -1123,7 +1123,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
 
       {/* 8. Plan */}
       {props.showPlan !== false && (
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <div className="mb-16">
           {props.planEyebrow && (
             <div
@@ -1220,7 +1220,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
 
         {(props.footerLeftLabel || props.footerRightLabel) && (
           <div
-            className="max-w-7xl mx-auto mt-24 pt-6 border-t flex justify-between text-xs uppercase tracking-widest"
+            className="max-w-page mx-auto mt-24 pt-6 border-t flex justify-between text-xs uppercase tracking-widest"
             style={{ borderColor: `${bg}22`, color: `${bg}66`, fontFamily: BODY }}
           >
             <span>{props.footerLeftLabel}</span>

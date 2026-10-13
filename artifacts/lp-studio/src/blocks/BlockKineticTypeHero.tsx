@@ -212,7 +212,7 @@ export function BlockKineticTypeHero({
       `}</style>
 
       <div
-        className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pt-20 sm:px-8 md:pt-28"
+        className="mx-auto flex w-full max-w-page flex-1 flex-col px-5 pt-20 sm:px-8 md:pt-28"
         style={{ "--kth-focus": accentInk } as CSSProperties}
       >
         {/* ── Kicker ── */}

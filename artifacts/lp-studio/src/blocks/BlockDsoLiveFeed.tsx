@@ -177,7 +177,7 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
       {/* Background radial glow */}
       <div style={{ position: "absolute", top: "30%", right: "-5%", width: "40%", aspectRatio: "1", background: "radial-gradient(circle, hsla(68,60%,52%,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
         {/* 2-col layout */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: "5rem", alignItems: "start" }}
           className="dsolf-grid"

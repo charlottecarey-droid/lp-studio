@@ -448,7 +448,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
         >
           <div
             style={{
-              maxWidth: 1180,
+              maxWidth: "var(--lp-page-max)",
               margin: "0 auto",
               display: "grid",
               gridTemplateColumns: swapColumns

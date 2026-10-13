@@ -317,7 +317,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
   if (layout === "split") {
     return (
       <section ref={containerRef} style={{ ...sectionBg, position: "relative" }} className="py-20 md:py-28">
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
+        <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "4rem", alignItems: "center" }}>
             {/* Text side */}
             <motion.div

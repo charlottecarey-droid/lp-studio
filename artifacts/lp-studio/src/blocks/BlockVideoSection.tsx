@@ -484,7 +484,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     return (
       <>
         <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)} style={bgGradientStyle}>
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-page mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               {layout === "split-left" ? (
                 <>

@@ -306,7 +306,7 @@ export function BlockGlowFormHero({ props, brand, pageId, variantId, onFieldChan
         />
       </div>
 
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 lg:px-10 pt-16 lg:pt-24 pb-16 lg:pb-24 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
+      <div className="relative w-full max-w-page mx-auto px-6 lg:px-10 pt-16 lg:pt-24 pb-16 lg:pb-24 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
         {/* Copy */}
         <div className="lg:col-span-6 flex flex-col gap-5">
           {(props.eyebrow || isEditor) && (

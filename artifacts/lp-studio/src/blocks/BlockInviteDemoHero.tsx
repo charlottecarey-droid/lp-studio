@@ -145,7 +145,7 @@ export function BlockInviteDemoHero({ props, brand, pageId, variantId, onCtaClic
 
       {/* Sticky top bar */}
       <div className="sticky top-0 z-30" style={{ background: `linear-gradient(180deg, ${pal.bg}e6, ${pal.bg}00)`, backdropFilter: "blur(6px)" }}>
-        <div className="mx-auto flex w-full max-w-[1240px] items-center justify-between px-6 py-4 lg:px-10">
+        <div className="flex w-full items-center justify-between px-6 py-4 md:px-8">
           <a href="#" className="flex items-center" aria-label={logoText || "Home"}>
             {logo ? (
               <img src={logo} alt={logoText || "Logo"} className="h-6 w-auto" />

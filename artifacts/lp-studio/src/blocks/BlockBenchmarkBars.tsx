@@ -87,7 +87,7 @@ export function BlockBenchmarkBars({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className="bbr relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: GLOW_BODY }}>
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 lg:px-10 py-20 lg:py-28">
+      <div className="relative w-full max-w-page mx-auto px-6 lg:px-10 py-20 lg:py-28">
         <div className="max-w-3xl flex flex-col gap-4 mb-10 lg:mb-14">
           {(props.eyebrow || isEditor) && (
             <p className="text-[11px] uppercase tracking-[0.24em] font-semibold" style={{ color: pal.eyebrow }}>

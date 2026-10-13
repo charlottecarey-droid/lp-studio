@@ -71,7 +71,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
 
   return (
     <footer className="w-full bg-[#FDFCFA] border-t border-slate-200">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 py-20">
+      <div className="max-w-page mx-auto px-6 md:px-10 py-20">
         <div className="grid md:grid-cols-[240px_1fr] gap-14 mb-14">
           {/* Logo + disclaimer */}
           <div>

@@ -143,7 +143,7 @@ export function BlockVideoStepShowcase({ props, brand, onFieldChange }: Props) {
         @media (prefers-reduced-motion: reduce) { .vss-progress.is-live { animation: none; transform: scaleX(1); } }
       `}</style>
 
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 lg:px-10 py-20 lg:py-28">
+      <div className="relative w-full max-w-page mx-auto px-6 lg:px-10 py-20 lg:py-28">
         {(props.eyebrow || props.headline || props.subheadline || isEditor) && (
           <div className="max-w-3xl mx-auto text-center mb-14 lg:mb-20 flex flex-col items-center gap-4">
             {(props.eyebrow || isEditor) && (

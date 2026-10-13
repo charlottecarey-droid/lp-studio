@@ -272,7 +272,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
           <div
             style={{
               ...containerStyle,
-              maxWidth: 1280,
+              maxWidth: "var(--lp-page-max)",
               height: 80,
               display: "flex",
               alignItems: "center",
@@ -365,7 +365,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
               pointerEvents: "none",
             }}
           />
-          <div style={{ ...containerStyle, maxWidth: 1280, position: "relative", zIndex: 10 }}>
+          <div style={{ ...containerStyle, maxWidth: "var(--lp-page-max)", position: "relative", zIndex: 10 }}>
             {showHero && (
               <div style={{ maxWidth: 760, marginBottom: "5rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "2rem", flexWrap: "wrap" }}>
@@ -460,7 +460,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
           <div
             style={{
               ...containerStyle,
-              maxWidth: 1280,
+              maxWidth: "var(--lp-page-max)",
               paddingLeft: "1.5rem",
               paddingRight: "1.5rem",
               paddingTop: Math.round(sectionPad / 2),
@@ -500,7 +500,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
           <div
             style={{
               ...containerStyle,
-              maxWidth: 1280,
+              maxWidth: "var(--lp-page-max)",
               display: "grid",
               gridTemplateColumns: "1fr",
               gap: "4rem",
@@ -553,7 +553,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
       {/* 5. The Approach */}
       {showApproach && (
         <section style={{ ...sectionStyle({ background: rgba(ink, 0.03) }), borderBottom: `1px solid ${border}` }}>
-          <div style={{ ...containerStyle, maxWidth: 1280 }}>
+          <div style={{ ...containerStyle, maxWidth: "var(--lp-page-max)" }}>
             <div style={{ maxWidth: 720, marginBottom: "4rem" }}>
               {(props.approachEyebrow || onFieldChange) && (
                 <InlineText as="div" value={props.approachEyebrow ?? ""} onUpdate={field("approachEyebrow")} style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem" }} />
@@ -620,7 +620,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
       {/* 6. The Results */}
       {showResults && (
         <section style={{ ...sectionStyle(), borderBottom: `1px solid ${border}` }}>
-          <div style={{ ...containerStyle, maxWidth: 1280 }}>
+          <div style={{ ...containerStyle, maxWidth: "var(--lp-page-max)" }}>
             {(props.resultsEyebrow || onFieldChange) && (
               <InlineText as="div" value={props.resultsEyebrow ?? ""} onUpdate={field("resultsEyebrow")} style={{ ...eyebrowStyle, color: accent, marginBottom: "1rem", textAlign: "center" }} />
             )}
@@ -728,7 +728,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
       {/* 8. Image gallery */}
       {showGallery && galleryImages.length > 0 && (
         <section style={{ ...sectionStyle() }}>
-          <div style={{ ...containerStyle, maxWidth: 1280 }}>
+          <div style={{ ...containerStyle, maxWidth: "var(--lp-page-max)" }}>
             {(props.galleryHeading || onFieldChange) && (
               <InlineText as="h2" value={props.galleryHeading ?? ""} onUpdate={field("galleryHeading")} style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", color: headline }} />
             )}
@@ -763,7 +763,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
       {/* 9. Repeatable deep-dive modules */}
       {showModules && modules.length > 0 && (
         <section style={{ ...sectionStyle({ background: rgba(ink, 0.03) }), borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}` }}>
-          <div style={{ ...containerStyle, maxWidth: 1280 }}>
+          <div style={{ ...containerStyle, maxWidth: "var(--lp-page-max)" }}>
             {(props.modulesHeading || onFieldChange) && (
               <InlineText as="h2" value={props.modulesHeading ?? ""} onUpdate={field("modulesHeading")} style={{ fontFamily: display, fontSize: `${2 * hScale}rem`, fontWeight: 700, marginBottom: "3rem", color: headline, textAlign: "center" }} />
             )}
@@ -884,7 +884,7 @@ export function BlockCaseMetrics({ props, brand, onFieldChange }: Props) {
       {/* 12. Footer */}
       {showFooter && (
         <footer style={{ background: dark, color: rgba("#ffffff", 0.6), paddingTop: Math.round(sectionPad * 0.66), paddingBottom: Math.round(sectionPad * 0.66), paddingLeft: "1.5rem", paddingRight: "1.5rem", borderTop: `1px solid ${rgba("#ffffff", 0.1)}` }}>
-          <div style={{ ...containerStyle, maxWidth: 1280 }}>
+          <div style={{ ...containerStyle, maxWidth: "var(--lp-page-max)" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "3rem", justifyContent: "space-between", marginBottom: "3rem" }}>
               <div style={{ maxWidth: 320 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>

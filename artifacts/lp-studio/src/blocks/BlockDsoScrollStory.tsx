@@ -105,7 +105,7 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
   return (
     <section ref={sectionRef} style={{ ...getBgStyle(backgroundStyle) }}>
       {/* Section header */}
-      <div style={{ textAlign: "center", padding: "5rem 1.5rem 0", maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ textAlign: "center", padding: "5rem 1.5rem 0", maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
         {eyebrow && (
           <motion.p initial={anim({ opacity: 0, y: 10 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: AW, marginBottom: "1rem", fontFamily: BODY }}>
             <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
@@ -148,7 +148,7 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
                 height: "100%",
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
-                maxWidth: 1200,
+                maxWidth: "var(--lp-page-max)",
                 margin: "0 auto",
                 padding: "0 1.5rem",
                 alignItems: "center",

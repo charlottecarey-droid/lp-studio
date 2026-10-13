@@ -96,7 +96,7 @@ export function BlockInviteShowcase({ props, brand, onFieldChange }: Props) {
 
   return (
     <section id={props.anchorId || "showcase"} className="relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY }}>
-      <div className="mx-auto w-full max-w-[1240px] px-6 py-20 lg:px-10 lg:py-28">
+      <div className="mx-auto w-full max-w-page px-6 py-20 lg:px-10 lg:py-28">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-7 flex flex-col gap-6">
             {(props.kicker || isEditor) && <Kicker palette={pal} align="left"><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></Kicker>}

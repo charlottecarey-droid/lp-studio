@@ -91,7 +91,7 @@ export function BlockIdForm({ props }: Props) {
       <div
         className="id-form-block__inner"
         style={{
-          maxWidth: 1280,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           display: "grid",
           gridTemplateColumns: "1fr 1.1fr",

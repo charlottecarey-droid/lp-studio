@@ -122,7 +122,7 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
       className="relative w-full overflow-hidden px-6 py-20 sm:py-24 md:px-10 lg:py-28"
       style={{ background: surface.background, color: text, fontFamily: BODY }}
     >
-      <div className="relative mx-auto w-full max-w-[1200px]">
+      <div className="relative mx-auto w-full max-w-page">
         {/* ── Section header — left-aligned, editorial. ── */}
         <div className="mb-16 max-w-3xl lg:mb-24">
           {(props.eyebrow || onFieldChange) && (

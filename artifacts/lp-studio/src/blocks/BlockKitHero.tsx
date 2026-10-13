@@ -150,7 +150,7 @@ export function BlockKitHero({ props, brand, onCtaClick, onFieldChange }: Props)
 
       {/* Sticky top bar */}
       <div className="sticky top-0 z-30" style={{ background: `linear-gradient(180deg, ${pal.bg}e6, ${pal.bg}00)`, backdropFilter: "blur(6px)" }}>
-        <div className="mx-auto flex w-full max-w-[1240px] items-center justify-between px-6 py-4 lg:px-10">
+        <div className="flex w-full items-center justify-between px-6 py-4 md:px-8">
           <a href="#" className="flex items-center" aria-label={logoText || "Home"}>
             {logo ? (
               <img src={logo} alt={logoText || "Logo"} className="h-6 w-auto" />
@@ -169,7 +169,7 @@ export function BlockKitHero({ props, brand, onCtaClick, onFieldChange }: Props)
       </div>
 
       {/* Content */}
-      <div className="relative z-10 mx-auto grid w-full max-w-[1240px] flex-1 grid-cols-1 items-center gap-12 px-6 pb-16 pt-6 lg:grid-cols-12 lg:gap-10 lg:px-10 lg:pb-24 lg:pt-10">
+      <div className="relative z-10 mx-auto grid w-full max-w-page flex-1 grid-cols-1 items-center gap-12 px-6 pb-16 pt-6 lg:grid-cols-12 lg:gap-10 lg:px-10 lg:pb-24 lg:pt-10">
         <div className="flex flex-col items-center text-center lg:col-span-6 lg:items-start lg:text-left">
           {(props.kicker || isEditor) && (
             <motion.div {...rise(0)} className="mb-6 self-center lg:self-start">

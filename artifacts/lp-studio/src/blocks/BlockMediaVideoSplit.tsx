@@ -85,7 +85,7 @@ export function BlockMediaVideoSplit({ props, brand, onFieldChange }: Props) {
         />
       )}
 
-      <div className="container relative z-10 mx-auto px-6 md:px-10 max-w-7xl">
+      <div className="container relative z-10 mx-auto px-6 md:px-10 max-w-page">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* ── Copy rail (5 cols). ── */}
           <Reveal

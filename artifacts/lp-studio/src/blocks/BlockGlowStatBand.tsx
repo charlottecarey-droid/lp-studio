@@ -109,7 +109,7 @@ export function BlockGlowStatBand({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className="gsb relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: GLOW_BODY }}>
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 lg:px-10 py-20 lg:py-28">
+      <div className="relative w-full max-w-page mx-auto px-6 lg:px-10 py-20 lg:py-28">
         {(props.headline || props.headlineLine2 || isEditor) && (
           <h2
             className="text-center font-semibold leading-[1.06] max-w-4xl mx-auto mb-12 lg:mb-16"

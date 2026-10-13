@@ -109,7 +109,7 @@ export function BlockVideoCardTrio({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className="vct relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: GLOW_BODY }}>
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 lg:px-10 py-20 lg:py-28">
+      <div className="relative w-full max-w-page mx-auto px-6 lg:px-10 py-20 lg:py-28">
         {(props.eyebrow || props.headline || props.subheadline || isEditor) && (
           <div className="max-w-3xl mx-auto text-center mb-12 lg:mb-16 flex flex-col items-center gap-4">
             {(props.eyebrow || isEditor) && (

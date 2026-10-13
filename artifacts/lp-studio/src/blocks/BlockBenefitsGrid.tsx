@@ -70,7 +70,7 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
   return (
     <section className={cn("relative w-full overflow-hidden bg-white px-6", sectionPy)}>
       <SectionDecor accent={accent} isDark={false} disabled={isBuilder} />
-      <div className="relative z-10 max-w-7xl mx-auto">
+      <div className="relative z-10 max-w-page mx-auto">
         {props.headline && (
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-heading-on-light)] mb-12 lg:mb-16 max-w-3xl mx-auto leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
         )}

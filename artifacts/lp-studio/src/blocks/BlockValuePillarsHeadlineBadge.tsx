@@ -89,7 +89,7 @@ export function BlockValuePillarsHeadlineBadge({
         style={{ background: theme.accent, opacity: 0.12 }}
       />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-page px-6 lg:px-8">
         <SectionHeader
           eyebrow={props.eyebrow}
           heading={props.heading || props.headline}

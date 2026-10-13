@@ -240,7 +240,7 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
       className="relative w-full overflow-hidden px-6 py-20 sm:py-24 lg:px-10 lg:py-32"
       style={{ background: surface.background, color: text, fontFamily: BODY }}
     >
-      <div className="relative z-10 mx-auto max-w-7xl">
+      <div className="relative z-10 mx-auto max-w-page">
         {/* ── Section header. ── */}
         <div className="mb-10 max-w-3xl lg:mb-12">
           {(props.eyebrow || onFieldChange) && (

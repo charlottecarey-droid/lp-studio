@@ -45,7 +45,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
 
   return (
     <section className="w-full py-20 md:py-28 bg-[#FDFCFA]">
-      <div className="max-w-7xl mx-auto px-6 md:px-10">
+      <div className="max-w-page mx-auto px-6 md:px-10">
         {(props.eyebrow || props.headline || props.subheadline) && (
           <div className="mb-12 max-w-2xl">
             {props.eyebrow && (

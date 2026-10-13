@@ -930,7 +930,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
       <motion.div
         style={{
           position: "relative",
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           opacity: contentOpacity,
           y: contentY,
@@ -1078,7 +1078,7 @@ function Marquee({ p }: { p: SpatialTourBlockProps }) {
       <div
         style={{
           position: "relative",
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           display: "grid",
           gridTemplateColumns: `repeat(${Math.max(p.marqueeItems.length, 1)}, 1fr)`,
@@ -1133,7 +1133,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
     <div style={{ background: CREAM, color: FOREST, padding: "140px 56px", position: "relative" }}>
       <div
         style={{
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -1270,7 +1270,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
     >
       <div
         style={{
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           display: "grid",
           gridTemplateColumns: "1.1fr 1fr",
@@ -1480,7 +1480,7 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
     >
       <DotGrid opacity={0.6} />
       <Glow size={900} x={880} y={-300} opacity={0.2} />
-      <div style={{ position: "relative", maxWidth: 1180, margin: "0 auto" }}>
+      <div style={{ position: "relative", maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
         <Eyebrow color={MINT} style={{ marginBottom: 28 }}>
           {p.tourEyebrow}
         </Eyebrow>
@@ -1613,7 +1613,7 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
       <Glow size={700} x={-200} y={-100} opacity={0.18} />
       <CornerFrame color="rgba(197,241,197,0.30)" size={20} inset={36} />
 
-      <div style={{ position: "relative", maxWidth: 1180, margin: "0 auto" }}>
+      <div style={{ position: "relative", maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
         <FileCode text="FILE / 03 — WHY SPATIAL" style={{ marginBottom: 32 }} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           <div
@@ -1720,7 +1720,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
   const anim = useAnimInitial();
   return (
     <div style={{ background: WHITE, color: FOREST, padding: "140px 56px" }}>
-      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+      <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
         <div style={{ marginBottom: 60 }}>
           <Eyebrow color={KELLY} style={{ marginBottom: 22 }}>
             {p.waysEyebrow}
@@ -1883,7 +1883,7 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
       <div
         style={{
           position: "relative",
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           display: "grid",
           gridTemplateColumns: "1fr 1.1fr",
@@ -2102,7 +2102,7 @@ function Footer({ p }: { p: SpatialTourBlockProps }) {
       {/* Telemetry strip at the very top of the footer */}
       <div
         style={{
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           padding: "24px 56px",
           borderBottom: "1px solid rgba(255,255,255,0.08)",
@@ -2113,7 +2113,7 @@ function Footer({ p }: { p: SpatialTourBlockProps }) {
 
       <div
         style={{
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           padding: "28px 56px 16px",
           display: "flex",
@@ -2138,7 +2138,7 @@ function Footer({ p }: { p: SpatialTourBlockProps }) {
 
       <div
         style={{
-          maxWidth: 1180,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           padding: "0 56px 36px",
           display: "flex",

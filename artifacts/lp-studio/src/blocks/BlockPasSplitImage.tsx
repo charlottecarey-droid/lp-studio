@@ -187,7 +187,7 @@ export function BlockPasSplitImage({ props, brand, onFieldChange }: Props) {
         className="pointer-events-none absolute -top-24 right-[-8%] h-80 w-80 rounded-full blur-3xl"
         style={{ background: `radial-gradient(circle, color-mix(in srgb, ${accentRaw} 9%, transparent), transparent 70%)` }}
       />
-      <div className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-2 lg:grid-cols-2 lg:gap-8">
+      <div className="relative z-10 mx-auto grid w-full max-w-page grid-cols-1 items-center gap-2 lg:grid-cols-2 lg:gap-8">
         {mediaRight ? (
           <>
             <div className="order-2 lg:order-1">{copy}</div>

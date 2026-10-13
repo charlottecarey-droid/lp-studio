@@ -119,7 +119,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
 
       {/* 2. The Situation */}
       {props.showSituation !== false && (
-      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
+      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-page mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
           {(props.situationEyebrow || onFieldChange) && (
             <InlineText as="span" value={props.situationEyebrow} onUpdate={field("situationEyebrow")} className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }} />
@@ -148,7 +148,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
 
       {/* 3. The Signal */}
       {props.showSignal !== false && (
-      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
+      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-page mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16 flex-wrap">
           {(props.signalEyebrow || onFieldChange) && (
             <InlineText as="span" value={props.signalEyebrow} onUpdate={field("signalEyebrow")} className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }} />
@@ -212,7 +212,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
 
       {/* 4. The Cost of Inaction */}
       {props.showCost !== false && (
-      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
+      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-page mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
           {(props.costEyebrow || onFieldChange) && (
             <InlineText as="span" value={props.costEyebrow} onUpdate={field("costEyebrow")} className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }} />
@@ -243,7 +243,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
       {/* 5. The Paradigm Shift — split bullets */}
       {props.showShift !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32" style={{ background: dark }}>
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-page mx-auto">
           <div className="flex items-center gap-4 mb-20">
             {props.shiftEyebrow && (
               <span className="text-white/30 text-xl italic" style={{ fontFamily: DISPLAY }}>
@@ -292,7 +292,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
 
       {/* 6. The Math */}
       {props.showMath !== false && (
-      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
+      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-page mx-auto border-b border-black/10">
         <div className="flex items-center justify-between mb-16 flex-wrap gap-4">
           <div className="flex items-center gap-4">
             {props.mathEyebrow && (
@@ -372,7 +372,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
 
       {/* 7. The Proof */}
       {props.showProof !== false && (
-      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
+      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-page mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
           {props.proofEyebrow && (
             <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
@@ -429,7 +429,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
 
       {/* 8. The Plan */}
       {props.showPlan !== false && (
-      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto">
+      <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-page mx-auto">
         <div className="flex items-center gap-4 mb-20">
           {props.planEyebrow && (
             <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>

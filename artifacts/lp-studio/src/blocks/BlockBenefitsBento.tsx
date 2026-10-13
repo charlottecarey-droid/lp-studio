@@ -109,7 +109,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
         }
       `}</style>
       <SectionDecor accent={accentRaw} isDark={dark} disabled={isBuilder} />
-      <div className="relative z-10 mx-auto max-w-[1200px]">
+      <div className="relative z-10 mx-auto max-w-page">
         {/* ── Split header: headline left, subheadline right (container-tracked). ── */}
         <div className="mb-12 @4xl:mb-16 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)] @4xl:items-end @4xl:gap-12">
           <div>

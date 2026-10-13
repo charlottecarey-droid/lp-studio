@@ -74,7 +74,7 @@ export function BlockKitContents({ props, brand, onFieldChange }: Props) {
 
   return (
     <section id={props.anchorId || "inside"} className="relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY }}>
-      <div className="mx-auto w-full max-w-[1240px] px-6 py-20 lg:px-10 lg:py-28">
+      <div className="mx-auto w-full max-w-page px-6 py-20 lg:px-10 lg:py-28">
         <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 text-center">
           {(props.kicker || isEditor) && <Kicker palette={pal}><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></Kicker>}
           {(props.headline || isEditor) && (

@@ -54,7 +54,7 @@ export function BlockTransparentOverlayNav({ props, brand, onFieldChange }: Prop
           boxShadow: scrolled ? "0 1px 0 rgba(255,255,255,0.08)" : "none",
         }}
       >
-        <div className="container mx-auto flex items-center justify-between px-6 py-4">
+        <div className="w-full flex items-center justify-between px-6 md:px-8 py-4">
           <div className="flex items-center gap-8">
             {brandHasLogo(brand, props.logoUrl) ? (
               <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />

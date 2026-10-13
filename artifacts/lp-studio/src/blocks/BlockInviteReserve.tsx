@@ -74,7 +74,7 @@ export function BlockInviteReserve({ props, brand, pageId, variantId, onFieldCha
     <section id={props.anchorId || "reserve"} className="relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY }}>
       <style>{INVITE_CSS}</style>
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[70%]" style={{ background: `radial-gradient(60% 70% at 78% 100%, color-mix(in srgb, ${pal.accent} 12%, transparent) 0%, transparent 70%)` }} />
-      <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-12 px-6 py-20 lg:grid-cols-12 lg:gap-16 lg:px-10 lg:py-28">
+      <div className="relative mx-auto grid w-full max-w-page grid-cols-1 gap-12 px-6 py-20 lg:grid-cols-12 lg:gap-16 lg:px-10 lg:py-28">
         <div className="lg:col-span-6 flex flex-col gap-6">
           {(props.kicker || isEditor) && <Kicker palette={pal} align="left"><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></Kicker>}
           {(props.headline || isEditor) && (

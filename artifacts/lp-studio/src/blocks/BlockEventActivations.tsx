@@ -961,7 +961,7 @@ export function BlockEventActivations({
             {navbar}
             <div
               style={{
-                maxWidth: 1180,
+                maxWidth: "var(--lp-page-max)",
                 margin: "0 auto",
                 padding: "clamp(5rem, 13vh, 8.5rem) clamp(1.25rem, 5vw, 3rem) clamp(5.5rem, 14vh, 9rem)",
                 display: "flex",
@@ -977,7 +977,7 @@ export function BlockEventActivations({
           {navbar}
           <div
             style={{
-              maxWidth: 1180,
+              maxWidth: "var(--lp-page-max)",
               margin: "0 auto",
               padding: "clamp(4rem, 10vh, 7rem) clamp(1.25rem, 5vw, 3rem) clamp(4.5rem, 11vh, 7.5rem)",
             }}
@@ -991,7 +991,7 @@ export function BlockEventActivations({
           <div
             className="evact-hero-grid"
             style={{
-              maxWidth: 1180,
+              maxWidth: "var(--lp-page-max)",
               margin: "0 auto",
               padding: "clamp(3rem, 8vh, 5.5rem) clamp(1.25rem, 5vw, 3rem)",
               display: "grid",
@@ -1060,7 +1060,7 @@ export function BlockEventActivations({
             padding: "clamp(3.5rem, 9vh, 6.5rem) clamp(1.25rem, 5vw, 3rem)",
           }}
         >
-          <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+          <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
             {props.showIntroSection !== false && (
               <div style={{ textAlign: "center", marginBottom: "clamp(2.5rem, 6vh, 4rem)" }}>
                 {(props.introKicker || isEditor) && (

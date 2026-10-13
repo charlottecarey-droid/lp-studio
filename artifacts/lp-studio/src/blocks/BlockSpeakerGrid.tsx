@@ -38,7 +38,7 @@ export function BlockSpeakerGrid({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className="px-6 py-20 sm:py-28" style={{ backgroundColor: bg, color: text }}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-page mx-auto">
         <div className="text-center mb-14">
           {(props.eyebrow || onFieldChange) && (
             <InlineText

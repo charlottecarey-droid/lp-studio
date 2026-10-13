@@ -88,7 +88,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Pro
     <>
       <section ref={sectionRef} style={sectionBgStyle} className="py-16 sm:py-20 md:py-24 lg:py-32">
         {backgroundImage && <div style={{ position: "absolute", inset: 0, backgroundColor: overlayColor, opacity: backgroundOverlay ?? 0.55, zIndex: 0, pointerEvents: "none" }} />}
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "0 clamp(1rem, 3vw, 1.5rem)" }}>
+        <div style={{ position: "relative", zIndex: 1, maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 clamp(1rem, 3vw, 1.5rem)" }}>
           <div className="grid md:grid-cols-2 gap-10 md:gap-14 lg:gap-24 items-center">
 
             {/* ── Image / Video ── */}

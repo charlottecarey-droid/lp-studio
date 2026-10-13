@@ -92,7 +92,7 @@ export function BlockGalleryFilmstrip({ props, brand, onFieldChange }: Props) {
       style={{ background: surface.background, color: ink, fontFamily: BODY }}
     >
       {/* ── Header rail: headline left, counter + CTA right. ── */}
-      <Reveal disabled={isBuilder} className="container relative z-10 mx-auto px-6 max-w-7xl mb-8 sm:mb-12 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+      <Reveal disabled={isBuilder} className="container relative z-10 mx-auto px-6 max-w-page mb-8 sm:mb-12 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div className="flex items-baseline gap-5 min-w-0">
           <InlineText
             as="h2"
@@ -190,7 +190,7 @@ export function BlockGalleryFilmstrip({ props, brand, onFieldChange }: Props) {
         </div>
       </div>
 
-      {cta && <div className="container relative z-10 mx-auto px-6 max-w-7xl mt-2 md:hidden">{cta}</div>}
+      {cta && <div className="container relative z-10 mx-auto px-6 max-w-page mt-2 md:hidden">{cta}</div>}
     </section>
   );
 }

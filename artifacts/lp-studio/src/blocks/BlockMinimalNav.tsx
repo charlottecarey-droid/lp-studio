@@ -27,7 +27,7 @@ export function BlockMinimalNav({ props, brand, onFieldChange }: Props) {
 
   return (
     <header className="w-full border-b" style={{ backgroundColor: bg, borderColor: border }}>
-      <div className="container mx-auto flex items-center justify-between px-6 py-5">
+      <div className="w-full flex items-center justify-between px-6 md:px-8 py-5">
         <div className="flex items-center">
           {brandHasLogo(brand, props.logoUrl) ? (
             <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />

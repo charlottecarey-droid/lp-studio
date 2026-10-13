@@ -228,7 +228,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   return (
     <div className={cn("w-full font-sans selection:bg-[var(--brand-accent)] selection:text-[var(--brand-primary)]", isDark ? "bg-[var(--brand-primary)] text-white" : "bg-white text-slate-900")} style={bgExtended}>
       <div className="min-h-[min(70vh,640px)] flex flex-col">
-        <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
+        <nav className="w-full px-6 md:px-8 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
           {(() => {
             const logo = <BrandLogo brand={brand} tone={brandLogoToneForSurface(navIsDark)} alt={brand.brandName || "Logo"} className="h-8 w-auto" />;
             const logoLink = getLogoLinkUrl(brand);
@@ -247,7 +247,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           style={{ ...(contentPaddingX ? { paddingLeft: contentPaddingX, paddingRight: contentPaddingX } : { paddingLeft: "1.5rem", paddingRight: "1.5rem" }), ...(bgExtended ?? {}) }}
         >
           {isSplit ? (
-            <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            <div className="max-w-page mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
               {isSplitRight ? (
                 <>
                   <motion.div {...mAnim} className="relative">{renderMedia()}</motion.div>
@@ -261,7 +261,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
               )}
             </div>
           ) : (
-            <div className="max-w-7xl mx-auto w-full flex flex-col items-center text-center">
+            <div className="max-w-page mx-auto w-full flex flex-col items-center text-center">
               {textContent}
               {/* Centered heroes were text-only: renderMedia() was only called in
                   the split branches, so a static-image (or video) hero with a
@@ -279,7 +279,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           {childrenSlot && (
             <div
               data-hero-overlay
-              className="relative z-20 w-full max-w-7xl mx-auto mt-12"
+              className="relative z-20 w-full max-w-page mx-auto mt-12"
               onClick={(e) => e.stopPropagation()}
             >
               {childrenSlot}

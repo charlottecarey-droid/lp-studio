@@ -187,7 +187,7 @@ export function StickyHeroNav({
           className="mx-auto flex items-center justify-between"
           style={{
             maxWidth: 1200,
-            padding: "1rem 1.5rem",
+            padding: "1rem clamp(1.5rem, 2vw, 2rem)",
             height: scrolled ? 60 : 72,
             transition: "height 320ms ease",
           }}

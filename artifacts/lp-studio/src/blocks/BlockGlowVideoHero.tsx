@@ -158,7 +158,7 @@ export function BlockGlowVideoHero({ props, brand, pageId, variantId, onCtaClick
         />
       </div>
 
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 lg:px-10 pt-20 lg:pt-28 pb-14 lg:pb-20">
+      <div className="relative w-full max-w-page mx-auto px-6 lg:px-10 pt-20 lg:pt-28 pb-14 lg:pb-20">
         <div className={cn("flex flex-col gap-5", centered ? "items-center text-center" : "items-start text-left")}>
           {(props.eyebrow || isEditor) && (
             <motion.p

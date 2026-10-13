@@ -459,7 +459,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
       <main
         className={
           lowerThird
-            ? "relative z-20 flex-1 flex flex-col items-start justify-end text-left w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pb-24 md:pb-14"
+            ? "relative z-20 flex-1 flex flex-col items-start justify-end text-left w-full max-w-page mx-auto px-6 sm:px-8 lg:px-12 pb-24 md:pb-14"
             : "relative z-20 flex-1 flex flex-col items-center justify-center text-center px-4"
         }
       >

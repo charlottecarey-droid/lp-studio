@@ -36,7 +36,7 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className="w-full py-20 md:py-28" style={sectionStyle}>
-      <div className="max-w-7xl mx-auto px-6 md:px-10">
+      <div className="max-w-page mx-auto px-6 md:px-10">
         {(props.eyebrow || props.headline || props.subheadline) && (
           // `headerAlign` defaults to "left" so existing pages render unchanged.
           // When centered, `mx-auto` + `text-center` recentres the whole header

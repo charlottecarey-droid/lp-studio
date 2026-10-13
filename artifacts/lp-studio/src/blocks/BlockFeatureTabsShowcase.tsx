@@ -208,7 +208,7 @@ export function BlockFeatureTabsShowcase({ props, brand, onFieldChange }: Props)
         />
       )}
 
-      <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-20 lg:py-28">
+      <div className="relative max-w-page mx-auto px-6 lg:px-10 py-20 lg:py-28">
         {(props.eyebrow || props.headline || props.subheadline || onFieldChange) && (
           <div className="max-w-3xl mb-12 lg:mb-16">
             {(props.eyebrow || onFieldChange) && (

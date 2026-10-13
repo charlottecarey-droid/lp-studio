@@ -244,7 +244,7 @@ export function BlockDsoStatShowcase({ props, brand, onFieldChange }: Props) {
         </>
       )}
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
+      <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4.5rem" }}>
           {eyebrow && (
             <motion.p initial={anim({ opacity: 0, y: 10 })} animate={showHeader ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: eyebrowFg, marginBottom: "1.25rem", fontFamily: BODY }}>

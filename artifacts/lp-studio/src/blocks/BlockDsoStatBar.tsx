@@ -109,7 +109,7 @@ export function BlockDsoStatBar({ props, brand, onFieldChange }: Props) {
 
   return (
     <section style={getBgStyle(backgroundStyle)}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
+      <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ height: 1, background: dividerColor }} />
 
         <div

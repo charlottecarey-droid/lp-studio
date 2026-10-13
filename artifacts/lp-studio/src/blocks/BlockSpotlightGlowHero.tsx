@@ -366,7 +366,7 @@ export function BlockSpotlightGlowHero({
       )}
 
       {/* ── Main Content ── */}
-      <main className="sg-content flex-1 flex flex-col items-center justify-center px-4 sm:px-8 pt-14 md:pt-24 pb-20 md:pb-28 max-w-7xl mx-auto w-full">
+      <main className="sg-content flex-1 flex flex-col items-center justify-center px-4 sm:px-8 pt-14 md:pt-24 pb-20 md:pb-28 max-w-page mx-auto w-full">
         <div className="text-center max-w-3xl mb-14 md:mb-20">
           {(badgeText || isEditor) && (
             <motion.div

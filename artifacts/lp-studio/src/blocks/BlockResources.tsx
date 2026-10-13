@@ -48,7 +48,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
 
   return (
     <section className={`${sectionPy}`} style={getBgStyle(backgroundStyle)}>
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-page mx-auto px-6">
         {(headline || onFieldChange) && (
           <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`} style={{ fontFamily: DISPLAY }}>
             <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>

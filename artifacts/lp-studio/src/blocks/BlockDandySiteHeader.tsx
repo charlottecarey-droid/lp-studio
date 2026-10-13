@@ -91,7 +91,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
 
   return (
     <header className="w-full shadow-sm" style={headerStyle}>
-      <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center gap-8">
+      <div className="w-full px-6 md:px-8 h-20 flex items-center gap-8">
         <div className="shrink-0">
           <BrandLogo
             brand={brand}

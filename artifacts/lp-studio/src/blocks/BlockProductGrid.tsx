@@ -46,7 +46,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
     : undefined;
   return (
     <section className={cn("w-full bg-white px-6", sectionPy)}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-page mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-12 lg:mb-16">
           {props.headline && (
             <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[var(--brand-heading-on-light)] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>

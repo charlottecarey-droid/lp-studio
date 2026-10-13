@@ -93,7 +93,7 @@ export function BlockGlowFinalCta({ props, brand, pageId, variantId, onCtaClick,
         </div>
       )}
 
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 lg:px-10 py-24 lg:py-36 flex flex-col items-center text-center gap-5">
+      <div className="relative w-full max-w-page mx-auto px-6 lg:px-10 py-24 lg:py-36 flex flex-col items-center text-center gap-5">
         <h2
           className="font-semibold leading-[1.04] max-w-[18ch]"
           style={{ fontFamily: GLOW_DISPLAY, letterSpacing: DISPLAY_TRACKING, fontSize: "clamp(2.4rem, 5.4vw, 4.4rem)" }}

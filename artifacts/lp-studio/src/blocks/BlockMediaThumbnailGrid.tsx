@@ -97,7 +97,7 @@ export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) 
         />
       )}
 
-      <div className="container relative z-10 mx-auto px-6 md:px-10 max-w-7xl">
+      <div className="container relative z-10 mx-auto px-6 md:px-10 max-w-page">
         {/* ── Header rail. ── */}
         <Reveal disabled={isBuilder} className="flex flex-col md:flex-row md:items-end justify-between mb-10 sm:mb-12 gap-6">
           <div className="max-w-2xl">

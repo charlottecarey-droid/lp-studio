@@ -71,7 +71,7 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
   const borderColor = props.borderColor ?? "#e2e8f0";
   const accent = props.statColor && props.statColor.startsWith("#") ? props.statColor : brand.primaryColor ?? "#4f46e5";
   const editing = !!onFieldChange;
-  const gridClass = "max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-0";
+  const gridClass = "max-w-page mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-0";
 
   const renderItem = (item: TrustBarBlockProps["items"][number], i: number) => (
     <div

@@ -78,7 +78,7 @@ export function BlockCtaButton({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className={cn("w-full bg-white", SECTION_PY[brand.sectionPadding])}>
-      <div className={cn("max-w-7xl mx-auto px-6 flex", ALIGN_CLASSES[props.alignment] ?? "justify-center")}>
+      <div className={cn("max-w-page mx-auto px-6 flex", ALIGN_CLASSES[props.alignment] ?? "justify-center")}>
         {isChiliPiper ? (
           <motion.button
             type="button"

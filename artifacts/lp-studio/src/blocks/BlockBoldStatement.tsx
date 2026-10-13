@@ -77,7 +77,7 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange, pa
       className="relative overflow-hidden font-sans"
       style={{ backgroundColor: bg, color: text }}
     >
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-36">
+      <div className="max-w-page mx-auto px-6 lg:px-10 py-24 lg:py-36">
         {(props.eyebrow || onFieldChange) && (
           <div
             className="inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.28em] font-semibold mb-10"

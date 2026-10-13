@@ -200,7 +200,7 @@ function CardLayer({
           color: card.textColor || "#fff",
           zIndex: 10 + index,
         }}
-        className="relative w-full h-full max-w-7xl mx-auto rounded-3xl shadow-2xl overflow-hidden grid md:grid-cols-2"
+        className="relative w-full h-full max-w-page mx-auto rounded-3xl shadow-2xl overflow-hidden grid md:grid-cols-2"
       >
         {/* Image side */}
         {card.imageUrl ? (

@@ -61,7 +61,7 @@ export function BlockHowItWorks({ props, brand, bgColor, onFieldChange }: Props)
 
   return (
     <section className={cn("w-full bg-white px-6", sectionPy)}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-page mx-auto">
         {props.headline && (
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center mb-12 lg:mb-16", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY, color: headingColor }} />
         )}

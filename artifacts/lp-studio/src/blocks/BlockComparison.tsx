@@ -56,7 +56,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
 
   return (
     <section className={cn("w-full bg-slate-50 px-6", sectionPy)}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-page mx-auto">
         {props.headline && (
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-heading-on-light)] mb-12 lg:mb-16", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
         )}

@@ -518,7 +518,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="absolute top-0 left-0 right-0 z-20"
       style={{
-        padding: "1.25rem 1.5rem",
+        padding: "1.25rem clamp(1.5rem, 2vw, 2rem)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -1355,7 +1355,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               so the copy can line up with the nav instead of floating inward. */}
           {p.heroSidePadding != null && <style>{SIDE_PAD_CSS}</style>}
           <div
-            className={p.heroSidePadding != null ? "w-full hl-px" : "max-w-[1200px] mx-auto px-6 md:px-10 w-full"}
+            className={p.heroSidePadding != null ? "w-full hl-px" : "max-w-page mx-auto px-6 md:px-10 w-full"}
             style={p.heroSidePadding != null ? sidePadVar(p.heroSidePadding) : undefined}
           >
             {(p.eyebrow || onFieldChange) && (

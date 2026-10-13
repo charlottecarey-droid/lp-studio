@@ -865,7 +865,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
       </section>
 
       {/* ── Section divider ornament ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", maxWidth: 1200, margin: "0 auto", padding: "20px 24px 40px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "20px 24px 40px" }}>
         <HairlineRule color={theme.border} flex />
         <Ornament color={theme.accent} />
         <HairlineRule color={theme.border} flex />
@@ -890,7 +890,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
                 flexDirection: slab.reverse ? "row-reverse" : "row",
                 gap: "80px",
                 alignItems: "center",
-                maxWidth: 1200,
+                maxWidth: "var(--lp-page-max)",
                 margin: "0 auto 140px",
                 flexWrap: "wrap",
                 scrollMarginTop: "100px",
@@ -1409,7 +1409,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
             }}
           />
 
-          <div style={{ position: "relative", maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ position: "relative", maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 40 }}>
               {(props.plansHeadline || onFieldChange) && (
                 <InlineText
@@ -1862,7 +1862,7 @@ export function BlockProductLaunch({ props, onFieldChange }: Props) {
           background: theme.bg,
         }}
       >
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto" }}>
           <div
             style={{
               display: "grid",

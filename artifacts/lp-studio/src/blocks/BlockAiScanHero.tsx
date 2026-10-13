@@ -188,7 +188,7 @@ export function BlockAiScanHero({
         style={
           typeof props.sidePadding === "number" && props.sidePadding >= 0
             ? { margin: "0 auto", padding: `0 ${props.sidePadding}px` }
-            : { maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }
+            : { maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }
         }
         className={
           typeof props.sidePadding === "number" && props.sidePadding >= 0

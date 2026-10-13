@@ -131,7 +131,7 @@ export function BlockDsoProblem({ props, brand, onFieldChange }: Props) {
         </>
       )}
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
+      <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }}>
         <div className="grid md:grid-cols-[5fr_6fr] gap-16 lg:gap-24 items-center">
 
           {/* ── Left: Stacked photography ── */}

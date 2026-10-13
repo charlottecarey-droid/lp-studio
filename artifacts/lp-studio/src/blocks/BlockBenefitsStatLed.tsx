@@ -212,7 +212,7 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
       className="relative w-full overflow-hidden px-6 py-20 sm:py-28 md:px-10"
       style={{ background: surface.background, color: text, fontFamily: BODY }}
     >
-      <div className="relative z-10 mx-auto w-full max-w-[1200px]">
+      <div className="relative z-10 mx-auto w-full max-w-page">
         {centered ? (
           <>
             {header}

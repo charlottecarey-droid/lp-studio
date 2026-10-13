@@ -41,7 +41,7 @@ export function BlockMegaMenuNav({ props, brand, onFieldChange }: Props) {
       style={{ backgroundColor: bg, borderColor: border, fontFamily: BODY }}
       onMouseLeave={() => setOpen(false)}
     >
-      <div className="container mx-auto flex items-center justify-between px-6 py-5">
+      <div className="w-full flex items-center justify-between px-6 md:px-8 py-5">
         <div className="flex items-center gap-8">
           {brandHasLogo(brand, props.logoUrl) ? (
             <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />
@@ -93,7 +93,7 @@ export function BlockMegaMenuNav({ props, brand, onFieldChange }: Props) {
 
       {open && (props.menuGroups ?? []).length > 0 && (
         <div className="absolute inset-x-0 top-full z-40 border-t shadow-xl" style={{ backgroundColor: bg, borderColor: border }}>
-          <div className="container mx-auto flex flex-col gap-8 px-6 py-8 md:flex-row md:items-start">
+          <div className="w-full max-w-page mx-auto flex flex-col gap-8 px-6 md:px-8 py-8 md:flex-row md:items-start">
             <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-8 sm:grid-cols-3 md:grid-cols-[repeat(auto-fit,minmax(140px,1fr))]">
               {(props.menuGroups ?? []).map((g, gi) => (
                 <div key={gi}>

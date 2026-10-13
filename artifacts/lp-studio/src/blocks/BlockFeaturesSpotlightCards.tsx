@@ -167,7 +167,7 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
           .fspc-card, .fspc-card:hover { transition: none; transform: none; }
         }
       `}</style>
-      <div className="relative z-10 w-full max-w-[1280px]">
+      <div className="relative z-10 w-full max-w-page">
         {/* ── Section header. ── */}
         <div className="mb-12 text-center lg:mb-16">
           {(props.eyebrow || onFieldChange) && (

@@ -215,7 +215,7 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
           .fbsh-card, .fbsh-card:hover { transition: none; transform: none; }
         }
       `}</style>
-      <div className="relative z-10 mx-auto max-w-[1280px]">
+      <div className="relative z-10 mx-auto max-w-page">
         {/* ── Section header. ── */}
         <div className="mb-12 max-w-3xl lg:mb-16">
           {(props.eyebrow || onFieldChange) && (

@@ -209,7 +209,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
 
       <div
         style={{
-          maxWidth: 1280,
+          maxWidth: "var(--lp-page-max)",
           margin: "0 auto",
           display: "grid",
           gridTemplateColumns: "1fr 1fr",

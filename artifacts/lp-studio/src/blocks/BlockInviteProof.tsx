@@ -74,7 +74,7 @@ export function BlockInviteProof({ props, brand, onFieldChange }: Props) {
   return (
     <section id={props.anchorId || "proof"} className="relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY }}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[60%]" style={{ background: `radial-gradient(50% 60% at 50% 0%, color-mix(in srgb, ${pal.accent} 9%, transparent) 0%, transparent 70%)` }} />
-      <div className="relative mx-auto w-full max-w-[1240px] px-6 py-20 lg:px-10 lg:py-28">
+      <div className="relative mx-auto w-full max-w-page px-6 py-20 lg:px-10 lg:py-28">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center">
           {(props.kicker || isEditor) && <Kicker palette={pal}><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></Kicker>}
           {(props.quote || isEditor) && (

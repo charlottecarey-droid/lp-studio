@@ -231,7 +231,7 @@ export function BlockGlassPricingTiers({ props, brand, onFieldChange, pageId, va
         style={{ background: `radial-gradient(closest-side, ${accent}, transparent 72%)`, opacity: isDark ? 0.14 : 0.1 }}
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl">
+      <div className="relative z-10 mx-auto w-full max-w-page">
         {/* Header */}
         <div className="mx-auto mb-10 max-w-2xl text-center sm:mb-12">
           {(props.eyebrow || onFieldChange) && (

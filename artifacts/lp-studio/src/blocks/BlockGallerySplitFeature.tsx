@@ -86,7 +86,7 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
         />
       )}
 
-      <div className="container relative z-10 mx-auto px-6 max-w-7xl">
+      <div className="container relative z-10 mx-auto px-6 max-w-page">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
 
           {/* ── Copy rail (5 cols): vertical kicker rule + headline + CTAs. ── */}

@@ -124,7 +124,7 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
         className="pointer-events-none absolute -left-32 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full opacity-[0.08] blur-3xl"
         style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
       />
-      <div className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-2 lg:grid-cols-2 lg:gap-8">
+      <div className="relative z-10 mx-auto grid w-full max-w-page grid-cols-1 items-center gap-2 lg:grid-cols-2 lg:gap-8">
         <div className="order-2 lg:order-1">{media}</div>
         <div className="order-1 lg:order-2">{copy}</div>
       </div>

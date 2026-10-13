@@ -193,7 +193,7 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
       {/* Background texture */}
       <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 20% 80%, hsla(68,60%,52%,0.05) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsla(152,42%,30%,0.12) 0%, transparent 50%)", pointerEvents: "none" }} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative" }}>
+      <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", position: "relative" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           <motion.p initial={{ opacity: 0, y: 10 }} animate={show ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: colors.accentText, marginBottom: "1rem", fontFamily: BODY }}>

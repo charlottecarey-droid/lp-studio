@@ -154,7 +154,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
       )}
 
       <div
-        style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}
+        style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }}
         className="md:px-10"
       >
         {/* ── Header: eyebrow + headline + body / stats ── */}
@@ -292,7 +292,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
 
       {/* ── Bullets row below video ── */}
       {bullets.length > 0 && (
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10">
+        <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10">
           <motion.ul
             initial={anim({ opacity: 0, y: 16 })}
             whileInView={{ opacity: 1, y: 0 }}

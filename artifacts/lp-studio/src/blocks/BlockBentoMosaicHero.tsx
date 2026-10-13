@@ -253,7 +253,7 @@ export function BlockBentoMosaicHero({
       />
 
       <div
-        className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-12 px-5 py-16 sm:px-8 md:py-24 lg:grid-cols-[45fr_55fr] lg:gap-16"
+        className="relative z-10 mx-auto grid w-full max-w-page grid-cols-1 items-center gap-12 px-5 py-16 sm:px-8 md:py-24 lg:grid-cols-[45fr_55fr] lg:gap-16"
         style={{ "--bmh-focus": accentInk } as CSSProperties}
       >
         {/* ── Left: editorial type ── */}

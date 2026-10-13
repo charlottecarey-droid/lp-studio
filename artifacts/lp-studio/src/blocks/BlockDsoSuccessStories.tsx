@@ -84,7 +84,7 @@ export function BlockDsoSuccessStories({ props, brand, onFieldChange }: Props) {
       {backgroundImage && (
         <div style={{ position: "absolute", inset: 0, backgroundColor: overlayColor, opacity: backgroundOverlay ?? 0.55, zIndex: 0, pointerEvents: "none" }} />
       )}
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (

@@ -107,7 +107,7 @@ export function BlockMediaLoopingShowcase({ props, brand, onFieldChange }: Props
       {/* ── Title-card copy, set low-left. ── */}
       <Reveal
         disabled={isBuilder}
-        className="relative z-10 container mx-auto px-6 md:px-12 max-w-7xl pb-16 sm:pb-20 pt-28 sm:pt-40"
+        className="relative z-10 container mx-auto px-6 md:px-12 max-w-page pb-16 sm:pb-20 pt-28 sm:pt-40"
       >
         <div className="max-w-3xl flex flex-col items-start text-left">
           {/* Kicker rule — a quiet accent mark above the title card. */}

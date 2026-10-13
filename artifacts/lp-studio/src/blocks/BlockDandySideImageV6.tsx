@@ -167,7 +167,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         className="pointer-events-none absolute -top-24 right-0 h-80 w-80 rounded-full opacity-[0.08] blur-3xl"
         style={{ background: `radial-gradient(circle, ${glow}, transparent 70%)` }}
       />
-      <div className="relative z-10 mx-auto max-w-7xl px-6 md:px-10">
+      <div className="relative z-10 mx-auto max-w-page px-6 md:px-10">
         <div className="grid items-center gap-14 md:grid-cols-2 md:gap-20">
           {reversed ? (
             <>

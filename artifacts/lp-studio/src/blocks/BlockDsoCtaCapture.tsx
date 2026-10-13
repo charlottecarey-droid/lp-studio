@@ -214,7 +214,7 @@ export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCom
         className="dcc-grid"
         style={{
           position: "relative", zIndex: 2,
-          maxWidth: 1200, margin: "0 auto",
+          maxWidth: "var(--lp-page-max)", margin: "0 auto",
           padding: "8rem 2.5rem", width: "100%",
           display: "grid",
           gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr",

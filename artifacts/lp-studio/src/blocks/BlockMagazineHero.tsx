@@ -255,7 +255,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
               background: `linear-gradient(180deg, rgba(0,0,0,${scrim * 0.6}) 0%, rgba(0,0,0,${scrim * 0.3}) 35%, rgba(0,0,0,${scrim}) 100%)`,
             }}
           />
-          <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-10 pt-16 pb-20 lg:pt-20 lg:pb-28 min-h-[640px] lg:min-h-[760px] flex flex-col">
+          <div className="relative z-20 max-w-page mx-auto px-6 lg:px-10 pt-16 pb-20 lg:pt-20 lg:pb-28 min-h-[640px] lg:min-h-[760px] flex flex-col">
             {issueStrip && <div className="text-white/70">{issueStrip}</div>}
             <div className="flex-1" />
             <div className="max-w-3xl space-y-6 text-white">
@@ -330,7 +330,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
 
   return (
     <section className="relative overflow-hidden" style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}>
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-16 lg:pt-20 pb-20 lg:pb-28">
+      <div className="max-w-page mx-auto px-6 lg:px-10 pt-16 lg:pt-20 pb-20 lg:pb-28">
         {showRule && (
           <div className="border-t mb-12 lg:mb-16" style={{ borderColor: text, opacity: 0.12 }} />
         )}

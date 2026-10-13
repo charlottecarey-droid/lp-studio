@@ -45,7 +45,7 @@ export function BlockCenteredLogoNav({ props, brand, onFieldChange }: Props) {
 
   return (
     <header className="w-full border-b" style={{ backgroundColor: bg, borderColor: border }}>
-      <div className="container mx-auto grid grid-cols-2 items-center gap-4 px-6 py-5 md:grid-cols-3">
+      <div className="w-full grid grid-cols-2 items-center gap-4 px-6 md:px-8 py-5 md:grid-cols-3">
         <div className="hidden md:block">{renderLinks(props.leftLinks ?? [], "start")}</div>
         <div className="flex items-center justify-start md:justify-center">
           {brandHasLogo(brand, props.logoUrl) ? (

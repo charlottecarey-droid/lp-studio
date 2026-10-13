@@ -53,7 +53,7 @@ export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props
         className="relative flex flex-col justify-center items-center text-center px-6 py-20 min-h-[760px] overflow-hidden"
         style={{ background: dark, color: bg }}
       >
-        <div className="absolute top-0 w-full p-6 flex justify-between items-center max-w-7xl mx-auto">
+        <div className="absolute top-0 w-full p-6 flex justify-between items-center max-w-page mx-auto">
           {brand ? (
             <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
           ) : (
@@ -110,7 +110,7 @@ export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props
       {/* 2. The Situation */}
       {props.showSituation !== false && (
       <>
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
             <InlineText as="h2" value={props.situationHeading} onUpdate={field("situationHeading")} className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }} />
@@ -143,14 +143,14 @@ export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props
         </div>
       </section>
 
-      <hr className="border-t border-black/10 max-w-7xl mx-auto" />
+      <hr className="border-t border-black/10 max-w-page mx-auto" />
       </>
       )}
 
       {/* 3. The Signal — dark slab */}
       {props.showSignal !== false && (
       <section
-        className="py-24 px-6 lg:px-16 max-w-7xl mx-auto my-24"
+        className="py-24 px-6 lg:px-16 max-w-page mx-auto my-24"
         style={{ background: dark, color: bg }}
       >
         <div className="mb-16">
@@ -208,7 +208,7 @@ export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props
 
       {/* 4. The Cost of Inaction */}
       {props.showCost !== false && (
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <div className="text-center mb-16">
           <InlineText as="h2" value={props.costHeading} onUpdate={field("costHeading")} className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }} />
           {(props.costSubhead || onFieldChange) && (
@@ -295,7 +295,7 @@ export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props
 
       {/* 6. The Math */}
       {props.showMath !== false && (
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <div className="max-w-3xl mb-12">
           <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.mathHeading}
@@ -357,7 +357,7 @@ export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props
         className="py-24 px-6 relative"
         style={{ background: bg, boxShadow: `inset 0 0 0 100vmax ${ink}14` }}
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-page mx-auto">
           <h2
             className="text-4xl mb-16 text-center"
             style={{ color: headline, fontFamily: DISPLAY }}
@@ -406,7 +406,7 @@ export function BlockBusinessCaseCentered({ props, brand, onFieldChange }: Props
 
       {/* 8. The Plan */}
       {props.showPlan !== false && (
-      <section className="py-24 px-6 max-w-7xl mx-auto">
+      <section className="py-24 px-6 max-w-page mx-auto">
         <div className="mb-16">
           <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.planHeading}

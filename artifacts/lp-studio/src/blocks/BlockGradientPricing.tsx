@@ -46,7 +46,7 @@ export function BlockGradientPricing({ props, brand, onFieldChange }: Props) {
         style={{ backgroundColor: accent, opacity: 0.15 }}
       />
 
-      <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
+      <div className="relative max-w-page mx-auto px-6 lg:px-10 py-24 lg:py-32">
         <div className="text-center max-w-2xl mx-auto mb-14 lg:mb-20">
           {props.eyebrow && (
             <div

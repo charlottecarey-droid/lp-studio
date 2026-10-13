@@ -168,7 +168,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
           boxShadow: scrolled ? "0 1px 0 rgba(255,255,255,0.06)" : "none",
         }}
       >
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
+        <div className="max-w-page mx-auto px-6 h-16 flex items-center justify-between gap-8">
           {/* Logo — when the brand opts into "link logo to website URL" the
               brand website link (new tab) takes precedence over the block's
               own logoUrl for consistency with nav/hero/footer blocks. */}
@@ -304,7 +304,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         {/* Hero content */}
         <div
           className={cn(
-            "relative z-10 max-w-7xl mx-auto w-full px-6 pt-24 pb-20 flex flex-col gap-7",
+            "relative z-10 max-w-page mx-auto w-full px-6 pt-24 pb-20 flex flex-col gap-7",
             contentAlign
           )}
         >

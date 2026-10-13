@@ -289,7 +289,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
         )}
         <div
           style={{
-            maxWidth: 1200,
+            maxWidth: "var(--lp-page-max)",
             margin: "0 auto",
             padding: "0 1.5rem",
             display: "grid",

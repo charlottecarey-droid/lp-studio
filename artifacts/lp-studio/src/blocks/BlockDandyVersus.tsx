@@ -43,7 +43,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
-      <div className="max-w-7xl mx-auto px-6 md:px-10">
+      <div className="max-w-page mx-auto px-6 md:px-10">
         {(props.eyebrow || props.headline) && (
           <div className="text-center mb-14">
             {props.eyebrow && (

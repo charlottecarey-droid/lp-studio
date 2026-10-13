@@ -5,6 +5,15 @@
  * here was render-blocking and effectively duplicated that request. */
 @import "tailwindcss";
 
+/* Page content width (Oct 2026). Blocks' main containers use `max-w-page`
+ * (class) or `var(--lp-page-max)` (inline styles) instead of a hard 1280px:
+ * 1440px by default, 1600px on monitors 1920px and wider, so full-screen
+ * desktops don't show 300px gutters beside hero copy. Navbars deliberately
+ * ignore this and span the full width with a ~32px gutter. */
+:root { --lp-page-max: 90rem; }
+@media (min-width: 1920px) { :root { --lp-page-max: 100rem; } }
+@utility max-w-page { max-width: var(--lp-page-max); }
+
 @font-face {
   font-family: 'Bagoss Standard';
   src: url('./fonts/BagossStandard-Regular.woff2') format('woff2'),

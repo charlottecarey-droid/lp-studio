@@ -280,7 +280,7 @@ export function BlockStatCounterBand({ props, brand, onFieldChange }: Props) {
         borderBottom: showBorders ? `1px solid ${hairline}` : undefined,
       }}
     >
-      <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-16 lg:py-24">
+      <div className="relative max-w-page mx-auto px-6 lg:px-10 py-16 lg:py-24">
         {(props.kicker || onFieldChange) && (
           <h2
             className="text-center text-[12px] sm:text-[13px] uppercase tracking-[0.26em] font-semibold mb-12 lg:mb-16"
