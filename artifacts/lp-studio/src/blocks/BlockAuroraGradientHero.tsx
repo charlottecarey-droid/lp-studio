@@ -224,7 +224,7 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
 
   return (
     <section
-      className="aurora-hero-wrapper relative overflow-hidden min-h-[100svh] flex flex-col font-sans"
+      className="aurora-hero-wrapper relative overflow-hidden min-h-[min(100svh,900px)] flex flex-col font-sans"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
       <style>{`

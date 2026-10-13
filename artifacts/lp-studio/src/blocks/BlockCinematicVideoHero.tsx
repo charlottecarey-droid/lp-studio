@@ -294,7 +294,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
 
   return (
     <section
-      className="cvh-root relative min-h-[100svh] w-full overflow-hidden flex flex-col selection:bg-white/20"
+      className="cvh-root relative min-h-[min(100svh,900px)] w-full overflow-hidden flex flex-col selection:bg-white/20"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
       <style dangerouslySetInnerHTML={{ __html: `

@@ -762,7 +762,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick, on
           />
         )}
         <div
-          className={`relative mx-auto grid min-h-[80vh] w-full max-w-6xl items-center gap-12 px-6 pb-24 pt-12 md:pb-32 md:pt-16 lg:px-10 lg:gap-16 ${
+          className={`relative mx-auto grid min-h-[min(80vh,720px)] w-full max-w-6xl items-center gap-12 px-6 pb-24 pt-12 md:pb-32 md:pt-16 lg:px-10 lg:gap-16 ${
             heroImageUrl ? "lg:grid-cols-12" : "grid-cols-1"
           }`}
         >

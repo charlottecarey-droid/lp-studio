@@ -227,7 +227,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
 
   return (
     <div className={cn("w-full font-sans selection:bg-[var(--brand-accent)] selection:text-[var(--brand-primary)]", isDark ? "bg-[var(--brand-primary)] text-white" : "bg-white text-slate-900")} style={bgExtended}>
-      <div className="min-h-[70vh] flex flex-col">
+      <div className="min-h-[min(70vh,640px)] flex flex-col">
         <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
           {(() => {
             const logo = <BrandLogo brand={brand} tone={brandLogoToneForSurface(navIsDark)} alt={brand.brandName || "Logo"} className="h-8 w-auto" />;
@@ -243,7 +243,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           </a>
         </nav>
         <section
-          className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-20 lg:py-28", isDark ? "bg-[var(--brand-primary)]" : "bg-white")}
+          className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-16 lg:py-20", isDark ? "bg-[var(--brand-primary)]" : "bg-white")}
           style={{ ...(contentPaddingX ? { paddingLeft: contentPaddingX, paddingRight: contentPaddingX } : { paddingLeft: "1.5rem", paddingRight: "1.5rem" }), ...(bgExtended ?? {}) }}
         >
           {isSplit ? (

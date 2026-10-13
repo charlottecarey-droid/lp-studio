@@ -49,7 +49,7 @@ export function BlockBusinessCaseSplit({ props, brand, onFieldChange }: Props) {
 
   return (
     <div
-      className="min-h-screen text-slate-800 font-sans"
+      className="min-h-[min(100svh,900px)] text-slate-800 font-sans"
       style={{ background: bg, fontFamily: BODY }}
     >
       {/* 1. Hero — split */}

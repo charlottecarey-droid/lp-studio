@@ -66,7 +66,7 @@ export function BlockMediaLoopingShowcase({ props, brand, onFieldChange }: Props
 
   return (
     <section
-      className="relative w-full min-h-[560px] sm:min-h-[720px] lg:min-h-[88vh] flex items-end overflow-hidden"
+      className="relative w-full min-h-[560px] sm:min-h-[720px] lg:min-h-[min(88vh,800px)] flex items-end overflow-hidden"
       style={{ background: surface.background }}
     >
       {/* ── Ambient background: video (or poster under reduced motion). ── */}

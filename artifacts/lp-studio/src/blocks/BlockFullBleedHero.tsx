@@ -137,9 +137,9 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   const minH =
-    props.minHeight === "full" ? "min-h-screen"
-    : props.minHeight === "large" ? "min-h-[85vh]"
-    : "min-h-[70vh]";
+    props.minHeight === "full" ? "min-h-[min(100svh,900px)]"
+    : props.minHeight === "large" ? "min-h-[min(85vh,780px)]"
+    : "min-h-[min(70vh,640px)]";
 
   const contentAlign =
     props.contentAlignment === "center" ? "items-center text-center"

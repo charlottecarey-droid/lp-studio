@@ -138,7 +138,7 @@ export function BlockKitHero({ props, brand, onCtaClick, onFieldChange }: Props)
   return (
     <section
       className="kit-hero relative overflow-hidden flex flex-col"
-      style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY, minHeight: `${props.minHeightVh ?? 88}vh` }}
+      style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY, minHeight: `min(${props.minHeightVh ?? 88}vh, 860px)` }}
     >
       <style>{INVITE_CSS}</style>
 

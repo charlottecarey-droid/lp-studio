@@ -192,7 +192,7 @@ export function BlockKineticTypeHero({
 
   return (
     <section
-      className="kth-hero relative flex min-h-[92vh] flex-col overflow-hidden"
+      className="kth-hero relative flex min-h-[min(92vh,840px)] flex-col overflow-hidden"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
       <style>{`

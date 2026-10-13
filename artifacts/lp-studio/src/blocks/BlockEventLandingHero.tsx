@@ -112,9 +112,11 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
     ? Math.max(0, Math.min(1, overlayRaw))
     : 0.5;
   const align: "center" | "left" = props.align === "left" ? "left" : "center";
+  // Default fills the viewport but caps at 900px: on tall full-screen monitors
+  // a bare 100vh left hundreds of px of empty tint above and below the copy.
   const minHeight = typeof props.minHeight === "string" && props.minHeight.trim().length > 0
     ? props.minHeight
-    : "100vh";
+    : "min(100vh, 900px)";
   const headlineMaxWidthCh = Math.max(8, Math.min(60, Number(props.headlineMaxWidthCh) || 18));
   const headlineScale = clampScale(props.headlineFontScale);
   const dateScale = clampScale(props.dateFontScale);
@@ -279,7 +281,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
             opacity: contentOpacity,
             width: "100%",
             maxWidth: 1100,
-            padding: "clamp(5rem, 12vh, 9rem) clamp(1.25rem, 5vw, 3rem) clamp(6rem, 14vh, 9rem)",
+            padding: "clamp(5rem, 10vh, 7rem) clamp(1.25rem, 5vw, 3rem) clamp(5rem, 10vh, 7rem)",
             display: "flex",
             flexDirection: "column",
             alignItems: align === "center" ? "center" : "flex-start",

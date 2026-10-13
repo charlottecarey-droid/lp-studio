@@ -462,7 +462,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder, onFieldChang
 
   return (
     <div
-      className="min-h-screen font-sans antialiased"
+      className="min-h-[min(100svh,900px)] font-sans antialiased"
       style={{ background: bg, color: ink, fontFamily: BODY }}
     >
       {/* 1. Hero */}

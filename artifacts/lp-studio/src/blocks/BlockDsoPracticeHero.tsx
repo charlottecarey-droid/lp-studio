@@ -104,10 +104,10 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
   };
 
   const heightClass =
-    heroHeight === "full" ? "min-h-screen"
-    : heroHeight === "large" ? "min-h-[85vh]"
+    heroHeight === "full" ? "min-h-[min(100svh,900px)]"
+    : heroHeight === "large" ? "min-h-[min(85vh,780px)]"
     : heroHeight === "compact" ? "min-h-[40vh]"
-    : "min-h-[60vh]";
+    : "min-h-[min(60vh,560px)]";
 
   // Tone must follow the surface the hero ACTUALLY paints, not just the preset
   // key. Two failure modes the old `isDarkBg(backgroundStyle)` missed:

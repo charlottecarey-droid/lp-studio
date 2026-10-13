@@ -430,7 +430,7 @@ export function BlockEditorialSplitHero({
 
   return (
     <section
-      className="esh-hero relative w-full flex flex-col lg:min-h-[100svh]"
+      className="esh-hero relative w-full flex flex-col lg:min-h-[min(100svh,900px)]"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
       <style>{`

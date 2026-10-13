@@ -621,7 +621,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         <section
           ref={heroRef}
           className="relative overflow-hidden heartland-split"
-          style={{ minHeight: "100vh" }}
+          style={{ minHeight: "min(100vh, 900px)" }}
         >
           <style>{SIDE_PAD_CSS}</style>
           <style>{`
@@ -648,7 +648,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             style={{
               display: "flex",
               flexDirection: imageRight ? "row" : "row-reverse",
-              minHeight: "100vh",
+              minHeight: "min(100vh, 900px)",
               flexWrap: "wrap",
             }}
           >
@@ -776,7 +776,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               display: "flex",
               flexDirection: videoLeft ? "row-reverse" : "row",
               flexWrap: "wrap",
-              minHeight: `${splitMinH}vh`,
+              minHeight: `min(${splitMinH}vh, 860px)`,
               alignItems: "center",
               paddingBottom: "5rem",
             }}
@@ -1031,7 +1031,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         <section
           ref={heroRef}
           className={isCentered ? "relative overflow-hidden flex flex-col" : "relative overflow-hidden"}
-          style={stackedMinH ? { minHeight: `${stackedMinH}vh` } : undefined}
+          style={stackedMinH ? { minHeight: `min(${stackedMinH}vh, 860px)` } : undefined}
         >
           <style>{SIDE_PAD_CSS}</style>
           {/* Optional background photo/clip (same asset + tint + edge-fade
@@ -1327,7 +1327,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       <section
         ref={heroRef}
         className="relative flex flex-col overflow-hidden"
-        style={{ minHeight: "100vh" }}
+        style={{ minHeight: "min(100vh, 900px)" }}
       >
         {/* ── Background ──────────────────────────────────── */}
         {assetBackground(fullBleedScrim) ?? (

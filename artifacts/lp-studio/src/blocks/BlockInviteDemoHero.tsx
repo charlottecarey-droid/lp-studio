@@ -123,7 +123,7 @@ export function BlockInviteDemoHero({ props, brand, pageId, variantId, onCtaClic
   return (
     <section
       className="inv-hero relative overflow-hidden flex flex-col"
-      style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY, minHeight: `${props.minHeightVh ?? 92}vh` }}
+      style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY, minHeight: `min(${props.minHeightVh ?? 92}vh, 860px)` }}
     >
       <style>{INVITE_CSS}</style>
 
