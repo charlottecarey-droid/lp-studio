@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import { isValidHex, relativeLuminance } from "@/lib/brand-config";
-import { useAnimInitial } from "@/lib/reveal-fallback";
+import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
+import { BlendMedia, isEmbedVideoUrl, type MediaPlayMode } from "@/lib/glow-media";
+import { getAutoplayEmbedUrl } from "@/lib/video-utils";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { ABM_BODY, ABM_CONTAINER, ABM_CSS, AbmArrowLink, anchorClick, displayStyle, inksOn, resolveAbmPalette, type AbmStyleProps } from "@/lib/abm-theme";
@@ -14,7 +17,15 @@ import { cn } from "@/lib/utils";
  * with a tracked "CUSTOMER STORY" kicker, a large quote, the speaker's name,
  * title and company wordmark and a "Read their story" arrow link, beside a
  * full-bleed photo. The two halves meet edge to edge like the reference page.
+ *
+ * The photo half can instead hold a clip (`mediaVideoUrl`): by default it
+ * shows the photo as a thumbnail with a play button and plays WITH sound on
+ * click ("click"); the other modes are the family's muted loops (inview /
+ * hover / always) via BlendMedia. The photo is always the poster.
  * -------------------------------------------------------------------------- */
+
+/** "click" = thumbnail + play button (sound on). The rest are muted loops. */
+export type AbmStoryPlayMode = "click" | MediaPlayMode;
 
 export interface AbmStoryQuoteBlockProps extends AbmStyleProps {
   kicker?: string;
@@ -31,6 +42,10 @@ export interface AbmStoryQuoteBlockProps extends AbmStyleProps {
   imageAlt?: string;
   imageFocal?: string;
   imageSide?: "left" | "right";
+  /** Customer clip shown in place of the photo (mp4 / webm, or a YouTube / Vimeo / Wistia / Loom link). The photo becomes its thumbnail / poster. */
+  mediaVideoUrl?: string;
+  /** How the clip plays. Default "click". */
+  mediaPlayMode?: AbmStoryPlayMode;
   /** The quote card's colour. Blank = brand primary (or a tinted light card on dark sections). */
   cardColor?: string;
   anchorId?: string;
@@ -54,19 +69,42 @@ export const ABM_STORY_QUOTE_DEFAULT_PROPS: AbmStoryQuoteBlockProps = {
   imageUrl: "",
   imageAlt: "",
   imageSide: "right",
+  mediaVideoUrl: "",
+  mediaPlayMode: "click",
   anchorId: "proof",
   backgroundStyle: "white",
 };
 
+/** Sound-on variant of the autoplay embed URL for a user-initiated play. */
+function clickPlayEmbedUrl(url: string): string {
+  const auto = getAutoplayEmbedUrl(url);
+  try {
+    const u = new URL(auto);
+    if (u.searchParams.has("mute")) u.searchParams.set("mute", "0");
+    if (u.searchParams.has("muted")) u.searchParams.set("muted", "0");
+    u.searchParams.delete("loop");
+    u.searchParams.delete("playlist");
+    return u.toString();
+  } catch {
+    return auto;
+  }
+}
+
 export function BlockAbmStoryQuote({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
+  const staticRender = useStaticRender();
+  const [playing, setPlaying] = useState(false);
   const pal = resolveAbmPalette(props, brand, "#FFFFFF");
   const isEditor = !!onFieldChange;
   const card = props.cardColor && isValidHex(props.cardColor) ? props.cardColor : pal.contrastCard;
   const cardDark = isValidHex(card) ? relativeLuminance(card) < 0.4 : pal.contrastCardDark;
   const cardInk = inksOn(isValidHex(card) ? card : cardDark ? "#0B0B0F" : "#FFFFFF");
   const imageRight = (props.imageSide ?? "right") === "right";
+  const videoUrl = (props.mediaVideoUrl ?? "").trim();
+  const playMode: AbmStoryPlayMode = props.mediaPlayMode ?? "click";
+  const videoEmbed = !!videoUrl && isEmbedVideoUrl(videoUrl);
+  const mediaAlt = props.imageAlt || props.company || "Customer story";
 
   const field = (key: keyof AbmStoryQuoteBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as AbmStoryQuoteBlockProps[typeof key] }) : undefined;
@@ -124,20 +162,99 @@ export function BlockAbmStoryQuote({ props, brand, onFieldChange }: Props) {
             </div>
           </div>
           <div className="relative min-h-[280px] lg:min-h-[520px]" style={{ background: pal.panel }}>
-            {(props.imageUrl || isEditor) ? (
-              <InlineImage
-                src={props.imageUrl ?? ""}
-                alt={props.imageAlt || props.company || "Customer story"}
-                className="absolute inset-0 h-full w-full object-cover"
-                wrapperClassName="absolute inset-0"
-                loading="lazy"
-                focalPoint={props.imageFocal}
-                onUpdate={field("imageUrl")}
-                onAltUpdate={field("imageAlt")}
-                onFocalUpdate={field("imageFocal")}
-              />
+            {videoUrl && playMode !== "click" ? (
+              <div className="absolute inset-0">
+                <BlendMedia
+                  videoUrl={videoUrl}
+                  imageUrl={props.imageUrl}
+                  imageAlt={mediaAlt}
+                  imageFocal={props.imageFocal}
+                  blend="none"
+                  edgeFade={false}
+                  fit="cover"
+                  playMode={playMode}
+                  palette={{ dark: false, accent: pal.accentDeco, glow: pal.accentDeco }}
+                  placeholder="board"
+                  className="h-full w-full"
+                  style={{ aspectRatio: "auto", height: "100%" }}
+                  title={mediaAlt}
+                  onImageUpdate={field("imageUrl")}
+                  onAltUpdate={field("imageAlt")}
+                  onFocalUpdate={field("imageFocal")}
+                />
+              </div>
+            ) : videoUrl && playing && !staticRender ? (
+              videoEmbed ? (
+                <iframe
+                  src={clickPlayEmbedUrl(videoUrl)}
+                  className="absolute inset-0 h-full w-full border-0"
+                  title={mediaAlt}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={videoUrl}
+                  poster={props.imageUrl || undefined}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ objectPosition: props.imageFocal }}
+                  autoPlay
+                  controls
+                  playsInline
+                  preload="metadata"
+                  aria-label={mediaAlt}
+                  onEnded={() => setPlaying(false)}
+                />
+              )
             ) : (
-              <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${pal.panel} 0%, color-mix(in srgb, ${pal.accentDeco} 18%, ${pal.panel}) 100%)` }} />
+              <>
+                {(props.imageUrl || isEditor) ? (
+                  <InlineImage
+                    src={props.imageUrl ?? ""}
+                    alt={mediaAlt}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    wrapperClassName="absolute inset-0"
+                    loading="lazy"
+                    focalPoint={props.imageFocal}
+                    onUpdate={field("imageUrl")}
+                    onAltUpdate={field("imageAlt")}
+                    onFocalUpdate={field("imageFocal")}
+                  />
+                ) : videoUrl && !videoEmbed ? (
+                  // No thumbnail set: the clip's first frame stands in for it.
+                  <video src={videoUrl} className="absolute inset-0 h-full w-full object-cover" muted playsInline preload="metadata" aria-hidden />
+                ) : (
+                  <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${pal.panel} 0%, color-mix(in srgb, ${pal.accentDeco} 18%, ${pal.panel}) 100%)` }} />
+                )}
+                {videoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPlaying(true)}
+                    aria-label="Play video"
+                    data-abm-story-play
+                    // In the editor only the disc is clickable so the thumbnail stays inline-editable around it.
+                    className={cn("group flex items-center justify-center", isEditor ? "absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2" : "absolute inset-0 h-full w-full")}
+                  >
+                    {!isEditor && <span aria-hidden className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />}
+                    <motion.span
+                      className="relative flex h-20 w-20 items-center justify-center rounded-full"
+                      style={{
+                        background: "rgba(255,255,255,0.18)",
+                        backdropFilter: "blur(10px)",
+                        WebkitBackdropFilter: "blur(10px)",
+                        border: "1.5px solid rgba(255,255,255,0.6)",
+                        boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
+                      }}
+                      whileHover={reduced ? undefined : { scale: 1.08 }}
+                      whileTap={reduced ? undefined : { scale: 0.95 }}
+                    >
+                      <svg className="h-7 w-7 text-white drop-shadow" style={{ marginLeft: 3 }} fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <polygon points="5,3 19,12 5,21" />
+                      </svg>
+                    </motion.span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </motion.div>

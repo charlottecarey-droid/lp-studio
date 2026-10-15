@@ -8,7 +8,7 @@ import type { AbmSplitHeroBlockProps } from "@/blocks/BlockAbmSplitHero";
 import type { AbmPhoneShowcaseBlockProps, AbmPillar } from "@/blocks/BlockAbmPhoneShowcase";
 import type { AbmSolutionTabsBlockProps, AbmSolutionTab } from "@/blocks/BlockAbmSolutionTabs";
 import type { AbmIntegrationsRowBlockProps, AbmIntegration } from "@/blocks/BlockAbmIntegrationsRow";
-import type { AbmStoryQuoteBlockProps } from "@/blocks/BlockAbmStoryQuote";
+import type { AbmStoryQuoteBlockProps, AbmStoryPlayMode } from "@/blocks/BlockAbmStoryQuote";
 import type { AbmLogoStripBlockProps, AbmLogo } from "@/blocks/BlockAbmLogoStrip";
 import type { AbmRoiStatsBlockProps, AbmStat } from "@/blocks/BlockAbmRoiStats";
 import type { AbmFeatureGridBlockProps, AbmFeature } from "@/blocks/BlockAbmFeatureGrid";
@@ -351,12 +351,29 @@ export function AbmStoryQuotePanel({ props, onChange }: P<AbmStoryQuoteBlockProp
         </div>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="proof" />
       </PanelSection>
-      <PanelSection title="Photo" defaultOpen>
-        <Field label="Image"><ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" /></Field>
+      <PanelSection title="Photo / video" defaultOpen>
+        <Field label={props.mediaVideoUrl ? "Thumbnail / poster image" : "Image"}><ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" /></Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Alt text"><Input value={props.imageAlt ?? ""} onChange={(e) => update({ imageAlt: e.target.value })} className="h-8 text-xs" /></Field>
-          <SideSelect value={props.imageSide ?? "right"} onChange={(v) => update({ imageSide: v })} label="Photo side" a="Left" b="Right" />
+          <SideSelect value={props.imageSide ?? "right"} onChange={(v) => update({ imageSide: v })} label="Media side" a="Left" b="Right" />
         </div>
+        <VideoPicker value={props.mediaVideoUrl ?? ""} onChange={(v) => update({ mediaVideoUrl: v })} label="Customer video (optional — mp4 / webm, or YouTube / Vimeo / Wistia / Loom link)" />
+        {props.mediaVideoUrl && (
+          <>
+            <Field label="Video plays">
+              <Select value={props.mediaPlayMode ?? "click"} onValueChange={(v) => update({ mediaPlayMode: v as AbmStoryPlayMode })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="click" className="text-xs">Play button over the thumbnail (with sound)</SelectItem>
+                  <SelectItem value="inview" className="text-xs">Auto-loop while on screen (muted)</SelectItem>
+                  <SelectItem value="hover" className="text-xs">On hover / tap (muted)</SelectItem>
+                  <SelectItem value="always" className="text-xs">Always looping (muted)</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">The image is the thumbnail for the play button and the poster for the looping modes. Without one, the clip's first frame is used.</p>
+          </>
+        )}
       </PanelSection>
       <PanelSection title="Background & colors">
         <ColorField label="Quote card" value={props.cardColor ?? ""} onChange={(v) => update({ cardColor: v || undefined })} />

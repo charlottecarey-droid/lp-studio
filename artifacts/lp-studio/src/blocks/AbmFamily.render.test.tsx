@@ -221,6 +221,26 @@ describe("sections — content contracts", () => {
     expect(html).toContain("Read their story");
   });
 
+  it("abm-story-quote swaps the photo for a clip: click mode = thumbnail + play button (no autoplay), loop modes = a muted looping <video> with the photo as poster", () => {
+    const base = { ...defaultsFor("abm-story-quote"), imageUrl: "https://cdn.example.com/story.jpg", mediaVideoUrl: "https://cdn.example.com/story.mp4" };
+    const click = render(BlockAbmStoryQuote as never, { ...base, mediaPlayMode: "click" });
+    expect(click).toContain("data-abm-story-play");
+    expect(click).toContain('aria-label="Play video"');
+    expect(click).toMatch(/<img[^>]*src="https:\/\/cdn\.example\.com\/story\.jpg"/);
+    expect(click).not.toMatch(/<video/);
+    expect(click).not.toMatch(/<iframe/);
+    const loop = render(BlockAbmStoryQuote as never, { ...base, mediaPlayMode: "inview" });
+    expect(loop).not.toContain("data-abm-story-play");
+    expect(loop).toMatch(/<video[^>]*src="https:\/\/cdn\.example\.com\/story\.mp4"/);
+    expect(loop).toMatch(/<video[^>]*poster="https:\/\/cdn\.example\.com\/story\.jpg"/);
+    expect(loop).toMatch(/<video[^>]*\bmuted\b/);
+    expect(loop).toMatch(/<video[^>]*\bloop\b/);
+    // no clip → the photo renders exactly as before, no play button
+    const photo = render(BlockAbmStoryQuote as never, { ...base, mediaVideoUrl: "" });
+    expect(photo).not.toContain("data-abm-story-play");
+    expect(photo).toMatch(/<img[^>]*src="https:\/\/cdn\.example\.com\/story\.jpg"/);
+  });
+
   it("abm-logo-strip falls back to text wordmarks and abm-account-team to initials discs", () => {
     const logos = render(BlockAbmLogoStrip as never, defaultsFor("abm-logo-strip"));
     expect(logos).toContain("Northwind");
