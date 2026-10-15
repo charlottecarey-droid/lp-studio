@@ -1235,7 +1235,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "dandy-video-testimonials":
         return <BlockDandyVideoTestimonials props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-side-image-v6":
-        return <BlockDandySideImageV6 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDandySideImageV6 props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-hero-v7-s3":
         return <BlockDandyHeroV7S3 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} pageId={pageId} variantId={variantId} />;
       case "dandy-form-right-alt":

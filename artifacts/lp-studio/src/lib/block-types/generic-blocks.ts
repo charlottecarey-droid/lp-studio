@@ -1225,6 +1225,20 @@ export interface DandySideImageV6BlockProps extends CtaModalConfig {
   secondaryCtaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   /** Used when secondaryCtaAction === "chilipiper". */
   secondaryChilipiperUrl?: string;
+  /** CTA presentation. "buttons" (default): the filled + outline buttons.
+   *  "email-capture": an inline pill-shaped email field with a submit button
+   *  in their place (mirrors the hero family's pill). */
+  ctaStyle?: "buttons" | "email-capture";
+  /** Placeholder for the email-capture input. Defaults to "Email address". */
+  emailCapturePlaceholder?: string;
+  /** Submit button label for the pill. Defaults to the CTA text. */
+  emailCaptureButtonText?: string;
+  /** What a pill submit does: navigate to ctaUrl with ?email=… (default),
+   *  or open the shared modal (form / Chili Piper). */
+  submitMode?: "navigate" | "modal-form" | "modal-chilipiper";
+  /** Primary button / pill submit fill override. Defaults to the brand CTA colours. */
+  ctaButtonColor?: string;
+  ctaButtonTextColor?: string;
   imageUrl?: string;
   badgeText?: string;
   imagePosition?: "left" | "right";

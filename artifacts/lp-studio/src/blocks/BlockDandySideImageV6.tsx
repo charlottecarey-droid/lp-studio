@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { type BrandConfig, pickContrastingColor, pickCtaButtonColors, pickOutlineButtonColors } from "@/lib/brand-config";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
+import { InlineEmailCapture } from "@/components/InlineEmailCapture";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { useBlockFonts } from "@/lib/use-block-fonts";
@@ -13,9 +16,11 @@ interface Props {
   props: DandySideImageV6BlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: DandySideImageV6BlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
+export function BlockDandySideImageV6({ props, brand, onFieldChange, pageId, variantId }: Props) {
   useBlockFonts(props.headlineFont, props.bodyFont);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
@@ -34,6 +39,44 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
   // resolving against the actual section surface.
   const ctaColors = pickCtaButtonColors(brand, surface.base);
   const outlineColors = pickOutlineButtonColors(brand, surface.base);
+  const ctaBg = props.ctaButtonColor || ctaColors.bg;
+  const ctaInk = props.ctaButtonTextColor || (props.ctaButtonColor ? pickContrastingColor(undefined, props.ctaButtonColor, ["#FFFFFF", "#0F172A"]) : ctaColors.text);
+  const ctaStyle = props.ctaStyle ?? "buttons";
+  const submitMode = props.submitMode ?? "navigate";
+
+  // ── Inline email-capture pill state + submit routing (mirrors the hero family) ──
+  const [email, setEmail] = useState("");
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const handleEmailSubmit = (value: string) => {
+    const trimmed = value.trim();
+    if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
+      setEmailModalOpen(true);
+      return;
+    }
+    if (!trimmed) return;
+    const ctaUrl = props.ctaUrl?.trim() ?? "";
+    if (ctaUrl.startsWith("#") && ctaUrl.length > 1) {
+      const target = document.getElementById(ctaUrl.slice(1));
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+    const brandDefault = brand.defaultCtaUrl?.trim() ?? "";
+    const real = (u: string) => !!u && u !== "#" && !u.startsWith("#");
+    const dest = real(ctaUrl) ? ctaUrl : real(brandDefault) ? brandDefault : "";
+    if (dest) {
+      try {
+        const url = new URL(dest, window.location.origin);
+        url.searchParams.set("email", trimmed);
+        window.location.assign(url.toString());
+        return;
+      } catch {
+        // fall through to the modal
+      }
+    }
+    setEmailModalOpen(true);
+  };
   const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#006651";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   const glow = accent;
@@ -75,7 +118,24 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
           ))}
         </ul>
       )}
-      {props.ctaText && (
+      {ctaStyle === "email-capture" ? (
+        <div className="mt-3" style={{ fontFamily: BODY }}>
+          <InlineEmailCapture
+            email={email}
+            onEmailChange={setEmail}
+            onSubmit={handleEmailSubmit}
+            placeholder={props.emailCapturePlaceholder || "Email address"}
+            buttonText={props.emailCaptureButtonText || props.ctaText || "Get started"}
+            buttonBg={ctaBg}
+            buttonColor={ctaInk}
+            pillBg={surface.isDark ? "rgba(255,255,255,0.96)" : "#FFFFFF"}
+            pillBorder={surface.isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.1)"}
+            pillShadow="0 18px 40px -20px rgba(15,23,42,0.35)"
+            maxWidth="460px"
+            className="dandy-side-image-v6-pill"
+          />
+        </div>
+      ) : props.ctaText && (
         <div className="mt-3 flex flex-wrap gap-4">
           <CtaButton
             ctaAction={props.ctaAction ?? "url"}
@@ -102,7 +162,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
             brand={brand}
             source="dandy-side-image-v6-primary"
             className="rounded-xl px-8 py-4 text-base font-bold shadow-sm transition-transform hover:-translate-y-0.5"
-            style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
+            style={{ backgroundColor: ctaBg, color: ctaInk }}
           >
             <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }} />
           </CtaButton>
@@ -182,6 +242,42 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
           )}
         </div>
       </div>
+      {ctaStyle === "email-capture" && (
+        <EmailCaptureModal
+          open={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          email={email}
+          mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+          chilipiperUrl={props.modalChilipiperUrl}
+          primaryColor={brand.primaryColor}
+          accentColor={brand.accentColor}
+          brand={brand}
+          pageId={pageId}
+          variantId={variantId}
+          source="dandy-side-image-v6"
+          formSource={props.modalFormSource ?? "simple"}
+          linkedFormId={props.modalFormId}
+          marketoBaseUrl={props.modalMarketoBaseUrl}
+          marketoMunchkinId={props.modalMarketoMunchkinId}
+          marketoFormId={props.modalMarketoFormId}
+          chiliPiperConfig={
+            props.modalChiliPiperHandoffUrl
+              ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal", fieldMap: props.modalChiliPiperHandoffFieldMap }
+              : null
+          }
+          formConfig={{
+            headline: props.modalHeadline,
+            subheadline: props.modalSubheadline,
+            submitText: props.modalSubmitText,
+            successMessage: props.modalSuccessMessage,
+            disclaimer: props.modalDisclaimer,
+            showFirstName: props.modalShowFirstName,
+            showLastName: props.modalShowLastName,
+            showPhone: props.modalShowPhone,
+            showCompany: props.modalShowCompany,
+          }}
+        />
+      )}
     </section>
   );
 }

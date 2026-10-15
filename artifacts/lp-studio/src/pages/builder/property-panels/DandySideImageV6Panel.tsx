@@ -41,6 +41,8 @@ export function DandySideImageV6Panel({ props: p, onChange, ctaSource }: Props) 
     onChange({ ...p, bullets });
   };
   const addBullet = () => onChange({ ...p, bullets: [...(p.bullets ?? []), ""] });
+  const emailCapture = p.ctaStyle === "email-capture";
+  const modalAction = (a?: string): a is "modal-form" | "modal-chilipiper" => a === "modal-form" || a === "modal-chilipiper";
   const removeBullet = (i: number) => onChange({ ...p, bullets: (p.bullets ?? []).filter((_, idx) => idx !== i) });
 
   return (
@@ -115,8 +117,47 @@ export function DandySideImageV6Panel({ props: p, onChange, ctaSource }: Props) 
       <div className="border-t pt-3 space-y-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary CTA</p>
         <div className="space-y-1.5">
-          <Label className="text-xs">Text</Label>
+          <Label className="text-xs">CTA style</Label>
+          <Select value={p.ctaStyle ?? "buttons"} onValueChange={v => set("ctaStyle", v as DandySideImageV6BlockProps["ctaStyle"])}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="buttons" className="text-xs">Button(s)</SelectItem>
+              <SelectItem value="email-capture" className="text-xs">Inline email-capture pill</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">{emailCapture ? "Text (pill button fallback)" : "Text"}</Label>
           <Input value={p.ctaText ?? ""} onChange={e => set("ctaText", e.target.value || undefined)} className="h-8 text-xs" />
+        </div>
+        {emailCapture && (
+          <div className="space-y-2 border rounded-md p-2.5">
+            <div className="text-[11px] font-semibold text-muted-foreground">Email capture pill</div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Placeholder</Label>
+              <Input value={p.emailCapturePlaceholder ?? ""} onChange={e => set("emailCapturePlaceholder", e.target.value || undefined)} placeholder="Email address" className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Button text</Label>
+              <Input value={p.emailCaptureButtonText ?? ""} onChange={e => set("emailCaptureButtonText", e.target.value || undefined)} placeholder={p.ctaText || "Get started"} className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">After submit</Label>
+              <Select value={p.submitMode ?? "navigate"} onValueChange={v => set("submitMode", v as DandySideImageV6BlockProps["submitMode"])}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="navigate" className="text-xs">Navigate to the CTA URL (with ?email=)</SelectItem>
+                  <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                  <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">The pill replaces both buttons. Secondary CTA settings below are kept but not shown while the pill is on.</p>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField label={emailCapture ? "Pill button" : "Button"} value={p.ctaButtonColor ?? ""} onChange={(v) => set("ctaButtonColor", v || undefined)} />
+          <ColorField label="Button text" value={p.ctaButtonTextColor ?? ""} onChange={(v) => set("ctaButtonTextColor", v || undefined)} />
         </div>
         {/* Shared primary action suite (canonical keys); single shared modal block below. */}
         <CtaActionConfigSection
@@ -136,13 +177,14 @@ export function DandySideImageV6Panel({ props: p, onChange, ctaSource }: Props) 
         />
       </div>
 
-      {(p.ctaAction === "modal-form" || p.ctaAction === "modal-chilipiper" ||
-        p.secondaryCtaAction === "modal-form" || p.secondaryCtaAction === "modal-chilipiper") && (
+      {(modalAction(p.ctaAction) || modalAction(p.secondaryCtaAction) || (emailCapture && modalAction(p.submitMode))) && (
         <CtaButtonModalConfigSection
           ctaAction={
-            (p.ctaAction === "modal-form" || p.ctaAction === "modal-chilipiper")
-              ? p.ctaAction
-              : (p.secondaryCtaAction as "modal-form" | "modal-chilipiper")
+            emailCapture && modalAction(p.submitMode)
+              ? p.submitMode
+              : modalAction(p.ctaAction)
+                ? p.ctaAction
+                : (p.secondaryCtaAction as "modal-form" | "modal-chilipiper")
           }
           value={p}
           onChange={(next) => onChange({ ...p, ...next })}
