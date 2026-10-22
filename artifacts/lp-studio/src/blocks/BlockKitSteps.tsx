@@ -18,7 +18,9 @@ import { INVITE_BODY, INVITE_DISPLAY, INVITE_NUMBERS, Kicker, displayStyle, reso
  *            parameter named by `codeParam` (default "code", so a kit's QR
  *            can encode lp.example.com/quest?code=482193), else from the
  *            `code` prop, else blank with "your code is on the card";
- *   "store"  a faux store listing (icon, app name, store line, "Get" pill);
+ *   "store"  a store listing (app icon or initial, app name, store line,
+ *            "Get" pill). With `visualUrl` the whole listing is a link to
+ *            the real store page; without it the pill is decorative;
  *   "stream" the "Stream · Play · Download" chip row.
  *
  * Built for a phone first: one column, generous tap targets, numbers that
@@ -40,6 +42,12 @@ export interface KitStep {
   visualLabel?: string;
   /** "store": the store line ("Horizon Store · Free"). */
   visualSub?: string;
+  /** "store": the app icon / thumbnail (square). Blank = the app's initial on an accent tile. */
+  visualImageUrl?: string;
+  /** "store": where the listing (and its pill) links — the real store page. Blank = decorative. */
+  visualUrl?: string;
+  /** "store": the pill label. Default "Get". */
+  visualCta?: string;
 }
 
 export interface KitStepsBlockProps {
@@ -136,22 +144,57 @@ function CodeCells({ code, label, palette }: { code?: string; label?: string; pa
   );
 }
 
-function StoreListing({ name, sub, palette }: { name: string; sub?: string; palette: InvitePalette }) {
+function StoreListing({ name, sub, imageUrl, url, cta, palette }: { name: string; sub?: string; imageUrl?: string; url?: string; cta?: string; palette: InvitePalette }) {
   const initial = (name.trim()[0] ?? "A").toUpperCase();
-  return (
-    <div className="mt-5 inline-flex max-w-full items-center gap-4 rounded-2xl p-3 pr-4" style={{ background: palette.panel, border: `1px solid ${palette.hairline}` }} data-kit-visual="store">
-      <span
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-xl font-semibold"
-        style={{ background: `linear-gradient(135deg, ${palette.accent}, color-mix(in srgb, ${palette.accent} 55%, ${palette.bg}))`, color: palette.onAccent, fontFamily: INVITE_DISPLAY }}
-        aria-hidden="true"
-      >
-        {initial}
-      </span>
+  const label = (cta ?? "").trim() || "Get";
+  const href = (url ?? "").trim();
+  const className = "mt-5 inline-flex max-w-full items-center gap-4 rounded-2xl p-3 pr-4 no-underline";
+  const style = { background: palette.panel, border: `1px solid ${palette.hairline}`, color: palette.text };
+  const inner = (
+    <>
+      {imageUrl ? (
+        <img src={imageUrl} alt="" loading="lazy" decoding="async" className="h-12 w-12 shrink-0 rounded-[14px] object-cover" style={{ background: palette.bg }} />
+      ) : (
+        <span
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-xl font-semibold"
+          style={{ background: `linear-gradient(135deg, ${palette.accent}, color-mix(in srgb, ${palette.accent} 55%, ${palette.bg}))`, color: palette.onAccent, fontFamily: INVITE_DISPLAY }}
+          aria-hidden="true"
+        >
+          {initial}
+        </span>
+      )}
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-[15px] font-medium">{name}</span>
         {sub && <span className="text-xs leading-snug" style={{ color: palette.muted }}>{sub}</span>}
       </span>
-      <span className="ml-2 rounded-full px-3.5 py-1.5 text-[12px] font-semibold" style={{ background: palette.accent, color: palette.onAccent }} aria-hidden="true">Get</span>
+      <span
+        className="ml-2 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-transform duration-200 group-hover:scale-105"
+        style={{ background: palette.accent, color: palette.onAccent }}
+        aria-hidden={href ? undefined : "true"}
+      >
+        {label}
+      </span>
+    </>
+  );
+  if (href) {
+    const external = !href.startsWith("#") && !href.startsWith("/");
+    return (
+      <a
+        href={href}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noopener noreferrer" : undefined}
+        className={`group ${className} transition-colors duration-200 hover:border-[color:var(--kit-store-hover)]`}
+        style={{ ...style, ["--kit-store-hover" as string]: palette.accent }}
+        aria-label={`${label} ${name}`}
+        data-kit-visual="store"
+      >
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <div className={className} style={style} data-kit-visual="store">
+      {inner}
     </div>
   );
 }
@@ -236,7 +279,7 @@ export function BlockKitSteps({ props, brand, onFieldChange }: Props) {
                 )}
 
                 {s.visual === "code" && <CodeCells code={code} label={codeCaption} palette={pal} />}
-                {s.visual === "store" && <StoreListing name={s.visualLabel || "App"} sub={s.visualSub} palette={pal} />}
+                {s.visual === "store" && <StoreListing name={s.visualLabel || "App"} sub={s.visualSub} imageUrl={s.visualImageUrl} url={s.visualUrl} cta={s.visualCta} palette={pal} />}
                 {s.visual === "stream" && <StreamChips labels={s.visualLabel || "Stream · Play · Download"} palette={pal} />}
 
                 {s.linkText && s.linkUrl && (

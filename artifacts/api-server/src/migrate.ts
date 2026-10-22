@@ -2213,7 +2213,9 @@ async function runMigrationsBody(): Promise<void> {
       // the Kit-family page the VR lab-tour kit's QR code opens.
       // v42: seed "Enterprise Account Page" (global-abm-account-page), the
       // ABM-family 1:1 account microsite (11 generic abm-* section blocks).
-      const SEED_MARKER = "global_templates_seed_v42";
+      // v43: quest-kit template — the Immersa step's store listing links to the
+      // real Horizon Store page and shows the app icon.
+      const SEED_MARKER = "global_templates_seed_v43";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

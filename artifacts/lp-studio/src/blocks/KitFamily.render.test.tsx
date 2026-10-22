@@ -147,6 +147,19 @@ describe("kit-steps — inline visuals", () => {
     expect(html).toContain("Download");
   });
 
+  it("links the store listing (icon + pill) only when a store URL is set", () => {
+    const base = defaultsFor("kit-steps") as { steps: Array<Record<string, unknown>> };
+    const store = base.steps.find((s) => s.visual === "store")!;
+    const plain = render(BlockKitSteps as never, { ...base, steps: [store] }, true);
+    expect(plain).not.toMatch(/<a[^>]*data-kit-visual="store"/);
+    expect(plain).toContain(">Get<");
+    const linked = render(BlockKitSteps as never, { ...base, steps: [{ ...store, visualUrl: "https://example.com/store/app", visualImageUrl: "/images/app.png", visualCta: "Install" }] }, true);
+    expect(linked).toMatch(/<a[^>]*href="https:\/\/example\.com\/store\/app"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*data-kit-visual="store"/);
+    expect(linked).toMatch(/<img[^>]*src="\/images\/app\.png"/);
+    expect(linked).toContain(">Install<");
+    expect(linked).not.toContain(">Get<");
+  });
+
   it("renders a help link only when both text and URL are set", () => {
     const base = defaultsFor("kit-steps") as { steps: Array<Record<string, unknown>> };
     const steps = [{ ...base.steps[0], linkText: "Setup help", linkUrl: "https://example.com/help" }, { ...base.steps[1], linkText: "No URL" }];

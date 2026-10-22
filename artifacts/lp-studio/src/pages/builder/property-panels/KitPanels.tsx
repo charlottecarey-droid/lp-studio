@@ -242,10 +242,17 @@ export function KitStepsPanel({ props, onChange }: { props: KitStepsBlockProps; 
                 </Select>
               </Field>
               {s.visual === "store" && (
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="App name"><Input value={s.visualLabel ?? ""} onChange={(e) => patch(i, { visualLabel: e.target.value })} className="h-8 text-xs" placeholder="Immersa" /></Field>
-                  <Field label="Store line"><Input value={s.visualSub ?? ""} onChange={(e) => patch(i, { visualSub: e.target.value })} className="h-8 text-xs" placeholder="Horizon Store · Free" /></Field>
-                </div>
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="App name"><Input value={s.visualLabel ?? ""} onChange={(e) => patch(i, { visualLabel: e.target.value })} className="h-8 text-xs" placeholder="Immersa" /></Field>
+                    <Field label="Store line"><Input value={s.visualSub ?? ""} onChange={(e) => patch(i, { visualSub: e.target.value })} className="h-8 text-xs" placeholder="Horizon Store · Free" /></Field>
+                  </div>
+                  <Field label="App icon (square)"><ImagePicker value={s.visualImageUrl ?? ""} onChange={(v) => patch(i, { visualImageUrl: v || undefined })} placeholder="Upload or paste image URL" /></Field>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Button text"><Input value={s.visualCta ?? ""} onChange={(e) => patch(i, { visualCta: e.target.value || undefined })} className="h-8 text-xs" placeholder="Get" /></Field>
+                    <Field label="Button link (store page)"><Input value={s.visualUrl ?? ""} onChange={(e) => patch(i, { visualUrl: e.target.value || undefined })} className="h-8 text-xs" placeholder="https://" /></Field>
+                  </div>
+                </>
               )}
               {s.visual === "stream" && (
                 <Field label="Chip labels (separate with ·)"><Input value={s.visualLabel ?? ""} onChange={(e) => patch(i, { visualLabel: e.target.value })} className="h-8 text-xs" placeholder="Stream · Play · Download" /></Field>

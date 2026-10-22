@@ -27,6 +27,9 @@ const IMG_HEADSET = "/images/kit/quest-headset.webp";
 const IMG_HEADSET_FRONT = "/images/kit/quest-headset-front.webp";
 const IMG_BOX = "/images/kit/lab-tour-box.webp";
 const IMG_DENTURE = "/images/kit/fusion-denture.webp";
+const IMG_IMMERSA = "/images/kit/immersa-app.png";
+// The Horizon Store listing the kit's "Get" pill opens (editable per page).
+const IMMERSA_STORE_URL = "https://www.meta.com/experiences/immersa/1368254753036631/";
 const META_HELP_URL = "https://www.meta.com/help/quest/";
 const LIVE_TOUR_URL = "https://www.meetdandy.com/get-started/";
 const TALK_TO_SALES_URL = "https://www.meetdandy.com/get-started/";
@@ -119,6 +122,9 @@ const blocks: Block[] = [
           visual: "store",
           visualLabel: "Immersa",
           visualSub: "Horizon Store · Free",
+          visualImageUrl: IMG_IMMERSA,
+          visualUrl: IMMERSA_STORE_URL,
+          visualCta: "Get",
         },
         {
           title: "Enter your six-digit Dandy code",
