@@ -182,6 +182,10 @@ import type {
   KitContentsBlockProps,
   KitStepsBlockProps,
   KitSupportBlockProps,
+  HubHeroBlockProps,
+  HubFeaturedBlockProps,
+  HubLibraryBlockProps,
+  HubSupportBlockProps,
   AbmSplitHeroBlockProps,
   AbmPhoneShowcaseBlockProps,
   AbmSolutionTabsBlockProps,
@@ -492,6 +496,10 @@ export type BlockVariant =
   | { type: "kit-contents"; props: KitContentsBlockProps }
   | { type: "kit-steps"; props: KitStepsBlockProps }
   | { type: "kit-support"; props: KitSupportBlockProps }
+  | { type: "hub-hero"; props: HubHeroBlockProps }
+  | { type: "hub-featured"; props: HubFeaturedBlockProps }
+  | { type: "hub-library"; props: HubLibraryBlockProps }
+  | { type: "hub-support"; props: HubSupportBlockProps }
   | { type: "abm-split-hero"; props: AbmSplitHeroBlockProps }
   | { type: "abm-phone-showcase"; props: AbmPhoneShowcaseBlockProps }
   | { type: "abm-solution-tabs"; props: AbmSolutionTabsBlockProps }

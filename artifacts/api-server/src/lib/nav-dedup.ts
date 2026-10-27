@@ -28,6 +28,7 @@ export const SELF_NAV_TYPES = new Set([
   "dso-heartland-hero",
   "invite-demo-hero",
   "kit-hero",
+  "hub-hero",
   "abm-split-hero",
   "hero",
   "cinematic-video-hero",

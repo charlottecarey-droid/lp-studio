@@ -336,6 +336,11 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "kit-contents": ["features", "media"],
   "kit-steps": ["features"],
   "kit-support": ["cta"],
+  // Content Hub family (Oct 2026): ungated resource library (PDFs, videos, links).
+  "hub-hero": ["hero", "media", "cta"],
+  "hub-featured": ["media", "features"],
+  "hub-library": ["features", "media"],
+  "hub-support": ["cta"],
   // ABM account-page family (Oct 2026): brand-aware enterprise 1:1 account page.
   "abm-split-hero": ["hero", "media", "cta"],
   "abm-phone-showcase": ["features", "media"],

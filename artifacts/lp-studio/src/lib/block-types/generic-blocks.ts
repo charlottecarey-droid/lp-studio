@@ -5032,6 +5032,13 @@ export type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockK
 export type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
 export type { KitTileFit, KitTileFrame } from "@/blocks/kit/KitProductTile";
 
+/* ── Content Hub family (Oct 2026): ungated resource library of PDFs, videos and links. */
+export type { HubHeroBlockProps, HubNavLink, HubFact } from "@/blocks/BlockHubHero";
+export type { HubFeaturedBlockProps } from "@/blocks/BlockHubFeatured";
+export type { HubLibraryBlockProps, HubSection } from "@/blocks/BlockHubLibrary";
+export type { HubSupportBlockProps } from "@/blocks/BlockHubSupport";
+export type { HubAsset, HubAssetKind } from "@/blocks/hub/hub-assets";
+
 /* ── ABM account-page family (Oct 2026): brand-aware replica of the enterprise 1:1 account page idiom. */
 export type { AbmSplitHeroBlockProps } from "@/blocks/BlockAbmSplitHero";
 export type { AbmPhoneShowcaseBlockProps, AbmPillar } from "@/blocks/BlockAbmPhoneShowcase";

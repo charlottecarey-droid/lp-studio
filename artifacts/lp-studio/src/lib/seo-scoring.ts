@@ -120,6 +120,8 @@ export const HERO_TYPES = new Set([
   "invite-demo-hero",
   // Kit family self-nav hero (Oct 2026).
   "kit-hero",
+  // Content Hub family self-nav hero (Oct 2026).
+  "hub-hero",
   // ABM account-page family self-nav hero (Oct 2026).
   "abm-split-hero",
 ]);
@@ -139,6 +141,8 @@ export const CTA_TYPES = new Set([
   "invite-reserve",
   // Kit family close (support CTA).
   "kit-support",
+  // Content Hub close: mailto pill + help-center link (Oct 2026).
+  "hub-support",
   // ABM account-page family: ROI band + ratings close carry the page CTA.
   "abm-roi-stats", "abm-ratings-cta",
 ]);
@@ -245,6 +249,8 @@ export const STRUCTURED_TYPES = new Set([
   "invite-details", "invite-agenda", "invite-showcase",
   // Kit family structured sections.
   "kit-contents", "kit-steps",
+  // Content Hub family (Oct 2026): a sectioned resource library + its spotlight.
+  "hub-featured", "hub-library",
   // ABM account-page family structured sections.
   "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-feature-grid", "abm-reading-tiles",
 ]);

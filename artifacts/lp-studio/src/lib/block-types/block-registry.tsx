@@ -182,6 +182,10 @@ import type {
   KitContentsBlockProps,
   KitStepsBlockProps,
   KitSupportBlockProps,
+  HubHeroBlockProps,
+  HubFeaturedBlockProps,
+  HubLibraryBlockProps,
+  HubSupportBlockProps,
   AbmSplitHeroBlockProps,
   AbmPhoneShowcaseBlockProps,
   AbmSolutionTabsBlockProps,
@@ -228,6 +232,10 @@ import { INVITE_SHOWCASE_DEFAULT_PROPS } from "@/blocks/BlockInviteShowcase";
 import { INVITE_PROOF_DEFAULT_PROPS } from "@/blocks/BlockInviteProof";
 import { INVITE_RESERVE_DEFAULT_PROPS } from "@/blocks/BlockInviteReserve";
 import { KIT_HERO_DEFAULT_PROPS } from "@/blocks/BlockKitHero";
+import { HUB_HERO_DEFAULT_PROPS } from "@/blocks/BlockHubHero";
+import { HUB_FEATURED_DEFAULT_PROPS } from "@/blocks/BlockHubFeatured";
+import { HUB_LIBRARY_DEFAULT_PROPS } from "@/blocks/BlockHubLibrary";
+import { HUB_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockHubSupport";
 import { KIT_CONTENTS_DEFAULT_PROPS } from "@/blocks/BlockKitContents";
 import { KIT_STEPS_DEFAULT_PROPS } from "@/blocks/BlockKitSteps";
 import { KIT_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockKitSupport";
@@ -9372,6 +9380,43 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#D9E84A" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="36" height="7" rx="2" fill="#ffffff" /><rect x="62" y="10" width="50" height="52" rx="5" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="68" y="16" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="25" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="34" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="43" width="38" height="1.5" fill="#ffffff" opacity="0.3" /><rect x="68" y="50" width="38" height="7" rx="3.5" fill="#D9E84A" /></svg>
     ),
   },
+  // ── Content Hub family (Oct 2026): ungated resource library (PDFs, videos, links) ──
+  {
+    type: "hub-hero",
+    label: "Hero — Content Hub",
+    category: "Showcase",
+    defaultProps: (): HubHeroBlockProps => structuredClone(HUB_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="8" width="14" height="3" rx="1" fill="#ffffff" opacity="0.9" /><rect x="42" y="6" width="36" height="8" rx="4" fill="#ffffff" opacity="0.12" /><rect x="43" y="7" width="17" height="6" rx="3" fill="#D9E84A" /><rect x="96" y="6" width="16" height="8" rx="4" fill="none" stroke="#ffffff" strokeOpacity="0.3" /><rect x="8" y="24" width="12" height="1.5" fill="#D9E84A" opacity="0.8" /><rect x="8" y="30" width="56" height="7" rx="2" fill="#ffffff" /><rect x="8" y="40" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="54" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="38" y="54" width="22" height="8" rx="4" fill="none" stroke="#ffffff" strokeOpacity="0.3" /></svg>
+    ),
+  },
+  {
+    type: "hub-featured",
+    label: "Content Hub — Featured Resource",
+    category: "Showcase",
+    defaultProps: (): HubFeaturedBlockProps => structuredClone(HUB_FEATURED_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F4F3EF" rx="4" /><rect x="8" y="10" width="104" height="50" rx="6" fill="#001814" /><rect x="16" y="20" width="10" height="1.5" fill="#D9E84A" /><rect x="16" y="26" width="36" height="5" rx="2" fill="#ffffff" /><rect x="16" y="34" width="30" height="2" rx="1" fill="#ffffff" opacity="0.4" /><rect x="16" y="44" width="22" height="7" rx="3.5" fill="#D9E84A" /><rect x="64" y="10" width="48" height="50" fill="#0b2a22" /><circle cx="88" cy="35" r="8" fill="#D9E84A" /><path d="M86 31 L92 35 L86 39 Z" fill="#001814" /></svg>
+    ),
+  },
+  {
+    type: "hub-library",
+    label: "Content Hub — Resource Library",
+    category: "Showcase",
+    defaultProps: (): HubLibraryBlockProps => structuredClone(HUB_LIBRARY_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F4F3EF" rx="4" /><rect x="8" y="8" width="40" height="5" rx="2" fill="#0b0b0f" /><rect x="8" y="22" width="22" height="3" rx="1" fill="#0b0b0f" opacity="0.8" /><rect x="8" y="29" width="22" height="3" rx="1" fill="#0b0b0f" opacity="0.35" /><rect x="8" y="36" width="22" height="3" rx="1" fill="#0b0b0f" opacity="0.35" /><rect x="38" y="20" width="22" height="20" rx="3" fill="#ffffff" stroke="#0b0b0f" strokeOpacity="0.1" /><rect x="64" y="20" width="22" height="20" rx="3" fill="#ffffff" stroke="#0b0b0f" strokeOpacity="0.1" /><rect x="90" y="20" width="22" height="20" rx="3" fill="#ffffff" stroke="#0b0b0f" strokeOpacity="0.1" /><circle cx="70" cy="34" r="3" fill="#D9E84A" /><rect x="38" y="44" width="22" height="20" rx="3" fill="#ffffff" stroke="#0b0b0f" strokeOpacity="0.1" /><rect x="64" y="44" width="22" height="20" rx="3" fill="#ffffff" stroke="#0b0b0f" strokeOpacity="0.1" /><rect x="90" y="44" width="22" height="20" rx="3" fill="#ffffff" stroke="#0b0b0f" strokeOpacity="0.1" /></svg>
+    ),
+  },
+  {
+    type: "hub-support",
+    label: "Content Hub — Questions & Support",
+    category: "CTA",
+    defaultProps: (): HubSupportBlockProps => structuredClone(HUB_SUPPORT_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="52" y="14" width="16" height="1.5" fill="#D9E84A" /><rect x="30" y="22" width="60" height="7" rx="2" fill="#ffffff" /><rect x="40" y="33" width="40" height="2" rx="1" fill="#ffffff" opacity="0.4" /><rect x="32" y="44" width="28" height="8" rx="4" fill="#D9E84A" /><rect x="64" y="44" width="24" height="8" rx="4" fill="none" stroke="#ffffff" strokeOpacity="0.3" /></svg>
+    ),
+  },
   // ── Kit family (Oct 2026): the page a physical kit's QR code opens ──────
   {
     type: "kit-hero",
@@ -9838,6 +9883,10 @@ export function createBlock(type: "invite-showcase"): Extract<PageBlock, { type:
 export function createBlock(type: "invite-proof"): Extract<PageBlock, { type: "invite-proof" }>;
 export function createBlock(type: "invite-reserve"): Extract<PageBlock, { type: "invite-reserve" }>;
 export function createBlock(type: "kit-hero"): Extract<PageBlock, { type: "kit-hero" }>;
+export function createBlock(type: "hub-hero"): Extract<PageBlock, { type: "hub-hero" }>;
+export function createBlock(type: "hub-featured"): Extract<PageBlock, { type: "hub-featured" }>;
+export function createBlock(type: "hub-library"): Extract<PageBlock, { type: "hub-library" }>;
+export function createBlock(type: "hub-support"): Extract<PageBlock, { type: "hub-support" }>;
 export function createBlock(type: "kit-contents"): Extract<PageBlock, { type: "kit-contents" }>;
 export function createBlock(type: "kit-steps"): Extract<PageBlock, { type: "kit-steps" }>;
 export function createBlock(type: "kit-support"): Extract<PageBlock, { type: "kit-support" }>;
@@ -10230,6 +10279,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "invite-proof": return { id, type: "invite-proof", props: props as InviteProofBlockProps };
     case "invite-reserve": return { id, type: "invite-reserve", props: props as InviteReserveBlockProps };
     case "kit-hero": return { id, type: "kit-hero", props: props as KitHeroBlockProps };
+    case "hub-hero": return { id, type: "hub-hero", props: props as HubHeroBlockProps };
+    case "hub-featured": return { id, type: "hub-featured", props: props as HubFeaturedBlockProps };
+    case "hub-library": return { id, type: "hub-library", props: props as HubLibraryBlockProps };
+    case "hub-support": return { id, type: "hub-support", props: props as HubSupportBlockProps };
     case "kit-contents": return { id, type: "kit-contents", props: props as KitContentsBlockProps };
     case "kit-steps": return { id, type: "kit-steps", props: props as KitStepsBlockProps };
     case "kit-support": return { id, type: "kit-support", props: props as KitSupportBlockProps };

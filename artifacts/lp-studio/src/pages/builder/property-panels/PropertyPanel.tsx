@@ -215,6 +215,7 @@ import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
 import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
 import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
 import { KitHeroPanel, KitContentsPanel, KitStepsPanel, KitSupportPanel } from "./KitPanels";
+import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel } from "./HubPanels";
 import {
   AbmSplitHeroPanel,
   AbmPhoneShowcasePanel,
@@ -1694,6 +1695,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "kit-hero":
         return (
           <KitHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "hub-hero":
+        return (
+          <HubHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "hub-featured":
+        return (
+          <HubFeaturedPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "hub-library":
+        return (
+          <HubLibraryPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "hub-support":
+        return (
+          <HubSupportPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

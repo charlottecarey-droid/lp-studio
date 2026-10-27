@@ -165,6 +165,10 @@ import { BlockInviteShowcase } from "./BlockInviteShowcase";
 import { BlockInviteProof } from "./BlockInviteProof";
 import { BlockInviteReserve } from "./BlockInviteReserve";
 import { BlockKitHero } from "./BlockKitHero";
+import { BlockHubHero } from "./BlockHubHero";
+import { BlockHubFeatured } from "./BlockHubFeatured";
+import { BlockHubLibrary } from "./BlockHubLibrary";
+import { BlockHubSupport } from "./BlockHubSupport";
 import { BlockKitContents } from "./BlockKitContents";
 import { BlockKitSteps } from "./BlockKitSteps";
 import { BlockKitSupport } from "./BlockKitSupport";
@@ -505,6 +509,8 @@ export const NO_REVEAL = new Set<string>([
   "invite-demo-hero", "invite-details", "invite-agenda", "invite-showcase", "invite-proof", "invite-reserve",
   // Kit family: self-nav hero with floating product stage + sections with their own staggered reveals.
   "kit-hero", "kit-contents", "kit-steps", "kit-support",
+  // Content Hub family: self-nav hero with its own entrance + sections with staggered card reveals.
+  "hub-hero", "hub-featured", "hub-library", "hub-support",
   // ABM account-page family: self-nav hero + sections with their own staggered reveals.
   "abm-split-hero", "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-story-quote", "abm-logo-strip", "abm-roi-stats", "abm-feature-grid", "abm-reading-tiles", "abm-account-team", "abm-ratings-cta",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
@@ -1766,6 +1772,51 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "kit-contents":
         return (
           <BlockKitContents
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "hub-hero":
+        return (
+          <BlockHubHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "hub-featured":
+        return (
+          <BlockHubFeatured
+            props={block.props}
+            brand={brand}
+            blockId={block.id}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "hub-library":
+        return (
+          <BlockHubLibrary
+            props={block.props}
+            brand={brand}
+            blockId={block.id}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "hub-support":
+        return (
+          <BlockHubSupport
             props={block.props}
             brand={brand}
             onFieldChange={onBlockChange
