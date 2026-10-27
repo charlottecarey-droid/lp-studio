@@ -33,7 +33,7 @@ const genericBlocks: Block[] = [
     id: gsid("hub-hero", 1),
     type: "hub-hero",
     props: {
-      surface: "dark",
+      theme: "site",
       navLinks: [
         { label: "For teams", url: "/teams" },
         { label: "For customers", url: "/customers" },
@@ -55,7 +55,7 @@ const genericBlocks: Block[] = [
     id: gsid("hub-featured", 2),
     type: "hub-featured",
     props: {
-      surface: "light",
+      theme: "site",
       kicker: "Start here",
       asset: {
         kind: "video",
@@ -75,7 +75,7 @@ const genericBlocks: Block[] = [
     id: gsid("hub-library", 3),
     type: "hub-library",
     props: {
-      surface: "light",
+      theme: "site",
       kicker: "The library",
       headline: "Pick the stage you're at.",
       subheadline: "Every guide, video and reference sheet, grouped the way you'll actually use them.",
@@ -121,7 +121,7 @@ const genericBlocks: Block[] = [
     id: gsid("hub-support", 4),
     type: "hub-support",
     props: {
-      surface: "dark",
+      theme: "site",
       kicker: "Questions?",
       headline: "Can't find what you need?\nJust ask.",
       body: "Our team answers every message — usually within a business day.",
@@ -137,7 +137,6 @@ const genericBlocks: Block[] = [
 
 /* ── Dandy Sleep shared bits ────────────────────────────────────────────── */
 const SLEEP_EMAIL = "sleep@meetdandy.com";
-const DANDY_LOGO_WHITE = "/dandy-logo-white.svg";
 const SLEEP_NAV = [
   { label: "For dentists", url: "/dentists" },
   { label: "For patients", url: "/patients" },
@@ -194,8 +193,7 @@ const dentistBlocks: Block[] = [
     id: dsid("hub-hero", 1),
     type: "hub-hero",
     props: {
-      surface: "dark",
-      logoUrl: DANDY_LOGO_WHITE,
+      theme: "site",
       navLinks: SLEEP_NAV,
       navCtaText: "Email support",
       navCtaUrl: `mailto:${SLEEP_EMAIL}`,
@@ -214,7 +212,7 @@ const dentistBlocks: Block[] = [
     id: dsid("hub-featured", 2),
     type: "hub-featured",
     props: {
-      surface: "light",
+      theme: "site",
       kicker: "Start here",
       asset: {
         key: "patient-journey",
@@ -235,7 +233,7 @@ const dentistBlocks: Block[] = [
     id: dsid("hub-library", 3),
     type: "hub-library",
     props: {
-      surface: "light",
+      theme: "site",
       kicker: "The library",
       headline: "Pick the stage you're at.",
       subheadline: "Guides, videos and references, grouped by where you are in the Dandy Sleep workflow.",
@@ -312,7 +310,7 @@ const dentistBlocks: Block[] = [
     id: dsid("hub-support", 4),
     type: "hub-support",
     props: {
-      surface: "dark",
+      theme: "site",
       kicker: "Questions?",
       headline: "Reach out to the\nDandy Sleep team.",
       body: "Email us and a member of the team will get back to you — usually within a business day.",
@@ -336,8 +334,7 @@ const patientBlocks: Block[] = [
     id: psid("hub-hero", 1),
     type: "hub-hero",
     props: {
-      surface: "dark",
-      logoUrl: DANDY_LOGO_WHITE,
+      theme: "site",
       navLinks: SLEEP_NAV,
       navCtaText: "Email us",
       navCtaUrl: `mailto:${SLEEP_EMAIL}`,
@@ -356,7 +353,7 @@ const patientBlocks: Block[] = [
     id: psid("hub-featured", 2),
     type: "hub-featured",
     props: {
-      surface: "light",
+      theme: "site",
       kicker: "Video",
       asset: {
         key: "mads-explainer",
@@ -377,7 +374,7 @@ const patientBlocks: Block[] = [
     id: psid("hub-library", 3),
     type: "hub-library",
     props: {
-      surface: "light",
+      theme: "site",
       kicker: "Your guide",
       headline: "What to know,\nin four short reads.",
       subheadline: "Open any guide right here, or download it to keep.",
@@ -405,7 +402,7 @@ const patientBlocks: Block[] = [
     id: psid("hub-support", 4),
     type: "hub-support",
     props: {
-      surface: "dark",
+      theme: "site",
       kicker: "Questions?",
       headline: "We're here to help.",
       body: "Email us for more information about your treatment or your appliance.",
@@ -426,7 +423,7 @@ export const CONTENT_HUB_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     title: "Content Hub — Resource Library",
     templateLabel: "Content Hub — Resource Library",
     templateDescription:
-      "An ungated resource hub: brand-dark hero with an audience switch in its own top bar, a 'start here' spotlight (video or PDF), a sectioned library with a sticky rail, search and in-page PDF / video viewing with downloads, and a questions-and-support close. Per-resource views and downloads are tracked on the page's analytics.",
+      "An ungated resource hub in the brand-site style (four presets: Brand site, Editorial dark, Gallery, Index): a hero with an audience switch in its own top bar, a 'start here' spotlight (video or PDF), a sectioned library with a sticky rail, search and in-page PDF / video viewing with downloads, and a questions-and-support close. Per-resource views and downloads are tracked on the page's analytics.",
     ogImage: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=1200&h=630&fit=crop",
     industry: null,
     premiumRank: 13,

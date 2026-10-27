@@ -2217,7 +2217,9 @@ async function runMigrationsBody(): Promise<void> {
       // real Horizon Store page and shows the app icon.
       // v44: Content Hub family — generic "Content Hub" template plus the two
       // Dandy Sleep resource hubs (dentists / patients).
-      const SEED_MARKER = "global_templates_seed_v44";
+      // v45: hub blocks carry a style preset (`theme: "site"`) instead of
+      // per-block surfaces.
+      const SEED_MARKER = "global_templates_seed_v45";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
