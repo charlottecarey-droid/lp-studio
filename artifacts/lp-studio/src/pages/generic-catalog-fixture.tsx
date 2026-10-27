@@ -109,6 +109,12 @@ export default function GenericCatalogFixture() {
   }
 
   const items = seed.map(buildItem);
+  // Dev-only: a designer can preview a seed under a real brand by setting
+  // `window.__GENERIC_BRAND__ = { primaryColor, accentColor, … }` before the
+  // seed loads. Unset = the neutral DEFAULT_BRAND (the contract this fixture
+  // exists to check).
+  const brandOverride = typeof window !== "undefined" ? (window as unknown as { __GENERIC_BRAND__?: Partial<typeof DEFAULT_BRAND> }).__GENERIC_BRAND__ : undefined;
+  const brand = brandOverride ? { ...DEFAULT_BRAND, ...brandOverride } : DEFAULT_BRAND;
 
   return (
     <div data-testid="generic-catalog-fixture" data-seed-count={items.length}>
@@ -120,7 +126,7 @@ export default function GenericCatalogFixture() {
             data-has-registry-def={item.hasRegistryDef ? "1" : "0"}
           >
             <BlockErrorBoundary blockType={item.type}>
-              <BlockRenderer block={toPageBlock(item)} brand={DEFAULT_BRAND} />
+              <BlockRenderer block={toPageBlock(item)} brand={brand} />
             </BlockErrorBoundary>
           </section>
         ))}
