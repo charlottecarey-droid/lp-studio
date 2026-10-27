@@ -1953,6 +1953,13 @@ function normalizeRootRedirectUrl(input: unknown): { ok: true; value: string | n
   if (typeof input !== "string") return { ok: false, error: "rootRedirectUrl must be a string" };
   const trimmed = input.trim();
   if (!trimmed) return { ok: true, value: null };
+  // A site-relative path ("/dentists") sends the root of the microsite domain
+  // to one of the tenant's own pages on the SAME host — so the setting keeps
+  // working when the tenant moves from the managed *.lpstudio.ai address to a
+  // custom domain. Protocol-relative ("//evil.com") is deliberately not a path.
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return { ok: true, value: trimmed };
+  }
   try {
     const u = new URL(trimmed);
     if (u.protocol !== "http:" && u.protocol !== "https:") {
@@ -1960,7 +1967,7 @@ function normalizeRootRedirectUrl(input: unknown): { ok: true; value: string | n
     }
     return { ok: true, value: trimmed };
   } catch {
-    return { ok: false, error: "rootRedirectUrl must be a valid URL (e.g. https://www.example.com)" };
+    return { ok: false, error: "rootRedirectUrl must be a valid URL (e.g. https://www.example.com) or a site path (e.g. /home)" };
   }
 }
 
