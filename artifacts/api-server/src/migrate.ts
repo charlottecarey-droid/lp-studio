@@ -2215,7 +2215,9 @@ async function runMigrationsBody(): Promise<void> {
       // ABM-family 1:1 account microsite (11 generic abm-* section blocks).
       // v43: quest-kit template — the Immersa step's store listing links to the
       // real Horizon Store page and shows the app icon.
-      const SEED_MARKER = "global_templates_seed_v43";
+      // v44: Content Hub family — generic "Content Hub" template plus the two
+      // Dandy Sleep resource hubs (dentists / patients).
+      const SEED_MARKER = "global_templates_seed_v44";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
