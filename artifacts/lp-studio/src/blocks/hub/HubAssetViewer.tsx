@@ -127,7 +127,7 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
                     download=""
                     onClick={() => onDownload?.(asset)}
                     className={`${HUB_PILL_SM_CLASS} hidden sm:inline-flex`}
-                    style={{ background: dark.accent, color: palette.onAccentFill }}
+                    style={{ ...hubPillStyle(palette, "solid", "sm"), background: dark.accent, color: palette.onAccentFill, boxShadow: "none" }}
                   >
                     <Download className="h-4 w-4" aria-hidden />
                     Download
@@ -139,7 +139,7 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
                   rel="noopener noreferrer"
                   onClick={() => onOpenExternal?.(asset)}
                   className={`${HUB_PILL_SM_CLASS} hidden sm:inline-flex`}
-                  style={{ background: "transparent", color: dark.text, border: `1px solid ${dark.hairline}` }}
+                  style={{ ...hubPillStyle(palette, "ghost", "sm"), background: "transparent", color: dark.text, border: `1px solid ${dark.hairline}` }}
                   aria-label="Open in a new tab"
                 >
                   <ExternalLink className="h-4 w-4" aria-hidden />
@@ -171,11 +171,11 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
             {(download || href) && (
               <div className="flex items-center gap-2 px-4 py-3 sm:hidden" style={{ borderTop: `1px solid ${dark.hairline}` }}>
                 {download && (
-                  <a href={download} download="" onClick={() => onDownload?.(asset)} className={`${HUB_PILL_SM_CLASS} flex-1`} style={hubPillStyle({ ...palette, accentFill: dark.accent }, "solid")}>
+                  <a href={download} download="" onClick={() => onDownload?.(asset)} className={`${HUB_PILL_SM_CLASS} flex-1`} style={{ ...hubPillStyle(palette, "solid", "sm"), background: dark.accent, color: palette.onAccentFill, boxShadow: "none" }}>
                     <Download className="h-4 w-4" aria-hidden /> Download
                   </a>
                 )}
-                <a href={href} target="_blank" rel="noopener noreferrer" onClick={() => onOpenExternal?.(asset)} className={`${HUB_PILL_SM_CLASS} flex-1`} style={{ background: "transparent", color: dark.text, border: `1px solid ${dark.hairline}` }}>
+                <a href={href} target="_blank" rel="noopener noreferrer" onClick={() => onOpenExternal?.(asset)} className={`${HUB_PILL_SM_CLASS} flex-1`} style={{ ...hubPillStyle(palette, "ghost", "sm"), background: "transparent", color: dark.text, border: `1px solid ${dark.hairline}` }}>
                   <ExternalLink className="h-4 w-4" aria-hidden /> New tab
                 </a>
               </div>

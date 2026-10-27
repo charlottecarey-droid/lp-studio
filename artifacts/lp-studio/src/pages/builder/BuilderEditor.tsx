@@ -2416,6 +2416,27 @@ export default function BuilderEditor() {
   // the undo history (Cmd-Z reverts the whole propagation in one step). The
   // util's optional `fields: "all" | "style"` is wired for "all" here; flip to
   // "style" later for a "match styling only" affordance.
+  // Content Hub family: one style preset on every hub-* block (the hub blocks
+  // style themselves from `theme`; a page reads as one piece only when every
+  // block carries the same value). Per-block surface / colour overrides on
+  // the OTHER blocks are cleared so the preset's own surfaces show through.
+  const applyHubStyleToAll = useCallback((style: { theme?: string; accentColor?: string }) => {
+    if (!selectedBlock) return;
+    const targets = blocks.filter((b) => b.id !== selectedBlock.id && String(b.type).startsWith("hub-")).length;
+    if (targets === 0) {
+      toast({ title: "No other hub blocks on the page", description: "Add another Content Hub block to apply this style to it." });
+      return;
+    }
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id === selectedBlock.id || !String(b.type).startsWith("hub-")) return b;
+        const { surface: _s, bgColor: _b, textColor: _t, ...rest } = b.props as Record<string, unknown>;
+        return { ...b, props: { ...rest, theme: style.theme, accentColor: style.accentColor } } as typeof b;
+      }),
+    );
+    toast({ title: "Style applied", description: `Applied this style to ${targets} other hub block${targets === 1 ? "" : "s"}. Press ⌘Z to undo.` });
+  }, [selectedBlock, blocks, setBlocks, toast]);
+
   const applyCtaToAll = useCallback(() => {
     if (!selectedBlock) return;
     if (!blockHasCta(selectedBlock.type, selectedBlock.props)) {
@@ -3887,6 +3908,7 @@ export default function BuilderEditor() {
                  microsite workflow, so we only surface it there for now.
                  To enable app-wide later, pass `applyCtaToAll` unconditionally. */
               onApplyCtaToAll={isMicrosite ? applyCtaToAll : undefined}
+              onApplyHubStyleToAll={applyHubStyleToAll}
             />
           ) : (
             <div className="flex-1 flex flex-col min-h-0">

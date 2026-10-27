@@ -215,7 +215,7 @@ import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
 import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
 import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
 import { KitHeroPanel, KitContentsPanel, KitStepsPanel, KitSupportPanel } from "./KitPanels";
-import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel } from "./HubPanels";
+import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel, type ApplyHubStyle } from "./HubPanels";
 import {
   AbmSplitHeroPanel,
   AbmPhoneShowcasePanel,
@@ -310,6 +310,8 @@ interface Props {
   brand?: BrandConfig;
   pageId?: number;
   onApplyCtaToAll?: () => void;
+  /** Content Hub family: set one style preset on every hub-* block of the page. */
+  onApplyHubStyleToAll?: ApplyHubStyle;
   /** Page-level default CTA (lp_pages.cta_default). Used to compute each block's
    *  effective CTA source (tenant → page → block) for the source indicator. */
   pageCta?: CtaConfig | null;
@@ -1050,7 +1052,7 @@ function StageReorderList({
   );
 }
 
-export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll, pageCta, extraTabs }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll, onApplyHubStyleToAll, pageCta, extraTabs }: Props) {
   // Resolve once per render so every child panel + every inline Background
   // <Select> below shares the same brand-aware label set.
   const bgOptions = getBgOptions(brand);
@@ -1704,6 +1706,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <HubHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyStyleToAll={onApplyHubStyleToAll}
           />
         );
       case "hub-featured":
@@ -1711,6 +1714,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <HubFeaturedPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyStyleToAll={onApplyHubStyleToAll}
           />
         );
       case "hub-library":
@@ -1718,6 +1722,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <HubLibraryPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyStyleToAll={onApplyHubStyleToAll}
           />
         );
       case "hub-support":
@@ -1725,6 +1730,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <HubSupportPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyStyleToAll={onApplyHubStyleToAll}
           />
         );
       case "kit-contents":

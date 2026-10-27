@@ -9387,7 +9387,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "Showcase",
     defaultProps: (): HubHeroBlockProps => structuredClone(HUB_HERO_DEFAULT_PROPS),
     thumbnail: () => (
-      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="8" width="14" height="3" rx="1" fill="#ffffff" opacity="0.9" /><rect x="42" y="6" width="36" height="8" rx="4" fill="#ffffff" opacity="0.12" /><rect x="43" y="7" width="17" height="6" rx="3" fill="#D9E84A" /><rect x="96" y="6" width="16" height="8" rx="4" fill="none" stroke="#ffffff" strokeOpacity="0.3" /><rect x="8" y="24" width="12" height="1.5" fill="#D9E84A" opacity="0.8" /><rect x="8" y="30" width="56" height="7" rx="2" fill="#ffffff" /><rect x="8" y="40" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="54" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="38" y="54" width="22" height="8" rx="4" fill="none" stroke="#ffffff" strokeOpacity="0.3" /></svg>
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FDFCFA" rx="4" /><rect width="120" height="16" fill="#001814" /><rect x="8" y="6" width="14" height="3" rx="1" fill="#ffffff" opacity="0.9" /><rect x="42" y="4" width="36" height="8" rx="4" fill="#ffffff" opacity="0.12" /><rect x="43" y="5" width="17" height="6" rx="3" fill="#D9E84A" /><rect x="96" y="4" width="16" height="8" rx="4" fill="none" stroke="#ffffff" strokeOpacity="0.4" /><rect x="8" y="24" width="18" height="4" rx="2" fill="#D9E84A" /><rect x="8" y="33" width="56" height="7" rx="2" fill="#003A30" /><rect x="8" y="43" width="44" height="7" rx="2" fill="#003A30" /><rect x="8" y="56" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="38" y="56" width="22" height="8" rx="4" fill="none" stroke="#003A30" strokeOpacity="0.7" /><rect x="76" y="24" width="36" height="40" rx="4" fill="#ECEAE6" /></svg>
     ),
   },
   {
@@ -9414,7 +9414,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "CTA",
     defaultProps: (): HubSupportBlockProps => structuredClone(HUB_SUPPORT_DEFAULT_PROPS),
     thumbnail: () => (
-      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="52" y="14" width="16" height="1.5" fill="#D9E84A" /><rect x="30" y="22" width="60" height="7" rx="2" fill="#ffffff" /><rect x="40" y="33" width="40" height="2" rx="1" fill="#ffffff" opacity="0.4" /><rect x="32" y="44" width="28" height="8" rx="4" fill="#D9E84A" /><rect x="64" y="44" width="24" height="8" rx="4" fill="none" stroke="#ffffff" strokeOpacity="0.3" /></svg>
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#EEF1EF" rx="4" /><rect x="50" y="12" width="20" height="4" rx="2" fill="#D9E84A" /><rect x="30" y="22" width="60" height="7" rx="2" fill="#003A30" /><rect x="40" y="33" width="40" height="2" rx="1" fill="#003A30" opacity="0.4" /><rect x="32" y="44" width="28" height="8" rx="4" fill="#D9E84A" /><rect x="64" y="44" width="24" height="8" rx="4" fill="none" stroke="#003A30" strokeOpacity="0.7" /></svg>
     ),
   },
   // ── Kit family (Oct 2026): the page a physical kit's QR code opens ──────

@@ -20,7 +20,7 @@ import { StaticRenderContext } from "@/lib/reveal-fallback";
 import { DEFAULT_BRAND } from "@/lib/brand-config";
 import { relativeLuminance } from "@/lib/brand-config";
 import { BLOCK_REGISTRY } from "@/lib/block-types";
-import { resolveHubPalette } from "@/lib/hub-theme";
+import { HUB_THEMES, hubTokens, resolveHubPalette } from "@/lib/hub-theme";
 import { BlockHubHero, activeNavIndex } from "./BlockHubHero";
 import { BlockHubFeatured } from "./BlockHubFeatured";
 import { BlockHubLibrary, filterAssets } from "./BlockHubLibrary";
@@ -210,5 +210,69 @@ describe("hub-assets — href / download / key helpers", () => {
     expect(buildAssetEventPayload({ pageId: 7, sessionId: "s", blockId: "b" }, { kind: "pdf", title: "A Guide" }, "download")).toEqual({
       pageId: 7, sessionId: "s", blockId: "b", assetKey: "a-guide", assetTitle: "A Guide", assetKind: "pdf", action: "download",
     });
+  });
+});
+
+describe("Hub family — style presets", () => {
+  const DANDY_LIKE = { ...DEFAULT_BRAND, primaryColor: "#113D33", accentColor: "#C8E63A", textColor: "#113D33", pageBackground: "#FDFCFA", cardBackground: "#ECEAE6", borderColor: "#ECEAE6" };
+
+  it("defaults to the brand-site preset; an unknown value falls back to it", () => {
+    expect(hubTokens(undefined).theme).toBe("site");
+    expect(hubTokens("nope").theme).toBe("site");
+    expect(HUB_THEMES).toEqual(["site", "midnight", "gallery", "mono"]);
+  });
+
+  it.each(HUB_THEMES)("%s: every block renders on the neutral brand with no Dandy leak and nothing hidden", (theme) => {
+    for (const [type, Component] of FAMILY) {
+      const html = render(Component as never, { ...defaultsFor(type), theme });
+      expect(html).not.toMatch(DANDY_LEAK);
+      expect(html).not.toMatch(/opacity:\s*0[;"]/);
+      expect(html).not.toMatch(/<img[^>]*src=""/);
+      expect(html).toContain("sticky top-0".slice(0, type === "hub-hero" ? 10 : 0));
+    }
+  });
+
+  it("site: the hero sits on the brand's page background with the headline in the brand primary; the top bar is brand-dark", () => {
+    const pal = resolveHubPalette({ theme: "site" }, DANDY_LIKE, "hero");
+    expect(pal.isDark).toBe(false);
+    expect(pal.bg.toUpperCase()).toBe("#FDFCFA");
+    expect(pal.heading.toUpperCase()).toBe("#113D33");
+    expect(pal.hairline.toUpperCase()).toBe("#ECEAE6");
+    // Luminous accent stays a FILL, never accent text on paper.
+    expect(pal.accentFill.toUpperCase()).toBe("#C8E63A");
+    expect(pal.accent.toUpperCase()).not.toBe("#C8E63A");
+    const html = render(BlockHubHero as never, { ...defaultsFor("hub-hero"), theme: "site" });
+    expect(html).toContain("text-transform:uppercase");
+    expect(html).toContain(`background:${resolveHubPalette({ theme: "site" }, DEFAULT_BRAND, "hero").dark.bg}`);
+  });
+
+  it("midnight keeps the dark hero / dark close; a per-block surface override still wins over the preset", () => {
+    expect(resolveHubPalette({ theme: "midnight" }, DEFAULT_BRAND, "hero").isDark).toBe(true);
+    expect(resolveHubPalette({ theme: "midnight" }, DEFAULT_BRAND, "support").isDark).toBe(true);
+    expect(resolveHubPalette({ theme: "midnight" }, DEFAULT_BRAND, "library").isDark).toBe(false);
+    expect(resolveHubPalette({ theme: "site", surface: "dark" }, DEFAULT_BRAND, "hero").isDark).toBe(true);
+    expect(resolveHubPalette({ theme: "midnight", surface: "light" }, DEFAULT_BRAND, "hero").isDark).toBe(false);
+  });
+
+  it("mono renders the library as hairline rows, the others as cards", () => {
+    const base = defaultsFor("hub-library");
+    const rows = render(BlockHubLibrary as never, { ...base, theme: "mono" });
+    expect(rows).toContain('class="hub-row ');
+    expect(rows).not.toContain('class="hub-card ');
+    expect((rows.match(/data-hub-asset=/g) ?? []).length).toBe(5);
+    const flat = render(BlockHubLibrary as never, { ...base, theme: "gallery" });
+    expect(flat).toContain('class="hub-card-flat ');
+    expect(flat).not.toContain('class="hub-row ');
+    const site = render(BlockHubLibrary as never, { ...base, theme: "site" });
+    expect(site).toContain('class="hub-card ');
+  });
+
+  it("gallery's featured spotlight renders the poster beside the copy; index renders an outline box", () => {
+    const gallery = render(BlockHubFeatured as never, { ...defaultsFor("hub-featured"), theme: "gallery" });
+    expect(gallery).toContain("aspect-ratio:16 / 10");
+    expect(gallery).toContain("data-hub-featured-cta");
+    const mono = render(BlockHubFeatured as never, { ...defaultsFor("hub-featured"), theme: "mono" });
+    expect(mono).toContain("border:1px solid");
+    expect(mono).toContain("data-hub-featured-cta");
   });
 });

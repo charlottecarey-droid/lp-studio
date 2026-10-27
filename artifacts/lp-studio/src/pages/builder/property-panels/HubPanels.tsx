@@ -11,7 +11,7 @@ import type { HubFeaturedBlockProps } from "@/blocks/BlockHubFeatured";
 import type { HubLibraryBlockProps, HubSection } from "@/blocks/BlockHubLibrary";
 import type { HubSupportBlockProps } from "@/blocks/BlockHubSupport";
 import type { HubAsset, HubAssetKind } from "@/blocks/hub/hub-assets";
-import type { HubStyleProps, HubSurface } from "@/lib/hub-theme";
+import { HUB_THEMES, HUB_THEME_LABELS, resolveHubTheme, type HubStyleProps, type HubSurface, type HubTheme } from "@/lib/hub-theme";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -25,18 +25,44 @@ import { suggestCopy } from "@/lib/copy-api";
 import { buildPdfUploadFormData } from "@/lib/pdf-upload";
 import { ColorField } from "./BlockSettingsPanel";
 import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
-import { FileText, Loader2, Plus, Upload } from "lucide-react";
+import { Copy, FileText, Loader2, Plus, Upload } from "lucide-react";
 
-/* ── Shared: surface + colours ─────────────────────────────────────────── */
-function HubStyleFields({ value, onChange, defaultSurface }: { value: HubStyleProps; onChange: (patch: Partial<HubStyleProps>) => void; defaultSurface: HubSurface }) {
+/* ── Shared: style preset + surface + colours ───────────────────────────── */
+export type ApplyHubStyle = (style: HubStyleProps) => void;
+
+function HubStyleFields({ value, onChange, onApplyToAll }: { value: HubStyleProps; onChange: (patch: Partial<HubStyleProps>) => void; onApplyToAll?: ApplyHubStyle }) {
+  const theme = resolveHubTheme(value.theme);
   return (
-    <PanelSection title="Surface & colours">
-      <Field label="Surface">
-        <Select value={value.surface ?? defaultSurface} onValueChange={(v) => onChange({ surface: v as HubSurface })}>
+    <PanelSection title="Style" defaultOpen>
+      <Field label="Style preset (keep the same on every hub block)">
+        <Select value={theme} onValueChange={(v) => onChange({ theme: v as HubTheme, surface: undefined, bgColor: undefined, textColor: undefined })}>
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="dark" className="text-xs">Brand dark (primary sunk toward black)</SelectItem>
-            <SelectItem value="light" className="text-xs">Paper (near-white tinted toward the primary)</SelectItem>
+            {HUB_THEMES.map((k) => (
+              <SelectItem key={k} value={k} className="text-xs">{HUB_THEME_LABELS[k].label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{HUB_THEME_LABELS[theme].hint}</p>
+      </Field>
+      {onApplyToAll && (
+        <button
+          type="button"
+          onClick={() => onApplyToAll({ theme, accentColor: value.accentColor })}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+          title="Set this preset on every Content Hub block on the page"
+        >
+          <Copy className="h-3 w-3" aria-hidden="true" /> Apply this style to every hub block
+        </button>
+      )}
+      <Field label="Surface (override the preset for this block)">
+        <Select value={value.surface ?? "auto"} onValueChange={(v) => onChange({ surface: v === "auto" ? undefined : (v as HubSurface) })}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto" className="text-xs">From the preset</SelectItem>
+            <SelectItem value="light" className="text-xs">Paper (light)</SelectItem>
+            <SelectItem value="tint" className="text-xs">Tinted paper</SelectItem>
+            <SelectItem value="dark" className="text-xs">Brand dark</SelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -161,7 +187,7 @@ export function HubAssetFields({ asset, onChange, showCopy = true }: { asset: Hu
 const NEW_ASSET: HubAsset = { kind: "pdf", title: "New resource", description: "", fileUrl: "", videoUrl: "", externalUrl: "", thumbnailUrl: "", meta: "", downloadable: true };
 
 /* ── Hero ────────────────────────────────────────────────────────────────── */
-export function HubHeroPanel({ props, onChange }: { props: HubHeroBlockProps; onChange: (p: HubHeroBlockProps) => void }) {
+export function HubHeroPanel({ props, onChange, onApplyStyleToAll }: { props: HubHeroBlockProps; onChange: (p: HubHeroBlockProps) => void; onApplyStyleToAll?: ApplyHubStyle }) {
   const update = (patch: Partial<HubHeroBlockProps>) => onChange({ ...props, ...patch });
   const links = props.navLinks ?? [];
   const facts = props.facts ?? [];
@@ -221,18 +247,18 @@ export function HubHeroPanel({ props, onChange }: { props: HubHeroBlockProps; on
       </PanelSection>
 
       <PanelSection title="Backdrop">
-        <Field label="Photo behind the copy (optional, dimmed)"><ImagePicker value={props.mediaImageUrl ?? ""} onChange={(v) => update({ mediaImageUrl: v })} placeholder="Upload or paste image URL" /></Field>
+        <Field label="Photo (optional — beside the copy, dimmed behind it, or a panel below, depending on the style)"><ImagePicker value={props.mediaImageUrl ?? ""} onChange={(v) => update({ mediaImageUrl: v })} placeholder="Upload or paste image URL" /></Field>
         <Field label="Photo alt text"><Input value={props.mediaImageAlt ?? ""} onChange={(e) => update({ mediaImageAlt: e.target.value })} className="h-8 text-xs" /></Field>
-        <Field label="Minimum height (vh)"><Input type="number" min={40} max={100} value={props.minHeightVh ?? 64} onChange={(e) => update({ minHeightVh: Math.max(40, Math.min(100, Number(e.target.value) || 64)) })} className="h-8 text-xs" /></Field>
+        <Field label="Minimum height (vh — Editorial dark style only)"><Input type="number" min={40} max={100} value={props.minHeightVh ?? 64} onChange={(e) => update({ minHeightVh: Math.max(40, Math.min(100, Number(e.target.value) || 64)) })} className="h-8 text-xs" /></Field>
       </PanelSection>
 
-      <HubStyleFields value={props} onChange={(p) => update(p)} defaultSurface="dark" />
+      <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>
   );
 }
 
 /* ── Featured ────────────────────────────────────────────────────────────── */
-export function HubFeaturedPanel({ props, onChange }: { props: HubFeaturedBlockProps; onChange: (p: HubFeaturedBlockProps) => void }) {
+export function HubFeaturedPanel({ props, onChange, onApplyStyleToAll }: { props: HubFeaturedBlockProps; onChange: (p: HubFeaturedBlockProps) => void; onApplyStyleToAll?: ApplyHubStyle }) {
   const update = (patch: Partial<HubFeaturedBlockProps>) => onChange({ ...props, ...patch });
   const asset = props.asset ?? { ...NEW_ASSET, kind: "video" as const };
   return (
@@ -243,13 +269,13 @@ export function HubFeaturedPanel({ props, onChange }: { props: HubFeaturedBlockP
         <Field label="Button label (blank = Watch / Read / Open)"><Input value={props.buttonLabel ?? ""} onChange={(e) => update({ buttonLabel: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="featured" /></Field>
       </PanelSection>
-      <HubStyleFields value={props} onChange={(p) => update(p)} defaultSurface="light" />
+      <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>
   );
 }
 
 /* ── Library ─────────────────────────────────────────────────────────────── */
-export function HubLibraryPanel({ props, onChange }: { props: HubLibraryBlockProps; onChange: (p: HubLibraryBlockProps) => void }) {
+export function HubLibraryPanel({ props, onChange, onApplyStyleToAll }: { props: HubLibraryBlockProps; onChange: (p: HubLibraryBlockProps) => void; onApplyStyleToAll?: ApplyHubStyle }) {
   const update = (patch: Partial<HubLibraryBlockProps>) => onChange({ ...props, ...patch });
   const sections = props.sections ?? [];
   const setSection = (si: number, patch: Partial<HubSection>) => update({ sections: sections.map((s, i) => (i === si ? { ...s, ...patch } : s)) });
@@ -333,13 +359,13 @@ export function HubLibraryPanel({ props, onChange }: { props: HubLibraryBlockPro
         </Button>
       </PanelSection>
 
-      <HubStyleFields value={props} onChange={(p) => update(p)} defaultSurface="light" />
+      <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>
   );
 }
 
 /* ── Support ─────────────────────────────────────────────────────────────── */
-export function HubSupportPanel({ props, onChange }: { props: HubSupportBlockProps; onChange: (p: HubSupportBlockProps) => void }) {
+export function HubSupportPanel({ props, onChange, onApplyStyleToAll }: { props: HubSupportBlockProps; onChange: (p: HubSupportBlockProps) => void; onApplyStyleToAll?: ApplyHubStyle }) {
   const update = (patch: Partial<HubSupportBlockProps>) => onChange({ ...props, ...patch });
   return (
     <div className="space-y-3">
@@ -366,7 +392,7 @@ export function HubSupportPanel({ props, onChange }: { props: HubSupportBlockPro
           <Field label="Link URL"><Input value={props.linkUrl ?? ""} onChange={(e) => update({ linkUrl: e.target.value })} className="h-8 text-xs" placeholder="https://…" /></Field>
         </div>
       </PanelSection>
-      <HubStyleFields value={props} onChange={(p) => update(p)} defaultSurface="dark" />
+      <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>
   );
 }

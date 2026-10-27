@@ -5,8 +5,8 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
 import { usePageContext } from "@/lib/page-context";
 import { InlineText } from "@/components/InlineText";
-import { HUB_BODY, HUB_CSS, HubKicker, hubDisplayStyle, resolveHubPalette, type HubStyleProps } from "@/lib/hub-theme";
-import { HubAssetCard } from "./hub/HubAssetCard";
+import { HUB_BODY, HUB_CSS, HUB_DISPLAY, HubKicker, hubDisplayStyle, resolveHubPalette, type HubStyleProps } from "@/lib/hub-theme";
+import { HubAssetCard, HubAssetRow } from "./hub/HubAssetCard";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { opensInViewer, trackHubAsset, type HubAsset } from "./hub/hub-assets";
 
@@ -15,12 +15,13 @@ import { opensInViewer, trackHubAsset, type HubAsset } from "./hub/hub-assets";
  *
  * The library itself: assets grouped into SECTIONS (a stage, a topic, an
  * audience), each with a kicker ("Step 1 · When your kit arrives"), a title
- * and a line, then a grid of asset cards. A sticky numbered rail on the left
- * lists the sections and tracks the one in view (cosmetic — content never
- * depends on it); on phones the rail becomes a horizontal row of chips.
- * An optional search box filters cards by title / description / meta.
+ * and a line, then the assets — a grid of cards (hairline or flat, from the
+ * preset) or hairline list rows (the "Index" preset). A sticky section rail
+ * on the left lists the sections and tracks the one in view (cosmetic —
+ * content never depends on it); on phones the rail becomes a horizontal row
+ * of chips. An optional search box filters by title / description / meta.
  *
- * Clicking a card opens the in-page viewer when the asset is ours (PDF file
+ * Clicking an asset opens the in-page viewer when the asset is ours (PDF file
  * or video), otherwise the link opens in a new tab. Every open / view /
  * download is beaconed to /api/lp/track/asset when the page is live.
  * -------------------------------------------------------------------------- */
@@ -54,7 +55,6 @@ interface Props {
 }
 
 export const HUB_LIBRARY_DEFAULT_PROPS: HubLibraryBlockProps = {
-  surface: "light",
   kicker: "The library",
   headline: "Pick the stage you're at.",
   subheadline: "Every guide, video and reference sheet, grouped the way you'll actually use them.",
@@ -100,13 +100,16 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
   const reduced = useReducedMotion() ?? false;
   const staticRender = useStaticRender();
   const anim = useAnimInitial();
-  const pal = resolveHubPalette(props, brand, "light");
+  const pal = resolveHubPalette(props, brand, "library");
+  const t = pal.t;
   const isEditor = !!onFieldChange;
   const { pageId, sessionId } = usePageContext();
   const ctx = { pageId, sessionId, blockId };
   const sections = props.sections ?? [];
   const layout = props.layout ?? "rail";
   const cols = props.columns === 2 ? 2 : 3;
+  const rows = t.cardStyle === "rows";
+  const flat = t.cardStyle === "flat";
   const [query, setQuery] = useState("");
   const [viewing, setViewing] = useState<HubAsset | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -178,8 +181,9 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
     }
   };
 
-  const gridClass = cols === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3";
+  const gridClass = rows ? "" : cols === 2 ? `grid ${flat ? "gap-8" : "gap-5"} grid-cols-1 sm:grid-cols-2` : `grid ${flat ? "gap-8 gap-y-10" : "gap-5"} grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`;
   const railWidth = layout === "rail" ? "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]" : "";
+  const pillsRail = t.railStyle === "pills";
 
   return (
     <section id={props.anchorId || undefined} className="hub-library relative" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY }}>
@@ -187,7 +191,7 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
       <div className="mx-auto w-full max-w-page px-6 py-16 lg:px-10 lg:py-24">
         {/* Header row */}
         <div className="mb-10 flex flex-col gap-6 lg:mb-14 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-[640px]">
+          <div className="max-w-[680px]">
             {(props.kicker || isEditor) && (
               <div className="mb-4">
                 <HubKicker palette={pal}>
@@ -195,7 +199,7 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
                 </HubKicker>
               </div>
             )}
-            <h2 className="whitespace-pre-line" style={hubDisplayStyle("clamp(2rem, 4vw, 3.4rem)")}>
+            <h2 className="whitespace-pre-line" style={hubDisplayStyle(pal, t.theme === "gallery" ? "clamp(2.2rem, 4.6vw, 4rem)" : "clamp(2rem, 4vw, 3.4rem)")}>
               <InlineText as="span" value={props.headline ?? ""} onUpdate={field("headline")} multiline />
             </h2>
             {(props.subheadline || isEditor) && (
@@ -213,8 +217,8 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={props.searchPlaceholder || "Search"}
-                className="h-12 w-full rounded-full pl-11 pr-4 text-[14px] outline-none"
-                style={{ background: pal.card, color: pal.text, border: `1px solid ${pal.hairline}` }}
+                className="h-12 w-full pl-11 pr-4 text-[14px] outline-none"
+                style={{ background: pal.card, color: pal.text, border: `1px solid ${pal.hairline}`, borderRadius: t.buttonRadius }}
                 data-hub-search
               />
             </label>
@@ -225,27 +229,25 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
           {/* Rail */}
           {layout === "rail" && sections.length > 0 && (
             <aside className="lg:sticky lg:top-24 lg:self-start">
-              <div className="hub-rail -mx-6 flex gap-2 overflow-x-auto px-6 pb-1 lg:mx-0 lg:flex-col lg:gap-0 lg:overflow-visible lg:px-0" style={{ borderLeft: undefined }}>
+              <div className={`hub-rail -mx-6 flex gap-2 overflow-x-auto px-6 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 ${pillsRail ? "lg:gap-1.5" : "lg:gap-0"}`}>
                 {sections.map((s, i) => {
                   const isActive = i === activeIdx;
                   const count = s.items?.length ?? 0;
+                  const style: React.CSSProperties = pillsRail
+                    ? { color: isActive ? pal.onAccentFill : pal.muted, background: isActive ? pal.accentFill : pal.cardTint, border: "1px solid transparent", borderRadius: 9999 }
+                    : { color: isActive ? pal.heading : pal.muted, borderColor: isActive ? pal.accentFill : pal.hairline, background: isActive ? pal.card : "transparent", border: `1px solid ${isActive ? pal.hairline : "transparent"}` };
                   return (
                     <a
                       key={i}
                       href={`#${sectionIds[i]}`}
                       onClick={jump(i)}
-                      className="group flex shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold no-underline transition-colors lg:w-full lg:rounded-none lg:border-l-2 lg:px-4 lg:py-3 lg:text-[14px]"
-                      style={{
-                        color: isActive ? pal.text : pal.muted,
-                        borderColor: isActive ? pal.accentFill : pal.hairline,
-                        background: isActive ? pal.card : "transparent",
-                        border: `1px solid ${isActive ? pal.hairline : "transparent"}`,
-                      }}
+                      className={`group flex shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold no-underline transition-colors lg:w-full lg:px-4 lg:py-3 lg:text-[14px] ${pillsRail ? "" : "lg:rounded-none lg:border-l-2"}`}
+                      style={style}
                       data-hub-rail={isActive ? "active" : "inactive"}
                     >
-                      <span className="font-mono text-[11px] tabular-nums" style={{ color: isActive ? pal.accent : pal.faint }}>{String(i + 1).padStart(2, "0")}</span>
+                      {!pillsRail && <span className="font-mono text-[11px] tabular-nums" style={{ color: isActive ? pal.accent : pal.faint }}>{String(i + 1).padStart(2, "0")}</span>}
                       <span className="truncate">{s.title}</span>
-                      <span className="ml-auto hidden text-[11px] tabular-nums lg:inline" style={{ color: pal.faint }}>{count}</span>
+                      <span className="ml-auto hidden text-[11px] tabular-nums lg:inline" style={{ color: pillsRail && isActive ? pal.onAccentFill : pal.faint, opacity: pillsRail && isActive ? 0.7 : 1 }}>{count}</span>
                     </a>
                   );
                 })}
@@ -261,7 +263,7 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
           {/* Sections */}
           <div className="min-w-0 space-y-16 lg:space-y-20">
             {visible.length === 0 && (
-              <p className="rounded-[20px] p-10 text-center text-[15px]" style={{ background: pal.card, border: `1px solid ${pal.hairline}`, color: pal.muted }}>
+              <p className="p-10 text-center text-[15px]" style={{ background: pal.card, border: `1px solid ${pal.hairline}`, color: pal.muted, borderRadius: t.cardRadius }}>
                 Nothing matches “{query.trim()}”. Try a different word.
               </p>
             )}
@@ -275,14 +277,17 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
                   }}
                   className="scroll-mt-24"
                 >
-                  <div className="mb-6 flex flex-col gap-2 border-b pb-5 lg:mb-8" style={{ borderColor: pal.hairline }}>
+                  <div className={`flex flex-col gap-2 ${t.sectionHeader === "rule" && !rows ? "mb-6 border-b pb-5 lg:mb-8" : rows ? "mb-2" : "mb-6 lg:mb-8"}`} style={{ borderColor: pal.hairline }}>
                     {(s.kicker || isEditor) && (
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: pal.accent }}>
                         <InlineText as="span" value={s.kicker ?? ""} onUpdate={updateSection ? (v) => updateSection(sectionIndex, { kicker: v }) : undefined} />
                       </p>
                     )}
                     <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                      <h3 className="text-[22px] font-semibold tracking-[-0.015em] lg:text-[26px]">
+                      <h3
+                        className={t.headingInk === "primary" ? "text-[24px] lg:text-[28px]" : "text-[22px] font-semibold tracking-[-0.015em] lg:text-[26px]"}
+                        style={t.headingInk === "primary" ? { fontFamily: HUB_DISPLAY, fontWeight: t.headingWeight, letterSpacing: t.headingTracking, color: pal.heading, lineHeight: 1.15 } : { color: pal.heading }}
+                      >
                         <InlineText as="span" value={s.title} onUpdate={updateSection ? (v) => updateSection(sectionIndex, { title: v }) : undefined} />
                       </h3>
                       {(s.description || isEditor) && (
@@ -292,20 +297,21 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
                       )}
                     </div>
                   </div>
-                  <div className={`grid gap-5 ${gridClass}`}>
+                  <div className={rows ? "flex flex-col" : gridClass} style={rows ? { borderBottom: `1px solid ${pal.hairline}` } : undefined}>
                     {items.map((a, ii) => {
                       const originalIndex = Math.max(0, (s.items ?? []).indexOf(a));
                       const newTab = !(opensInViewer(a) && (staticRender || shouldOpenInline(a)));
+                      const Item = rows ? HubAssetRow : HubAssetCard;
                       return (
                         <motion.div
                           key={`${sectionIndex}-${originalIndex}-${a.title}`}
-                          initial={reduced ? false : anim({ opacity: 0, y: 18 })}
+                          initial={reduced ? false : anim({ opacity: 0, y: rows ? 8 : 18 })}
                           whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
                           viewport={{ once: true, amount: 0.15 }}
                           transition={{ duration: 0.6, delay: Math.min(ii, 5) * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                          className="flex"
+                          className={rows ? "block" : "flex"}
                         >
-                          <HubAssetCard
+                          <Item
                             asset={a}
                             palette={pal}
                             onOpen={openAsset}

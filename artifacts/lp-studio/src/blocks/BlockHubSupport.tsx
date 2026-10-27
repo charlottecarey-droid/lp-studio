@@ -11,9 +11,10 @@ import { HUB_BODY, HUB_CSS, HUB_PILL_CLASS, HubKicker, hubDisplayStyle, hubPillS
  * The close: "Questions?" — a kicker, a short display headline, one line of
  * body, a mailto pill and an optional arrow link (help center), then a small
  * disclaimer line ("Educational information only. Not medical advice.").
- * Brand-dark by default so the page ends the way it began. The link keys are
- * `linkText` / `linkUrl` on purpose — `ctaText` / `ctaUrl` are the Page-CTA
- * aliases and a support close must never be hijacked by a page-level CTA.
+ * Surface from the preset (brand-dark for the editorial idiom, tinted paper
+ * for the brand-site / gallery idioms). The link keys are `linkText` /
+ * `linkUrl` on purpose — `ctaText` / `ctaUrl` are the Page-CTA aliases and
+ * a support close must never be hijacked by a page-level CTA.
  * -------------------------------------------------------------------------- */
 
 export interface HubSupportBlockProps extends HubStyleProps {
@@ -37,7 +38,6 @@ interface Props {
 }
 
 export const HUB_SUPPORT_DEFAULT_PROPS: HubSupportBlockProps = {
-  surface: "dark",
   kicker: "Questions?",
   headline: "Can't find what you need?\nJust ask.",
   body: "Our team answers every message — usually within a business day.",
@@ -52,7 +52,8 @@ export const HUB_SUPPORT_DEFAULT_PROPS: HubSupportBlockProps = {
 export function BlockHubSupport({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
-  const pal = resolveHubPalette(props, brand, "dark");
+  const pal = resolveHubPalette(props, brand, "support");
+  const t = pal.t;
   const isEditor = !!onFieldChange;
   const email = (props.email ?? "").trim();
   const link = (props.linkUrl ?? "").trim();
@@ -69,9 +70,11 @@ export function BlockHubSupport({ props, brand, onFieldChange }: Props) {
   });
 
   return (
-    <section id={props.anchorId || undefined} className="hub-support relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY }}>
+    <section id={props.anchorId || undefined} className="hub-support relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY, borderTop: t.theme === "mono" ? `1px solid ${pal.hairline}` : undefined }}>
       <style>{HUB_CSS}</style>
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true" style={{ background: `radial-gradient(50% 70% at 50% 110%, color-mix(in srgb, ${pal.accentFill} 16%, transparent), transparent 70%)` }} />
+      {pal.isDark && (
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true" style={{ background: `radial-gradient(50% 70% at 50% 110%, color-mix(in srgb, ${pal.accentFill} 16%, transparent), transparent 70%)` }} />
+      )}
       <div className="relative mx-auto flex w-full max-w-page flex-col items-center px-6 py-20 text-center lg:px-10 lg:py-28">
         {(props.kicker || isEditor) && (
           <motion.div {...rise(0)} className="mb-6">
@@ -80,7 +83,7 @@ export function BlockHubSupport({ props, brand, onFieldChange }: Props) {
             </HubKicker>
           </motion.div>
         )}
-        <motion.h2 {...rise(0.06)} className="max-w-[18ch] whitespace-pre-line" style={hubDisplayStyle("clamp(2rem, 4.4vw, 3.6rem)")}>
+        <motion.h2 {...rise(0.06)} className="max-w-[18ch] whitespace-pre-line" style={hubDisplayStyle(pal, "clamp(2rem, 4.4vw, 3.6rem)")}>
           <InlineText as="span" value={props.headline ?? ""} onUpdate={field("headline")} multiline />
         </motion.h2>
         {(props.body || isEditor) && (

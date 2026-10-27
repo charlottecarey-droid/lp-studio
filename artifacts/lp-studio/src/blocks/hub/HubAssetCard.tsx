@@ -1,6 +1,10 @@
 /**
- * Content Hub — one asset card (used by hub-library; hub-featured renders its
- * own wide spotlight but shares the thumbnail + actions here).
+ * Content Hub — one asset, in the preset's idiom:
+ *
+ *   HubAssetCard  "hairline" — white card, 1px border, thumb inset (site / midnight)
+ *                 "flat"     — no box: a big rounded thumb, copy below (gallery)
+ *   HubAssetRow   "rows"     — a hairline list row: kind tile · title + line ·
+ *                              meta · verb · download (index)
  *
  * Thumbnail: the asset's own poster, or a designed placeholder per kind (a
  * stacked-page glyph for PDFs, a play disc on a brand-dark tile for videos,
@@ -13,7 +17,10 @@ import { InlineText } from "@/components/InlineText";
 import { HUB_BODY, type HubPalette } from "@/lib/hub-theme";
 import { ASSET_KIND_LABEL, assetVerb, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub-assets";
 
-export function HubThumb({ asset, palette, className = "", radius = 16, large = false }: { asset: HubAsset; palette: HubPalette; className?: string; radius?: number; large?: boolean }) {
+export function HubThumb({ asset, palette, className = "", radius = 16, large = false, ratio }: { asset: HubAsset; palette: HubPalette; className?: string; radius?: number; large?: boolean; ratio?: string }) {
+  const box = { borderRadius: radius, aspectRatio: ratio };
+  // Callers that position the tile themselves pass `absolute …`; don't fight it with `relative`.
+  const pos = /\babsolute\b/.test(className) ? "" : "relative";
   const dark = palette.dark;
   const thumb = (asset.thumbnailUrl ?? "").trim();
   const discSize = large ? "h-16 w-16" : "h-12 w-12";
@@ -24,7 +31,7 @@ export function HubThumb({ asset, palette, className = "", radius = 16, large = 
   );
   if (thumb) {
     return (
-      <div className={`relative overflow-hidden ${className}`} style={{ borderRadius: radius, background: dark.panel }}>
+      <div className={`hub-thumb ${pos} overflow-hidden ${className}`} style={{ ...box, background: palette.cardTint }}>
         <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
         {asset.kind === "video" && (
           <>
@@ -37,7 +44,7 @@ export function HubThumb({ asset, palette, className = "", radius = 16, large = 
   }
   if (asset.kind === "video") {
     return (
-      <div className={`relative overflow-hidden ${className}`} style={{ borderRadius: radius, background: `radial-gradient(90% 80% at 80% 20%, color-mix(in srgb, ${dark.accent} 22%, transparent), transparent 60%), ${dark.bg}` }}>
+      <div className={`hub-thumb ${pos} overflow-hidden ${className}`} style={{ ...box, background: `radial-gradient(90% 80% at 80% 20%, color-mix(in srgb, ${dark.accent} 22%, transparent), transparent 60%), ${dark.bg}` }}>
         <span className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: `linear-gradient(${dark.text} 1px, transparent 1px), linear-gradient(90deg, ${dark.text} 1px, transparent 1px)`, backgroundSize: "28px 28px" }} aria-hidden="true" />
         {disc}
       </div>
@@ -45,7 +52,7 @@ export function HubThumb({ asset, palette, className = "", radius = 16, large = 
   }
   if (asset.kind === "link") {
     return (
-      <div className={`relative overflow-hidden ${className}`} style={{ borderRadius: radius, background: `linear-gradient(135deg, ${palette.cardRaised}, color-mix(in srgb, ${palette.accentFill} 14%, ${palette.card}))` }}>
+      <div className={`hub-thumb ${pos} overflow-hidden ${className}`} style={{ ...box, background: `linear-gradient(135deg, ${palette.cardTint}, color-mix(in srgb, ${palette.accentFill} 16%, ${palette.cardTint}))` }}>
         <span className="absolute left-4 bottom-4 inline-flex h-12 w-12 items-center justify-center rounded-full" style={{ background: palette.card, color: palette.accent, border: `1px solid ${palette.hairline}` }} aria-hidden="true">
           <ArrowUpRight className="h-5 w-5" />
         </span>
@@ -54,7 +61,7 @@ export function HubThumb({ asset, palette, className = "", radius = 16, large = 
   }
   // PDF: a short stack of pages with faint text lines.
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{ borderRadius: radius, background: `linear-gradient(160deg, color-mix(in srgb, ${palette.accentFill} 10%, ${palette.card}), ${palette.cardRaised})` }}>
+    <div className={`hub-thumb ${pos} overflow-hidden ${className}`} style={{ ...box, background: `linear-gradient(160deg, color-mix(in srgb, ${palette.accentFill} 8%, ${palette.cardTint}), ${palette.cardTint})` }}>
       <div className="absolute left-[14%] right-[14%] top-[16%] bottom-[-6%]" aria-hidden="true">
         <div className="absolute inset-x-3 top-0 h-full rounded-t-[10px] opacity-60" style={{ background: palette.card, border: `1px solid ${palette.hairline}`, transform: "translateY(-8px) scale(0.96)" }} />
         <div className="absolute inset-0 rounded-t-[10px] p-4" style={{ background: palette.card, border: `1px solid ${palette.hairline}`, boxShadow: "0 18px 40px -24px rgba(0,0,0,0.35)" }}>
@@ -68,6 +75,25 @@ export function HubThumb({ asset, palette, className = "", radius = 16, large = 
         <FileText className="h-5 w-5" />
       </span>
     </div>
+  );
+}
+
+/** Small kind tile for list rows (no poster): a glyph on a tinted square. */
+function HubKindTile({ asset, palette }: { asset: HubAsset; palette: HubPalette }) {
+  const thumb = (asset.thumbnailUrl ?? "").trim();
+  if (thumb) {
+    return (
+      <span className="relative block h-14 w-20 shrink-0 overflow-hidden rounded-[8px]" style={{ background: palette.cardTint }} aria-hidden="true">
+        <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+      </span>
+    );
+  }
+  const Icon = asset.kind === "video" ? Play : asset.kind === "link" ? ArrowUpRight : FileText;
+  const dark = asset.kind === "video";
+  return (
+    <span className="inline-flex h-14 w-20 shrink-0 items-center justify-center rounded-[8px]" style={{ background: dark ? palette.dark.bg : palette.cardTint, color: dark ? palette.dark.accent : palette.accent }} aria-hidden="true">
+      <Icon className="h-5 w-5" fill={dark ? "currentColor" : "none"} strokeWidth={dark ? 0 : 2} />
+    </span>
   );
 }
 
@@ -91,16 +117,9 @@ export interface HubAssetCardProps {
   index?: number;
 }
 
-export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = false, onDownload, onTitleChange, onDescriptionChange }: HubAssetCardProps) {
+function useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab }: { asset: HubAsset; onOpen: (a: HubAsset) => boolean; onDownload?: (a: HubAsset) => void; isEditor: boolean; newTab: boolean }) {
   const href = resolveAssetHref(asset);
   const download = resolveDownloadHref(asset);
-  const verb = assetVerb(asset, verbOverride);
-  const isEditor = !!onTitleChange;
-  const kindLabel = ASSET_KIND_LABEL[asset.kind];
-  const meta = (asset.meta ?? "").trim();
-  const target = newTab ? "_blank" : undefined;
-  const rel = newTab ? "noopener noreferrer" : undefined;
-
   const openIt = (e: React.MouseEvent) => {
     if (isEditor || !href) {
       e.preventDefault();
@@ -109,27 +128,104 @@ export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = fa
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
     if (onOpen(asset)) e.preventDefault();
   };
+  const downloadIt = (e: React.MouseEvent) => {
+    if (isEditor) {
+      e.preventDefault();
+      return;
+    }
+    onDownload?.(asset);
+  };
+  return { href, download, openIt, downloadIt, target: newTab ? "_blank" : undefined, rel: newTab ? "noopener noreferrer" : undefined };
+}
+
+function KindMeta({ asset, palette, className = "" }: { asset: HubAsset; palette: HubPalette; className?: string }) {
+  const meta = (asset.meta ?? "").trim();
+  const chip = palette.t.cardStyle === "flat";
+  return (
+    <div className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] ${className}`} style={{ color: palette.faint }}>
+      {chip ? (
+        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] tracking-[0.14em]" style={{ background: palette.cardTint, color: palette.text }}>
+          {ASSET_KIND_LABEL[asset.kind]}
+        </span>
+      ) : (
+        <span style={{ color: palette.accent }}>{ASSET_KIND_LABEL[asset.kind]}</span>
+      )}
+      {meta && (
+        <>
+          {!chip && <span aria-hidden="true" className="h-1 w-1 rounded-full" style={{ background: palette.hairline }} />}
+          <span className="normal-case tracking-normal">{meta}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DownloadButton({ href, onClick, title, palette }: { href: string; onClick: (e: React.MouseEvent) => void; title: string; palette: HubPalette }) {
+  return (
+    <a
+      href={href}
+      download=""
+      onClick={onClick}
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors"
+      style={{ color: palette.text, border: `1px solid ${palette.hairline}`, background: palette.card }}
+      aria-label={`Download ${title}`}
+      title="Download"
+    >
+      <Download className="h-4 w-4" aria-hidden />
+    </a>
+  );
+}
+
+export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = false, onDownload, onTitleChange, onDescriptionChange }: HubAssetCardProps) {
+  const isEditor = !!onTitleChange;
+  const { href, download, openIt, downloadIt, target, rel } = useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab });
+  const verb = assetVerb(asset, verbOverride);
+  const t = palette.t;
+  const flat = t.cardStyle === "flat";
+  const verbLink = (
+    <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="inline-flex items-center gap-1.5 text-[14px] font-semibold no-underline" style={{ color: palette.accent }}>
+      {verb}
+      {asset.kind === "link" ? <ArrowUpRight className="h-4 w-4" aria-hidden /> : <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>}
+    </a>
+  );
+
+  if (flat) {
+    return (
+      <article className="hub-card-flat group relative flex flex-col" style={{ color: palette.text, fontFamily: HUB_BODY }} data-hub-asset={asset.kind}>
+        <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="block overflow-hidden no-underline" style={{ borderRadius: t.cardRadius }} aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
+          <HubThumb asset={asset} palette={palette} className="w-full" radius={t.cardRadius} ratio={t.thumbRatio} />
+        </a>
+        <div className="flex flex-1 flex-col pt-4">
+          <KindMeta asset={asset} palette={palette} className="mb-2.5" />
+          <h4 className="text-[19px] font-semibold leading-snug tracking-[-0.015em]" style={{ color: palette.heading }}>
+            <InlineText as="span" value={asset.title} onUpdate={onTitleChange} />
+          </h4>
+          {(asset.description || isEditor) && (
+            <p className="hub-lines-3 mt-1.5 text-[14.5px] leading-relaxed" style={{ color: palette.muted }}>
+              <InlineText as="span" value={asset.description ?? ""} onUpdate={onDescriptionChange} multiline />
+            </p>
+          )}
+          <div className="mt-auto flex items-center justify-between gap-3 pt-4">
+            {verbLink}
+            {download && <DownloadButton href={download} onClick={downloadIt} title={asset.title} palette={palette} />}
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
-      className="hub-card group relative flex flex-col overflow-hidden rounded-[20px]"
-      style={{ background: palette.card, border: `1px solid ${palette.hairline}`, color: palette.text, fontFamily: HUB_BODY, boxShadow: palette.isDark ? "none" : "0 1px 2px rgba(11,11,15,0.04)" }}
+      className="hub-card group relative flex flex-col overflow-hidden"
+      style={{ background: palette.card, border: `1px solid ${palette.hairline}`, color: palette.text, fontFamily: HUB_BODY, borderRadius: t.cardRadius, boxShadow: palette.isDark ? "none" : "0 1px 2px rgba(11,11,15,0.04)" }}
       data-hub-asset={asset.kind}
     >
       <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="block no-underline" aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
-        <HubThumb asset={asset} palette={palette} className="m-2 aspect-[16/10]" radius={14} />
+        <HubThumb asset={asset} palette={palette} className="m-2" radius={Math.max(6, t.cardRadius - 6)} ratio={t.thumbRatio} />
       </a>
       <div className="flex flex-1 flex-col px-5 pb-5 pt-3">
-        <div className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: palette.faint }}>
-          <span style={{ color: palette.accent }}>{kindLabel}</span>
-          {meta && (
-            <>
-              <span aria-hidden="true" className="h-1 w-1 rounded-full" style={{ background: palette.hairline }} />
-              <span className="normal-case tracking-normal">{meta}</span>
-            </>
-          )}
-        </div>
-        <h4 className="text-[17px] font-semibold leading-snug tracking-[-0.01em]">
+        <KindMeta asset={asset} palette={palette} className="mb-2.5" />
+        <h4 className="text-[17px] font-semibold leading-snug tracking-[-0.01em]" style={{ color: palette.heading }}>
           <InlineText as="span" value={asset.title} onUpdate={onTitleChange} />
         </h4>
         {(asset.description || isEditor) && (
@@ -138,37 +234,47 @@ export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = fa
           </p>
         )}
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
-          <a
-            href={href || "#"}
-            onClick={openIt}
-            target={target}
-            rel={rel}
-            className="inline-flex items-center gap-1.5 text-[14px] font-semibold no-underline"
-            style={{ color: palette.accent }}
-          >
-            {verb}
-            {asset.kind === "link" ? <ArrowUpRight className="h-4 w-4" aria-hidden /> : <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>}
-          </a>
-          {download && (
-            <a
-              href={download}
-              download=""
-              onClick={(e) => {
-                if (isEditor) {
-                  e.preventDefault();
-                  return;
-                }
-                onDownload?.(asset);
-              }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-              style={{ color: palette.text, border: `1px solid ${palette.hairline}`, background: palette.card }}
-              aria-label={`Download ${asset.title}`}
-              title="Download"
-            >
-              <Download className="h-4 w-4" aria-hidden />
-            </a>
-          )}
+          {verbLink}
+          {download && <DownloadButton href={download} onClick={downloadIt} title={asset.title} palette={palette} />}
         </div>
+      </div>
+    </article>
+  );
+}
+
+/** List-row rendering of an asset (the "Index" preset). Same contract as the card. */
+export function HubAssetRow({ asset, palette, verbOverride, onOpen, newTab = false, onDownload, onTitleChange, onDescriptionChange }: HubAssetCardProps) {
+  const isEditor = !!onTitleChange;
+  const { href, download, openIt, downloadIt, target, rel } = useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab });
+  const verb = assetVerb(asset, verbOverride);
+  const meta = (asset.meta ?? "").trim();
+  return (
+    <article className="hub-row group relative flex items-start gap-4 py-4 sm:items-center sm:gap-5" style={{ color: palette.text, fontFamily: HUB_BODY, borderTop: `1px solid ${palette.hairline}` }} data-hub-asset={asset.kind}>
+      <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="shrink-0 no-underline" aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
+        <HubKindTile asset={asset} palette={palette} />
+      </a>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h4 className="text-[16px] font-semibold leading-snug tracking-[-0.01em]" style={{ color: palette.heading }}>
+            <InlineText as="span" value={asset.title} onUpdate={onTitleChange} />
+          </h4>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: palette.faint }}>
+            {ASSET_KIND_LABEL[asset.kind]}
+            {meta && <span className="normal-case tracking-normal"> · {meta}</span>}
+          </span>
+        </div>
+        {(asset.description || isEditor) && (
+          <p className="hub-lines-2 mt-1 text-[14px] leading-relaxed" style={{ color: palette.muted }}>
+            <InlineText as="span" value={asset.description ?? ""} onUpdate={onDescriptionChange} multiline />
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2 self-center">
+        <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="inline-flex items-center gap-1.5 text-[14px] font-semibold no-underline" style={{ color: palette.accent }}>
+          <span className="hidden sm:inline">{verb}</span>
+          {asset.kind === "link" ? <ArrowUpRight className="h-4 w-4" aria-hidden /> : <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>}
+        </a>
+        {download && <DownloadButton href={download} onClick={downloadIt} title={asset.title} palette={palette} />}
       </div>
     </article>
   );
