@@ -988,6 +988,13 @@
       "when": 1758030020000,
       "tag": "0140_email_send_unsubscribed_at",
       "breakpoints": false
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1758030030000,
+      "tag": "0141_lp_asset_events",
+      "breakpoints": false
     }
   ]
 }

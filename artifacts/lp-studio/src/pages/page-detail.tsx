@@ -54,6 +54,7 @@ import { PageConversionScore } from "@/components/analytics/PageConversionScore"
 import { PageSpeedPanel } from "@/components/analytics/PageSpeedPanel";
 import { PageTrafficSources } from "@/components/analytics/PageTrafficSources";
 import { PageProgrammaticVars } from "@/components/analytics/PageProgrammaticVars";
+import { PageAssetEngagement } from "@/components/analytics/PageAssetEngagement";
 
 const HeatmapOverlay = lazy(() =>
   import("@/components/heatmap/HeatmapOverlay").then(m => ({ default: m.HeatmapOverlay })),
@@ -1097,6 +1098,10 @@ export default function PageDetail() {
         <Section title="Visits" icon={TableIcon} description="Every recorded visit, with resolved identity for personalized links.">
           <VisitsTable pageId={pageId} days={days} />
         </Section>
+
+        {/* Content Hub resource engagement — renders only when the page has
+            recorded asset events (hub-library / hub-featured blocks). */}
+        <PageAssetEngagement pageId={pageId} days={days} />
 
         {/* Two-column analytics grid.
             Date-range scope: the `days` window applies to the time-series surfaces

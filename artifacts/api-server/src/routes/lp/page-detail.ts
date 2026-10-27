@@ -757,4 +757,42 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
   }
 });
 
+// ─── Content Hub asset engagement ────────────────────────────────────────────
+// GET /lp/analytics/pages/:pageId/assets?days=30
+// Per-resource counts from lp_asset_events (hub-library / hub-featured
+// beacons): views (in-page viewer), opens (new tab / external), downloads,
+// and unique sessions that touched the asset. Empty array for pages without
+// hub blocks — the UI hides the panel.
+router.get("/lp/analytics/pages/:pageId/assets", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+  const pageId = await resolvePageId(req, res, tenantId);
+  if (pageId === null) return;
+  const days = clampInt(req.query.days, 30, 1, 365);
+  const since = new Date(Date.now() - days * 86_400_000);
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        asset_key AS "assetKey",
+        MAX(asset_kind) AS "assetKind",
+        -- Latest title wins so a renamed resource reads as it does today.
+        (ARRAY_AGG(asset_title ORDER BY created_at DESC) FILTER (WHERE asset_title IS NOT NULL))[1] AS "assetTitle",
+        COUNT(*) FILTER (WHERE action = 'view')::int AS "views",
+        COUNT(*) FILTER (WHERE action = 'open')::int AS "opens",
+        COUNT(*) FILTER (WHERE action = 'download')::int AS "downloads",
+        COUNT(DISTINCT session_id)::int AS "uniqueSessions",
+        MAX(created_at) AS "lastAt"
+      FROM lp_asset_events
+      WHERE page_id = ${pageId} AND tenant_id = ${tenantId} AND created_at >= ${since}
+      GROUP BY asset_key
+      ORDER BY (COUNT(*) FILTER (WHERE action IN ('view','open'))) DESC, "downloads" DESC, "assetKey" ASC
+      LIMIT 200
+    `);
+    res.json({ days, assets: result.rows });
+  } catch (err) {
+    logger.error({ err, pageId }, "Failed to load asset engagement");
+    res.status(500).json({ error: "Failed to load asset engagement" });
+  }
+});
+
 export default router;

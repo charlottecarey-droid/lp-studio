@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
-import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable, salesHotlinksTable } from "@workspace/db";
+import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable, salesHotlinksTable, lpAssetEventsTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
 import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveHeroImage, toPlainCardText, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
@@ -17,6 +17,7 @@ import { getRequestHost } from "../../lib/requestHost";
 import { SESSION_COOKIE, optionalAuth, type AuthUser } from "../../middleware/requireAuth";
 import { hydrateCustomSchemaBlocks } from "./hydrate-custom-schema";
 import { marketoService } from "../../lib/marketo-service";
+import { parseAssetEventBody } from "../../lib/assetEvents";
 
 /**
  * Resolve tenant id for a public, slug-based request from the request host.
@@ -370,6 +371,48 @@ router.post("/lp/track/dwell", trackEventLimiter, async (req, res): Promise<void
   } catch (err) {
     console.warn("Error recording dwell for page", pageId, ":", err);
     res.status(500).json({ error: "Failed to record dwell" });
+  }
+});
+
+/**
+ * Content Hub asset beacon — one row per visitor action on a hub resource
+ * (view in the in-page viewer / open in a new tab / download). Fired by the
+ * hub-library and hub-featured blocks via sendBeacon, so the body may arrive
+ * as a JSON Blob (parsed by express.json via its type) — hand-validated like
+ * the dwell beacon. The tenant is stamped from the page row, never trusted
+ * from the client; unknown pages are a silent 204 so a stale beacon can't
+ * probe which page ids exist.
+ */
+router.post("/lp/track/asset", trackEventLimiter, async (req, res): Promise<void> => {
+  const parsed = parseAssetEventBody(req.body);
+  if (!parsed) {
+    res.status(400).json({ error: "Invalid asset event" });
+    return;
+  }
+  try {
+    const [page] = await db
+      .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.id, parsed.pageId))
+      .limit(1);
+    if (!page) {
+      res.status(204).end();
+      return;
+    }
+    await db.insert(lpAssetEventsTable).values({
+      tenantId: page.tenantId,
+      pageId: page.id,
+      blockId: parsed.blockId,
+      assetKey: parsed.assetKey,
+      assetTitle: parsed.assetTitle,
+      assetKind: parsed.assetKind,
+      action: parsed.action,
+      sessionId: parsed.sessionId,
+    });
+    res.status(204).end();
+  } catch (err) {
+    console.warn("Error recording asset event for page", parsed.pageId, ":", err);
+    res.status(500).json({ error: "Failed to record asset event" });
   }
 });
 
