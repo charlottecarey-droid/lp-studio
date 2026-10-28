@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * "Generate thumbnails" must land every rendered thumbnail on its resource — even when the
@@ -25,6 +25,9 @@ vi.mock("@/lib/pdf-thumbnail", async (importOriginal) => {
     }),
   };
 });
+
+// vitest runs without globals, so testing-library does not unmount between tests on its own.
+afterEach(cleanup);
 
 import { HubLibraryPanel } from "./HubPanels";
 import type { HubLibraryBlockProps } from "@/blocks/BlockHubLibrary";
@@ -60,5 +63,31 @@ describe("Hub library — generate PDF thumbnails", () => {
     expect(failures).not.toContain("Poster — Coffee");
     expect(document.querySelector("[data-thumbnail-done]")!.textContent).toContain("Added 3 thumbnails");
     expect(screen.queryByText(/Skipped/)).toBeNull();
+  });
+});
+
+describe("Hub library — the card follows the covers", () => {
+  const covered = (key: string) => ({ ...pdf(key, key), thumbnailUrl: `/api/storage/objects/uploads/cover-${key}` });
+
+  it("all covered: a one-line row with Re-render; remove a cover and the Generate card returns", () => {
+    const props = { sections: [{ title: "Print", items: [covered("a"), covered("b")] }] } as unknown as HubLibraryBlockProps;
+    const view = render(createElement(HubLibraryPanel, { props, onChange: () => {}, onApplyStyleToAll: () => {} }));
+    expect(document.querySelector("[data-generate-thumbnails]")).toBeNull();
+    expect(document.querySelector("[data-regenerate-thumbnails]")!.textContent).toContain("Re-render all 2");
+
+    const next = { sections: [{ title: "Print", items: [covered("a"), { ...covered("b"), thumbnailUrl: "" }] }] } as unknown as HubLibraryBlockProps;
+    view.rerender(createElement(HubLibraryPanel, { props: next, onChange: () => {}, onApplyStyleToAll: () => {} }));
+    expect(document.querySelector("[data-generate-thumbnails]")!.textContent).toContain("Generate thumbnail");
+    expect(document.querySelector("[data-pdf-thumbnails]")!.textContent).toContain("One PDF has no cover image yet");
+  });
+
+  it("re-render replaces every cover, not only the missing ones", async () => {
+    const props = { sections: [{ title: "Print", items: [covered("a"), covered("b")] }] } as unknown as HubLibraryBlockProps;
+    const onChange = vi.fn();
+    render(createElement(HubLibraryPanel, { props, onChange, onApplyStyleToAll: () => {} }));
+    fireEvent.click(document.querySelector("[data-regenerate-thumbnails]")!);
+    await waitFor(() => expect(document.querySelector("[data-thumbnail-done]")).not.toBeNull());
+    const last = onChange.mock.calls.at(-1)![0] as HubLibraryBlockProps;
+    expect(last.sections![0].items!.map((it) => it.thumbnailUrl)).toEqual(["/api/storage/objects/uploads/thumb-a", "/api/storage/objects/uploads/thumb-b"]);
   });
 });

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { render, fireEvent, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The Resources block gets the same "Thumbnails from your PDFs" card as the content hub:
@@ -21,6 +21,9 @@ vi.mock("@/lib/pdf-thumbnail", async (importOriginal) => {
     }),
   };
 });
+
+// vitest runs without globals, so testing-library does not unmount between tests on its own.
+afterEach(cleanup);
 
 import ResourcesPanel from "./ResourcesPanel";
 import type { ResourcesBlockProps } from "@/lib/block-types";

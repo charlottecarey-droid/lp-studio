@@ -37,17 +37,18 @@ export function PdfThumbnailGenerator({ candidates, onThumbnails, className }: P
   const [busy, setBusy] = useState<{ title: string; n: number; of: number } | null>(null);
   const [done, setDone] = useState<number | null>(null);
   const [problems, setProblems] = useState<Outcome[]>([]);
-  const todo = candidates.filter((c) => looksLikeStoredPdf(c.url) && !(c.thumbnail ?? "").trim());
-  if (todo.length === 0 && done === null && problems.length === 0) return null;
+  const pdfs = candidates.filter((c) => looksLikeStoredPdf(c.url));
+  const todo = pdfs.filter((c) => !(c.thumbnail ?? "").trim());
+  if (pdfs.length === 0) return null;
 
-  const run = async () => {
+  const run = async (list: PdfThumbnailCandidate[]) => {
     setDone(null);
     setProblems([]);
     const results = new Map<number, string>();
     const bad: Outcome[] = [];
-    for (const [i, c] of todo.entries()) {
+    for (const [i, c] of list.entries()) {
       const title = c.title?.trim() || `PDF ${i + 1}`;
-      setBusy({ title, n: i + 1, of: todo.length });
+      setBusy({ title, n: i + 1, of: list.length });
       try {
         const url = await createPdfThumbnail(c.url ?? "", c.filename || title);
         results.set(c.index, url);
@@ -65,6 +66,21 @@ export function PdfThumbnailGenerator({ candidates, onThumbnails, className }: P
 
   const failures = problems.filter((p) => !p.skipped);
   const skipped = problems.filter((p) => p.skipped);
+
+  // Every PDF already has a cover: a one-line row with a re-render affordance instead of the
+  // full card (covers deleted from the media library leave a dead URL behind; a swapped PDF
+  // keeps its old cover). Removing a cover on a resource brings the full card back.
+  if (todo.length === 0 && !busy && done === null && problems.length === 0) {
+    return (
+      <div className={cn("flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5", className)} data-pdf-thumbnails="covered">
+        <FileImage className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">Every PDF has a cover image.</span>
+        <button type="button" onClick={() => void run(pdfs)} className="shrink-0 text-[11px] font-medium text-primary hover:underline" data-regenerate-thumbnails>
+          Re-render {pdfs.length === 1 ? "it" : `all ${pdfs.length}`}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("rounded-lg border border-primary/20 bg-primary/[0.04] p-3", className)} data-pdf-thumbnails>
@@ -96,10 +112,16 @@ export function PdfThumbnailGenerator({ candidates, onThumbnails, className }: P
       )}
 
       {!busy && todo.length > 0 && (
-        <Button type="button" size="sm" className="mt-2.5 h-8 w-full gap-1.5 text-xs" onClick={() => void run()} data-generate-thumbnails>
+        <Button type="button" size="sm" className="mt-2.5 h-8 w-full gap-1.5 text-xs" onClick={() => void run(todo)} data-generate-thumbnails>
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
           Generate {todo.length === 1 ? "thumbnail" : `${todo.length} thumbnails`}
         </Button>
+      )}
+
+      {!busy && todo.length === 0 && done !== null && (
+        <button type="button" onClick={() => void run(pdfs)} className="mt-2.5 text-[11px] font-medium text-primary hover:underline" data-regenerate-thumbnails>
+          Re-render {pdfs.length === 1 ? "it" : `all ${pdfs.length}`} from the PDFs
+        </button>
       )}
 
       {!busy && done !== null && done > 0 && (
