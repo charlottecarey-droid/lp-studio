@@ -5,7 +5,7 @@ const good = { pageId: 42, sessionId: "s-1", blockId: "seed-hub-library-3", asse
 
 describe("parseAssetEventBody — Content Hub beacon validation", () => {
   it("accepts a well-formed event and normalises optional fields", () => {
-    expect(parseAssetEventBody(good)).toEqual({ ...good, leadId: null });
+    expect(parseAssetEventBody(good)).toEqual({ ...good, leadId: null, value: null, detail: null });
     expect(parseAssetEventBody({ ...good, blockId: "  ", assetTitle: "" })).toMatchObject({ blockId: null, assetTitle: null });
   });
 
@@ -24,6 +24,13 @@ describe("parseAssetEventBody — Content Hub beacon validation", () => {
     expect(parseAssetEventBody({ ...good, leadId: "77" })?.leadId).toBeNull();
     expect(parseAssetEventBody({ ...good, leadId: -1 })?.leadId).toBeNull();
     expect(parseAssetEventBody(good)?.leadId).toBeNull();
+    // Phase-3 signals: numeric value + text detail, hub-level kinds.
+    expect(parseAssetEventBody({ ...good, action: "progress", value: 75 })?.value).toBe(75);
+    expect(parseAssetEventBody({ ...good, action: "time", value: 12.9 })?.value).toBe(12);
+    expect(parseAssetEventBody({ ...good, action: "time", value: -3 })?.value).toBeNull();
+    const search = parseAssetEventBody({ ...good, assetKey: "_search", assetKind: "hub", action: "search", detail: "  titration  ", value: 0 });
+    expect(search).toMatchObject({ assetKind: "hub", action: "search", detail: "titration", value: 0 });
+    expect(parseAssetEventBody({ ...good, assetKind: "hub", action: "audience", detail: "/patients" })?.detail).toBe("/patients");
   });
 
   it("caps free-text lengths so a hostile beacon can't bloat rows", () => {

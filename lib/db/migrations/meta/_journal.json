@@ -1002,6 +1002,13 @@
       "when": 1758030040000,
       "tag": "0142_lp_asset_events_lead",
       "breakpoints": false
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1758030050000,
+      "tag": "0143_lp_asset_events_value_detail",
+      "breakpoints": false
     }
   ]
 }

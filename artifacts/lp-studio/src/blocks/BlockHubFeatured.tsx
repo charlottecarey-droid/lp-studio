@@ -249,7 +249,7 @@ export function BlockHubFeatured({ props, brand, blockId, onFieldChange }: Props
     <section id={props.anchorId || undefined} ref={rootRef} className="hub-featured relative" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY }}>
       <style>{HUB_CSS}</style>
       <div className="mx-auto w-full max-w-page px-6 py-14 lg:px-10 lg:py-20" data-hub-seen={assetKey(asset)}>{body}</div>
-      <HubAssetViewer asset={viewing} onClose={close} palette={pal} onDownload={(a) => trackHubAsset(ctx, a, "download")} onOpenExternal={(a) => trackHubAsset(ctx, a, "open")} />
+      <HubAssetViewer asset={viewing} onClose={close} palette={pal} onDownload={(a) => trackHubAsset(ctx, a, "download")} onOpenExternal={(a) => trackHubAsset(ctx, a, "open")} onProgress={(a, pct) => trackHubAsset(ctx, a, "progress", { value: pct })} onTimeOpen={(a, seconds) => trackHubAsset(ctx, a, "time", { value: seconds })} />
       {props.gate?.enabled && !isEditor && (
         <HubGateModal gate={props.gate} open={!!pending} onClose={() => setPending(null)} onUnlocked={finishPending} palette={pal} brand={brand} />
       )}

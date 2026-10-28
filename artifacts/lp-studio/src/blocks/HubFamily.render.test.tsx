@@ -25,7 +25,7 @@ import { BlockHubHero, activeNavIndex } from "./BlockHubHero";
 import { BlockHubFeatured } from "./BlockHubFeatured";
 import { BlockHubLibrary, filterAssets } from "./BlockHubLibrary";
 import { BlockHubSupport } from "./BlockHubSupport";
-import { assetKey, buildAssetEventPayload, opensInViewer, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub/hub-assets";
+import { assetKey, buildAssetEventPayload, buildHubInteractionPayload, opensInViewer, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub/hub-assets";
 
 const FAMILY = [
   ["hub-hero", BlockHubHero],
@@ -334,5 +334,21 @@ describe("Hub family — shared CTA actions and the resource gate", () => {
     expect(on).not.toContain("Unlock the full library");
     expect((on.match(/data-hub-seen=/g) ?? []).length).toBe(5);
     expect(render(BlockHubFeatured as never, { ...defaultsFor("hub-featured"), gate: { enabled: true } })).toContain("data-hub-seen=");
+  });
+});
+
+describe("hub-assets — phase 3 beacon payloads", () => {
+  const ctx = { pageId: 7, sessionId: "s", blockId: "b" };
+  const a: HubAsset = { kind: "video", title: "Explainer", videoUrl: "/v.mp4" };
+  it("carries a numeric value for watch milestones and time open, rounded and non-negative", () => {
+    expect(buildAssetEventPayload(ctx, a, "progress", { value: 75 })).toMatchObject({ action: "progress", value: 75, assetKey: "explainer" });
+    expect(buildAssetEventPayload(ctx, a, "time", { value: 12.6 })).toMatchObject({ action: "time", value: 13 });
+    expect(buildAssetEventPayload(ctx, a, "time", { value: -4 })).toMatchObject({ value: 0 });
+    expect(buildAssetEventPayload(ctx, a, "view")).not.toHaveProperty("value");
+  });
+  it("hub-level interactions use a synthetic asset of kind hub with the detail text", () => {
+    expect(buildHubInteractionPayload(ctx, "search", { detail: "  titration ", value: 0 })).toMatchObject({ assetKind: "hub", assetKey: "_search", action: "search", detail: "titration", value: 0 });
+    expect(buildHubInteractionPayload(ctx, "audience", { detail: "/patients" })).toMatchObject({ assetKey: "_audience", detail: "/patients" });
+    expect(buildHubInteractionPayload({ sessionId: "s" }, "section", { detail: "x" })).toBeNull();
   });
 });

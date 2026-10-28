@@ -7,6 +7,8 @@ import { InlineImageButton } from "@/components/InlineImageButton";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig, type CtaSecondaryFields, type CtaSuiteFields } from "@/lib/cta-modal";
 import { safeNavigate } from "@/lib/safe-url";
+import { usePageContext } from "@/lib/page-context";
+import { trackHubInteraction } from "./hub/hub-assets";
 import { HUB_BODY, HUB_CSS, HUB_PILL_CLASS, HUB_PILL_SM_CLASS, HubKicker, hubDisplayStyle, hubPillStyle, resolveHubPalette, type HubPalette, type HubStyleProps } from "@/lib/hub-theme";
 import { cn } from "@/lib/utils";
 
@@ -140,6 +142,8 @@ export function BlockHubHero({ props, brand, pageId, variantId, onCtaClick, onFi
   const logoText = props.logoText || brand.brandName || "";
   const pathname = typeof window !== "undefined" ? window.location.pathname : null;
   const active = activeNavIndex(links, pathname);
+  const pageCtx = usePageContext();
+  const trackCtx = { pageId: pageId ?? pageCtx.pageId, sessionId: pageCtx.sessionId };
   const image = (props.mediaImageUrl ?? "").trim();
   const layout = t.heroLayout;
   const centered = layout === "centered";
@@ -226,6 +230,9 @@ export function BlockHubHero({ props, brand, pageId, variantId, onCtaClick, onFi
                     className="inline-flex min-h-[34px] items-center whitespace-nowrap rounded-full px-4 text-[13px] font-semibold no-underline transition-colors"
                     style={isActive ? { background: bar.accentFill, color: bar.onAccentFill } : { color: bar.muted }}
                     data-hub-audience={isActive ? "active" : "inactive"}
+                    onClick={() => {
+                      if (!isActive && !isEditor) trackHubInteraction(trackCtx, "audience", { detail: l.url || l.label });
+                    }}
                   >
                     <InlineText as="span" value={l.label} onUpdate={updateLink ? (v) => updateLink(i, v) : undefined} />
                   </a>

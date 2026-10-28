@@ -782,11 +782,17 @@ router.get("/lp/analytics/pages/:pageId/assets", async (req, res): Promise<void>
         COUNT(*) FILTER (WHERE action = 'view')::int AS "views",
         COUNT(*) FILTER (WHERE action = 'open')::int AS "opens",
         COUNT(*) FILTER (WHERE action = 'download')::int AS "downloads",
-        COUNT(DISTINCT session_id) FILTER (WHERE action <> 'seen')::int AS "uniqueSessions",
-        COUNT(DISTINCT lead_id) FILTER (WHERE lead_id IS NOT NULL)::int AS "identified",
+        COUNT(DISTINCT session_id) FILTER (WHERE action IN ('view','open','download'))::int AS "uniqueSessions",
+        COUNT(DISTINCT lead_id) FILTER (WHERE lead_id IS NOT NULL AND action IN ('view','open','download'))::int AS "identified",
+        ROUND(AVG(value) FILTER (WHERE action = 'time'))::int AS "avgSecondsOpen",
+        ROUND(AVG(m.max_pct))::int AS "avgWatchPct",
         MAX(created_at) AS "lastAt"
-      FROM lp_asset_events
-      WHERE page_id = ${pageId} AND tenant_id = ${tenantId} AND created_at >= ${since}
+      FROM lp_asset_events e
+      LEFT JOIN LATERAL (
+        SELECT MAX(p.value) AS max_pct FROM lp_asset_events p
+        WHERE p.page_id = e.page_id AND p.asset_key = e.asset_key AND p.session_id = e.session_id AND p.action = 'progress'
+      ) m ON e.action = 'view' AND e.asset_kind = 'video'
+      WHERE page_id = ${pageId} AND tenant_id = ${tenantId} AND created_at >= ${since} AND asset_kind <> 'hub'
       GROUP BY asset_key
       ORDER BY (COUNT(*) FILTER (WHERE action IN ('view','open'))) DESC, "downloads" DESC, "assetKey" ASC
       LIMIT 200

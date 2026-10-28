@@ -9,7 +9,7 @@ import { HUB_BODY, HUB_CSS, HUB_DISPLAY, HubKicker, hubDisplayStyle, resolveHubP
 import { HubAssetCard, HubAssetRow } from "./hub/HubAssetCard";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { HubGateModal } from "./hub/HubGate";
-import { assetKey, opensInViewer, resolveAssetHref, resolveDownloadHref, trackHubAsset, type HubAsset } from "./hub/hub-assets";
+import { assetKey, opensInViewer, resolveAssetHref, resolveDownloadHref, trackHubAsset, trackHubInteraction, type HubAsset } from "./hub/hub-assets";
 import { gateApplies, type HubGateConfig } from "./hub/hub-gate";
 import { useHubSeen } from "./hub/use-hub-seen";
 
@@ -232,12 +232,29 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
   const totalItems = sections.reduce((n, s) => n + (s.items?.length ?? 0), 0);
   const jump = (i: number) => (e: React.MouseEvent<HTMLAnchorElement>) => {
     const el = sectionRefs.current[i];
+    if (!isEditor) trackHubInteraction(ctx, "section", { detail: sections[i]?.title ?? String(i + 1), value: i + 1 });
     if (el) {
       e.preventDefault();
       const top = el.getBoundingClientRect().top + window.scrollY - 96;
       window.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
     }
   };
+
+  // Search terms: one beacon per settled query (600ms after the last keystroke),
+  // with the match count — zero-match terms are what the hub is missing.
+  const lastSearchRef = useRef<string>("");
+  useEffect(() => {
+    if (isEditor || staticRender) return;
+    const q = query.trim().toLowerCase();
+    if (q.length < 2 || q === lastSearchRef.current) return;
+    const t = window.setTimeout(() => {
+      lastSearchRef.current = q;
+      const matches = sections.reduce((n, s) => n + filterAssets(s.items ?? [], q).length, 0);
+      trackHubInteraction(ctx, "search", { detail: q, value: matches });
+    }, 600);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, isEditor, staticRender]);
 
   const gridClass = rows ? "" : cols === 2 ? `grid ${flat ? "gap-8" : "gap-5"} grid-cols-1 sm:grid-cols-2` : `grid ${flat ? "gap-8 gap-y-10" : "gap-5"} grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`;
   const railWidth = layout === "rail" ? "lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]" : "";
@@ -393,7 +410,7 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
           </div>
         </div>
       </div>
-      <HubAssetViewer asset={viewing} onClose={closeViewer} palette={pal} onDownload={(a) => trackHubAsset(ctx, a, "download")} onOpenExternal={(a) => trackHubAsset(ctx, a, "open")} />
+      <HubAssetViewer asset={viewing} onClose={closeViewer} palette={pal} onDownload={(a) => trackHubAsset(ctx, a, "download")} onOpenExternal={(a) => trackHubAsset(ctx, a, "open")} onProgress={(a, pct) => trackHubAsset(ctx, a, "progress", { value: pct })} onTimeOpen={(a, seconds) => trackHubAsset(ctx, a, "time", { value: seconds })} />
       {props.gate?.enabled && !isEditor && (
         <HubGateModal gate={props.gate} open={!!pending} onClose={() => setPending(null)} onUnlocked={finishPending} palette={pal} brand={brand} />
       )}

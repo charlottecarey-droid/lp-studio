@@ -5,7 +5,11 @@ import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg
  *
  * One row per visitor action on a hub resource: `seen` (card scrolled into
  * view), `view` (opened in the in-page viewer), `open` (opened in a new tab /
- * external link) or `download`. Keyed by a stable per-asset key chosen by the
+ * external link), `download`, `progress` (video milestone, `value` = %),
+ * `time` (viewer closed, `value` = seconds open). Hub-level interactions use
+ * a synthetic asset (`asset_kind` "hub"): `search` (`detail` = term, `value`
+ * = matches), `section` (`detail` = section jumped to) and `audience`
+ * (`detail` = the audience link followed). Keyed by a stable per-asset key chosen by the
  * block (an explicit key, else a slug of the title) so counts survive copy
  * edits. `lead_id` is stamped when the visitor unlocked a gated resource
  * (the lead the gate form created) — verified server-side against the
@@ -31,6 +35,10 @@ export const lpAssetEventsTable = pgTable(
     action: text("action").notNull(),
     sessionId: text("session_id").notNull(),
     leadId: integer("lead_id"),
+    /** Numeric payload: watch-progress milestone (25/50/75/100), seconds a viewer stayed open, search result count. */
+    value: integer("value"),
+    /** Text payload: the search term, the section jumped to, the audience link followed. */
+    detail: text("detail"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

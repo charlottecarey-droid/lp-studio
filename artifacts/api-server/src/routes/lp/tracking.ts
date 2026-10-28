@@ -18,6 +18,7 @@ import { SESSION_COOKIE, optionalAuth, type AuthUser } from "../../middleware/re
 import { hydrateCustomSchemaBlocks } from "./hydrate-custom-schema";
 import { marketoService } from "../../lib/marketo-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
+import { maybeAlertHubResource } from "../../lib/hubResourceAlerts";
 
 /**
  * Resolve tenant id for a public, slug-based request from the request host.
@@ -420,8 +421,22 @@ router.post("/lp/track/asset", trackEventLimiter, async (req, res): Promise<void
       action: parsed.action,
       sessionId: parsed.sessionId,
       leadId,
+      value: parsed.value,
+      detail: parsed.detail,
     });
     res.status(204).end();
+    // Phase 3: Slack alert for identified activity (fire-and-forget, after the 204).
+    void maybeAlertHubResource({
+      tenantId: page.tenantId,
+      pageId: page.id,
+      blockId: parsed.blockId,
+      assetKey: parsed.assetKey,
+      assetTitle: parsed.assetTitle,
+      assetKind: parsed.assetKind,
+      action: parsed.action,
+      sessionId: parsed.sessionId,
+      leadId,
+    });
   } catch (err) {
     console.warn("Error recording asset event for page", parsed.pageId, ":", err);
     res.status(500).json({ error: "Failed to record asset event" });

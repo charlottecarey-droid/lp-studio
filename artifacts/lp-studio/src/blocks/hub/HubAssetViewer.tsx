@@ -25,6 +25,10 @@ export interface HubAssetViewerProps {
   palette: HubPalette;
   onDownload?: (a: HubAsset) => void;
   onOpenExternal?: (a: HubAsset) => void;
+  /** Fired once per 25/50/75/100% milestone of a native video. */
+  onProgress?: (a: HubAsset, pct: number) => void;
+  /** Fired when the viewer closes, with the seconds it stayed open. */
+  onTimeOpen?: (a: HubAsset, seconds: number) => void;
 }
 
 /** True when this asset should open inside the modal on this device. */
@@ -39,11 +43,46 @@ export function shouldOpenInline(a: HubAsset): boolean {
   return true;
 }
 
-export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExternal }: HubAssetViewerProps) {
+export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExternal, onProgress, onTimeOpen }: HubAssetViewerProps) {
   const reduced = useReducedMotion() ?? false;
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
   const open = !!asset;
+
+  // Time open: measured from mount to close (or the page unloading), reported
+  // once. The asset is captured so a close that swaps the asset still reports
+  // the one that was open.
+  const openedAtRef = useRef<number>(0);
+  const milestonesRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!asset) return;
+    const a = asset;
+    openedAtRef.current = Date.now();
+    milestonesRef.current = new Set();
+    const report = () => {
+      if (!openedAtRef.current) return;
+      const seconds = Math.round((Date.now() - openedAtRef.current) / 1000);
+      openedAtRef.current = 0;
+      if (seconds >= 1) onTimeOpen?.(a, seconds);
+    };
+    window.addEventListener("pagehide", report);
+    return () => {
+      window.removeEventListener("pagehide", report);
+      report();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asset]);
+  const onVideoTime = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const v = e.currentTarget;
+    if (!asset || !v.duration || !Number.isFinite(v.duration)) return;
+    const pct = (v.currentTime / v.duration) * 100;
+    for (const m of [25, 50, 75, 100]) {
+      if (pct >= m - (m === 100 ? 1 : 0) && !milestonesRef.current.has(m)) {
+        milestonesRef.current.add(m);
+        onProgress?.(asset, m);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +115,7 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
   if (asset && href) {
     if (asset.kind === "video") {
       body = isNativeVideoUrl(href) ? (
-        <video src={href} controls autoPlay playsInline poster={asset.thumbnailUrl || undefined} className="h-full w-full bg-black" />
+        <video src={href} controls autoPlay playsInline poster={asset.thumbnailUrl || undefined} className="h-full w-full bg-black" onTimeUpdate={onVideoTime} onEnded={onVideoTime} />
       ) : (
         <iframe src={getAutoplayEmbedUrl(href)} title={asset.title} className="h-full w-full bg-black" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen />
       );

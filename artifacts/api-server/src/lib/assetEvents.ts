@@ -5,8 +5,13 @@
  * a resource. Hand-validated (like the dwell beacon) rather than api-zod: the
  * payload is seven small fields, public, and may arrive via sendBeacon.
  */
-export const ASSET_EVENT_ACTIONS = new Set(["seen", "view", "open", "download"]);
-export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link"]);
+/** Resource actions, plus phase-3 signals: `progress` (video milestone), `time`
+ *  (seconds the viewer stayed open) and the hub-level `search` / `section` /
+ *  `audience` interactions (kind "hub", synthetic asset keys). */
+export const ASSET_EVENT_ACTIONS = new Set(["seen", "view", "open", "download", "progress", "time", "search", "section", "audience"]);
+export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link", "hub"]);
+/** Actions that count as "engaged with a resource" in the funnel. */
+export const RESOURCE_ACTIONS = ["view", "open", "download"] as const;
 
 export interface AssetEventInput {
   pageId: number;
@@ -17,6 +22,8 @@ export interface AssetEventInput {
   assetKind: string;
   action: string;
   leadId: number | null;
+  value: number | null;
+  detail: string | null;
 }
 
 export function parseAssetEventBody(raw: unknown): AssetEventInput | null {
@@ -33,5 +40,7 @@ export function parseAssetEventBody(raw: unknown): AssetEventInput | null {
   if (!assetKey) return null;
   if (!ASSET_EVENT_KINDS.has(assetKind) || !ASSET_EVENT_ACTIONS.has(action)) return null;
   const leadId = typeof body.leadId === "number" && Number.isFinite(body.leadId) && body.leadId > 0 ? Math.floor(body.leadId) : null;
-  return { pageId, sessionId, blockId, assetKey, assetTitle, assetKind, action, leadId };
+  const value = typeof body.value === "number" && Number.isFinite(body.value) && body.value >= 0 ? Math.min(Math.floor(body.value), 1_000_000) : null;
+  const detail = typeof body.detail === "string" && body.detail.trim() ? body.detail.trim().slice(0, 200) : null;
+  return { pageId, sessionId, blockId, assetKey, assetTitle, assetKind, action, leadId, value, detail };
 }

@@ -36,8 +36,12 @@ export interface HubAsset {
   downloadable?: boolean;
 }
 
-/** seen = card scrolled into view · view = in-page viewer · open = new tab / external · download. */
-export type HubAssetAction = "seen" | "view" | "download" | "open";
+/** seen = card scrolled into view · view = in-page viewer · open = new tab / external · download ·
+ *  progress = video milestone (value %) · time = viewer closed (value seconds). */
+export type HubAssetAction = "seen" | "view" | "download" | "open" | "progress" | "time";
+/** Hub-level interactions (kind "hub", synthetic asset): search (detail = term, value = matches),
+ *  section (detail = section title), audience (detail = link followed). */
+export type HubInteraction = "search" | "section" | "audience";
 
 /** Where the asset "lives": the URL the primary action uses. */
 export function resolveAssetHref(a: HubAsset): string {
@@ -118,7 +122,12 @@ export function isTrackingSuppressed(): boolean {
   return /[?&]previewVariantId=/.test(q);
 }
 
-export function buildAssetEventPayload(ctx: HubTrackContext, a: HubAsset, action: HubAssetAction) {
+export interface HubEventExtra {
+  value?: number;
+  detail?: string;
+}
+
+export function buildAssetEventPayload(ctx: HubTrackContext, a: HubAsset, action: HubAssetAction, extra: HubEventExtra = {}) {
   if (!ctx.pageId || !ctx.sessionId) return null;
   // Gate attribution: the lead the visitor's unlock created (verified
   // server-side against the tenant before it is stamped on the row).
@@ -132,14 +141,43 @@ export function buildAssetEventPayload(ctx: HubTrackContext, a: HubAsset, action
     assetKind: a.kind,
     action,
     ...(leadId ? { leadId } : {}),
+    ...(typeof extra.value === "number" && Number.isFinite(extra.value) ? { value: Math.max(0, Math.round(extra.value)) } : {}),
+    ...(extra.detail && extra.detail.trim() ? { detail: extra.detail.trim().slice(0, 200) } : {}),
+  };
+}
+
+/** A hub-level interaction (search / section jump / audience switch) as a beacon payload. */
+export function buildHubInteractionPayload(ctx: HubTrackContext, interaction: HubInteraction, extra: HubEventExtra = {}) {
+  if (!ctx.pageId || !ctx.sessionId) return null;
+  const leadId = readHubUnlock()?.leadId;
+  return {
+    pageId: ctx.pageId,
+    sessionId: ctx.sessionId,
+    blockId: ctx.blockId ?? null,
+    assetKey: `_${interaction}`,
+    assetTitle: null,
+    assetKind: "hub",
+    action: interaction,
+    ...(leadId ? { leadId } : {}),
+    ...(typeof extra.value === "number" && Number.isFinite(extra.value) ? { value: Math.max(0, Math.round(extra.value)) } : {}),
+    ...(extra.detail && extra.detail.trim() ? { detail: extra.detail.trim().slice(0, 200) } : {}),
   };
 }
 
 /** Fire-and-forget engagement beacon. Never throws; silently no-ops in the
  *  builder, in previews and when the page has no tracking context. */
-export function trackHubAsset(ctx: HubTrackContext, a: HubAsset, action: HubAssetAction): void {
+export function trackHubAsset(ctx: HubTrackContext, a: HubAsset, action: HubAssetAction, extra: HubEventExtra = {}): void {
   if (isTrackingSuppressed()) return;
-  const payload = buildAssetEventPayload(ctx, a, action);
+  sendHubBeacon(buildAssetEventPayload(ctx, a, action, extra));
+}
+
+/** Beacon a hub-level interaction. Same transport and suppression rules as assets. */
+export function trackHubInteraction(ctx: HubTrackContext, interaction: HubInteraction, extra: HubEventExtra = {}): void {
+  if (isTrackingSuppressed()) return;
+  sendHubBeacon(buildHubInteractionPayload(ctx, interaction, extra));
+}
+
+function sendHubBeacon(payload: Record<string, unknown> | null): void {
   if (!payload) return;
   try {
     const body = JSON.stringify(payload);

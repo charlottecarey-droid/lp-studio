@@ -422,17 +422,22 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
   const since = new Date(Date.now() - days * 86_400_000);
   const pageFilter = pageId ? sql`AND e.page_id = ${pageId}` : sql``;
   try {
-    const [totals, assets, pages, people] = await Promise.all([
+    const [totals, assets, pages, people, searches, sections, audience] = await Promise.all([
       db.execute(sql`
         SELECT
           COUNT(DISTINCT e.session_id) FILTER (WHERE e.action = 'seen')::int AS "seenSessions",
           COUNT(*) FILTER (WHERE e.action = 'view')::int AS "views",
           COUNT(*) FILTER (WHERE e.action = 'open')::int AS "opens",
           COUNT(*) FILTER (WHERE e.action = 'download')::int AS "downloads",
-          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action <> 'seen')::int AS "activeSessions",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action IN ('view','open','download'))::int AS "activeSessions",
           COUNT(DISTINCT e.session_id)::int AS "sessions",
-          COUNT(DISTINCT COALESCE(e.lead_id, l.id)) FILTER (WHERE COALESCE(e.lead_id, l.id) IS NOT NULL)::int AS "identified",
-          COUNT(DISTINCT e.asset_key)::int AS "resources"
+          COUNT(DISTINCT COALESCE(e.lead_id, l.id)) FILTER (WHERE COALESCE(e.lead_id, l.id) IS NOT NULL AND e.action IN ('view','open','download'))::int AS "identified",
+          COUNT(DISTINCT e.asset_key) FILTER (WHERE e.asset_kind <> 'hub')::int AS "resources",
+          COUNT(*) FILTER (WHERE e.action = 'search')::int AS "searches",
+          COUNT(*) FILTER (WHERE e.action = 'search' AND e.value = 0)::int AS "searchMisses",
+          COUNT(*) FILTER (WHERE e.action = 'section')::int AS "sectionJumps",
+          COUNT(*) FILTER (WHERE e.action = 'audience')::int AS "audienceSwitches",
+          ROUND(AVG(e.value) FILTER (WHERE e.action = 'time'))::int AS "avgSecondsOpen"
         FROM lp_asset_events e
         LEFT JOIN lp_leads l ON l.tenant_id = e.tenant_id AND l.session_id = e.session_id AND e.lead_id IS NULL
         WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} ${pageFilter}
@@ -449,12 +454,18 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
           COUNT(*) FILTER (WHERE e.action = 'view')::int AS "views",
           COUNT(*) FILTER (WHERE e.action = 'open')::int AS "opens",
           COUNT(*) FILTER (WHERE e.action = 'download')::int AS "downloads",
-          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action <> 'seen')::int AS "uniqueSessions",
-          COUNT(DISTINCT e.lead_id) FILTER (WHERE e.lead_id IS NOT NULL)::int AS "identified",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action IN ('view','open','download'))::int AS "uniqueSessions",
+          COUNT(DISTINCT e.lead_id) FILTER (WHERE e.lead_id IS NOT NULL AND e.action IN ('view','open','download'))::int AS "identified",
+          ROUND(AVG(e.value) FILTER (WHERE e.action = 'time'))::int AS "avgSecondsOpen",
+          ROUND(AVG(m.max_pct))::int AS "avgWatchPct",
           MAX(e.created_at) AS "lastAt"
         FROM lp_asset_events e
         LEFT JOIN lp_pages p ON p.id = e.page_id
-        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} ${pageFilter}
+        LEFT JOIN LATERAL (
+          SELECT MAX(pr.value) AS max_pct FROM lp_asset_events pr
+          WHERE pr.page_id = e.page_id AND pr.asset_key = e.asset_key AND pr.session_id = e.session_id AND pr.action = 'progress'
+        ) m ON e.action = 'view' AND e.asset_kind = 'video'
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.asset_kind <> 'hub' ${pageFilter}
         GROUP BY e.page_id, e.asset_key
         ORDER BY (COUNT(*) FILTER (WHERE e.action IN ('view','open'))) DESC, "downloads" DESC, "assetKey" ASC
         LIMIT 500
@@ -464,12 +475,13 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
           e.page_id AS "pageId",
           MAX(p.title) AS "pageTitle",
           MAX(p.slug) AS "pageSlug",
-          COUNT(DISTINCT e.asset_key)::int AS "resources",
+          COUNT(DISTINCT e.asset_key) FILTER (WHERE e.asset_kind <> 'hub')::int AS "resources",
           COUNT(DISTINCT e.session_id) FILTER (WHERE e.action = 'seen')::int AS "seenSessions",
           COUNT(*) FILTER (WHERE e.action IN ('view','open'))::int AS "opened",
           COUNT(*) FILTER (WHERE e.action = 'download')::int AS "downloads",
-          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action <> 'seen')::int AS "activeSessions",
-          COUNT(DISTINCT e.lead_id) FILTER (WHERE e.lead_id IS NOT NULL)::int AS "identified",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action IN ('view','open','download'))::int AS "activeSessions",
+          COUNT(DISTINCT e.lead_id) FILTER (WHERE e.lead_id IS NOT NULL AND e.action IN ('view','open','download'))::int AS "identified",
+          COUNT(*) FILTER (WHERE e.action = 'search' AND e.value = 0)::int AS "searchMisses",
           MAX(e.created_at) AS "lastAt"
         FROM lp_asset_events e
         LEFT JOIN lp_pages p ON p.id = e.page_id
@@ -483,7 +495,7 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
           SELECT e.*, COALESCE(e.lead_id, l.id) AS person_id
           FROM lp_asset_events e
           LEFT JOIN lp_leads l ON l.tenant_id = e.tenant_id AND l.session_id = e.session_id AND e.lead_id IS NULL
-          WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.action <> 'seen' ${pageFilter}
+          WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.action IN ('view','open','download') ${pageFilter}
         )
         SELECT
           a.person_id AS "leadId",
@@ -502,6 +514,38 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
         ORDER BY "lastAt" DESC
         LIMIT 200
       `),
+      // Search terms: what visitors typed, how often, and how many matched —
+      // zero-match terms are the content the hub is missing.
+      db.execute(sql`
+        SELECT
+          LOWER(e.detail) AS "term",
+          COUNT(*)::int AS "searches",
+          COUNT(DISTINCT e.session_id)::int AS "sessions",
+          ROUND(AVG(e.value))::int AS "avgMatches",
+          COUNT(*) FILTER (WHERE e.value = 0)::int AS "misses",
+          MAX(e.created_at) AS "lastAt"
+        FROM lp_asset_events e
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.action = 'search' AND e.detail IS NOT NULL ${pageFilter}
+        GROUP BY LOWER(e.detail)
+        ORDER BY "misses" DESC, "searches" DESC
+        LIMIT 100
+      `),
+      db.execute(sql`
+        SELECT e.page_id AS "pageId", e.detail AS "section", COUNT(*)::int AS "jumps", COUNT(DISTINCT e.session_id)::int AS "sessions"
+        FROM lp_asset_events e
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.action = 'section' AND e.detail IS NOT NULL ${pageFilter}
+        GROUP BY e.page_id, e.detail
+        ORDER BY "jumps" DESC
+        LIMIT 100
+      `),
+      db.execute(sql`
+        SELECT e.page_id AS "pageId", e.detail AS "target", COUNT(*)::int AS "clicks", COUNT(DISTINCT e.session_id)::int AS "sessions"
+        FROM lp_asset_events e
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.action = 'audience' AND e.detail IS NOT NULL ${pageFilter}
+        GROUP BY e.page_id, e.detail
+        ORDER BY "clicks" DESC
+        LIMIT 50
+      `),
     ]);
     const t = (totals.rows[0] ?? {}) as Record<string, number>;
     res.json({
@@ -516,14 +560,62 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
         activeSessions: t.activeSessions ?? 0,
         sessions: t.sessions ?? 0,
         identified: t.identified ?? 0,
+        searches: t.searches ?? 0,
+        searchMisses: t.searchMisses ?? 0,
+        sectionJumps: t.sectionJumps ?? 0,
+        audienceSwitches: t.audienceSwitches ?? 0,
+        avgSecondsOpen: t.avgSecondsOpen ?? null,
       },
       assets: assets.rows,
       pages: pages.rows,
       people: people.rows,
+      searches: searches.rows,
+      sections: sections.rows,
+      audience: audience.rows,
     });
   } catch (err) {
     console.error("[analytics] resources error:", err);
     res.status(500).json({ error: "Failed to load resource analytics" });
+  }
+});
+
+// GET /lp/analytics/resources/people/:leadId?days=
+// One identified person's resource timeline: every view / open / download /
+// watch milestone attributed to the lead (stamped lead id, or the lead's own
+// tracking session), newest first, with the page each happened on.
+router.get("/lp/analytics/resources/people/:leadId", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+  const leadId = parseInt(req.params.leadId, 10);
+  if (!Number.isFinite(leadId) || leadId <= 0) {
+    res.status(400).json({ error: "Invalid lead id" });
+    return;
+  }
+  const days = Math.max(1, Math.min(365, parseInt((req.query.days as string) || "90", 10) || 90));
+  const since = new Date(Date.now() - days * 86_400_000);
+  try {
+    const [lead] = (await db.execute(sql`
+      SELECT id, fields->>'email' AS email, NULLIF(TRIM(CONCAT_WS(' ', fields->>'firstName', fields->>'lastName')), '') AS name, fields->>'company' AS company, created_at AS "createdAt"
+      FROM lp_leads WHERE id = ${leadId} AND tenant_id = ${tenantId}
+    `)).rows as Array<{ id: number; email: string | null; name: string | null; company: string | null; createdAt: string }>;
+    if (!lead) {
+      res.status(404).json({ error: "Lead not found" });
+      return;
+    }
+    const events = await db.execute(sql`
+      SELECT e.id, e.page_id AS "pageId", p.title AS "pageTitle", p.slug AS "pageSlug", e.asset_key AS "assetKey", e.asset_title AS "assetTitle", e.asset_kind AS "assetKind", e.action, e.value, e.detail, e.created_at AS "at"
+      FROM lp_asset_events e
+      LEFT JOIN lp_pages p ON p.id = e.page_id
+      LEFT JOIN lp_leads l ON l.id = ${leadId} AND l.tenant_id = e.tenant_id
+      WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.action <> 'seen'
+        AND (e.lead_id = ${leadId} OR (e.lead_id IS NULL AND l.session_id IS NOT NULL AND e.session_id = l.session_id))
+      ORDER BY e.created_at DESC
+      LIMIT 500
+    `);
+    res.json({ days, lead, events: events.rows });
+  } catch (err) {
+    console.error("[analytics] resource person timeline error:", err);
+    res.status(500).json({ error: "Failed to load the person's timeline" });
   }
 });
 
