@@ -23,6 +23,8 @@ interface AssetRow {
   downloads: number;
   uniqueSessions: number;
   identified: number;
+  avgSecondsOpen: number | null;
+  avgWatchPct: number | null;
   lastAt: string | null;
 }
 
@@ -47,6 +49,7 @@ export function PageAssetEngagement({ pageId, days }: { pageId: number; days: nu
     { opened: 0, downloads: 0, identified: 0 },
   );
   const rate = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 100)}%` : "—");
+  const fmtSecs = (s: number | null | undefined) => (s == null ? "—" : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`);
 
   return (
     <Card>
@@ -78,6 +81,8 @@ export function PageAssetEngagement({ pageId, days }: { pageId: number; days: nu
                 <th className="py-2 pr-3 font-medium text-right"><span className="inline-flex items-center gap-1"><ExternalLink className="w-3.5 h-3.5" />Opened</span></th>
                 <th className="py-2 pr-3 font-medium text-right"><span className="inline-flex items-center gap-1"><Download className="w-3.5 h-3.5" />Downloaded</span></th>
                 <th className="py-2 pr-3 font-medium text-right" title="Opened or downloaded ÷ seen">Open rate</th>
+                <th className="py-2 pr-3 font-medium text-right" title="Average seconds the in-page viewer stayed open">Time open</th>
+                <th className="py-2 pr-3 font-medium text-right" title="Average furthest point reached in our own video files">Watched</th>
                 <th className="py-2 pr-3 font-medium text-right"><span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" />Sessions</span></th>
                 <th className="py-2 font-medium text-right"><span className="inline-flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" />Identified</span></th>
               </tr>
@@ -95,6 +100,8 @@ export function PageAssetEngagement({ pageId, days }: { pageId: number; days: nu
                   <td className="py-2 pr-3 text-right tabular-nums">{r.opens}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{r.downloads}</td>
                   <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">{rate(r.uniqueSessions, r.seen ?? 0)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">{fmtSecs(r.avgSecondsOpen)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">{r.assetKind === "video" && r.avgWatchPct != null ? `${r.avgWatchPct}%` : "—"}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{r.uniqueSessions}</td>
                   <td className="py-2 text-right tabular-nums">{r.identified ?? 0}</td>
                 </tr>

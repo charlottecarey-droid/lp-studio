@@ -20,6 +20,11 @@ interface Totals {
   activeSessions: number;
   sessions: number;
   identified: number;
+  searches: number;
+  searchMisses: number;
+  sectionJumps: number;
+  audienceSwitches: number;
+  avgSecondsOpen: number | null;
 }
 interface AssetRow {
   pageId: number;
@@ -34,6 +39,8 @@ interface AssetRow {
   downloads: number;
   uniqueSessions: number;
   identified: number;
+  avgSecondsOpen: number | null;
+  avgWatchPct: number | null;
   lastAt: string | null;
 }
 interface PageRow {
@@ -46,7 +53,41 @@ interface PageRow {
   downloads: number;
   activeSessions: number;
   identified: number;
+  searchMisses: number;
   lastAt: string | null;
+}
+interface SearchRow {
+  term: string;
+  searches: number;
+  sessions: number;
+  avgMatches: number | null;
+  misses: number;
+  lastAt: string | null;
+}
+interface SectionRow {
+  pageId: number;
+  section: string;
+  jumps: number;
+  sessions: number;
+}
+interface AudienceRow {
+  pageId: number;
+  target: string;
+  clicks: number;
+  sessions: number;
+}
+interface TimelineEvent {
+  id: number;
+  pageId: number;
+  pageTitle: string | null;
+  pageSlug: string | null;
+  assetKey: string;
+  assetTitle: string | null;
+  assetKind: string;
+  action: string;
+  value: number | null;
+  detail: string | null;
+  at: string;
 }
 interface PersonRow {
   leadId: number;
@@ -66,11 +107,48 @@ interface ResourcesData {
   assets: AssetRow[];
   pages: PageRow[];
   people: PersonRow[];
+  searches: SearchRow[];
+  sections: SectionRow[];
+  audience: AudienceRow[];
 }
 
 const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "Video", link: "Link" };
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—");
 const rate = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 100)}%` : "—");
+const fmtSecs = (s: number | null | undefined) => (s == null ? "—" : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`);
+const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const ACTION_LABEL: Record<string, string> = { view: "Viewed", open: "Opened", download: "Downloaded", progress: "Watched", time: "Time open" };
+
+/** One identified person's resource timeline, fetched on expand. */
+function PersonTimeline({ leadId, days }: { leadId: number; days: number }) {
+  const [events, setEvents] = useState<TimelineEvent[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/lp/analytics/resources/people/${leadId}?days=${Math.max(days, 90)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
+      .then((d: { events: TimelineEvent[] }) => !cancelled && setEvents(d.events))
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId, days]);
+  if (failed) return <p className="px-3 py-2 text-xs text-destructive">Could not load this person's timeline.</p>;
+  if (!events) return <Skeleton className="m-3 h-12" />;
+  if (events.length === 0) return <p className="px-3 py-2 text-xs text-muted-foreground">No resource activity in the last {Math.max(days, 90)} days.</p>;
+  return (
+    <ol className="divide-y border-t bg-muted/20 text-xs" data-testid="person-timeline">
+      {events.map((e) => (
+        <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-1.5">
+          <span className="w-[120px] shrink-0 tabular-nums text-muted-foreground">{fmtTime(e.at)}</span>
+          <span className="font-medium">{ACTION_LABEL[e.action] ?? e.action}{e.action === "progress" && e.value != null ? ` ${e.value}%` : e.action === "time" && e.value != null ? ` ${fmtSecs(e.value)}` : ""}</span>
+          <span className="truncate">{e.assetTitle || e.assetKey}</span>
+          <span className="text-muted-foreground">{KIND_LABEL[e.assetKind] ?? e.assetKind}{e.pageTitle ? ` · ${e.pageTitle}` : ""}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function Stat({ label, value, hint, icon: Icon, loading }: { label: string; value: string | number; hint?: string; icon: React.ComponentType<{ className?: string }>; loading: boolean }) {
   return (
@@ -159,6 +237,14 @@ export function ResourcesTab({ days, active }: { days: number; active: boolean }
         <Stat label="Active sessions" value={t?.activeSessions ?? 0} hint={`${rate(t?.activeSessions ?? 0, t?.seenSessions ?? 0)} of seen`} icon={Users} loading={loading} />
         <Stat label="Identified" value={t?.identified ?? 0} hint="people known through a gate" icon={UserCheck} loading={loading} />
       </div>
+      {!loading && t && (t.searches > 0 || t.sectionJumps > 0 || t.audienceSwitches > 0 || t.avgSecondsOpen != null) && (
+        <p className="text-xs text-muted-foreground">
+          {t.searches > 0 && <>{t.searches} searches, {t.searchMisses} with no result · </>}
+          {t.sectionJumps > 0 && <>{t.sectionJumps} section jumps · </>}
+          {t.audienceSwitches > 0 && <>{t.audienceSwitches} audience switches · </>}
+          {t.avgSecondsOpen != null && <>average time open {fmtSecs(t.avgSecondsOpen)}</>}
+        </p>
+      )}
 
       {!loading && data && data.assets.length === 0 && (
         <Card>
@@ -222,7 +308,7 @@ export function ResourcesTab({ days, active }: { days: number; active: boolean }
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-muted-foreground border-b">
-                      <Th>Resource</Th><Th>Type</Th>{!pageId && <Th>Page</Th>}<Th right>Seen</Th><Th right>Viewed</Th><Th right>Opened</Th><Th right>Downloads</Th><Th right>Open rate</Th><Th right>Sessions</Th><Th right>Identified</Th><Th right>Last</Th>
+                      <Th>Resource</Th><Th>Type</Th>{!pageId && <Th>Page</Th>}<Th right>Seen</Th><Th right>Viewed</Th><Th right>Opened</Th><Th right>Downloads</Th><Th right>Open rate</Th><Th right title="Average seconds the in-page viewer stayed open">Time open</Th><Th right title="Average furthest point reached in our own video files">Watched</Th><Th right>Sessions</Th><Th right>Identified</Th><Th right>Last</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -239,6 +325,8 @@ export function ResourcesTab({ days, active }: { days: number; active: boolean }
                         <td className="py-2 pr-3 text-right tabular-nums">{r.opens}</td>
                         <td className="py-2 pr-3 text-right tabular-nums">{r.downloads}</td>
                         <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">{rate(r.uniqueSessions, r.seen)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">{fmtSecs(r.avgSecondsOpen)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">{r.assetKind === "video" && r.avgWatchPct != null ? `${r.avgWatchPct}%` : "—"}</td>
                         <td className="py-2 pr-3 text-right tabular-nums">{r.uniqueSessions}</td>
                         <td className="py-2 pr-3 text-right tabular-nums">{r.identified}</td>
                         <td className="py-2 text-right text-muted-foreground">{fmtDate(r.lastAt)}</td>
@@ -268,9 +356,93 @@ export function ResourcesTab({ days, active }: { days: number; active: boolean }
                 </thead>
                 <tbody>
                   {data.people.map((p) => (
-                    <tr key={p.leadId} className="border-b last:border-0">
+                    <PersonRows key={p.leadId} person={p} days={days} pageId={pageId} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {data && (data.searches.length > 0 || data.sections.length > 0 || data.audience.length > 0) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {data.searches.length > 0 && (
+            <Card>
+              <CardHeader className="space-y-0">
+                <CardTitle className="text-base">Search terms</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">What visitors typed into the library search. Terms with no matches first — that's what the hub is missing.</p>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full text-sm">
+                  <thead><tr className="text-xs text-muted-foreground border-b"><Th>Term</Th><Th right>Searches</Th><Th right>Avg matches</Th><Th right>No result</Th></tr></thead>
+                  <tbody>
+                    {data.searches.map((r) => (
+                      <tr key={r.term} className="border-b last:border-0">
+                        <td className="py-1.5 pr-3 font-medium">{r.term}{r.misses > 0 && r.misses === r.searches && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">missing</span>}</td>
+                        <td className="py-1.5 pr-3 text-right tabular-nums">{r.searches}</td>
+                        <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{r.avgMatches ?? 0}</td>
+                        <td className="py-1.5 text-right tabular-nums">{r.misses}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+          {(data.sections.length > 0 || data.audience.length > 0) && (
+            <Card>
+              <CardHeader className="space-y-0">
+                <CardTitle className="text-base">Navigation</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Section jumps from the rail, and switches between the hub's audiences.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {data.sections.length > 0 && (
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-xs text-muted-foreground border-b"><Th>Section</Th><Th right>Jumps</Th><Th right>Sessions</Th></tr></thead>
+                    <tbody>
+                      {data.sections.map((r) => (
+                        <tr key={`${r.pageId}-${r.section}`} className="border-b last:border-0">
+                          <td className="py-1.5 pr-3">{r.section}{!pageId && <span className="ml-2 text-[11px] text-muted-foreground">{pageOptions.find((p) => p.pageId === r.pageId)?.pageTitle ?? ""}</span>}</td>
+                          <td className="py-1.5 pr-3 text-right tabular-nums">{r.jumps}</td>
+                          <td className="py-1.5 text-right tabular-nums text-muted-foreground">{r.sessions}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {data.audience.length > 0 && (
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-xs text-muted-foreground border-b"><Th>Audience switch to</Th><Th right>Clicks</Th><Th right>Sessions</Th></tr></thead>
+                    <tbody>
+                      {data.audience.map((r) => (
+                        <tr key={`${r.pageId}-${r.target}`} className="border-b last:border-0">
+                          <td className="py-1.5 pr-3 font-mono text-xs">{r.target}</td>
+                          <td className="py-1.5 pr-3 text-right tabular-nums">{r.clicks}</td>
+                          <td className="py-1.5 text-right tabular-nums text-muted-foreground">{r.sessions}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PersonRows({ person: p, days, pageId }: { person: PersonRow; days: number; pageId: number | null }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+                    <tr className="border-b last:border-0">
                       <td className="py-2 pr-3">
-                        <Link href={`/leads?leadId=${p.leadId}`} className="font-medium hover:underline">{p.name || p.email || `Lead ${p.leadId}`}</Link>
+                        <button type="button" onClick={() => setOpen((o) => !o)} className="text-left font-medium hover:underline" aria-expanded={open} data-person-toggle>
+                          {p.name || p.email || `Lead ${p.leadId}`}
+                        </button>
                         {p.name && p.email && <div className="text-[11px] text-muted-foreground">{p.email}</div>}
                       </td>
                       <td className="py-2 pr-3 text-muted-foreground">{p.company || "—"}</td>
@@ -280,13 +452,14 @@ export function ResourcesTab({ days, active }: { days: number; active: boolean }
                       <td className="py-2 pr-3 truncate max-w-[260px]">{p.lastAsset || "—"}</td>
                       <td className="py-2 text-right text-muted-foreground">{fmtDate(p.lastAt)}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+                    {open && (
+                      <tr>
+                        <td colSpan={7} className="p-0">
+                          <PersonTimeline leadId={p.leadId} days={days} />
+                          {pageId && <p className="px-3 py-1 text-[10px] text-muted-foreground">Timeline shows every hub page, not only the filtered one.</p>}
+                        </td>
+                      </tr>
+                    )}
+    </>
   );
 }
