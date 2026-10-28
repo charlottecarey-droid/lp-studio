@@ -34,7 +34,9 @@ type Block = { id: string; type: string; props: Record<string, unknown> & { sect
 
 const MIME: Record<string, string> = { ".pdf": "application/pdf", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif" };
 const kindOfMime = (mime: string): "pdf" | "video" | "image" => (mime === "application/pdf" ? "pdf" : mime.startsWith("image/") ? "image" : "video");
-const MAX_PDF = 50 * 1024 * 1024;
+// The builder's upload route caps PDFs at 50 MB; this script writes to storage directly, so a
+// print-ready brochure (the Dandy Sleep trifold is 53 MB) can go through. Keep it sane.
+const MAX_PDF = 120 * 1024 * 1024;
 const MAX_VIDEO = 500 * 1024 * 1024;
 
 function arg(name: string): string | undefined {
