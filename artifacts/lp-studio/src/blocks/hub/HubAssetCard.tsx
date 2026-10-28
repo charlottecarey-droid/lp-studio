@@ -175,7 +175,10 @@ function useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab }: { asse
     }
     if (onDownload?.(asset) === true) e.preventDefault();
   };
-  return { href, download, openIt, downloadIt, target: newTab ? "_blank" : undefined, rel: newTab ? "noopener noreferrer" : undefined };
+  // In the editor the card is a surface for inline controls, not a link: no href at all, so a
+  // child that swallows the click (image pill, inline text) can never make the browser navigate.
+  const link = isEditor ? undefined : href || "#";
+  return { href, link, download, openIt, downloadIt, target: newTab ? "_blank" : undefined, rel: newTab ? "noopener noreferrer" : undefined };
 }
 
 function KindMeta({ asset, palette, className = "" }: { asset: HubAsset; palette: HubPalette; className?: string }) {
@@ -218,12 +221,12 @@ function DownloadButton({ href, onClick, title, palette }: { href: string; onCli
 
 export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = false, onDownload, onTitleChange, onDescriptionChange, onThumbnailChange }: HubAssetCardProps) {
   const isEditor = !!onTitleChange;
-  const { href, download, openIt, downloadIt, target, rel } = useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab });
+  const { link, download, openIt, downloadIt, target, rel } = useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab });
   const verb = assetVerb(asset, verbOverride);
   const t = palette.t;
   const flat = t.cardStyle === "flat";
   const verbLink = (
-    <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="inline-flex items-center gap-1.5 text-[14px] font-semibold no-underline" style={{ color: palette.accent }}>
+    <a href={link} onClick={openIt} target={target} rel={rel} className="inline-flex items-center gap-1.5 text-[14px] font-semibold no-underline" style={{ color: palette.accent }}>
       {verb}
       {asset.kind === "link" ? <ArrowUpRight className="h-4 w-4" aria-hidden /> : <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>}
     </a>
@@ -232,7 +235,7 @@ export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = fa
   if (flat) {
     return (
       <article className="hub-card-flat group relative flex w-full flex-col" style={{ color: palette.text, fontFamily: HUB_BODY }} data-hub-asset={asset.kind}>
-        <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="block overflow-hidden no-underline" style={{ borderRadius: t.cardRadius }} aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
+        <a href={link} onClick={openIt} target={target} rel={rel} className="block overflow-hidden no-underline" style={{ borderRadius: t.cardRadius }} aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
           <HubThumb asset={asset} palette={palette} className="w-full" radius={t.cardRadius} ratio={t.thumbRatio} onImageChange={onThumbnailChange} />
         </a>
         <div className="flex flex-1 flex-col pt-4">
@@ -260,7 +263,7 @@ export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = fa
       style={{ background: palette.card, border: `1px solid ${palette.hairline}`, color: palette.text, fontFamily: HUB_BODY, borderRadius: t.cardRadius, boxShadow: palette.isDark ? "none" : "0 1px 2px rgba(11,11,15,0.04)" }}
       data-hub-asset={asset.kind}
     >
-      <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="block no-underline" aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
+      <a href={link} onClick={openIt} target={target} rel={rel} className="block no-underline" aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
         <HubThumb asset={asset} palette={palette} className="m-2" radius={Math.max(6, t.cardRadius - 6)} ratio={t.thumbRatio} onImageChange={onThumbnailChange} />
       </a>
       <div className="flex flex-1 flex-col px-5 pb-5 pt-3">
@@ -285,12 +288,12 @@ export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = fa
 /** List-row rendering of an asset (the "Index" preset). Same contract as the card. */
 export function HubAssetRow({ asset, palette, verbOverride, onOpen, newTab = false, onDownload, onTitleChange, onDescriptionChange, onThumbnailChange }: HubAssetCardProps) {
   const isEditor = !!onTitleChange;
-  const { href, download, openIt, downloadIt, target, rel } = useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab });
+  const { link, download, openIt, downloadIt, target, rel } = useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab });
   const verb = assetVerb(asset, verbOverride);
   const meta = (asset.meta ?? "").trim();
   return (
     <article className="hub-row group relative flex items-start gap-4 py-4 sm:items-center sm:gap-5" style={{ color: palette.text, fontFamily: HUB_BODY, borderTop: `1px solid ${palette.hairline}` }} data-hub-asset={asset.kind}>
-      <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="shrink-0 no-underline" aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
+      <a href={link} onClick={openIt} target={target} rel={rel} className="shrink-0 no-underline" aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
         <HubKindTile asset={asset} palette={palette} />
       </a>
       <div className="min-w-0 flex-1">
@@ -311,7 +314,7 @@ export function HubAssetRow({ asset, palette, verbOverride, onOpen, newTab = fal
       </div>
       <div className="flex shrink-0 items-center gap-2 self-center">
         {onThumbnailChange && <InlineImageButton value={asset.thumbnailUrl ?? ""} onChange={onThumbnailChange} label="Thumbnail" compact inline />}
-        <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="inline-flex items-center gap-1.5 text-[14px] font-semibold no-underline" style={{ color: palette.accent }}>
+        <a href={link} onClick={openIt} target={target} rel={rel} className="inline-flex items-center gap-1.5 text-[14px] font-semibold no-underline" style={{ color: palette.accent }}>
           <span className="hidden sm:inline">{verb}</span>
           {asset.kind === "link" ? <ArrowUpRight className="h-4 w-4" aria-hidden /> : <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>}
         </a>

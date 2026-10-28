@@ -48,7 +48,11 @@ export function InlineImageButton({ value, onChange, label = "Image", position =
           title={has ? `Change ${label.toLowerCase()}` : `Add ${label.toLowerCase()}`}
           aria-label={has ? `Change ${label.toLowerCase()}` : `Add ${label.toLowerCase()}`}
           data-inline-image={has ? "change" : "add"}
-          onClick={(e) => e.stopPropagation()}
+          // The pill often sits inside a card's <a>. Stopping propagation alone keeps the card's
+          // own click guard from running, so the browser followed the href (opened the PDF in
+          // the builder). Prevent the default here and toggle the popover ourselves — Radix
+          // skips its toggle once the event is default-prevented.
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
           onMouseDown={(e) => e.stopPropagation()}
           className={cn(
             "z-20 inline-flex items-center gap-1.5 rounded-full bg-black/75 text-white shadow-md ring-1 ring-white/20 backdrop-blur transition-colors hover:bg-black/90",
