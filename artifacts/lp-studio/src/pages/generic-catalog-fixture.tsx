@@ -115,6 +115,9 @@ export default function GenericCatalogFixture() {
   // exists to check).
   const brandOverride = typeof window !== "undefined" ? (window as unknown as { __GENERIC_BRAND__?: Partial<typeof DEFAULT_BRAND> }).__GENERIC_BRAND__ : undefined;
   const brand = brandOverride ? { ...DEFAULT_BRAND, ...brandOverride } : DEFAULT_BRAND;
+  // Dev-only: `window.__GENERIC_EDITOR__ = true` renders blocks with a no-op
+  // onFieldChange so builder-only affordances (inline text, image pills) show.
+  const editorMode = typeof window !== "undefined" && !!(window as unknown as { __GENERIC_EDITOR__?: boolean }).__GENERIC_EDITOR__;
 
   return (
     <div data-testid="generic-catalog-fixture" data-seed-count={items.length}>
@@ -126,7 +129,7 @@ export default function GenericCatalogFixture() {
             data-has-registry-def={item.hasRegistryDef ? "1" : "0"}
           >
             <BlockErrorBoundary blockType={item.type}>
-              <BlockRenderer block={toPageBlock(item)} brand={brand} />
+              <BlockRenderer block={toPageBlock(item)} brand={brand} onBlockChange={editorMode ? () => {} : undefined} isBuilder={editorMode} />
             </BlockErrorBoundary>
           </section>
         ))}
