@@ -415,13 +415,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user.tenantId === ownTenantId) setImpersonatedTenantName(null);
   }, [user, ownTenantId]);
 
-  // Merge micrositeDomain from session (user) into domainContext when domain-context
-  // can't determine it from the host (e.g. in dev or via Replit preview URL).
   const effectiveDomainContext: DomainContext | null = domainContext
-    ? {
-        ...domainContext,
-        micrositeDomain: domainContext.micrositeDomain ?? user?.micrositeDomain ?? null,
-      }
+    ? { ...domainContext, micrositeDomain: resolveEffectiveMicrositeDomain(domainContext, user) }
     : null;
 
   return (
@@ -434,6 +429,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+/**
+ * The microsite domain that public-page links ("View page", copy-link) should
+ * be built on.
+ *
+ * The host-derived domain context wins on a tenant's own host (it knows the
+ * host's tenant even in dev or via a Replit preview URL), and the session's
+ * micrositeDomain fills in when the host can't say (the open admin host).
+ *
+ * EXCEPT while a superadmin is switched into another tenant from a tenant
+ * host: the session's tenant (what every API call and the builder operate
+ * on) differs from the host's tenant, so links must follow the SESSION —
+ * otherwise "View page" opens the old instance's domain and 404s.
+ */
+export function resolveEffectiveMicrositeDomain(
+  domainContext: Pick<DomainContext, "tenantId" | "micrositeDomain"> | null,
+  user: Pick<AuthUser, "tenantId" | "micrositeDomain"> | null | undefined,
+): string | null {
+  const sessionDomain = user?.micrositeDomain ?? null;
+  if (!domainContext) return sessionDomain;
+  const switched = !!user?.tenantId && !!domainContext.tenantId && user.tenantId !== domainContext.tenantId;
+  if (switched) return sessionDomain;
+  return domainContext.micrositeDomain ?? sessionDomain;
 }
 
 export function useAuth() {
