@@ -97,6 +97,9 @@ interface Props {
   testId?: number;
   variantId?: number;
   sessionId?: string;
+  /** Called once the lead row is created (native submit path). Hosts that
+   *  gate content on a submission (Content Hub resource gate) unlock here. */
+  onSubmitted?: (result: { leadId?: number }) => void;
   /** Pre-fill values for matching fields. Email maps to the first email-type field, etc. */
   prefill?: {
     email?: string;
@@ -368,7 +371,7 @@ function FieldInput({
 // builds byte-identical submissions (Sheets sync is positional — see that
 // module's docstring).
 
-export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, prefill }: Props) {
+export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, prefill, onSubmitted }: Props) {
   const bgStyles: Record<string, string> = {
     "white": "bg-white",
     "light-gray": "bg-gray-50",
@@ -564,6 +567,12 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           body: JSON.stringify(body),
         });
         if (!resp.ok) throw new Error("Submission failed");
+        try {
+          const created = (await resp.clone().json().catch(() => ({}))) as { leadId?: number };
+          onSubmitted?.({ leadId: typeof created.leadId === "number" ? created.leadId : undefined });
+        } catch {
+          /* a host callback must never break the submit path */
+        }
 
         // GTM dataLayer push — fires the `Marketo Form Submission` event
         // (formName: "Demo Form") so marketing's GTM container can fan out

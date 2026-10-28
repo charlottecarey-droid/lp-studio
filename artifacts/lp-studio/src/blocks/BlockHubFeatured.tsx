@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Download, Play } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -8,7 +8,10 @@ import { InlineText } from "@/components/InlineText";
 import { HUB_BODY, HUB_CSS, HUB_PILL_CLASS, HubKicker, hubDisplayStyle, hubPillStyle, resolveHubPalette, type HubPalette, type HubStyleProps } from "@/lib/hub-theme";
 import { HubThumb } from "./hub/HubAssetCard";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
-import { assetVerb, opensInViewer, resolveAssetHref, resolveDownloadHref, trackHubAsset, type HubAsset } from "./hub/hub-assets";
+import { HubGateModal } from "./hub/HubGate";
+import { assetKey, assetVerb, opensInViewer, resolveAssetHref, resolveDownloadHref, trackHubAsset, type HubAsset } from "./hub/hub-assets";
+import { gateApplies, type HubGateConfig } from "./hub/hub-gate";
+import { useHubSeen } from "./hub/use-hub-seen";
 
 /* ----------------------------------------------------------------------------
  * Content Hub Featured — type "hub-featured"
@@ -30,6 +33,8 @@ export interface HubFeaturedBlockProps extends HubStyleProps {
   /** Override the verb on the pill ("Watch the explainer"). */
   buttonLabel?: string;
   anchorId?: string;
+  /** Resource gate (off by default): ask for an email before the first open, or before downloads only. */
+  gate?: HubGateConfig;
 }
 
 interface Props {
@@ -71,31 +76,71 @@ export function BlockHubFeatured({ props, brand, blockId, onFieldChange }: Props
   const { pageId, sessionId } = usePageContext();
   const ctx = { pageId, sessionId, blockId };
   const [viewing, setViewing] = useState<HubAsset | null>(null);
+  const [pending, setPending] = useState<"open" | "download" | null>(null);
   const asset = props.asset ?? HUB_FEATURED_DEFAULT_PROPS.asset;
   const href = resolveAssetHref(asset);
   const download = resolveDownloadHref(asset);
   const inline = opensInViewer(asset);
   const verb = assetVerb(asset, props.buttonLabel);
   const kind = t.featuredPanel;
+  const rootRef = useRef<HTMLElement | null>(null);
+  const assets = useMemo(() => [asset], [asset]);
+  useHubSeen(rootRef, assets, ctx, !isEditor);
 
   const field = (key: keyof HubFeaturedBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as HubFeaturedBlockProps[typeof key] }) : undefined;
   const assetField = (key: keyof HubAsset) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, asset: { ...asset, [key]: v } }) : undefined;
 
+  const performOpen = (viaGate: boolean) => {
+    if (inline && shouldOpenInline(asset)) {
+      setViewing(asset);
+      trackHubAsset(ctx, asset, "view");
+      return;
+    }
+    trackHubAsset(ctx, asset, "open");
+    if (viaGate && href) window.open(href, "_blank", "noopener");
+  };
   const open = (e: React.MouseEvent) => {
     if (isEditor || !href) {
       e.preventDefault();
       return;
     }
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    if (gateApplies(props.gate, "open", { isEditor })) {
+      e.preventDefault();
+      setPending("open");
+      return;
+    }
     if (inline && shouldOpenInline(asset)) {
       e.preventDefault();
-      setViewing(asset);
-      trackHubAsset(ctx, asset, "view");
+      performOpen(false);
       return;
     }
     trackHubAsset(ctx, asset, "open");
+  };
+  const onDownloadClick = (e: React.MouseEvent) => {
+    if (gateApplies(props.gate, "download", { isEditor })) {
+      e.preventDefault();
+      setPending("download");
+      return;
+    }
+    trackHubAsset(ctx, asset, "download");
+  };
+  const finishPending = () => {
+    const p = pending;
+    setPending(null);
+    if (p === "open") performOpen(true);
+    if (p === "download" && download) {
+      trackHubAsset(ctx, asset, "download");
+      const a = document.createElement("a");
+      a.href = download;
+      a.download = "";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
   };
   const close = useCallback(() => setViewing(null), []);
   const target = inline ? undefined : "_blank";
@@ -125,7 +170,7 @@ export function BlockHubFeatured({ props, brand, blockId, onFieldChange }: Props
         <InlineText as="span" value={props.buttonLabel || verb} onUpdate={field("buttonLabel")} />
       </a>
       {download && !isEditor && (
-        <a href={download} download="" onClick={() => trackHubAsset(ctx, asset, "download")} className="inline-flex items-center gap-2 text-[14px] font-semibold no-underline" style={{ color: panel.text }}>
+        <a href={download} download="" onClick={onDownloadClick} className="inline-flex items-center gap-2 text-[14px] font-semibold no-underline" style={{ color: panel.text }}>
           <Download className="h-4 w-4" aria-hidden /> Download
         </a>
       )}
@@ -201,10 +246,13 @@ export function BlockHubFeatured({ props, brand, blockId, onFieldChange }: Props
   }
 
   return (
-    <section id={props.anchorId || undefined} className="hub-featured relative" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY }}>
+    <section id={props.anchorId || undefined} ref={rootRef} className="hub-featured relative" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY }}>
       <style>{HUB_CSS}</style>
-      <div className="mx-auto w-full max-w-page px-6 py-14 lg:px-10 lg:py-20">{body}</div>
+      <div className="mx-auto w-full max-w-page px-6 py-14 lg:px-10 lg:py-20" data-hub-seen={assetKey(asset)}>{body}</div>
       <HubAssetViewer asset={viewing} onClose={close} palette={pal} onDownload={(a) => trackHubAsset(ctx, a, "download")} onOpenExternal={(a) => trackHubAsset(ctx, a, "open")} />
+      {props.gate?.enabled && !isEditor && (
+        <HubGateModal gate={props.gate} open={!!pending} onClose={() => setPending(null)} onUnlocked={finishPending} palette={pal} brand={brand} />
+      )}
     </section>
   );
 }

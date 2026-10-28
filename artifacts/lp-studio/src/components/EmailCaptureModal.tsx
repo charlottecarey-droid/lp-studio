@@ -78,6 +78,12 @@ export interface EmailCaptureModalProps {
   pageId?: number;
   variantId?: number;
   source?: string;
+  /** Visitor tracking session, stamped on the lead so later activity in the
+   *  same session attributes to the person (Content Hub resource gate). */
+  sessionId?: string;
+  /** Fires once a submission succeeded on any branch (simple / linked global
+   *  form / Marketo). `leadId` is known for the native paths only. */
+  onSubmitted?: (result: { leadId?: number; email?: string }) => void;
 }
 
 function appendEmail(base: string, email: string): string {
@@ -112,6 +118,8 @@ export function EmailCaptureModal({
   pageId,
   variantId,
   source,
+  sessionId,
+  onSubmitted,
 }: EmailCaptureModalProps) {
   // Per-page color overrides for linked-form rendering inside the modal.
   // Provided by <LinkedFormStyleProvider> in landing-page-viewer; null on
@@ -183,14 +191,16 @@ export function EmailCaptureModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setState("loading");
+    let createdLeadId: number | undefined;
     try {
       if (pageId) {
-        await fetch("/api/lp/leads", {
+        const resp = await fetch("/api/lp/leads", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             pageId,
             variantId,
+            ...(sessionId ? { sessionId } : {}),
             fields: {
               firstName: cfg.showFirstName ? data.firstName : undefined,
               lastName: cfg.showLastName ? data.lastName : undefined,
@@ -201,11 +211,14 @@ export function EmailCaptureModal({
             },
           }),
         });
+        const created = (await resp.json().catch(() => ({}))) as { leadId?: number };
+        if (typeof created.leadId === "number") createdLeadId = created.leadId;
       }
     } catch {
       // continue silently
     }
     setState("success");
+    onSubmitted?.({ leadId: createdLeadId, email: data.email });
   };
 
   const isDark = theme === "dark";
@@ -349,6 +362,7 @@ export function EmailCaptureModal({
                 scopedStyles
                 prefill={email ? { Email: email } : undefined}
                 onSuccess={(vals) => {
+                  onSubmitted?.({ email: typeof vals?.Email === "string" ? vals.Email : undefined });
                   // Resolve the Chili Piper handoff. Callers can pass an
                   // explicit chiliPiperConfig per-CTA; if they don't, fall
                   // back to the brand-level Chili Piper URL configured in
@@ -436,7 +450,9 @@ export function EmailCaptureModal({
                 brand={brand}
                 pageId={pageId}
                 variantId={variantId}
+                sessionId={sessionId}
                 prefill={email ? { email } : undefined}
+                onSubmitted={(r) => onSubmitted?.({ leadId: r.leadId })}
               />
             ) : (
               <p className="p-6 text-sm text-slate-500">

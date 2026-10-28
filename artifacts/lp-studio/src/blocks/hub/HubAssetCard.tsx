@@ -123,7 +123,8 @@ export interface HubAssetCardProps {
   onOpen: (a: HubAsset) => boolean;
   /** Anchor target when the parent does NOT take over. */
   newTab?: boolean;
-  onDownload?: (a: HubAsset) => void;
+  /** Download pressed. Return true to take over (e.g. a gate opened) — the anchor's own download is then cancelled. */
+  onDownload?: (a: HubAsset) => boolean | void;
   /** Editor bindings — only when rendering inside the builder. */
   onTitleChange?: (v: string) => void;
   onDescriptionChange?: (v: string) => void;
@@ -132,7 +133,7 @@ export interface HubAssetCardProps {
   index?: number;
 }
 
-function useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab }: { asset: HubAsset; onOpen: (a: HubAsset) => boolean; onDownload?: (a: HubAsset) => void; isEditor: boolean; newTab: boolean }) {
+function useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab }: { asset: HubAsset; onOpen: (a: HubAsset) => boolean; onDownload?: (a: HubAsset) => boolean | void; isEditor: boolean; newTab: boolean }) {
   const href = resolveAssetHref(asset);
   const download = resolveDownloadHref(asset);
   const openIt = (e: React.MouseEvent) => {
@@ -148,7 +149,7 @@ function useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab }: { asse
       e.preventDefault();
       return;
     }
-    onDownload?.(asset);
+    if (onDownload?.(asset) === true) e.preventDefault();
   };
   return { href, download, openIt, downloadIt, target: newTab ? "_blank" : undefined, rel: newTab ? "noopener noreferrer" : undefined };
 }

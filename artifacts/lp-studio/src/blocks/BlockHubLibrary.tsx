@@ -8,7 +8,10 @@ import { InlineText } from "@/components/InlineText";
 import { HUB_BODY, HUB_CSS, HUB_DISPLAY, HubKicker, hubDisplayStyle, resolveHubPalette, type HubStyleProps } from "@/lib/hub-theme";
 import { HubAssetCard, HubAssetRow } from "./hub/HubAssetCard";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
-import { opensInViewer, trackHubAsset, type HubAsset } from "./hub/hub-assets";
+import { HubGateModal } from "./hub/HubGate";
+import { assetKey, opensInViewer, resolveAssetHref, resolveDownloadHref, trackHubAsset, type HubAsset } from "./hub/hub-assets";
+import { gateApplies, type HubGateConfig } from "./hub/hub-gate";
+import { useHubSeen } from "./hub/use-hub-seen";
 
 /* ----------------------------------------------------------------------------
  * Content Hub Library — type "hub-library"
@@ -45,6 +48,8 @@ export interface HubLibraryBlockProps extends HubStyleProps {
   showSearch?: boolean;
   searchPlaceholder?: string;
   anchorId?: string;
+  /** Resource gate (off by default): ask for an email before the first open, or before downloads only. */
+  gate?: HubGateConfig;
 }
 
 interface Props {
@@ -114,6 +119,12 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
   const [viewing, setViewing] = useState<HubAsset | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
+  const rootRef = useRef<HTMLElement | null>(null);
+  // Resource gate: the action the visitor started is parked here while the
+  // form is open and finished the moment they submit.
+  const [pending, setPending] = useState<{ asset: HubAsset; action: "open" | "download" } | null>(null);
+  const allItems = useMemo(() => sections.flatMap((s) => s.items ?? []), [sections]);
+  useHubSeen(rootRef, allItems, ctx, !isEditor && !staticRender);
 
   const field = (key: keyof HubLibraryBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as HubLibraryBlockProps[typeof key] }) : undefined;
@@ -152,19 +163,66 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
     };
   }, [staticRender, layout, sections.length]);
 
-  const openAsset = useCallback(
-    (a: HubAsset): boolean => {
+  const performOpen = useCallback(
+    (a: HubAsset, viaGate: boolean): boolean => {
       if (opensInViewer(a) && shouldOpenInline(a)) {
         setViewing(a);
         trackHubAsset(ctx, a, "view");
         return true;
       }
       trackHubAsset(ctx, a, "open");
+      if (viaGate) {
+        const href = resolveAssetHref(a);
+        if (href) window.open(href, "_blank", "noopener");
+        return true;
+      }
       return false;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pageId, sessionId, blockId],
   );
+  const openAsset = useCallback(
+    (a: HubAsset): boolean => {
+      if (gateApplies(props.gate, "open", { isEditor })) {
+        setPending({ asset: a, action: "open" });
+        return true;
+      }
+      return performOpen(a, false);
+    },
+    [props.gate, isEditor, performOpen],
+  );
+  const downloadAsset = useCallback(
+    (a: HubAsset): boolean => {
+      if (gateApplies(props.gate, "download", { isEditor })) {
+        setPending({ asset: a, action: "download" });
+        return true;
+      }
+      trackHubAsset(ctx, a, "download");
+      return false;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [props.gate, isEditor, pageId, sessionId, blockId],
+  );
+  const finishPending = useCallback(() => {
+    const p = pending;
+    setPending(null);
+    if (!p) return;
+    if (p.action === "open") {
+      performOpen(p.asset, true);
+      return;
+    }
+    const href = resolveDownloadHref(p.asset);
+    if (!href) return;
+    trackHubAsset(ctx, p.asset, "download");
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = "";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, performOpen]);
   const closeViewer = useCallback(() => setViewing(null), []);
 
   // Keep each section's ORIGINAL index so editor bindings and rail ids stay
@@ -186,7 +244,7 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
   const pillsRail = t.railStyle === "pills";
 
   return (
-    <section id={props.anchorId || undefined} className="hub-library relative" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY }}>
+    <section id={props.anchorId || undefined} ref={rootRef} className="hub-library relative" style={{ background: pal.bg, color: pal.text, fontFamily: HUB_BODY }}>
       <style>{HUB_CSS}</style>
       <div className="mx-auto w-full max-w-page px-6 py-16 lg:px-10 lg:py-24">
         {/* Header row */}
@@ -313,13 +371,14 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
                           viewport={{ once: true, amount: 0.15 }}
                           transition={{ duration: 0.6, delay: Math.min(ii, 5) * 0.05, ease: [0.16, 1, 0.3, 1] }}
                           className={rows ? "block" : "flex"}
+                          data-hub-seen={assetKey(a)}
                         >
                           <Item
                             asset={a}
                             palette={pal}
                             onOpen={openAsset}
                             newTab={newTab}
-                            onDownload={(x) => trackHubAsset(ctx, x, "download")}
+                            onDownload={downloadAsset}
                             onTitleChange={updateItem ? (v) => updateItem(sectionIndex, originalIndex, { title: v }) : undefined}
                             onDescriptionChange={updateItem ? (v) => updateItem(sectionIndex, originalIndex, { description: v }) : undefined}
                             onThumbnailChange={updateItem ? (v) => updateItem(sectionIndex, originalIndex, { thumbnailUrl: v }) : undefined}
@@ -335,6 +394,9 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
         </div>
       </div>
       <HubAssetViewer asset={viewing} onClose={closeViewer} palette={pal} onDownload={(a) => trackHubAsset(ctx, a, "download")} onOpenExternal={(a) => trackHubAsset(ctx, a, "open")} />
+      {props.gate?.enabled && !isEditor && (
+        <HubGateModal gate={props.gate} open={!!pending} onClose={() => setPending(null)} onUnlocked={finishPending} palette={pal} brand={brand} />
+      )}
     </section>
   );
 }

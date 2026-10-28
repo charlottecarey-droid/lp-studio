@@ -12,6 +12,7 @@
  * the counts: an explicit `key` wins, else a slug of the title.
  */
 import { isNativeVideoUrl } from "@/lib/video-utils";
+import { readHubUnlock } from "./hub-gate";
 
 export type HubAssetKind = "pdf" | "video" | "link";
 
@@ -35,7 +36,8 @@ export interface HubAsset {
   downloadable?: boolean;
 }
 
-export type HubAssetAction = "view" | "download" | "open";
+/** seen = card scrolled into view · view = in-page viewer · open = new tab / external · download. */
+export type HubAssetAction = "seen" | "view" | "download" | "open";
 
 /** Where the asset "lives": the URL the primary action uses. */
 export function resolveAssetHref(a: HubAsset): string {
@@ -118,6 +120,9 @@ export function isTrackingSuppressed(): boolean {
 
 export function buildAssetEventPayload(ctx: HubTrackContext, a: HubAsset, action: HubAssetAction) {
   if (!ctx.pageId || !ctx.sessionId) return null;
+  // Gate attribution: the lead the visitor's unlock created (verified
+  // server-side against the tenant before it is stamped on the row).
+  const leadId = readHubUnlock()?.leadId;
   return {
     pageId: ctx.pageId,
     sessionId: ctx.sessionId,
@@ -126,6 +131,7 @@ export function buildAssetEventPayload(ctx: HubTrackContext, a: HubAsset, action
     assetTitle: (a.title ?? "").slice(0, 200),
     assetKind: a.kind,
     action,
+    ...(leadId ? { leadId } : {}),
   };
 }
 
