@@ -15,9 +15,9 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Download, ExternalLink, X } from "lucide-react";
-import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
+import { getAutoplayEmbedUrl } from "@/lib/video-utils";
 import { HUB_BODY, HUB_PILL_SM_CLASS, hubPillStyle, type HubPalette } from "@/lib/hub-theme";
-import { ASSET_KIND_LABEL, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub-assets";
+import { ASSET_KIND_LABEL, isNativeVideoFile, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub-assets";
 
 export interface HubAssetViewerProps {
   asset: HubAsset | null;
@@ -114,7 +114,7 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
   let body: React.ReactNode = null;
   if (asset && href) {
     if (asset.kind === "video") {
-      body = isNativeVideoUrl(href) ? (
+      body = isNativeVideoFile(asset, href) ? (
         <video src={href} controls autoPlay playsInline poster={asset.thumbnailUrl || undefined} className="h-full w-full bg-black" onTimeUpdate={onVideoTime} onEnded={onVideoTime} />
       ) : (
         <iframe src={getAutoplayEmbedUrl(href)} title={asset.title} className="h-full w-full bg-black" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen />

@@ -72,13 +72,25 @@ export function resolveDownloadHref(a: HubAsset): string | null {
   }
   if (a.kind === "video") {
     const video = (a.videoUrl ?? "").trim();
-    return video && isNativeVideoUrl(video) ? video : null;
+    return video && isNativeVideoFile(a, video) ? video : null;
   }
   return null;
 }
 
 export function isPdfUrl(url: string): boolean {
   return /\.pdf(\?|#|$)/i.test(url) || /\/api\/storage\//.test(url);
+}
+
+/** A file in LP Studio's own storage (uploads carry no extension in the URL). */
+export function isHostedFileUrl(url: string): boolean {
+  return /\/api\/storage\/objects\//.test(url);
+}
+
+/** A video that plays in a native <video> element: a file with a video
+ *  extension, or a video asset's file in our storage. Everything else is an
+ *  embed (YouTube / Vimeo / Wistia / Loom). */
+export function isNativeVideoFile(a: HubAsset, href: string): boolean {
+  return isNativeVideoUrl(href) || (a.kind === "video" && isHostedFileUrl(href));
 }
 
 /** Stable analytics key: explicit key → slug of the title → kind. */

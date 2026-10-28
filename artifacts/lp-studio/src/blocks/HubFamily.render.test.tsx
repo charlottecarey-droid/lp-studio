@@ -198,6 +198,15 @@ describe("hub-assets — href / download / key helpers", () => {
     expect(opensInViewer({ kind: "link", title: "a", externalUrl: "https://x" })).toBe(false);
   });
 
+  it("a video file in our storage (no extension in the URL) counts as native: downloadable and played in <video>", () => {
+    const stored: HubAsset = { kind: "video", title: "Chairside", videoUrl: "/api/storage/objects/uploads/6e9567eb-3c9e-433b-ba2a-1a79a39b8f84" };
+    expect(resolveDownloadHref(stored)).toBe(stored.videoUrl);
+    const embed: HubAsset = { kind: "video", title: "Tour", videoUrl: "https://www.youtube.com/watch?v=abc123" };
+    expect(resolveDownloadHref(embed)).toBeNull();
+    // A PDF in storage is not a video file, whatever its URL looks like.
+    expect(resolveDownloadHref({ kind: "pdf", title: "Guide", fileUrl: "/api/storage/objects/uploads/x" })).toBe("/api/storage/objects/uploads/x");
+  });
+
   it("downloads only hosted PDFs and native video files, never embeds or links, and respects the toggle", () => {
     expect(resolveDownloadHref({ kind: "pdf", title: "a", fileUrl: "/a.pdf" })).toBe("/a.pdf");
     expect(resolveDownloadHref({ kind: "pdf", title: "a", fileUrl: "/a.pdf", downloadable: false })).toBeNull();
