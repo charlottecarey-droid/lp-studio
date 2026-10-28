@@ -319,6 +319,7 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
                             onDownload={(x) => trackHubAsset(ctx, x, "download")}
                             onTitleChange={updateItem ? (v) => updateItem(sectionIndex, originalIndex, { title: v }) : undefined}
                             onDescriptionChange={updateItem ? (v) => updateItem(sectionIndex, originalIndex, { description: v }) : undefined}
+                            onThumbnailChange={updateItem ? (v) => updateItem(sectionIndex, originalIndex, { thumbnailUrl: v }) : undefined}
                           />
                         </motion.div>
                       );

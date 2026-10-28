@@ -145,9 +145,9 @@ export function BlockHubFeatured({ props, brand, blockId, onFieldChange }: Props
   const posterLink = (cls: string, radius: number, large = true, ratio?: string) => (
     <a href={href || "#"} onClick={open} target={target} rel={rel} className={`relative block no-underline ${cls}`} aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
       {ratio ? (
-        <HubThumb asset={asset} palette={panel} className="w-full" radius={radius} large={large} ratio={ratio} />
+        <HubThumb asset={asset} palette={panel} className="w-full" radius={radius} large={large} ratio={ratio} onImageChange={assetField("thumbnailUrl")} />
       ) : (
-        <HubThumb asset={asset} palette={panel} className="absolute inset-0 h-full w-full" radius={radius} large={large} />
+        <HubThumb asset={asset} palette={panel} className="absolute inset-0 h-full w-full" radius={radius} large={large} onImageChange={assetField("thumbnailUrl")} />
       )}
     </a>
   );

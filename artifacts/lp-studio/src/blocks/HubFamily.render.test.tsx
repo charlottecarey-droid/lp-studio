@@ -276,3 +276,28 @@ describe("Hub family — style presets", () => {
     expect(mono).toContain("data-hub-featured-cta");
   });
 });
+
+describe("Hub family — builder affordances (editor mode only)", () => {
+  const editor = (Component: (p: never) => ReactElement, props: Record<string, unknown>) =>
+    renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, createElement(Component as never, { props, brand: DEFAULT_BRAND, onFieldChange: () => {} } as never)));
+
+  it("library cards and rows carry an Add/Change-image pill in the editor and none when live", () => {
+    const base = defaultsFor("hub-library");
+    const live = render(BlockHubLibrary as never, base);
+    expect(live).not.toContain("data-inline-image=");
+    const cards = editor(BlockHubLibrary as never, base);
+    expect((cards.match(/data-inline-image="add"/g) ?? []).length).toBe(5);
+    const rows = editor(BlockHubLibrary as never, { ...base, theme: "mono" });
+    expect((rows.match(/data-inline-image="add"/g) ?? []).length).toBe(5);
+  });
+
+  it("the featured poster and the hero photo slot get the pill; a set image reads Change", () => {
+    expect(editor(BlockHubFeatured as never, defaultsFor("hub-featured"))).toContain('data-inline-image="add"');
+    expect(editor(BlockHubFeatured as never, { ...defaultsFor("hub-featured"), asset: { ...(defaultsFor("hub-featured").asset as HubAsset), thumbnailUrl: "/api/storage/x.jpg" } })).toContain('data-inline-image="change"');
+    const hero = editor(BlockHubHero as never, defaultsFor("hub-hero"));
+    expect(hero).toContain("data-hub-photo-slot");
+    expect(hero).toContain('data-inline-image="add"');
+    expect(render(BlockHubHero as never, defaultsFor("hub-hero"))).not.toContain("data-hub-photo-slot");
+    expect(editor(BlockHubHero as never, { ...defaultsFor("hub-hero"), theme: "midnight" })).toContain('data-inline-image="add"');
+  });
+});

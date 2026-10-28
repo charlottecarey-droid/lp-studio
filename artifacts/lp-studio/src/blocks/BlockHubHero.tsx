@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
+import { InlineImageButton } from "@/components/InlineImageButton";
 import { HUB_BODY, HUB_CSS, HUB_PILL_CLASS, HUB_PILL_SM_CLASS, HubKicker, hubDisplayStyle, hubPillStyle, resolveHubPalette, type HubPalette, type HubStyleProps } from "@/lib/hub-theme";
 import { cn } from "@/lib/utils";
 
@@ -255,11 +256,21 @@ export function BlockHubHero({ props, brand, onCtaClick, onFieldChange }: Props)
     </div>
   );
 
+  const photoButton = isEditor ? (
+    <InlineImageButton value={image} onChange={(v) => onFieldChange?.({ ...props, mediaImageUrl: v })} label="Hero photo" alt={props.mediaImageAlt ?? ""} onAltChange={(v) => onFieldChange?.({ ...props, mediaImageAlt: v })} />
+  ) : null;
+  // The photo slot. Live: nothing without a photo. Builder: a dashed slot with the Add-image pill so the slot is discoverable.
   const photo = (cls: string, radius: number) =>
     image ? (
       <motion.div {...rise(0.12)} className={cn("relative overflow-hidden", cls)} style={{ borderRadius: radius, background: pal.cardTint, boxShadow: pal.isDark ? "none" : "0 40px 80px -48px rgba(0,0,0,0.35)" }}>
         <img src={image} alt={props.mediaImageAlt ?? ""} className="absolute inset-0 h-full w-full object-cover" />
+        {photoButton}
       </motion.div>
+    ) : isEditor ? (
+      <div className={cn("relative flex items-center justify-center overflow-hidden", cls)} style={{ borderRadius: radius, border: `2px dashed ${pal.hairline}`, color: pal.faint }} data-hub-photo-slot>
+        <span className="text-[12px] font-semibold uppercase tracking-[0.18em]">Photo slot</span>
+        {photoButton}
+      </div>
     ) : null;
 
   /* ── Layouts ──────────────────────────────────────────────────────────── */
@@ -276,6 +287,11 @@ export function BlockHubHero({ props, brand, onCtaClick, onFieldChange }: Props)
         {topBar}
         <div className="relative z-10 mx-auto flex w-full max-w-page flex-1 flex-col justify-center px-6 pb-16 pt-10 lg:px-10 lg:pb-24 lg:pt-14">
           <div className="max-w-[760px]">{copy}</div>
+          {isEditor && (
+            <div className="absolute right-6 top-4 lg:right-10">
+              <InlineImageButton value={image} onChange={(v) => onFieldChange?.({ ...props, mediaImageUrl: v })} label="Backdrop photo" inline alt={props.mediaImageAlt ?? ""} onAltChange={(v) => onFieldChange?.({ ...props, mediaImageAlt: v })} />
+            </div>
+          )}
         </div>
       </section>
     );
@@ -300,7 +316,7 @@ export function BlockHubHero({ props, brand, onCtaClick, onFieldChange }: Props)
         <style>{HUB_CSS}</style>
         {topBar}
         <div className="relative z-10 mx-auto grid w-full max-w-page items-center gap-10 px-6 pb-12 pt-12 lg:grid-cols-12 lg:px-10 lg:pb-16 lg:pt-16">
-          <div className={image ? "lg:col-span-7" : "max-w-[720px] lg:col-span-12"}>{copy}</div>
+          <div className={image || isEditor ? "lg:col-span-7" : "max-w-[720px] lg:col-span-12"}>{copy}</div>
           {photo("aspect-[4/3] lg:col-span-5", 16)}
         </div>
         <div className="mx-auto w-full max-w-page px-6 lg:px-10" aria-hidden="true">
@@ -316,7 +332,7 @@ export function BlockHubHero({ props, brand, onCtaClick, onFieldChange }: Props)
       <style>{HUB_CSS}</style>
       {topBar}
       <div className="relative z-10 mx-auto grid w-full max-w-page items-center gap-10 px-6 pb-16 pt-12 lg:grid-cols-12 lg:gap-14 lg:px-10 lg:pb-24 lg:pt-20">
-        <div className={image ? "lg:col-span-6" : "max-w-[760px] lg:col-span-12"}>{copy}</div>
+        <div className={image || isEditor ? "lg:col-span-6" : "max-w-[760px] lg:col-span-12"}>{copy}</div>
         {photo("aspect-[4/3] w-full lg:col-span-6", 24)}
       </div>
     </section>
