@@ -59,3 +59,6 @@ artifacts/mockup-sandbox/src/.generated/
 .env.local
 !.env.example
 .pnpm-store/
+
+# Content Hub files downloaded by hand for scripts/hub-attach-assets (never committed)
+hub-assets/
