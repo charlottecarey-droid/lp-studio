@@ -43,8 +43,9 @@ import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 import { pickCtaModalConfig, type CtaSecondaryFields, type CtaSuiteFields } from "@/lib/cta-modal";
 import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
 import { HUB_GATE_DEFAULTS, clearHubUnlock, readHubUnlock, type HubGateConfig, type HubGateMode } from "@/blocks/hub/hub-gate";
-import { createPdfThumbnail, needsPdfThumbnail } from "@/lib/pdf-thumbnail";
-import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Quote, Sparkles, Upload } from "lucide-react";
+import { createPdfThumbnail } from "@/lib/pdf-thumbnail";
+import { PdfThumbnailGenerator, type PdfThumbnailResults } from "@/components/PdfThumbnailGenerator";
+import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Quote, Upload } from "lucide-react";
 
 /* ── Shared: style preset + surface + colours ───────────────────────────── */
 export type ApplyHubStyle = (style: HubStyleProps) => void;
@@ -225,54 +226,6 @@ function HubGateFields({ gate, onChange }: { gate: HubGateConfig | undefined; on
 }
 
 /* ── Shared: generate thumbnails for hosted PDFs (page 1 → JPEG, in the browser) ── */
-/** index → stored thumbnail URL, every success so far. Applied as a whole each time, so a caller
- *  that spreads its (possibly stale) props still ends up with all of them. */
-export type PdfThumbnailResults = ReadonlyMap<number, string>;
-
-function GeneratePdfThumbnailsButton({ items, onThumbnails }: { items: Array<{ index: number; asset: HubAsset }>; onThumbnails: (results: PdfThumbnailResults) => void }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [failures, setFailures] = useState<string[]>([]);
-  const todo = items.filter((it) => needsPdfThumbnail(it.asset));
-  if (todo.length === 0 && failures.length === 0) return null;
-  const run = async () => {
-    setFailures([]);
-    const fails: string[] = [];
-    const results = new Map<number, string>();
-    for (const it of todo) {
-      setBusy(`${it.asset.title || "PDF"} (${todo.indexOf(it) + 1}/${todo.length})`);
-      try {
-        const url = await createPdfThumbnail(it.asset.fileUrl ?? "", it.asset.key || it.asset.title || "pdf");
-        results.set(it.index, url);
-        // Hand back everything so far (not just this one): the parent applies the full set
-        // against its latest props, so a slow render in between can't drop an earlier thumbnail.
-        onThumbnails(new Map(results));
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        fails.push(`${it.asset.title || "PDF"}: ${reason}`);
-        console.warn("[hub] PDF thumbnail failed", it.asset.title, err);
-      }
-    }
-    setFailures(fails);
-    setBusy(null);
-  };
-  return (
-    <div className="space-y-1">
-      {todo.length > 0 && (
-        <Button type="button" variant="outline" size="sm" className="h-7 w-full gap-1 text-[11px]" disabled={!!busy} onClick={() => void run()} data-generate-thumbnails>
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-          {busy ? `Rendering ${busy}…` : `Generate thumbnails for ${todo.length} PDF${todo.length === 1 ? "" : "s"} (first page)`}
-        </Button>
-      )}
-      {failures.length > 0 && (
-        <div className="text-[10px] text-destructive" data-thumbnail-failures>
-          <p>{failures.length === 1 ? "One PDF could not be rendered — set its thumbnail by hand." : `${failures.length} PDFs could not be rendered — set those by hand.`}</p>
-          <ul className="mt-0.5 list-disc pl-3">{failures.map((f) => <li key={f}>{f}</li>)}</ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ── Shared: one asset's file / link / copy fields (no thumbnail — that sits on the row) ── */
 const KIND_ICON: Record<HubAssetKind, typeof FileText> = { pdf: FileText, video: Play, link: ArrowUpRight, image: ImageIcon, text: Quote };
 
@@ -444,7 +397,12 @@ export function HubFeaturedPanel({ props, onChange, onApplyStyleToAll }: { props
       <PanelSection title="Poster image" hint="Fills the right half of the panel" defaultOpen>
         <ImagePicker value={asset.thumbnailUrl ?? ""} onChange={(v) => setAsset({ thumbnailUrl: v })} placeholder="Upload, pick from the library, or paste a URL" aiHint="Featured resource poster" previewClassName="w-full h-32 object-cover" />
         <p className="text-[10px] text-muted-foreground">Blank = a designed placeholder for the resource type. You can also click “Add image” on the poster itself.</p>
-        <GeneratePdfThumbnailsButton items={[{ index: 0, asset }]} onThumbnails={(r) => { const url = r.get(0); if (url) setAsset({ thumbnailUrl: url }); }} />
+        {asset.kind === "pdf" && (
+          <PdfThumbnailGenerator
+            candidates={[{ index: 0, title: asset.title, url: asset.fileUrl, thumbnail: asset.thumbnailUrl, filename: asset.key || asset.title }]}
+            onThumbnails={(r) => { const url = r.get(0); if (url) setAsset({ thumbnailUrl: url }); }}
+          />
+        )}
       </PanelSection>
       <PanelSection title="Resource" hint="What the spotlight opens" defaultOpen>
         <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" placeholder="Start here" /></Field>
@@ -529,8 +487,10 @@ export function HubLibraryPanel({ props, onChange, onApplyStyleToAll }: { props:
         onApply={(u) => update(u)}
       />
       <PanelSection title={`Resources (${total} in ${sections.length} section${sections.length === 1 ? "" : "s"})`} hint="Each row: thumbnail · title · type. Open a row for its file, link and description." defaultOpen>
-        <GeneratePdfThumbnailsButton
-          items={sections.flatMap((s, si) => (s.items ?? []).map((asset, ii) => ({ index: si * 1000 + ii, asset })))}
+        <PdfThumbnailGenerator
+          candidates={sections.flatMap((s, si) =>
+            (s.items ?? []).flatMap((a, ii) => (a.kind === "pdf" ? [{ index: si * 1000 + ii, title: a.title, url: a.fileUrl, thumbnail: a.thumbnailUrl, filename: a.key || a.title }] : [])),
+          )}
           onThumbnails={applyThumbnails}
         />
         {sections.map((s, si) => {

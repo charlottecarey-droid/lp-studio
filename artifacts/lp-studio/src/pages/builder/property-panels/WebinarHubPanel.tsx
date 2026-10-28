@@ -8,6 +8,8 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
 import { buildPdfUploadFormData } from "@/lib/pdf-upload";
+import { createPdfThumbnail } from "@/lib/pdf-thumbnail";
+import { PdfThumbnailGenerator, type PdfThumbnailResults } from "@/components/PdfThumbnailGenerator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type {
   WebinarHubBlockProps,
@@ -131,6 +133,10 @@ function PdfUploadButton({ resource, onPatch }: { resource: WebinarResource; onP
       if (!latest.format) patch.format = "PDF";
       if (!latest.title || latest.title === "New resource") patch.title = title || file.name.replace(/\.pdf$/i, "");
       onPatch(patch);
+      // Cover image from page 1, unless the resource already has one. Best-effort.
+      if (!(latest.imageUrl ?? "").trim()) {
+        void createPdfThumbnail(file, file.name).then((imageUrl) => onPatch({ imageUrl })).catch(() => {});
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -303,7 +309,13 @@ function FormStepsEditor({
 
 export function WebinarHubPanel({ props, onChange, pageId }: Props) {
   const p = props;
-  const set = (patch: Partial<WebinarHubBlockProps>) => onChange({ ...p, ...patch });
+  // Async work (PDF upload, thumbnail generation) finishes after later renders; patch the
+  // LATEST props, never the ones captured when the work started.
+  const latest = useRef(p);
+  latest.current = p;
+  const set = (patch: Partial<WebinarHubBlockProps>) => onChange({ ...latest.current, ...patch });
+  const applyThumbnails = (results: PdfThumbnailResults) =>
+    set({ resources: (latest.current.resources ?? []).map((r, i) => (results.get(i) ? { ...r, imageUrl: results.get(i)! } : r)) });
   const [open, setOpen] = useState<Record<string, boolean>>({ content: true });
   const toggle = (k: string) => setOpen(o => ({ ...o, [k]: !o[k] }));
 
@@ -669,6 +681,10 @@ export function WebinarHubPanel({ props, onChange, pageId }: Props) {
           <div className="space-y-2 pt-2">
             <Field label="Eyebrow"><Input value={p.resourcesEyebrow ?? ""} onChange={e => set({ resourcesEyebrow: e.target.value })} className="text-xs h-7" /></Field>
             <Field label="Headline"><Input value={p.resourcesHeadline ?? ""} onChange={e => set({ resourcesHeadline: e.target.value })} className="text-xs h-7" /></Field>
+            <PdfThumbnailGenerator
+              candidates={resources.map((r, i) => ({ index: i, title: r.title, url: r.url, thumbnail: r.imageUrl, filename: r.title }))}
+              onThumbnails={applyThumbnails}
+            />
             {resources.map((r, i) => (
               <div key={i} className="rounded border border-border p-2 space-y-1.5">
                 <div className="flex items-center justify-between">

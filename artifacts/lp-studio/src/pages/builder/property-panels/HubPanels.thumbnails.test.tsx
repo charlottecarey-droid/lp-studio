@@ -43,7 +43,8 @@ describe("Hub library — generate PDF thumbnails", () => {
     render(createElement(HubLibraryPanel, { props, onChange, onApplyStyleToAll: () => {} }));
 
     const button = document.querySelector("[data-generate-thumbnails]") as HTMLButtonElement;
-    expect(button.textContent).toContain("4 PDFs");
+    expect(button.textContent).toContain("Generate 4 thumbnails");
+    expect(document.querySelector("[data-pdf-thumbnails]")!.textContent).toContain("4 PDFs have no cover image yet");
     fireEvent.click(button);
 
     await waitFor(() => expect(document.querySelector("[data-thumbnail-failures]")).not.toBeNull());
@@ -54,7 +55,10 @@ describe("Hub library — generate PDF thumbnails", () => {
 
     const failures = document.querySelector("[data-thumbnail-failures]")!.textContent ?? "";
     expect(failures).toContain("One PDF could not be rendered");
-    expect(failures).toContain("Sleep apnea trifold: Could not fetch the PDF (500)");
-    expect(screen.queryByText(/Poster — Coffee:/)).toBeNull();
+    expect(failures).toContain("Sleep apnea trifold");
+    expect(failures).toContain("Could not fetch the PDF (500)");
+    expect(failures).not.toContain("Poster — Coffee");
+    expect(document.querySelector("[data-thumbnail-done]")!.textContent).toContain("Added 3 thumbnails");
+    expect(screen.queryByText(/Skipped/)).toBeNull();
   });
 });

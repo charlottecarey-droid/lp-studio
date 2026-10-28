@@ -32,6 +32,7 @@ export async function renderPdfFirstPage(source: File | ArrayBuffer | string, op
   } else {
     data = await source.arrayBuffer();
   }
+  if (!looksLikePdfBytes(data)) throw new NotAPdfError();
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   const pdf = await pdfjsLib.getDocument({ data }).promise;
@@ -60,6 +61,25 @@ export async function createPdfThumbnail(source: File | ArrayBuffer | string, fi
   const blob = await renderPdfFirstPage(source, opts);
   const safe = filename.replace(/\.pdf$/i, "").replace(/[^\w.-]+/g, "-").slice(0, 80) || "thumbnail";
   return uploadImage(new File([blob], `${safe}-thumb.jpg`, { type: "image/jpeg" }));
+}
+
+/** Thrown when the bytes aren't a PDF at all (a stored image behind a "PDF" link, say). */
+export class NotAPdfError extends Error {
+  constructor() {
+    super("isn't a PDF");
+    this.name = "NotAPdfError";
+  }
+}
+
+function looksLikePdfBytes(data: ArrayBuffer): boolean {
+  const head = new Uint8Array(data, 0, Math.min(5, data.byteLength));
+  return String.fromCharCode(...head) === "%PDF-";
+}
+
+/** A URL we can render: a stored object (uploads have no extension) or anything ending in .pdf. */
+export function looksLikeStoredPdf(url?: string): boolean {
+  const u = (url ?? "").trim();
+  return !!u && (/\/api\/storage\/objects\//.test(u) || /\.pdf(\?|#|$)/i.test(u));
 }
 
 /** Items that can get a generated thumbnail: hosted PDFs (a storage URL) with no thumbnail yet. */

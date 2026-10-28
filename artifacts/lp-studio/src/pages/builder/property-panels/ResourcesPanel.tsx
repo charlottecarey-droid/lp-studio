@@ -11,6 +11,8 @@ import { Plus, Trash2, GripVertical, Upload, Loader2, FileText } from "lucide-re
 import { ImagePicker } from "@/components/ImagePicker";
 import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPicker";
 import { buildPdfUploadFormData } from "@/lib/pdf-upload";
+import { createPdfThumbnail } from "@/lib/pdf-thumbnail";
+import { PdfThumbnailGenerator, type PdfThumbnailResults } from "@/components/PdfThumbnailGenerator";
 
 interface Props {
   props: ResourcesBlockProps;
@@ -89,6 +91,10 @@ function PdfUploadButton({ item, onPatch }: { item: ResourceItem; onPatch: (patc
       if (!latest.category || latest.category === "Article") patch.category = "PDF";
       if (!latest.title || latest.title === "New Article") patch.title = title || file.name.replace(/\.pdf$/i, "");
       onPatch(patch);
+      // Cover image from page 1, unless the item already has one. Best-effort.
+      if (!(latest.image ?? "").trim()) {
+        void createPdfThumbnail(file, file.name).then((image) => onPatch({ image })).catch(() => {});
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -127,10 +133,19 @@ function PdfUploadButton({ item, onPatch }: { item: ResourceItem; onPatch: (patc
 
 export default function ResourcesPanel({ props, onChange, bgOptions }: Props) {
   const bgOpts = bgOptions ?? BG_OPTIONS;
+  // Async work (PDF upload, thumbnail generation) finishes after later renders; patch the
+  // LATEST props, never the ones captured when the work started.
+  const latest = useRef(props);
+  latest.current = props;
   const updateItem = (idx: number, patch: Partial<ResourceItem>) => {
-    const items = [...props.items];
+    const cur = latest.current;
+    const items = [...cur.items];
     items[idx] = { ...items[idx], ...patch };
-    onChange({ ...props, items });
+    onChange({ ...cur, items });
+  };
+  const applyThumbnails = (results: PdfThumbnailResults) => {
+    const cur = latest.current;
+    onChange({ ...cur, items: cur.items.map((it, i) => (results.get(i) ? { ...it, image: results.get(i)! } : it)) });
   };
 
   const addItem = () => {
@@ -223,6 +238,10 @@ export default function ResourcesPanel({ props, onChange, bgOptions }: Props) {
         </div>
 
         <div className="space-y-4">
+          <PdfThumbnailGenerator
+            candidates={props.items.map((it, i) => ({ index: i, title: it.title, url: it.url, thumbnail: it.image, filename: it.title }))}
+            onThumbnails={applyThumbnails}
+          />
           {props.items.map((item, idx) => (
             <div
               key={idx}
