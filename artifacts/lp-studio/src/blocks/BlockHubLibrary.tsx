@@ -226,10 +226,13 @@ export function BlockHubLibrary({ props, brand, blockId, onFieldChange }: Props)
         </div>
 
         <div className={`grid gap-10 lg:gap-14 ${railWidth}`}>
-          {/* Rail */}
+          {/* Rail. `min-w-0` on the grid item: the chip row inside is a scroll
+              container, but a grid item's automatic minimum width is its
+              content's min-content — six no-wrap chips would otherwise widen
+              the whole page to ~1300px on a phone. */}
           {layout === "rail" && sections.length > 0 && (
-            <aside className="lg:sticky lg:top-24 lg:self-start">
-              <div className={`hub-rail -mx-6 flex gap-2 overflow-x-auto px-6 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 ${pillsRail ? "lg:gap-1.5" : "lg:gap-0"}`}>
+            <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+              <div className={`hub-rail -mx-6 flex max-w-[calc(100%+3rem)] gap-2 overflow-x-auto px-6 pb-1 lg:mx-0 lg:max-w-none lg:flex-col lg:overflow-visible lg:px-0 ${pillsRail ? "lg:gap-1.5" : "lg:gap-0"}`}>
                 {sections.map((s, i) => {
                   const isActive = i === activeIdx;
                   const count = s.items?.length ?? 0;
