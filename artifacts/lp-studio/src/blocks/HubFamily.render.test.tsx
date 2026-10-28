@@ -25,6 +25,7 @@ import { BlockHubHero, activeNavIndex } from "./BlockHubHero";
 import { BlockHubFeatured } from "./BlockHubFeatured";
 import { BlockHubLibrary, filterAssets } from "./BlockHubLibrary";
 import { BlockHubSupport } from "./BlockHubSupport";
+import { BlockHubPaths } from "./BlockHubPaths";
 import { assetKey, buildAssetEventPayload, buildHubInteractionPayload, opensInViewer, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub/hub-assets";
 
 const FAMILY = [
@@ -32,6 +33,7 @@ const FAMILY = [
   ["hub-featured", BlockHubFeatured],
   ["hub-library", BlockHubLibrary],
   ["hub-support", BlockHubSupport],
+  ["hub-paths", BlockHubPaths],
 ] as const;
 
 function defaultsFor(type: string): Record<string, unknown> {
@@ -93,7 +95,7 @@ describe("hub-hero — own top bar + audience switch contract", () => {
     expect(activeNavIndex(links, "/patients")).toBe(1);
     expect(activeNavIndex(links, "/dentists/")).toBe(0);
     expect(activeNavIndex(links, "/patients?utm=x")).toBe(1);
-    expect(activeNavIndex(links, "/somewhere-else")).toBe(0);
+    expect(activeNavIndex(links, "/somewhere-else")).toBe(-1); // the home page lights neither audience
     expect(activeNavIndex(links, null)).toBe(0);
     expect(activeNavIndex([], "/x")).toBe(-1);
   });
@@ -374,5 +376,23 @@ describe("hub-assets — phase 3 beacon payloads", () => {
     expect(buildHubInteractionPayload(ctx, "search", { detail: "  titration ", value: 0 })).toMatchObject({ assetKind: "hub", assetKey: "_search", action: "search", detail: "titration", value: 0 });
     expect(buildHubInteractionPayload(ctx, "audience", { detail: "/patients" })).toMatchObject({ assetKey: "_audience", detail: "/patients" });
     expect(buildHubInteractionPayload({ sessionId: "s" }, "section", { detail: "x" })).toBeNull();
+  });
+});
+
+describe("hub-paths — home-page audience chooser", () => {
+  it("renders one card per path with its bullets and a button into its hub; the first button is solid", () => {
+    const html = render(BlockHubPaths as never, defaultsFor("hub-paths"));
+    expect((html.match(/data-hub-path="true"/g) ?? []).length).toBe(2);
+    expect((html.match(/data-hub-path-cta/g) ?? []).length).toBe(2);
+    expect(html).toContain('href="/teams"');
+    expect(html).toContain('href="/customers"');
+    expect(html).toContain("Short how-to videos");
+    expect(html).not.toMatch(/<img/);
+  });
+  it("caps at three paths and switches to a three-column grid", () => {
+    const paths = [1, 2, 3, 4].map((n) => ({ title: `Path ${n}`, ctaText: "Go", ctaUrl: `/${n}` }));
+    const html = render(BlockHubPaths as never, { ...defaultsFor("hub-paths"), paths });
+    expect((html.match(/data-hub-path="true"/g) ?? []).length).toBe(3);
+    expect(html).toContain("lg:grid-cols-3");
   });
 });

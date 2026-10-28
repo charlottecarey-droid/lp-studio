@@ -341,6 +341,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "hub-featured": ["media", "features"],
   "hub-library": ["features", "media"],
   "hub-support": ["cta"],
+  "hub-paths": ["features", "cta"],
   // ABM account-page family (Oct 2026): brand-aware enterprise 1:1 account page.
   "abm-split-hero": ["hero", "media", "cta"],
   "abm-phone-showcase": ["features", "media"],

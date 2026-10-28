@@ -20,6 +20,7 @@ import type { HubHeroBlockProps, HubNavLink } from "@/blocks/BlockHubHero";
 import type { HubFeaturedBlockProps } from "@/blocks/BlockHubFeatured";
 import type { HubLibraryBlockProps, HubSection } from "@/blocks/BlockHubLibrary";
 import type { HubSupportBlockProps } from "@/blocks/BlockHubSupport";
+import type { HubPathsBlockProps, HubPath } from "@/blocks/BlockHubPaths";
 import type { HubAsset, HubAssetKind } from "@/blocks/hub/hub-assets";
 import { HUB_THEMES, HUB_THEME_LABELS, resolveHubTheme, type HubStyleProps, type HubSurface, type HubTheme } from "@/lib/hub-theme";
 import { Input } from "@/components/ui/input";
@@ -552,6 +553,51 @@ export function HubSupportPanel({ props, onChange, onApplyStyleToAll }: { props:
           />
         </div>
         <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="support" /></Field>
+      </PanelSection>
+      <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
+    </div>
+  );
+}
+
+/* ── Paths (home-page audience chooser) ──────────────────────────────────── */
+export function HubPathsPanel({ props, onChange, onApplyStyleToAll }: { props: HubPathsBlockProps; onChange: (p: HubPathsBlockProps) => void; onApplyStyleToAll?: ApplyHubStyle }) {
+  const update = (patch: Partial<HubPathsBlockProps>) => onChange({ ...props, ...patch });
+  const paths = props.paths ?? [];
+  const setPath = (i: number, patch: Partial<HubPath>) => update({ paths: paths.map((p, idx) => (idx === i ? { ...p, ...patch } : p)) });
+  return (
+    <div className="space-y-3">
+      <PanelSection title={`Paths (${paths.length})`} hint="One card per audience, each linking into its hub" defaultOpen>
+        {paths.map((p, i) => (
+          <div key={i} className="space-y-2 rounded-md border p-2">
+            <ItemHeader label={p.title || `Path ${i + 1}`} index={i} total={paths.length} onMove={(dir) => update({ paths: moveItem(paths, i, dir) })} onRemove={() => update({ paths: paths.filter((_, idx) => idx !== i) })} />
+            <div className="flex items-center gap-2">
+              <ThumbButton value={p.imageUrl ?? ""} onChange={(url) => setPath(i, { imageUrl: url })} label="Path image" />
+              <div className="min-w-0 flex-1 space-y-1">
+                <Input value={p.kicker ?? ""} onChange={(e) => setPath(i, { kicker: e.target.value })} className="h-7 text-xs" placeholder="Kicker (For teams)" />
+                <Input value={p.title ?? ""} onChange={(e) => setPath(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Title" />
+              </div>
+            </div>
+            <Field label="Description"><Textarea value={p.description ?? ""} onChange={(e) => setPath(i, { description: e.target.value })} rows={2} className="text-xs" /></Field>
+            <Field label="Bullets (one per line)">
+              <Textarea value={(p.bullets ?? []).join("\n")} onChange={(e) => setPath(i, { bullets: e.target.value.split("\n").map((b) => b.trim()).filter(Boolean) })} rows={3} className="text-xs" />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Button text"><Input value={p.ctaText ?? ""} onChange={(e) => setPath(i, { ctaText: e.target.value })} className="h-8 text-xs" placeholder="Open the library" /></Field>
+              <Field label="Button URL"><Input value={p.ctaUrl ?? ""} onChange={(e) => setPath(i, { ctaUrl: e.target.value })} className="h-8 text-xs" placeholder="/teams" /></Field>
+            </div>
+          </div>
+        ))}
+        {paths.length < 3 && (
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ paths: [...paths, { kicker: "", title: "New path", description: "", bullets: [], ctaText: "Open", ctaUrl: "/" }] })}>
+            <Plus className="h-3 w-3" /> Add path
+          </Button>
+        )}
+      </PanelSection>
+      <PanelSection title="Heading" hint="Kicker, headline, intro line">
+        <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" /></Field>
+        <Field label="Headline (line breaks allowed)"><Textarea value={props.headline ?? ""} onChange={(e) => update({ headline: e.target.value })} rows={2} className="text-xs" /></Field>
+        <Field label="Subheadline"><Textarea value={props.subheadline ?? ""} onChange={(e) => update({ subheadline: e.target.value })} rows={2} className="text-xs" /></Field>
+        <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="paths" /></Field>
       </PanelSection>
       <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>

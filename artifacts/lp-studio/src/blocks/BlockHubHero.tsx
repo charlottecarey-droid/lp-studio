@@ -103,9 +103,12 @@ export const HUB_HERO_DEFAULT_PROPS: HubHeroBlockProps = {
   minHeightVh: 64,
 };
 
-/** Which audience link is "current": the one whose path equals the page path (trailing slashes ignored). Falls back to the first link. */
+/** Which audience link is "current": the one whose path equals the page path
+ *  (trailing slashes ignored). -1 when none matches — on the site's home page
+ *  neither audience is lit. Without a path (SSR) the first link stands in. */
 export function activeNavIndex(links: HubNavLink[], pathname: string | null): number {
   if (!links.length) return -1;
+  if (pathname === null) return 0;
   if (pathname) {
     const norm = (p: string) => {
       try {
@@ -116,8 +119,7 @@ export function activeNavIndex(links: HubNavLink[], pathname: string | null): nu
       }
     };
     const cur = norm(pathname);
-    const i = links.findIndex((l) => l.url && norm(l.url) === cur);
-    if (i >= 0) return i;
+    return links.findIndex((l) => l.url && norm(l.url) === cur);
   }
   return 0;
 }

@@ -250,7 +250,7 @@ export const STRUCTURED_TYPES = new Set([
   // Kit family structured sections.
   "kit-contents", "kit-steps",
   // Content Hub family (Oct 2026): a sectioned resource library + its spotlight.
-  "hub-featured", "hub-library",
+  "hub-featured", "hub-library", "hub-paths",
   // ABM account-page family structured sections.
   "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-feature-grid", "abm-reading-tiles",
 ]);

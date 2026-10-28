@@ -185,7 +185,7 @@ import type {
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
-  HubSupportBlockProps,
+  HubSupportBlockProps, HubPathsBlockProps,
   AbmSplitHeroBlockProps,
   AbmPhoneShowcaseBlockProps,
   AbmSolutionTabsBlockProps,
@@ -236,6 +236,7 @@ import { HUB_HERO_DEFAULT_PROPS } from "@/blocks/BlockHubHero";
 import { HUB_FEATURED_DEFAULT_PROPS } from "@/blocks/BlockHubFeatured";
 import { HUB_LIBRARY_DEFAULT_PROPS } from "@/blocks/BlockHubLibrary";
 import { HUB_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockHubSupport";
+import { HUB_PATHS_DEFAULT_PROPS } from "@/blocks/BlockHubPaths";
 import { KIT_CONTENTS_DEFAULT_PROPS } from "@/blocks/BlockKitContents";
 import { KIT_STEPS_DEFAULT_PROPS } from "@/blocks/BlockKitSteps";
 import { KIT_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockKitSupport";
@@ -9409,6 +9410,15 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "hub-paths",
+    label: "Content Hub — Choose Your Path",
+    category: "Showcase",
+    defaultProps: (): HubPathsBlockProps => structuredClone(HUB_PATHS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FDFCFA" rx="4" /><rect x="8" y="8" width="44" height="5" rx="2" fill="#003A30" /><rect x="8" y="20" width="50" height="42" rx="5" fill="#ffffff" stroke="#ECEAE6" /><rect x="62" y="20" width="50" height="42" rx="5" fill="#ffffff" stroke="#ECEAE6" /><rect x="14" y="27" width="22" height="4" rx="2" fill="#003A30" /><rect x="68" y="27" width="22" height="4" rx="2" fill="#003A30" /><rect x="14" y="35" width="34" height="2" rx="1" fill="#003A30" opacity="0.4" /><rect x="68" y="35" width="34" height="2" rx="1" fill="#003A30" opacity="0.4" /><rect x="14" y="40" width="30" height="2" rx="1" fill="#003A30" opacity="0.4" /><rect x="68" y="40" width="30" height="2" rx="1" fill="#003A30" opacity="0.4" /><rect x="14" y="50" width="22" height="7" rx="3.5" fill="#D9E84A" /><rect x="68" y="50" width="22" height="7" rx="3.5" fill="none" stroke="#003A30" strokeOpacity="0.7" /></svg>
+    ),
+  },
+  {
     type: "hub-support",
     label: "Content Hub — Questions & Support",
     category: "CTA",
@@ -9887,6 +9897,7 @@ export function createBlock(type: "hub-hero"): Extract<PageBlock, { type: "hub-h
 export function createBlock(type: "hub-featured"): Extract<PageBlock, { type: "hub-featured" }>;
 export function createBlock(type: "hub-library"): Extract<PageBlock, { type: "hub-library" }>;
 export function createBlock(type: "hub-support"): Extract<PageBlock, { type: "hub-support" }>;
+export function createBlock(type: "hub-paths"): Extract<PageBlock, { type: "hub-paths" }>;
 export function createBlock(type: "kit-contents"): Extract<PageBlock, { type: "kit-contents" }>;
 export function createBlock(type: "kit-steps"): Extract<PageBlock, { type: "kit-steps" }>;
 export function createBlock(type: "kit-support"): Extract<PageBlock, { type: "kit-support" }>;
@@ -10283,6 +10294,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "hub-featured": return { id, type: "hub-featured", props: props as HubFeaturedBlockProps };
     case "hub-library": return { id, type: "hub-library", props: props as HubLibraryBlockProps };
     case "hub-support": return { id, type: "hub-support", props: props as HubSupportBlockProps };
+    case "hub-paths": return { id, type: "hub-paths", props: props as HubPathsBlockProps };
     case "kit-contents": return { id, type: "kit-contents", props: props as KitContentsBlockProps };
     case "kit-steps": return { id, type: "kit-steps", props: props as KitStepsBlockProps };
     case "kit-support": return { id, type: "kit-support", props: props as KitSupportBlockProps };

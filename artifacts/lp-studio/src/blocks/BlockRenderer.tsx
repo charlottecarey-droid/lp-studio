@@ -169,6 +169,7 @@ import { BlockHubHero } from "./BlockHubHero";
 import { BlockHubFeatured } from "./BlockHubFeatured";
 import { BlockHubLibrary } from "./BlockHubLibrary";
 import { BlockHubSupport } from "./BlockHubSupport";
+import { BlockHubPaths } from "./BlockHubPaths";
 import { BlockKitContents } from "./BlockKitContents";
 import { BlockKitSteps } from "./BlockKitSteps";
 import { BlockKitSupport } from "./BlockKitSupport";
@@ -510,7 +511,7 @@ export const NO_REVEAL = new Set<string>([
   // Kit family: self-nav hero with floating product stage + sections with their own staggered reveals.
   "kit-hero", "kit-contents", "kit-steps", "kit-support",
   // Content Hub family: self-nav hero with its own entrance + sections with staggered card reveals.
-  "hub-hero", "hub-featured", "hub-library", "hub-support",
+  "hub-hero", "hub-featured", "hub-library", "hub-support", "hub-paths",
   // ABM account-page family: self-nav hero + sections with their own staggered reveals.
   "abm-split-hero", "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-story-quote", "abm-logo-strip", "abm-roi-stats", "abm-feature-grid", "abm-reading-tiles", "abm-account-team", "abm-ratings-cta",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
@@ -1819,6 +1820,17 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
           <BlockHubSupport
             props={block.props}
             brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "hub-paths":
+        return (
+          <BlockHubPaths
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.paths?.[0]?.ctaUrl ?? "#") : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}
