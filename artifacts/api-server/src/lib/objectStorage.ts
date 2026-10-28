@@ -1,6 +1,7 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
+import { objectServeHeaders } from "./objectServeHeaders";
 import {
   ACL_METADATA_KEY,
   getObjectAclPolicy,
@@ -128,16 +129,7 @@ export class ObjectStorageService {
     const aclPolicy = await getObjectAclPolicy(file);
     const isPublic = aclPolicy?.visibility === "public";
     const stream = Readable.toWeb(file.createReadStream()) as ReadableStream;
-    const headers: Record<string, string> = {
-      "Content-Type": (metadata.contentType as string) || "application/octet-stream",
-      "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`,
-    };
-    // Set Content-Length if size is known; otherwise use chunked transfer encoding
-    if (metadata.size) {
-      headers["Content-Length"] = String(metadata.size);
-    } else {
-      headers["Transfer-Encoding"] = "chunked";
-    }
+    const headers = objectServeHeaders({ contentType: metadata.contentType as string | undefined, size: metadata.size as number | string | undefined, isPublic, cacheTtlSec });
     return new Response(stream, { headers });
   }
 }
