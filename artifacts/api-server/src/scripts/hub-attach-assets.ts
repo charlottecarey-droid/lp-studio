@@ -28,11 +28,12 @@ import { and, eq } from "drizzle-orm";
 import { db, pool, lpPagesTable, lpMediaTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
 
-type Asset = { key?: string; kind: "pdf" | "video" | "link"; title: string; fileUrl?: string; videoUrl?: string; externalUrl?: string };
+type Asset = { key?: string; kind: "pdf" | "video" | "link" | "image" | "text"; title: string; fileUrl?: string; videoUrl?: string; externalUrl?: string; body?: string };
 type Section = { title?: string; items?: Asset[] };
 type Block = { id: string; type: string; props: Record<string, unknown> & { sections?: Section[]; asset?: Asset } };
 
-const MIME: Record<string, string> = { ".pdf": "application/pdf", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v" };
+const MIME: Record<string, string> = { ".pdf": "application/pdf", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif" };
+const kindOfMime = (mime: string): "pdf" | "video" | "image" => (mime === "application/pdf" ? "pdf" : mime.startsWith("image/") ? "image" : "video");
 const MAX_PDF = 50 * 1024 * 1024;
 const MAX_VIDEO = 500 * 1024 * 1024;
 
@@ -45,21 +46,22 @@ const flag = (name: string) => process.argv.includes(`--${name}`);
 const slugify = (s: string) =>
   s.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-").replace(/-+/g, "-");
 const keyOf = (a: Asset) => (a.key ?? "").trim() || slugify(a.title) || a.kind;
-const hosted = (a: Asset) => (a.kind === "pdf" ? (a.fileUrl ?? "").trim() : a.kind === "video" ? (a.videoUrl ?? "").trim() : "x");
+const hosted = (a: Asset) => (a.kind === "pdf" || a.kind === "image" ? (a.fileUrl ?? "").trim() : a.kind === "video" ? (a.videoUrl ?? "").trim() : "x");
 
 /** Every pdf / video resource on the page with where it lives in `blocks`. */
 function collect(blocks: Block[]): Array<{ asset: Asset; set: (url: string) => void; where: string }> {
   const out: Array<{ asset: Asset; set: (url: string) => void; where: string }> = [];
   for (const b of blocks) {
-    if (b.type === "hub-featured" && b.props.asset && b.props.asset.kind !== "link") {
+    const isFile = (a: Asset) => a.kind === "pdf" || a.kind === "video" || a.kind === "image";
+    if (b.type === "hub-featured" && b.props.asset && isFile(b.props.asset)) {
       const a = b.props.asset;
-      out.push({ asset: a, where: `${b.type}`, set: (url) => { if (a.kind === "pdf") a.fileUrl = url; else a.videoUrl = url; } });
+      out.push({ asset: a, where: `${b.type}`, set: (url) => { if (a.kind === "video") a.videoUrl = url; else a.fileUrl = url; } });
     }
     if (b.type === "hub-library") {
       for (const s of b.props.sections ?? []) {
         for (const a of s.items ?? []) {
-          if (a.kind === "link") continue;
-          out.push({ asset: a, where: `${b.type} › ${s.title ?? "section"}`, set: (url) => { if (a.kind === "pdf") a.fileUrl = url; else a.videoUrl = url; } });
+          if (!isFile(a)) continue;
+          out.push({ asset: a, where: `${b.type} › ${s.title ?? "section"}`, set: (url) => { if (a.kind === "video") a.videoUrl = url; else a.fileUrl = url; } });
         }
       }
     }
@@ -92,7 +94,7 @@ async function main() {
     console.log("Save each download as the file name below, then run with --dir.\n");
     for (const r of resources) {
       const k = keyOf(r.asset);
-      const ext = r.asset.kind === "pdf" ? ".pdf" : ".mp4";
+      const ext = r.asset.kind === "pdf" ? ".pdf" : r.asset.kind === "image" ? ".png" : ".mp4";
       const status = hosted(r.asset) ? "hosted ✓" : "MISSING";
       console.log(`${status.padEnd(9)} ${(k + ext).padEnd(34)} ${r.asset.title}\n          ${r.asset.externalUrl ?? "(no Highspot link)"}`);
     }
@@ -126,12 +128,12 @@ async function main() {
     const ext = extname(path).toLowerCase();
     const mime = MIME[ext];
     const isPdf = mime === "application/pdf";
-    if ((isPdf && r.asset.kind !== "pdf") || (!isPdf && r.asset.kind !== "video")) {
+    if (kindOfMime(mime) !== r.asset.kind) {
       console.log(`! kind mismatch    ${k.padEnd(30)} file is ${ext} but resource is ${r.asset.kind}`);
       continue;
     }
     const size = statSync(path).size;
-    if (size > (isPdf ? MAX_PDF : MAX_VIDEO)) {
+    if (size > (kindOfMime(mime) === "video" ? MAX_VIDEO : MAX_PDF)) {
       console.log(`! too large        ${k.padEnd(30)} ${(size / 1e6).toFixed(1)} MB`);
       continue;
     }
@@ -151,7 +153,7 @@ async function main() {
       tenantId,
       title: r.asset.title,
       url,
-      mediaType: isPdf ? "pdf" : "video",
+      mediaType: kindOfMime(mime),
       mimeType: mime,
       sizeBytes: size,
       tags: ["content-hub", slug],

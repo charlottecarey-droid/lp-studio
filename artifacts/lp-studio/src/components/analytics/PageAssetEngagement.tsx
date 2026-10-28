@@ -28,7 +28,7 @@ interface AssetRow {
   lastAt: string | null;
 }
 
-const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "Video", link: "Link" };
+const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "Video", link: "Link", image: "Image", text: "Copy" };
 
 export function PageAssetEngagement({ pageId, days }: { pageId: number; days: number }) {
   const { data, isLoading } = useQuery({

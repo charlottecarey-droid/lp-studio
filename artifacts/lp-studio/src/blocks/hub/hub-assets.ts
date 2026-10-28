@@ -14,7 +14,10 @@
 import { isNativeVideoUrl } from "@/lib/video-utils";
 import { readHubUnlock } from "./hub-gate";
 
-export type HubAssetKind = "pdf" | "video" | "link";
+/** pdf · video · link, plus (Oct 2026, marketing kits) image — a poster or
+ *  social graphic previewed in the viewer and downloadable — and text — copy
+ *  (an email, an SMS, website blurb) shown in the viewer with a Copy button. */
+export type HubAssetKind = "pdf" | "video" | "link" | "image" | "text";
 
 export interface HubAsset {
   /** Stable analytics key (optional — slug of the title when blank). */
@@ -30,6 +33,8 @@ export interface HubAsset {
   externalUrl?: string;
   /** Poster / thumbnail. Optional: cards render a designed placeholder without one. */
   thumbnailUrl?: string;
+  /** The copy itself (kind "text"). */
+  body?: string;
   /** Short meta ("6 pages", "3 min", "Help center"). */
   meta?: string;
   /** Offer a download button. Default true for pdf + native video files. */
@@ -48,16 +53,18 @@ export function resolveAssetHref(a: HubAsset): string {
   const file = (a.fileUrl ?? "").trim();
   const video = (a.videoUrl ?? "").trim();
   const ext = (a.externalUrl ?? "").trim();
-  if (a.kind === "pdf") return file || ext || video;
+  if (a.kind === "pdf" || a.kind === "image") return file || ext || video;
   if (a.kind === "video") return video || ext || file;
+  if (a.kind === "text") return ext || file;
   return ext || file || video;
 }
 
 /** True when the asset opens in the in-page viewer (its own file / player)
  *  rather than a new tab. */
 export function opensInViewer(a: HubAsset): boolean {
-  if (a.kind === "pdf") return !!(a.fileUrl ?? "").trim();
+  if (a.kind === "pdf" || a.kind === "image") return !!(a.fileUrl ?? "").trim();
   if (a.kind === "video") return !!(a.videoUrl ?? "").trim();
+  if (a.kind === "text") return !!(a.body ?? "").trim();
   return false;
 }
 
@@ -66,7 +73,7 @@ export function opensInViewer(a: HubAsset): boolean {
  *  file. Embedded players (YouTube etc.) and external pages never offer one. */
 export function resolveDownloadHref(a: HubAsset): string | null {
   if (a.downloadable === false) return null;
-  if (a.kind === "pdf") {
+  if (a.kind === "pdf" || a.kind === "image") {
     const file = (a.fileUrl ?? "").trim();
     return file || null;
   }
@@ -108,13 +115,15 @@ export function assetKey(a: HubAsset): string {
   return slug || a.kind;
 }
 
-export const ASSET_KIND_LABEL: Record<HubAssetKind, string> = { pdf: "PDF", video: "Video", link: "Link" };
+export const ASSET_KIND_LABEL: Record<HubAssetKind, string> = { pdf: "PDF", video: "Video", link: "Link", image: "Image", text: "Copy" };
 
 /** The verb on the card's primary action. */
 export function assetVerb(a: HubAsset, override?: string): string {
   if (override && override.trim()) return override.trim();
   if (a.kind === "video") return "Watch";
   if (a.kind === "link") return "Open";
+  if (a.kind === "image") return "View";
+  if (a.kind === "text") return "Read & copy";
   return "Read";
 }
 

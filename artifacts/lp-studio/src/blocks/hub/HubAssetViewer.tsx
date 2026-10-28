@@ -11,10 +11,10 @@
  * inside an iframe): `shouldOpenInline` says so, and the card then opens the
  * file in a new tab rather than the modal.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Download, ExternalLink, X } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, X } from "lucide-react";
 import { getAutoplayEmbedUrl } from "@/lib/video-utils";
 import { HUB_BODY, HUB_PILL_SM_CLASS, hubPillStyle, type HubPalette } from "@/lib/hub-theme";
 import { ASSET_KIND_LABEL, isNativeVideoFile, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub-assets";
@@ -110,10 +110,23 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
   const dark = palette.dark;
   const href = asset ? resolveAssetHref(asset) : "";
   const download = asset ? resolveDownloadHref(asset) : null;
+  const copyText = asset?.kind === "text" ? (asset.body ?? "").trim() : "";
 
   let body: React.ReactNode = null;
-  if (asset && href) {
-    if (asset.kind === "video") {
+  if (asset && asset.kind === "text" && (asset.body ?? "").trim()) {
+    body = (
+      <div className="h-full overflow-auto bg-white px-6 py-8 text-[#0B0B0F] sm:px-10">
+        <pre className="mx-auto max-w-[72ch] whitespace-pre-wrap font-[inherit] text-[15px] leading-relaxed" data-hub-copy>{asset.body}</pre>
+      </div>
+    );
+  } else if (asset && href) {
+    if (asset.kind === "image") {
+      body = (
+        <div className="flex h-full items-center justify-center bg-black/95 p-4">
+          <img src={href} alt={asset.title} className="max-h-full max-w-full object-contain" />
+        </div>
+      );
+    } else if (asset.kind === "video") {
       body = isNativeVideoFile(asset, href) ? (
         <video src={href} controls autoPlay playsInline poster={asset.thumbnailUrl || undefined} className="h-full w-full bg-black" onTimeUpdate={onVideoTime} onEnded={onVideoTime} />
       ) : (
@@ -160,6 +173,9 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
                 {asset.meta && <p className="truncate text-[12px]" style={{ color: dark.faint }}>{asset.meta}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {copyText && (
+                  <CopyButton text={copyText} palette={palette} onCopied={() => onDownload?.(asset)} />
+                )}
                 {download && (
                   <a
                     href={download}
@@ -172,6 +188,7 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
                     Download
                   </a>
                 )}
+                {href && (
                 <a
                   href={href}
                   target="_blank"
@@ -184,6 +201,7 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
                   <ExternalLink className="h-4 w-4" aria-hidden />
                   <span className="hidden md:inline">New tab</span>
                 </a>
+                )}
                 <button
                   ref={closeRef}
                   type="button"
@@ -198,7 +216,7 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
             </div>
 
             {/* Body */}
-            <div className="relative flex-1 bg-black" style={{ minHeight: asset.kind === "video" ? "min(62vw, 72vh)" : "min(88vh, 1200px)", maxHeight: "calc(100vh - 56px)" }}>
+            <div className="relative flex-1 bg-black" style={{ minHeight: asset.kind === "video" ? "min(62vw, 72vh)" : asset.kind === "text" ? "min(60vh, 720px)" : "min(88vh, 1200px)", maxHeight: "calc(100vh - 56px)" }}>
               {body ?? (
                 <div className="flex h-full items-center justify-center p-10 text-center text-sm" style={{ color: dark.muted }}>
                   This item has no file attached yet.
@@ -214,9 +232,12 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
                     <Download className="h-4 w-4" aria-hidden /> Download
                   </a>
                 )}
+                {copyText && <CopyButton text={copyText} palette={palette} onCopied={() => onDownload?.(asset)} className="flex-1" />}
+                {href && (
                 <a href={href} target="_blank" rel="noopener noreferrer" onClick={() => onOpenExternal?.(asset)} className={`${HUB_PILL_SM_CLASS} flex-1`} style={{ ...hubPillStyle(palette, "ghost", "sm"), background: "transparent", color: dark.text, border: `1px solid ${dark.hairline}` }}>
                   <ExternalLink className="h-4 w-4" aria-hidden /> New tab
                 </a>
+                )}
               </div>
             )}
           </motion.div>
@@ -224,5 +245,32 @@ export function HubAssetViewer({ asset, onClose, palette, onDownload, onOpenExte
       )}
     </AnimatePresence>,
     document.body,
+  );
+}
+
+/** "Copy" pill for text resources: writes the copy to the clipboard and confirms for two seconds. */
+function CopyButton({ text, palette, onCopied, className = "" }: { text: string; palette: HubPalette; onCopied?: () => void; className?: string }) {
+  const [done, setDone] = useState(false);
+  const dark = palette.dark;
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setDone(true);
+          onCopied?.();
+          window.setTimeout(() => setDone(false), 2000);
+        } catch {
+          /* clipboard blocked — the text is selectable in the viewer */
+        }
+      }}
+      className={`${HUB_PILL_SM_CLASS} ${className}`}
+      style={{ ...hubPillStyle(palette, "solid", "sm"), background: dark.accent, color: palette.onAccentFill, boxShadow: "none" }}
+      data-hub-copy-button
+    >
+      {done ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
+      {done ? "Copied" : "Copy text"}
+    </button>
   );
 }

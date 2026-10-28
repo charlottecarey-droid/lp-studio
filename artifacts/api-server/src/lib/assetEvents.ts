@@ -9,7 +9,7 @@
  *  (seconds the viewer stayed open) and the hub-level `search` / `section` /
  *  `audience` interactions (kind "hub", synthetic asset keys). */
 export const ASSET_EVENT_ACTIONS = new Set(["seen", "view", "open", "download", "progress", "time", "search", "section", "audience"]);
-export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link", "hub"]);
+export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link", "image", "text", "hub"]);
 /** Actions that count as "engaged with a resource" in the funnel. */
 export const RESOURCE_ACTIONS = ["view", "open", "download"] as const;
 

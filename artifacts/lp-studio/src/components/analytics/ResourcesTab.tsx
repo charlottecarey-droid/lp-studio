@@ -112,7 +112,7 @@ interface ResourcesData {
   audience: AudienceRow[];
 }
 
-const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "Video", link: "Link" };
+const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "Video", link: "Link", image: "Image", text: "Copy" };
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—");
 const rate = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 100)}%` : "—");
 const fmtSecs = (s: number | null | undefined) => (s == null ? "—" : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`);

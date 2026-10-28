@@ -43,7 +43,7 @@ import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 import { pickCtaModalConfig, type CtaSecondaryFields, type CtaSuiteFields } from "@/lib/cta-modal";
 import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
 import { HUB_GATE_DEFAULTS, clearHubUnlock, readHubUnlock, type HubGateConfig, type HubGateMode } from "@/blocks/hub/hub-gate";
-import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Upload } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Quote, Upload } from "lucide-react";
 
 /* ── Shared: style preset + surface + colours ───────────────────────────── */
 export type ApplyHubStyle = (style: HubStyleProps) => void;
@@ -224,7 +224,7 @@ function HubGateFields({ gate, onChange }: { gate: HubGateConfig | undefined; on
 }
 
 /* ── Shared: one asset's file / link / copy fields (no thumbnail — that sits on the row) ── */
-const KIND_ICON: Record<HubAssetKind, typeof FileText> = { pdf: FileText, video: Play, link: ArrowUpRight };
+const KIND_ICON: Record<HubAssetKind, typeof FileText> = { pdf: FileText, video: Play, link: ArrowUpRight, image: ImageIcon, text: Quote };
 
 export function HubAssetFields({ asset, onChange, showCopy = true }: { asset: HubAsset; onChange: (patch: Partial<HubAsset>) => void; showCopy?: boolean }) {
   const kind: HubAssetKind = asset.kind ?? "pdf";
@@ -238,6 +238,8 @@ export function HubAssetFields({ asset, onChange, showCopy = true }: { asset: Hu
             <SelectItem value="pdf" className="text-xs">PDF (opens in the page, downloadable)</SelectItem>
             <SelectItem value="video" className="text-xs">Video (file or YouTube / Vimeo / Wistia / Loom)</SelectItem>
             <SelectItem value="link" className="text-xs">Link (opens in a new tab)</SelectItem>
+            <SelectItem value="image" className="text-xs">Image (poster / graphic — previews, downloadable)</SelectItem>
+            <SelectItem value="text" className="text-xs">Copy (email / SMS / web text — shown with a Copy button)</SelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -258,19 +260,31 @@ export function HubAssetFields({ asset, onChange, showCopy = true }: { asset: Hu
           </div>
         </Field>
       )}
+      {kind === "image" && (
+        <Field label="Image file">
+          <ImagePicker value={asset.fileUrl ?? ""} onChange={(v) => onChange({ fileUrl: v })} placeholder="Upload, pick from the library, or paste a URL" aiHint={asset.title || "Marketing graphic"} previewClassName="w-full h-32 object-contain bg-muted/30" />
+        </Field>
+      )}
+      {kind === "text" && (
+        <Field label="The copy (shown in the viewer with a Copy button; line breaks kept)">
+          <Textarea value={asset.body ?? ""} onChange={(e) => onChange({ body: e.target.value })} rows={6} className="text-xs" placeholder="Subject: …" />
+        </Field>
+      )}
       {kind === "video" && (
         <Field label="Video">
           <VideoPicker value={asset.videoUrl ?? ""} onChange={(v) => onChange({ videoUrl: v })} />
         </Field>
       )}
+      {kind !== "text" && (
       <Field label={kind === "link" ? "Link URL" : "Fallback link (used until a file is attached)"}>
         <Input value={asset.externalUrl ?? ""} onChange={(e) => onChange({ externalUrl: e.target.value })} className="h-8 text-xs" placeholder="https://…" />
       </Field>
+      )}
       <div className="grid grid-cols-2 items-end gap-2">
         <Field label="Meta (e.g. 4 pages · 2 min)"><Input value={asset.meta ?? ""} onChange={(e) => onChange({ meta: e.target.value })} className="h-8 text-xs" /></Field>
         <div className="flex items-center justify-between rounded-md border px-2 py-1.5">
           <span className="text-[11px]">Download button</span>
-          <Switch checked={asset.downloadable !== false} onCheckedChange={(v) => onChange({ downloadable: v })} disabled={kind === "link"} />
+          <Switch checked={asset.downloadable !== false} onCheckedChange={(v) => onChange({ downloadable: v })} disabled={kind === "link" || kind === "text"} />
         </div>
       </div>
       <Field label="Analytics key (optional — blank = from the title)"><Input value={asset.key ?? ""} onChange={(e) => onChange({ key: e.target.value })} className="h-8 text-xs" placeholder="screening-guide" /></Field>
@@ -392,7 +406,7 @@ function ResourceRow({ asset, index, total, onChange, onMove, onRemove }: { asse
   const [open, setOpen] = useState(false);
   const Icon = KIND_ICON[asset.kind ?? "pdf"];
   const kind = (asset.kind ?? "pdf").toUpperCase();
-  const where = asset.kind === "pdf" ? asset.fileUrl : asset.kind === "video" ? asset.videoUrl : asset.externalUrl;
+  const where = asset.kind === "pdf" || asset.kind === "image" ? asset.fileUrl : asset.kind === "video" ? asset.videoUrl : asset.kind === "text" ? asset.body : asset.externalUrl;
   const attached = !!(where ?? "").trim();
   return (
     <div className="rounded-md border bg-background" data-resource-row>

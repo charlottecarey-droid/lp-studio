@@ -12,7 +12,7 @@
  * Footer: the kind chip + meta, the verb ("Read" / "Watch" / "Open") and a
  * download button when the file is ours.
  */
-import { ArrowUpRight, Download, FileText, Play } from "lucide-react";
+import { ArrowUpRight, Download, FileText, ImageIcon, Play, Quote } from "lucide-react";
 import { InlineText } from "@/components/InlineText";
 import { InlineImageButton } from "@/components/InlineImageButton";
 import { HUB_BODY, type HubPalette } from "@/lib/hub-theme";
@@ -20,7 +20,8 @@ import { ASSET_KIND_LABEL, assetVerb, resolveAssetHref, resolveDownloadHref, typ
 
 export function HubThumb({ asset, palette, className = "", radius = 16, large = false, ratio, onImageChange }: { asset: HubAsset; palette: HubPalette; className?: string; radius?: number; large?: boolean; ratio?: string; onImageChange?: (url: string) => void }) {
   const dark = palette.dark;
-  const thumb = (asset.thumbnailUrl ?? "").trim();
+  // An image resource IS its own thumbnail unless a separate one is set.
+  const thumb = (asset.thumbnailUrl ?? "").trim() || (asset.kind === "image" ? (asset.fileUrl ?? "").trim() : "");
   const box = { borderRadius: radius, aspectRatio: ratio };
   // Callers that position the tile themselves pass `absolute …`; don't fight it with `relative`.
   const pos = /\babsolute\b/.test(className) ? "" : "relative";
@@ -55,6 +56,28 @@ export function HubThumb({ asset, palette, className = "", radius = 16, large = 
         <span className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: `linear-gradient(${dark.text} 1px, transparent 1px), linear-gradient(90deg, ${dark.text} 1px, transparent 1px)`, backgroundSize: "28px 28px" }} aria-hidden="true" />
         {disc}
       </>
+    );
+  } else if (asset.kind === "text") {
+    // Copy: the first lines of the text itself, as a typographic tile.
+    background = `linear-gradient(160deg, ${palette.cardTint}, color-mix(in srgb, ${palette.accentFill} 10%, ${palette.cardTint}))`;
+    const preview = (asset.body ?? "").trim().split(/\n+/).slice(0, 4).join("\n");
+    content = (
+      <>
+        <Quote className="absolute left-5 top-5 h-6 w-6" style={{ color: palette.accent, opacity: 0.6 }} aria-hidden="true" />
+        <p className="absolute inset-x-5 top-14 bottom-16 overflow-hidden whitespace-pre-line text-[13px] leading-relaxed" style={{ color: palette.muted, maskImage: "linear-gradient(180deg, #000 55%, transparent 100%)" }} aria-hidden="true">
+          {preview}
+        </p>
+        <span className="absolute left-4 bottom-4 inline-flex h-12 w-12 items-center justify-center rounded-full" style={{ background: palette.card, color: palette.accent, border: `1px solid ${palette.hairline}` }} aria-hidden="true">
+          <Quote className="h-5 w-5" />
+        </span>
+      </>
+    );
+  } else if (asset.kind === "image") {
+    background = palette.cardTint;
+    content = (
+      <span className="absolute left-4 bottom-4 inline-flex h-12 w-12 items-center justify-center rounded-full" style={{ background: palette.card, color: palette.accent, border: `1px solid ${palette.hairline}` }} aria-hidden="true">
+        <ImageIcon className="h-5 w-5" />
+      </span>
     );
   } else if (asset.kind === "link") {
     background = `linear-gradient(135deg, ${palette.cardTint}, color-mix(in srgb, ${palette.accentFill} 16%, ${palette.cardTint}))`;
@@ -93,7 +116,7 @@ export function HubThumb({ asset, palette, className = "", radius = 16, large = 
 
 /** Small kind tile for list rows (no poster): a glyph on a tinted square. */
 function HubKindTile({ asset, palette }: { asset: HubAsset; palette: HubPalette }) {
-  const thumb = (asset.thumbnailUrl ?? "").trim();
+  const thumb = (asset.thumbnailUrl ?? "").trim() || (asset.kind === "image" ? (asset.fileUrl ?? "").trim() : "");
   if (thumb) {
     return (
       <span className="relative block h-14 w-20 shrink-0 overflow-hidden rounded-[8px]" style={{ background: palette.cardTint }} aria-hidden="true">
@@ -101,7 +124,7 @@ function HubKindTile({ asset, palette }: { asset: HubAsset; palette: HubPalette 
       </span>
     );
   }
-  const Icon = asset.kind === "video" ? Play : asset.kind === "link" ? ArrowUpRight : FileText;
+  const Icon = asset.kind === "video" ? Play : asset.kind === "link" ? ArrowUpRight : asset.kind === "image" ? ImageIcon : asset.kind === "text" ? Quote : FileText;
   const dark = asset.kind === "video";
   return (
     <span className="inline-flex h-14 w-20 shrink-0 items-center justify-center rounded-[8px]" style={{ background: dark ? palette.dark.bg : palette.cardTint, color: dark ? palette.dark.accent : palette.accent }} aria-hidden="true">
@@ -137,7 +160,8 @@ function useOpenHandlers({ asset, onOpen, onDownload, isEditor, newTab }: { asse
   const href = resolveAssetHref(asset);
   const download = resolveDownloadHref(asset);
   const openIt = (e: React.MouseEvent) => {
-    if (isEditor || !href) {
+    // Copy resources have no URL of their own — the viewer shows the text.
+    if (isEditor || (!href && !(asset.kind === "text" && (asset.body ?? "").trim()))) {
       e.preventDefault();
       return;
     }
@@ -207,7 +231,7 @@ export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = fa
 
   if (flat) {
     return (
-      <article className="hub-card-flat group relative flex flex-col" style={{ color: palette.text, fontFamily: HUB_BODY }} data-hub-asset={asset.kind}>
+      <article className="hub-card-flat group relative flex w-full flex-col" style={{ color: palette.text, fontFamily: HUB_BODY }} data-hub-asset={asset.kind}>
         <a href={href || "#"} onClick={openIt} target={target} rel={rel} className="block overflow-hidden no-underline" style={{ borderRadius: t.cardRadius }} aria-label={`${verb}: ${asset.title}`} tabIndex={-1}>
           <HubThumb asset={asset} palette={palette} className="w-full" radius={t.cardRadius} ratio={t.thumbRatio} onImageChange={onThumbnailChange} />
         </a>
@@ -232,7 +256,7 @@ export function HubAssetCard({ asset, palette, verbOverride, onOpen, newTab = fa
 
   return (
     <article
-      className="hub-card group relative flex flex-col overflow-hidden"
+      className="hub-card group relative flex w-full flex-col overflow-hidden"
       style={{ background: palette.card, border: `1px solid ${palette.hairline}`, color: palette.text, fontFamily: HUB_BODY, borderRadius: t.cardRadius, boxShadow: palette.isDark ? "none" : "0 1px 2px rgba(11,11,15,0.04)" }}
       data-hub-asset={asset.kind}
     >

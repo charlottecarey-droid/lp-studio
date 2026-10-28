@@ -396,3 +396,31 @@ describe("hub-paths — home-page audience chooser", () => {
     expect(html).toContain("lg:grid-cols-3");
   });
 });
+
+describe("hub-assets — image and text resources (marketing kits)", () => {
+  it("an image is its own thumbnail, opens in the viewer and downloads; copy opens in the viewer and never downloads", () => {
+    const image: HubAsset = { kind: "image", title: "Waiting-room poster", fileUrl: "/api/storage/objects/uploads/poster" };
+    expect(resolveAssetHref(image)).toBe(image.fileUrl);
+    expect(opensInViewer(image)).toBe(true);
+    expect(resolveDownloadHref(image)).toBe(image.fileUrl);
+    const text: HubAsset = { kind: "text", title: "Recall email", body: "Subject: Sleep better\n\nHi {{first_name}}…" };
+    expect(opensInViewer(text)).toBe(true);
+    expect(resolveDownloadHref(text)).toBeNull();
+    expect(resolveAssetHref(text)).toBe("");
+    expect(opensInViewer({ kind: "text", title: "Empty" })).toBe(false);
+  });
+  it("library cards render both kinds: the image as its own picture, the copy as a typographic tile", () => {
+    const sections = [{ title: "Kit", items: [
+      { kind: "image", title: "Poster", fileUrl: "/api/storage/objects/uploads/poster" },
+      { kind: "text", title: "Recall email", body: "Subject: Sleep better\nLine two" },
+    ] as HubAsset[] }];
+    const html = render(BlockHubLibrary as never, { ...defaultsFor("hub-library"), sections });
+    expect(html).toContain('data-hub-asset="image"');
+    expect(html).toContain('data-hub-asset="text"');
+    expect(html).toContain('src="/api/storage/objects/uploads/poster"');
+    expect(html).toContain("Subject: Sleep better");
+    expect(html).toContain("Read &amp; copy");
+    expect(html).toContain('aria-label="Download Poster"');
+    expect(html).not.toContain('aria-label="Download Recall email"');
+  });
+});
