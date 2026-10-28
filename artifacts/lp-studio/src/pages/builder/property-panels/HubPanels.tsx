@@ -43,7 +43,8 @@ import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 import { pickCtaModalConfig, type CtaSecondaryFields, type CtaSuiteFields } from "@/lib/cta-modal";
 import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
 import { HUB_GATE_DEFAULTS, clearHubUnlock, readHubUnlock, type HubGateConfig, type HubGateMode } from "@/blocks/hub/hub-gate";
-import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Quote, Upload } from "lucide-react";
+import { createPdfThumbnail, needsPdfThumbnail } from "@/lib/pdf-thumbnail";
+import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Quote, Sparkles, Upload } from "lucide-react";
 
 /* ── Shared: style preset + surface + colours ───────────────────────────── */
 export type ApplyHubStyle = (style: HubStyleProps) => void;
@@ -107,7 +108,7 @@ async function uploadPdf(file: File): Promise<{ url: string; title: string }> {
   return { url: data.url, title: data.title ?? "" };
 }
 
-function PdfUploadButton({ onUploaded }: { onUploaded: (r: { url: string; title: string }) => void }) {
+function PdfUploadButton({ onUploaded }: { onUploaded: (r: { url: string; title: string }, file: File) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +128,7 @@ function PdfUploadButton({ onUploaded }: { onUploaded: (r: { url: string; title:
     setUploading(true);
     setError(null);
     try {
-      onUploaded(await uploadPdf(file));
+      onUploaded(await uploadPdf(file), file);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -223,6 +224,38 @@ function HubGateFields({ gate, onChange }: { gate: HubGateConfig | undefined; on
   );
 }
 
+/* ── Shared: generate thumbnails for hosted PDFs (page 1 → JPEG, in the browser) ── */
+function GeneratePdfThumbnailsButton({ items, onThumbnail }: { items: Array<{ index: number; asset: HubAsset }>; onThumbnail: (index: number, url: string) => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failed, setFailed] = useState(0);
+  const todo = items.filter((it) => needsPdfThumbnail(it.asset));
+  if (todo.length === 0) return null;
+  const run = async () => {
+    setFailed(0);
+    let fails = 0;
+    for (const it of todo) {
+      setBusy(`${it.asset.title || "PDF"} (${todo.indexOf(it) + 1}/${todo.length})`);
+      try {
+        const url = await createPdfThumbnail(it.asset.fileUrl ?? "", it.asset.key || it.asset.title || "pdf");
+        onThumbnail(it.index, url);
+      } catch {
+        fails++;
+      }
+    }
+    setFailed(fails);
+    setBusy(null);
+  };
+  return (
+    <div className="space-y-1">
+      <Button type="button" variant="outline" size="sm" className="h-7 w-full gap-1 text-[11px]" disabled={!!busy} onClick={() => void run()} data-generate-thumbnails>
+        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+        {busy ? `Rendering ${busy}…` : `Generate thumbnails for ${todo.length} PDF${todo.length === 1 ? "" : "s"} (first page)`}
+      </Button>
+      {failed > 0 && <p className="text-[10px] text-destructive">{failed} could not be rendered — set those by hand.</p>}
+    </div>
+  );
+}
+
 /* ── Shared: one asset's file / link / copy fields (no thumbnail — that sits on the row) ── */
 const KIND_ICON: Record<HubAssetKind, typeof FileText> = { pdf: FileText, video: Play, link: ArrowUpRight, image: ImageIcon, text: Quote };
 
@@ -256,7 +289,15 @@ export function HubAssetFields({ asset, onChange, showCopy = true }: { asset: Hu
             {isPdfUrl && <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />}
           </div>
           <div className="mt-1 flex items-center gap-2">
-            <PdfUploadButton onUploaded={({ url, title }) => onChange({ fileUrl: url, ...(asset.title ? {} : { title }) })} />
+            <PdfUploadButton
+              onUploaded={({ url, title }, file) => {
+                onChange({ fileUrl: url, ...(asset.title ? {} : { title }) });
+                // Thumbnail from page 1, unless the resource already has one. Best-effort.
+                if (!(asset.thumbnailUrl ?? "").trim()) {
+                  void createPdfThumbnail(file, file.name).then((thumb) => onChange({ fileUrl: url, thumbnailUrl: thumb })).catch(() => {});
+                }
+              }}
+            />
           </div>
         </Field>
       )}
@@ -386,6 +427,7 @@ export function HubFeaturedPanel({ props, onChange, onApplyStyleToAll }: { props
       <PanelSection title="Poster image" hint="Fills the right half of the panel" defaultOpen>
         <ImagePicker value={asset.thumbnailUrl ?? ""} onChange={(v) => setAsset({ thumbnailUrl: v })} placeholder="Upload, pick from the library, or paste a URL" aiHint="Featured resource poster" previewClassName="w-full h-32 object-cover" />
         <p className="text-[10px] text-muted-foreground">Blank = a designed placeholder for the resource type. You can also click “Add image” on the poster itself.</p>
+        <GeneratePdfThumbnailsButton items={[{ index: 0, asset }]} onThumbnail={(_, url) => setAsset({ thumbnailUrl: url })} />
       </PanelSection>
       <PanelSection title="Resource" hint="What the spotlight opens" defaultOpen>
         <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" placeholder="Start here" /></Field>
@@ -452,6 +494,10 @@ export function HubLibraryPanel({ props, onChange, onApplyStyleToAll }: { props:
         onApply={(u) => update(u)}
       />
       <PanelSection title={`Resources (${total} in ${sections.length} section${sections.length === 1 ? "" : "s"})`} hint="Each row: thumbnail · title · type. Open a row for its file, link and description." defaultOpen>
+        <GeneratePdfThumbnailsButton
+          items={sections.flatMap((s, si) => (s.items ?? []).map((asset, ii) => ({ index: si * 1000 + ii, asset })))}
+          onThumbnail={(index, url) => setItem(Math.floor(index / 1000), index % 1000, { thumbnailUrl: url })}
+        />
         {sections.map((s, si) => {
           const items = s.items ?? [];
           const open = openSection === si;
