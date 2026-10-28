@@ -78,8 +78,10 @@ describe("hub-hero — own top bar + audience switch contract", () => {
     expect((html.match(/data-hub-audience="active"/g) ?? []).length).toBe(1);
     expect((html.match(/data-hub-audience="inactive"/g) ?? []).length).toBe(1);
     expect(html).toContain('aria-current="page"');
-    expect(html).toContain('href="#library"');
-    expect(html).toContain('href="#featured"');
+    // Both CTAs are shared CtaButtons (link / form modal / Chili Piper / video) — buttons, not anchors.
+    expect((html.match(/lp-cta-btn/g) ?? []).length).toBe(2);
+    expect(html).toContain("Browse the library");
+    expect(html).toContain("Start here");
     expect(html).not.toMatch(/<img/);
   });
 
@@ -178,7 +180,9 @@ describe("hub-support — close contract", () => {
     const html = render(BlockHubSupport as never, { ...defaultsFor("hub-support"), email: "help@example.com", linkUrl: "https://help.example.com", disclaimer: "Educational information only." });
     expect(html).toContain('href="mailto:help@example.com"');
     expect(html).toContain("Email help@example.com");
-    expect(html).toContain('href="https://help.example.com" target="_blank"');
+    // The second button is a shared CtaButton (link by default) — rendered only with a destination.
+    expect(html).toContain("Visit the help center");
+    expect(html).toContain("lp-cta-btn");
     expect(html).toContain("Educational information only.");
   });
 });
@@ -299,5 +303,36 @@ describe("Hub family — builder affordances (editor mode only)", () => {
     expect(hero).toContain('data-inline-image="add"');
     expect(render(BlockHubHero as never, defaultsFor("hub-hero"))).not.toContain("data-hub-photo-slot");
     expect(editor(BlockHubHero as never, { ...defaultsFor("hub-hero"), theme: "midnight" })).toContain('data-inline-image="add"');
+  });
+});
+
+describe("Hub family — shared CTA actions and the resource gate", () => {
+  it("hero buttons are CtaButtons: a link renders a button that keeps the destination; a form action renders no link", () => {
+    const html = render(BlockHubHero as never, defaultsFor("hub-hero"));
+    expect((html.match(/lp-cta-btn/g) ?? []).length).toBe(2);
+    const modal = render(BlockHubHero as never, { ...defaultsFor("hub-hero"), ctaAction: "modal-form", modalFormSource: "linked", modalFormId: 12 });
+    expect(modal).toContain("lp-cta-btn");
+    expect(modal).not.toMatch(/<form/); // closed until clicked
+    // Legacy secondary keys still render.
+    const legacy = render(BlockHubHero as never, { ...defaultsFor("hub-hero"), ctaSecondaryText: undefined, secondaryText: "Old secondary", secondaryUrl: "#featured" });
+    expect(legacy).toContain("Old secondary");
+  });
+
+  it("support's second button follows the suite: hidden without a link in url mode, shown for a form action", () => {
+    const base = { ...defaultsFor("hub-support"), email: "help@example.com", linkText: "Request a call" };
+    expect(render(BlockHubSupport as never, { ...base, linkUrl: "" })).not.toContain("Request a call");
+    expect(render(BlockHubSupport as never, { ...base, linkUrl: "", linkAction: "modal-form", modalFormSource: "simple" })).toContain("Request a call");
+    expect(render(BlockHubSupport as never, { ...base, linkUrl: "https://help.example.com" })).toContain("Request a call");
+  });
+
+  it("the gate renders nothing extra while off or in the editor, and only its (closed) host when on", () => {
+    const base = defaultsFor("hub-library");
+    const off = render(BlockHubLibrary as never, base);
+    expect(off).not.toContain("Unlock the full library");
+    const on = render(BlockHubLibrary as never, { ...base, gate: { enabled: true, mode: "first-open" } });
+    // Closed modal renders nothing; cards keep real hrefs so the first click can be intercepted client-side.
+    expect(on).not.toContain("Unlock the full library");
+    expect((on.match(/data-hub-seen=/g) ?? []).length).toBe(5);
+    expect(render(BlockHubFeatured as never, { ...defaultsFor("hub-featured"), gate: { enabled: true } })).toContain("data-hub-seen=");
   });
 });

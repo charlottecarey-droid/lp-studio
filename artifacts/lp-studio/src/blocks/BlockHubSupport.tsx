@@ -3,6 +3,10 @@ import { ArrowUpRight, Mail } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
+import { CtaButton } from "@/components/CtaButton";
+import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
+import { pickCtaModalConfig } from "@/lib/cta-modal";
+import { safeNavigate } from "@/lib/safe-url";
 import { HUB_BODY, HUB_CSS, HUB_PILL_CLASS, HubKicker, hubDisplayStyle, hubPillStyle, resolveHubPalette, type HubStyleProps } from "@/lib/hub-theme";
 
 /* ----------------------------------------------------------------------------
@@ -17,7 +21,7 @@ import { HUB_BODY, HUB_CSS, HUB_PILL_CLASS, HubKicker, hubDisplayStyle, hubPillS
  * a support close must never be hijacked by a page-level CTA.
  * -------------------------------------------------------------------------- */
 
-export interface HubSupportBlockProps extends HubStyleProps {
+export interface HubSupportBlockProps extends HubStyleProps, CtaModalConfig {
   kicker?: string;
   headline?: string;
   body?: string;
@@ -25,8 +29,12 @@ export interface HubSupportBlockProps extends HubStyleProps {
   email?: string;
   /** Pill label. Blank = "Email <address>". */
   emailLabel?: string;
+  /** The second button: a link by default, or any shared CTA action (form modal, Chili Piper, video). */
   linkText?: string;
   linkUrl?: string;
+  linkAction?: HeroCtaActionMode;
+  linkChilipiperUrl?: string;
+  linkVideoUrl?: string;
   disclaimer?: string;
   anchorId?: string;
 }
@@ -57,7 +65,14 @@ export function BlockHubSupport({ props, brand, onFieldChange }: Props) {
   const isEditor = !!onFieldChange;
   const email = (props.email ?? "").trim();
   const link = (props.linkUrl ?? "").trim();
+  const linkAction = props.linkAction ?? "url";
+  // A link needs a destination; the other actions carry their own.
+  const hasLinkButton = !!(props.linkText ?? "").trim() && (linkAction !== "url" || !!link);
   const emailLabel = (props.emailLabel ?? "").trim() || (email ? `Email ${email}` : "");
+  const navigateLink = () => {
+    if (isEditor || !link) return;
+    safeNavigate(link, link.startsWith("http") ? "_blank" : "_self");
+  };
 
   const field = (key: keyof HubSupportBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as HubSupportBlockProps[typeof key] }) : undefined;
@@ -91,7 +106,7 @@ export function BlockHubSupport({ props, brand, onFieldChange }: Props) {
             <InlineText as="span" value={props.body ?? ""} onUpdate={field("body")} multiline />
           </motion.p>
         )}
-        {(email || link || isEditor) && (
+        {(email || hasLinkButton || isEditor) && (
           <motion.div {...rise(0.18)} className="mt-9 flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
             {(email || isEditor) && (
               <a href={email ? `mailto:${email}` : "#"} className={HUB_PILL_CLASS} style={hubPillStyle(pal)} data-hub-email>
@@ -99,11 +114,24 @@ export function BlockHubSupport({ props, brand, onFieldChange }: Props) {
                 <InlineText as="span" value={emailLabel || (isEditor ? "Email us" : "")} onUpdate={field("emailLabel")} />
               </a>
             )}
-            {((link && props.linkText) || isEditor) && (
-              <a href={link || "#"} target={link.startsWith("http") ? "_blank" : undefined} rel={link.startsWith("http") ? "noopener noreferrer" : undefined} className={HUB_PILL_CLASS} style={hubPillStyle(pal, "ghost")}>
+            {(hasLinkButton || isEditor) && (
+              <CtaButton
+                ctaAction={linkAction}
+                ctaUrl={link}
+                chilipiperUrl={props.linkChilipiperUrl}
+                videoUrl={props.linkVideoUrl}
+                {...pickCtaModalConfig(props)}
+                onClick={linkAction === "url" ? navigateLink : undefined}
+                className={HUB_PILL_CLASS}
+                style={hubPillStyle(pal, "ghost")}
+                brand={brand}
+                source="hub-support-link"
+                modalTheme={pal.isDark ? "dark" : "light"}
+                animationsEnabled={!reduced}
+              >
                 <InlineText as="span" value={props.linkText ?? ""} onUpdate={field("linkText")} />
-                <ArrowUpRight className="h-4 w-4" aria-hidden />
-              </a>
+                {linkAction === "url" && <ArrowUpRight className="h-4 w-4" aria-hidden />}
+              </CtaButton>
             )}
           </motion.div>
         )}

@@ -4,6 +4,9 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import { InlineImageButton } from "@/components/InlineImageButton";
+import { CtaButton } from "@/components/CtaButton";
+import { pickCtaModalConfig, type CtaSecondaryFields, type CtaSuiteFields } from "@/lib/cta-modal";
+import { safeNavigate } from "@/lib/safe-url";
 import { HUB_BODY, HUB_CSS, HUB_PILL_CLASS, HUB_PILL_SM_CLASS, HubKicker, hubDisplayStyle, hubPillStyle, resolveHubPalette, type HubPalette, type HubStyleProps } from "@/lib/hub-theme";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +38,14 @@ export interface HubFact {
   label: string;
 }
 
-export interface HubHeroBlockProps extends HubStyleProps {
+/**
+ * Both hero buttons use the shared CTA suite: `ctaAction` (link · Chili Piper
+ * · form modal · Chili Piper modal · video modal) + the per-action
+ * destinations + the shared `modal*` form config (simple / linked global form
+ * / Marketo). The secondary button uses the canonical `ctaSecondary*` keys;
+ * `secondaryText` / `secondaryUrl` are the pre-suite names, still read.
+ */
+export interface HubHeroBlockProps extends HubStyleProps, CtaSuiteFields, CtaSecondaryFields {
   logoText?: string;
   logoUrl?: string;
   /** The audience switch. Two or three short links; the one matching the current path is highlighted. */
@@ -46,8 +56,9 @@ export interface HubHeroBlockProps extends HubStyleProps {
   headline?: string;
   subheadline?: string;
   ctaText?: string;
-  ctaUrl?: string;
+  /** @deprecated use ctaSecondaryText */
   secondaryText?: string;
+  /** @deprecated use ctaSecondaryUrl */
   secondaryUrl?: string;
   facts?: HubFact[];
   /** Optional photo. Beside the copy (site), dimmed behind it (midnight), a panel below (gallery). NOT `videoUrl` — that is the Page-CTA video-modal slot on a hero. */
@@ -79,9 +90,11 @@ export const HUB_HERO_DEFAULT_PROPS: HubHeroBlockProps = {
   headline: "Everything you need,\nright when you need it.",
   subheadline: "Guides, videos and reference sheets for every stage — open anything in a click, download what you want to keep. No login required.",
   ctaText: "Browse the library",
+  ctaAction: "url",
   ctaUrl: "#library",
-  secondaryText: "Start here",
-  secondaryUrl: "#featured",
+  ctaSecondaryText: "Start here",
+  ctaSecondaryAction: "url",
+  ctaSecondaryUrl: "#featured",
   facts: [{ label: "PDFs & videos" }, { label: "No login" }, { label: "Always up to date" }],
   mediaImageUrl: "",
   mediaImageAlt: "",
@@ -114,7 +127,7 @@ function barPalette(pal: HubPalette): HubPalette {
   return { ...pal, isDark: true, bg: d.bg, card: d.panel, cardRaised: d.panelRaised, text: d.text, heading: d.text, muted: d.muted, faint: d.faint, hairline: d.hairline, accent: d.accent, accentFill: d.accent, onAccentFill: pal.onAccentFill };
 }
 
-export function BlockHubHero({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockHubHero({ props, brand, pageId, variantId, onCtaClick, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
   const pal = resolveHubPalette(props, brand, "hero");
@@ -156,6 +169,28 @@ export function BlockHubHero({ props, brand, onCtaClick, onFieldChange }: Props)
       }
     }
   };
+  // URL-mode CTA buttons (the CtaButton owns modal / Chili Piper / video actions).
+  const navigate = (url?: string) => () => {
+    if (isEditor) return;
+    onCtaClick?.();
+    const u = (url ?? "").trim();
+    if (!u || u === "#") return;
+    if (u.startsWith("#")) {
+      const el = document.getElementById(u.slice(1));
+      if (el) {
+        el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+        return;
+      }
+    }
+    const sameTab = u.startsWith("#") || u.startsWith("/") || u.startsWith("?") || u.startsWith("mailto:");
+    safeNavigate(u, sameTab ? "_self" : "_blank");
+  };
+  const modalCfg = pickCtaModalConfig(props);
+  const primaryAction = props.ctaAction ?? "url";
+  const secondaryText = props.ctaSecondaryText ?? props.secondaryText ?? "";
+  const secondaryUrl = props.ctaSecondaryUrl ?? props.secondaryUrl ?? "";
+  const secondaryAction = props.ctaSecondaryAction ?? "url";
+  const secondaryKey: keyof HubHeroBlockProps = props.ctaSecondaryText !== undefined || props.secondaryText === undefined ? "ctaSecondaryText" : "secondaryText";
 
   /* ── Top bar ─────────────────────────────────────────────────────────── */
   const barStyle: React.CSSProperties =
@@ -228,18 +263,49 @@ export function BlockHubHero({ props, brand, onCtaClick, onFieldChange }: Props)
           <InlineText as="span" value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
         </motion.p>
       )}
-      {(props.ctaText || props.secondaryText || isEditor) && (
+      {(props.ctaText || secondaryText || isEditor) && (
         <motion.div {...rise(0.22)} className={cn("flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center", layout === "compact" ? "mt-6" : "mt-8")}>
           {(props.ctaText || isEditor) && (
-            <a href={props.ctaUrl || "#library"} onClick={go(props.ctaUrl || "#library")} className={HUB_PILL_CLASS} style={hubPillStyle(pal)}>
+            <CtaButton
+              ctaAction={primaryAction}
+              ctaUrl={props.ctaUrl || "#library"}
+              chilipiperUrl={props.chilipiperUrl}
+              videoUrl={props.videoUrl}
+              videoPosterUrl={props.videoPosterUrl}
+              {...modalCfg}
+              onClick={primaryAction === "url" ? navigate(props.ctaUrl || "#library") : undefined}
+              className={HUB_PILL_CLASS}
+              style={hubPillStyle(pal)}
+              brand={brand}
+              pageId={pageId}
+              variantId={variantId}
+              source="hub-hero-primary"
+              modalTheme={pal.isDark ? "dark" : "light"}
+              animationsEnabled={!reduced}
+            >
               <InlineText as="span" value={props.ctaText ?? ""} onUpdate={field("ctaText")} />
               <ArrowRight className="h-4 w-4" aria-hidden />
-            </a>
+            </CtaButton>
           )}
-          {(props.secondaryText || isEditor) && (
-            <a href={props.secondaryUrl || "#featured"} onClick={go(props.secondaryUrl || "#featured")} className={HUB_PILL_CLASS} style={hubPillStyle(pal, "ghost")}>
-              <InlineText as="span" value={props.secondaryText ?? ""} onUpdate={field("secondaryText")} />
-            </a>
+          {(secondaryText || isEditor) && (
+            <CtaButton
+              ctaAction={secondaryAction}
+              ctaUrl={secondaryUrl || "#featured"}
+              chilipiperUrl={props.secondaryChilipiperUrl}
+              videoUrl={props.secondaryVideoUrl}
+              {...modalCfg}
+              onClick={secondaryAction === "url" ? navigate(secondaryUrl || "#featured") : undefined}
+              className={HUB_PILL_CLASS}
+              style={hubPillStyle(pal, "ghost")}
+              brand={brand}
+              pageId={pageId}
+              variantId={variantId}
+              source="hub-hero-secondary"
+              modalTheme={pal.isDark ? "dark" : "light"}
+              animationsEnabled={!reduced}
+            >
+              <InlineText as="span" value={secondaryText} onUpdate={field(secondaryKey)} />
+            </CtaButton>
           )}
         </motion.div>
       )}
