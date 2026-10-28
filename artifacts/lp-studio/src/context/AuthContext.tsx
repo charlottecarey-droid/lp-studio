@@ -89,6 +89,8 @@ export interface DomainContext {
    * land on the workspace's current URL.
    */
   redirectToHost?: string | null;
+  /** Content Hub (Oct 2026): a page slug rendered AT the microsite root (a real home page). Wins over rootRedirectUrl. */
+  rootPageSlug?: string | null;
   /**
    * Per-tenant microsite root redirect — where PartnerHome (rendered at
    * `/` on the microsite host) sends visitors. When null, PartnerHome

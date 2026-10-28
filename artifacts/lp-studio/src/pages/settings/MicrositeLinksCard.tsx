@@ -20,6 +20,7 @@ export function MicrositeLinksCard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rootRedirectUrl, setRootRedirectUrl] = useState<string>("");
+  const [rootPageSlug, setRootPageSlug] = useState<string>("");
   const [links, setLinks] = useState<VanityLinkRow[]>([]);
 
   useEffect(() => {
@@ -30,10 +31,12 @@ export function MicrositeLinksCard() {
         if (!r.ok) return;
         const data = await r.json() as {
           rootRedirectUrl?: string | null;
+          rootPageSlug?: string | null;
           vanityLinks?: VanityLinkRow[];
         };
         if (cancelled) return;
         setRootRedirectUrl(data.rootRedirectUrl ?? "");
+        setRootPageSlug(data.rootPageSlug ?? "");
         setLinks(Array.isArray(data.vanityLinks) ? data.vanityLinks : []);
       } catch {
         // best-effort — leave inputs empty so the user can still configure
@@ -81,6 +84,7 @@ export function MicrositeLinksCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           rootRedirectUrl: rootRedirectUrl.trim() || null,
+          rootPageSlug: rootPageSlug.trim().replace(/^\/+/, "") || null,
           vanityLinks: cleaned,
         }),
       });
@@ -95,9 +99,11 @@ export function MicrositeLinksCard() {
       }
       const data = await r.json() as {
         rootRedirectUrl?: string | null;
+        rootPageSlug?: string | null;
         vanityLinks?: VanityLinkRow[];
       };
       setRootRedirectUrl(data.rootRedirectUrl ?? "");
+      setRootPageSlug(data.rootPageSlug ?? "");
       setLinks(Array.isArray(data.vanityLinks) ? data.vanityLinks : []);
       toast({ title: "Vanity links saved" });
     } catch (err) {
@@ -119,6 +125,19 @@ export function MicrositeLinksCard() {
         </h3>
         <p className="text-xs text-muted-foreground mt-1">
           Controls what the public landing pages host (your custom domain, or the <span className="font-mono">.lpstudio.ai</span> subdomain) does with the root URL, plus any short vanity links you want to publish.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-sm">Home page (slug of one of your pages)</Label>
+        <Input
+          value={rootPageSlug}
+          onChange={e => setRootPageSlug(e.target.value)}
+          placeholder="e.g. home"
+          disabled={loading}
+        />
+        <p className="text-xs text-muted-foreground">
+          Renders that page at the site root (<span className="font-mono">/</span>) — a real home page on your domain. When set, it takes precedence over the redirect below.
         </p>
       </div>
 

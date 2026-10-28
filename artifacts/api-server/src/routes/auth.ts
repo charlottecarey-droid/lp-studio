@@ -1474,6 +1474,7 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
     // cache miss only) so the microsite shell can render PartnerHome and
     // resolve short vanity URLs without a second client roundtrip.
     let rootRedirectUrl: string | null = null;
+    let rootPageSlug: string | null = null;
     let vanityLinks: Array<{ slug: string; targetUrl: string }> = [];
     // Tenant's own marketing website (BrandConfig.websiteUrl). Used as the
     // default root-redirect target for the microsite root when the tenant
@@ -1491,6 +1492,9 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
         const s = (settingsRow[0]?.settings ?? {}) as Record<string, unknown>;
         if (typeof s.rootRedirectUrl === "string" && s.rootRedirectUrl.trim()) {
           rootRedirectUrl = s.rootRedirectUrl.trim();
+        }
+        if (typeof s.rootPageSlug === "string" && /^[a-z0-9][a-z0-9-]{0,99}$/.test(s.rootPageSlug.trim().toLowerCase())) {
+          rootPageSlug = s.rootPageSlug.trim().toLowerCase();
         }
         if (Array.isArray(s.vanityLinks)) {
           vanityLinks = (s.vanityLinks as unknown[])
@@ -1527,12 +1531,13 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
           micrositeDomain: match.micrositeDomain,
           redirectToHost,
           rootRedirectUrl,
+          rootPageSlug,
           tenantWebsiteUrl,
           vanityLinks,
         }
       : extractWildcardSlug(domain) !== null
-        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, tenantWebsiteUrl: null, vanityLinks: [] }
-        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, tenantWebsiteUrl: null, vanityLinks: [] };
+        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, rootPageSlug: null, tenantWebsiteUrl: null, vanityLinks: [] }
+        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, rootPageSlug: null, tenantWebsiteUrl: null, vanityLinks: [] };
 
     domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
     // `private` + short max-age: response now carries per-tenant settings

@@ -351,18 +351,19 @@ function deepApplyVars(value: unknown, vars: Record<string, string>): unknown {
  * deterministically, with no scrolling or animation-timing races.
  * See lib/reveal-fallback.ts.
  */
-export default function LandingPageViewer() {
+/** `slug` renders a page without a route param — the microsite root rendering the tenant's home page. */
+export default function LandingPageViewer({ slug: slugProp }: { slug?: string; params?: Record<string, string | undefined> } = {}) {
   const isPrerender =
     typeof window !== "undefined"
     && new URLSearchParams(window.location.search).get("prerender") === "1";
   return (
     <StaticRenderContext.Provider value={isPrerender}>
-      <LandingPageViewerInner />
+      <LandingPageViewerInner slugProp={slugProp} />
     </StaticRenderContext.Provider>
   );
 }
 
-function LandingPageViewerInner() {
+function LandingPageViewerInner({ slugProp }: { slugProp?: string }) {
   // Forward campaign attribution onto first-party outbound links (see
   // lib/attribution-links). Without this every CTA hands the destination a
   // bare URL and the lead that converts there has no attribution.
@@ -371,7 +372,7 @@ function LandingPageViewerInner() {
   const [, paramsLp] = useRoute("/lp/:slug");
   const [, paramsPreview] = useRoute("/preview/:slug");
   const [, paramsShort] = useRoute("/:slug");
-  const slug = paramsPreview?.slug || paramsLp?.slug || paramsShort?.slug || "";
+  const slug = slugProp || paramsPreview?.slug || paramsLp?.slug || paramsShort?.slug || "";
 
   // Draft preview route (/preview/:slug). Always non-tracked, fetches from
   // the auth/token-gated /api/lp/preview/:slug endpoint instead of the

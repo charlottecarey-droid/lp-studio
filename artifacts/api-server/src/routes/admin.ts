@@ -1863,6 +1863,12 @@ interface TenantSettingsPayload {
    * to Dandy unless Dandy is the tenant.
    */
   rootRedirectUrl: string | null;
+  /**
+   * Content Hub (Oct 2026): render one of the tenant's own pages AT the
+   * microsite root instead of redirecting away from it (a real home page at
+   * dandysleep.com). Takes precedence over rootRedirectUrl when set.
+   */
+  rootPageSlug: string | null;
   /** Short URL aliases served by the public microsite shell. */
   vanityLinks: VanityLink[];
   /**
@@ -1948,6 +1954,16 @@ function normalizeVanityLinks(input: unknown): { ok: true; value: VanityLink[] }
   return { ok: true, value: out };
 }
 
+/** A page slug (letters, digits, dashes) or null to clear. */
+function normalizeRootPageSlug(input: unknown): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (input === null || input === undefined) return { ok: true, value: null };
+  if (typeof input !== "string") return { ok: false, error: "rootPageSlug must be a string" };
+  const trimmed = input.trim().replace(/^\/+/, "").toLowerCase();
+  if (!trimmed) return { ok: true, value: null };
+  if (!/^[a-z0-9][a-z0-9-]{0,99}$/.test(trimmed)) return { ok: false, error: "rootPageSlug must be a page slug (letters, digits, dashes)" };
+  return { ok: true, value: trimmed };
+}
+
 function normalizeRootRedirectUrl(input: unknown): { ok: true; value: string | null } | { ok: false; error: string } {
   if (input === null || input === undefined) return { ok: true, value: null };
   if (typeof input !== "string") return { ok: false, error: "rootRedirectUrl must be a string" };
@@ -2008,6 +2024,7 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
       rootRedirectUrl: typeof settings.rootRedirectUrl === "string" && settings.rootRedirectUrl.trim()
         ? (settings.rootRedirectUrl as string).trim()
         : null,
+      rootPageSlug: typeof settings.rootPageSlug === "string" && settings.rootPageSlug.trim() ? settings.rootPageSlug.trim() : null,
       vanityLinks,
       // Read `!== false` so a tenant missing the key (or only partially
       // backfilled) defaults to ALLOW, matching the prerender resolver.
@@ -2063,6 +2080,11 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
     const v = normalizeRootRedirectUrl((body as { rootRedirectUrl?: unknown }).rootRedirectUrl);
     if (!v.ok) { res.status(400).json({ error: v.error }); return; }
     merge.rootRedirectUrl = v.value;
+  }
+  if ("rootPageSlug" in (body ?? {})) {
+    const v = normalizeRootPageSlug((body as { rootPageSlug?: unknown }).rootPageSlug);
+    if (!v.ok) { res.status(400).json({ error: v.error }); return; }
+    merge.rootPageSlug = v.value;
   }
   if ("vanityLinks" in (body ?? {})) {
     const v = normalizeVanityLinks((body as { vanityLinks?: unknown }).vanityLinks);
@@ -2176,6 +2198,7 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
       rootRedirectUrl: typeof settings.rootRedirectUrl === "string" && settings.rootRedirectUrl.trim()
         ? (settings.rootRedirectUrl as string).trim()
         : null,
+      rootPageSlug: typeof settings.rootPageSlug === "string" && settings.rootPageSlug.trim() ? (settings.rootPageSlug as string).trim() : null,
       vanityLinks,
       seoAllowIndexing: (settings.seo as { allowIndexing?: unknown } | undefined)?.allowIndexing !== false,
       seoAllowFollowing: (settings.seo as { allowFollowing?: unknown } | undefined)?.allowFollowing !== false,
