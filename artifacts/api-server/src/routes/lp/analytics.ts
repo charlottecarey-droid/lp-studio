@@ -404,6 +404,129 @@ router.get("/lp/analytics/pages", async (req, res): Promise<void> => {
 /*  GET /lp/analytics/overview — summary stats for the dashboard       */
 /* ------------------------------------------------------------------ */
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /lp/analytics/resources?days=30&pageId=123
+//
+// Content Hub resources, tenant-wide (Analytics → Resources tab). Aggregates
+// lp_asset_events across every hub page: totals, the per-resource funnel
+// (seen → opened → downloaded), a per-page roll-up, and the people identified
+// through a resource gate (lead stamped on the event, or the lead whose form
+// submit shares the event's tracking session) with what they opened.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+  const days = Math.max(1, Math.min(365, parseInt((req.query.days as string) || "30", 10) || 30));
+  const pageIdRaw = parseInt((req.query.pageId as string) || "", 10);
+  const pageId = Number.isFinite(pageIdRaw) && pageIdRaw > 0 ? pageIdRaw : null;
+  const since = new Date(Date.now() - days * 86_400_000);
+  const pageFilter = pageId ? sql`AND e.page_id = ${pageId}` : sql``;
+  try {
+    const [totals, assets, pages, people] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action = 'seen')::int AS "seenSessions",
+          COUNT(*) FILTER (WHERE e.action = 'view')::int AS "views",
+          COUNT(*) FILTER (WHERE e.action = 'open')::int AS "opens",
+          COUNT(*) FILTER (WHERE e.action = 'download')::int AS "downloads",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action <> 'seen')::int AS "activeSessions",
+          COUNT(DISTINCT e.session_id)::int AS "sessions",
+          COUNT(DISTINCT COALESCE(e.lead_id, l.id)) FILTER (WHERE COALESCE(e.lead_id, l.id) IS NOT NULL)::int AS "identified",
+          COUNT(DISTINCT e.asset_key)::int AS "resources"
+        FROM lp_asset_events e
+        LEFT JOIN lp_leads l ON l.tenant_id = e.tenant_id AND l.session_id = e.session_id AND e.lead_id IS NULL
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} ${pageFilter}
+      `),
+      db.execute(sql`
+        SELECT
+          e.page_id AS "pageId",
+          MAX(p.title) AS "pageTitle",
+          MAX(p.slug) AS "pageSlug",
+          e.asset_key AS "assetKey",
+          MAX(e.asset_kind) AS "assetKind",
+          (ARRAY_AGG(e.asset_title ORDER BY e.created_at DESC) FILTER (WHERE e.asset_title IS NOT NULL))[1] AS "assetTitle",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action = 'seen')::int AS "seen",
+          COUNT(*) FILTER (WHERE e.action = 'view')::int AS "views",
+          COUNT(*) FILTER (WHERE e.action = 'open')::int AS "opens",
+          COUNT(*) FILTER (WHERE e.action = 'download')::int AS "downloads",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action <> 'seen')::int AS "uniqueSessions",
+          COUNT(DISTINCT e.lead_id) FILTER (WHERE e.lead_id IS NOT NULL)::int AS "identified",
+          MAX(e.created_at) AS "lastAt"
+        FROM lp_asset_events e
+        LEFT JOIN lp_pages p ON p.id = e.page_id
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} ${pageFilter}
+        GROUP BY e.page_id, e.asset_key
+        ORDER BY (COUNT(*) FILTER (WHERE e.action IN ('view','open'))) DESC, "downloads" DESC, "assetKey" ASC
+        LIMIT 500
+      `),
+      db.execute(sql`
+        SELECT
+          e.page_id AS "pageId",
+          MAX(p.title) AS "pageTitle",
+          MAX(p.slug) AS "pageSlug",
+          COUNT(DISTINCT e.asset_key)::int AS "resources",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action = 'seen')::int AS "seenSessions",
+          COUNT(*) FILTER (WHERE e.action IN ('view','open'))::int AS "opened",
+          COUNT(*) FILTER (WHERE e.action = 'download')::int AS "downloads",
+          COUNT(DISTINCT e.session_id) FILTER (WHERE e.action <> 'seen')::int AS "activeSessions",
+          COUNT(DISTINCT e.lead_id) FILTER (WHERE e.lead_id IS NOT NULL)::int AS "identified",
+          MAX(e.created_at) AS "lastAt"
+        FROM lp_asset_events e
+        LEFT JOIN lp_pages p ON p.id = e.page_id
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} ${pageFilter}
+        GROUP BY e.page_id
+        ORDER BY "opened" DESC, "downloads" DESC
+        LIMIT 100
+      `),
+      db.execute(sql`
+        WITH attributed AS (
+          SELECT e.*, COALESCE(e.lead_id, l.id) AS person_id
+          FROM lp_asset_events e
+          LEFT JOIN lp_leads l ON l.tenant_id = e.tenant_id AND l.session_id = e.session_id AND e.lead_id IS NULL
+          WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.action <> 'seen' ${pageFilter}
+        )
+        SELECT
+          a.person_id AS "leadId",
+          MAX(l.fields->>'email') AS "email",
+          MAX(NULLIF(TRIM(CONCAT_WS(' ', l.fields->>'firstName', l.fields->>'lastName')), '')) AS "name",
+          MAX(l.fields->>'company') AS "company",
+          COUNT(*) FILTER (WHERE a.action IN ('view','open'))::int AS "opened",
+          COUNT(*) FILTER (WHERE a.action = 'download')::int AS "downloads",
+          COUNT(DISTINCT a.asset_key)::int AS "resources",
+          (ARRAY_AGG(a.asset_title ORDER BY a.created_at DESC) FILTER (WHERE a.asset_title IS NOT NULL))[1] AS "lastAsset",
+          MAX(a.created_at) AS "lastAt"
+        FROM attributed a
+        JOIN lp_leads l ON l.id = a.person_id
+        WHERE a.person_id IS NOT NULL
+        GROUP BY a.person_id
+        ORDER BY "lastAt" DESC
+        LIMIT 200
+      `),
+    ]);
+    const t = (totals.rows[0] ?? {}) as Record<string, number>;
+    res.json({
+      days,
+      pageId,
+      totals: {
+        resources: t.resources ?? 0,
+        seenSessions: t.seenSessions ?? 0,
+        views: t.views ?? 0,
+        opens: t.opens ?? 0,
+        downloads: t.downloads ?? 0,
+        activeSessions: t.activeSessions ?? 0,
+        sessions: t.sessions ?? 0,
+        identified: t.identified ?? 0,
+      },
+      assets: assets.rows,
+      pages: pages.rows,
+      people: people.rows,
+    });
+  } catch (err) {
+    console.error("[analytics] resources error:", err);
+    res.status(500).json({ error: "Failed to load resource analytics" });
+  }
+});
+
 router.get("/lp/analytics/overview", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;

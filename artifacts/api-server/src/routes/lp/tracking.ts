@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
-import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable, salesHotlinksTable, lpAssetEventsTable } from "@workspace/db";
+import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable, salesHotlinksTable, lpAssetEventsTable, lpLeadsTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
 import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveHeroImage, toPlainCardText, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
@@ -399,6 +399,17 @@ router.post("/lp/track/asset", trackEventLimiter, async (req, res): Promise<void
       res.status(204).end();
       return;
     }
+    // Gate attribution: only stamp a lead that exists in THIS tenant — the id
+    // comes from the visitor's browser and must never link across tenants.
+    let leadId: number | null = null;
+    if (parsed.leadId) {
+      const [lead] = await db
+        .select({ id: lpLeadsTable.id })
+        .from(lpLeadsTable)
+        .where(and(eq(lpLeadsTable.id, parsed.leadId), eq(lpLeadsTable.tenantId, page.tenantId)))
+        .limit(1);
+      if (lead) leadId = lead.id;
+    }
     await db.insert(lpAssetEventsTable).values({
       tenantId: page.tenantId,
       pageId: page.id,
@@ -408,6 +419,7 @@ router.post("/lp/track/asset", trackEventLimiter, async (req, res): Promise<void
       assetKind: parsed.assetKind,
       action: parsed.action,
       sessionId: parsed.sessionId,
+      leadId,
     });
     res.status(204).end();
   } catch (err) {

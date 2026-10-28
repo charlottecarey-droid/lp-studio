@@ -760,9 +760,10 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
 // ─── Content Hub asset engagement ────────────────────────────────────────────
 // GET /lp/analytics/pages/:pageId/assets?days=30
 // Per-resource counts from lp_asset_events (hub-library / hub-featured
-// beacons): views (in-page viewer), opens (new tab / external), downloads,
-// and unique sessions that touched the asset. Empty array for pages without
-// hub blocks — the UI hides the panel.
+// beacons): seen (distinct sessions that scrolled the card into view), views
+// (in-page viewer), opens (new tab / external), downloads, unique sessions
+// that acted, and identified people (gate unlocks). Empty array for pages
+// without hub blocks — the UI hides the panel.
 router.get("/lp/analytics/pages/:pageId/assets", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
@@ -777,10 +778,12 @@ router.get("/lp/analytics/pages/:pageId/assets", async (req, res): Promise<void>
         MAX(asset_kind) AS "assetKind",
         -- Latest title wins so a renamed resource reads as it does today.
         (ARRAY_AGG(asset_title ORDER BY created_at DESC) FILTER (WHERE asset_title IS NOT NULL))[1] AS "assetTitle",
+        COUNT(DISTINCT session_id) FILTER (WHERE action = 'seen')::int AS "seen",
         COUNT(*) FILTER (WHERE action = 'view')::int AS "views",
         COUNT(*) FILTER (WHERE action = 'open')::int AS "opens",
         COUNT(*) FILTER (WHERE action = 'download')::int AS "downloads",
-        COUNT(DISTINCT session_id)::int AS "uniqueSessions",
+        COUNT(DISTINCT session_id) FILTER (WHERE action <> 'seen')::int AS "uniqueSessions",
+        COUNT(DISTINCT lead_id) FILTER (WHERE lead_id IS NOT NULL)::int AS "identified",
         MAX(created_at) AS "lastAt"
       FROM lp_asset_events
       WHERE page_id = ${pageId} AND tenant_id = ${tenantId} AND created_at >= ${since}

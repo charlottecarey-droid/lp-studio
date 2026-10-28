@@ -5,7 +5,7 @@ const good = { pageId: 42, sessionId: "s-1", blockId: "seed-hub-library-3", asse
 
 describe("parseAssetEventBody — Content Hub beacon validation", () => {
   it("accepts a well-formed event and normalises optional fields", () => {
-    expect(parseAssetEventBody(good)).toEqual(good);
+    expect(parseAssetEventBody(good)).toEqual({ ...good, leadId: null });
     expect(parseAssetEventBody({ ...good, blockId: "  ", assetTitle: "" })).toMatchObject({ blockId: null, assetTitle: null });
   });
 
@@ -18,6 +18,12 @@ describe("parseAssetEventBody — Content Hub beacon validation", () => {
     expect(parseAssetEventBody({ ...good, assetKey: " " })).toBeNull();
     expect(parseAssetEventBody({ ...good, assetKind: "docx" })).toBeNull();
     expect(parseAssetEventBody({ ...good, action: "hover" })).toBeNull();
+    expect(parseAssetEventBody({ ...good, action: "seen" })?.action).toBe("seen");
+    // Gate attribution: a positive integer lead id passes through, anything else is dropped.
+    expect(parseAssetEventBody({ ...good, leadId: 77 })?.leadId).toBe(77);
+    expect(parseAssetEventBody({ ...good, leadId: "77" })?.leadId).toBeNull();
+    expect(parseAssetEventBody({ ...good, leadId: -1 })?.leadId).toBeNull();
+    expect(parseAssetEventBody(good)?.leadId).toBeNull();
   });
 
   it("caps free-text lengths so a hostile beacon can't bloat rows", () => {

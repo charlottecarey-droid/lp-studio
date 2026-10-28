@@ -5,7 +5,7 @@
  * a resource. Hand-validated (like the dwell beacon) rather than api-zod: the
  * payload is seven small fields, public, and may arrive via sendBeacon.
  */
-export const ASSET_EVENT_ACTIONS = new Set(["view", "open", "download"]);
+export const ASSET_EVENT_ACTIONS = new Set(["seen", "view", "open", "download"]);
 export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link"]);
 
 export interface AssetEventInput {
@@ -16,6 +16,7 @@ export interface AssetEventInput {
   assetTitle: string | null;
   assetKind: string;
   action: string;
+  leadId: number | null;
 }
 
 export function parseAssetEventBody(raw: unknown): AssetEventInput | null {
@@ -31,5 +32,6 @@ export function parseAssetEventBody(raw: unknown): AssetEventInput | null {
   if (!sessionId || sessionId.length > 128) return null;
   if (!assetKey) return null;
   if (!ASSET_EVENT_KINDS.has(assetKind) || !ASSET_EVENT_ACTIONS.has(action)) return null;
-  return { pageId, sessionId, blockId, assetKey, assetTitle, assetKind, action };
+  const leadId = typeof body.leadId === "number" && Number.isFinite(body.leadId) && body.leadId > 0 ? Math.floor(body.leadId) : null;
+  return { pageId, sessionId, blockId, assetKey, assetTitle, assetKind, action, leadId };
 }
