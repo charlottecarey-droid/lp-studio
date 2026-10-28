@@ -202,6 +202,11 @@ function HubGateFields({ gate, onChange }: { gate: HubGateConfig | undefined; on
             Visitors are asked once per browser. Their submission becomes a lead (with every notification, Marketo sync, webhook and campaign enrolment the chosen form has), and every resource they open or download afterwards, on any page of this hub, is attributed to them in Analytics → Resources.
           </p>
           <CtaButtonModalConfigSection ctaAction="modal-form" value={cfg} onChange={(next: CtaModalConfig) => onChange({ ...cfg, ...next })} />
+          <div className="flex items-center justify-between rounded-md border px-2 py-1.5">
+            <span className="text-[11px]">Post to Slack when an identified person opens or downloads</span>
+            <Switch checked={!!cfg.alertSlack} onCheckedChange={(v) => set({ alertSlack: v })} />
+          </div>
+          {cfg.alertSlack && <p className="text-[10px] leading-relaxed text-muted-foreground">Uses the Slack channel connected under Settings → Integrations. One post per person and resource per day.</p>}
           <button
             type="button"
             onClick={() => { clearHubUnlock(); setUnlocked(false); }}

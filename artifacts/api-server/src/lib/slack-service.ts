@@ -406,6 +406,38 @@ export class SlackService {
     return { blocks, text };
   }
 
+  /** Content Hub — an identified person opened or downloaded a resource. */
+  buildHubResourceBlocks(params: {
+    personName: string | null;
+    email: string | null;
+    company?: string | null;
+    action: "view" | "open" | "download";
+    assetTitle: string;
+    assetKind: string;
+    pageTitle: string;
+    pageUrl?: string;
+    resourcesSoFar: number;
+    at: string;
+  }): { blocks: unknown[]; text: string } {
+    const who = params.personName || params.email || "An identified visitor";
+    const whoLine = [who, params.company ? `(${params.company})` : null, params.personName && params.email ? `· ${params.email}` : null].filter(Boolean).join(" ");
+    const verb = params.action === "download" ? "downloaded" : "opened";
+    const emoji = params.action === "download" ? "📥" : "📖";
+    const text = `${emoji} ${who} ${verb} "${params.assetTitle}" on ${params.pageTitle}`;
+    const blocks: unknown[] = [
+      { type: "header", text: { type: "plain_text", text: `${emoji} Resource ${verb}`, emoji: true } },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: `*${escapeMrkdwn(whoLine)}*\n${verb} *${escapeMrkdwn(params.assetTitle)}* (${params.assetKind.toUpperCase()}) on ${escapeMrkdwn(params.pageTitle)}\n${formatTimestamp(params.at)}` },
+      },
+      {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: `${params.resourcesSoFar} resource${params.resourcesSoFar === 1 ? "" : "s"} so far${params.pageUrl ? ` · <${params.pageUrl}|View page>` : ""}` }],
+      },
+    ];
+    return { blocks, text };
+  }
+
   /** Hot visit — a known contact viewing a microsite. */
   buildHotVisitBlocks(params: {
     contactName: string;

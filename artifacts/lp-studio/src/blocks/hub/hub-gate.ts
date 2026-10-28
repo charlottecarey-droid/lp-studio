@@ -23,11 +23,14 @@ export interface HubGateConfig extends CtaModalConfig {
   enabled?: boolean;
   /** "first-open" = anything (view / open / download) · "downloads" = downloads only. */
   mode?: HubGateMode;
+  /** Post to the tenant's Slack channel when an identified person opens or downloads a resource (once per person + resource per day). */
+  alertSlack?: boolean;
 }
 
 export const HUB_GATE_DEFAULTS: HubGateConfig = {
   enabled: false,
   mode: "first-open",
+  alertSlack: false,
   modalFormSource: "simple",
   modalHeadline: "Unlock the full library",
   modalSubheadline: "Enter your email once and every resource here opens instantly — no login, nothing to remember.",
