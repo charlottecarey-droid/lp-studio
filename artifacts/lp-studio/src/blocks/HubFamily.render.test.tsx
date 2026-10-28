@@ -250,6 +250,21 @@ describe("Hub family — style presets", () => {
     expect(html).toContain(`background:${resolveHubPalette({ theme: "site" }, DEFAULT_BRAND, "hero").dark.bg}`);
   });
 
+  it("a brand with a coloured text colour reads in that colour in every preset; grey brand text keeps the editorial ink", () => {
+    for (const theme of ["site", "gallery", "mono", "midnight"] as const) {
+      const pal = resolveHubPalette({ theme }, DANDY_LIKE, "library");
+      expect(pal.isDark).toBe(false);
+      expect(pal.text.toUpperCase()).toBe("#113D33");
+      expect(pal.heading.toUpperCase()).toBe("#113D33");
+    }
+    // Neutral brand (grey text colour): gallery / index keep a near-black editorial ink (the brand's grey), site still uses the primary headline.
+    expect(resolveHubPalette({ theme: "gallery" }, DEFAULT_BRAND, "library").heading.toLowerCase()).toBe(DEFAULT_BRAND.textColor.toLowerCase());
+    expect(resolveHubPalette({ theme: "mono" }, DEFAULT_BRAND, "library").text.toLowerCase()).toBe(DEFAULT_BRAND.textColor.toLowerCase());
+    expect(resolveHubPalette({ theme: "site" }, DEFAULT_BRAND, "library").heading.toUpperCase()).toBe(DEFAULT_BRAND.primaryColor.toUpperCase());
+    // A per-block text override still wins when it reads.
+    expect(resolveHubPalette({ theme: "gallery", textColor: "#222244" }, DANDY_LIKE, "library").text.toUpperCase()).toBe("#222244");
+  });
+
   it("midnight keeps the dark hero / dark close; a per-block surface override still wins over the preset", () => {
     expect(resolveHubPalette({ theme: "midnight" }, DEFAULT_BRAND, "hero").isDark).toBe(true);
     expect(resolveHubPalette({ theme: "midnight" }, DEFAULT_BRAND, "support").isDark).toBe(true);

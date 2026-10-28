@@ -200,6 +200,12 @@ export interface HubPalette {
 }
 
 const hex = (v: string | undefined): v is string => !!v && isValidHex(v);
+/** True for a neutral (near-grey) colour — the default text inks, not a brand colour. */
+function isGrey(h: string): boolean {
+  const n = parseInt(h.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return Math.max(r, g, b) - Math.min(r, g, b) < 18;
+}
 const rgba = (h: string, a: number) => {
   const n = parseInt(h.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -252,10 +258,18 @@ export function resolveHubPalette(props: HubStyleProps, brand: BrandConfig, kind
   }
   if (!hex(props.bgColor) && relativeLuminance(bg) < 0.72) bg = mixHex(primary, "#FFFFFF", 0.03);
 
+  // Body ink: a per-block override, else the brand's text colour. Headline
+  // ink: the brand primary in the site idiom — and in EVERY idiom once the
+  // brand has a coloured (non-grey) text colour of its own (Dandy's forest):
+  // a brand that colours its copy expects the hub to read in that colour
+  // whatever the layout. Grey brand text keeps the gallery / index presets'
+  // near-black editorial ink. Both are contrast-guarded against the paper.
   const brandText = hex(brand.textColor) ? brand.textColor : "";
-  const requestedText = hex(props.textColor) ? props.textColor : t.theme === "site" && brandText ? brandText : "";
+  const brandColoursItsCopy = !!brandText && !isGrey(brandText);
+  const requestedText = hex(props.textColor) ? props.textColor : brandText;
   const text = requestedText && contrastRatio(requestedText, bg) >= 4.5 ? requestedText : "#0B0B0F";
-  const heading = t.headingInk === "primary" && contrastRatio(primary, bg) >= 4.5 ? primary : text;
+  const wantsPrimaryHeading = t.headingInk === "primary" || brandColoursItsCopy;
+  const heading = wantsPrimaryHeading && contrastRatio(primary, bg) >= 4.5 ? primary : text;
   // Accent TEXT must read on paper: a luminous brand accent falls through to
   // the brand primary (Dandy: lime → forest).
   const accent = pickContrastingColor(requestedAccent, bg, [primary, text], 3.0);
