@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ChatTranscriptDialog } from "@/components/ChatTranscriptDialog";
+import { ResourcesTab } from "@/components/analytics/ResourcesTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -1105,7 +1106,7 @@ function ChatTab({ days, chat, questions, loading, micrositeDomain }: {
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
-const ANALYTICS_TABS = ["overview", "pages", "locations", "conversions", "chat"] as const;
+const ANALYTICS_TABS = ["overview", "pages", "locations", "conversions", "chat", "resources"] as const;
 type AnalyticsTab = (typeof ANALYTICS_TABS)[number];
 
 /** Derive the active tab from the current URL path (e.g. `/analytics/locations`). */
@@ -1204,7 +1205,13 @@ export default function AnalyticsPage() {
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="conversions">Conversions</TabsTrigger>
             <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="resources">Resources</TabsTrigger>
           </TabsList>
+
+          {/* RESOURCES TAB — Content Hub engagement across every hub page (lazy). */}
+          <TabsContent value="resources" className="mt-4">
+            <ResourcesTab days={days} active={activeTab === "resources"} />
+          </TabsContent>
 
           {/* OVERVIEW TAB */}
           <TabsContent value="overview" className="space-y-6 mt-4">

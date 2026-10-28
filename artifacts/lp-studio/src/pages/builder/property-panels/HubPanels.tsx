@@ -36,7 +36,13 @@ import { suggestCopy } from "@/lib/copy-api";
 import { buildPdfUploadFormData } from "@/lib/pdf-upload";
 import { ColorField } from "./BlockSettingsPanel";
 import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
-import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Play, Plus, Upload } from "lucide-react";
+import { CtaActionConfigSection } from "./CtaActionConfigSection";
+import { CtaSecondaryConfigSection } from "./CtaSecondaryConfigSection";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { pickCtaModalConfig, type CtaSecondaryFields, type CtaSuiteFields } from "@/lib/cta-modal";
+import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
+import { HUB_GATE_DEFAULTS, clearHubUnlock, readHubUnlock, type HubGateConfig, type HubGateMode } from "@/blocks/hub/hub-gate";
+import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Upload } from "lucide-react";
 
 /* ── Shared: style preset + surface + colours ───────────────────────────── */
 export type ApplyHubStyle = (style: HubStyleProps) => void;
@@ -170,6 +176,47 @@ export function ThumbButton({ value, onChange, label = "Thumbnail", size = "md" 
   );
 }
 
+/* ── Shared: resource gate ─────────────────────────────────────────────── */
+function HubGateFields({ gate, onChange }: { gate: HubGateConfig | undefined; onChange: (next: HubGateConfig) => void }) {
+  const cfg: HubGateConfig = { ...HUB_GATE_DEFAULTS, ...(gate ?? {}) };
+  const set = (patch: Partial<HubGateConfig>) => onChange({ ...cfg, ...patch });
+  const [unlocked, setUnlocked] = useState(() => !!readHubUnlock());
+  return (
+    <PanelSection title="Resource gate" hint={cfg.enabled ? (cfg.mode === "downloads" ? "On — downloads ask for an email" : "On — the first open asks for an email") : "Off — everything opens freely"}>
+      <div className="flex items-center justify-between rounded-md border px-2 py-1.5">
+        <span className="flex items-center gap-1.5 text-[11px]"><Lock className="h-3 w-3" /> Ask for an email</span>
+        <Switch checked={!!cfg.enabled} onCheckedChange={(v) => set({ enabled: v })} />
+      </div>
+      {cfg.enabled && (
+        <>
+          <Field label="When">
+            <Select value={cfg.mode ?? "first-open"} onValueChange={(v) => set({ mode: v as HubGateMode })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="first-open" className="text-xs">Before the first resource opens (viewing and downloads)</SelectItem>
+                <SelectItem value="downloads" className="text-xs">Before downloads only (viewing stays free)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <p className="text-[10px] leading-relaxed text-muted-foreground">
+            Visitors are asked once per browser. Their submission becomes a lead (with every notification, Marketo sync, webhook and campaign enrolment the chosen form has), and every resource they open or download afterwards, on any page of this hub, is attributed to them in Analytics → Resources.
+          </p>
+          <CtaButtonModalConfigSection ctaAction="modal-form" value={cfg} onChange={(next: CtaModalConfig) => onChange({ ...cfg, ...next })} />
+          <button
+            type="button"
+            onClick={() => { clearHubUnlock(); setUnlocked(false); }}
+            disabled={!unlocked}
+            className="w-full rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
+            title="Forget this browser's unlock so you can test the gate again"
+          >
+            {unlocked ? "Forget my unlock in this browser (test the gate again)" : "This browser has not unlocked yet"}
+          </button>
+        </>
+      )}
+    </PanelSection>
+  );
+}
+
 /* ── Shared: one asset's file / link / copy fields (no thumbnail — that sits on the row) ── */
 const KIND_ICON: Record<HubAssetKind, typeof FileText> = { pdf: FileText, video: Play, link: ArrowUpRight };
 
@@ -258,16 +305,23 @@ export function HubHeroPanel({ props, onChange, onApplyStyleToAll }: { props: Hu
         <Field label="Minimum height (vh — Editorial dark only)"><Input type="number" min={40} max={100} value={props.minHeightVh ?? 64} onChange={(e) => update({ minHeightVh: Math.max(40, Math.min(100, Number(e.target.value) || 64)) })} className="h-8 text-xs" /></Field>
       </PanelSection>
 
-      <PanelSection title="Buttons" defaultOpen>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Primary button"><Input value={props.ctaText ?? ""} onChange={(e) => update({ ctaText: e.target.value })} className="h-8 text-xs" placeholder="Browse the library" /></Field>
-          <Field label="Primary URL"><Input value={props.ctaUrl ?? ""} onChange={(e) => update({ ctaUrl: e.target.value })} className="h-8 text-xs" placeholder="#library" /></Field>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Secondary button"><Input value={props.secondaryText ?? ""} onChange={(e) => update({ secondaryText: e.target.value })} className="h-8 text-xs" placeholder="Start here" /></Field>
-          <Field label="Secondary URL"><Input value={props.secondaryUrl ?? ""} onChange={(e) => update({ secondaryUrl: e.target.value })} className="h-8 text-xs" placeholder="#featured" /></Field>
-        </div>
-        <p className="text-[10px] text-muted-foreground">Use #library, #featured or #support to jump to a section on this page.</p>
+      <PanelSection title="Buttons" hint="Link, form modal, Chili Piper or video — like every other CTA" defaultOpen>
+        <Field label="Primary button text"><Input value={props.ctaText ?? ""} onChange={(e) => update({ ctaText: e.target.value })} className="h-8 text-xs" placeholder="Browse the library" /></Field>
+        <CtaActionConfigSection value={props as CtaSuiteFields} onChange={(v) => update(v as Partial<HubHeroBlockProps>)} />
+        <CtaSecondaryConfigSection
+          heading="Secondary button"
+          labelPlaceholder="Start here"
+          value={{
+            ctaSecondaryText: props.ctaSecondaryText ?? props.secondaryText,
+            ctaSecondaryAction: props.ctaSecondaryAction,
+            ctaSecondaryUrl: props.ctaSecondaryUrl ?? props.secondaryUrl,
+            secondaryChilipiperUrl: props.secondaryChilipiperUrl,
+            secondaryVideoUrl: props.secondaryVideoUrl,
+          }}
+          onChange={(v: CtaSecondaryFields) => update({ ...v, secondaryText: undefined, secondaryUrl: undefined })}
+          allowedActions={["url", "chilipiper", "modal-form", "modal-chilipiper", "video-modal"]}
+        />
+        <p className="text-[10px] text-muted-foreground">Use #library, #featured or #support as a link to jump to a section on this page. Both buttons share one modal form config.</p>
       </PanelSection>
 
       <PanelSection title="Top bar" hint="Logo · audience switch · contact pill">
@@ -321,6 +375,7 @@ export function HubFeaturedPanel({ props, onChange, onApplyStyleToAll }: { props
         <Field label="Button label (blank = Watch / Read / Open)"><Input value={props.buttonLabel ?? ""} onChange={(e) => update({ buttonLabel: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="featured" /></Field>
       </PanelSection>
+      <HubGateFields gate={props.gate} onChange={(gate) => update({ gate })} />
       <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>
   );
@@ -458,6 +513,7 @@ export function HubLibraryPanel({ props, onChange, onApplyStyleToAll }: { props:
         <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="library" /></Field>
       </PanelSection>
 
+      <HubGateFields gate={props.gate} onChange={(gate) => update({ gate })} />
       <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>
   );
@@ -483,9 +539,12 @@ export function HubSupportPanel({ props, onChange, onApplyStyleToAll }: { props:
       <PanelSection title="Contact" defaultOpen>
         <Field label="Email address"><Input value={props.email ?? ""} onChange={(e) => update({ email: e.target.value })} className="h-8 text-xs" placeholder="support@…" /></Field>
         <Field label="Email button label (blank = Email <address>)"><Input value={props.emailLabel ?? ""} onChange={(e) => update({ emailLabel: e.target.value })} className="h-8 text-xs" /></Field>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Link text"><Input value={props.linkText ?? ""} onChange={(e) => update({ linkText: e.target.value })} className="h-8 text-xs" placeholder="Visit the help center" /></Field>
-          <Field label="Link URL"><Input value={props.linkUrl ?? ""} onChange={(e) => update({ linkUrl: e.target.value })} className="h-8 text-xs" placeholder="https://…" /></Field>
+        <div className="space-y-2 border-t pt-2">
+          <Field label="Second button text"><Input value={props.linkText ?? ""} onChange={(e) => update({ linkText: e.target.value })} className="h-8 text-xs" placeholder="Visit the help center" /></Field>
+          <CtaActionConfigSection
+            value={{ ctaAction: props.linkAction, ctaUrl: props.linkUrl, chilipiperUrl: props.linkChilipiperUrl, videoUrl: props.linkVideoUrl, ...pickCtaModalConfig(props) }}
+            onChange={(v: CtaSuiteFields) => update({ linkAction: v.ctaAction as HeroCtaActionMode | undefined, linkUrl: v.ctaUrl, linkChilipiperUrl: v.chilipiperUrl, linkVideoUrl: v.videoUrl, ...pickCtaModalConfig(v) })}
+          />
         </div>
         <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="support" /></Field>
       </PanelSection>

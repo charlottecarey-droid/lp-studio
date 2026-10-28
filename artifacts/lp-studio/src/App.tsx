@@ -317,6 +317,7 @@ function AppRouter() {
         <Route path="/analytics/locations">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
         <Route path="/analytics/conversions">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
         <Route path="/analytics/chat">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
+        <Route path="/analytics/resources">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
         <Route path="/analytics/overview">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
         <Route path="/analytics">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
         <Route path="/pages/new">{() => <PermRoute perm="pages" fallback="/sales"><NewPage /></PermRoute>}</Route>
