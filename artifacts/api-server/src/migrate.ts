@@ -2219,7 +2219,8 @@ async function runMigrationsBody(): Promise<void> {
       // Dandy Sleep resource hubs (dentists / patients).
       // v45: hub blocks carry a style preset (`theme: "site"`) instead of
       // per-block surfaces.
-      const SEED_MARKER = "global_templates_seed_v45";
+      // v46: "Content Hub — Home" (audience chooser, hub-paths block).
+      const SEED_MARKER = "global_templates_seed_v46";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

@@ -2,8 +2,9 @@
 // hub-* blocks (hub-hero · hub-featured · hub-library · hub-support):
 //
 //   1. "Content Hub — Resource Library"   generic, brand-neutral starter
-//   2. "Dandy Sleep — Dentist Resource Hub"  dandysleep.com/dentists
-//   3. "Dandy Sleep — Patient Resource Hub"  dandysleep.com/patients
+//   2. "Content Hub — Home"               generic audience chooser for the site root
+//   3. "Dandy Sleep — Dentist Resource Hub"  dandysleep.com/dentists
+//   4. "Dandy Sleep — Patient Resource Hub"  dandysleep.com/patients
 //
 // The two Dandy Sleep hubs replace the Highspot "Dandy Sleep Resource Hub" /
 // "Patient Sleep Resource Hub" PDFs. Every resource keeps the Highspot viewer
@@ -417,6 +418,100 @@ const patientBlocks: Block[] = [
   sleepFooter(psid("dandy-site-footer", 5)),
 ];
 
+/* ── 4. Generic home page (audience chooser) ────────────────────────────── */
+const HOME_SLUG = "global-content-hub-home";
+const hsid = sidFor(HOME_SLUG);
+
+const homeBlocks: Block[] = [
+  {
+    id: hsid("hub-hero", 1),
+    type: "hub-hero",
+    props: {
+      theme: "site",
+      navLinks: [
+        { label: "For teams", url: "/teams" },
+        { label: "For customers", url: "/customers" },
+      ],
+      navCtaText: "Email support",
+      navCtaUrl: "mailto:support@example.com",
+      kicker: "Resource hub",
+      headline: "Everything you need,\nin one place.",
+      subheadline: "Guides, videos and reference sheets for the team and for the people they serve. Pick your path and everything is a click away.",
+      ctaText: "I'm part of the team",
+      ctaAction: "url",
+      ctaUrl: "/teams",
+      ctaSecondaryText: "I'm a customer",
+      ctaSecondaryAction: "url",
+      ctaSecondaryUrl: "/customers",
+      facts: [{ label: "PDFs & videos" }, { label: "No login" }],
+    },
+  },
+  {
+    id: hsid("hub-paths", 2),
+    type: "hub-paths",
+    props: {
+      theme: "site",
+      kicker: "Choose your path",
+      headline: "Who are you here for?",
+      subheadline: "Two libraries: one for the team, one for the people they serve.",
+      anchorId: "paths",
+      paths: [
+        {
+          kicker: "For teams",
+          title: "I'm part of the team",
+          description: "Set-up guides, how-to videos and the references you'll reach for every week.",
+          bullets: ["Getting started, step by step", "Short how-to videos", "Pricing and reference sheets"],
+          ctaText: "Open the team library",
+          ctaUrl: "/teams",
+        },
+        {
+          kicker: "For customers",
+          title: "I'm a customer",
+          description: "Plain-language guides on what to expect, written for people, not professionals.",
+          bullets: ["What to expect, in short reads", "A two-minute explainer", "Who to contact with questions"],
+          ctaText: "Open the customer library",
+          ctaUrl: "/customers",
+        },
+      ],
+    },
+  },
+  {
+    id: hsid("hub-featured", 3),
+    type: "hub-featured",
+    props: {
+      theme: "site",
+      kicker: "Watch first",
+      asset: {
+        kind: "video",
+        title: "The two-minute overview",
+        description: "A short walkthrough of what's in these libraries and how to use them.",
+        videoUrl: "",
+        thumbnailUrl: "",
+        meta: "2 min",
+        downloadable: true,
+      },
+      buttonLabel: "Watch",
+      anchorId: "featured",
+    },
+  },
+  {
+    id: hsid("hub-support", 4),
+    type: "hub-support",
+    props: {
+      theme: "site",
+      kicker: "Questions?",
+      headline: "Can't find what you need?\nJust ask.",
+      body: "Our team answers every message — usually within a business day.",
+      email: "support@example.com",
+      emailLabel: "",
+      linkText: "Visit the help center",
+      linkUrl: "",
+      disclaimer: "",
+      anchorId: "support",
+    },
+  },
+];
+
 export const CONTENT_HUB_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   {
     slug: GENERIC_SLUG,
@@ -429,6 +524,18 @@ export const CONTENT_HUB_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     premiumRank: 13,
     funnelStage: "onboarding",
     blocks: genericBlocks,
+  },
+  {
+    slug: HOME_SLUG,
+    title: "Content Hub — Home (audience chooser)",
+    templateLabel: "Content Hub — Home (audience chooser)",
+    templateDescription:
+      "The front door of a multi-audience hub, set as the site's root page (Settings → Vanity links → Home page): a short hero, two large path cards that send each audience into its own library, the explainer video, and a support close.",
+    ogImage: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=1200&h=630&fit=crop",
+    industry: null,
+    premiumRank: 13,
+    funnelStage: "onboarding",
+    blocks: homeBlocks,
   },
   {
     slug: DENTIST_SLUG,
