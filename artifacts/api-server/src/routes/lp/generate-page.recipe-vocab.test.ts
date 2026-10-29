@@ -77,6 +77,33 @@ describe("page-recipe skeletons reference only advertised block types", () => {
     expect(prompt).not.toContain("AI Scan Review");
   });
 
+  it("GENERAL prompt advertises the ABM account-page family (Oct 2026), tenant assets excluded", () => {
+    const prompt = buildGeneralSystemPrompt();
+    const vocab = advertisedTypes(prompt);
+    for (const type of [
+      "abm-split-hero",
+      "abm-phone-showcase",
+      "abm-solution-tabs",
+      "abm-integrations-row",
+      "abm-story-quote",
+      "abm-logo-strip",
+      "abm-roi-stats",
+      "abm-feature-grid",
+      "abm-reading-tiles",
+      "abm-account-team",
+      "abm-ratings-cta",
+    ]) {
+      expect(vocab.has(type), `GENERAL prompt is missing "${type}"`).toBe(true);
+    }
+    // The hero joins the hero-class list, the self-nav list and the showcase list.
+    expect(prompt).toContain('or "abm-split-hero" (enterprise platform');
+    expect(prompt).toMatch(/Heroes that render their OWN sticky nav —[^\n]*"abm-split-hero"/);
+    expect(prompt).toMatch(/Include AT LEAST 2 SHOWCASE blocks \(abm-split-hero, abm-phone-showcase, abm-solution-tabs, abm-story-quote,/);
+    // Logos / icons / headshots are tenant assets the model must never set.
+    expect(prompt).toContain("NEVER set iconUrl");
+    expect(prompt).toContain("NEVER set imageUrl — real headshots are tenant-supplied");
+  });
+
   it("DSO recipes ⊆ DSO prompt vocabulary (non-Dandy, narrowest form)", () => {
     const vocab = advertisedTypes(buildDsoSystemPrompt({ isDandyTenant: false, brandName: "Acme Dental" }));
     for (const recipe of DSO_RECIPES) {

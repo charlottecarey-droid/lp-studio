@@ -28,10 +28,11 @@ import {
 } from "./page-recipes";
 
 describe("recipe sets", () => {
-  it("has 4-6 freeform recipes, 3 per DSO path, 4+ microsite recipes, all with unique ids and non-empty skeletons", () => {
+  it("has 4-7 freeform recipes, 3 per DSO path, 4+ microsite recipes, all with unique ids and non-empty skeletons", () => {
     expect(FREEFORM_RECIPES.length).toBeGreaterThanOrEqual(4);
     // Sept 2026: +1 for the "Product stack" recipe (Stack block family).
-    expect(FREEFORM_RECIPES.length).toBeLessThanOrEqual(6);
+    // Oct 2026: +1 for the "Enterprise platform" recipe (ABM block family).
+    expect(FREEFORM_RECIPES.length).toBeLessThanOrEqual(7);
     expect(DSO_RECIPES).toHaveLength(3);
     expect(DSO_PRACTICES_RECIPES).toHaveLength(3);
     expect(MICROSITE_RECIPES.length).toBeGreaterThanOrEqual(4);
@@ -50,8 +51,9 @@ describe("recipe sets", () => {
     // "dso-final-cta OR bottom-cta"). Every alternative in those slots must stay
     // within the hero / CTA families — the generator's nav/footer chrome rules
     // own nav/footer, so the recipe must never name them.
-    const HERO_TYPES = ["hero", "full-bleed-hero", "ai-scan-hero"];
-    const CTA_TYPES = ["bottom-cta", "dso-final-cta"];
+    // Oct 2026: the ABM account-page hero / ratings close join the families.
+    const HERO_TYPES = ["hero", "full-bleed-hero", "ai-scan-hero", "abm-split-hero"];
+    const CTA_TYPES = ["bottom-cta", "dso-final-cta", "abm-ratings-cta"];
     const altsOf = (entry: string) => entry.split(" OR ").map((s) => s.trim());
     for (const r of MICROSITE_RECIPES) {
       expect(altsOf(r.skeleton[0]).every((t) => HERO_TYPES.includes(t))).toBe(true);
@@ -63,12 +65,12 @@ describe("recipe sets", () => {
       expect(types).not.toContain("footer");
       // ≥1 features/benefits section (freeform rule).
       expect(
-        types.some((t) => ["benefits-grid", "how-it-works", "dso-ai-feature"].includes(t)),
+        types.some((t) => ["benefits-grid", "how-it-works", "dso-ai-feature", "abm-solution-tabs", "abm-feature-grid"].includes(t)),
       ).toBe(true);
       // ≥1 proof/metrics section (freeform rule).
       expect(
         types.some((t) =>
-          ["trust-bar", "stats", "stat-callout", "testimonial", "dso-stat-row"].includes(t),
+          ["trust-bar", "stats", "stat-callout", "testimonial", "dso-stat-row", "abm-story-quote", "abm-roi-stats"].includes(t),
         ),
       ).toBe(true);
     }

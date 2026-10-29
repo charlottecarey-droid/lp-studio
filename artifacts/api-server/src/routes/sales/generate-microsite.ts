@@ -686,6 +686,9 @@ const MICROSITE_DARK_BY_DESIGN_HERO_TYPES: ReadonlySet<string> = new Set([
   "dso-heartland-hero",
   "dso-practice-hero",
   "ai-scan-hero",
+  // ABM account-page hero (Oct 2026): a black split hero under its own
+  // site-style bar — strong by design, the upgrade pass must never rewrite it.
+  "abm-split-hero",
 ]);
 
 /** Every hero block type a free-form microsite can open with (used to find the
@@ -699,6 +702,10 @@ const MICROSITE_HERO_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "hero",
   "full-bleed-hero",
   "ai-scan-hero",
+  // ABM account-page hero (Oct 2026) — in the hero set so anchor derivation,
+  // the recipe-hero lock and the section-rhythm pass treat it as THE hero
+  // (its nav is recognised via the shared SELF_NAV_TYPES).
+  "abm-split-hero",
   ...MICROSITE_SELF_NAV_HERO_TYPES,
 ]);
 
@@ -1941,6 +1948,20 @@ export const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "pas-section": "{ headline, body, bullets: string[] }",
   "stat-callout": "{ stat, description, footnote }",
   "rich-text": "{ content, maxWidth }",
+  // ── ABM account-page family (Oct 2026) — the enterprise "one platform"
+  // idiom, built for 1:1 account pages. Media / logo / icon / headshot slots
+  // are tenant assets (leave "" / omit); proof blocks ONLY with real data.
+  "abm-split-hero": "{ showNav (true), navTheme (\"light\"|\"dark\"), navLinks (EXACTLY 3-5 of { label (1-2 words), href (an on-page anchor matching a later block's anchorId: \"#platform\", \"#solutions\", \"#proof\", \"#features\", \"#resources\", \"#team\", \"#demo\") }), navLinkText (\"Log in\" or \"\"), navLinkUrl (\"#\"), companyName (the TARGET account's company name — shown after the brand mark as 'brand × account'), kicker (3-6 words, e.g. three of the account's team nouns separated by periods), showKickerDot (true), headline (3-7 words), subheadline (16-28 words), ctaText (2-5 words), ctaUrl (\"#demo\" or \"#team\"), ctaSecondaryText (\"\" or 2-4 words), ctaSecondaryUrl (\"#\"), mediaImageUrl (\"\" — the server fills), mediaImageAlt (4-8 words), mediaVideoUrl (\"\" — ALWAYS blank), mediaAspect (\"4/3\"), mediaSide (\"right\"|\"left\"), backgroundStyle (\"black\"|\"dark\"|\"gradient\") } — renders its OWN site-style nav; never precede it with a nav block",
+  "abm-phone-showcase": "{ kicker (\"\" or 1-3 words), headline (4-8 words), intro (18-30 words), items (EXACTLY 3-4 of { title (4-7 words, imperative), body (18-30 words) }), mediaVideoUrl (\"\"), mediaImageUrl (\"\" — the phone frame shows a designed placeholder until a clip is attached), phoneSide (\"left\"|\"right\"), anchorId (\"platform\"), backgroundStyle (\"white\"|\"light-gray\"|\"muted\") }",
+  "abm-solution-tabs": "{ headline (6-12 words, two lines separated by \\\\n), subheadline (\"\" or 12-20 words), linkText (\"\" unless a real URL is known), linkUrl (\"\" or that URL), tabs (EXACTLY 3-5 of { label (1-3 words — one of the account's teams or workflows), title (4-8 words), body (18-30 words), bullets (3-5 of 6-12 words), imageUrl (\"\" — the server fills a product screenshot), imageAlt (4-8 words), videoUrl (\"\") }), ctaText (2-4 words), ctaUrl (\"#demo\" or \"#team\"), anchorId (\"solutions\"), backgroundStyle (\"white\"|\"light-gray\"|\"muted\") }",
+  "abm-integrations-row": "{ headline (6-12 words, break with \\\\n), subheadline (16-30 words), linkText (\"\" unless a real URL is known), linkUrl (\"\" or that URL), items (EXACTLY 5-8 of { name (1-3 words) } — ONLY real integrations / partner tools named in the brief; NEVER set iconUrl), tileSize (96), anchorId (\"integrations\"), backgroundStyle (\"muted\"|\"white\"|\"light-gray\") } — drop the block when the brief names no integrations",
+  "abm-story-quote": "{ kicker (\"Customer story\" or 1-3 words), quote (18-40 words — ONLY a REAL quote from the brief / brand context, NEVER invented), author (full name), role (title), company (company name or \"\"), companyLogoUrl (\"\" — NEVER set), linkText (\"\" unless a real URL is known), linkUrl (\"\" or that URL), imageUrl (\"\" — the server fills), imageAlt (4-8 words), imageSide (\"right\"|\"left\"), mediaVideoUrl (\"\"), anchorId (\"proof\"), backgroundStyle (\"white\"|\"light-gray\"|\"muted\") } — drop the block when no real quote exists",
+  "abm-logo-strip": "{ headline (4-8 words), logos (EXACTLY 5-8 of { name (1-3 words) } — ONLY real customer names from the brief / brand context; NEVER set imageUrl), grayscale (false), logoHeight (32), backgroundStyle (\"white\"|\"light-gray\"|\"muted\") } — drop the block when no real customer names are given",
+  "abm-roi-stats": "{ headline (3-6 words), stats (EXACTLY 3 of { value (figure with affix, e.g. \"95%\", \"3.2x\", \"$4M\"), label (6-12 words completing the sentence) } — ONLY real numbers from the brief / brand context, NEVER invented), footnote (\"* \" + the source, 6-12 words, or \"\"), ctaText (2-4 words), ctaUrl (\"#demo\"), ctaVariant (\"ink\"|\"accent\"), anchorId (\"roi\"), backgroundStyle (\"muted\"|\"white\"|\"dark\") } — drop the block when no real numbers exist",
+  "abm-feature-grid": "{ headline (4-8 words, optional \\\\n break), subheadline (\"\" or 12-20 words), items (EXACTLY 6 (or 4 / 8) of { title (2-4 words), body (14-24 words), linkUrl (\"\" unless a real URL is known) }), columns (3), anchorId (\"features\"), backgroundStyle (\"white\"|\"light-gray\"|\"muted\") }",
+  "abm-reading-tiles": "{ headline (2-4 words), items (EXACTLY 3 of { kicker (\"Customer story\"|\"Blog\"|\"Guide\"|\"Report\"|\"Webinar\"), title (6-12 words), excerpt (12-24 words), imageUrl (\"\" — the server fills), imageAlt (4-8 words), linkUrl (\"\" unless a real URL is known) }), anchorId (\"resources\"), backgroundStyle (\"muted\"|\"white\"|\"light-gray\") }",
+  "abm-account-team": "{ headline (3-5 words), subheadline (\"\" or 10-20 words), members (3-6 of { name (full name), title (2-5 words), company (\"\") } — ONLY people named in the brief / account context; NEVER set imageUrl, headshots are tenant-supplied), headshotSize (120), anchorId (\"team\"), backgroundStyle (\"white\"|\"light-gray\"|\"muted\") } — drop the block when the brief names nobody",
+  "abm-ratings-cta": "{ headline (6-10 words, break with \\\\n), subheadline (\"\" or 10-18 words), ctaText (2-4 words), ctaUrl (\"#\"), ratings (0-4 of { platform (1-3 words, e.g. \"G2\"), rating (number 0-5), count (string, e.g. \"4,298\") } — ONLY real ratings from the brief / brand context; with none emit [] and it renders as a clean dark close), anchorId (\"demo\"), backgroundStyle (\"black\"|\"dark\"|\"gradient\") } — use as the LAST content block before the footer",
   "dso-heartland-hero": "{ eyebrow, headline, companyName (the TARGET account's company name — it is highlighted in the headline accent color and shown in the nav as 'logo × company'), subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, stats: [{ value, label }] }",
   "dso-stat-bar": "{ stats: [{ value, label }], backgroundStyle }",
   "dso-challenges": "{ eyebrow, headline, backgroundStyle, layout (\"4-col\"), challenges: [{ title, desc }] } — 4 pain points specific to this account",

@@ -2719,3 +2719,64 @@ describe("fillEmptyImages — text-bearing background scrub + text-free refill",
     expect(isTextBearingImage({ tags: ["lp-hero", "dentures"] })).toBe(false);
   });
 });
+
+// ABM account-page family (Oct 2026): graduated to the GENERAL vocabulary.
+// Only the hero media, solution-tab screenshots and reading-tile photos are
+// library-filled; the phone poster (portrait, designed placeholder) and every
+// tenant-asset slot (logos, icons, headshots, ratings logos) stay untouched.
+describe("ABM family — image slot wiring", () => {
+  it("fills abm-split-hero mediaImageUrl with a hero-grade image", () => {
+    const blocks = [
+      { type: "abm-split-hero", props: { headline: "One company, one platform", mediaImageUrl: "", mediaVideoUrl: "" } },
+    ];
+    const out = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    expect(["/objects/denture-hero-1", "/objects/denture-hero-2"]).toContain(out[0].props.mediaImageUrl);
+  });
+
+  it("never fills abm-phone-showcase mediaImageUrl and collects no slot for it", () => {
+    const block = { type: "abm-phone-showcase", props: { headline: "The foundation for dentures", mediaImageUrl: "", mediaVideoUrl: "" } };
+    const out = fillEmptyImages([block], LIB, PAGE_CTX) as any[];
+    expect(out[0].props.mediaImageUrl).toBe("");
+    expect(collectImageSlots(block as any, undefined, true).map((s) => s.field)).not.toContain("mediaImageUrl");
+  });
+
+  it("fills abm-solution-tabs tabs[].imageUrl as product-detail, matched on the tab's own subject", () => {
+    const blocks = [
+      { type: "abm-solution-tabs", props: { headline: "Connect every team", tabs: [
+        { label: "Fit", title: "Denture closeup fitting", body: "Precision denture closeup work", imageUrl: "" },
+        { label: "Kept", title: "Scan", body: "x", imageUrl: "/objects/dental-feature-2" },
+      ] } },
+    ];
+    const out = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    expect(out[0].props.tabs[0].imageUrl).toBe("/objects/dental-detail-1");
+    expect(out[0].props.tabs[1].imageUrl).toBe("/objects/dental-feature-2");
+    const slots = collectImageSlots(blocks[0] as any);
+    expect(slots.find((s) => s.get() === "/objects/dental-feature-2")?.purpose).toBe("product-detail");
+  });
+
+  it("fills abm-reading-tiles items[].imageUrl with feature images", () => {
+    const blocks = [
+      { type: "abm-reading-tiles", props: { headline: "Recommended reading", items: [
+        { kicker: "Blog", title: "Denture fitting guide", excerpt: "x", imageUrl: "" },
+      ] } },
+    ];
+    const out = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    expect(out[0].props.items[0].imageUrl).not.toBe("");
+    expect(out[0].props.items[0].imageUrl).not.toBe("/objects/restaurant-hero");
+  });
+
+  it("never fills tenant-asset slots: logo-strip logos, integration icons, team headshots, ratings logos", () => {
+    const blocks = [
+      { type: "abm-logo-strip", props: { headline: "Leaders", logos: [{ name: "Northwind", imageUrl: "" }] } },
+      { type: "abm-integrations-row", props: { headline: "Integrations", items: [{ name: "ERP", iconUrl: "" }] } },
+      { type: "abm-account-team", props: { headline: "Team", members: [{ name: "Alex Rivera", title: "AE", imageUrl: "" }] } },
+      { type: "abm-ratings-cta", props: { headline: "Ready?", ratings: [{ platform: "G2", rating: 4.6, logoUrl: "" }] } },
+    ];
+    const out = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    expect(out[0].props.logos[0].imageUrl).toBe("");
+    expect(out[1].props.items[0].iconUrl).toBe("");
+    expect(out[2].props.members[0].imageUrl).toBe("");
+    expect(out[3].props.ratings[0].logoUrl).toBe("");
+    for (const b of blocks) expect(collectImageSlots(b as any, undefined, true)).toHaveLength(0);
+  });
+});

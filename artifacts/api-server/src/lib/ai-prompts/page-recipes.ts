@@ -144,6 +144,25 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     styleNotes:
       "Every section earns its scroll: benefit-dense copy, social proof early, a clear 3-step path, then the pricing/objection answer (use glass-pricing-tiers ONLY when the brief provides real prices — otherwise the comparison) and one unmissable closing CTA. No decorative detours; CTAs repeat the same single action.",
   },
+  {
+    id: "freeform-enterprise-platform",
+    label: "Enterprise platform",
+    description:
+      "an enterprise account-page style platform page — a site-style top bar over a dark split hero, product showcases, integrations, real proof and a dark ratings close",
+    skeleton: [
+      "abm-split-hero",
+      "abm-phone-showcase OR feature-tabs-showcase",
+      "abm-solution-tabs",
+      "abm-integrations-row OR abm-logo-strip",
+      "abm-story-quote OR quote-with-image",
+      "abm-roi-stats OR stat-counter-band",
+      "abm-feature-grid OR glass-bento-features",
+      "abm-reading-tiles",
+      "abm-ratings-cta OR aurora-cta-finale",
+    ],
+    styleNotes:
+      "The enterprise \"one platform\" idiom: a dark hero under a site-style bar, then calm white and muted sections alternating, plain editorial feature lockups, product screenshots inside the solution tabs, and a dark close. Short declarative headlines; two-line headlines break with \\n; the hero bar's anchor links must match the sections you actually emit. Proof sections (story quote, logo strip, ROI stats, ratings) ONLY with real quotes, names and numbers from the brief — otherwise drop the slot rather than invent.",
+  },
 ];
 
 // ── DSO (enterprise) path ───────────────────────────────────────────────────
@@ -337,6 +356,23 @@ export const MICROSITE_RECIPES: PageRecipe[] = [
     ],
     styleNotes:
       "Let the media do the work: open with an immersive full-screen hero, bring the video/demo in early, then a premium feature showcase or short benefit cards, quick credibility, and a simple how-it-works path. Keep text blocks tight and punchy with one clear closing CTA. Only include the video section when a real demo/video is available — otherwise swap it for another proof or benefits section.",
+  },
+  {
+    id: "microsite-account-platform",
+    label: "Account platform page",
+    description:
+      "a 1:1 enterprise account page in the account-page idiom — a site-style bar over a dark split hero, the platform mapped to the account's teams, real proof, and a dark close",
+    skeleton: [
+      "abm-split-hero",
+      "abm-phone-showcase",
+      "abm-solution-tabs",
+      "abm-story-quote OR testimonial",
+      "abm-roi-stats OR dso-stat-row",
+      "abm-feature-grid OR benefits-grid",
+      "abm-ratings-cta OR dso-final-cta",
+    ],
+    styleNotes:
+      "Address the account by name throughout the copy (leave the hero's companyName blank — the account pipeline fills the co-brand slot), map each solution tab to one of their teams or workflows, keep proof real (quotes, numbers and logos only from the brief or brand context), and close dark. Calm enterprise tone; screenshots and product clips over stock photography.",
   },
 ];
 
