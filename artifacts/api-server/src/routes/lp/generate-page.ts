@@ -3026,13 +3026,20 @@ export function buildReferenceFillPool(
   // user explicitly asked us to use. STALE scrapes from unrelated prior runs
   // (otherScraped) and generic starters stay unflagged → last-resort only.
   const flagCurrent = (img: MediaImage): MediaImage => ({ ...img, currentReference: true });
+  // Oct 2026 — a generation with NO reference of its own never draws on
+  // other sites' scrapes at all. Those rows were harvested for a different
+  // page's reference URL (Ramp / Lovable / Lululemon screenshots on an HVAC
+  // sale page, Salesloft UI on a dental page); demoting them to the tail was
+  // not enough once the genuine library ran out. With a reference in play
+  // they stay as the last-resort bucket they always were.
+  const hasReference = currentRefHosts.size > 0 || freshScrapedMedia.length > 0;
   // Rotate WITHIN each bucket (preserving cross-bucket priority) so the first
   // eligible slot of every page doesn't always resolve to the same first DB row.
   return [
     ...rotateBucket(curatedImages, rotationSeed),
     ...rotateBucket(freshScrapedMedia, rotationSeed).map(flagCurrent),
     ...rotateBucket(currentRefScraped, rotationSeed).map(flagCurrent),
-    ...rotateBucket(otherScraped, rotationSeed),
+    ...(hasReference ? rotateBucket(otherScraped, rotationSeed) : []),
     ...rotateBucket(starterImages, rotationSeed),
   ];
 }

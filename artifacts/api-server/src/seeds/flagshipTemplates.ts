@@ -7,6 +7,12 @@
 // Slug convention: `global-flagship-<kind>`. The `premiumRank` field controls
 // marketplace ordering (lower = higher).
 
+// Oct 2026 — placeholder PROOF was scrubbed from these seeds: every trust-bar
+// of invented metrics ("Fortune 100 customers", "99.99% SLA", "1,200+ homes
+// served") and both photo-strips of Unsplash brand-icon photos captioned as
+// customers / press. A template may ship sample copy; it must never ship a
+// claim the tenant did not make. Re-adding a stats bar: leave it to the brand's
+// approved stats (approvedBrandStats) or the tenant.
 import type { GlobalTemplateSeed } from "./globalTemplates";
 
 const id = (type: string, n: number) => `flag-${type}-${n}`;
@@ -57,19 +63,7 @@ const aiProductLaunch: GlobalTemplateSeed = {
         headerCtaUrl: "#access",
         headerScrolledBg: "#0A0A0B",
         showSocialProof: true,
-        socialProofText: "Now in private beta — joining 200+ teams",
-      },
-    },
-    {
-      id: id("trust-bar", 2),
-      type: "trust-bar",
-      props: {
-        items: [
-          { value: "1.4M", label: "tasks completed" },
-          { value: "40%", label: "faster shipping" },
-          { value: "99.9%", label: "uptime" },
-          { value: "SOC 2", label: "Type II certified" },
-        ],
+        socialProofText: "",
       },
     },
     {
@@ -232,32 +226,6 @@ const enterprisePlatform: GlobalTemplateSeed = {
         bgColor: "#0B1220",
         textColor: "#F8FAFC",
         accentColor: "#22D3EE",
-      },
-    },
-    {
-      id: id("trust-bar", 2),
-      type: "trust-bar",
-      props: {
-        items: [
-          { value: "Fortune 100", label: "customers" },
-          { value: "32", label: "regions" },
-          { value: "99.99%", label: "platform SLA" },
-          { value: "SOC2 · ISO · HIPAA", label: "certified" },
-        ],
-      },
-    },
-    {
-      id: id("photo-strip", 25),
-      type: "photo-strip",
-      props: {
-        images: [
-          { src: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=80", alt: "Customer / Northwind" },
-          { src: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&q=80", alt: "Customer / Latticework" },
-          { src: "https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400&q=80", alt: "Customer / Veridian" },
-          { src: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&q=80", alt: "Customer / Helix" },
-          { src: "https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80", alt: "Customer / Atlas" },
-          { src: "https://images.unsplash.com/photo-1611605698323-b1e99cfd37ea?w=400&q=80", alt: "Customer / Stratus" },
-        ],
       },
     },
     {
@@ -442,18 +410,6 @@ const premiumSaas: GlobalTemplateSeed = {
         backgroundStyle: "white",
         showSocialProof: true,
         socialProofText: "10,000+ teams trust us to run their day-to-day",
-      },
-    },
-    {
-      id: id("trust-bar", 2),
-      type: "trust-bar",
-      props: {
-        items: [
-          { value: "10k+", label: "active teams" },
-          { value: "4.9", label: "avg. rating" },
-          { value: "120s", label: "median setup" },
-          { value: "$2B+", label: "processed monthly" },
-        ],
       },
     },
     {
@@ -837,18 +793,6 @@ const creatorPortfolio: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("photo-strip", 4),
-      type: "photo-strip",
-      props: {
-        images: [
-          { src: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=80", alt: "Press 1" },
-          { src: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&q=80", alt: "Press 2" },
-          { src: "https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400&q=80", alt: "Press 3" },
-          { src: "https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80", alt: "Press 4" },
-        ],
-      },
-    },
-    {
       id: id("bottom-cta", 5),
       type: "bottom-cta",
       props: {
@@ -893,18 +837,6 @@ const localServices: GlobalTemplateSeed = {
         backgroundStyle: "white",
         showSocialProof: true,
         socialProofText: "1,200+ projects completed across Central Texas",
-      },
-    },
-    {
-      id: id("trust-bar", 2),
-      type: "trust-bar",
-      props: {
-        items: [
-          { value: "16 yrs", label: "in business" },
-          { value: "1,200+", label: "homes served" },
-          { value: "4.9★", label: "Google rating" },
-          { value: "Lifetime", label: "workmanship warranty" },
-        ],
       },
     },
     {
@@ -1150,18 +1082,6 @@ const productizedAgency: GlobalTemplateSeed = {
         bgColor: "#0F0F10",
         textColor: "#F5F2EC",
         accentColor: "#FF6B2C",
-      },
-    },
-    {
-      id: id("trust-bar", 2),
-      type: "trust-bar",
-      props: {
-        items: [
-          { value: "48hr", label: "average turnaround" },
-          { value: "120+", label: "active clients" },
-          { value: "4.95★", label: "client rating" },
-          { value: "Pause", label: "any time" },
-        ],
       },
     },
     {

@@ -11,8 +11,7 @@ import { describe, it, expect } from "vitest";
 import {
   matchTemplateIntent,
   normalizeForIntentMatch,
-  type TemplateIntentCandidate,
-} from "./template-intent";
+  type TemplateIntentCandidate, LAYOUT_STYLE_CATEGORIES } from "./template-intent";
 import { ALL_IN_ONE_TEMPLATE_SEEDS } from "../../seeds/globalTemplates";
 
 const seedCandidates: TemplateIntentCandidate[] = ALL_IN_ONE_TEMPLATE_SEEDS.map((t) => ({
@@ -103,12 +102,18 @@ describe("matchTemplateIntent — real seed library", () => {
     expect(matchTemplateIntent("a page about shopping habits", seedCandidates)).toBeNull();
   });
 
-  it("every all-in-one seed is reachable via its own keywords", () => {
+  it("every page-type seed is reachable via its own keywords; layout-style flagships never are", () => {
     for (const tpl of ALL_IN_ONE_TEMPLATE_SEEDS) {
       const prompt = (tpl.keywords ?? []).join(" ");
+      const m = matchTemplateIntent(prompt, seedCandidates);
+      if (LAYOUT_STYLE_CATEGORIES.has((tpl.category ?? "").toLowerCase())) {
+        // Oct 2026: looks, not page types — never auto-routed, even on their
+        // own keywords (they remain pickable by explicit templateId).
+        expect(m?.slug, `"${tpl.slug}" is a layout style and must not self-match`).not.toBe(tpl.slug);
+        continue;
+      }
       // Storefront requires a commerce signal — its own keyword list carries
       // real commerce words (shop/cart/checkout), so it still self-matches.
-      const m = matchTemplateIntent(prompt, seedCandidates);
       expect(m?.slug, `expected "${tpl.slug}" to win its own keyword prompt`).toBe(tpl.slug);
     }
   });
@@ -223,6 +228,36 @@ describe("matchTemplateIntent — brand-aware storefront gating", () => {
     expect(
       matchTemplateIntent("a product page", [ecomTpl], { industry: "dental" }),
     ).toBeNull(); // no commerce word + non-DTC brand → excluded
+  });
+});
+
+// Oct 2026 — "generate a page for my b2b enterprise platform audiences" was
+// routed into the seeded Enterprise Platform flagship (placeholder stats, a
+// stock-photo logo strip, no hero image). Layout-style templates are looks,
+// not page types, and are never auto-matched.
+describe("matchTemplateIntent — layout-style categories are never intent-routed", () => {
+  const keywords = ["enterprise platform", "platform page"];
+  it.each(["saas-launch", "services", "portfolio"])("skips a %s template even on an exact phrase hit", (category) => {
+    const tpl: TemplateIntentCandidate = { slug: `style-${category}`, category, keywords, isAllInOne: true };
+    expect(matchTemplateIntent("a landing page for my enterprise platform", [tpl])).toBeNull();
+  });
+  it("still routes page-type categories on the same keywords", () => {
+    const tpl: TemplateIntentCandidate = { slug: "typed", category: "event", keywords, isAllInOne: true };
+    expect(matchTemplateIntent("a landing page for my enterprise platform", [tpl])?.slug).toBe("typed");
+  });
+  it("names exactly the six style flagships in the real seed set", () => {
+    const styled = seedCandidates
+      .filter((c) => LAYOUT_STYLE_CATEGORIES.has((c.category ?? "").toLowerCase()))
+      .map((c) => c.slug)
+      .sort();
+    expect(styled).toEqual([
+      "global-flagship-ai-product-launch",
+      "global-flagship-creator-portfolio",
+      "global-flagship-enterprise-platform",
+      "global-flagship-local-services",
+      "global-flagship-premium-saas",
+      "global-flagship-productized-agency",
+    ]);
   });
 });
 

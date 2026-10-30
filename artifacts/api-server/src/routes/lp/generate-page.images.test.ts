@@ -798,8 +798,15 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
     expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo", "/objects/clay-fresh"]);
   });
 
-  it("with no reference URL, all scrapes fall to the other-host tail (no regression)", () => {
+  it("with no reference URL, other sites' scrapes are excluded entirely (Oct 2026)", () => {
+    // Harvested for some earlier page's reference; this generation asked for
+    // nothing — Ramp screenshots must never land on an HVAC page.
     const pool = buildReferenceFillPool([staleApple, curated], [], []);
+    expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo"]);
+  });
+
+  it("with a reference in play, other-host scrapes stay as the last-resort tail", () => {
+    const pool = buildReferenceFillPool([staleApple, curated], [], ["https://clay.com/x"]);
     expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo", "/objects/apple-1"]);
   });
 
@@ -812,8 +819,9 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
 
   it("ignores malformed reference URLs without throwing", () => {
     const pool = buildReferenceFillPool([priorClay, curated], [], ["not a url", ""]);
-    // No valid current-ref host derived → clay scrape falls to the tail.
-    expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo", "/objects/clay-prior"]);
+    // No valid current-ref host derived → treated as "no reference": the
+    // clay scrape (some other page's harvest) is excluded, not demoted.
+    expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo"]);
   });
 
   it("treats a scrape with no refhost tag as other-host", () => {

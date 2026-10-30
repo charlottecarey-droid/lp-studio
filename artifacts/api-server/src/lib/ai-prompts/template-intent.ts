@@ -119,6 +119,19 @@ function brandIsEcommerce(ctx: BrandIntentContext | undefined): boolean | null {
   return null;
 }
 
+/**
+ * Template categories that describe a LAYOUT STYLE rather than a page TYPE
+ * (Oct 2026). Intent routing exists for prompts whose structure is the point —
+ * an event page, a storefront, a blog, a podcast series, a restaurant, a
+ * sales business case. "Enterprise platform", "premium SaaS", "local services"
+ * and friends are looks: routing a plain "landing page for my b2b enterprise
+ * platform" into one locked the page to a seeded layout with placeholder
+ * stats and a stock-photo logo strip, bypassing the recipe rotation and the
+ * brand's own imagery. These templates stay in the library for anyone who
+ * picks them deliberately (explicit templateId); they are never auto-matched.
+ */
+export const LAYOUT_STYLE_CATEGORIES: ReadonlySet<string> = new Set(["saas-launch", "services", "portfolio"]);
+
 /** Distinct keyword hits required when none of the hits is a multi-word
  *  phrase. One generic single-word hit ("show", "work", "event" …) is not
  *  enough signal on its own. */
@@ -192,6 +205,8 @@ export function matchTemplateIntent(
   const scored: ScoredCandidate[] = [];
   templates.forEach((tpl, order) => {
     if (!tpl || tpl.isAllInOne !== true || typeof tpl.slug !== "string" || !tpl.slug) return;
+    // Layout-style flagships are never intent-routed (see LAYOUT_STYLE_CATEGORIES).
+    if (LAYOUT_STYLE_CATEGORIES.has((tpl.category ?? "").trim().toLowerCase())) return;
     // Storefront/ecommerce templates are gated behind a commerce signal.
     if (isEcommerceTemplate(tpl) && !allowEcommerceTemplates) return;
     const rawKeywords = Array.isArray(tpl.keywords) ? tpl.keywords : [];
