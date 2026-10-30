@@ -266,6 +266,7 @@ describe("emptyImageSlotScore", () => {
       block("video-zigzag", { headline: "Z", rows: [{ title: "R", body: "b", imageUrl: "", videoUrl: "" }] }),
       block("abm-split-hero", { headline: "H", mediaImageUrl: "" }),
       block("abm-reading-tiles", { headline: "Read", items: [{ title: "x", imageUrl: "" }] }),
+      block("feature-tabs-showcase", { headline: "Tour", tabs: [{ title: "T", description: "d", imageUrl: "" }] }),
     ]);
     expect(r.violations).toEqual([]);
     expect(r.score).toBe(1);

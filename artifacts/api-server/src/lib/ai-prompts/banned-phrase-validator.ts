@@ -278,6 +278,22 @@ const SAFE_PHRASE_SWAPS: ReadonlyArray<[string, string]> = [
   ["empower", "equip"],
   ["supercharge", "boost"],
   ["discover", "see"],
+  // Oct 2026 — the hits both eval runs (gpt-4o and gpt-5) still leaked after
+  // the swaps above. Longer phrases first so "unlock your potential" is
+  // rewritten whole before the bare "unlock" rule sees it.
+  ["unlock your potential", "reach your potential"],
+  ["unlock the power of", "use"],
+  ["harness the power of", "use"],
+  ["scalable solutions", "systems that scale"],
+  ["holistic approach", "whole-picture approach"],
+  ["best practices", "proven practices"],
+  ["elevate your", "improve your"],
+  ["leverages", "uses"],
+  ["leveraged", "used"],
+  ["leverage", "use"],
+  ["unlock", "open up"],
+  ["unleash", "release"],
+  ["innovative", "inventive"],
 ];
 
 /** Keys whose values are never human copy — mirror of the critique pass's

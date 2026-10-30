@@ -126,6 +126,31 @@ describe("rankBlocksByHits", () => {
 
 
 describe("applySafePhraseSwaps", () => {
+  // Oct 2026 — the phrases both eval runs still leaked get deterministic swaps.
+  it("swaps the Oct-2026 leak set, longest phrase first", () => {
+    const blocks = [
+      {
+        id: "b1",
+        type: "hero",
+        props: {
+          headline: "Unlock your potential and leverage scalable solutions",
+          subheadline: "Harness the power of data with innovative best practices. Elevate your team.",
+          body: "Unleash growth — we leverage what you already have.",
+        },
+      },
+    ];
+    const result = applySafePhraseSwaps(blocks);
+    const props = blocks[0].props as Record<string, string>;
+    expect(props.headline).toBe("Reach your potential and use systems that scale");
+    expect(props.subheadline).toBe("Use data with inventive proven practices. Improve your team.");
+    expect(props.body).toBe("Release growth — we use what you already have.");
+    expect(result.phrases).toEqual(
+      expect.arrayContaining(["unlock your potential", "leverage", "scalable solutions", "harness the power of", "innovative", "best practices", "elevate your", "unleash"]),
+    );
+    // The whole-phrase rule consumed "unlock" — the bare rule never fired.
+    expect(result.phrases).not.toContain("unlock");
+  });
+
   it("swaps safe offenders in place with case preservation and reports them", () => {
     const blocks = [
       {

@@ -313,6 +313,9 @@ const IMAGE_URL_FIELD_KEYS = new Set([
  * scored can still name them in `imageLedTypes`.
  */
 const DESIGNED_EMPTY_MEDIA_TYPES: ReadonlySet<string> = new Set([
+  // feature-tabs-showcase paints the same placeholder on the live page since
+  // Oct 2026 (it used to leave an empty browser frame).
+  "feature-tabs-showcase",
   "glow-video-hero",
   "video-step-showcase",
   "video-zigzag",

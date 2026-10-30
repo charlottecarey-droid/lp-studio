@@ -7,6 +7,7 @@ import { pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
 import { IconOrImage } from "@/lib/icon-value";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { PlaceholderUi } from "@/lib/glow-media";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { cn } from "@/lib/utils";
 
@@ -399,17 +400,31 @@ export function BlockFeatureTabsShowcase({ props, brand, onFieldChange }: Props)
                       reduced ? { duration: 0 } : { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
                     }
                   >
-                    <InlineImage
-                      src={activeTab?.imageUrl || ""}
-                      alt={activeTab?.imageAlt ?? activeTab?.title ?? ""}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      wrapperClassName="absolute inset-0"
-                      loading="lazy"
-                      onUpdate={updateTab ? (url) => updateTab(safeActive, { imageUrl: url }) : undefined}
-                      onAltUpdate={updateTab ? (v) => updateTab(safeActive, { imageAlt: v }) : undefined}
-                      focalPoint={activeTab?.imageFocal}
-                      onFocalUpdate={updateTab ? (v) => updateTab(safeActive, { imageFocal: v }) : undefined}
-                    />
+                    {activeTab?.imageUrl || updateTab ? (
+                      <InlineImage
+                        src={activeTab?.imageUrl || ""}
+                        alt={activeTab?.imageAlt ?? activeTab?.title ?? ""}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        wrapperClassName="absolute inset-0"
+                        loading="lazy"
+                        onUpdate={updateTab ? (url) => updateTab(safeActive, { imageUrl: url }) : undefined}
+                        onAltUpdate={updateTab ? (v) => updateTab(safeActive, { imageAlt: v }) : undefined}
+                        focalPoint={activeTab?.imageFocal}
+                        onFocalUpdate={updateTab ? (v) => updateTab(safeActive, { imageFocal: v }) : undefined}
+                      />
+                    ) : (
+                      // Live page, tab without a screenshot (tenants without
+                      // product shots — the fill pass leaves product-detail
+                      // slots empty on purpose): paint the Stack family's
+                      // abstract product-UI graphic instead of an empty
+                      // browser frame. The editor keeps InlineImage's
+                      // "click Replace" affordance above.
+                      <PlaceholderUi
+                        variant="board"
+                        palette={{ dark, accent, glow: accent }}
+                        className="absolute inset-0"
+                      />
+                    )}
                   </motion.div>
                 </AnimatePresence>
               </div>
