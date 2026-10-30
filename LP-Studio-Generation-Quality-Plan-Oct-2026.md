@@ -1,7 +1,7 @@
 # LP Studio — Generation Quality Plan (replaces the "Visual Editor 2.0" spec)
 
 **Date:** 2026-10-28
-**Status:** Step 1 implemented in this commit (not yet deployed). Steps 1b–5 are planned and need the decisions marked **DECIDE**.
+**Status:** Step 1 shipped (`ce8e52a0c`); Step 1b applied in production 2026-10-29/30 with Charlotte's approval (snapshot + restore script in `docs/runbooks/`); Step 2a shipped (per-path model setting, default unchanged). Steps 2b–5 are planned and need the decisions marked **DECIDE**.
 **Why this plan exists:** Charlotte: "I really want pages to look better from the AI. Every time I need a new page I ask you to build it instead of using the LP Studio AI. Other people are stuck with the crappy editor and recipes." The ChatGPT "Visual Editor 2.0" spec answered a different question (a Webflow-style element editor). The review of that spec is kept as Appendix A; the rest of this document is the plan that attacks the stated problem.
 
 ---
@@ -68,7 +68,9 @@ The ten-recipe rotation means a good recipe is picked one time in ten. Promoting
 | `freeform-custom-7c02f1d07e` "Copy-heavy Credible" | dandy-vertical-tabs, dandy-columns-v2, feature-photo-cards | Keep the heartland hero + pas opener; replace the middle with `abm-solution-tabs`, `video-zigzag OR zigzag-features`, `abm-story-quote` |
 | `freeform-custom-ac946bb33c` "Product Page" | dandy-vertical-tabs, benefits-grid OR feature-card-grid | Retire: "Product stack" (Stack family) is the better product page |
 
-Three ways to apply this. **DECIDE** which:
+**Applied 2026-10-29 with Charlotte's approval**, then corrected 2026-10-30 after she asked why feature-photo-cards, the value-pillars cards and dandy-vertical-tabs were removed: those three were culled by my heuristic (older card families), not by any quality signal or her preference. They are back as OR alternatives beside the ABM and Stack options in Big Block Page, Full bleed square statement, Copy-heavy Credible and Conversion-tight, and Product Page is re-enabled. Rule going forward: never remove a block from a recipe on inferred taste; ask which blocks are liked first. Snapshot of the pre-change table + one-shot restore: `docs/runbooks/recipe-overrides-{backup,restore}-2026-10-29.{json,sql}`.
+
+The three options that were on the table:
 1. I update the rows by SQL once you approve the table above (fastest; it is your authored data, so I will not touch it unasked).
 2. You edit them in the Recipe Manager.
 3. Delete the five built-in override rows so the code recipes apply, and I edit the four customs by SQL.
@@ -79,7 +81,9 @@ Recommendation: option 3 for the built-ins plus option 1 for the customs, in one
 
 ## 4. Step 2 — Model and recipe fit
 
-**2a. Model per path.** Replace the `GENERATION_MODEL` constant with an env-resolved setting per prompt path (GENERAL, DSO, DSO-practices, microsite) so each can run a current model with strict JSON output, with a guard for models that reject a non-default temperature. The Copilot already has the per-mode seam from the sales-assistant Stage 1 plan; reuse it. **DECIDE:** which model. If it is Claude, the api-server needs an Anthropic key in Replit and I will load the API reference before wiring; the OpenAI proxy path stays as the fallback. Measured with the eval harness plus the benchmark set in §8; a model swap is an env change, so it can be reverted in a minute.
+**2a. Model per path (SHIPPED, default unchanged).** `artifacts/api-server/src/lib/generation-model.ts` resolves the model per prompt path: `GENERATION_MODEL_<PATH>` → `GENERATION_MODEL` → `gpt-4o`. Paths: GENERAL, DSO_ENTERPRISE, DSO_PRACTICES, TEMPLATE, PLANNER (two-pass lineup planner), MICROSITE, CRITIQUE (copy-polish pass). Every call site in both generators and the critique pass goes through it, and `samplingParams` omits `temperature` for gpt-5-family and o-series models, which reject a non-default value (the same reason `draft-email.ts` sends gpt-5 no temperature). The generation receipt now carries `model`. Nothing changes until an env variable is set in Replit.
+
+**Recommended first flip (DECIDE):** `GENERATION_MODEL_GENERAL=gpt-5` and `GENERATION_MODEL_MICROSITE=gpt-5`, leaving DSO, TEMPLATE, PLANNER and CRITIQUE on gpt-4o for the first comparison. gpt-5 is already served by the same AI proxy (draft-email uses it), so it is an env change with no code or key work, reverted by unsetting the variable. Measure with the eval harness and the §8 benchmark before flipping the remaining paths. Claude remains an option for a later comparison; it needs an Anthropic key in Replit and an adapter for the response shape, so it is a small code change rather than an env flip, and I will load the API reference before scoping it. The Copilot (`CONVERSATION_MODEL`) is already env-driven and can be flipped separately.
 
 **2b. Recipe fit, not rotation.** Classify the brief into an archetype (platform / product / editorial / data-led / story / conversion / invitation / demo-booking) with the existing `template-intent.ts` keyword matcher plus a tiny model call, then pick among the recipes tagged for that archetype, with LRU inside the archetype so variety survives. This is what lets the Invite and demo-booking families get a recipe without wasting one rotation slot in ten on a wrong fit. Recipes gain an optional `archetypes: string[]`; untagged recipes stay in every pool, so her customs keep working.
 
