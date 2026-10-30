@@ -301,10 +301,36 @@ const IMAGE_URL_FIELD_KEYS = new Set([
 ]);
 
 /**
+ * Media-tagged blocks whose EMPTY media slot is a designed state, not a
+ * broken one: the Stack family and the ABM account-page family render their
+ * product-clip / screenshot slots through BlendMedia, which paints an
+ * abstract product-UI placeholder when no media is set (reading tiles paint
+ * a gradient panel). Their slots are product-detail grade, so the fill pass
+ * deliberately leaves them empty on tenants without screenshots ("empty
+ * beats wrong") and the page still looks finished. Counting those as broken
+ * made every tenant without product shots regress the moment these blocks
+ * entered the recipe rotation (Oct 2026 eval run). A brief that WANTS them
+ * scored can still name them in `imageLedTypes`.
+ */
+const DESIGNED_EMPTY_MEDIA_TYPES: ReadonlySet<string> = new Set([
+  "glow-video-hero",
+  "video-step-showcase",
+  "video-zigzag",
+  "video-card-trio",
+  "abm-split-hero",
+  "abm-phone-showcase",
+  "abm-solution-tabs",
+  "abm-story-quote",
+  "abm-reading-tiles",
+]);
+
+/**
  * Flags empty image props on image-led blocks. A block is image-led when its
  * role tags (block-tags taxonomy) include "hero" or "media", or its type is
  * in the caller's extra set. Non-image-led blocks are ignored: many card
  * schemas define an optional image with an icon fallback and "" is legal.
+ * Blocks in DESIGNED_EMPTY_MEDIA_TYPES are image-led ONLY when the caller
+ * names them (their empty slot renders a designed placeholder).
  */
 export function emptyImageSlotScore(
   blocks: EvalBlock[] | undefined,
@@ -314,6 +340,7 @@ export function emptyImageSlotScore(
   if (!Array.isArray(blocks)) return { score: 1, violations };
   const imageLed = (type: string): boolean => {
     if (extraImageLedTypes.has(type)) return true;
+    if (DESIGNED_EMPTY_MEDIA_TYPES.has(type)) return false;
     const tags = resolveBlockTags(type);
     return tags.includes("hero") || tags.includes("media");
   };
@@ -464,6 +491,19 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Prop keys whose string values are renderer tokens (presets / enums), never
+ *  visitor-facing copy. Excluded from the subject-leak scan. */
+const STYLE_TOKEN_KEYS: ReadonlySet<string> = new Set([
+  "backgroundStyle",
+  "theme",
+  "variant",
+  "layout",
+  "ctaVariant",
+  "mediaBlend",
+  "mediaPlayMode",
+  "mediaAspect",
+]);
+
 /**
  * Flags configurable marker terms (other tenants' brand names, e.g. "Dandy"
  * on a non-Dandy brief) anywhere in the title or block copy — the smoking gun
@@ -496,7 +536,14 @@ export function subjectLeakScore(
     }
   };
   if (title) check(title, "title");
-  for (const leaf of walkStringLeaves(blocks)) check(leaf.value, leaf.path);
+  for (const leaf of walkStringLeaves(blocks)) {
+    // Style presets and layout enums are renderer tokens, not copy — the
+    // microsite hero-upgrade pass sets backgroundStyle "dandy-green" (which
+    // maps to --brand-primary for EVERY tenant) and the word-bounded marker
+    // regex matched "dandy" inside it (Oct 2026 lineup-diversity run).
+    if (STYLE_TOKEN_KEYS.has(leaf.key)) continue;
+    check(leaf.value, leaf.path);
+  }
   return { score: penaltyScore(violations), violations };
 }
 

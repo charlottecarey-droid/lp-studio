@@ -256,6 +256,28 @@ describe("emptyImageSlotScore", () => {
     const r = emptyImageSlotScore([block("hero", { imageUrl: "https://img.example.com/a.jpg" })]);
     expect(r.score).toBe(1);
   });
+
+  // Oct 2026: the Stack + ABM families paint a designed placeholder when a
+  // product-clip / screenshot slot is empty, and the fill pass leaves those
+  // product-detail slots empty on tenants without screenshots on purpose.
+  it("ignores empty media slots on blocks that render a designed placeholder (Stack + ABM)", () => {
+    const r = emptyImageSlotScore([
+      block("abm-solution-tabs", { headline: "Tabs", tabs: [{ label: "A", title: "T", imageUrl: "" }, { label: "B", title: "U", imageUrl: "" }] }),
+      block("video-zigzag", { headline: "Z", rows: [{ title: "R", body: "b", imageUrl: "", videoUrl: "" }] }),
+      block("abm-split-hero", { headline: "H", mediaImageUrl: "" }),
+      block("abm-reading-tiles", { headline: "Read", items: [{ title: "x", imageUrl: "" }] }),
+    ]);
+    expect(r.violations).toEqual([]);
+    expect(r.score).toBe(1);
+  });
+
+  it("still scores a designed-placeholder block when the brief names it image-led", () => {
+    const r = emptyImageSlotScore(
+      [block("abm-solution-tabs", { tabs: [{ label: "A", title: "T", imageUrl: "" }] })],
+      new Set(["abm-solution-tabs"]),
+    );
+    expect(r.violations).toHaveLength(1);
+  });
 });
 
 // ── bannedPhraseScore ────────────────────────────────────────────────────────
@@ -391,6 +413,14 @@ describe("subjectLeakScore", () => {
     const r = subjectLeakScore([], ["Heartland"], "The Heartland playbook");
     expect(r.violations).toHaveLength(1);
     expect(r.violations[0].path).toBe("title");
+  });
+
+  it("does not flag a marker inside a style preset value (backgroundStyle \"dandy-green\" maps to the brand primary)", () => {
+    const blocks = [block("hero", { headline: "Welcome to Acme", backgroundStyle: "dandy-green", theme: "dandy-green" })];
+    expect(subjectLeakScore(blocks, ["Dandy"]).violations).toEqual([]);
+    // Copy is still scanned.
+    const leaky = [block("hero", { headline: "Dandy makes it easy", backgroundStyle: "dandy-green" })];
+    expect(subjectLeakScore(leaky, ["Dandy"]).violations).toHaveLength(1);
   });
 });
 
