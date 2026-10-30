@@ -95,7 +95,9 @@ const CONVERSION_LABEL = /contact|get started|start|demo|book|talk|sign ?up|quot
 // targets for conversion CTAs. split-form-final-cta captures inline (its
 // email field IS the conversion); blocks that merely OFFER an email-capture
 // ctaStyle don't belong here.
-const FORM_BLOCK_TYPES = new Set(["form", "id-form", "dandy-form-right-alt", "split-form-final-cta"]);
+/** Block types the CTA resolver treats as an on-page conversion target. Shared
+ *  with lead-form-fallback.ts so the injected form is always one of these. */
+export const FORM_BLOCK_TYPES: ReadonlySet<string> = new Set(["form", "id-form", "dandy-form-right-alt", "split-form-final-cta"]);
 
 function isDeadUrl(v: unknown): boolean {
   return typeof v === "string" && (v.trim() === "#" || v.trim() === "");

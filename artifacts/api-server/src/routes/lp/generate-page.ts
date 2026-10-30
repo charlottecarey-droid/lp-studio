@@ -27,6 +27,7 @@ import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-
 import { normalizeHeadingsToSentenceCase, collectAuthoredStrings } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { resolveDeadGeneratedLinks } from "../../lib/ai-prompts/dead-links";
 import { normalizeCopyrightYears } from "../../lib/ai-prompts/copyright-year";
+import { ensureLeadCaptureForm } from "../../lib/ai-prompts/lead-form-fallback";
 import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import { resolveGenerationModel, samplingParams } from "../../lib/generation-model";
 import {
@@ -9628,6 +9629,25 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       // to real sections, point CTAs at defaultCtaUrl/the form, drop the rest
       // (empty beats dead). Runs before the normalizer so that stays the last
       // copy mutation.
+      // Lead-form fallback (Oct 2026): a tenant with no CTA destination gets a
+      // native form before the footer, so the dead-link pass below anchors the
+      // CTAs to it instead of hiding every button on the page.
+      try {
+        const lead = ensureLeadCaptureForm(mergedBlocks as Parameters<typeof ensureLeadCaptureForm>[0], {
+          brand,
+          isSingleFullPage: isSingleFullPageBlock(mergedBlocks),
+        });
+        if (lead.injected) {
+          logger.info({ event: "ai_lead_form_injected", tenantId, path: "template" }, "[generate-page] no CTA destination — lead-capture form added");
+          degradations.push({
+            code: "lead_form_injected",
+            severity: "info",
+            detail: "The brand has no default CTA link, so a lead-capture form was added and the page's buttons point to it. Set a default CTA URL in Brand Settings to change this.",
+          });
+        }
+      } catch (leadErr) {
+        logger.warn({ err: leadErr, tenantId }, "[generate-page] lead-form fallback skipped");
+      }
       try {
         const linkFixes = resolveDeadGeneratedLinks(
           mergedBlocks as Parameters<typeof resolveDeadGeneratedLinks>[0],
@@ -11695,6 +11715,23 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
     // never resolved for anyone. Anchor nav links to real sections, point
     // CTAs at defaultCtaUrl/the form, drop the rest (empty beats dead). Runs
     // before the normalizer so that stays the last copy mutation.
+    // Lead-form fallback (Oct 2026) — see the template path above.
+    try {
+      const lead = ensureLeadCaptureForm(parsed.blocks as Parameters<typeof ensureLeadCaptureForm>[0], {
+        brand,
+        isSingleFullPage,
+      });
+      if (lead.injected) {
+        logger.info({ event: "ai_lead_form_injected", tenantId, path: "freeform" }, "[generate-page] no CTA destination — lead-capture form added");
+        degradations.push({
+          code: "lead_form_injected",
+          severity: "info",
+          detail: "The brand has no default CTA link, so a lead-capture form was added and the page's buttons point to it. Set a default CTA URL in Brand Settings to change this.",
+        });
+      }
+    } catch (leadErr) {
+      logger.warn({ err: leadErr, tenantId }, "[generate-page] lead-form fallback skipped");
+    }
     try {
       const linkFixes = resolveDeadGeneratedLinks(
         parsed.blocks as Parameters<typeof resolveDeadGeneratedLinks>[0],
