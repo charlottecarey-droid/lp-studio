@@ -8,6 +8,7 @@
     "structural": 1,
     "subjectLeak": 1,
     "degradation": 1,
-    "lineupDiversity": 1
+    "lineupDiversity": 1,
+    "brandFidelity": 1
   }
 }
