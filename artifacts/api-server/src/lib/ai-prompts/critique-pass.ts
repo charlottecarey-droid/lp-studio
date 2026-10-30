@@ -34,6 +34,7 @@
 
 import type OpenAI from "openai";
 import { rankBlocksByHits, findBannedPhrases, type BannedPhraseHit } from "./banned-phrase-validator";
+import { resolveGenerationModel, samplingParams } from "../generation-model";
 
 /** Per-block summary of what the critique pass rewrote, surfaced in the editor. */
 export interface CritiqueAnnotation {
@@ -358,14 +359,15 @@ export async function critiqueAndRewriteBlocks(
       // of "the copy-polish pass didn't run" ledger warnings. Queue wait is
       // now unbounded but harmless: the batch holds no slot while waiting,
       // and generation never blocks on the critique (it's the last pass).
+      const critiqueModel = resolveGenerationModel("CRITIQUE");
       const completion = await limit(() => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         return openai.chat.completions
           .create(
             {
-              model: "gpt-4o",
-              temperature: 0.7,
+              model: critiqueModel,
+              ...samplingParams(critiqueModel, 0.7),
               max_completion_tokens: 4096,
               response_format: { type: "json_object" },
               messages: [

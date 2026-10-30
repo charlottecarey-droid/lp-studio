@@ -184,6 +184,7 @@ import { isDandyTenant } from "../../lib/planFeatures";
 import { logger } from "../../lib/logger";
 import { captureRouteError } from "../../lib/sentry";
 import type { GenerationDegradation } from "../lp/generate-page";
+import { resolveGenerationModel, samplingParams } from "../../lib/generation-model";
 
 const router = Router();
 
@@ -1144,8 +1145,9 @@ function getOpenAIClient(): OpenAI | null {
   return null;
 }
 
-/** Generation model. Stays gpt-4o until Phase 5 — do NOT change yet. */
-const GENERATION_MODEL = "gpt-4o";
+// Generation model: env-resolved per path by lib/generation-model.ts
+// (GENERATION_MODEL_MICROSITE → GENERATION_MODEL → "gpt-4o"), which also owns
+// the temperature guard. Resolved at the call site below.
 
 /** Output token budget. 4096 → 8192: 4096 truncated full multi-block microsites,
  *  producing short/terse copy or invalid JSON that silently fell back to the
@@ -4522,6 +4524,7 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     // FULL text (the parse/fallback pipeline below is unchanged) while an
     // incremental parser emits each completed element of `blocks` as a
     // `block` SSE event. Non-streaming requests keep the original single call.
+    const micrositeModel = resolveGenerationModel("MICROSITE");
     let raw: string;
     if (emitter.enabled) {
       const liveParser = new StreamingBlockParser();
@@ -4530,7 +4533,7 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
         messages: modelMessages,
         // A client disconnect aborts the in-flight request (frees the slot).
         signal: emitter.signal,
-        model: GENERATION_MODEL,
+        model: micrositeModel,
         temperature: modelTemperature,
         maxCompletionTokens: GENERATION_MAX_TOKENS,
         onDelta: (delta) => {
@@ -4541,8 +4544,8 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     } else {
       const completion = await openai.chat.completions.create(
         {
-          model: GENERATION_MODEL,
-          temperature: modelTemperature,
+          model: micrositeModel,
+          ...samplingParams(micrositeModel, modelTemperature),
           max_completion_tokens: GENERATION_MAX_TOKENS,
           response_format: { type: "json_object" },
           messages: modelMessages,

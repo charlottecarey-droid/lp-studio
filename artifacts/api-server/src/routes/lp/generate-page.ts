@@ -27,6 +27,7 @@ import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-
 import { normalizeHeadingsToSentenceCase, collectAuthoredStrings } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { resolveDeadGeneratedLinks } from "../../lib/ai-prompts/dead-links";
 import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
+import { resolveGenerationModel, samplingParams } from "../../lib/generation-model";
 import {
   pickRecipe,
   resolveRecipeSkeletonSlots,
@@ -99,10 +100,12 @@ function getOpenAIClient(): OpenAI {
   });
 }
 
-/** Generation model. Keep at gpt-4o unless a replacement is explicitly chosen
- *  AND known to be served by the AI proxy — pointing this at an unsupported
- *  model string makes every generation fail and blanks the preview. */
-const GENERATION_MODEL = "gpt-4o";
+// Generation model: resolved PER PROMPT PATH from the environment
+// (GENERATION_MODEL_<PATH> → GENERATION_MODEL → "gpt-4o") by
+// lib/generation-model.ts, which also owns the temperature guard for models
+// that reject a non-default temperature. Never spell `temperature:` at a call
+// site — spread `samplingParams(model, t)`. Whatever is configured must be a
+// model the AI proxy serves, or every generation fails and blanks the preview.
 
 /** Generation sampling temperature. Page STRUCTURE (which recipe + which
  *  images) is now held stable per-input by lpHashSeed seeding (pickRecipe +
@@ -153,10 +156,11 @@ export async function runStreamedChatCompletion(opts: {
   temperature?: number;
   maxCompletionTokens?: number;
 }): Promise<{ text: string; finishReason: string | null }> {
+  const streamModel = opts.model ?? resolveGenerationModel("GENERAL");
   const stream = await opts.client.chat.completions.create(
     {
-      model: opts.model ?? GENERATION_MODEL,
-      temperature: opts.temperature ?? GENERATION_TEMPERATURE,
+      model: streamModel,
+      ...samplingParams(streamModel, opts.temperature ?? GENERATION_TEMPERATURE),
       max_completion_tokens: opts.maxCompletionTokens ?? 12288,
       // The page-generation contract is a single JSON object; json_object mode
       // stops the model from wrapping it in prose / markdown fences so the
@@ -9126,12 +9130,14 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       // path (block STRUCTURE is the template's; only copy changes). The
       // semaphore slot is held for the whole stream; a client disconnect aborts
       // the OpenAI request via emitter.signal.
+      const templateModel = resolveGenerationModel("TEMPLATE");
       let raw: string;
       let modelFinishReason: string | null = null;
       if (emitter.enabled) {
         const streamed = await generateOpenAISemaphore.run(() =>
           runStreamedChatCompletion({
             client: openai!,
+            model: templateModel,
             messages: templateMessages,
             signal: emitter.signal,
           }),
@@ -9141,8 +9147,8 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       } else {
         const completion = await generateOpenAISemaphore.run(() =>
           openai!.chat.completions.create({
-            model: GENERATION_MODEL,
-            temperature: GENERATION_TEMPERATURE,
+            model: templateModel,
+            ...samplingParams(templateModel, GENERATION_TEMPERATURE),
             max_completion_tokens: 12288,
             response_format: { type: "json_object" },
             messages: templateMessages,
@@ -9650,6 +9656,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       // slow reference site must not stall the finished page.
       const autoStyle = await withTimeout(autoStylePromise, 10_000);
       emitter.receipt({
+        model: templateModel,
         recipeId: null,
         intentMatchedTemplate,
         referenceUrls: perRequestUrls,
@@ -9814,6 +9821,9 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
     !useDsoPractices &&
     (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
+  // Per-path model (env-resolved; see lib/generation-model.ts). Shared by the
+  // main call and the repeat-guard retry so both run on the same model.
+  const generationModel = resolveGenerationModel(promptPath);
 
   // ── Page-recipe rotation + block-sequence repeat guard inputs (June 2026) ──
   // One small read of the tenant's recent generation history (per prompt path)
@@ -10296,10 +10306,11 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
             `AVAILABLE BLOCKS:\n${catalogLines.join("\n")}`,
         },
       ];
+      const plannerModel = resolveGenerationModel("PLANNER");
       const planCompletion = await generateOpenAISemaphore.run(() =>
         openai!.chat.completions.create({
-          model: GENERATION_MODEL,
-          temperature: 0.3,
+          model: plannerModel,
+          ...samplingParams(plannerModel, 0.3),
           max_completion_tokens: 700,
           response_format: { type: "json_object" },
           messages: planMessages,
@@ -10412,6 +10423,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       const streamed = await generateOpenAISemaphore.run(() =>
         runStreamedChatCompletion({
           client: openai!,
+          model: generationModel,
           messages: baseMessages,
           signal: emitter.signal,
           onDelta: (delta) => {
@@ -10424,8 +10436,8 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
     } else {
       const completion = await generateOpenAISemaphore.run(() =>
         openai!.chat.completions.create({
-          model: GENERATION_MODEL,
-          temperature: GENERATION_TEMPERATURE,
+          model: generationModel,
+          ...samplingParams(generationModel, GENERATION_TEMPERATURE),
           max_completion_tokens: 12288,
           response_format: { type: "json_object" },
           messages: baseMessages,
@@ -10488,6 +10500,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
           const retryStreamed = await generateOpenAISemaphore.run(() =>
             runStreamedChatCompletion({
               client: openai!,
+              model: generationModel,
               messages: retryMessages,
               signal: emitter.signal,
               onDelta: (delta) => {
@@ -10500,8 +10513,8 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
         } else {
           const retryCompletion = await generateOpenAISemaphore.run(() =>
             openai!.chat.completions.create({
-              model: GENERATION_MODEL,
-              temperature: GENERATION_TEMPERATURE,
+              model: generationModel,
+              ...samplingParams(generationModel, GENERATION_TEMPERATURE),
               max_completion_tokens: 12288,
               response_format: { type: "json_object" },
               messages: retryMessages,
@@ -11755,6 +11768,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
     // comment there.
     const autoStyle = await withTimeout(autoStylePromise, 10_000);
     emitter.receipt({
+      model: generationModel,
       recipeId: chosenRecipe?.id ?? null,
       // June 2026 — "Shuffle layout" (additive): the applied, validated recipe
       // exclusions this generation honored (request `excludeRecipeIds` after
