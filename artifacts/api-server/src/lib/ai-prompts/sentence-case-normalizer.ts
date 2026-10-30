@@ -50,6 +50,29 @@ const ACRONYM_CANONICAL: Record<string, string> = {
   cac: "CAC", sdk: "SDK", faq: "FAQ", faqs: "FAQs",
 };
 
+/** Calendar proper nouns that must keep their capital mid-sentence (Oct 2026:
+ *  "Massive Fourth Of July HVAC Sale" came out as "fourth of july"). Months
+ *  that double as common words ("may", "march") are deliberately absent —
+ *  lowercasing a verb is the lesser error. Weekdays are unambiguous. */
+const CALENDAR_WORD_CANONICAL: Record<string, string> = {
+  january: "January", february: "February", april: "April", june: "June", july: "July",
+  august: "August", september: "September", october: "October", november: "November",
+  december: "December",
+  monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday",
+  friday: "Friday", saturday: "Saturday", sunday: "Sunday",
+};
+
+/** Multi-word holidays and sale events, protected as phrases (masked whole,
+ *  restored with this casing) so "Fourth of July" keeps its lowercase "of". */
+const CALENDAR_PHRASES: readonly string[] = [
+  "Fourth of July", "Independence Day", "Memorial Day", "Labor Day", "Labour Day",
+  "Black Friday", "Cyber Monday", "Small Business Saturday", "Boxing Day",
+  "New Year's Day", "New Year's Eve", "New Year", "Christmas Eve", "Christmas",
+  "Thanksgiving", "Halloween", "Valentine's Day", "Mother's Day", "Father's Day",
+  "Presidents' Day", "Veterans Day", "Earth Day", "Juneteenth", "Easter",
+  "Prime Day", "Back to School",
+];
+
 /** Minor words ignored when DETECTING Title Case (articles, conjunctions, short
  *  prepositions) — they are routinely lowercased even in Title-Cased copy, so
  *  counting them would mask a genuine Title Case heading. */
@@ -252,6 +275,7 @@ function convertWord(word: string, sentenceStart: boolean, shouted: ReadonlySet<
   if (/^\p{N}/u.test(word)) return word; // 3D, 24/7, numbers
   const lower = word.toLowerCase();
   if (ACRONYM_CANONICAL[lower]) return ACRONYM_CANONICAL[lower]; // Roi -> ROI
+  if (CALENDAR_WORD_CANONICAL[lower]) return CALENDAR_WORD_CANONICAL[lower]; // july -> July
   if (sentenceStart) return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
   return lower;
 }
@@ -357,7 +381,7 @@ export function normalizeHeadingsToSentenceCase(
     const properNouns = (opts.properNouns ?? []).filter(
       (s): s is string => typeof s === "string" && s.trim().length >= 2,
     );
-    const phrases = buildPhrases(properNouns);
+    const phrases = buildPhrases([...properNouns, ...CALENDAR_PHRASES]);
     let changed = 0;
     for (const block of blocks) {
       if (!isPlainObject(block)) continue;
@@ -372,9 +396,10 @@ export function normalizeHeadingsToSentenceCase(
 /** Direct string-level helper, exported for unit testing. */
 export function sentenceCaseHeading(input: string, properNouns: string[] = []): string {
   try {
-    const phrases = buildPhrases(
-      properNouns.filter((s) => typeof s === "string" && s.trim().length >= 2),
-    );
+    const phrases = buildPhrases([
+      ...properNouns.filter((s) => typeof s === "string" && s.trim().length >= 2),
+      ...CALENDAR_PHRASES,
+    ]);
     return normalizeHeadingString(input, phrases);
   } catch {
     return input;

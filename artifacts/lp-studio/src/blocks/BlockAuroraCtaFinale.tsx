@@ -225,32 +225,37 @@ export function BlockAuroraCtaFinale({ props, brand, onCtaClick, onFieldChange, 
 
         {/* CTA pair */}
         <div className="mt-12 flex w-full flex-col items-center justify-center gap-4 sm:w-auto sm:flex-row">
-          <CtaButton
-            ctaAction="url"
-            ctaUrl={props.ctaUrl}
-            onClick={onCtaClick}
-            brand={brand}
-            pageId={pageId}
-            variantId={variantId}
-            source="aurora-cta-finale-primary"
-            className={cn(
-              "inline-flex w-full items-center justify-center gap-2.5 rounded-full px-10 py-5 text-base font-semibold transition-transform hover:-translate-y-0.5 sm:w-auto sm:text-lg",
-              focusRing,
-            )}
-            style={{
-              background: ctaPick.bg,
-              color: ctaPick.text,
-              boxShadow: `0 20px 60px -16px ${glowA}99`,
-              outlineColor: accent,
-            }}
-          >
-            <InlineText
-              as="span"
-              value={props.ctaText ?? "Get started free"}
-              onUpdate={field("ctaText")}
-            />
-            <ArrowRight className="h-5 w-5" aria-hidden />
-          </CtaButton>
+          {/* Oct 2026: hidden on the live page when the dead-link pass cleared
+              the label (no destination) — it used to render an arrow-only pill.
+              The editor shows a default label so it can be edited back. */}
+          {(props.ctaText || onFieldChange) && (
+            <CtaButton
+              ctaAction="url"
+              ctaUrl={props.ctaUrl}
+              onClick={onCtaClick}
+              brand={brand}
+              pageId={pageId}
+              variantId={variantId}
+              source="aurora-cta-finale-primary"
+              className={cn(
+                "inline-flex w-full items-center justify-center gap-2.5 rounded-full px-10 py-5 text-base font-semibold transition-transform hover:-translate-y-0.5 sm:w-auto sm:text-lg",
+                focusRing,
+              )}
+              style={{
+                background: ctaPick.bg,
+                color: ctaPick.text,
+                boxShadow: `0 20px 60px -16px ${glowA}99`,
+                outlineColor: accent,
+              }}
+            >
+              <InlineText
+                as="span"
+                value={props.ctaText || "Get started free"}
+                onUpdate={field("ctaText")}
+              />
+              <ArrowRight className="h-5 w-5" aria-hidden />
+            </CtaButton>
+          )}
 
           {(props.ctaSecondaryText || onFieldChange) && (
             <CtaButton

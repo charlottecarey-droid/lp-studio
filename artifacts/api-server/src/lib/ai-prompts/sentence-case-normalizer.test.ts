@@ -4,6 +4,24 @@ import {
   sentenceCaseHeading,
 } from "./sentence-case-normalizer";
 
+// Oct 2026 — an HVAC page shipped "Massive fourth of july HVAC sale".
+describe("sentenceCaseHeading — calendar proper nouns", () => {
+  it("keeps months and weekdays capitalised mid-sentence", () => {
+    expect(sentenceCaseHeading("Open Every Monday In December")).toBe("Open every Monday in December");
+    expect(sentenceCaseHeading("Our September Tune-Up Special")).toBe("Our September tune-up special");
+  });
+
+  it("protects multi-word holidays with their own casing", () => {
+    expect(sentenceCaseHeading("Massive Fourth Of July HVAC Sale")).toBe("Massive Fourth of July HVAC sale");
+    expect(sentenceCaseHeading("Seize The Fourth Of July Savings")).toBe("Seize the Fourth of July savings");
+    expect(sentenceCaseHeading("Black Friday Deals Start Now")).toBe("Black Friday deals start now");
+  });
+
+  it("leaves ambiguous month words alone", () => {
+    expect(sentenceCaseHeading("You May March Ahead Of Schedule")).toBe("You may march ahead of schedule");
+  });
+});
+
 describe("sentenceCaseHeading", () => {
   it("converts a fully Title-Cased heading to sentence case", () => {
     expect(sentenceCaseHeading("Streamline Your Dental Practice Workflow")).toBe(

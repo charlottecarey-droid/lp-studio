@@ -331,17 +331,23 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             animate={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
             transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: 0.22 } : undefined}
           >
-            <motion.button
-              onClick={handleCtaClick}
-              className={getButtonClasses(brand, "inline-flex items-center justify-center")}
-              style={{ backgroundColor: ctaBg, color: ctaText }}
-              whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
-              whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
-              transition={{ type: "spring", stiffness: 400, damping: 18 }}
-            >
-              <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
-              <ArrowRight className="w-4 h-4 ml-2 shrink-0" />
-            </motion.button>
+            {/* Oct 2026: the dead-link pass clears ctaText/ctaUrl when a CTA has
+                no destination ("button hidden"). Without this guard the hero
+                still drew an arrow-only pill. Live: no label → no button. The
+                editor keeps it so the label can be typed back in. */}
+            {(props.ctaText || onFieldChange) && (
+              <motion.button
+                onClick={handleCtaClick}
+                className={getButtonClasses(brand, "inline-flex items-center justify-center")}
+                style={{ backgroundColor: ctaBg, color: ctaText }}
+                whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
+                whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+                transition={{ type: "spring", stiffness: 400, damping: 18 }}
+              >
+                <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
+                <ArrowRight className="w-4 h-4 ml-2 shrink-0" />
+              </motion.button>
+            )}
 
             {props.secondaryCtaText && (
               <motion.a

@@ -71,13 +71,31 @@ export function modelLocksTemperature(model: string): boolean {
   return /^(gpt-5|o[1-9])(\b|[-._])/i.test(model.trim());
 }
 
-/** `{ temperature }` for models that take one, `{}` for models that don't.
- *  Spread into the chat-completion request instead of writing `temperature:`. */
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+const REASONING_EFFORTS = new Set<string>(["minimal", "low", "medium", "high"]);
+
+/** Reasoning effort for gpt-5 / o-series models, from GENERATION_REASONING_EFFORT.
+ *  Unset → the parameter is omitted (the provider default, "medium" for gpt-5,
+ *  which made page generations take 100–230 s in the first gpt-5 eval run).
+ *  "low" or "minimal" is the recommended setting for page copy. */
+export function resolveReasoningEffort(env: Env = process.env): ReasoningEffort | null {
+  const v = clean(env["GENERATION_REASONING_EFFORT"])?.toLowerCase() ?? null;
+  return v && REASONING_EFFORTS.has(v) ? (v as ReasoningEffort) : null;
+}
+
+/** The model-specific sampling parameters to spread into a chat-completion
+ *  request instead of writing `temperature:` at the call site:
+ *    • gpt-4o-class models → `{ temperature }`;
+ *    • gpt-5 / o-series → no temperature (they reject non-default values),
+ *      plus `reasoning_effort` when GENERATION_REASONING_EFFORT is set. */
 export function samplingParams(
   model: string,
   temperature: number,
-): { temperature: number } | Record<string, never> {
-  return modelLocksTemperature(model) ? {} : { temperature };
+  env: Env = process.env,
+): { temperature: number } | { reasoning_effort: ReasoningEffort } | Record<string, never> {
+  if (!modelLocksTemperature(model)) return { temperature };
+  const effort = resolveReasoningEffort(env);
+  return effort ? { reasoning_effort: effort } : {};
 }
 
 /** Every path's resolved model — for the generation receipt / startup log. */

@@ -4,6 +4,7 @@ import {
   modelLocksTemperature,
   samplingParams,
   describeGenerationModels,
+  resolveReasoningEffort,
   DEFAULT_GENERATION_MODEL,
   GENERATION_MODEL_PATHS,
 } from "./generation-model";
@@ -48,8 +49,17 @@ describe("temperature guard", () => {
   });
 
   it("samplingParams spreads to a temperature only when the model takes one", () => {
-    expect(samplingParams("gpt-4o", 0.7)).toEqual({ temperature: 0.7 });
-    expect(samplingParams("gpt-5", 0.7)).toEqual({});
-    expect({ model: "gpt-5", ...samplingParams("gpt-5", 0.3) }).not.toHaveProperty("temperature");
+    expect(samplingParams("gpt-4o", 0.7, {})).toEqual({ temperature: 0.7 });
+    expect(samplingParams("gpt-5", 0.7, {})).toEqual({});
+    expect({ model: "gpt-5", ...samplingParams("gpt-5", 0.3, {}) }).not.toHaveProperty("temperature");
+  });
+
+  it("adds reasoning_effort for reasoning models only when GENERATION_REASONING_EFFORT is set and valid", () => {
+    expect(samplingParams("gpt-5", 0.7, { GENERATION_REASONING_EFFORT: "low" })).toEqual({ reasoning_effort: "low" });
+    expect(samplingParams("gpt-5", 0.7, { GENERATION_REASONING_EFFORT: " Minimal " })).toEqual({ reasoning_effort: "minimal" });
+    expect(samplingParams("gpt-5", 0.7, { GENERATION_REASONING_EFFORT: "turbo" })).toEqual({});
+    // gpt-4o never gets a reasoning parameter, whatever the env says.
+    expect(samplingParams("gpt-4o", 0.7, { GENERATION_REASONING_EFFORT: "low" })).toEqual({ temperature: 0.7 });
+    expect(resolveReasoningEffort({})).toBeNull();
   });
 });
