@@ -177,9 +177,23 @@ describe("enforceRequiredRoles — pool-aware backfill (task #5)", () => {
     // ships verbatim to visitors — never injected anymore. The dual-role
     // trust-bar still covers the social-proof role.
     expect(types).not.toContain("testimonial");
-    expect(types).toContain("trust-bar");
+    // Oct 2026: the stats default ("10,000+ customers served" …) was invented
+    // numbers shipped as fact — the stats role is backfilled only from
+    // approved brand stats now, so with none supplied no trust-bar appears.
+    expect(types).not.toContain("trust-bar");
     expect(types).toContain("bottom-cta");
     expect(types).toContain("footer");
+
+    const withStats: Array<Record<string, unknown>> = [{ type: "hero", props: {} }];
+    enforceRequiredRoles(withStats, {
+      brandName: "Acme",
+      approvedStats: [
+        { value: "93%", label: "On-time pickup" },
+        { value: "45 min", label: "Gate turnaround" },
+        { value: "12,000", label: "Containers moved" },
+      ],
+    });
+    expect(withStats.map((b) => String(b.type))).toContain("trust-bar");
   });
 });
 

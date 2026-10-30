@@ -127,6 +127,21 @@ describe("copy-principles — specificity directive + expanded banned list", () 
     expect(section).toContain("Clarity over cleverness");
   });
 
+  // Oct 2026 — the worked examples were dental-lab copy for every tenant and
+  // the model copied them verbatim onto non-dental brands.
+  it("shows industry-neutral worked examples by default and dental ones only on request", () => {
+    // ("practice" alone is still in the banned-phrase list as "elevate your practice" / "best practices" — that is a ban, not an example.)
+    for (const leak of ["crown", "first-time fit", "first-time seat", "lab drama", "your practice grow", "practices already using", "case doesn't seat", "chair time"]) {
+      expect(section.toLowerCase(), `neutral section leaks "${leak}"`).not.toContain(leak);
+    }
+    // The shape of the guidance survives: a number, a policy, a consequence.
+    expect(section).toContain("Orders ship in 2 business days");
+    expect(section).toContain("If we miss it, that month is free");
+    const dental = getCopyPrinciplesSection({ brandName: "Dandy", matchedSegment: false, forbiddenList: [], vertical: "dental" });
+    expect(dental).toContain("96% first-time fit rate");
+    expect(dental).toContain("Zero lab drama");
+  });
+
   it("bans the four new generic openers in the prompt", () => {
     const list = getCoreForbiddenPhrases();
     for (const p of [

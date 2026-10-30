@@ -26,6 +26,7 @@ import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/ba
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 import { normalizeHeadingsToSentenceCase, collectAuthoredStrings } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { resolveDeadGeneratedLinks } from "../../lib/ai-prompts/dead-links";
+import { normalizeCopyrightYears } from "../../lib/ai-prompts/copyright-year";
 import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import { resolveGenerationModel, samplingParams } from "../../lib/generation-model";
 import {
@@ -6340,7 +6341,7 @@ type RequiredPageRole = (typeof REQUIRED_PAGE_ROLES)[number];
  */
 function buildDefaultRoleBlock(
   role: RequiredPageRole,
-  ctx: { brandName: string; ctaUrl: string },
+  ctx: { brandName: string; ctaUrl: string; approvedStats?: ApprovedBrandStat[] },
 ): Record<string, unknown> | null {
   const { brandName, ctaUrl } = ctx;
   const year = new Date().getFullYear();
@@ -6400,20 +6401,21 @@ function buildDefaultRoleBlock(
           practiceName: "Company",
         },
       };
-    case "stats":
+    case "stats": {
+      // Never invent numbers. The old default ("10,000+ customers served",
+      // "98% on-time delivery", "4.9/5", "24/7") shipped as fact on every
+      // non-strict page whose model output lacked a stats section (Oct 2026,
+      // the Testa page). Inject a trust-bar ONLY from the brand's own approved
+      // stats, and only when there are enough to fill a bar; otherwise the
+      // role stays uncovered — a page without a stats bar is honest.
+      const stats = (ctx.approvedStats ?? []).slice(0, 4);
+      if (stats.length < 3) return null;
       return {
         id: "block-trust-bar-role-injected",
         type: "trust-bar",
-        props: {
-          items: [
-            { value: "10,000+", label: "Customers served" },
-            { value: "98%", label: "On-time delivery" },
-            { value: "4.9/5", label: "Average rating" },
-            { value: "24/7", label: "Support coverage" },
-          ],
-          countUpEnabled: true,
-        },
+        props: { items: stats.map((s) => ({ value: s.value, label: s.label })), countUpEnabled: true },
       };
+    }
     case "cta":
       return {
         id: "block-bottom-cta-role-injected",
@@ -6449,12 +6451,33 @@ function buildDefaultRoleBlock(
  * returns the same array. Idempotent: a page that already covers all roles is
  * returned unchanged.
  */
+/** A brand stat the owner has approved for AI use (value + label). */
+export interface ApprovedBrandStat { value: string; label: string }
+
+/** The brand's approved stats in trust-bar shape: scraped marketing-page stats
+ *  not explicitly disapproved (`approvedForAi !== false`), value + label both
+ *  present. This is the ONLY source the stats-role backfill may draw from. */
+export function approvedBrandStats(brand: { scrapedStats?: Array<{ value?: unknown; label?: unknown; approvedForAi?: boolean }> } | null | undefined): ApprovedBrandStat[] {
+  const rows = Array.isArray(brand?.scrapedStats) ? brand!.scrapedStats! : [];
+  const out: ApprovedBrandStat[] = [];
+  for (const s of rows) {
+    if (!s || s.approvedForAi === false) continue;
+    const value = typeof s.value === "string" ? s.value.trim() : "";
+    const label = typeof s.label === "string" ? s.label.trim() : "";
+    if (value && label) out.push({ value, label });
+  }
+  return out;
+}
+
 export function enforceRequiredRoles(
   blocks: Array<Record<string, unknown>>,
   opts: {
     dbTagsByType?: Map<string, unknown>;
     brandName?: string;
     ctaUrl?: string;
+    /** Brand-approved stats the stats-role backfill may use (see
+     *  approvedBrandStats). Absent / fewer than 3 → no stats bar is injected. */
+    approvedStats?: ApprovedBrandStat[];
     // Segment-pool generation (task #5) — when supplied, a default role block is
     // injected ONLY if its block type is in this allow-set. This keeps the
     // pool-mode contract intact: required-role backfill can never reintroduce an
@@ -6463,9 +6486,8 @@ export function enforceRequiredRoles(
     // footer) are always in this set, so they are still backfilled. Omit it to
     // keep the legacy behavior (every missing role is backfilled).
     allowedTypes?: ReadonlySet<string>;
-    // Strict Facts Mode: the stats default fabricates numbers ("10,000+
-    // customers", "98% on-time") — exactly what strict mode promises never to
-    // ship — so the stats role is not backfilled when set. (The social-proof
+    // Strict Facts Mode: the stats role is never backfilled when set, even
+    // from approved stats (the model already had them). (The social-proof
     // role is never backfilled in ANY mode; see the body-roles loop.)
     strictFacts?: boolean;
     /** Quality-ledger hook: called once per default block injected. */
@@ -6477,6 +6499,7 @@ export function enforceRequiredRoles(
   const ctx = {
     brandName: (opts.brandName ?? "").trim(),
     ctaUrl: opts.ctaUrl?.trim() || "#",
+    approvedStats: opts.approvedStats ?? [],
   };
   // A default-role block may only be injected when its type is permitted. With
   // no allow-set, everything is permitted (legacy behavior).
@@ -9612,6 +9635,16 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       } catch (linkErr) {
         logger.warn({ err: linkErr, tenantId }, "[generate-page] dead-link resolution skipped");
       }
+      // Footer copyright year: the model writes whatever year it believes it
+      // is ("© 2023 Testa", Oct 2026). Deterministic, before the normalizer.
+      try {
+        const yearFixes = normalizeCopyrightYears(mergedBlocks as unknown[]);
+        if (yearFixes > 0) {
+          logger.info({ event: "ai_copyright_year_normalized", tenantId, fixed: yearFixes, path: "template" }, "[generate-page] footer copyright year set to the current year");
+        }
+      } catch (yearErr) {
+        logger.warn({ err: yearErr, tenantId }, "[generate-page] copyright-year pass skipped");
+      }
 
       // Deterministic sentence-case normalizer — the LAST copy mutation, so no
       // earlier pass can re-introduce Title Case (mirrors the microsite path;
@@ -10096,6 +10129,10 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       brandName: brand.brandName,
       matchedSegment: Boolean(segmentContext),
       forbiddenList: [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])],
+      // Worked examples: dental facts only for Dandy; every other tenant gets
+      // industry-neutral examples (the dental ones were copied verbatim onto
+      // non-dental brands).
+      vertical: isDandyTenant ? "dental" : "neutral",
     }),
   );
   if (segmentSection) {
@@ -11437,6 +11474,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
         brandName: brand.brandName,
         ctaUrl: cpUrl,
         strictFacts: strict,
+        approvedStats: approvedBrandStats(brand),
         onInject: (role, blockType) => degradations.push({
           code: "default_role_injected",
           severity: "info",
@@ -11663,6 +11701,15 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       }
     } catch (linkErr) {
       logger.warn({ err: linkErr, tenantId }, "[generate-page] dead-link resolution skipped");
+    }
+    // Footer copyright year (see the template path above).
+    try {
+      const yearFixes = normalizeCopyrightYears(parsed.blocks as unknown[]);
+      if (yearFixes > 0) {
+        logger.info({ event: "ai_copyright_year_normalized", tenantId, fixed: yearFixes, path: "freeform" }, "[generate-page] footer copyright year set to the current year");
+      }
+    } catch (yearErr) {
+      logger.warn({ err: yearErr, tenantId }, "[generate-page] copyright-year pass skipped");
     }
 
     // Deterministic sentence-case normalizer — the LAST copy mutation, so no

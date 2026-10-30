@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { resolveBlockTags } from "@workspace/lp-template-engine";
-import { enforceRequiredRoles, REQUIRED_PAGE_ROLES } from "./generate-page";
+import { enforceRequiredRoles, REQUIRED_PAGE_ROLES, approvedBrandStats } from "./generate-page";
 
 /** Roles covered by a block list, per the (code-default) block-tags taxonomy. */
 function coveredRoles(blocks: Array<Record<string, unknown>>): Set<string> {
@@ -44,11 +44,54 @@ describe("enforceRequiredRoles — fills missing roles", () => {
 
     const after = coveredRoles(blocks);
     for (const role of REQUIRED_PAGE_ROLES) {
-      // social-proof has no dedicated backfill anymore (its only default was
-      // a placeholder quote card) — but the dual-role trust-bar injected for
-      // the stats role legitimately covers it, so full coverage still holds.
+      // Oct 2026: the stats role is backfilled ONLY from approved brand stats
+      // (none here), and social-proof has no backfill at all — so those two
+      // honestly stay uncovered. Every structural role is filled.
+      if (role === "stats" || role === "social-proof") {
+        expect(after.has(role), `${role} must not be backfilled with invented content`).toBe(false);
+        continue;
+      }
       expect(after.has(role)).toBe(true);
     }
+    expect(JSON.stringify(blocks)).not.toContain("10,000+");
+  });
+
+  it("stats role: never injects invented numbers; builds a trust-bar from 3+ approved brand stats", () => {
+    const bare: Array<Record<string, unknown>> = [{ id: "h", type: "hero", props: { headline: "Hi" } }];
+    enforceRequiredRoles(bare, { brandName: "Acme", ctaUrl: "#" });
+    expect(bare.some((b) => b.type === "trust-bar")).toBe(false);
+
+    const tooFew: Array<Record<string, unknown>> = [{ id: "h", type: "hero", props: { headline: "Hi" } }];
+    enforceRequiredRoles(tooFew, { brandName: "Acme", ctaUrl: "#", approvedStats: [{ value: "93%", label: "On-time pickup" }, { value: "45 min", label: "Gate turnaround" }] });
+    expect(tooFew.some((b) => b.type === "trust-bar")).toBe(false);
+
+    const enough: Array<Record<string, unknown>> = [{ id: "h", type: "hero", props: { headline: "Hi" } }];
+    const approved = [
+      { value: "93%", label: "On-time pickup" },
+      { value: "45 min", label: "Gate turnaround" },
+      { value: "12,000", label: "Containers moved in 2025" },
+      { value: "4", label: "Ports served" },
+      { value: "ignored", label: "Fifth stat is dropped" },
+    ];
+    enforceRequiredRoles(enough, { brandName: "Acme", ctaUrl: "#", approvedStats: approved });
+    const bar = enough.find((b) => b.type === "trust-bar") as { props: { items: Array<{ value: string }> } } | undefined;
+    expect(bar).toBeDefined();
+    expect(bar!.props.items.map((i) => i.value)).toEqual(["93%", "45 min", "12,000", "4"]);
+
+    // Strict Facts still never backfills the stats role, approved or not.
+    const strictBlocks: Array<Record<string, unknown>> = [{ id: "h", type: "hero", props: { headline: "Hi" } }];
+    enforceRequiredRoles(strictBlocks, { brandName: "Acme", ctaUrl: "#", strictFacts: true, approvedStats: approved });
+    expect(strictBlocks.some((b) => b.type === "trust-bar")).toBe(false);
+  });
+
+  it("approvedBrandStats reads only approved, complete scraped stats", () => {
+    expect(approvedBrandStats({ scrapedStats: [
+      { value: "93%", label: "On-time" },
+      { value: "1", label: "Disapproved", approvedForAi: false },
+      { value: "", label: "No value" },
+      { value: "7", label: "" },
+    ] })).toEqual([{ value: "93%", label: "On-time" }]);
+    expect(approvedBrandStats(undefined)).toEqual([]);
   });
 
   it("never injects the placeholder social-proof quote card (any mode)", () => {

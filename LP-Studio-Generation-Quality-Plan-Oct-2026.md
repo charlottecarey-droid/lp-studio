@@ -107,6 +107,16 @@ Still a liability independent of quality: a save on a published page re-renders 
 
 ---
 
+## 7b. What the first real pages taught us (2026-10-30)
+
+Two gpt-5 pages, traced through the generation log and the saved blocks:
+
+- **Intent routing can bypass everything.** "generate a page for my b2b enterprise platform audiences" matched the seeded *Enterprise Platform* flagship template, so the page was a fixed template with placeholder stats ("Fortune 100", "32 regions", "99.99% SLA"), a photo-strip of stock photos of Netflix/TikTok icons captioned as customers, and no hero image. Six flagships are layouts, not page types; **DECIDE:** stop intent-routing into them (category gate in `template-intent.ts`) and scrub placeholder proof from the flagship seeds.
+- **The prompt itself was teaching dental copy.** `copy-principles.ts`, injected into every generation for every tenant, used Dandy facts as its worked examples ("96% first-time fit rate", "5-day crown delivery", "Zero lab drama"). A generic brand's page shipped those bullets verbatim. Fixed: industry-neutral examples by default, the dental set only for Dandy tenants.
+- **The server invented stats.** When the model omitted a stats section, the required-roles backfill injected a trust-bar with "10,000+ customers served / 98% on-time / 4.9/5 / 24/7" on every non-strict tenant. Fixed: the stats role is backfilled only from the brand's approved scraped stats (three or more), otherwise left uncovered.
+- **Footer year.** The model writes the year it believes it is ("© 2023"). Fixed with a deterministic pass before the normalizer.
+- **Test tenants are polluted.** The library of the `testa` tenant is Drift and Salesloft screenshots harvested from reference URLs; `lpstudio` holds Zoom scrapes. Any generation on those tenants will reuse them. The reference-image harvest writes other companies' graphics into the tenant library permanently, which is worth revisiting.
+
 ## 8. Measurement
 
 - **Benchmark set (needed from Charlotte):** three or four pages I built this year, each with the brief she gave me. The generator is judged against those, same brief, same tenant.

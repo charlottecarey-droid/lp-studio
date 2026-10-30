@@ -38,36 +38,89 @@ export function getCoreForbiddenPhrases(): string[] {
 /**
  * The COPY QUALITY PRINCIPLES block injected into the system prompt.
  */
+/**
+ * Worked examples for the principles below. They used to be dental-lab copy
+ * for EVERY tenant ("96% first-time fit rate", "5-day crown delivery", "Zero
+ * lab drama") and the model copied them verbatim onto non-dental brands — a
+ * generic "Testa" page shipped "dental lab services … every crown, bridge and
+ * implant" and the fit-rate bullets word for word (Oct 2026). The neutral set
+ * keeps the same shape (a number, a policy, a consequence) without naming any
+ * industry; the dental set is used only for Dandy tenants, where the examples
+ * are the brand's real facts.
+ */
+export type CopyExampleVertical = "neutral" | "dental";
+
+const COPY_EXAMPLES: Record<CopyExampleVertical, {
+  r1good1: string; r1good2: string; r2bad: string; r2good: string; r3bad: string; r3good: string;
+  r5badTail: string; r5good: string; r8good: string; capJoin: string; specBar: string; consequences: string;
+}> = {
+  neutral: {
+    r1good1: "Orders ship in 2 business days, tracked to the door",
+    r1good2: "98% of support requests answered within the hour. If we miss it, that month is free.",
+    r2bad: "run automated quality checks on every order",
+    r2good: "You get the right result the first time, without the follow-up calls",
+    r3bad: "Leveraging next-generation digital workflows to optimize operational efficiency",
+    r3good: "Send the brief. Get the finished work back in 5 days.",
+    r5badTail: "help your business grow",
+    r5good: "More done. Fewer handoffs.",
+    r8good: "A partner that backs every order with a guarantee",
+    capJoin: "Join hundreds of teams already using",
+    specBar: "2-day turnaround on every order",
+    consequences: "hours saved, rework avoided, margin gained, deadlines met",
+  },
+  dental: {
+    r1good1: "5-day crown delivery with real-time case tracking",
+    r1good2: "96% first-time fit rate. If a case doesn't seat, we remake it for free.",
+    r2bad: "use AI-powered quality control on every case",
+    r2good: "You get a better-fitting result without the back-and-forth phone calls",
+    r3bad: "Leveraging next-generation digital workflows to optimize practice efficiency",
+    r3good: "Send a scan. Get a perfect-fit crown in 5 days.",
+    r5badTail: "help your practice grow",
+    r5good: "More cases. Zero lab drama.",
+    r8good: "A lab that backs every case with a guarantee",
+    capJoin: "Join hundreds of practices already using",
+    specBar: "96% first-time seat rate",
+    consequences: "chair time saved, remakes avoided, margin gained, hours back",
+  },
+};
+
+function titleCaseWords(s: string): string {
+  return s.replace(/\b([a-z])/g, (m) => m.toUpperCase());
+}
+
 export function getCopyPrinciplesSection(opts: {
   brandName?: string;
   matchedSegment?: boolean;
   forbiddenList: string[];
+  /** Which worked examples to show. Default "neutral"; "dental" only for Dandy tenants. */
+  vertical?: CopyExampleVertical;
 }): string {
   const brandName = opts.brandName ?? "";
   const matchedSegment = opts.matchedSegment ?? false;
   const forbiddenList = opts.forbiddenList;
+  const ex = COPY_EXAMPLES[opts.vertical ?? "neutral"];
   return `
 COPY QUALITY PRINCIPLES — follow every one of these without exception:
 
 1. Specific always beats vague. Every claim needs a number, a process, or a policy behind it.
    BAD: "Faster turnaround times that improve efficiency"
-   GOOD: "5-day crown delivery with real-time case tracking"
+   GOOD: "${ex.r1good1}"
    BAD: "${brandName || "Our"}'s advanced technology ensures better outcomes"
-   GOOD: "96% first-time fit rate. If a case doesn't seat, we remake it for free."
+   GOOD: "${ex.r1good2}"
 
 2. Lead with the customer's benefit — not ${brandName || "the seller"}'s features.
-   BAD: "${brandName || "We"} use AI-powered quality control on every case"
-   GOOD: "You get a better-fitting result without the back-and-forth phone calls"
+   BAD: "${brandName || "We"} ${ex.r2bad}"
+   GOOD: "${ex.r2good}"
 
 3. Write like one person talking directly to another across a desk. Not a press release. Not a brochure.
-   BAD: "Leveraging next-generation digital workflows to optimize practice efficiency"
-   GOOD: "Send a scan. Get a perfect-fit crown in 5 days."
+   BAD: "${ex.r3bad}"
+   GOOD: "${ex.r3good}"
 
 4. Short sentences. Active voice. One idea per sentence. If you can cut a word without losing meaning, cut it.
 
 5. Headlines are declarative and direct. No vague questions. No "How to..." or "Why...".
-   BAD: "Discover how ${brandName || "we"} can help your practice grow"
-   GOOD: "More cases. Zero lab drama."
+   BAD: "Discover how ${brandName || "we"} can ${ex.r5badTail}"
+   GOOD: "${ex.r5good}"
 
 6. Every subheadline should deepen or add to the headline — not just restate it in different words.
 
@@ -75,7 +128,7 @@ COPY QUALITY PRINCIPLES — follow every one of these without exception:
 
 8. Never stack adjectives. One strong word beats three weak ones.
    BAD: "Powerful, comprehensive, industry-leading digital solutions"
-   GOOD: "A lab that backs every case with a guarantee"
+   GOOD: "${ex.r8good}"
 
 9. Prefer specific, concrete brand facts — the value props, differentiators, product details, and proof points given in BRAND CONTEXT — over generic marketing filler, and use the brand's own vocabulary and product names. When BRAND CONTEXT provides a fact, stat, quote, or phrase that fits a slot, use it instead of writing something generic.
 
@@ -87,17 +140,17 @@ ${matchedSegment ? `10. VALIDATED FACTS ONLY — when this prompt includes a TAR
 11. CAPITALIZATION — Two absolute rules that BOTH apply at all times:` : `10. CAPITALIZATION — Two absolute rules that BOTH apply at all times:`}
    a) ALWAYS start every sentence, headline, eyebrow, bullet point, step title, card title, FAQ question, and label with a capital letter. Every piece of text that starts a new thought begins with a capital. Never begin any text with a lowercase letter.
    b) NEVER title-case — do not capitalize every word. Only the first word of a sentence + proper nouns (person names, companies, cities) + acronyms (DSO, AI, ROI) + official product names get capitals.
-   WRONG (all lowercase start): "more cases. zero lab drama." → WRONG: sentence starts with lowercase
-   WRONG (title case): "More Cases. Zero Lab Drama." → WRONG: mid-sentence words capitalized
-   CORRECT: "More cases. Zero lab drama."
-   WRONG: "send a scan. get a perfect-fit crown in 5 days." → WRONG
-   CORRECT: "Send a scan. Get a perfect-fit crown in 5 days."
-   WRONG: "join hundreds of practices already using ${(brandName || "us").toLowerCase()}" → WRONG: lowercase sentence start; brand names are proper nouns
-   CORRECT: "Join hundreds of practices already using ${brandName || "us"}."
+   WRONG (all lowercase start): "${ex.r5good.toLowerCase()}" → WRONG: sentence starts with lowercase
+   WRONG (title case): "${titleCaseWords(ex.r5good)}" → WRONG: mid-sentence words capitalized
+   CORRECT: "${ex.r5good}"
+   WRONG: "${ex.r3good.toLowerCase()}" → WRONG
+   CORRECT: "${ex.r3good}"
+   WRONG: "${ex.capJoin.toLowerCase()} ${(brandName || "us").toLowerCase()}" → WRONG: lowercase sentence start; brand names are proper nouns
+   CORRECT: "${ex.capJoin} ${brandName || "us"}."
 
 SPECIFICITY & SUBSTANCE — this is what separates good copy from generic filler. Apply it to every block:
-- Be specific, never vague. Replace abstract claims with a concrete fact, number, process, name, or policy. "Better outcomes" is a failure; "96% first-time seat rate" is the bar.
-- Explain WHY it matters to this reader, not just WHAT it is. Connect every feature to a consequence the audience actually feels (chair time saved, remakes avoided, margin gained, hours back).
+- Be specific, never vague. Replace abstract claims with a concrete fact, number, process, name, or policy. "Better outcomes" is a failure; "${ex.specBar}" is the bar.
+- Explain WHY it matters to this reader, not just WHAT it is. Connect every feature to a consequence the audience actually feels (${ex.consequences}).
 - Demonstrate that you understand the audience's goals and pains. Name their real situation — their scale, their workflow, their daily friction — so the copy reads as written for THEM, not mail-merged.
 - Use the concrete examples, proof points, stats, quotes, and product facts provided in the context. When a real number or customer story fits a slot, USE it — do not paraphrase it into something vaguer, and never invent one to fill a gap.
 - Clarity over cleverness. A plain sentence the reader instantly understands beats a clever turn of phrase they have to decode.

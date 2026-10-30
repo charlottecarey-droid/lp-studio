@@ -184,6 +184,7 @@ import { isDandyTenant } from "../../lib/planFeatures";
 import { logger } from "../../lib/logger";
 import { captureRouteError } from "../../lib/sentry";
 import type { GenerationDegradation } from "../lp/generate-page";
+import { approvedBrandStats } from "../lp/generate-page";
 import { resolveGenerationModel, samplingParams } from "../../lib/generation-model";
 
 const router = Router();
@@ -4782,6 +4783,8 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     if (!templateBlocks && !outlineActive) {
       enforceRequiredRoles(normalizedBlocks as unknown as Array<Record<string, unknown>>, {
         brandName: (brand.brandName as string | undefined) ?? "",
+        // Stats role: only the brand's approved scraped stats, never invented.
+        approvedStats: approvedBrandStats(brand as Parameters<typeof approvedBrandStats>[0]),
         ctaUrl:
           ctaOverride?.url ??
           (brand.chilipiperUrl as string | undefined) ??
