@@ -71,13 +71,14 @@ export function modelLocksTemperature(model: string): boolean {
   return /^(gpt-5|o[1-9])(\b|[-._])/i.test(model.trim());
 }
 
-export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
-const REASONING_EFFORTS = new Set<string>(["minimal", "low", "medium", "high"]);
+/** Matches the installed OpenAI SDK's `Shared.ReasoningEffort` (4.104: low | medium | high). */
+export type ReasoningEffort = "low" | "medium" | "high";
+const REASONING_EFFORTS = new Set<string>(["low", "medium", "high"]);
 
 /** Reasoning effort for gpt-5 / o-series models, from GENERATION_REASONING_EFFORT.
  *  Unset → the parameter is omitted (the provider default, "medium" for gpt-5,
  *  which made page generations take 100–230 s in the first gpt-5 eval run).
- *  "low" or "minimal" is the recommended setting for page copy. */
+ *  "low" is the recommended setting for page copy. */
 export function resolveReasoningEffort(env: Env = process.env): ReasoningEffort | null {
   const v = clean(env["GENERATION_REASONING_EFFORT"])?.toLowerCase() ?? null;
   return v && REASONING_EFFORTS.has(v) ? (v as ReasoningEffort) : null;

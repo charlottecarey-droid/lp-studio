@@ -26,10 +26,12 @@ function render(Component: unknown, props: Record<string, unknown>, onFieldChang
   return renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, el));
 }
 
-describe.each([
-  ["full-bleed-hero", BlockFullBleedHero, "data-lucide"],
-  ["aurora-cta-finale", BlockAuroraCtaFinale, "data-lucide"],
-] as const)("%s — primary CTA with no label", (type, Component) => {
+const CASES: Array<[string, unknown]> = [
+  ["full-bleed-hero", BlockFullBleedHero],
+  ["aurora-cta-finale", BlockAuroraCtaFinale],
+];
+
+describe.each(CASES)("%s — primary CTA with no label", (type, Component) => {
   it("live page: renders no primary button when ctaText is empty", () => {
     // backgroundType "image": the default video background renders an
     // Unmute control, which is a button but not a CTA.
