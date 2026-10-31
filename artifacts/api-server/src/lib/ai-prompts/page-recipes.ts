@@ -57,7 +57,6 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     description: "a premium magazine-style page that persuades with story and typography",
     skeleton: [
       "kinetic-type-hero OR magazine-hero OR ai-scan-hero",
-      "bold-statement",
       "editorial-carousel",
       "split-media-row OR zigzag-features",
       "quote-with-image OR single-quote",
@@ -65,7 +64,7 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
       "cta-split-image OR bottom-cta",
     ],
     styleNotes:
-      "Premium, unhurried pacing: generous whitespace, long-form copy moments, one strong image per section. Let the typographic hero / bold-statement carry a single load-bearing claim. Avoid dense grids.",
+      "Premium, unhurried pacing: generous whitespace, long-form copy moments, one strong image per section. Let the typographic hero carry a single load-bearing claim. Avoid dense grids.",
   },
   {
     id: "freeform-showcase-heavy",
@@ -73,7 +72,7 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     description: "a visual-first page where imagery and motion do the persuading",
     skeleton: [
       "launch-spotlight-hero OR bento-mosaic-hero OR ai-scan-hero",
-      "sticky-stack OR horizontal-showcase",
+      "horizontal-showcase",
       "feature-tabs-showcase OR gallery-masonry",
       "media-feature-reel OR media-looping-showcase",
       "quote-carousel OR testimonial-grid",
@@ -120,7 +119,7 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     description: "a cinematic narrative page that walks the visitor through a transformation",
     skeleton: [
       "parallax-image-hero OR cinematic-video-hero",
-      "scroll-assembly OR bold-statement",
+      "scroll-assembly",
       "feature-tabs-showcase OR zigzag-features",
       "case-study-spotlight-feature OR quote-with-image",
       "testimonial-wall OR media-video-split",
