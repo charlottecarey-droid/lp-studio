@@ -1,3 +1,4 @@
+import { isQuoteField } from "./verbatim-quotes";
 /**
  * Banned-phrase post-validator (Workstream B of the May 2026 AI output-quality
  * plan).
@@ -195,7 +196,11 @@ function walk(
     return;
   }
   if (value && typeof value === "object") {
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const rec = value as Record<string, unknown>;
+    for (const [k, v] of Object.entries(rec)) {
+      // Quoted speech is a real person's words — never a banned-phrase hit
+      // (the critique pass would otherwise be told to rewrite the quote).
+      if (typeof v === "string" && isQuoteField(k, rec)) continue;
       walk(v, path ? `${path}.${k}` : k, blockId, blockType, phrases, hits, depth + 1);
       if (hits.length >= MAX_HITS) return;
     }
@@ -333,10 +338,12 @@ function swapString(text: string): { text: string; swapped: string[] } {
 export function applySafePhraseSwaps(blocks: unknown[]): { swaps: number; phrases: string[] } {
   let swaps = 0;
   const phrases = new Set<string>();
-  const visit = (node: unknown, depth: number): unknown => {
+  const visit = (node: unknown, depth: number, parentKey = ""): unknown => {
     if (depth > MAX_DEPTH) return node;
     if (typeof node === "string") return node; // handled by parent (needs key context)
     if (Array.isArray(node)) {
+      // A `quotes: string[]` array is quoted speech too.
+      if (parentKey && isQuoteField(parentKey)) return node;
       for (let i = 0; i < node.length; i++) {
         const v = node[i];
         if (typeof v === "string") {
@@ -348,7 +355,7 @@ export function applySafePhraseSwaps(blocks: unknown[]): { swaps: number; phrase
             r.swapped.forEach((p) => phrases.add(p));
           }
         } else {
-          visit(v, depth + 1);
+          visit(v, depth + 1, parentKey);
         }
       }
       return node;
@@ -358,6 +365,9 @@ export function applySafePhraseSwaps(blocks: unknown[]): { swaps: number; phrase
       for (const [k, v] of Object.entries(rec)) {
         if (typeof v === "string") {
           if (SWAP_SKIP_KEY_RE.test(k) || SWAP_SKIP_VALUE_RE.test(v)) continue;
+          // Never edit a customer's words (Oct 2026 — the swaps would have
+          // turned a verbatim "game-changer" quote into "breakthrough").
+          if (isQuoteField(k, rec)) continue;
           const r = swapString(v);
           if (r.swapped.length) {
             rec[k] = r.text;
@@ -365,7 +375,7 @@ export function applySafePhraseSwaps(blocks: unknown[]): { swaps: number; phrase
             r.swapped.forEach((p) => phrases.add(p));
           }
         } else {
-          visit(v, depth + 1);
+          visit(v, depth + 1, k);
         }
       }
     }

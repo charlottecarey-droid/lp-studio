@@ -33,6 +33,7 @@
  */
 
 import type OpenAI from "openai";
+import { isQuoteField } from "./verbatim-quotes";
 import { rankBlocksByHits, findBannedPhrases, type BannedPhraseHit } from "./banned-phrase-validator";
 import { resolveGenerationModel, samplingParams } from "../generation-model";
 
@@ -167,8 +168,9 @@ function mergeStringLeaves(original: unknown, rewritten: unknown): unknown {
     if (!isPlainObject(rewritten)) return original;
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(original)) {
-      // Absent in rewrite, or a protected non-copy field → keep original.
-      if (!(key in rewritten) || !isCopyKey(key)) {
+      // Absent in rewrite, a protected non-copy field, or quoted speech
+      // (a real person's words are never "improved") → keep original.
+      if (!(key in rewritten) || !isCopyKey(key) || isQuoteField(key, original)) {
         out[key] = original[key];
         continue;
       }

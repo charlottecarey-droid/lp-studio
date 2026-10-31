@@ -206,6 +206,52 @@ describe("critiqueAndRewriteBlocks", () => {
     expect(res.annotations[0].resolved).toBe(true);
   });
 
+  it("keeps a customer quote verbatim even when the model rewrites it (Oct 2026)", async () => {
+    const QUOTE = "With Dandy's digital workflow, we're cutting almost two appointments per denture—that's a game-changer for a mobile practice.";
+    const blocks = [
+      {
+        id: "b1",
+        type: "quote-with-image",
+        props: {
+          headline: "Our industry-leading platform",
+          quote: QUOTE,
+          author: "Dr. Nathan Suter",
+          items: [{ text: "Leverage: a word our customer really used, in a sentence long enough to count.", author: "Pat" }],
+        },
+      },
+    ];
+    const hits = findBannedPhrases(blocks);
+    expect(hits.length).toBeGreaterThan(0);
+    const create = vi.fn(async () =>
+      jsonCompletion({
+        blocks: [
+          {
+            id: "b1",
+            props: {
+              headline: "Crowns shipped in five days flat",
+              quote: "Dandy's workflow cuts nearly two appointments per denture — a major win for mobile practices.",
+              author: "Nathan S.",
+              items: [{ text: "A tidier sentence the model preferred.", author: "Pat" }],
+            },
+          },
+        ],
+      }),
+    );
+    const res = await critiqueAndRewriteBlocks({
+      blocks,
+      bannedPhraseHits: hits,
+      brand: {},
+      openai: fakeOpenAI(create as unknown as ChatCreate),
+    });
+    expect(res.critiqued).toBe(true);
+    const props = blocks[0].props as Record<string, unknown>;
+    expect(props.headline).toBe("Crowns shipped in five days flat");
+    expect(props.quote).toBe(QUOTE);
+    expect((props.items as Array<Record<string, unknown>>)[0].text).toContain("Leverage: a word");
+    // Attribution is ordinary copy and may be tidied; the quote itself may not.
+    expect(props.author).toBe("Nathan S.");
+  });
+
   it("never overwrites link/cta/contact values, even under copy-looking keys", async () => {
     const blocks = [
       {

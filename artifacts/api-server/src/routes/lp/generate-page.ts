@@ -28,6 +28,7 @@ import { normalizeHeadingsToSentenceCase, collectAuthoredStrings } from "../../l
 import { resolveDeadGeneratedLinks } from "../../lib/ai-prompts/dead-links";
 import { normalizeCopyrightYears } from "../../lib/ai-prompts/copyright-year";
 import { ensureLeadCaptureForm } from "../../lib/ai-prompts/lead-form-fallback";
+import { collectKnownQuotes, restoreVerbatimQuotes, type KnownQuote } from "../../lib/ai-prompts/verbatim-quotes";
 import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import { resolveGenerationModel, samplingParams } from "../../lib/generation-model";
 import {
@@ -4803,7 +4804,7 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
         })
         .join("\n");
       parts.push(
-        `Approved customer quotes (verbatim from the brand's own marketing — these ARE the real quotes for testimonial/quote blocks; use them verbatim with their real attributions and never invent or paraphrase others):\n${lines}`,
+        `Approved customer quotes (verbatim from the brand's own marketing — these ARE the real quotes for testimonial/quote blocks; copy them character-for-character with their real attributions and never invent, reword, or paraphrase others. Quoted speech is exempt from the banned-phrase rules):\n${lines}`,
       );
     }
   }
@@ -7622,6 +7623,14 @@ export interface ProofPoint {
   source_url: string;
   as_of_date: string | null;
   approved_for_ai: boolean;
+  /** Oct 2026 — "stat" | "claim" | "quote". Quote rows are customer speech
+   *  and are surfaced VERBATIM with their attribution (see
+   *  buildProofPointsSection / restoreVerbatimQuotes); they never enter the
+   *  stat pool as numbers. */
+  fact_kind: "stat" | "claim" | "quote" | string;
+  attribution_name: string;
+  attribution_title: string;
+  attribution_company: string;
 }
 
 /** Task #256 — fetch the tenant's proof-point library so it can be injected
@@ -7631,7 +7640,8 @@ export async function fetchProofPoints(tenantId: number | null): Promise<ProofPo
   if (tenantId == null) return [];
   try {
     const rows = await db.execute(
-      sql`SELECT id, value, label, source_url, as_of_date, approved_for_ai
+      sql`SELECT id, value, label, source_url, as_of_date, approved_for_ai,
+                 fact_kind, attribution_name, attribution_title, attribution_company
           FROM lp_proof_points
           WHERE tenant_id = ${tenantId}
           ORDER BY sort_order ASC, id ASC`,
@@ -7643,6 +7653,10 @@ export async function fetchProofPoints(tenantId: number | null): Promise<ProofPo
       source_url: string;
       as_of_date: string | null;
       approved_for_ai: boolean;
+      fact_kind: string | null;
+      attribution_name: string | null;
+      attribution_title: string | null;
+      attribution_company: string | null;
     }>).map((r) => ({
       id: r.id,
       value: r.value ?? "",
@@ -7650,27 +7664,61 @@ export async function fetchProofPoints(tenantId: number | null): Promise<ProofPo
       source_url: r.source_url ?? "",
       as_of_date: r.as_of_date,
       approved_for_ai: r.approved_for_ai !== false,
+      fact_kind: r.fact_kind || "stat",
+      attribution_name: r.attribution_name ?? "",
+      attribution_title: r.attribution_title ?? "",
+      attribution_company: r.attribution_company ?? "",
     }));
   } catch {
     return [];
   }
 }
 
+export function isQuoteProofPoint(p: Pick<ProofPoint, "fact_kind">): boolean {
+  return (p.fact_kind ?? "").toLowerCase() === "quote";
+}
+
+/** One prompt line for an approved customer quote: the exact text in quotes
+ *  plus whatever attribution the row carries ("— Dr. Nathan Suter, Chief
+ *  Clinical Officer, Enable Dental"). */
+export function formatQuoteProofPointLine(p: ProofPoint): string {
+  const attribution = [p.attribution_name, p.attribution_title, p.attribution_company]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+  const topic = p.label?.trim() ? ` [topic: ${p.label.trim()}]` : "";
+  return attribution ? `- "${p.value.trim()}" — ${attribution}${topic}` : `- "${p.value.trim()}"${topic}`;
+}
+
 export function buildProofPointsSection(points: ProofPoint[], strict: boolean): string {
   const usable = strict ? points.filter((p) => p.approved_for_ai) : points;
-  if (usable.length === 0) {
-    return strict
-      ? "APPROVED PROOF POINTS: (none) — for any stat slot in this page, use the literal placeholder \"X\" instead of inventing numbers."
-      : "";
+  // Oct 2026 — quotes are customer speech, not stats. Listing them as bare
+  // "value label" lines under a stats heading taught the model to treat them
+  // as raw material it could tighten, and the banned-phrase list then pushed
+  // it to reword a real customer's words ("game-changer" → paraphrase). They
+  // get their own section with an explicit verbatim contract.
+  const quotes = usable.filter(isQuoteProofPoint).filter((p) => p.value.trim());
+  const facts = usable.filter((p) => !isQuoteProofPoint(p));
+  const parts: string[] = [];
+  if (facts.length === 0) {
+    if (strict) parts.push("APPROVED PROOF POINTS: (none) — for any stat slot in this page, use the literal placeholder \"X\" instead of inventing numbers.");
+  } else {
+    const lines = facts.map((p) => {
+      const date = p.as_of_date ? ` [as of ${p.as_of_date}]` : "";
+      const src = p.source_url ? ` (source: ${p.source_url})` : "";
+      return `- ${p.value} ${p.label}${date}${src}`.trim();
+    }).join("\n");
+    parts.push(strict
+      ? `APPROVED PROOF POINTS (use ONLY these — together with any APPROVED SEGMENT STATS — for any stat-bearing block; do not invent others):\n${lines}`
+      : `Proof Points (reusable across pages and segments):\n${lines}`);
   }
-  const lines = usable.map((p) => {
-    const date = p.as_of_date ? ` [as of ${p.as_of_date}]` : "";
-    const src = p.source_url ? ` (source: ${p.source_url})` : "";
-    return `- ${p.value} ${p.label}${date}${src}`.trim();
-  }).join("\n");
-  return strict
-    ? `APPROVED PROOF POINTS (use ONLY these — together with any APPROVED SEGMENT STATS — for any stat-bearing block; do not invent others):\n${lines}`
-    : `Proof Points (reusable across pages and segments):\n${lines}`;
+  if (quotes.length > 0) {
+    parts.push(
+      `APPROVED CUSTOMER QUOTES — these are real people's words. For any quote/testimonial slot, copy the chosen quote CHARACTER-FOR-CHARACTER (same words, punctuation, and contractions) with its exact attribution (name, title, company as given). Never reword, shorten, merge, or "improve" a quote, and never invent a quote or attribution that is not listed. Quoted speech is exempt from the banned-phrase and voice rules — if a quote contains a banned word, keep it anyway. If no quote fits, leave the quote slot empty or choose a block without one:\n` +
+      quotes.map(formatQuoteProofPointLine).join("\n"),
+    );
+  }
+  return parts.join("\n\n");
 }
 
 /** Task #1158 — a saved team member from the Content Library (lp_library_items
@@ -8730,6 +8778,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       `- Reuse the same proper nouns, product names, and metrics that appear here.\n` +
       `- Match the information density — if the reference packs proof points and specifics into every section, your blocks must too.\n` +
       `- Treat the reference's headlines and subheads as templates: rewrite them for the user's prompt while preserving cadence and specificity.\n` +
+      `- CUSTOMER QUOTES ARE THE EXCEPTION: any quotation or testimonial on the reference page is a real person's words. Reuse it character-for-character with its exact attribution, or leave it out — never reword, shorten, or merge it, even to avoid a banned phrase.\n` +
       `- Every sentence in your output should feel like it could plausibly appear on the reference page. Generic marketing copy ("streamline your workflow", "industry-leading platform") is a failure.\n` +
       `IF this conflicts with the BRAND CONTEXT / WRITE IN THIS VOICE / BANNED PHRASES sections above, those WIN — the brand's own voice takes priority over the reference page, which is only inspiration for structure and visual density.`
     );
@@ -8764,6 +8813,16 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
   // points (it's useful context for non-strict generations too); strict
   // mode upgrades the wording to a hard "use only these" instruction.
   const proofPointsSection = buildProofPointsSection(proofPoints, strict);
+
+  // Verbatim-quote pool (Oct 2026) — every quote this generation may use.
+  // After parsing, restoreVerbatimQuotes snaps any paraphrase back to the
+  // exact words (see lib/ai-prompts/verbatim-quotes.ts).
+  const knownQuotes: KnownQuote[] = collectKnownQuotes({
+    proofPoints,
+    brandTestimonials: brand.scrapedTestimonials,
+    referenceMarkdown: scrapeResult.scraped?.markdown ?? null,
+    strict,
+  });
   // Task #1136 — when the user provided a trusted source URL, case-study /
   // testimonial slots may also be filled from that REFERENCE PAGE; strict mode
   // no longer forces the "Add a quote in brand settings" placeholder then.
@@ -9506,6 +9565,24 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       // deterministic swaps run FIRST (instant, meaning-preserving) so the
       // critique model call only has to fix what has no drop-in replacement.
       const templateScanPhrases = [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])];
+      // Quotes are verbatim (Oct 2026): snap paraphrased customer quotes back to
+      // the approved / reference text BEFORE any pass that edits copy.
+      try {
+        const quoteFix = restoreVerbatimQuotes(mergedBlocks as unknown[], knownQuotes);
+        if (quoteFix.restored.length > 0) {
+          logger.info(
+            { event: "ai_verbatim_quotes_restored", tenantId, path: "template", restored: quoteFix.restored },
+            "[generate-page] reworded customer quotes restored to verbatim text",
+          );
+          degradations.push({
+            code: "quote_restored_verbatim",
+            severity: "info",
+            detail: `${quoteFix.restored.length} customer quote${quoteFix.restored.length === 1 ? " was" : "s were"} reworded by the model and restored to the approved wording.`,
+          });
+        }
+      } catch (quoteErr) {
+        logger.warn({ err: quoteErr, tenantId }, "[generate-page] verbatim-quote restore skipped");
+      }
       const templateSwaps = applySafePhraseSwaps(mergedBlocks);
       if (templateSwaps.swaps > 0) {
         logger.info(
@@ -11597,6 +11674,24 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
     const freeformScanPhrases = [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])];
     // Safe deterministic swaps FIRST — instant fixes for offenders with a
     // meaning-preserving drop-in, so the critique call only handles the rest.
+    // Quotes are verbatim (Oct 2026): snap paraphrased customer quotes back to
+    // the approved / reference text BEFORE any pass that edits copy.
+    try {
+      const quoteFix = restoreVerbatimQuotes(parsed.blocks as unknown[], knownQuotes);
+      if (quoteFix.restored.length > 0) {
+        logger.info(
+          { event: "ai_verbatim_quotes_restored", tenantId, path: "freeform", restored: quoteFix.restored },
+          "[generate-page] reworded customer quotes restored to verbatim text",
+        );
+        degradations.push({
+          code: "quote_restored_verbatim",
+          severity: "info",
+          detail: `${quoteFix.restored.length} customer quote${quoteFix.restored.length === 1 ? " was" : "s were"} reworded by the model and restored to the approved wording.`,
+        });
+      }
+    } catch (quoteErr) {
+      logger.warn({ err: quoteErr, tenantId }, "[generate-page] verbatim-quote restore skipped");
+    }
     const freeformSwaps = applySafePhraseSwaps(parsed.blocks);
     if (freeformSwaps.swaps > 0) {
       logger.info(
