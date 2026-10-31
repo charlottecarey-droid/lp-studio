@@ -1,7 +1,7 @@
 {
   "briefId": "microsite-dso-practices",
   "scores": {
-    "fabricatedStat": 0,
+    "fabricatedStat": 0.5,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
     "bannedPhrase": 1,

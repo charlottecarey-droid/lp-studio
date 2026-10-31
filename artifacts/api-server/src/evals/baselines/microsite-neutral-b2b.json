@@ -1,7 +1,7 @@
 {
   "briefId": "microsite-neutral-b2b",
   "scores": {
-    "fabricatedStat": 0.5,
+    "fabricatedStat": 0.25,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
     "bannedPhrase": 1,
