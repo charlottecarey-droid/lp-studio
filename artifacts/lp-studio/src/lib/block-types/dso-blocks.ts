@@ -365,6 +365,26 @@ export interface DsoAiFeatureBlockProps {
   ctaVariant?: "primary" | "secondary" | "link";
 }
 
+/** DSO — Growth thesis (Oct 2026): a cinematic word-reveal statement plus
+ *  2–4 oversized pillars (numeral + label + one line of proof). */
+export interface DsoGrowthPillar {
+  value: string;
+  label: string;
+  body?: string;
+}
+
+export interface DsoGrowthThesisBlockProps {
+  eyebrow?: string;
+  /** The long sentence; each word lights up on scroll. */
+  statement: string;
+  pillars: DsoGrowthPillar[];
+  footnote?: string;
+  backgroundStyle?: BackgroundStyle;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
+}
+
 export interface DsoStatShowcaseBlockProps {
   eyebrow: string;
   headline: string;

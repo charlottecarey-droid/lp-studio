@@ -178,6 +178,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "sticky-stack": SELF_STYLED,
   "spatial-tour": SELF_STYLED,
   "dso-scroll-story": SELF_STYLED,
+  "dso-growth-thesis": SELF_STYLED,
   "dandy-switchback": SELF_STYLED,
   "dso-paradigm-shift": SELF_STYLED,
 

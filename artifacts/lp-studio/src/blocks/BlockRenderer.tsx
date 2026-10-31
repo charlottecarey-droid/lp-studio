@@ -25,6 +25,7 @@ import { BlockDandyProductHero } from "./BlockDandyProductHero";
 import { BlockDsoProblem } from "./BlockDsoProblem";
 import { BlockDsoAiFeature } from "./BlockDsoAiFeature";
 import { BlockDsoStatShowcase } from "./BlockDsoStatShowcase";
+import { BlockDsoGrowthThesis } from "./BlockDsoGrowthThesis";
 import { BlockDsoScrollStory } from "./BlockDsoScrollStory";
 import { BlockDsoScrollStoryHero } from "./BlockDsoScrollStoryHero";
 import { BlockDsoNetworkMap } from "./BlockDsoNetworkMap";
@@ -488,7 +489,7 @@ export const NO_REVEAL = new Set<string>([
   "full-bleed-split",
   "full-bleed-final-cta", "video-background-final-cta",
   "scroll-assembly", "horizontal-showcase", "sticky-stack", "spatial-tour",
-  "dso-scroll-story", "dso-scroll-story-hero",
+  "dso-scroll-story", "dso-scroll-story-hero", "dso-growth-thesis",
   "dandy-switchback", "dso-paradigm-shift",
   "hero", "full-bleed-hero", "ai-scan-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
   "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", "spotlight-glow-hero",
@@ -1155,6 +1156,8 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
         return <BlockDsoAiFeature props={block.props} brand={brand} headlineColor={block.blockSettings?.headlineColor} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-stat-showcase":
         return <BlockDsoStatShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dso-growth-thesis":
+        return <BlockDsoGrowthThesis props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-scroll-story":
         return <BlockDsoScrollStory props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-scroll-story-hero":

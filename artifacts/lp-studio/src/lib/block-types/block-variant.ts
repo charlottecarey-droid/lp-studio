@@ -226,6 +226,7 @@ import type {
   DsoProblemBlockProps,
   DsoAiFeatureBlockProps,
   DsoStatShowcaseBlockProps,
+  DsoGrowthThesisBlockProps,
   DsoScrollStoryBlockProps,
   DsoScrollStoryHeroBlockProps,
   DsoNetworkMapBlockProps,
@@ -349,6 +350,7 @@ export type BlockVariant =
   | { type: "dso-problem"; props: DsoProblemBlockProps }
   | { type: "dso-ai-feature"; props: DsoAiFeatureBlockProps }
   | { type: "dso-stat-showcase"; props: DsoStatShowcaseBlockProps }
+  | { type: "dso-growth-thesis"; props: DsoGrowthThesisBlockProps }
   | { type: "dso-scroll-story"; props: DsoScrollStoryBlockProps }
   | { type: "dso-scroll-story-hero"; props: DsoScrollStoryHeroBlockProps }
   | { type: "dso-network-map"; props: DsoNetworkMapBlockProps }

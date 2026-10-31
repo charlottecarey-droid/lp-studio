@@ -467,6 +467,8 @@ export type {
   DsoProblemBlockProps,
   DsoAiFeatureBlockProps,
   DsoStatShowcaseBlockProps,
+  DsoGrowthPillar,
+  DsoGrowthThesisBlockProps,
   DsoScrollStoryChapter,
   DsoScrollStoryBlockProps,
   DsoScrollStoryHeroBlockProps,

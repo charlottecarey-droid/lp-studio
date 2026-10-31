@@ -284,6 +284,7 @@ import type {
   DsoProblemBlockProps,
   DsoAiFeatureBlockProps,
   DsoStatShowcaseBlockProps,
+  DsoGrowthThesisBlockProps,
   DsoScrollStoryBlockProps,
   DsoScrollStoryHeroBlockProps,
   DsoNetworkMapBlockProps,
@@ -2240,6 +2241,39 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
             <rect x={8 + (i%3)*38} y={26 + Math.floor(i/3)*22} width="32" height="3" rx="1.5" fill="white" opacity="0.8" />
             <rect x={8 + (i%3)*38} y={31 + Math.floor(i/3)*22} width="16" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
             <rect x={8 + (i%3)*38} y={35 + Math.floor(i/3)*22} width="28" height="1.5" rx="0.75" fill="white" opacity="0.25" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-growth-thesis" as const,
+    label: "Growth Thesis",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoGrowthThesisBlockProps => ({
+      eyebrow: "The thesis",
+      statement: "Acquisitions slow down. Same-store growth doesn't have to. The partner that touches every chair, every day, is the biggest growth lever an organization already owns.",
+      pillars: [
+        { value: "25%", label: "More throughput each day", body: "Fewer reworks and shorter cycles free capacity at every location." },
+        { value: "2x", label: "More revenue per visit", body: "Visualization and easy add-ons lift acceptance and share of wallet." },
+        { value: "100%", label: "Visibility across the network", body: "Centralized data surfaces what no single location can see." },
+      ],
+      footnote: "",
+      backgroundStyle: "black",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#07100D" rx="4" />
+        <rect x="8" y="10" width="14" height="2" rx="1" fill="hsl(68,60%,52%)" />
+        <rect x="30" y="8" width="82" height="5" rx="2.5" fill="white" opacity="0.9" />
+        <rect x="30" y="16" width="70" height="5" rx="2.5" fill="white" opacity="0.6" />
+        <rect x="30" y="24" width="48" height="5" rx="2.5" fill="white" opacity="0.3" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={8 + i*36} y="40" width="32" height="1" fill="white" opacity="0.18" />
+            <rect x={8 + i*36} y="39.5" width="9" height="2" rx="1" fill="hsl(68,60%,52%)" />
+            <rect x={8 + i*36} y="46" width="18" height="9" rx="1.5" fill="white" opacity="0.9" />
+            <rect x={8 + i*36} y="58" width="26" height="2" rx="1" fill="white" opacity="0.5" />
           </g>
         ))}
       </svg>
@@ -10071,6 +10105,7 @@ export function createBlock(type: "dandy-product-hero"): Extract<PageBlock, { ty
 export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "dso-problem" }>;
 export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: "dso-ai-feature" }>;
 export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { type: "dso-stat-showcase" }>;
+export function createBlock(type: "dso-growth-thesis"): Extract<PageBlock, { type: "dso-growth-thesis" }>;
 export function createBlock(type: "dso-scroll-story"): Extract<PageBlock, { type: "dso-scroll-story" }>;
 export function createBlock(type: "dso-scroll-story-hero"): Extract<PageBlock, { type: "dso-scroll-story-hero" }>;
 export function createBlock(type: "dso-network-map"): Extract<PageBlock, { type: "dso-network-map" }>;
@@ -10210,6 +10245,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-problem": return { id, type: "dso-problem", props: props as DsoProblemBlockProps };
     case "dso-ai-feature": return { id, type: "dso-ai-feature", props: props as DsoAiFeatureBlockProps };
     case "dso-stat-showcase": return { id, type: "dso-stat-showcase", props: props as DsoStatShowcaseBlockProps };
+    case "dso-growth-thesis": return { id, type: "dso-growth-thesis", props: props as DsoGrowthThesisBlockProps };
     case "dso-scroll-story": return { id, type: "dso-scroll-story", props: props as DsoScrollStoryBlockProps };
     case "dso-scroll-story-hero": return { id, type: "dso-scroll-story-hero", props: props as DsoScrollStoryHeroBlockProps };
     case "dso-network-map": return { id, type: "dso-network-map", props: props as DsoNetworkMapBlockProps };

@@ -77,6 +77,7 @@ export const LEADERSHIP_ONLY_BLOCK_TYPES: readonly string[] = [
   "dso-ai-feature",
   "dso-problem",
   "dso-stat-showcase",
+  "dso-growth-thesis",
   "dso-scroll-story",
   "dso-scroll-story-hero",
   "dso-network-map",

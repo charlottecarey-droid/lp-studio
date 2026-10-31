@@ -195,7 +195,7 @@ export const SOCIAL_PROOF_TYPES = new Set([
 // Authority: stats, trust bars, metric showcases (concrete data signals).
 export const AUTHORITY_TYPES = new Set([
   "trust-bar", "stat-callout", "bento-showcase", "dso-stat-bar",
-  "dso-stat-row", "dso-stat-showcase", "id-stats",
+  "dso-stat-row", "dso-stat-showcase", "dso-growth-thesis", "id-stats",
   "dso-flow-canvas", "dso-particle-mesh", "rating-badges",
   "stat-row",
   // PAS + final-CTA section blocks carrying the "stats" role.
