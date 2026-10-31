@@ -185,6 +185,8 @@ import { logger } from "../../lib/logger";
 import { captureRouteError } from "../../lib/sentry";
 import type { GenerationDegradation } from "../lp/generate-page";
 import { approvedBrandStats } from "../lp/generate-page";
+import { fetchProofPoints, buildProofPointsSection, isQuoteProofPoint, type ProofPoint } from "../../lib/proof-points";
+import { collectKnownQuotes, restoreVerbatimQuotes } from "../../lib/ai-prompts/verbatim-quotes";
 import { resolveGenerationModel, samplingParams } from "../../lib/generation-model";
 
 const router = Router();
@@ -3056,6 +3058,11 @@ export function buildSystemPrompt(
   // beyond the fixed dso-* set (an alternative hero, a neutral section) and
   // the model can actually fill them. Governance excludeTypes still applies.
   recipeExtraTypes: string[] = [],
+  // Oct 2026 — the tenant's proof-point library (lp_proof_points): approved
+  // stats/claims and VERBATIM customer quotes. Previously microsites never saw
+  // it — only brand-import stats/testimonials and the account briefing's
+  // model-written "proof points".
+  proofPoints: ProofPoint[] = [],
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -3172,6 +3179,8 @@ export function buildSystemPrompt(
     writingDonts?.length ? `DON'T — never do these in this brand's copy:\n${writingDonts.map(d => `- ${d}`).join("\n")}` : null,
     approvedStats.length ? `Approved brand stats (from the brand's own marketing — use verbatim when a stat fits; do not invent others):\n${approvedStats.map(s => `- ${s.value} ${s.label}`).join("\n")}` : null,
     approvedQuotes.length ? `Approved customer quotes (real quotes for testimonial/quote blocks — use verbatim with their real attributions, never invent others):\n${approvedQuotes.map(t => { const a = [t.author, t.role].filter(Boolean).join(", "); return a ? `- "${t.quote}" — ${a}` : `- "${t.quote}"`; }).join("\n")}` : null,
+    // Proof-point library — stats section + "APPROVED CUSTOMER QUOTES" (verbatim contract), same text as /lp/generate-page.
+    buildProofPointsSection(proofPoints, strictFacts) || null,
     copyInstructions?.trim() ? copyInstructions.trim() : null,
     typographySection || null,
     buildDesignIntensitySection(designIntensity),
@@ -4252,6 +4261,13 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     //     reused after generation to (a) prune AI-emitted noai blocks and (b)
     //     enforce locked/copy modes, exactly like /lp/generate-page.
     const approvedCaseStudies = await fetchApprovedCaseStudies(account.tenantId, true);
+    // Oct 2026 — the tenant's proof-point library (approved stats + verbatim
+    // customer quotes). Feeds the brief, the stats-role backfill and the
+    // verbatim-quote restore pass below.
+    const proofPoints = await fetchProofPoints(account.tenantId);
+    const libraryStats = proofPoints
+      .filter((p) => !isQuoteProofPoint(p) && p.approved_for_ai && p.value.trim() && p.label.trim())
+      .map((p) => ({ value: p.value.trim(), label: p.label.trim() }));
     const hasApprovedCaseStudies = approvedCaseStudies.length > 0;
     const governanceByType = await loadMicrositeGovernance(tenantId);
     const excludeTypes = new Set<string>();
@@ -4362,7 +4378,7 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
         );
       }
     }
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, authoritativeOutlineBlockList, selectedPersona, excludeTypes, micrositeRecipe, recipeExtraTypes);
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, authoritativeOutlineBlockList, selectedPersona, excludeTypes, micrositeRecipe, recipeExtraTypes, proofPoints);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -4783,8 +4799,8 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     if (!templateBlocks && !outlineActive) {
       enforceRequiredRoles(normalizedBlocks as unknown as Array<Record<string, unknown>>, {
         brandName: (brand.brandName as string | undefined) ?? "",
-        // Stats role: only the brand's approved scraped stats, never invented.
-        approvedStats: approvedBrandStats(brand as Parameters<typeof approvedBrandStats>[0]),
+        // Stats role: only approved stats (brand import + proof-point library), never invented.
+        approvedStats: [...approvedBrandStats(brand as Parameters<typeof approvedBrandStats>[0]), ...libraryStats],
         ctaUrl:
           ctaOverride?.url ??
           (brand.chilipiperUrl as string | undefined) ??
@@ -5391,6 +5407,30 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
       ])];
       // Safe deterministic swaps FIRST (instant, meaning-preserving) so the
       // critique model call only fixes what has no drop-in replacement.
+      // Quotes are verbatim (Oct 2026): snap paraphrased customer quotes back to
+      // the approved / reference text BEFORE any pass that edits copy.
+      try {
+        const knownQuotes = collectKnownQuotes({
+          proofPoints,
+          brandTestimonials: brand.scrapedTestimonials as Parameters<typeof collectKnownQuotes>[0]["brandTestimonials"],
+          referenceMarkdown: scrapeResult.scraped?.markdown ?? null,
+          strict: (brand.aiStrictFactsMode as boolean | undefined) === true,
+        });
+        const quoteFix = restoreVerbatimQuotes(normalizedBlocks as unknown[], knownQuotes);
+        if (quoteFix.restored.length > 0) {
+          logger.info(
+            { event: "ai_verbatim_quotes_restored", tenantId, path: "microsite", accountId, restored: quoteFix.restored },
+            "[generate-microsite] reworded customer quotes restored to verbatim text",
+          );
+          degradations.push({
+            code: "quote_restored_verbatim",
+            severity: "info",
+            detail: `${quoteFix.restored.length} customer quote${quoteFix.restored.length === 1 ? " was" : "s were"} reworded by the model and restored to the approved wording.`,
+          });
+        }
+      } catch (quoteErr) {
+        logger.warn({ err: quoteErr, tenantId }, "[generate-microsite] verbatim-quote restore skipped");
+      }
       const micrositeSwaps = applySafePhraseSwaps(normalizedBlocks as unknown[]);
       if (micrositeSwaps.swaps > 0) {
         logger.info(

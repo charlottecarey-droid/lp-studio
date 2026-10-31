@@ -108,6 +108,32 @@ describe("buildAccountBriefingPrompt — seller→prospect direction", () => {
     expect(sys).toContain("Proof: 3x meetings in 90 days");
   });
 
+  it("gives the model the seller's approved proof library and demands verbatim reuse (Oct 2026)", () => {
+    const quote = "With Dandy's digital workflow, we're cutting almost two appointments per denture—that's a game-changer for a mobile practice.";
+    const { systemPrompt } = buildAccountBriefingPrompt({
+      account: PROSPECT,
+      brandCtx: makeBrandCtx({ brandName: "Dandy" }),
+      researchText: "",
+      websiteContent: "",
+      sources: [],
+      proofPoints: [
+        { id: 1, value: "96%", label: "first-time fit rate", source_url: "", as_of_date: null, approved_for_ai: true, fact_kind: "stat", attribution_name: "", attribution_title: "", attribution_company: "" },
+        { id: 2, value: quote, label: "", source_url: "", as_of_date: null, approved_for_ai: true, fact_kind: "quote", attribution_name: "Dr. Nathan Suter", attribution_title: "Chief Clinical Officer", attribution_company: "" },
+      ],
+    });
+    expect(systemPrompt).toContain("Dandy's APPROVED PROOF LIBRARY");
+    expect(systemPrompt).toContain("- 96% first-time fit rate");
+    expect(systemPrompt).toContain(`"${quote}" — Dr. Nathan Suter, Chief Clinical Officer`);
+    expect(systemPrompt).toContain("copy each one VERBATIM");
+    expect(systemPrompt).toContain("Never invent a proof point, stat or quote when that library exists.");
+  });
+
+  it("without a library the briefing keeps the plain proof-point direction", () => {
+    const sys = buildSystem(makeBrandCtx({ brandName: "Dandy" }));
+    expect(sys).not.toContain("APPROVED PROOF LIBRARY");
+    expect(sys).toContain("\"fitAnalysis.proofPoints\" = Dandy's proof points, not Rasta Holdings's.");
+  });
+
   it("falls back to a neutral seller when no brand identity is configured, without naming the prospect as seller", () => {
     const sys = buildSystem(makeBrandCtx());
     // Neutral seller fallback — never the prospect's name.

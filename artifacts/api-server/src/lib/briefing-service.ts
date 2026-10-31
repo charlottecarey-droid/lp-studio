@@ -2,6 +2,7 @@ import { eq, and } from "drizzle-orm";
 import { db, salesBriefingsTable, salesAccountsTable, lpBrandSettingsTable } from "@workspace/db";
 import { callAIChat, AIChatError, fetchWithTimeout } from "./ai-utils";
 import { getSalesBrandContext, type SalesBrandContext } from "./salesBrandContext";
+import { fetchProofPoints, buildProofPointsSection, type ProofPoint } from "./proof-points";
 
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY ?? "";
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY ?? "";
@@ -147,6 +148,10 @@ export interface AccountBriefingPromptArgs {
   researchText: string;
   websiteContent: string;
   sources: string[];
+  /** Oct 2026 — the SELLER's proof-point library (lp_proof_points). When
+   *  present, fitAnalysis.proofPoints must be drawn from it verbatim instead
+   *  of being written by the model. */
+  proofPoints?: ProofPoint[];
 }
 
 /**
@@ -169,6 +174,8 @@ export function buildAccountBriefingPrompt(args: AccountBriefingPromptArgs): {
   userPrompt: string;
 } {
   const { account, brandCtx, researchText, websiteContent, sources } = args;
+  const proofPoints = args.proofPoints ?? [];
+  const proofLibrarySection = buildProofPointsSection(proofPoints, false);
 
   // ─── THE SELLER (the tenant doing the selling) ───
   // Robust identity: prefer the Sales Console brand name, then the brand
@@ -204,6 +211,7 @@ export function buildAccountBriefingPrompt(args: AccountBriefingPromptArgs): {
     "=== THE SELLER (your employer — the company doing the selling) ===",
     sellerLine,
     sellerOfferLines ? `\nWhat ${sellerName} offers:\n${sellerOfferLines}` : "",
+    proofLibrarySection ? `\n${sellerName}'s APPROVED PROOF LIBRARY (the only stats, claims and customer quotes the sales team may cite):\n${proofLibrarySection}` : "",
     "",
     "=== THE PROSPECT (the company being researched — the buyer) ===",
     `${account.name}${prospectIndustry ? ` — ${prospectIndustry}` : ""}`,
@@ -212,7 +220,7 @@ export function buildAccountBriefingPrompt(args: AccountBriefingPromptArgs): {
     `- Write the entire briefing from ${sellerName}'s point of view as the SELLER. ${account.name} is the BUYER/prospect, not the seller.`,
     `- NEVER describe how ${account.name} should sell to ITS OWN customers, and never position ${account.name}'s own products. Every recommendation is about ${sellerName} selling TO ${account.name}.`,
     `- "fitAnalysis.primaryValueProp" = why ${account.name} should buy from ${sellerName} (lead with ${sellerName}'s value).`,
-    `- "fitAnalysis.proofPoints" = ${sellerName}'s proof points, not ${account.name}'s.`,
+    `- "fitAnalysis.proofPoints" = ${sellerName}'s proof points, not ${account.name}'s.${proofLibrarySection ? ` Choose the 3–6 entries from ${sellerName}'s APPROVED PROOF LIBRARY above that matter most to ${account.name} and copy each one VERBATIM (a customer quote character-for-character, with its attribution). Never invent a proof point, stat or quote when that library exists.` : ""}`,
     `- "buyingCommittee[].recommendedMessage" = what a ${sellerName} sales rep should say to that person at ${account.name}.`,
     `- "talkingPoints" = points a ${sellerName} rep raises in a conversation with ${account.name}.`,
     `- "pageRecommendations" = guidance for a personalized landing page ${sellerName} will show ${account.name} to win the deal.`,
@@ -277,6 +285,7 @@ async function synthesizeBriefing(
   researchText: string,
   websiteContent: string,
   sources: string[],
+  proofPoints: ProofPoint[] = [],
 ): Promise<Record<string, unknown>> {
   const { systemPrompt, userPrompt } = buildAccountBriefingPrompt({
     account,
@@ -284,6 +293,7 @@ async function synthesizeBriefing(
     researchText,
     websiteContent,
     sources,
+    proofPoints,
   });
 
   const raw = await callAIChat({
@@ -445,6 +455,9 @@ export async function generateAndPersistAccountBriefing(args: {
   // Seller identity (the tenant) for the briefing's direction framing.
   progress(`Writing the ${account.name} brief`);
   const brandCtx = await getSalesBrandContext(tenantId);
+  // The seller's approved proof library, so the brief's proof points are real
+  // (fetchProofPoints fails open to []).
+  const proofPoints = await fetchProofPoints(tenantId);
 
   const briefingData = await synthesizeBriefing(
     accountCtx,
@@ -452,6 +465,7 @@ export async function generateAndPersistAccountBriefing(args: {
     research.text,
     website,
     research.sources,
+    proofPoints,
   );
 
   const existing = await db.select({ id: salesBriefingsTable.id })
