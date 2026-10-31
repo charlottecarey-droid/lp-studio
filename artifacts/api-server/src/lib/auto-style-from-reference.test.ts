@@ -36,7 +36,9 @@ const PROPOSED = {
 const ORIGINAL_FLAG = process.env.AUTO_STYLE_FROM_REFERENCE;
 
 beforeEach(() => {
-  delete process.env.AUTO_STYLE_FROM_REFERENCE;
+  // Oct 2026: the pass is OPT-IN. The behaviour tests below turn it on; the
+  // default-off contract has its own test.
+  process.env.AUTO_STYLE_FROM_REFERENCE = "1";
 });
 
 afterEach(() => {
@@ -121,6 +123,21 @@ describe("startAutoStyleFromReference", () => {
       timeoutMs: 20,
     });
     expect(result).toBeNull();
+  });
+
+  it("is OFF by default: with the flag unset, nothing runs and generation keeps the brand's own tokens", async () => {
+    delete process.env.AUTO_STYLE_FROM_REFERENCE;
+    const { orchestrator, calls } = fakeOrchestrator([
+      { event: "done", payload: fakePayload(PROPOSED) },
+    ]);
+    const result = await startAutoStyleFromReference({
+      referenceUrls: ["https://www.meetdandy.com/fusion-dentures-dso/"],
+      apiKey: "fc-key",
+      orchestrator,
+      checkHost: safeHost,
+    });
+    expect(result).toBeNull();
+    expect(calls).toEqual([]);
   });
 
   it("kill switch: AUTO_STYLE_FROM_REFERENCE=0 disables without invoking the orchestrator", async () => {

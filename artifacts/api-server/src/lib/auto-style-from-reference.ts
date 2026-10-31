@@ -12,7 +12,9 @@
  * Fail-open by contract: style is an enhancement, never a blocker. The
  * returned promise NEVER rejects — any failure (flag off, no key, unsafe
  * host, orchestrator error, empty override set, timeout) resolves null and
- * generation proceeds unstyled.
+ * generation proceeds unstyled. Since Oct 2026 the flag is OFF by default
+ * (see autoStyleEnabled): brand tokens come from Brand Settings unless the
+ * person explicitly asks to match a URL.
  */
 import { runOrchestrator } from "./brand-import";
 import { isSafePublicHost } from "./brand-import/net-guard";
@@ -42,11 +44,18 @@ export interface AutoStyleOptions {
 
 const DEFAULT_TIMEOUT_MS = 100_000;
 
-/** Kill switch — default ON; set AUTO_STYLE_FROM_REFERENCE=0 (or "false") to
- *  disable auto-styling without a deploy-level revert. */
+/**
+ * OPT-IN (Oct 2026, Charlotte: "it should never change branding based on an
+ * inspo page unless the person says to"). A reference URL informs layout and
+ * copy; it must never restyle the tenant's brand on its own — a Dandy page
+ * generated from meetdandy.com/fusion-dentures-dso came back in colours
+ * sampled from denture photography instead of the configured forest/lime.
+ * The explicit builder action "Match style from URL" is the person saying
+ * to; this automatic pass runs only when AUTO_STYLE_FROM_REFERENCE=1.
+ */
 function autoStyleEnabled(): boolean {
   const v = (process.env.AUTO_STYLE_FROM_REFERENCE ?? "").trim().toLowerCase();
-  return v !== "0" && v !== "false";
+  return v === "1" || v === "true";
 }
 
 /** Kick off style extraction for the first reference URL. Resolves the
