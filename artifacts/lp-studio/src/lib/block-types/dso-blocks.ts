@@ -380,6 +380,8 @@ export interface DsoGrowthThesisBlockProps {
   eyebrow?: string;
   /** The long sentence; each word lights up on scroll. */
   statement: string;
+  /** Hide the eyebrow + statement and show only the pillars. */
+  hideStatement?: boolean;
   pillars: DsoGrowthPillar[];
   footnote?: string;
   backgroundStyle?: BackgroundStyle;

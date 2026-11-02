@@ -5232,6 +5232,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "statement"]} values={{ eyebrow: p.eyebrow ?? "", statement: p.statement ?? "" }} />
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs">Show statement</Label>
+                <p className="text-[11px] text-muted-foreground">Turn off to show only the pillars.</p>
+              </div>
+              <button
+                onClick={() => onChange({ ...block, props: { ...p, hideStatement: !p.hideStatement } })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${!p.hideStatement ? "bg-primary" : "bg-muted"}`}
+                aria-pressed={!p.hideStatement}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${!p.hideStatement ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
               <Select value={p.backgroundStyle ?? "black"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>

@@ -144,6 +144,7 @@ interface Props {
 export function BlockDsoGrowthThesis({ props, brand, onFieldChange }: Props) {
   const merged = { ...DSO_GROWTH_THESIS_DEFAULT_PROPS, ...props };
   const { eyebrow, statement, footnote, backgroundStyle = "black", ctaText, ctaUrl, ctaMode = "link" } = merged;
+  const showStatement = !merged.hideStatement;
   const pillars = (merged.pillars && merged.pillars.length > 0 ? merged.pillars : DSO_GROWTH_THESIS_DEFAULT_PROPS.pillars).slice(0, 4);
 
   const field = (key: keyof DsoGrowthThesisBlockProps) =>
@@ -200,6 +201,7 @@ export function BlockDsoGrowthThesis({ props, brand, onFieldChange }: Props) {
       )}
 
       <div style={{ maxWidth: "var(--lp-page-max)", margin: "0 auto", padding: "0 1.5rem", position: "relative" }}>
+        {showStatement && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
           <div className="lg:col-span-3">
             {(eyebrow || onFieldChange) && (
@@ -234,8 +236,9 @@ export function BlockDsoGrowthThesis({ props, brand, onFieldChange }: Props) {
             </h2>
           </div>
         </div>
+        )}
 
-        <div className={`mt-20 md:mt-28 grid grid-cols-1 sm:grid-cols-2 ${cols} gap-x-10 gap-y-12`}>
+        <div className={`${showStatement ? "mt-20 md:mt-28" : ""} grid grid-cols-1 sm:grid-cols-2 ${cols} gap-x-10 gap-y-12`}>
           {pillars.map((p, i) => (
             <Pillar key={i} pillar={p} index={i} fg={fg} mu={mu} rule={rule} onUpdate={updatePillar ? (patch) => updatePillar(i, patch) : undefined} />
           ))}

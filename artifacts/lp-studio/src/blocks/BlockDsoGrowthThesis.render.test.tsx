@@ -33,6 +33,18 @@ describe("BlockDsoGrowthThesis", () => {
     expect(html).toContain('data-block="dso-growth-thesis"');
   });
 
+  it("hideStatement drops the eyebrow and statement but keeps the pillars", () => {
+    const html = renderToStaticMarkup(
+      <StaticRenderContext.Provider value={true}>
+        <BlockDsoGrowthThesis props={{ ...DSO_GROWTH_THESIS_DEFAULT_PROPS, eyebrow: "The thesis", statement: "A statement that must not render.", hideStatement: true, pillars: [{ value: "50%", label: "Fewer denture appointments" }] }} />
+      </StaticRenderContext.Provider>,
+    );
+    expect(html).not.toContain("A statement that must not render.");
+    expect(html).not.toContain("The thesis");
+    expect(html).toContain("50%");
+    expect(html).toContain("Fewer denture appointments");
+  });
+
   it("is registered with brand-neutral defaults and template-engine tags", () => {
     const def = BLOCK_REGISTRY.find((b) => b.type === "dso-growth-thesis");
     expect(def).toBeTruthy();
