@@ -40,6 +40,7 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "dso-ai-feature":       ["eyebrow", "headline", "body", "ctaText"],
   "dso-stat-showcase":    ["eyebrow", "headline"],
   "dso-growth-thesis":    ["eyebrow", "statement", "footnote", "ctaText"],
+  "dso-minimal-hero":     ["eyebrow", "headline", "headlineMuted", "subheadline", "ctaText", "ctaSecondaryText"],
   "dso-video-case-study": ["headline", "headlineMuted", "linkText", "body", "storyLinkText", "ctaText"],
   "dso-scroll-story":     ["eyebrow"],
   "dso-network-map":      ["eyebrow", "headline", "body", "ctaText"],

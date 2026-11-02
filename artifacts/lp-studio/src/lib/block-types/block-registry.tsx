@@ -285,6 +285,7 @@ import type {
   DsoAiFeatureBlockProps,
   DsoStatShowcaseBlockProps,
   DsoGrowthThesisBlockProps,
+  DsoMinimalHeroBlockProps,
   DsoVideoCaseStudyBlockProps,
   DsoScrollStoryBlockProps,
   DsoScrollStoryHeroBlockProps,
@@ -2277,6 +2278,43 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
             <rect x={8 + i*36} y="58" width="26" height="2" rx="1" fill="white" opacity="0.5" />
           </g>
         ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-minimal-hero" as const,
+    label: "Minimal Hero",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoMinimalHeroBlockProps => ({
+      showNav: true,
+      navGutter: 20,
+      eyebrow: "For multi-location groups",
+      headline: "One partner for every location.",
+      headlineMuted: "Built for the enterprise.",
+      subheadline: "Standardize quality, see every provider's results in one place, and grow same-store revenue without adding headcount.",
+      ctaText: "Schedule a demo",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaSecondaryText: "See how it works",
+      ctaSecondaryUrl: "#",
+      ctaSecondaryAction: "url",
+      mediaVideoUrl: "",
+      mediaImageUrl: "",
+      mediaImageAlt: "",
+      mediaAspect: "16/9",
+      stats: [],
+      backgroundStyle: "white",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" />
+        <rect x="6" y="5" width="12" height="3" rx="1.5" fill="hsl(152,42%,12%)" />
+        <rect x="100" y="4" width="14" height="5" rx="2.5" fill="hsl(68,60%,52%)" />
+        <rect x="30" y="18" width="60" height="6" rx="3" fill="hsl(152,42%,12%)" />
+        <rect x="40" y="27" width="40" height="6" rx="3" fill="hsl(152,42%,12%)" opacity="0.35" />
+        <rect x="45" y="37" width="30" height="2" rx="1" fill="hsl(152,42%,12%)" opacity="0.5" />
+        <rect x="48" y="42" width="12" height="4" rx="2" fill="hsl(68,60%,52%)" />
+        <rect x="14" y="50" width="92" height="20" rx="5" fill="hsl(152,30%,18%)" />
       </svg>
     ),
   },
@@ -10151,6 +10189,7 @@ export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "ds
 export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: "dso-ai-feature" }>;
 export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { type: "dso-stat-showcase" }>;
 export function createBlock(type: "dso-growth-thesis"): Extract<PageBlock, { type: "dso-growth-thesis" }>;
+export function createBlock(type: "dso-minimal-hero"): Extract<PageBlock, { type: "dso-minimal-hero" }>;
 export function createBlock(type: "dso-video-case-study"): Extract<PageBlock, { type: "dso-video-case-study" }>;
 export function createBlock(type: "dso-scroll-story"): Extract<PageBlock, { type: "dso-scroll-story" }>;
 export function createBlock(type: "dso-scroll-story-hero"): Extract<PageBlock, { type: "dso-scroll-story-hero" }>;
@@ -10292,6 +10331,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-ai-feature": return { id, type: "dso-ai-feature", props: props as DsoAiFeatureBlockProps };
     case "dso-stat-showcase": return { id, type: "dso-stat-showcase", props: props as DsoStatShowcaseBlockProps };
     case "dso-growth-thesis": return { id, type: "dso-growth-thesis", props: props as DsoGrowthThesisBlockProps };
+    case "dso-minimal-hero": return { id, type: "dso-minimal-hero", props: props as DsoMinimalHeroBlockProps };
     case "dso-video-case-study": return { id, type: "dso-video-case-study", props: props as DsoVideoCaseStudyBlockProps };
     case "dso-scroll-story": return { id, type: "dso-scroll-story", props: props as DsoScrollStoryBlockProps };
     case "dso-scroll-story-hero": return { id, type: "dso-scroll-story-hero", props: props as DsoScrollStoryHeroBlockProps };

@@ -1,6 +1,7 @@
 import type React from "react";
 import type { BackgroundStyle } from "../bg-styles";
 import type { CtaMode, CtaModalConfig } from "./common";
+import type { HeroCtaActionMode } from "./generic-blocks";
 
 export interface DsoPracticeNavLink {
   label: string;
@@ -429,6 +430,46 @@ export interface DsoVideoCaseStudyBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  backgroundStyle?: BackgroundStyle;
+}
+
+/** DSO — Minimal hero (Nov 2026): Apple/Ramp-style light opening — slim
+ *  full-width nav, centred two-tone headline, one support line, pill + text
+ *  link, one large rounded media card, optional hairline number row. */
+export interface DsoMinimalHeroStat {
+  value: string;
+  label: string;
+}
+
+export interface DsoMinimalHeroBlockProps extends CtaModalConfig {
+  showNav?: boolean;
+  navCtaText?: string;
+  navGutter?: number;
+  eyebrow?: string;
+  headline: string;
+  headlineMuted?: string;
+  subheadline?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaAction?: HeroCtaActionMode;
+  chilipiperUrl?: string;
+  /** Video for ctaAction === "video-modal" (NOT the hero graphic). */
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  ctaButtonColor?: string;
+  ctaButtonTextColor?: string;
+  ctaSecondaryText?: string;
+  ctaSecondaryUrl?: string;
+  ctaSecondaryAction?: HeroCtaActionMode;
+  secondaryChilipiperUrl?: string;
+  secondaryVideoUrl?: string;
+  /** The media card: a hosted mp4 (muted loop) or an embed URL. */
+  mediaVideoUrl?: string;
+  /** Poster for the video, or the graphic itself. */
+  mediaImageUrl?: string;
+  mediaImageAlt?: string;
+  mediaAspect?: "16/9" | "21/9" | "3/2";
+  stats?: DsoMinimalHeroStat[];
   backgroundStyle?: BackgroundStyle;
 }
 

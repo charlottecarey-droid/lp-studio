@@ -205,6 +205,7 @@ import { BentoMosaicHeroPanel } from "./BentoMosaicHeroPanel";
 import { KineticTypeHeroPanel } from "./KineticTypeHeroPanel";
 import { GlassBentoFeaturesPanel } from "./GlassBentoFeaturesPanel";
 import { GlowVideoHeroPanel } from "./GlowVideoHeroPanel";
+import { DsoMinimalHeroPanel } from "./DsoMinimalHeroPanel";
 import { VideoStepShowcasePanel } from "./VideoStepShowcasePanel";
 import { GlowStatBandPanel } from "./GlowStatBandPanel";
 import { VideoZigzagPanel } from "./VideoZigzagPanel";
@@ -1592,6 +1593,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <GlassBentoFeaturesPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "dso-minimal-hero":
+        return (
+          <DsoMinimalHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "glow-video-hero":

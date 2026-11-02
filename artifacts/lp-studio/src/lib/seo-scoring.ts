@@ -114,7 +114,7 @@ export const HERO_TYPES = new Set([
   // Webinar Hub leads with an event hero (and carries its own CTA + lead form).
   "webinar-hub",
   // Stack family glow hero (Sept 2026).
-  "glow-video-hero",
+  "glow-video-hero", "dso-minimal-hero",
   "glow-form-hero",
   // Invite family self-nav hero (Sept 2026).
   "invite-demo-hero",
