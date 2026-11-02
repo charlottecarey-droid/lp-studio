@@ -400,12 +400,26 @@ export interface DsoVideoCaseStudyBlockProps {
   eyebrow?: string;
   company: string;
   companyMeta?: string;
+  /** Two-tone headline: `headline` in ink, `headlineMuted` in grey after it. */
   headline: string;
+  headlineMuted?: string;
+  /** Quiet text link under the headline ("Learn about …"). */
+  linkText?: string;
+  linkUrl?: string;
   body?: string;
-  stats: DsoVideoCaseStudyStat[];
+  /** Optional outcome numbers (0–3) above the quote. */
+  stats?: DsoVideoCaseStudyStat[];
   quote?: string;
   quoteAuthor?: string;
   quoteRole?: string;
+  /** Big accent-colour name over the poster; defaults to the author's first name. */
+  overlayName?: string;
+  /** Line under the big name; defaults to quoteRole. */
+  overlayRole?: string;
+  /** Pill label on the poster. Default "Watch video". */
+  watchLabel?: string;
+  storyLinkText?: string;
+  storyLinkUrl?: string;
   /** Wistia media/embed URL or a hosted mp4. */
   videoUrl: string;
   posterUrl?: string;

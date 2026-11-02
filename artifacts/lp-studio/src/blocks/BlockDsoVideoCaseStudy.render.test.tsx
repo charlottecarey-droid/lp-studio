@@ -16,9 +16,14 @@ describe("BlockDsoVideoCaseStudy", () => {
             ...DSO_VIDEO_CASE_STUDY_DEFAULT_PROPS,
             company: "Enable Dental",
             headline: "From four appointments per denture to fewer than two",
+            headlineMuted: "Let one partner handle the rest.",
             stats: [{ value: "<2", label: "Appointments per denture" }, { value: "$9.2M+", label: "Total annualized value" }],
             quote: "that's a game-changer for a mobile practice",
             quoteAuthor: "Dr. Nathan Suter",
+            quoteRole: "Chief Clinical Officer, Enable Dental",
+            overlayName: "",
+            overlayRole: "",
+            watchLabel: "Watch video",
             videoUrl: "https://fast.wistia.net/embed/iframe/srm79zv45w",
             posterUrl: "https://example.com/poster.webp",
           }}
@@ -32,6 +37,10 @@ describe("BlockDsoVideoCaseStudy", () => {
     expect(html).toContain("game-changer");
     expect(html).toContain('src="https://example.com/poster.webp"');
     expect(html).toContain("Play Enable Dental story");
+    // Ramp-style card: the author's first name (title stripped) sits over the poster, with the role under it, and one play pill.
+    expect(html).toContain(">Nathan<");
+    expect(html).toContain("Watch video");
+    expect(html).toContain("Let one partner handle the rest.");
     // The Wistia iframe mounts only after play — never at first paint.
     expect(html).not.toContain("<iframe");
   });
@@ -41,5 +50,6 @@ describe("BlockDsoVideoCaseStudy", () => {
     expect(def).toBeTruthy();
     expect(JSON.stringify(def!.defaultProps()).toLowerCase()).not.toMatch(/dandy|dental|denture|crown/);
     expect(getDefaultBlockTags("dso-video-case-study")).toEqual(["social-proof", "media"]);
+    expect(def!.defaultProps().backgroundStyle).toBe("white");
   });
 });

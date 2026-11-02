@@ -2285,40 +2285,42 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     label: "Video Case Study",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoVideoCaseStudyBlockProps => ({
-      eyebrow: "Customer story",
+      eyebrow: "",
       company: "Northwind Health",
-      companyMeta: "45 locations",
-      headline: "A phased rollout that paid for itself in the first year",
-      body: "Northwind standardized one workflow across every location, piloted it in ten, and scaled once the numbers held.",
-      stats: [
-        { value: "2x", label: "Faster cycle time" },
-        { value: "$2.5M", label: "Hard cost savings" },
-        { value: "90 days", label: "To first ROI review" },
-      ],
-      quote: "They gave us our schedule back.",
+      companyMeta: "",
+      headline: "Keep your clinical team focused on patients.",
+      headlineMuted: "Let one partner handle the rest.",
+      linkText: "Learn about the platform",
+      linkUrl: "#",
+      body: "",
+      stats: [],
+      quote: "They gave us our schedule back. What used to take four visits now takes fewer than two, and our teams can finally plan around it.",
       quoteAuthor: "Jordan Lee",
-      quoteRole: "Chief Clinical Officer",
+      quoteRole: "Chief Clinical Officer, Northwind Health",
+      overlayName: "Jordan",
+      overlayRole: "Chief Clinical Officer, Northwind Health",
+      watchLabel: "Watch video",
+      storyLinkText: "Read their story",
+      storyLinkUrl: "#",
       videoUrl: "",
       posterUrl: "",
       videoSide: "left",
-      backgroundStyle: "dark",
+      backgroundStyle: "white",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        <rect width="120" height="70" fill="hsl(152,42%,12%)" rx="4" />
-        <rect x="8" y="14" width="60" height="42" rx="4" fill="white" opacity="0.12" />
-        <circle cx="38" cy="35" r="7" fill="hsl(68,60%,52%)" />
-        <path d="M36 31.5 L41.5 35 L36 38.5 Z" fill="hsl(152,42%,12%)" />
-        <rect x="76" y="14" width="14" height="2" rx="1" fill="hsl(68,60%,52%)" />
-        <rect x="76" y="20" width="36" height="4" rx="2" fill="white" opacity="0.9" />
-        <rect x="76" y="26" width="28" height="4" rx="2" fill="white" opacity="0.6" />
-        {[0,1,2].map(i => (
-          <g key={i}>
-            <rect x={76 + i*12} y="38" width="9" height="1" fill="white" opacity="0.25" />
-            <rect x={76 + i*12} y="41" width="8" height="5" rx="1" fill="white" opacity="0.85" />
-          </g>
-        ))}
-        <rect x="76" y="52" width="34" height="2" rx="1" fill="white" opacity="0.45" />
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" />
+        <rect x="6" y="8" width="56" height="54" rx="5" fill="hsl(152,30%,18%)" />
+        <rect x="11" y="40" width="30" height="9" rx="1.5" fill="hsl(68,60%,52%)" />
+        <rect x="11" y="52" width="22" height="2.5" rx="1" fill="hsl(68,60%,52%)" opacity="0.9" />
+        <rect x="43" y="50" width="15" height="7" rx="3.5" fill="rgba(255,255,255,0.35)" />
+        <rect x="68" y="12" width="44" height="4" rx="2" fill="hsl(152,42%,12%)" />
+        <rect x="68" y="19" width="34" height="4" rx="2" fill="hsl(152,42%,12%)" opacity="0.4" />
+        <rect x="68" y="28" width="22" height="2" rx="1" fill="hsl(152,42%,12%)" opacity="0.5" />
+        <rect x="68" y="46" width="44" height="2" rx="1" fill="hsl(152,42%,12%)" opacity="0.55" />
+        <rect x="68" y="50" width="38" height="2" rx="1" fill="hsl(152,42%,12%)" opacity="0.55" />
+        <rect x="68" y="56" width="16" height="2.5" rx="1" fill="hsl(152,42%,12%)" />
+        <rect x="68" y="61" width="24" height="2" rx="1" fill="hsl(152,42%,12%)" opacity="0.4" />
       </svg>
     ),
   },

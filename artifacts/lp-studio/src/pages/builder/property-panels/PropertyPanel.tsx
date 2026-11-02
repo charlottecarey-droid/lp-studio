@@ -5137,42 +5137,53 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeStat = (i: number) => onChange({ ...block, props: { ...p, stats: stats.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <DsoRefreshRow fields={["eyebrow", "headline", "body"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", body: p.body ?? "" }} />
+            <DsoRefreshRow fields={["headline", "headlineMuted", "body"]} values={{ headline: p.headline ?? "", headlineMuted: p.headlineMuted ?? "", body: p.body ?? "" }} />
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{bgOptions.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="border-t pt-3 space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video</Label>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video card</Label>
               <VideoPicker label="Video (Wistia, YouTube or library mp4)" value={p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, videoUrl: v } })} />
               <div className="space-y-1.5">
                 <Label className="text-xs">Poster image (shown before play)</Label>
                 <ImagePicker value={p.posterUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, posterUrl: v } })} />
               </div>
-              <div className="space-y-1"><Label className="text-xs">Video side</Label><Select value={p.videoSide ?? "left"} onValueChange={v => onChange({ ...block, props: { ...p, videoSide: v as "left" | "right" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left" className="text-xs">Left</SelectItem><SelectItem value="right" className="text-xs">Right</SelectItem></SelectContent></Select></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5"><Label className="text-xs">Big name on the card</Label><Input value={p.overlayName ?? ""} onChange={e => onChange({ ...block, props: { ...p, overlayName: e.target.value } })} placeholder="First name" className="h-8 text-xs" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Line under the name</Label><Input value={p.overlayRole ?? ""} onChange={e => onChange({ ...block, props: { ...p, overlayRole: e.target.value } })} placeholder="Role, Company" className="h-8 text-xs" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5"><Label className="text-xs">Play pill label</Label><Input value={p.watchLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, watchLabel: e.target.value } })} placeholder="Watch video" className="h-8 text-xs" /></div>
+                <div className="space-y-1"><Label className="text-xs">Card side</Label><Select value={p.videoSide ?? "left"} onValueChange={v => onChange({ ...block, props: { ...p, videoSide: v as "left" | "right" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left" className="text-xs">Left</SelectItem><SelectItem value="right" className="text-xs">Right</SelectItem></SelectContent></Select></div>
+              </div>
             </div>
             <div className="border-t pt-3 space-y-2">
-              <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Customer story" className="h-8 text-xs" /></div>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Headline</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">First sentence (ink)</Label>
+                <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { headlineMuted: p.headlineMuted ?? "" })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Second sentence (muted)</Label>
+                <AiTextField type="textarea" rows={2} value={p.headlineMuted ?? ""} onChange={v => onChange({ ...block, props: { ...p, headlineMuted: v } })} fieldLabel="Second sentence" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headlineMuted", p.headlineMuted ?? "", { headline: p.headline ?? "" })} />
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5"><Label className="text-xs">Company</Label><Input value={p.company ?? ""} onChange={e => onChange({ ...block, props: { ...p, company: e.target.value } })} className="h-8 text-xs" /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Company detail</Label><Input value={p.companyMeta ?? ""} onChange={e => onChange({ ...block, props: { ...p, companyMeta: e.target.value } })} placeholder="45 locations" className="h-8 text-xs" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Link text</Label><Input value={p.linkText ?? ""} onChange={e => onChange({ ...block, props: { ...p, linkText: e.target.value } })} placeholder="Learn about …" className="h-8 text-xs" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Link URL</Label><Input value={p.linkUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, linkUrl: e.target.value } })} placeholder="https://… or #anchor" className="h-8 text-xs" /></div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Headline</Label>
-                <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", body: p.body ?? "" })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Body</Label>
-                <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
+                <Label className="text-xs">Body (optional)</Label>
+                <Textarea value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} rows={2} className="text-xs" />
               </div>
             </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Outcome numbers (up to 4)</Label>
-                <Button variant="ghost" size="sm" onClick={addStat} className="h-7 text-xs gap-1" disabled={stats.length >= 4}><Plus className="w-3 h-3" /> Add</Button>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Outcome numbers (optional, up to 3)</Label>
+                <Button variant="ghost" size="sm" onClick={addStat} className="h-7 text-xs gap-1" disabled={stats.length >= 3}><Plus className="w-3 h-3" /> Add</Button>
               </div>
               <div className="space-y-2">
                 {stats.map((s, i) => (
@@ -5194,12 +5205,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Textarea value={p.quote ?? ""} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} rows={3} className="text-xs" placeholder="Exactly what the customer said" />
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5"><Label className="text-xs">Name</Label><Input value={p.quoteAuthor ?? ""} onChange={e => onChange({ ...block, props: { ...p, quoteAuthor: e.target.value } })} className="h-8 text-xs" /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Title</Label><Input value={p.quoteRole ?? ""} onChange={e => onChange({ ...block, props: { ...p, quoteRole: e.target.value } })} className="h-8 text-xs" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Role, company</Label><Input value={p.quoteRole ?? ""} onChange={e => onChange({ ...block, props: { ...p, quoteRole: e.target.value } })} className="h-8 text-xs" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5"><Label className="text-xs">Story link text</Label><Input value={p.storyLinkText ?? ""} onChange={e => onChange({ ...block, props: { ...p, storyLinkText: e.target.value } })} placeholder="Read their story" className="h-8 text-xs" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Story link URL</Label><Input value={p.storyLinkUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, storyLinkUrl: e.target.value } })} placeholder="https://…" className="h-8 text-xs" /></div>
               </div>
             </div>
             <div className="border-t pt-3 space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to Action (optional)</Label>
-              <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Read the case study" className="h-8 text-xs" /></div>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Button (optional)</Label>
+              <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Schedule a demo" className="h-8 text-xs" /></div>
               <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
               <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
             </div>
