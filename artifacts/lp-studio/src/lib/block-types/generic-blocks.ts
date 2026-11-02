@@ -3753,6 +3753,9 @@ export interface SocialProofLogo {
   /** Optional click-through URL — renders the logo as a focusable link
    *  (logo-marquee). Purely additive; bands that don't link ignore it. */
   href?: string;
+  /** Per-logo size multiplier (logo-marquee): 1 = the block's logo height,
+   *  1.3 = 30% larger. Lets wide/thin marks be balanced against compact ones. */
+  scale?: number;
 }
 
 /** 6. Logo Wall — a calm, editorial "trusted by" logo cloud on a light surface;
@@ -3778,6 +3781,17 @@ export interface LogoMarqueeBlockProps extends HeroBrandStyleConfig {
   speed?: "slow" | "medium" | "fast";
   /** Render logos in muted greyscale. Default true. */
   grayscale?: boolean;
+  /** Logo height in px (all logos share it; per-logo `scale` adjusts). Default 32. */
+  logoHeight?: number;
+  /** Max logo width in px before a wide mark is scaled down. Default 160. */
+  logoMaxWidth?: number;
+  /** Horizontal breathing room between logos. Default "regular". */
+  logoSpacing?: "tight" | "regular" | "wide";
+  /** Resting opacity of greyscale logos (0.3–1). Default 0.6; hover restores full colour. */
+  logoOpacity?: number;
+  /** Multiply-blend logos on light surfaces so JPG/white-box marks sit flat on
+   *  the band instead of showing their white rectangles. Default true. */
+  blendWhite?: boolean;
   /** Pause the scroll while the ribbon is hovered. Default true. */
   pauseOnHover?: boolean;
 }

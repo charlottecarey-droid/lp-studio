@@ -65,6 +65,41 @@ export function LogoMarqueePanel({ props, onChange }: Props) {
           <Label className="text-xs text-slate-600 cursor-pointer">Pause on hover</Label>
           <Switch checked={p.pauseOnHover !== false} onCheckedChange={(v) => patchProps({ pauseOnHover: v })} />
         </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-xs text-slate-600 cursor-pointer">Blend white backgrounds</Label>
+            <p className="text-[11px] text-slate-500">Hides the white box around JPG logos on light bands.</p>
+          </div>
+          <Switch checked={props.blendWhite !== false} onCheckedChange={(v) => onChange({ ...props, blendWhite: v })} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs text-slate-600 mb-1.5 block">Logo height (px)</Label>
+            <Input type="number" min={16} max={96} value={props.logoHeight ?? 32} onChange={(e) => onChange({ ...props, logoHeight: Math.max(16, Math.min(96, parseInt(e.target.value, 10) || 32)) })} className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs text-slate-600 mb-1.5 block">Max width (px)</Label>
+            <Input type="number" min={60} max={400} value={props.logoMaxWidth ?? 160} onChange={(e) => onChange({ ...props, logoMaxWidth: Math.max(60, Math.min(400, parseInt(e.target.value, 10) || 160)) })} className="h-8 text-sm" />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs text-slate-600 mb-1.5 block">Logo opacity ({Math.round((props.logoOpacity ?? 0.6) * 100)}%)</Label>
+          <input type="range" min={30} max={100} step={5} value={Math.round((props.logoOpacity ?? 0.6) * 100)} onChange={(e) => onChange({ ...props, logoOpacity: parseInt(e.target.value, 10) / 100 })} className="w-full" />
+        </div>
+        <div>
+          <Label className="text-xs text-slate-600 mb-1.5 block">Spacing between logos</Label>
+          <Select
+            value={props.logoSpacing ?? "regular"}
+            onValueChange={(v) => onChange({ ...props, logoSpacing: v as NonNullable<LogoMarqueeBlockProps["logoSpacing"]> })}
+          >
+            <SelectTrigger className="text-sm h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tight">Tight</SelectItem>
+              <SelectItem value="regular">Regular</SelectItem>
+              <SelectItem value="wide">Wide</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div>
           <Label className="text-xs text-slate-600 mb-1.5 block">Scroll speed</Label>
           <Select
@@ -136,6 +171,19 @@ export function LogoMarqueePanel({ props, onChange }: Props) {
               onChange={(e) => updateLogo(i, { href: e.target.value })}
               className="text-sm"
             />
+            <div className="flex items-center gap-2">
+              <Label className="text-[11px] text-slate-500 whitespace-nowrap">Size ×</Label>
+              <Input
+                type="number"
+                step={0.05}
+                min={0.4}
+                max={2.5}
+                value={logo.scale ?? 1}
+                onChange={(e) => updateLogo(i, { scale: Math.max(0.4, Math.min(2.5, parseFloat(e.target.value) || 1)) })}
+                className="h-7 w-24 text-xs"
+              />
+              <span className="text-[11px] text-slate-400">1 = block height; raise for thin wide marks</span>
+            </div>
           </div>
         ))}
         <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addLogo}>

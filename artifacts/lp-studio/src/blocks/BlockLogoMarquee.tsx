@@ -61,6 +61,8 @@ interface Props {
   onFieldChange?: (updated: LogoMarqueeBlockProps) => void;
 }
 
+const SPACING_PX: Record<"tight" | "regular" | "wide", number> = { tight: 20, regular: 36, wide: 52 };
+
 function LogoMark({
   logo,
   grayscale,
@@ -68,6 +70,11 @@ function LogoMark({
   family,
   textColor,
   accent,
+  height,
+  maxWidth,
+  spacing,
+  blendWhite,
+  opacity,
   /** True for the seamless-loop / second-row duplicates: hidden from the
    *  accessibility tree and removed from the tab order. */
   decorative,
@@ -78,17 +85,32 @@ function LogoMark({
   family: string;
   textColor: string;
   accent: string;
+  height: number;
+  maxWidth: number;
+  spacing: number;
+  blendWhite: boolean;
+  opacity: number;
   decorative?: boolean;
 }) {
+  // Nov 2026 — Charlotte: "add an option to edit the logo sizes… it doesn't look
+  // cohesive". One shared height, a per-logo scale to balance wide vs compact
+  // marks, and multiply-blending on light bands so white-box JPG logos sit flat.
+  const scale = Math.max(0.4, Math.min(2.5, Number(logo.scale ?? 1) || 1));
   const visual = logo.imageUrl ? (
     <img
       src={logo.imageUrl}
       alt={decorative ? "" : logo.name}
       loading="lazy"
       className={cn(
-        "h-8 w-auto max-w-[160px] object-contain transition duration-300",
-        grayscale && "grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 group-focus-visible:grayscale-0 group-focus-visible:opacity-100",
+        "w-auto object-contain transition duration-300",
+        grayscale && "grayscale group-hover:grayscale-0 group-hover:!opacity-100 group-focus-visible:grayscale-0 group-focus-visible:!opacity-100",
       )}
+      style={{
+        height: Math.round(height * scale),
+        maxWidth: Math.round(maxWidth * scale),
+        opacity: grayscale ? opacity : undefined,
+        mixBlendMode: blendWhite && !dark ? "multiply" : undefined,
+      }}
     />
   ) : (
     <span
@@ -118,8 +140,8 @@ function LogoMark({
         aria-hidden={decorative || undefined}
         tabIndex={decorative ? -1 : undefined}
         aria-label={logo.imageUrl ? undefined : logo.name}
-        className="group inline-flex shrink-0 items-center rounded-md px-8 py-1 outline-none focus-visible:outline-2 focus-visible:outline-offset-4 md:px-10"
-        style={{ outlineColor: accent }}
+        className="group inline-flex shrink-0 items-center rounded-md py-1 outline-none focus-visible:outline-2 focus-visible:outline-offset-4"
+        style={{ outlineColor: accent, paddingLeft: spacing, paddingRight: spacing }}
       >
         {visual}
       </a>
@@ -128,7 +150,8 @@ function LogoMark({
   return (
     <span
       aria-hidden={decorative || undefined}
-      className="group inline-flex shrink-0 items-center px-8 py-1 md:px-10"
+      className="group inline-flex shrink-0 items-center py-1"
+      style={{ paddingLeft: spacing, paddingRight: spacing }}
     >
       {visual}
     </span>
@@ -164,7 +187,12 @@ export function BlockLogoMarquee({ props, brand, animationsEnabled, onFieldChang
   const reduceMotion = useReducedMotion() ?? false;
   const staticGrid = reduceMotion || animationsEnabled === false;
 
-  const markProps = { grayscale, dark, family: headFamily, textColor, accent };
+  const logoHeight = Math.max(16, Math.min(96, Number(props.logoHeight ?? 32) || 32));
+  const logoMaxWidth = Math.max(60, Math.min(400, Number(props.logoMaxWidth ?? 160) || 160));
+  const spacing = SPACING_PX[props.logoSpacing ?? "regular"];
+  const blendWhite = props.blendWhite !== false;
+  const logoOpacity = Math.max(0.3, Math.min(1, Number(props.logoOpacity ?? 0.6) || 0.6));
+  const markProps = { grayscale, dark, family: headFamily, textColor, accent, height: logoHeight, maxWidth: logoMaxWidth, spacing, blendWhite, opacity: logoOpacity };
 
   /** One scrolling row. The second copy of the logo set (needed for the
    *  seamless loop) is decorative: aria-hidden + out of the tab order. The
