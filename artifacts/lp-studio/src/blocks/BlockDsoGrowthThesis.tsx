@@ -160,6 +160,8 @@ export function BlockDsoGrowthThesis({ props, brand, onFieldChange }: Props) {
   const dim = dark ? "rgba(255,255,255,0.22)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.22)";
   const mu = dark ? "rgba(255,255,255,0.56)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.62)";
   const rule = dark ? "rgba(255,255,255,0.12)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.12)";
+  // Lime on cream fails contrast; on light surfaces the eyebrow takes the ink.
+  const eyebrowFg = dark ? AW : P;
 
   const sectionRef = useRef<HTMLElement>(null);
   const anim = useAnimInitial();
@@ -205,9 +207,9 @@ export function BlockDsoGrowthThesis({ props, brand, onFieldChange }: Props) {
                 initial={anim({ opacity: 0, y: 8 })}
                 animate={showHeader ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.5 }}
-                style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, display: "flex", alignItems: "center", gap: 12 }}
+                style={{ fontFamily: BODY, fontSize: 11, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: eyebrowFg, display: "flex", alignItems: "center", gap: 12 }}
               >
-                <span aria-hidden style={{ width: 28, height: 1, background: AW, display: "inline-block" }} />
+                <span aria-hidden style={{ width: 28, height: 1, background: eyebrowFg, display: "inline-block" }} />
                 <InlineText as="span" value={eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }} />
               </motion.p>
             )}

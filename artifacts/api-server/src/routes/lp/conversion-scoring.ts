@@ -85,6 +85,7 @@ const SOCIAL_PROOF_TYPES = new Set<string>([
   "dso-stat-row",
   "dso-stat-showcase",
   "dso-growth-thesis",
+  "dso-video-case-study",
   "dso-success-stories",
   "dso-testimonials",
   "dso-case-study",

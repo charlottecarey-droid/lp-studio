@@ -385,6 +385,34 @@ export interface DsoGrowthThesisBlockProps {
   ctaMode?: CtaMode;
 }
 
+/** DSO — Video case study (Nov 2026): one filmed customer story — Wistia or
+ *  hosted mp4 with a poster — beside company, headline, outcome numbers and
+ *  the customer's verbatim quote. */
+export interface DsoVideoCaseStudyStat {
+  value: string;
+  label: string;
+}
+
+export interface DsoVideoCaseStudyBlockProps {
+  eyebrow?: string;
+  company: string;
+  companyMeta?: string;
+  headline: string;
+  body?: string;
+  stats: DsoVideoCaseStudyStat[];
+  quote?: string;
+  quoteAuthor?: string;
+  quoteRole?: string;
+  /** Wistia media/embed URL or a hosted mp4. */
+  videoUrl: string;
+  posterUrl?: string;
+  videoSide?: "left" | "right";
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
+  backgroundStyle?: BackgroundStyle;
+}
+
 export interface DsoStatShowcaseBlockProps {
   eyebrow: string;
   headline: string;

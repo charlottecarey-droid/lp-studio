@@ -232,6 +232,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "dso-problem": ["content"],
   "dso-stat-showcase": ["stats", "social-proof"],
   "dso-growth-thesis": ["stats", "content"],
+  "dso-video-case-study": ["social-proof", "media"],
   "dso-scroll-story": ["content", "media"],
   "dso-scroll-story-hero": ["hero"],
   "dso-network-map": ["features", "media"],

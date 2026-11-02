@@ -190,6 +190,8 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "invite-proof",
   // ABM account-page family proof: story quote, logo strip, account team.
   "abm-story-quote", "abm-logo-strip", "abm-account-team",
+  // DSO video case study (Nov 2026): filmed customer story with outcome numbers.
+  "dso-video-case-study",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).

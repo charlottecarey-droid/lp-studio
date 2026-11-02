@@ -285,6 +285,7 @@ import type {
   DsoAiFeatureBlockProps,
   DsoStatShowcaseBlockProps,
   DsoGrowthThesisBlockProps,
+  DsoVideoCaseStudyBlockProps,
   DsoScrollStoryBlockProps,
   DsoScrollStoryHeroBlockProps,
   DsoNetworkMapBlockProps,
@@ -2276,6 +2277,48 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
             <rect x={8 + i*36} y="58" width="26" height="2" rx="1" fill="white" opacity="0.5" />
           </g>
         ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-video-case-study" as const,
+    label: "Video Case Study",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoVideoCaseStudyBlockProps => ({
+      eyebrow: "Customer story",
+      company: "Northwind Health",
+      companyMeta: "45 locations",
+      headline: "A phased rollout that paid for itself in the first year",
+      body: "Northwind standardized one workflow across every location, piloted it in ten, and scaled once the numbers held.",
+      stats: [
+        { value: "2x", label: "Faster cycle time" },
+        { value: "$2.5M", label: "Hard cost savings" },
+        { value: "90 days", label: "To first ROI review" },
+      ],
+      quote: "They gave us our schedule back.",
+      quoteAuthor: "Jordan Lee",
+      quoteRole: "Chief Clinical Officer",
+      videoUrl: "",
+      posterUrl: "",
+      videoSide: "left",
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="hsl(152,42%,12%)" rx="4" />
+        <rect x="8" y="14" width="60" height="42" rx="4" fill="white" opacity="0.12" />
+        <circle cx="38" cy="35" r="7" fill="hsl(68,60%,52%)" />
+        <path d="M36 31.5 L41.5 35 L36 38.5 Z" fill="hsl(152,42%,12%)" />
+        <rect x="76" y="14" width="14" height="2" rx="1" fill="hsl(68,60%,52%)" />
+        <rect x="76" y="20" width="36" height="4" rx="2" fill="white" opacity="0.9" />
+        <rect x="76" y="26" width="28" height="4" rx="2" fill="white" opacity="0.6" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={76 + i*12} y="38" width="9" height="1" fill="white" opacity="0.25" />
+            <rect x={76 + i*12} y="41" width="8" height="5" rx="1" fill="white" opacity="0.85" />
+          </g>
+        ))}
+        <rect x="76" y="52" width="34" height="2" rx="1" fill="white" opacity="0.45" />
       </svg>
     ),
   },
@@ -10106,6 +10149,7 @@ export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "ds
 export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: "dso-ai-feature" }>;
 export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { type: "dso-stat-showcase" }>;
 export function createBlock(type: "dso-growth-thesis"): Extract<PageBlock, { type: "dso-growth-thesis" }>;
+export function createBlock(type: "dso-video-case-study"): Extract<PageBlock, { type: "dso-video-case-study" }>;
 export function createBlock(type: "dso-scroll-story"): Extract<PageBlock, { type: "dso-scroll-story" }>;
 export function createBlock(type: "dso-scroll-story-hero"): Extract<PageBlock, { type: "dso-scroll-story-hero" }>;
 export function createBlock(type: "dso-network-map"): Extract<PageBlock, { type: "dso-network-map" }>;
@@ -10246,6 +10290,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-ai-feature": return { id, type: "dso-ai-feature", props: props as DsoAiFeatureBlockProps };
     case "dso-stat-showcase": return { id, type: "dso-stat-showcase", props: props as DsoStatShowcaseBlockProps };
     case "dso-growth-thesis": return { id, type: "dso-growth-thesis", props: props as DsoGrowthThesisBlockProps };
+    case "dso-video-case-study": return { id, type: "dso-video-case-study", props: props as DsoVideoCaseStudyBlockProps };
     case "dso-scroll-story": return { id, type: "dso-scroll-story", props: props as DsoScrollStoryBlockProps };
     case "dso-scroll-story-hero": return { id, type: "dso-scroll-story-hero", props: props as DsoScrollStoryHeroBlockProps };
     case "dso-network-map": return { id, type: "dso-network-map", props: props as DsoNetworkMapBlockProps };
