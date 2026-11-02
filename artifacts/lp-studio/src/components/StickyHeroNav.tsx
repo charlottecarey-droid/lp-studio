@@ -45,6 +45,10 @@ export interface StickyHeroNavProps {
    *  "absolute" pins to nearest positioned ancestor (used in the page builder so
    *  the nav cannot escape the hero block's bounds). */
   position?: "fixed" | "sticky" | "absolute";
+  /** Span the full viewport width instead of a centered 1200px column. */
+  fullWidth?: boolean;
+  /** Horizontal inset (px) of the logo and CTA from the edges. */
+  gutter?: number;
   /** When true, invert the logo to white. Useful for dark hero backgrounds. */
   invertLogo?: boolean;
   /** When true, hides the brand logo entirely (top-left). The partner
@@ -81,6 +85,8 @@ export function StickyHeroNav({
   position = "fixed",
   invertLogo,
   hideBrandLogo,
+  fullWidth,
+  gutter,
 }: StickyHeroNavProps) {
   // `progress` is a continuous 0..1 ramp that begins at scrollThreshold and
   // saturates one viewport-height later. We still derive a boolean `scrolled`
@@ -186,8 +192,8 @@ export function StickyHeroNav({
         <div
           className="mx-auto flex items-center justify-between"
           style={{
-            maxWidth: 1200,
-            padding: "1rem clamp(1.5rem, 2vw, 2rem)",
+            maxWidth: fullWidth ? "none" : 1200,
+            padding: gutter != null ? `1rem ${gutter}px` : "1rem clamp(1.5rem, 2vw, 2rem)",
             height: scrolled ? 60 : 72,
             transition: "height 320ms ease",
           }}

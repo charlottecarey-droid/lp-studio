@@ -491,9 +491,16 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     </motion.div>
   );
 
+  // Nov 2026 — Charlotte: "align the logo and CTA closer to the edge". The nav
+  // spans the full hero width in both variants with one fixed gutter, so the
+  // marks sit at the edge instead of drifting inward with a centered max-width.
+  const navGutter = Math.max(8, Math.min(96, Number(p.navGutter ?? 20) || 20));
+
   const stickyNavBar = p.stickyHeader ? (
     <StickyHeroNav
       brand={brand}
+      fullWidth
+      gutter={navGutter}
       logoAlt={brand.brandName || "Logo"}
       companyName={company || undefined}
       companyLogoUrl={p.companyLogoUrl || undefined}
@@ -518,7 +525,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="absolute top-0 left-0 right-0 z-20"
       style={{
-        padding: "1.25rem clamp(1.5rem, 2vw, 2rem)",
+        padding: `1.125rem ${navGutter}px`,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",

@@ -3653,6 +3653,22 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </button>
             </div>
 
+            {/* Nav edge gutter */}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label className="text-xs">Nav edge gutter</Label>
+                <p className="text-[11px] text-muted-foreground">Inset of the logo and CTA from the hero's edges, in px.</p>
+              </div>
+              <Input
+                type="number"
+                min={8}
+                max={96}
+                value={p.navGutter ?? 20}
+                onChange={e => onChange({ ...block, props: { ...p, navGutter: Math.max(8, Math.min(96, parseInt(e.target.value, 10) || 20)) } })}
+                className="h-8 w-20 text-xs"
+              />
+            </div>
+
             {/* Hide brand logo toggle */}
             <div className="flex items-center justify-between">
               <div>

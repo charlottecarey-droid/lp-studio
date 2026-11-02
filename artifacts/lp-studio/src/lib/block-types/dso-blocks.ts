@@ -169,6 +169,9 @@ export interface DsoHeartlandHeroBlockProps {
    *  (the current 0.25rem). Applies across all four layouts. */
   statLabelGap?: number;
   stickyHeader?: boolean;
+  /** Horizontal inset (px) of the built-in nav's logo and CTA from the hero's
+   *  edges. Both nav variants span the full hero width; default 20. */
+  navGutter?: number;
   /** When true, hides the brand logo (top-left) in the hero nav across all
    *  layouts and both the standard and sticky-header nav variants. Defaults to
    *  showing the logo (current behavior). */
