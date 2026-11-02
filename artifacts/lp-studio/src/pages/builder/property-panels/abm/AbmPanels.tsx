@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
+import { IconPicker } from "@/components/IconPicker";
 import { VideoPicker } from "@/components/VideoPicker";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
@@ -509,7 +510,9 @@ export function AbmFeatureGridPanel({ props, onChange }: P<AbmFeatureGridBlockPr
                 <Field label="Link URL (optional)"><Input value={it.linkUrl ?? ""} onChange={(e) => patch(i, { linkUrl: e.target.value || undefined })} className="h-8 text-xs" placeholder="https://" /></Field>
               </div>
               <Field label="Description"><Textarea value={it.body ?? ""} onChange={(e) => patch(i, { body: e.target.value })} rows={2} className="text-xs" /></Field>
-              <Field label="Icon (optional, 24px works best)"><ImagePicker value={it.iconUrl ?? ""} onChange={(v) => patch(i, { iconUrl: v })} placeholder="Upload or paste image URL" /></Field>
+              <Field label="Icon (Lucide icon or image; empty = accent hexagon)">
+                <IconPicker value={it.iconUrl ?? ""} onChange={(v) => patch(i, { iconUrl: v || undefined })} aiHint={`${it.title || "Feature"} icon`} />
+              </Field>
             </div>
           ))}
         </div>

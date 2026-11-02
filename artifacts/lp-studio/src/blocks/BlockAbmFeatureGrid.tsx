@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { isImageIcon, resolveLucideIcon } from "@/lib/icon-value";
 import { ABM_BODY, ABM_CONTAINER, ABM_CSS, anchorClick, displayStyle, resolveAbmPalette, type AbmStyleProps } from "@/lib/abm-theme";
 import { cn } from "@/lib/utils";
 
@@ -19,10 +20,15 @@ import { cn } from "@/lib/utils";
 export interface AbmFeature {
   title: string;
   body?: string;
+  /** Lucide icon name (e.g. "Compass") OR an image URL / data-URI. Empty =
+   *  the accent hexagon. Same dual-field convention as the section blocks. */
   iconUrl?: string;
+  /** Alt text, used only when `iconUrl` is an image. */
   iconAlt?: string;
   linkUrl?: string;
 }
+
+type GlyphComp = React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
 
 export interface AbmFeatureGridBlockProps extends AbmStyleProps {
   headline?: string;
@@ -104,13 +110,19 @@ export function BlockAbmFeatureGrid({ props, brand, onFieldChange }: Props) {
                 {it.linkUrl && <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />}
               </span>
             );
+            // `iconUrl` holds either an image (uploaded / library) or a Lucide
+            // icon name chosen in the panel's IconPicker. Images keep the
+            // click-to-replace InlineImage on canvas; a Lucide name renders the
+            // glyph in the accent colour (unknown names fall back to the hexagon).
+            const iconIsImage = isImageIcon(it.iconUrl);
+            const Glyph = (!iconIsImage && it.iconUrl ? resolveLucideIcon(it.iconUrl, Hexagon) : Hexagon) as GlyphComp;
             return (
               <motion.li key={i} {...reveal(0.04 + Math.min(i, 8) * 0.04)} className="flex flex-col">
                 <div className="flex items-center gap-3">
                   <span className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden={!it.iconAlt}>
-                    {it.iconUrl || isEditor ? (
+                    {iconIsImage || (!it.iconUrl && isEditor) ? (
                       <InlineImage
-                        src={it.iconUrl ?? ""}
+                        src={iconIsImage ? it.iconUrl ?? "" : ""}
                         alt={it.iconAlt ?? ""}
                         className="h-7 w-7 object-contain"
                         wrapperClassName="absolute inset-0"
@@ -119,7 +131,7 @@ export function BlockAbmFeatureGrid({ props, brand, onFieldChange }: Props) {
                         onAltUpdate={updateItem ? (v) => updateItem(i, { iconAlt: v }) : undefined}
                       />
                     ) : null}
-                    {!it.iconUrl && <Hexagon className="h-6 w-6" strokeWidth={2.5} style={{ color: pal.accent }} />}
+                    {!iconIsImage && <Glyph className="h-6 w-6" strokeWidth={2.5} style={{ color: pal.accent }} />}
                   </span>
                   {it.linkUrl ? (
                     <a href={it.linkUrl} onClick={anchorClick(it.linkUrl)} className="abm-link no-underline">{title}</a>

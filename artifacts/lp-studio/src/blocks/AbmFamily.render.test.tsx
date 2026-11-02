@@ -265,6 +265,22 @@ describe("sections — content contracts", () => {
     expect(tiles.match(/aria-label="[^"]+"/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("abm-feature-grid renders a Lucide name, an image, or the hexagon fallback from the dual icon field", () => {
+    const base = defaultsFor("abm-feature-grid") as { items: Array<Record<string, unknown>> };
+    const items = [
+      { title: "Lucide", body: "", iconUrl: "Compass" },
+      { title: "Image", body: "", iconUrl: "https://example.com/icon.png", iconAlt: "Icon" },
+      { title: "Empty", body: "" },
+      { title: "Unknown", body: "", iconUrl: "NotARealIconName" },
+    ];
+    const html = render(BlockAbmFeatureGrid as never, { ...base, items });
+    expect(html).toContain("lucide-compass");
+    expect(html).toContain('src="https://example.com/icon.png"');
+    // Empty and unknown names both fall back to the accent hexagon; the image item renders no glyph.
+    expect(html.match(/lucide-hexagon/g)?.length).toBe(2);
+    expect(html).not.toContain('src="Compass"');
+  });
+
   it("abm-ratings-cta renders one star row per platform with the score line", () => {
     const html = render(BlockAbmRatingsCta as never, defaultsFor("abm-ratings-cta"));
     expect(html).toContain("4.5");
