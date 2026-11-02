@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Image as ImageIcon, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw, Globe, FileText, Wand2, GripVertical } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Image as ImageIcon, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw, Globe, FileText, Wand2, GripVertical, Film, Play } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ImagePicker } from "@/components/ImagePicker";
+import { ensureCsrfToken, clearCsrfToken } from "@/lib/api-fetch";
 
 const API_BASE = "/api";
 
@@ -2352,7 +2353,225 @@ function ProofPointsTab() {
   );
 }
 
-type ActiveTab = LibraryType | "media" | "logos" | "proof_points";
+// ─── Videos tab ──────────────────────────────────────────────────────────────
+// Mirrors the Media Library drawer's Videos tab (components/MediaLibraryDrawer.tsx)
+// so the standalone library page can upload + manage videos too. Uploads go
+// through POST /api/lp/media/upload (multipart, 200 MB server cap, ~32 MB at
+// the deployment proxy); listing is GET /api/lp/media?mediaType=video, which
+// includes the Dandy-only preloaded clips (not deletable).
+
+interface VideoLibraryItem {
+  id: string;
+  title: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number | null;
+  isPreloaded: boolean;
+  createdAt: string;
+}
+
+const VIDEO_FILE_EXTS = [".mp4", ".webm", ".ogg", ".mov"];
+function isNativeVideoFileUrl(url: string): boolean {
+  const lower = url.toLowerCase().split("?")[0];
+  return VIDEO_FILE_EXTS.some(ext => lower.endsWith(ext));
+}
+
+function formatVideoBytes(bytes: number | null): string {
+  if (bytes == null) return "";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function VideosTab() {
+  const [items, setItems] = useState<VideoLibraryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [uploadQueue, setUploadQueue] = useState<{ current: number; total: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchVideos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/lp/media?mediaType=video");
+      if (!res.ok) throw new Error("Failed to load videos");
+      const data = (await res.json()) as { items: VideoLibraryItem[] };
+      setItems(data.items ?? []);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchVideos(); }, [fetchVideos]);
+
+  const uploadOnce = (file: File, csrfToken: string) =>
+    new Promise<void>((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/lp/media/upload");
+      xhr.withCredentials = true;
+      if (csrfToken) xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+      xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100)); };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) { resolve(); return; }
+        if (xhr.status === 413) { reject(new Error("File too large for this server. The deployment proxy limits uploads to ~32 MB — try a smaller or compressed file.")); return; }
+        let msg = `Upload failed (status ${xhr.status}).`;
+        try { const body = JSON.parse(xhr.responseText) as { error?: string }; if (body?.error) msg = body.error; } catch { /* HTML error page from proxy */ }
+        const err = new Error(msg) as Error & { status?: number };
+        err.status = xhr.status;
+        reject(err);
+      };
+      xhr.onerror = () => reject(new Error("Network error during upload."));
+      xhr.send(formData);
+    });
+
+  const uploadVideo = async (file: File) => {
+    const token = (await ensureCsrfToken()) ?? "";
+    try {
+      await uploadOnce(file, token);
+    } catch (err) {
+      const e = err as Error & { status?: number };
+      if (!(e.status === 403 && /csrf/i.test(e.message))) throw err;
+      clearCsrfToken();
+      await uploadOnce(file, (await ensureCsrfToken()) ?? "");
+    }
+  };
+
+  const uploadFiles = async (files: File[]) => {
+    const videos = files.filter(f => f.type.startsWith("video/"));
+    if (videos.length === 0) { setError("Only video files (MP4, WebM, OGG, MOV) can be uploaded here."); return; }
+    setError(null);
+    setUploading(true);
+    try {
+      for (let i = 0; i < videos.length; i++) {
+        setUploadQueue({ current: i + 1, total: videos.length });
+        setUploadPct(0);
+        await uploadVideo(videos[i]);
+      }
+      await fetchVideos();
+    } catch (err) {
+      setError((err as Error).message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+      setUploadQueue(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDelete = async (item: VideoLibraryItem) => {
+    if (!confirm(`Delete "${item.title}"? Pages that use this video will lose it. This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/lp/media/${item.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setItems(prev => prev.filter(v => v.id !== item.id));
+    } catch (err) {
+      setError((err as Error).message ?? "Delete failed");
+    }
+  };
+
+  const copyUrl = async (item: VideoLibraryItem) => {
+    try {
+      await navigator.clipboard.writeText(item.url);
+      setCopiedId(item.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch { /* clipboard blocked — nothing to do */ }
+  };
+
+  const q = query.trim().toLowerCase();
+  const visible = q ? items.filter(v => v.title.toLowerCase().includes(q)) : items;
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex gap-2 items-center flex-wrap">
+        <div className="relative flex-1 min-w-40">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search videos…" className="pl-8 h-9 text-sm" />
+        </div>
+        <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={uploading} onClick={() => fileInputRef.current?.click()} title="Upload video files (MP4, WebM, OGG, MOV)">
+          {uploading
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadQueue && uploadQueue.total > 1 ? `${uploadQueue.current}/${uploadQueue.total} · ` : ""}{uploadPct}%</>
+            : <><Upload className="w-3.5 h-3.5" />Upload videos</>}
+        </Button>
+        <input ref={fileInputRef} type="file" accept="video/*" multiple className="hidden" onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
+      </div>
+
+      {uploading && (
+        <div className="w-full bg-muted rounded-full h-1.5">
+          <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${uploadPct}%` }} />
+        </div>
+      )}
+      {error && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="shrink-0 text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
+
+      {/* Grid */}
+      <div
+        onDrop={e => { e.preventDefault(); uploadFiles(Array.from(e.dataTransfer.files)); }}
+        onDragOver={e => e.preventDefault()}
+      >
+        {loading ? (
+          <div className="flex items-center justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : visible.length === 0 ? (
+          <div
+            className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Film className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">{q ? "No videos match that search" : "Drop videos here or click to upload"}</p>
+            <p className="text-xs mt-1 opacity-60">MP4, WebM, OGG or MOV · up to ~32 MB each</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {visible.map(item => (
+              <div key={item.id} className="group relative rounded-lg border border-border overflow-hidden bg-muted/20 hover:border-primary/50 hover:shadow-md transition-all">
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="block aspect-video bg-black relative" title="Open video in a new tab">
+                  {isNativeVideoFileUrl(item.url) ? (
+                    <video src={item.url} className="w-full h-full object-cover" muted preload="metadata" onLoadedMetadata={e => { (e.target as HTMLVideoElement).currentTime = 1; }} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-slate-800"><Film className="w-8 h-8 text-slate-400" /></div>
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                    <div className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow"><Play className="w-4 h-4 text-slate-900 ml-0.5" /></div>
+                  </div>
+                  {item.isPreloaded && <span className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-full">Built-in</span>}
+                </a>
+                <div className="p-2 flex items-start justify-between gap-1.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{[item.mimeType, formatVideoBytes(item.sizeBytes)].filter(Boolean).join(" · ")}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-0.5">
+                    <button title={copiedId === item.id ? "Copied" : "Copy URL"} onClick={() => copyUrl(item)} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-muted transition-colors">
+                      {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    {!item.isPreloaded && (
+                      <button title="Delete" onClick={() => handleDelete(item)} className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type ActiveTab = LibraryType | "media" | "videos" | "logos" | "proof_points";
 
 const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: React.ReactNode }[] = [
   { id: "product_showcase", label: "Product Showcase", description: "Cards used in Product Showcase blocks" },
@@ -2363,6 +2582,7 @@ const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: Reac
   { id: "proof_points", label: "Proof Points", description: "Reusable, dated, sourced stats. One approval flows through every page and segment that uses the same number — no more re-typing the same stat in every segment.", icon: <Sparkles className="w-3.5 h-3.5" /> },
   { id: "logos", label: "Logos", description: "Partner, sponsor and client marks. Upload them, or scrape a partners page and pick which ones to keep — then pull them into any logo wall or the event agenda's partners section.", icon: <ImageIcon className="w-3.5 h-3.5" /> },
   { id: "media", label: "Media", description: "Upload and manage images. AI auto-tags on upload — subfolders become tags when uploading a folder.", icon: <Image className="w-3.5 h-3.5" /> },
+  { id: "videos", label: "Videos", description: "Upload and manage video files (MP4, WebM, OGG, MOV). Every video here shows up in the Videos tab of the media picker on any block that takes a video.", icon: <Film className="w-3.5 h-3.5" /> },
 ];
 
 export function ContentLibraryContent() {
@@ -2397,6 +2617,8 @@ export function ContentLibraryContent() {
           ? <LogosTab />
           : activeTab === "media"
           ? <MediaTab />
+          : activeTab === "videos"
+          ? <VideosTab />
           : activeTab === "proof_points"
             ? <ProofPointsTab />
             : <LibraryTab key={activeTab} type={activeTab as LibraryType} />
