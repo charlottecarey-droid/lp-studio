@@ -1798,6 +1798,13 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
               : undefined}
           />
         );
+      // The hub family navigates itself (site paths stay in the SAME tab, anchors
+      // scroll) — so, like hub-featured / hub-library, hub-hero and hub-paths get
+      // NO `onCtaClick`. The viewer's handler opens the URL it is given in a NEW
+      // tab, and here it could only be given one URL per block: wiring it meant
+      // every hero button and every path card ALSO opened the block's first
+      // destination — "I'm a patient" on the Dandy Sleep home page opened the
+      // dentist hub on top of the patient hub (Nov 2026).
       case "hub-hero":
         return (
           <BlockHubHero
@@ -1805,7 +1812,6 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             brand={brand}
             pageId={pageId}
             variantId={variantId}
-            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}
@@ -1848,7 +1854,6 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
           <BlockHubPaths
             props={block.props}
             brand={brand}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.paths?.[0]?.ctaUrl ?? "#") : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

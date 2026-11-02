@@ -17,6 +17,11 @@ import { cn } from "@/lib/utils";
  * Sits under a hub-hero on the site's home page so the first screen sorts
  * visitors instead of guessing. Same preset / palette as the rest of the
  * family; an optional image per card.
+ *
+ * Each card navigates ITSELF (site paths in the same tab, anchors scroll).
+ * No host `onCtaClick`: the renderer's handler takes one URL per block and
+ * would open the FIRST card's hub in a new tab whichever card was clicked
+ * (see BlockRenderer).
  * -------------------------------------------------------------------------- */
 
 export interface HubPath {
@@ -41,7 +46,6 @@ export interface HubPathsBlockProps extends HubStyleProps {
 interface Props {
   props: HubPathsBlockProps;
   brand: BrandConfig;
-  onCtaClick?: () => void;
   onFieldChange?: (updated: HubPathsBlockProps) => void;
 }
 
@@ -70,7 +74,7 @@ export const HUB_PATHS_DEFAULT_PROPS: HubPathsBlockProps = {
   ],
 };
 
-export function BlockHubPaths({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockHubPaths({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
   const pal = resolveHubPalette(props, brand, "library");
@@ -97,7 +101,6 @@ export function BlockHubPaths({ props, brand, onCtaClick, onFieldChange }: Props
       e.preventDefault();
       return;
     }
-    onCtaClick?.();
     const u = (url ?? "").trim();
     if (!u) return;
     if (u.startsWith("#")) {

@@ -24,6 +24,11 @@ import { cn } from "@/lib/utils";
  * highlights the link whose path matches the current page, so two hub pages
  * cross-link with one shared block config.
  *
+ * NAVIGATION IS THE BLOCK'S OWN: site paths open in the same tab, anchors
+ * scroll, everything else opens a new tab. There is deliberately no host
+ * `onCtaClick` — the renderer's single-URL handler would open the PRIMARY
+ * destination in a new tab for the secondary button too (see BlockRenderer).
+ *
  * The `theme` preset picks the layout (see lib/hub-theme):
  *   site      brand-dark solid bar · light hero · copy left, photo right
  *   midnight  glass bar on a brand-dark hero · halo + grid · photo dimmed behind
@@ -75,7 +80,6 @@ interface Props {
   brand: BrandConfig;
   pageId?: number;
   variantId?: number;
-  onCtaClick?: () => void;
   onFieldChange?: (updated: HubHeroBlockProps) => void;
 }
 
@@ -131,7 +135,7 @@ function barPalette(pal: HubPalette): HubPalette {
   return { ...pal, isDark: true, bg: d.bg, card: d.panel, cardRaised: d.panelRaised, text: d.text, heading: d.text, muted: d.muted, faint: d.faint, hairline: d.hairline, accent: d.accent, accentFill: d.accent, onAccentFill: pal.onAccentFill };
 }
 
-export function BlockHubHero({ props, brand, pageId, variantId, onCtaClick, onFieldChange }: Props) {
+export function BlockHubHero({ props, brand, pageId, variantId, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
   const pal = resolveHubPalette(props, brand, "hero");
@@ -166,7 +170,6 @@ export function BlockHubHero({ props, brand, pageId, variantId, onCtaClick, onFi
   });
 
   const go = (url?: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
-    onCtaClick?.();
     if (url && url.startsWith("#")) {
       const el = document.getElementById(url.slice(1));
       if (el) {
@@ -178,7 +181,6 @@ export function BlockHubHero({ props, brand, pageId, variantId, onCtaClick, onFi
   // URL-mode CTA buttons (the CtaButton owns modal / Chili Piper / video actions).
   const navigate = (url?: string) => () => {
     if (isEditor) return;
-    onCtaClick?.();
     const u = (url ?? "").trim();
     if (!u || u === "#") return;
     if (u.startsWith("#")) {
