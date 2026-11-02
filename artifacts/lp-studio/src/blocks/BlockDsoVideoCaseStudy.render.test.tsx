@@ -45,6 +45,19 @@ describe("BlockDsoVideoCaseStudy", () => {
     expect(html).not.toContain("<iframe");
   });
 
+  it("overlayScrim picks the scrim layer and long names step the type down", () => {
+    const render = (overlayName: string, overlayScrim?: "none" | "soft" | "strong") =>
+      renderToStaticMarkup(
+        <StaticRenderContext.Provider value={true}>
+          <BlockDsoVideoCaseStudy props={{ ...DSO_VIDEO_CASE_STUDY_DEFAULT_PROPS, overlayName, overlayScrim, videoUrl: "", posterUrl: "https://example.com/p.jpg" }} />
+        </StaticRenderContext.Provider>,
+      );
+    expect(render("Nathan")).toContain('data-overlay-scrim="soft"');
+    expect(render("Nathan", "strong")).toContain('data-overlay-scrim="strong"');
+    expect(render("Nathan")).toContain("17cqw");
+    expect(render("Dr. Nathan Suter")).toContain("9.5cqw");
+  });
+
   it("is registered with brand-neutral defaults and social-proof tags", () => {
     const def = BLOCK_REGISTRY.find((b) => b.type === "dso-video-case-study");
     expect(def).toBeTruthy();

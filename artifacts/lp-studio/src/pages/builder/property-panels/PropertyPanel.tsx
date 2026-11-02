@@ -5165,6 +5165,18 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1.5"><Label className="text-xs">Big name on the card</Label><Input value={p.overlayName ?? ""} onChange={e => onChange({ ...block, props: { ...p, overlayName: e.target.value } })} placeholder="First name" className="h-8 text-xs" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Line under the name</Label><Input value={p.overlayRole ?? ""} onChange={e => onChange({ ...block, props: { ...p, overlayRole: e.target.value } })} placeholder="Role, Company" className="h-8 text-xs" /></div>
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Shade behind the name</Label>
+                <p className="text-[11px] text-muted-foreground">Darkens the bottom of the card so a long name like "Dr. Nathan Suter" stays readable over a busy poster.</p>
+                <Select value={p.overlayScrim ?? "soft"} onValueChange={v => onChange({ ...block, props: { ...p, overlayScrim: v as "none" | "soft" | "strong" } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-xs">None</SelectItem>
+                    <SelectItem value="soft" className="text-xs">Soft (default)</SelectItem>
+                    <SelectItem value="strong" className="text-xs">Strong</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5"><Label className="text-xs">Play pill label</Label><Input value={p.watchLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, watchLabel: e.target.value } })} placeholder="Watch video" className="h-8 text-xs" /></div>
                 <div className="space-y-1"><Label className="text-xs">Card side</Label><Select value={p.videoSide ?? "left"} onValueChange={v => onChange({ ...block, props: { ...p, videoSide: v as "left" | "right" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left" className="text-xs">Left</SelectItem><SelectItem value="right" className="text-xs">Right</SelectItem></SelectContent></Select></div>

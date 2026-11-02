@@ -78,6 +78,17 @@ export function BlockDsoVideoCaseStudy({ props, brand, onFieldChange }: Props) {
     ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "white",
   } = merged;
   const overlayName = merged.overlayName?.trim() || firstName(quoteAuthor) || company;
+  const overlayScrim = merged.overlayScrim ?? "soft";
+  // Long names ("Dr. Nathan Suter") step the type down so they still fit the
+  // card on two lines at most; short first names keep the Ramp-size display.
+  const nameLen = overlayName.length;
+  const nameCqw = nameLen <= 7 ? 17 : nameLen <= 10 ? 14 : nameLen <= 14 ? 11.5 : nameLen <= 20 ? 9.5 : 8;
+  const scrimLayer =
+    overlayScrim === "none"
+      ? "linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.28) 100%)"
+      : overlayScrim === "strong"
+        ? "linear-gradient(180deg, rgba(0,0,0,0) 28%, rgba(0,0,0,0.38) 58%, rgba(0,0,0,0.82) 100%)"
+        : "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.22) 65%, rgba(0,0,0,0.62) 100%)";
   const overlayRole = merged.overlayRole?.trim() || quoteRole || "";
   const stats = (merged.stats ?? []).filter((s) => s.value?.trim()).slice(0, 3);
 
@@ -144,12 +155,12 @@ export function BlockDsoVideoCaseStudy({ props, brand, onFieldChange }: Props) {
             ) : (
               <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 30% 20%, rgb(var(--brand-accent-rgb, 199 231 56) / 0.18), transparent 55%), linear-gradient(160deg, rgb(var(--brand-primary-rgb, 0 58 48)) 0%, #050F0D 100%)` }} />
             )}
-            {/* Soft base so the name reads on any poster. */}
-            <div aria-hidden style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.42) 100%)" }} />
+            {/* Scrim behind the name so it reads on any poster (overlayScrim). */}
+            <div aria-hidden data-overlay-scrim={overlayScrim} style={{ position: "absolute", inset: 0, background: scrimLayer }} />
           </button>
           <div style={{ position: "absolute", left: "7.5%", right: "7.5%", bottom: "6.5%", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, pointerEvents: "none" }}>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontFamily: DISPLAY, fontSize: "clamp(3rem, 17cqw, 9rem)", lineHeight: 0.9, fontWeight: 500, letterSpacing: "-0.04em", color: AW, margin: 0, pointerEvents: onFieldChange ? "auto" : "none" }}>
+              <p style={{ fontFamily: DISPLAY, fontSize: `clamp(2.25rem, ${nameCqw}cqw, 9rem)`, lineHeight: 0.92, fontWeight: 500, letterSpacing: "-0.04em", color: AW, margin: 0, textWrap: "balance", pointerEvents: onFieldChange ? "auto" : "none" } as React.CSSProperties}>
                 <InlineText as="span" value={overlayName} onUpdate={field("overlayName")} style={{ fontFamily: DISPLAY }} />
               </p>
               {(overlayRole || onFieldChange) && (

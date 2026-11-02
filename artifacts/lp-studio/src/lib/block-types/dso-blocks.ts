@@ -421,6 +421,9 @@ export interface DsoVideoCaseStudyBlockProps {
   overlayRole?: string;
   /** Pill label on the poster. Default "Watch video". */
   watchLabel?: string;
+  /** Darkening behind the big name so it reads on busy posters, e.g. when the
+   *  overlay must be "Dr. Nathan Suter" rather than a first name. */
+  overlayScrim?: "none" | "soft" | "strong";
   storyLinkText?: string;
   storyLinkUrl?: string;
   /** Wistia media/embed URL or a hosted mp4. */
