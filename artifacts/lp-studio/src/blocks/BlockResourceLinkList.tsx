@@ -1,7 +1,11 @@
-import { ArrowUpRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowUpRight, FileText, Play } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
-import type { ResourceLinkListBlockProps } from "@/lib/block-types";
+import type { ResourceLink, ResourceLinkListBlockProps } from "@/lib/block-types";
+import { resolveHubPalette } from "@/lib/hub-theme";
+import { opensInViewer, type HubAsset } from "./hub/hub-assets";
+import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
@@ -24,12 +28,25 @@ interface Props {
   onFieldChange?: (updated: ResourceLinkListBlockProps) => void;
 }
 
+/** An entry's destination as a Content Hub asset, so PDFs and videos reuse
+ *  the hub's in-page viewer. Plain links return null (they're just anchors). */
+export function resourceLinkAsset(link: ResourceLink): HubAsset | null {
+  const url = (link.url ?? "").trim();
+  if (!url || url === "#") return null;
+  if (link.kind === "pdf") return { kind: "pdf", title: link.label, fileUrl: url };
+  if (link.kind === "video") return { kind: "video", title: link.label, videoUrl: url };
+  return null;
+}
+
 /** A compact directory of links grouped into titled columns — for surfacing a
  *  large set of resources (help articles, guides, docs) as scannable text
- *  links rather than heavy image cards. */
+ *  links rather than heavy image cards. Entries can be plain links, uploaded
+ *  PDFs or videos; the latter two open in the page (hub viewer) and fall back
+ *  to a new tab wherever the viewer can't run (phones, static render). */
 export function BlockResourceLinkList({ props, brand, onFieldChange }: Props) {
   // Fail-open reveal — see lib/reveal-fallback.ts.
   const anim = useAnimInitial();
+  const [viewing, setViewing] = useState<HubAsset | null>(null);
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const text = props.textColor ?? surface.color ?? "#171717";
   const accent = props.accentColor ?? brand.primaryColor ?? "#1f7a4d";
@@ -44,6 +61,26 @@ export function BlockResourceLinkList({ props, brand, onFieldChange }: Props) {
   const updateGroup = (gi: number, patch: Partial<ResourceLinkListBlockProps["groups"][number]>) => {
     if (!onFieldChange) return;
     onFieldChange({ ...props, groups: groups.map((g, i) => (i === gi ? { ...g, ...patch } : g)) });
+  };
+
+  // Viewer chrome follows the block's accent on a light surface.
+  const viewerPalette = useMemo(() => resolveHubPalette({ accentColor: accent }, brand, "light"), [accent, brand]);
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, link: ResourceLink) => {
+    if (isBuilder) {
+      e.preventDefault();
+      return;
+    }
+    const asset = resourceLinkAsset(link);
+    if (!asset || !opensInViewer(asset) || !shouldOpenInline(asset)) return; // plain anchor → new tab
+    e.preventDefault();
+    setViewing(asset);
+  };
+
+  const LinkIcon = ({ link }: { link: ResourceLink }) => {
+    if (link.kind === "pdf") return <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" aria-label="PDF" />;
+    if (link.kind === "video") return <Play className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" aria-label="Video" />;
+    return <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />;
   };
 
   return (
@@ -105,7 +142,8 @@ export function BlockResourceLinkList({ props, brand, onFieldChange }: Props) {
                       href={link.url || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={isBuilder ? (e) => e.preventDefault() : undefined}
+                      data-kind={link.kind ?? "link"}
+                      onClick={(e) => handleLinkClick(e, link)}
                       className="group inline-flex items-start gap-1.5 text-[15px] font-medium leading-snug transition-colors hover:underline"
                       style={{ color: accent, fontFamily: BODY }}
                     >
@@ -113,7 +151,7 @@ export function BlockResourceLinkList({ props, brand, onFieldChange }: Props) {
                         as="span"
                         value={link.label}
                         onUpdate={onFieldChange ? (v) => updateGroup(gi, { links: group.links.map((l, i) => (i === li ? { ...l, label: v } : l)) }) : undefined} />
-                      <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                      <LinkIcon link={link} />
                     </a>
                   </li>
                 ))}
@@ -139,6 +177,7 @@ export function BlockResourceLinkList({ props, brand, onFieldChange }: Props) {
           ))}
         </div>
       </div>
+      {!isBuilder && <HubAssetViewer asset={viewing} onClose={() => setViewing(null)} palette={viewerPalette} />}
     </section>
   );
 }

@@ -34,7 +34,7 @@ import { VideoPicker } from "@/components/VideoPicker";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { buildPdfUploadFormData } from "@/lib/pdf-upload";
+import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { ColorField } from "./BlockSettingsPanel";
 import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
 import { CtaActionConfigSection } from "./CtaActionConfigSection";
@@ -45,7 +45,7 @@ import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
 import { HUB_GATE_DEFAULTS, clearHubUnlock, readHubUnlock, type HubGateConfig, type HubGateMode } from "@/blocks/hub/hub-gate";
 import { createPdfThumbnail } from "@/lib/pdf-thumbnail";
 import { PdfThumbnailGenerator, type PdfThumbnailResults } from "@/components/PdfThumbnailGenerator";
-import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Loader2, Lock, Play, Plus, Quote, Upload } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Copy, FileText, ImageIcon, Lock, Play, Plus, Quote } from "lucide-react";
 
 /* ── Shared: style preset + surface + colours ───────────────────────────── */
 export type ApplyHubStyle = (style: HubStyleProps) => void;
@@ -94,58 +94,6 @@ function HubStyleFields({ value, onChange, onApplyToAll }: { value: HubStyleProp
         <p className="text-[10px] leading-relaxed text-muted-foreground">Contrast is resolved automatically: a luminous accent is kept for fills and darkened for text.</p>
       </div>
     </PanelSection>
-  );
-}
-
-/* ── Shared: PDF upload button ─────────────────────────────────────────── */
-const MAX_PDF_BYTES = 50 * 1024 * 1024;
-
-async function uploadPdf(file: File): Promise<{ url: string; title: string }> {
-  const formData = await buildPdfUploadFormData(file);
-  const res = await fetch("/api/lp/pdf/upload", { method: "POST", body: formData, credentials: "include" });
-  const data = (await res.json().catch(() => ({}))) as { url?: string; title?: string; error?: string };
-  if (!res.ok) throw new Error(data.error ?? "Upload failed");
-  if (!data.url) throw new Error("Upload succeeded but no URL was returned");
-  return { url: data.url, title: data.title ?? "" };
-}
-
-function PdfUploadButton({ onUploaded }: { onUploaded: (r: { url: string; title: string }, file: File) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.type && file.type !== "application/pdf") {
-      setError("Only PDF files are supported.");
-      if (inputRef.current) inputRef.current.value = "";
-      return;
-    }
-    if (file.size > MAX_PDF_BYTES) {
-      setError("File too large. Maximum size is 50 MB.");
-      if (inputRef.current) inputRef.current.value = "";
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    try {
-      onUploaded(await uploadPdf(file), file);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  };
-  return (
-    <>
-      <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={handle} />
-      <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-[11px]" disabled={uploading} onClick={() => inputRef.current?.click()}>
-        {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-        {uploading ? "Uploading…" : "Upload PDF"}
-      </Button>
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
-    </>
   );
 }
 

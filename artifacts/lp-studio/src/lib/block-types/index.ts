@@ -61,6 +61,8 @@ export type {
   ResourcesBlockProps,
   ResourceLinkListBlockProps,
   ResourceLinkListGroup,
+  ResourceLink,
+  ResourceLinkKind,
   RichTextBlockProps,
   CustomHtmlBlockProps,
   SpacerBlockProps,

@@ -587,9 +587,22 @@ export interface ResourcesBlockProps {
   backgroundStyle: BackgroundStyle;
 }
 
+/** What a resource-link-list entry points at. Blank = a plain link (opens in
+ *  a new tab). "pdf" and "video" items carry an uploaded file or hosted /
+ *  embed URL in `url` and open in the in-page viewer (same one the Content
+ *  Hub uses), falling back to a new tab where the viewer can't run. */
+export type ResourceLinkKind = "link" | "pdf" | "video";
+
+export interface ResourceLink {
+  label: string;
+  /** Destination: a web URL, an uploaded PDF, or a video file / YouTube / Vimeo / Wistia / Loom link. */
+  url: string;
+  kind?: ResourceLinkKind;
+}
+
 export interface ResourceLinkListGroup {
   title: string;
-  links: Array<{ label: string; url: string }>;
+  links: ResourceLink[];
   ctaLabel?: string;
   ctaUrl?: string;
 }

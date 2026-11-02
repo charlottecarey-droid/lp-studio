@@ -1,10 +1,66 @@
-import type { ResourceLinkListBlockProps, ResourceLinkListGroup } from "@/lib/block-types";
+import type { ResourceLink, ResourceLinkKind, ResourceLinkListBlockProps, ResourceLinkListGroup } from "@/lib/block-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, FileText, Film, Link2 } from "lucide-react";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
+import { PdfUploadButton } from "@/components/PdfUploadButton";
+import { VideoPicker } from "@/components/VideoPicker";
+
+const LINK_KINDS: { id: ResourceLinkKind; label: string; icon: typeof Link2; hint: string }[] = [
+  { id: "link", label: "Link", icon: Link2, hint: "Opens a web page in a new tab" },
+  { id: "pdf", label: "PDF", icon: FileText, hint: "Upload a PDF — opens in the page, downloadable" },
+  { id: "video", label: "Video", icon: Film, hint: "Upload a video or paste a YouTube / Vimeo / Wistia / Loom link — plays in the page" },
+];
+
+/** Fields for one entry: a type toggle, then the destination control for that type. */
+function LinkDestination({ link, onChange }: { link: ResourceLink; onChange: (patch: Partial<ResourceLink>) => void }) {
+  const kind: ResourceLinkKind = link.kind ?? "link";
+  const current = LINK_KINDS.find((k) => k.id === kind) ?? LINK_KINDS[0];
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-1">
+        {LINK_KINDS.map((k) => {
+          const Icon = k.icon;
+          const active = k.id === kind;
+          return (
+            <button
+              key={k.id}
+              type="button"
+              title={k.hint}
+              onClick={() => onChange(active ? {} : { kind: k.id === "link" ? undefined : k.id, url: link.url })}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-md border py-1 text-[11px] transition-colors ${
+                active ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-700" : "border-slate-200 text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {k.label}
+            </button>
+          );
+        })}
+      </div>
+      {kind === "pdf" && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Input value={link.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="Upload a PDF or paste its URL" className="h-7 flex-1 text-xs" />
+            <PdfUploadButton
+              onUploaded={({ url, title }) => onChange({ url, ...(link.label && link.label !== "New link" ? {} : title ? { label: title } : {}) })}
+              label="Upload"
+            />
+          </div>
+        </div>
+      )}
+      {kind === "video" && (
+        <VideoPicker value={link.url} onChange={(url) => onChange({ url })} />
+      )}
+      {kind === "link" && (
+        <Input value={link.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://…" className="h-7 text-xs" />
+      )}
+      <p className="text-[10px] leading-snug text-slate-400">{current.hint}</p>
+    </div>
+  );
+}
 
 function moveArr<T>(arr: T[], from: number, to: number): T[] {
   if (to < 0 || to >= arr.length) return arr;
@@ -31,7 +87,7 @@ export default function ResourceLinkListPanel({ props, onChange }: Props) {
     update({ groups: [...groups, { title: "New Group", links: [{ label: "New link", url: "#" }] }] });
 
   const links = (gi: number) => groups[gi]?.links ?? [];
-  const updateLink = (gi: number, li: number, patch: Partial<{ label: string; url: string }>) =>
+  const updateLink = (gi: number, li: number, patch: Partial<ResourceLink>) =>
     updateGroup(gi, { links: links(gi).map((l, i) => (i === li ? { ...l, ...patch } : l)) });
   const removeLink = (gi: number, li: number) =>
     updateGroup(gi, { links: links(gi).filter((_, i) => i !== li) });
@@ -112,7 +168,7 @@ export default function ResourceLinkListPanel({ props, onChange }: Props) {
                     </div>
                   </div>
                   <Input value={link.label} onChange={(e) => updateLink(gi, li, { label: e.target.value })} placeholder="Link text" className="h-7 text-xs" />
-                  <Input value={link.url} onChange={(e) => updateLink(gi, li, { url: e.target.value })} placeholder="https://…" className="h-7 text-xs" />
+                  <LinkDestination link={link} onChange={(patch) => updateLink(gi, li, patch)} />
                 </div>
               ))}
             </div>
