@@ -16,7 +16,7 @@ import { AtelierHeadline } from "./AtelierHeadline";
  * announcement strip, a centred wordmark bar, then a split — a large warm
  * stage on the left (the product photo on sand with a satin ribbon, bow
  * and leather tag, or the illustrated stack of ribboned gift boxes) and a
- * serif headline with an italic last line, a solid button + underlined
+ * two-tone brand-display headline, a solid button + underlined
  * link and a numbered row of facts on the right.
  */
 export function AtelierGiftHero({ props, brand, onCtaClick, onFieldChange }: { props: GiftHeroBlockProps; brand: BrandConfig; onCtaClick?: () => void; onFieldChange?: (u: GiftHeroBlockProps) => void }) {
@@ -135,7 +135,7 @@ export function AtelierGiftHero({ props, brand, onCtaClick, onFieldChange }: { p
             </motion.div>
           )}
           <motion.div {...rise(0.12)}>
-            <AtelierHeadline as="h1" value={props.headline ?? ""} size="clamp(3rem, 6vw, 5.6rem)" onUpdate={field("headline")} />
+            <AtelierHeadline as="h1" value={props.headline ?? ""} size="clamp(2.8rem, 4.8vw, 4.6rem)" onUpdate={field("headline")} />
           </motion.div>
           {(props.subheadline || isEditor) && (
             <motion.p {...rise(0.2)} className="max-w-[40ch] text-[16px] leading-relaxed lg:text-[17px]" style={{ color: pal.muted }}>
@@ -159,7 +159,7 @@ export function AtelierGiftHero({ props, brand, onCtaClick, onFieldChange }: { p
             <motion.ul {...rise(0.34)} className="mt-4 grid w-full gap-5 pt-7 sm:grid-cols-3" style={{ borderTop: `1px solid ${pal.line}` }}>
               {facts.map((f, i) => (
                 <li key={i} className="flex flex-col gap-1.5">
-                  <span className="text-[20px] italic leading-none" style={{ fontFamily: ATELIER_SERIF, color: pal.ribbon }}>No. {String(i + 1).padStart(2, "0")}</span>
+                  <span className="text-[18px] leading-none" style={{ fontFamily: ATELIER_SERIF, letterSpacing: "-0.02em", color: pal.ribbon }}>No. {String(i + 1).padStart(2, "0")}</span>
                   <span className="text-[11px] font-medium uppercase leading-snug tracking-[0.22em]" style={{ color: pal.muted }}>
                     <InlineText as="span" value={f.label} onUpdate={updateFact ? (v) => updateFact(i, v) : undefined} />
                   </span>

@@ -3,7 +3,7 @@
  * (gift-hero / gift-picker / gift-form / gift-note with `layout: "atelier"`).
  *
  * Modelled on high-end gifting retail (warm sand backdrops, chocolate
- * boxes, deep satin ribbon, cream leather tags, an italic serif): instead
+ * boxes, deep satin ribbon, cream leather tags, the brand display font): instead
  * of the Classic layout's dark forest + snow, the page is warm and quiet,
  * typography does the work, and the ribbon is the one saturated colour.
  *
@@ -17,16 +17,18 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { isValidHex, relativeLuminance } from "@/lib/brand-config";
 import { mixHex } from "@/lib/section-ink";
 import { INVITE_BODY } from "@/lib/invite-theme";
+import { BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { cn } from "@/lib/utils";
 
 export type GiftLayout = "classic" | "atelier";
 
 export const GIFT_LAYOUT_LABELS: Record<GiftLayout, { label: string; hint: string }> = {
   classic: { label: "Classic — dark forest, snow and gold", hint: "Night-time and festive: dark brand surface, snowfall, gold ribbon, cream cards." },
-  atelier: { label: "Atelier — light luxury retail", hint: "Warm sand and ivory, chocolate gift boxes, satin ribbon in your brand colour, leather tags, serif type." },
+  atelier: { label: "Atelier — light luxury retail", hint: "Warm sand and ivory, chocolate gift boxes, satin ribbon in your brand colour, leather tags, your brand fonts." },
 };
 
-export const ATELIER_SERIF = `"Instrument Serif", "Fraunces", Georgia, "Times New Roman", serif`;
+/** The tenant's brand display font (Dandy: Bagoss). Named for its role, not a serif. */
+export const ATELIER_SERIF = BRAND_DISPLAY_STACK;
 export const ATELIER_BODY = INVITE_BODY;
 
 export interface AtelierStyleProps {
@@ -107,7 +109,7 @@ export function AtelierEyebrow({ children, palette, align = "left", className }:
 
 /** Serif display style. */
 export function serifStyle(size: string, extra?: CSSProperties): CSSProperties {
-  return { fontFamily: ATELIER_SERIF, fontWeight: 400, letterSpacing: "-0.015em", lineHeight: 0.98, fontSize: size, ...extra };
+  return { fontFamily: ATELIER_SERIF, fontWeight: 400, letterSpacing: "-0.03em", lineHeight: 1.02, fontSize: size, ...extra };
 }
 
 /** Rectangular, tracked-uppercase solid button (the luxury-retail CTA). */
@@ -202,7 +204,7 @@ export function LeatherTag({ palette, line1, line2, className, style, sway = tru
         <span aria-hidden="true" className="pointer-events-none absolute inset-[5px] rounded-[7px]" style={{ border: "1px dashed rgba(43,31,23,0.22)" }} />
         <span aria-hidden="true" className="absolute left-1/2 top-2.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full" style={{ background: palette.ribbonDark, boxShadow: "inset 0 1px 2px rgba(0,0,0,0.5)" }} />
         {line1 && <span className="text-[9px] font-semibold uppercase tracking-[0.28em]" style={{ color: "rgba(43,31,23,0.5)", textShadow: "0 1px 0 rgba(255,255,255,0.55)" }}>{line1}</span>}
-        {line2 && <span className="text-[17px] leading-tight" style={{ fontFamily: ATELIER_SERIF, fontStyle: "italic", color: "rgba(43,31,23,0.82)", textShadow: "0 1px 0 rgba(255,255,255,0.5)" }}>{line2}</span>}
+        {line2 && <span className="text-[17px] leading-tight" style={{ fontFamily: ATELIER_SERIF, color: "rgba(43,31,23,0.82)", letterSpacing: "-0.01em", textShadow: "0 1px 0 rgba(255,255,255,0.5)" }}>{line2}</span>}
       </div>
     </div>
   );
@@ -317,7 +319,7 @@ export function GiftBoxArt({ palette, variant = "stack", className, style }: { p
 }
 
 /**
- * Serif headline whose last line is set in italic (an editorial convention
+ * Display headline whose last line is set in a softer tone (an editorial convention
  * that needs no markup). Each line is its own inline-editable span; edits
  * rebuild the multi-line string.
  */

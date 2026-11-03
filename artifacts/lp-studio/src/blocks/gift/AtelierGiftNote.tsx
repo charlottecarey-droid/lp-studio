@@ -12,8 +12,8 @@ import { cn } from "@/lib/utils";
 /**
  * gift-note, layout "atelier": a letter on ivory card stock, tied with a
  * satin ribbon down its left side, a bow at the top edge and a leather tag,
- * on warm sand. Serif headline (italic last line), the note, a sign-off and
- * a large italic serif signature; optional photo as a framed print and an
+ * on warm sand. Two-tone brand-display headline, the note, a sign-off and
+ * a large display-font signature; optional photo as a framed print and an
  * underlined link beneath.
  */
 export function AtelierGiftNote({ props, brand, onCtaClick, onFieldChange }: { props: GiftNoteBlockProps; brand: BrandConfig; onCtaClick?: () => void; onFieldChange?: (u: GiftNoteBlockProps) => void }) {
@@ -59,7 +59,7 @@ export function AtelierGiftNote({ props, brand, onCtaClick, onFieldChange }: { p
                     </p>
                   )}
                   {(props.signature || isEditor) && (
-                    <p className="text-[40px] italic leading-none" style={{ fontFamily: ATELIER_SERIF, color: pal.ink }}>
+                    <p className="text-[40px] leading-none" style={{ fontFamily: ATELIER_SERIF, letterSpacing: "-0.03em", color: pal.ink }}>
                       <InlineText as="span" value={props.signature ?? ""} onUpdate={field("signature")} />
                     </p>
                   )}

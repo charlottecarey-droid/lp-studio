@@ -152,7 +152,7 @@ export function AtelierGiftForm({ props, brand, pageId, variantId, onFieldChange
               )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <p className="text-[28px] leading-tight" style={{ fontFamily: ATELIER_SERIF, fontStyle: f.gift ? "normal" : "italic", color: f.gift ? pal.ink : pal.muted }}>
+              <p className="text-[28px] leading-tight" style={{ fontFamily: ATELIER_SERIF, color: f.gift ? pal.ink : pal.muted }}>
                 {f.gift || "Choose a gift to begin"}
               </p>
               {chosen?.caption && <p className="text-[13px] leading-relaxed" style={{ color: pal.muted }}>{chosen.caption}</p>}
@@ -180,7 +180,7 @@ export function AtelierGiftForm({ props, brand, pageId, variantId, onFieldChange
                     const active = i === f.step;
                     return (
                       <button key={i} type="button" onClick={() => f.goTo(i)} aria-current={active ? "step" : undefined} className="relative flex flex-col items-start gap-1 pb-4 text-left">
-                        <span className="text-[18px] italic leading-none" style={{ fontFamily: ATELIER_SERIF, color: i <= f.step ? pal.ribbon : pal.faint }}>{String(i + 1).padStart(2, "0")}</span>
+                        <span className="text-[16px] leading-none" style={{ fontFamily: ATELIER_SERIF, color: i <= f.step ? pal.ribbon : pal.faint }}>{String(i + 1).padStart(2, "0")}</span>
                         <span className="text-[11px] font-medium uppercase tracking-[0.22em]" style={{ color: active ? pal.ink : pal.faint }}>
                           <InlineText as="span" value={t} onUpdate={field(stepKey[i])} />
                         </span>
@@ -268,7 +268,7 @@ function AtelierSuccess({ palette, headline, message, gift }: { palette: Atelier
   return (
     <div className="flex flex-col items-center gap-5 py-6 text-center" role="status" data-gift-success="true">
       <SatinBow palette={palette} className="w-40" />
-      <p style={{ fontFamily: ATELIER_SERIF, fontSize: "clamp(2.2rem, 4vw, 3.2rem)", lineHeight: 1, fontStyle: "italic" }}>{headline}</p>
+      <p style={{ fontFamily: ATELIER_SERIF, fontSize: "clamp(2.2rem, 4vw, 3.2rem)", lineHeight: 1.02, letterSpacing: "-0.03em" }}>{headline}</p>
       {gift && <LeatherTag palette={palette} line1="Your selection" line2={gift} sway={false} />}
       {message && <p className="max-w-[40ch] text-[15px] leading-relaxed" style={{ color: palette.muted }}>{message}</p>}
     </div>
