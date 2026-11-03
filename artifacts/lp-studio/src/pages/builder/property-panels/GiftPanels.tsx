@@ -274,6 +274,10 @@ export function GiftPickerPanel({ props, onChange, onApplyLayoutToAll }: { props
               <Field label="Name"><Input value={it.name} onChange={(e) => patch(i, { name: e.target.value })} className="h-8 text-xs" /></Field>
               <Field label="Caption"><Textarea value={it.caption ?? ""} onChange={(e) => patch(i, { caption: e.target.value })} rows={2} className="text-xs" /></Field>
               <Field label="Image"><ImagePicker value={it.imageUrl ?? ""} onChange={(v) => patch(i, { imageUrl: v })} placeholder="Upload or paste image URL" /></Field>
+              <Field label="Second image (optional, shows on hover — e.g. the back)"><ImagePicker value={it.hoverImageUrl ?? ""} onChange={(v) => patch(i, { hoverImageUrl: v || undefined })} placeholder="Upload or paste image URL" /></Field>
+              {it.hoverImageUrl && (
+                <Field label="Second image alt text"><Input value={it.hoverImageAlt ?? ""} onChange={(e) => patch(i, { hoverImageAlt: e.target.value || undefined })} className="h-8 text-xs" placeholder="Back of the shirt" /></Field>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Alt text"><Input value={it.imageAlt ?? ""} onChange={(e) => patch(i, { imageAlt: e.target.value })} className="h-8 text-xs" /></Field>
                 <Field label="Fit"><FitSelect value={it.fit} onChange={(v) => patch(i, { fit: v })} /></Field>

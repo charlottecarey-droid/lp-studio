@@ -10,6 +10,7 @@ import { AtelierHeadline } from "./AtelierHeadline";
 import { selectGift, useGiftSelection } from "./gift-selection";
 import { useRegisterGiftOptions } from "./use-register-gift-options";
 import { cn } from "@/lib/utils";
+import { GiftFlip } from "./GiftFlip";
 
 /**
  * gift-picker, layout "atelier": an editorial product grid. Split header
@@ -19,6 +20,9 @@ import { cn } from "@/lib/utils";
  * and an underlined "Select this gift". Choosing ties a satin ribbon, bow
  * and "Your selection" leather tag over that tile.
  */
+/** The warm sand tile backdrop, shared by the front and back views. */
+const TILE_BG = (pal: { ivory: string; sand: string }) => `radial-gradient(110% 80% at 40% 25%, ${pal.ivory} 0%, ${pal.sand} 62%, #E2D2C0 100%)`;
+
 export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: GiftPickerBlockProps; brand: BrandConfig; onFieldChange?: (u: GiftPickerBlockProps) => void }) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
@@ -79,12 +83,28 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                 transition={{ duration: 0.8, delay: Math.min(i * 0.1, 0.3), ease: [0.16, 1, 0.3, 1] }}
                 className="atl-card flex flex-col"
               >
-                <div
+                <GiftFlip
+                  enabled={!isEditor}
+                  label={it.name}
+                  dotColor={pal.ink}
                   className="relative overflow-hidden rounded-[3px]"
-                  style={{ aspectRatio: "4 / 5", background: `radial-gradient(110% 80% at 40% 25%, ${pal.ivory} 0%, ${pal.sand} 62%, #E2D2C0 100%)`, boxShadow: picked ? `inset 0 0 0 1.5px ${pal.ribbon}` : `inset 0 0 0 1px ${pal.line}` }}
-                >
-                  {it.imageUrl || isEditor ? (
-                    <div className="atl-zoom absolute inset-0">
+                  style={{ aspectRatio: "4 / 5", background: TILE_BG(pal), boxShadow: picked ? `inset 0 0 0 1.5px ${pal.ribbon}` : `inset 0 0 0 1px ${pal.line}` }}
+                  back={it.hoverImageUrl ? (
+                    <div className="absolute inset-0" style={{ background: TILE_BG(pal) }}>
+                      <img
+                        src={it.hoverImageUrl}
+                        alt={it.hoverImageAlt || `${it.name}, second view`}
+                        className={it.fit === "cover" ? "absolute inset-0 h-full w-full object-cover" : "absolute inset-0 h-full w-full object-contain p-[12%]"}
+                        style={it.fit === "cover" ? undefined : { mixBlendMode: "multiply" }}
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : undefined}
+                  front={it.imageUrl || isEditor ? (
+                    // The zoom wrapper is its own compositing layer, so it carries the
+                    // sand backdrop too — otherwise the multiply-blended packshot has
+                    // nothing to blend into and shows its white box while zoomed.
+                    <div className="atl-zoom absolute inset-0" style={{ background: TILE_BG(pal) }}>
                       <InlineImage
                         src={it.imageUrl ?? ""}
                         alt={it.imageAlt ?? it.name}
@@ -99,6 +119,7 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                   ) : (
                     <GiftBoxArt palette={pal} variant="single" className="atl-zoom absolute inset-x-[8%] top-[14%] w-[84%]" />
                   )}
+                >
                   <span className="absolute left-5 top-5 text-[11px] font-medium uppercase tracking-[0.28em]" style={{ color: pal.muted }}>
                     {it.badge || `No. ${String(i + 1).padStart(2, "0")}`}
                   </span>
@@ -109,7 +130,7 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                       <LeatherTag palette={pal} className="absolute right-[10%] top-0" line1="Your" line2="selection" />
                     </>
                   )}
-                </div>
+                </GiftFlip>
                 <div className="mt-6 flex flex-col gap-2">
                   <h3 className="text-[26px] leading-tight" style={{ fontFamily: ATELIER_SERIF, letterSpacing: "-0.01em" }}>
                     <InlineText as="span" value={it.name} onUpdate={updateOption ? (v) => updateOption(i, { name: v }) : undefined} />

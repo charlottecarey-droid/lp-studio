@@ -293,3 +293,26 @@ describe("gift-note — greeting, rep line and calendar link (both layouts)", ()
     expect(html).toMatch(/whitespace-pre-line[^>]*>/);
   });
 });
+
+describe("gift-picker — optional second image on hover / tap (both layouts)", () => {
+  const withBack = (layout: string) => {
+    const d = defaultsFor("gift-picker") as { options: Array<Record<string, unknown>> };
+    return { ...d, layout, options: [{ ...d.options[0], imageUrl: "/img/front.webp", hoverImageUrl: "/img/back.webp", hoverImageAlt: "Back of the shirt" }, d.options[1], d.options[2]] };
+  };
+
+  it.each(["classic", "atelier"])("%s: only gifts with a second image get the flip, its back view and the two dots", (layout) => {
+    const html = render(BlockGiftPicker as never, withBack(layout), true);
+    expect(html.match(/data-gift-flip="front"/g)).toHaveLength(1);
+    expect(html.match(/data-gift-back="true"/g)).toHaveLength(1);
+    expect(html).toMatch(/<img[^>]*src="\/img\/back\.webp"[^>]*alt="Back of the shirt"|<img[^>]*alt="Back of the shirt"[^>]*src="\/img\/back\.webp"/);
+    expect(html).toContain('role="button"');
+    expect(html).toContain("gift-flip-dot-b");
+  });
+
+  it.each(["classic", "atelier"])("%s: the builder shows only the editable front view", (layout) => {
+    const el = createElement(BlockGiftPicker as never, { props: withBack(layout), brand: DEFAULT_BRAND, onFieldChange: () => {} } as never);
+    const html = renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, el));
+    expect(html).not.toContain("data-gift-flip");
+    expect(html).not.toContain("/img/back.webp");
+  });
+});

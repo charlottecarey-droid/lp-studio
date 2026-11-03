@@ -10,6 +10,7 @@ import { selectGift, useGiftSelection } from "./gift/gift-selection";
 import { useRegisterGiftOptions } from "./gift/use-register-gift-options";
 import { cn } from "@/lib/utils";
 import { AtelierGiftPicker } from "./gift/AtelierGiftPicker";
+import { GiftFlip } from "./gift/GiftFlip";
 import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
@@ -29,6 +30,9 @@ export interface GiftOption {
   imageUrl?: string;
   imageAlt?: string;
   fit?: KitTileFit;
+  /** Optional second view (e.g. the back of a shirt), shown on hover / tap. */
+  hoverImageUrl?: string;
+  hoverImageAlt?: string;
   /** Small label on the ribbon instead of the number, e.g. "Most popular". */
   badge?: string;
 }
@@ -155,17 +159,37 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
                 <div aria-hidden="true" className="pointer-events-none absolute -left-12 top-5 w-44 rotate-[-35deg] py-1 text-center text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ background: `linear-gradient(90deg, ${pal.gold}, #F3E2B4)`, color: pal.creamInk, boxShadow: "0 4px 10px -6px rgba(0,0,0,0.4)" }}>
                   {it.badge || String(i + 1).padStart(2, "0")}
                 </div>
-                <KitProductTile
-                  src={it.imageUrl}
-                  alt={it.imageAlt ?? it.name}
-                  fit={it.fit ?? "contain"}
-                  tileColor={tile}
-                  palette={pal}
-                  fallback={<Gift className="h-1/2 w-1/2" strokeWidth={1.25} style={{ color: pal.gold }} />}
-                  className="w-full rounded-[20px]"
-                  style={{ aspectRatio: "4 / 3", boxShadow: `inset 0 0 0 1px ${pal.creamLine}` }}
-                  onUpdate={updateOption ? (v) => updateOption(i, { imageUrl: v }) : undefined}
-                  onAltUpdate={updateOption ? (v) => updateOption(i, { imageAlt: v }) : undefined}
+                <GiftFlip
+                  enabled={!isEditor}
+                  label={it.name}
+                  dotColor={pal.creamInk}
+                  className="relative w-full overflow-hidden rounded-[20px]"
+                  front={
+                    <KitProductTile
+                      src={it.imageUrl}
+                      alt={it.imageAlt ?? it.name}
+                      fit={it.fit ?? "contain"}
+                      tileColor={tile}
+                      palette={pal}
+                      fallback={<Gift className="h-1/2 w-1/2" strokeWidth={1.25} style={{ color: pal.gold }} />}
+                      className="w-full rounded-[20px]"
+                      style={{ aspectRatio: "4 / 3", boxShadow: `inset 0 0 0 1px ${pal.creamLine}` }}
+                      onUpdate={updateOption ? (v) => updateOption(i, { imageUrl: v }) : undefined}
+                      onAltUpdate={updateOption ? (v) => updateOption(i, { imageAlt: v }) : undefined}
+                    />
+                  }
+                  back={it.hoverImageUrl ? (
+                    <KitProductTile
+                      src={it.hoverImageUrl}
+                      alt={it.hoverImageAlt || `${it.name}, second view`}
+                      fit={it.fit ?? "contain"}
+                      tileColor={tile}
+                      palette={pal}
+                      fallback={null}
+                      className="h-full w-full rounded-[20px]"
+                      style={{ boxShadow: `inset 0 0 0 1px ${pal.creamLine}` }}
+                    />
+                  ) : undefined}
                 />
                 <div className="mt-5 flex flex-1 flex-col gap-2 px-2">
                   <h3 className="text-[20px] font-medium" style={{ letterSpacing: "-0.015em" }}>
