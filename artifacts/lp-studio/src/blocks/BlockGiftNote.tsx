@@ -8,6 +8,7 @@ import { INVITE_BODY, INVITE_DISPLAY, displayStyle } from "@/lib/invite-theme";
 import { GIFT_CSS, GiftKicker, Snowfall, resolveGiftPalette } from "./gift/gift-theme";
 import { cn } from "@/lib/utils";
 import { AtelierGiftNote } from "./gift/AtelierGiftNote";
+import { RepSignoff } from "./gift/RepSignoff";
 import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
@@ -27,8 +28,16 @@ export interface GiftNoteBlockProps {
   kicker?: string;
   headline?: string;
   body?: string;
+  /** Greeting above the note, e.g. "Hi {{first_name|there}}," (fills from ?first_name=). Blank hides it. */
+  greeting?: string;
   signoff?: string;
   signature?: string;
+  /** The rep sending the gift (filled by the panel's "From" picker from Content Library team members). */
+  repTitle?: string;
+  repPhotoUrl?: string;
+  /** The rep's own booking link (Chili Piper / Calendly / any URL); blank hides the link. */
+  calendarUrl?: string;
+  calendarText?: string;
   imageUrl?: string;
   imageAlt?: string;
   linkText?: string;
@@ -51,8 +60,13 @@ export const GIFT_NOTE_DEFAULT_PROPS: GiftNoteBlockProps = {
   kicker: "A note from the team",
   headline: "Thank you for a great year.",
   body: "Working with you this year has been a highlight for all of us. Whatever you pick, we hope it brings a little joy to the season, and we're looking forward to what's next.",
+  greeting: "",
   signoff: "With thanks,",
   signature: "The team",
+  repTitle: "",
+  repPhotoUrl: "",
+  calendarUrl: "",
+  calendarText: "Grab time on my calendar",
   imageUrl: "",
   imageAlt: "",
   linkText: "",
@@ -108,8 +122,13 @@ function ClassicGiftNote({ props, brand, onCtaClick, onFieldChange }: Props) {
                   <InlineText as="span" value={props.headline ?? ""} onUpdate={field("headline")} multiline />
                 </h2>
               )}
+              {(props.greeting || isEditor) && (
+                <p className="text-[17px] font-medium" style={{ color: pal.creamInk }} data-gift-greeting="true">
+                  <InlineText as="span" value={props.greeting ?? ""} onUpdate={field("greeting")} />
+                </p>
+              )}
               {(props.body || isEditor) && (
-                <p className="max-w-[52ch] text-[16px] leading-relaxed" style={{ color: pal.creamMuted }}>
+                <p className="max-w-[52ch] whitespace-pre-line text-[16px] leading-relaxed" style={{ color: pal.creamMuted }}>
                   <InlineText as="span" value={props.body ?? ""} onUpdate={field("body")} multiline />
                 </p>
               )}
@@ -121,12 +140,26 @@ function ClassicGiftNote({ props, brand, onCtaClick, onFieldChange }: Props) {
                     </p>
                   )}
                   {(props.signature || isEditor) && (
-                    <p className="text-[26px] italic" style={{ fontFamily: INVITE_DISPLAY, letterSpacing: "-0.02em", color: pal.creamInk }}>
+                    <p className="text-[26px]" style={{ fontFamily: INVITE_DISPLAY, letterSpacing: "-0.02em", color: pal.creamInk }}>
                       <InlineText as="span" value={props.signature ?? ""} onUpdate={field("signature")} />
                     </p>
                   )}
                 </div>
               )}
+              <RepSignoff
+                repTitle={props.repTitle}
+                repPhotoUrl={props.repPhotoUrl}
+                signature={props.signature}
+                calendarText={props.calendarText}
+                calendarUrl={props.calendarUrl}
+                ink={pal.creamInk}
+                muted={pal.creamMuted}
+                line={pal.creamLine}
+                accent={pal.bg}
+                isEditor={isEditor}
+                onTitle={field("repTitle")}
+                onCalendarText={field("calendarText")}
+              />
             </div>
             {(hasImage || isEditor) && (
               <div className="lg:col-span-5">

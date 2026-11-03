@@ -260,3 +260,36 @@ describe("Atelier layout — light luxury variant of every gift block", () => {
     expect(getGiftSelection().details).toEqual({ A: { imageUrl: "/a.webp" }, B: { caption: "bee" } });
   });
 });
+
+describe("gift-note — greeting, rep line and calendar link (both layouts)", () => {
+  it.each(["classic", "atelier"])("%s: hides greeting, rep line and calendar on the live page by default", (layout) => {
+    const html = render(BlockGiftNote as never, { ...defaultsFor("gift-note"), layout }, true);
+    expect(html).not.toContain("data-gift-greeting");
+    expect(html).not.toContain("data-gift-rep");
+    expect(html).not.toContain("data-gift-calendar");
+  });
+
+  it.each(["classic", "atelier"])("%s: renders the greeting, rep role + headshot and a new-tab calendar link when set", (layout) => {
+    const html = render(BlockGiftNote as never, {
+      ...defaultsFor("gift-note"),
+      layout,
+      greeting: "Hi Gilberto,",
+      signature: "Dan MacAdam",
+      repTitle: "Strat AE",
+      repPhotoUrl: "/images/dan.webp",
+      calendarUrl: "https://example.chilipiper.com/me/dan",
+      calendarText: "Grab time with Dan",
+    }, true);
+    expect(html).toContain("Hi Gilberto,");
+    expect(html).toContain("Dan MacAdam");
+    expect(html).toContain("Strat AE");
+    expect(html).toMatch(/<img[^>]*src="\/images\/dan\.webp"/);
+    expect(html).toMatch(/<a[^>]*href="https:\/\/example\.chilipiper\.com\/me\/dan"[^>]*target="_blank"/);
+    expect(html).toContain("Grab time with Dan");
+  });
+
+  it("keeps paragraph breaks in the note body", () => {
+    const html = render(BlockGiftNote as never, { ...defaultsFor("gift-note"), body: "One.\n\nTwo." }, true);
+    expect(html).toMatch(/whitespace-pre-line[^>]*>/);
+  });
+});

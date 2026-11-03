@@ -8,6 +8,7 @@ import type { GiftNoteBlockProps } from "../BlockGiftNote";
 import { ATELIER_BODY, ATELIER_CSS, ATELIER_LINK_CLASS, ATELIER_SERIF, AtelierEyebrow, LeatherTag, SatinBand, SatinBow, resolveAtelierPalette } from "./atelier-theme";
 import { AtelierHeadline } from "./AtelierHeadline";
 import { cn } from "@/lib/utils";
+import { RepSignoff } from "./RepSignoff";
 
 /**
  * gift-note, layout "atelier": a letter on ivory card stock, tied with a
@@ -46,8 +47,13 @@ export function AtelierGiftNote({ props, brand, onCtaClick, onFieldChange }: { p
             <div className={cn("flex flex-col items-start gap-6", (hasImage || isEditor) && "lg:col-span-8")}>
               {(props.kicker || isEditor) && <AtelierEyebrow palette={pal}><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></AtelierEyebrow>}
               {(props.headline || isEditor) && <AtelierHeadline value={props.headline ?? ""} size="clamp(2.4rem, 4.4vw, 3.6rem)" onUpdate={field("headline")} />}
+              {(props.greeting || isEditor) && (
+                <p className="text-[18px]" style={{ color: pal.ink }} data-gift-greeting="true">
+                  <InlineText as="span" value={props.greeting ?? ""} onUpdate={field("greeting")} />
+                </p>
+              )}
               {(props.body || isEditor) && (
-                <p className="max-w-[50ch] text-[16px] leading-[1.75]" style={{ color: pal.muted }}>
+                <p className="max-w-[50ch] whitespace-pre-line text-[16px] leading-[1.75]" style={{ color: pal.muted }}>
                   <InlineText as="span" value={props.body ?? ""} onUpdate={field("body")} multiline />
                 </p>
               )}
@@ -65,6 +71,21 @@ export function AtelierGiftNote({ props, brand, onCtaClick, onFieldChange }: { p
                   )}
                 </div>
               )}
+              <RepSignoff
+                repTitle={props.repTitle}
+                repPhotoUrl={props.repPhotoUrl}
+                signature={props.signature}
+                calendarText={props.calendarText}
+                calendarUrl={props.calendarUrl}
+                ink={pal.ink}
+                muted={pal.muted}
+                line={pal.line}
+                accent={pal.ribbon}
+                isEditor={isEditor}
+                onTitle={field("repTitle")}
+                onCalendarText={field("calendarText")}
+                className="mt-2"
+              />
             </div>
             {(hasImage || isEditor) && (
               <div className="lg:col-span-4">

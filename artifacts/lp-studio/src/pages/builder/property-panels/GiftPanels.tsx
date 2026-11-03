@@ -20,6 +20,60 @@ import { ColorField } from "./BlockSettingsPanel";
 import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
 import { InviteColorFields } from "./invite/InviteColorFields";
 import { Copy, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+
+const API_BASE = "/api";
+
+interface TeamMember {
+  id: number;
+  name: string;
+  content?: { name?: string; role?: string; email?: string; photo?: string; chilipiperUrl?: string; calendlyUrl?: string };
+}
+
+/**
+ * "From" picker for the gift note: lists the tenant's Content Library team
+ * members (the same rep records the microsite generator uses) and fills the
+ * signature, role, headshot and calendar link from the chosen one.
+ */
+function RepPicker({ onPick }: { onPick: (m: TeamMember) => void }) {
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/lp/library/team_member`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: TeamMember[]) => {
+        if (!alive) return;
+        // One entry per person (the library can hold duplicates); prefer the record with a photo / calendar.
+        const byName = new Map<string, TeamMember>();
+        for (const m of Array.isArray(rows) ? rows : []) {
+          const key = (m.content?.email || m.name || "").trim().toLowerCase();
+          const prev = byName.get(key);
+          const score = (x?: TeamMember) => (x?.content?.chilipiperUrl || x?.content?.calendlyUrl ? 2 : 0) + (x?.content?.photo ? 1 : 0);
+          if (!prev || score(m) > score(prev)) byName.set(key, m);
+        }
+        setMembers([...byName.values()].sort((a, b) => a.name.localeCompare(b.name)));
+      })
+      .catch(() => setMembers([]))
+      .finally(() => alive && setLoaded(true));
+    return () => { alive = false; };
+  }, []);
+  return (
+    <Field label="Sent from (fills name, role, photo and calendar)">
+      <Select value="" onValueChange={(v) => { const m = members.find((x) => String(x.id) === v); if (m) onPick(m); }}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={loaded ? (members.length ? "Choose a rep…" : "No team members in Content Library") : "Loading reps…"} /></SelectTrigger>
+        <SelectContent>
+          {members.map((m) => (
+            <SelectItem key={m.id} value={String(m.id)} className="text-xs">
+              {m.name}{m.content?.role ? ` — ${m.content.role}` : ""}{m.content?.chilipiperUrl || m.content?.calendlyUrl ? " · calendar" : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Reps live in Content Library → Team members. Add each rep's Chili Piper or Calendly link there once and it fills in here.</p>
+    </Field>
+  );
+}
 import { GIFT_LAYOUT_LABELS, type GiftLayout } from "@/blocks/gift/atelier-theme";
 
 export type ApplyGiftLayout = (layout: GiftLayout) => void;
@@ -278,7 +332,28 @@ export function GiftNotePanel({ props, onChange, onApplyLayoutToAll }: { props: 
     <div className="space-y-3">
       <LayoutField value={props.layout} onChange={(v) => update({ layout: v })} onApplyToAll={onApplyLayoutToAll} />
       <BlockRefreshButton blockType="gift-note" fields={["kicker", "headline", "body"]} values={{ kicker: props.kicker ?? "", headline: props.headline ?? "", body: props.body ?? "" }} onApply={(u) => update(u)} />
+      <PanelSection title="From (the rep sending it)" defaultOpen>
+        <RepPicker
+          onPick={(m) => update({
+            signature: m.content?.name || m.name,
+            repTitle: m.content?.role || "",
+            repPhotoUrl: m.content?.photo || "",
+            calendarUrl: m.content?.chilipiperUrl || m.content?.calendlyUrl || props.calendarUrl || "",
+          })}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Signature (name)"><Input value={props.signature ?? ""} onChange={(e) => update({ signature: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label="Role"><Input value={props.repTitle ?? ""} onChange={(e) => update({ repTitle: e.target.value })} className="h-8 text-xs" /></Field>
+        </div>
+        <Field label="Headshot"><ImagePicker value={props.repPhotoUrl ?? ""} onChange={(v) => update({ repPhotoUrl: v })} placeholder="Upload or paste image URL" /></Field>
+        <Field label="Calendar link (blank hides it)"><Input value={props.calendarUrl ?? ""} onChange={(e) => update({ calendarUrl: e.target.value })} className="h-8 text-xs" placeholder="https://meetdandy.chilipiper.com/me/your-name" /></Field>
+        <Field label="Calendar link text"><Input value={props.calendarText ?? ""} onChange={(e) => update({ calendarText: e.target.value })} className="h-8 text-xs" placeholder="Grab time on my calendar" /></Field>
+      </PanelSection>
       <PanelSection title="The card" defaultOpen>
+        <Field label="Greeting (blank hides it)">
+          <Input value={props.greeting ?? ""} onChange={(e) => update({ greeting: e.target.value })} className="h-8 text-xs" placeholder="Hi {{first_name|there}}," />
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Type the recipient's name, or keep <span className="font-mono">{"{{first_name|there}}"}</span> and add <span className="font-mono">?first_name=Gilberto</span> to the link you send.</p>
+        </Field>
         <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Headline"><Textarea value={props.headline ?? ""} onChange={(e) => update({ headline: e.target.value })} rows={2} className="text-xs" /></Field>
         <Field label="Note"><Textarea value={props.body ?? ""} onChange={(e) => update({ body: e.target.value })} rows={4} className="text-xs" /></Field>
