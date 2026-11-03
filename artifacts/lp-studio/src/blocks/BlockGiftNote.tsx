@@ -9,6 +9,7 @@ import { GIFT_CSS, GiftKicker, Snowfall, resolveGiftPalette } from "./gift/gift-
 import { cn } from "@/lib/utils";
 import { AtelierGiftNote } from "./gift/AtelierGiftNote";
 import { RepSignoff } from "./gift/RepSignoff";
+import { useGiftNoteStore, useRegisterGiftNote } from "./gift/note-store";
 import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
@@ -77,6 +78,12 @@ export const GIFT_NOTE_DEFAULT_PROPS: GiftNoteBlockProps = {
 };
 
 export function BlockGiftNote(p: Props) {
+  const { kicker, headline, greeting, body, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText } = p.props;
+  useRegisterGiftNote({ kicker, headline, greeting, body, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText });
+  const { envelopeActive } = useGiftNoteStore();
+  // When the hero opens on an envelope, the card that slides out IS this
+  // note — hide it on the live page so the letter doesn't appear twice.
+  if (envelopeActive && !p.onFieldChange) return null;
   return p.props.layout === "atelier" ? <AtelierGiftNote {...p} /> : <ClassicGiftNote {...p} />;
 }
 

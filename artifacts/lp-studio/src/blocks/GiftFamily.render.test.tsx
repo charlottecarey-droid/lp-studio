@@ -23,6 +23,7 @@ import { BLOCK_REGISTRY } from "@/lib/block-types";
 import { NO_REVEAL } from "./BlockRenderer";
 import { resolveGiftPalette } from "./gift/gift-theme";
 import { getGiftSelection, readGiftFromSearch, registerGiftOptions, resetGiftSelection, selectGift } from "./gift/gift-selection";
+import { resetGiftNoteStore, setEnvelopeActive } from "./gift/note-store";
 import { BlockGiftHero } from "./BlockGiftHero";
 import { BlockGiftPicker } from "./BlockGiftPicker";
 import { BlockGiftForm } from "./BlockGiftForm";
@@ -48,7 +49,7 @@ function render(Component: (p: never) => ReactElement, props: Record<string, unk
 
 const DANDY_LEAK = /meetdandy|#003a30|#00231d|#c7e738|\bDandy\b|AirPods|Ray-Ban|Meta Quest|Lab Tour/i;
 
-beforeEach(() => resetGiftSelection());
+beforeEach(() => { resetGiftSelection(); resetGiftNoteStore(); });
 
 describe("Gift family — registry defaults render on the neutral brand", () => {
   it.each(FAMILY)("%s renders its default headline, on a dark surface, with no Dandy / campaign leak", (type, Component) => {
@@ -314,5 +315,41 @@ describe("gift-picker — optional second image on hover / tap (both layouts)", 
     const html = renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, el));
     expect(html).not.toContain("data-gift-flip");
     expect(html).not.toContain("/img/back.webp");
+  });
+});
+
+
+describe("gift-hero — optional envelope intro", () => {
+  it("is off by default (the page opens on the hero as before)", () => {
+    expect(defaultsFor("gift-hero").envelopeIntro).toBe(false);
+    const html = render(BlockGiftHero as never, defaultsFor("gift-hero"), true);
+    expect(html).not.toContain("data-gift-envelope");
+  });
+
+  it.each(["classic", "atelier"])("%s: live page opens on a sealed envelope with the address line and an Open card button", (layout) => {
+    const html = render(BlockGiftHero as never, { ...defaultsFor("gift-hero"), layout, envelopeIntro: true, envelopeTo: "For Gilberto", openCardText: "Open card" }, true);
+    expect(html).toContain('data-gift-envelope="closed"');
+    expect(html).toContain("For Gilberto");
+    expect(html).toContain('data-gift-open-card="true"');
+    expect(html).toContain("Open card");
+    expect(html).toContain("Happy holidays");
+    expect(html).not.toContain('data-gift-card="true"');
+  });
+
+  it("builder shows the normal hero with a notice instead of the envelope", () => {
+    const el = createElement(BlockGiftHero as never, { props: { ...defaultsFor("gift-hero"), envelopeIntro: true }, brand: DEFAULT_BRAND, onFieldChange: () => {} } as never);
+    const html = renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, el));
+    expect(html).toContain('data-gift-envelope-notice="true"');
+    expect(html).not.toContain('data-gift-envelope="closed"');
+    expect(html).toMatch(/class="sticky top-0/);
+  });
+
+  it("the note hides on the live page while an envelope shows it, but stays editable in the builder", () => {
+    setEnvelopeActive(true);
+    expect(render(BlockGiftNote as never, defaultsFor("gift-note"), true)).toBe("");
+    const el = createElement(BlockGiftNote as never, { props: defaultsFor("gift-note"), brand: DEFAULT_BRAND, onFieldChange: () => {} } as never);
+    expect(renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, el))).toContain("Thank you for a great year.");
+    setEnvelopeActive(false);
+    expect(render(BlockGiftNote as never, defaultsFor("gift-note"), true)).toContain("Thank you for a great year.");
   });
 });

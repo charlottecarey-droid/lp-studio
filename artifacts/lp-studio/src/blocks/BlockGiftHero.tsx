@@ -8,6 +8,7 @@ import { KitProductTile, type KitTileFit } from "./kit/KitProductTile";
 import { GIFT_CSS, GIFT_TILE, GiftKicker, GiftTag, RibbonOverlay, Snowfall, SparkleField, resolveGiftPalette } from "./gift/gift-theme";
 import { cn } from "@/lib/utils";
 import { AtelierGiftHero } from "./gift/AtelierGiftHero";
+import { GiftEnvelopeIntro } from "./gift/GiftEnvelopeIntro";
 import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
@@ -34,6 +35,14 @@ export interface GiftHeroBlockProps {
   logoUrlLight?: string;
   /** Atelier stage: auto = photo when set, else the gift-box illustration. */
   heroArt?: "auto" | "boxes" | "photo";
+  /** Open the page on a sealed envelope: "Open card" → the card (the page's note) → "Choose your gift". Live page only. */
+  envelopeIntro?: boolean;
+  /** Written on the envelope, e.g. "For {{first_name|you}}". */
+  envelopeTo?: string;
+  /** Big line on the card as it rises out of the envelope. */
+  cardFront?: string;
+  openCardText?: string;
+  chooseGiftText?: string;
   logoText?: string;
   logoUrl?: string;
   navCtaText?: string;
@@ -106,10 +115,28 @@ export const GIFT_HERO_DEFAULT_PROPS: GiftHeroBlockProps = {
   announcement: "Complimentary delivery · Ships before the holidays",
   logoUrlLight: "",
   heroArt: "auto",
+  envelopeIntro: false,
+  envelopeTo: "For you",
+  cardFront: "Happy holidays",
+  openCardText: "Open card",
+  chooseGiftText: "Choose your gift",
 };
 
 export function BlockGiftHero(p: Props) {
-  return p.props.layout === "atelier" ? <AtelierGiftHero {...p} /> : <ClassicGiftHero {...p} />;
+  const isEditor = !!p.onFieldChange;
+  if (p.props.envelopeIntro && !isEditor) return <GiftEnvelopeIntro {...p} />;
+  const hero = p.props.layout === "atelier" ? <AtelierGiftHero {...p} /> : <ClassicGiftHero {...p} />;
+  if (!p.props.envelopeIntro) return hero;
+  // Builder: the envelope only plays on the live page; say so above the hero.
+  return (
+    <div>
+      <div data-gift-envelope-notice="true" className="flex items-center justify-center gap-2 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+        <Gift className="h-3.5 w-3.5" aria-hidden />
+        Envelope intro is on: visitors first see a sealed envelope, open the card (your note), then scroll to the gifts. Preview the page to see it.
+      </div>
+      {hero}
+    </div>
+  );
 }
 
 function ClassicGiftHero({ props, brand, onCtaClick, onFieldChange }: Props) {

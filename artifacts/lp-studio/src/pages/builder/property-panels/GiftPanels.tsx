@@ -184,6 +184,24 @@ export function GiftHeroPanel({ props, onChange, onApplyLayoutToAll }: { props: 
   return (
     <div className="space-y-3">
       <LayoutField value={props.layout} onChange={(v) => update({ layout: v })} onApplyToAll={onApplyLayoutToAll} />
+      <PanelSection title="Envelope intro (optional)" hint="Open on a sealed envelope" defaultOpen={!!props.envelopeIntro}>
+        <div className="flex items-center justify-between py-1">
+          <span className="text-xs">Open the page on an envelope</span>
+          <Switch checked={!!props.envelopeIntro} onCheckedChange={(v) => update({ envelopeIntro: v })} />
+        </div>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">Visitors see a sealed envelope and an "Open card" button. The card that slides out shows this page's note (the note block then hides lower down), followed by a "Choose your gift" button. Off = the page opens on this hero as usual. Plays on the live page and preview only.</p>
+        {props.envelopeIntro && (
+          <>
+            <Field label="Written on the envelope"><Input value={props.envelopeTo ?? ""} onChange={(e) => update({ envelopeTo: e.target.value })} className="h-8 text-xs" placeholder="For {{first_name|you}}" /></Field>
+            <Field label="Card front (as it slides out)"><Input value={props.cardFront ?? ""} onChange={(e) => update({ cardFront: e.target.value })} className="h-8 text-xs" placeholder="Happy holidays" /></Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Open button"><Input value={props.openCardText ?? ""} onChange={(e) => update({ openCardText: e.target.value })} className="h-8 text-xs" placeholder="Open card" /></Field>
+              <Field label="Scroll button"><Input value={props.chooseGiftText ?? ""} onChange={(e) => update({ chooseGiftText: e.target.value })} className="h-8 text-xs" placeholder="Choose your gift" /></Field>
+            </div>
+            <p className="text-[10px] leading-relaxed text-muted-foreground">"Choose your gift" scrolls to the hero's primary button link (e.g. #gifts).</p>
+          </>
+        )}
+      </PanelSection>
       {atelier && (
         <PanelSection title="Atelier details" defaultOpen>
           <Field label="Announcement strip (blank hides it)"><Input value={props.announcement ?? ""} onChange={(e) => update({ announcement: e.target.value })} className="h-8 text-xs" /></Field>
