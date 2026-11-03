@@ -123,7 +123,7 @@ async function isAppSuperadmin(user: AuthUser | undefined): Promise<boolean> {
   return r.rows[0]?.role === "superadmin";
 }
 
-async function userCanPublish(
+export async function userCanPublish(
   user: AuthUser | undefined,
   tenantId: number | null,
 ): Promise<boolean> {

@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth, resolveEffectiveMicrositeDomain } from "@/context/AuthContext";
+import { getLpPageUrl } from "@/lib/utils";
+import { parseBulkCsv, toCsv } from "@/lib/csv";
 import {
   Plus,
   Trash2,
@@ -60,8 +63,28 @@ interface BulkResult {
   success: boolean;
   pagesGenerated: number;
   errors: number;
-  created: Array<{ id: number; slug: string }>;
-  failed: Array<{ slug: string; error: string }>;
+  created: Array<{ index?: number; id: number; slug: string; status?: string }>;
+  failed: Array<{ index?: number; slug: string; error: string }>;
+  published?: boolean;
+  publishSkipped?: string | null;
+  repUnmatched?: string[];
+}
+
+/**
+ * Variables the server fills from a row's `rep_email` (Sales Reps library).
+ * The CSV template asks for rep_email instead, and the row editor hides them.
+ */
+const REP_DERIVED_VARS = new Set(["rep_name", "rep_first_name", "rep_title", "rep_photo", "rep_calendar", "rep_phone"]);
+
+/** Spreadsheet columns for a template: its tokens, with rep_* collapsed to rep_email. */
+export function bulkColumnsFor(templateVars: string[], extra: string[] = []): string[] {
+  const usesRep = templateVars.some((v) => REP_DERIVED_VARS.has(v));
+  const cols: string[] = [];
+  const add = (v: string) => { if (v && !cols.includes(v) && !REP_DERIVED_VARS.has(v)) cols.push(v); };
+  templateVars.forEach(add);
+  if (usesRep) add("rep_email");
+  extra.forEach(add);
+  return cols;
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -91,24 +114,20 @@ export default function ProgrammaticPages() {
   ]);
   const [generating, setGenerating] = useState(false);
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [publishNow, setPublishNow] = useState(false);
+  const [lastRows, setLastRows] = useState<Array<{ slug: string; variables: Record<string, string> }>>([]);
+  const { canPublish, domainContext, user } = useAuth();
+  const micrositeDomain = resolveEffectiveMicrositeDomain(domainContext, user);
+  const tenantHost = user?.tenantHost ?? null;
   const [csvError, setCsvError] = useState<string | null>(null);
   const csvFileRef = useRef<HTMLInputElement>(null);
 
   // ─── CSV upload ───────────────────────────────────────────────────
   function parseCsvText(text: string): { slug: string; variables: Record<string, string> }[] {
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row.");
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-    if (!headers.includes("slug")) throw new Error("CSV must have a 'slug' column.");
-    return lines.slice(1).map(line => {
-      const vals = line.split(",").map(v => v.trim().replace(/^"(.*)"$/, "$1"));
-      const row: { slug: string; variables: Record<string, string> } = { slug: "", variables: {} };
-      headers.forEach((h, i) => {
-        if (h === "slug") row.slug = vals[i] || "";
-        else row.variables[h] = vals[i] || "";
-      });
-      return row;
-    }).filter(r => r.slug.trim());
+    // RFC 4180 reader: quoted commas / line breaks in personal notes survive,
+    // headers are normalised ("First Name" → first_name) and a missing slug
+    // is built from first_name + last_name + company.
+    return parseBulkCsv(text).map(({ slug, variables }) => ({ slug, variables }));
   }
 
   function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -131,10 +150,19 @@ export default function ProgrammaticPages() {
   }
 
   function downloadCsvTemplate() {
-    const headers = ["slug", ...templateVarNames];
-    const exampleRow = ["example-slug", ...templateVarNames.map(v => `example_${v}`)];
-    const csv = [headers.join(","), exampleRow.join(",")].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const cols = bulkColumnsFor(templateVarNames);
+    const headers = ["slug", ...cols];
+    const sample: Record<string, string> = {
+      slug: "",
+      first_name: "Jordan",
+      last_name: "Lee",
+      email: "jordan@example.com",
+      company: "Acme Partners",
+      rep_email: "your.name@yourcompany.com",
+      personal_note: "Great catching up last week, enjoy the holidays!",
+    };
+    const exampleRow = headers.map((h) => sample[h] ?? (h === "slug" ? "" : `example_${h}`));
+    const blob = new Blob([toCsv([headers, exampleRow])], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -254,15 +282,41 @@ export default function ProgrammaticPages() {
             slug: row.slug.trim().toLowerCase().replace(/\s+/g, "-"),
             variables: row.variables,
           })),
+          publish: publishNow && canPublish,
+          autoSuffix: true,
         }),
       });
       if (r.ok) {
         const data = await r.json() as BulkResult;
         setBulkResult(data);
+        setLastRows(validRows);
       }
     } finally {
       setGenerating(false);
     }
+  };
+
+  // One row per created page: the spreadsheet's own columns + slug, status and
+  // the public link, so marketing can hand each rep their recipients' links.
+  const downloadLinksCsv = () => {
+    if (!bulkResult) return;
+    const varCols: string[] = [];
+    const preferred = ["first_name", "last_name", "email", "company", "rep_email"];
+    for (const k of preferred) if (lastRows.some((r) => k in r.variables)) varCols.push(k);
+    for (const r of lastRows) for (const k of Object.keys(r.variables)) if (!varCols.includes(k)) varCols.push(k);
+    const header = [...varCols, "slug", "status", "link"];
+    const lines: string[][] = [header];
+    for (const c of bulkResult.created) {
+      const src = typeof c.index === "number" ? lastRows[c.index] : undefined;
+      lines.push([...varCols.map((k) => src?.variables[k] ?? ""), c.slug, c.status ?? "draft", getLpPageUrl(c.slug, micrositeDomain, tenantHost)]);
+    }
+    const blob = new Blob([toCsv(lines)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "page-links.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const addBulkRow = () => setBulkRows([...bulkRows, { slug: "", variables: {} }]);
@@ -298,6 +352,10 @@ export default function ProgrammaticPages() {
       .catch(() => { if (!cancelled) setTemplateVarNames([]); });
     return () => { cancelled = true; };
   }, [selectedTemplateId]);
+
+  // Columns shown in the row editor: the template's tokens (rep_* collapsed
+  // to rep_email) plus any extra columns the uploaded CSV brought.
+  const columnNames = bulkColumnsFor(templateVarNames, [...new Set(bulkRows.flatMap((r) => Object.keys(r.variables)))]);
 
   // ─── Helpers ─────────────────────────────────────────────────────
   const getSourceBadge = (source: string) => {
@@ -569,7 +627,7 @@ export default function ProgrammaticPages() {
                             <thead>
                               <tr className="bg-slate-50 border-b">
                                 <th className="text-left font-medium px-3 py-2">Slug</th>
-                                {templateVarNames.map(v => (
+                                {columnNames.map(v => (
                                   <th key={v} className="text-left font-medium px-3 py-2">{v}</th>
                                 ))}
                                 <th className="w-10"></th>
@@ -586,7 +644,7 @@ export default function ProgrammaticPages() {
                                       className="h-8 text-sm"
                                     />
                                   </td>
-                                  {templateVarNames.map(v => (
+                                  {columnNames.map(v => (
                                     <td key={v} className="px-2 py-1.5">
                                       <Input
                                         placeholder={v}
@@ -610,6 +668,12 @@ export default function ProgrammaticPages() {
                         </div>
                       </div>
 
+                      {canPublish && (
+                        <label className="flex items-center gap-2 text-sm text-slate-700">
+                          <input type="checkbox" checked={publishNow} onChange={(e) => setPublishNow(e.target.checked)} className="h-4 w-4" />
+                          Publish the pages right away (otherwise they're created as drafts)
+                        </label>
+                      )}
                       <Button
                         onClick={handleBulkGenerate}
                         disabled={generating || bulkRows.every(r => !r.slug.trim())}
@@ -635,6 +699,19 @@ export default function ProgrammaticPages() {
                                 {bulkResult.pagesGenerated} page{bulkResult.pagesGenerated !== 1 ? "s" : ""} created
                               </p>
                             </div>
+                            {bulkResult.publishSkipped && (
+                              <p className="mt-1 text-sm text-amber-800">{bulkResult.publishSkipped}</p>
+                            )}
+                            {(bulkResult.repUnmatched?.length ?? 0) > 0 && (
+                              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                                No Sales Reps library match for {bulkResult.repUnmatched!.join(", ")}: those pages show the template's fallback rep text. Add or fix the rep in Content Library → Sales Reps and regenerate.
+                              </div>
+                            )}
+                            {bulkResult.created.length > 0 && (
+                              <Button size="sm" variant="outline" onClick={downloadLinksCsv} className="mt-3 gap-1">
+                                <Download className="w-3 h-3" /> Download links (CSV)
+                              </Button>
+                            )}
                             {bulkResult.created.length > 0 && (
                               <div className="space-y-1 mt-2">
                                 {bulkResult.created.map(c => (
