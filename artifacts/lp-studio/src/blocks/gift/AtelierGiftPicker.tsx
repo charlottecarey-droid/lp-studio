@@ -85,6 +85,7 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
               >
                 <GiftFlip
                   enabled={!isEditor}
+                  onSelect={() => choose(it.name)}
                   label={it.name}
                   dotColor={pal.ink}
                   className="relative overflow-hidden rounded-[3px]"

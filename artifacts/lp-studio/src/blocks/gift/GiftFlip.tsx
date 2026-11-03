@@ -13,17 +13,18 @@ const FLIP_CSS = `
 `;
 
 /**
- * A product tile with an optional second view (e.g. the back of a shirt).
- * `front` is the tile's main content, `back` (when given) fades in over it
- * on hover — or flips on tap / Enter on touch and keyboard — and two small
- * dots show there is a second view. `children` are overlays that stay on top
+ * A product tile that (a) selects its gift when clicked and (b) can carry a
+ * second view (e.g. the back of a shirt): `back` fades in over `front` on
+ * hover; on touch the two dots under the photo are the flip control, so a
+ * tap on the photo still selects. `children` are overlays that stay on top
  * of both views (number badge, ribbon, tag). In the builder (`enabled`
- * false) only the front renders so it stays click-to-edit.
+ * false) it is a plain tile so the image stays click-to-edit.
  */
 export function GiftFlip({
   front,
   back,
   enabled,
+  onSelect,
   children,
   className,
   style,
@@ -33,6 +34,8 @@ export function GiftFlip({
   front: ReactNode;
   back?: ReactNode;
   enabled: boolean;
+  /** Click / Enter on the tile chooses this gift. */
+  onSelect?: () => void;
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
@@ -40,8 +43,9 @@ export function GiftFlip({
   label?: string;
 }) {
   const [flipped, setFlipped] = useState(false);
-  const on = enabled && !!back;
-  if (!on) {
+  const hasBack = enabled && !!back;
+  const selectable = enabled && !!onSelect;
+  if (!hasBack && !selectable) {
     return (
       <div className={className} style={style}>
         {front}
@@ -51,24 +55,33 @@ export function GiftFlip({
   }
   return (
     <div
-      className={cn("gift-flip", className)}
+      className={cn(hasBack && "gift-flip", selectable && "cursor-pointer", className)}
       style={style}
-      data-gift-flip={flipped ? "back" : "front"}
-      role="button"
-      tabIndex={0}
-      aria-pressed={flipped}
-      aria-label={label ? `Show the other view of ${label}` : "Show the other view"}
-      onPointerUp={(e) => { if (e.pointerType !== "mouse") setFlipped((f) => !f); }}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFlipped((f) => !f); } }}
+      data-gift-flip={hasBack ? (flipped ? "back" : "front") : undefined}
+      data-gift-select={selectable ? "true" : undefined}
+      role={selectable ? "button" : undefined}
+      tabIndex={selectable ? 0 : undefined}
+      aria-label={selectable ? (label ? `Choose ${label}` : "Choose this gift") : undefined}
+      onClick={selectable ? onSelect : undefined}
+      onKeyDown={selectable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(); } } : undefined}
     >
-      <style>{FLIP_CSS}</style>
+      {hasBack && <style>{FLIP_CSS}</style>}
       {front}
-      <div className="gift-flip-back pointer-events-none absolute inset-0" data-gift-back="true">{back}</div>
+      {hasBack && <div className="gift-flip-back pointer-events-none absolute inset-0" data-gift-back="true">{back}</div>}
       {children}
-      <span aria-hidden="true" className="pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
-        <span className="gift-flip-dot-a block h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
-        <span className="gift-flip-dot-b block h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
-      </span>
+      {hasBack && (
+        <button
+          type="button"
+          aria-label={flipped ? "Show the front" : "Show the other view"}
+          aria-pressed={flipped}
+          className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 px-4 pb-3 pt-4"
+          onClick={(e) => { e.stopPropagation(); setFlipped((f) => !f); }}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <span className="gift-flip-dot-a block h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
+          <span className="gift-flip-dot-b block h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
+        </button>
+      )}
     </div>
   );
 }

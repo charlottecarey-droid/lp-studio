@@ -161,6 +161,7 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
                 </div>
                 <GiftFlip
                   enabled={!isEditor}
+                  onSelect={() => choose(it.name)}
                   label={it.name}
                   dotColor={pal.creamInk}
                   className="relative w-full overflow-hidden rounded-[20px]"

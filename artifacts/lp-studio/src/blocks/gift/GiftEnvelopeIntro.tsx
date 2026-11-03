@@ -76,6 +76,14 @@ function useLook(props: GiftHeroBlockProps, brand: BrandConfig): { look: Look; b
   };
 }
 
+/** Premium "settle" ease shared by the whole sequence. */
+const SETTLE = [0.22, 1, 0.36, 1] as const;
+
+/** Satin liner: a soft sheen across the ribbon colour (no stripes). */
+function satin(look: Look, angle: string): string {
+  return `linear-gradient(${angle}, ${mixHex(look.liner, "#000000", 0.78)} 0%, ${look.liner} 38%, ${mixHex(look.liner, "#FFFFFF", 0.8)} 52%, ${look.liner} 66%, ${mixHex(look.liner, "#000000", 0.82)} 100%)`;
+}
+
 const storageKey = () => {
   try { return `gift-envelope-opened:${window.location.pathname}`; } catch { return ""; }
 };
@@ -87,6 +95,9 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
   const { note } = useGiftNoteStore();
   const [phase, setPhase] = useState<Phase>("closed");
   const [flapBehind, setFlapBehind] = useState(false);
+  // True once the envelope has finished sinking under the open card (or when a
+  // return visit starts open) — then it unmounts.
+  const [envelopeGone, setEnvelopeGone] = useState(false);
   const timers = useRef<number[]>([]);
 
   // Tell the note block it's being shown on the card.
@@ -98,7 +109,7 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
   // A return visit in the same tab starts on the open card.
   useEffect(() => {
     try {
-      if (sessionStorage.getItem(storageKey()) === "1") { setFlapBehind(true); setPhase("open"); }
+      if (sessionStorage.getItem(storageKey()) === "1") { setFlapBehind(true); setEnvelopeGone(true); setPhase("open"); }
     } catch { /* storage blocked — start closed */ }
     return () => { for (const t of timers.current) window.clearTimeout(t); };
   }, []);
@@ -106,11 +117,14 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
   const open = () => {
     if (phase !== "closed") return;
     try { sessionStorage.setItem(storageKey(), "1"); } catch { /* ignore */ }
-    if (reduced) { setFlapBehind(true); setPhase("open"); return; }
+    if (reduced) { setFlapBehind(true); setEnvelopeGone(true); setPhase("open"); return; }
+    // One continuous motion: the flap lifts (1.0s), the card starts rising
+    // while the flap is still settling, and the full card takes over as the
+    // envelope sinks away beneath it.
     setPhase("flap");
-    timers.current.push(window.setTimeout(() => setFlapBehind(true), 420));
-    timers.current.push(window.setTimeout(() => setPhase("rise"), 650));
-    timers.current.push(window.setTimeout(() => setPhase("open"), 1650));
+    timers.current.push(window.setTimeout(() => setFlapBehind(true), 520));
+    timers.current.push(window.setTimeout(() => setPhase("rise"), 700));
+    timers.current.push(window.setTimeout(() => setPhase("open"), 1500));
   };
 
   const goToGifts = (e?: React.MouseEvent) => {
@@ -146,8 +160,9 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
       <style>{css}{`
         .gift-env-bob { animation: gift-env-bob 2.4s ease-in-out infinite; }
         @keyframes gift-env-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
-        .gift-env-float { animation: gift-env-float 6s ease-in-out infinite; }
-        @keyframes gift-env-float { 0%,100% { transform: translateY(0) rotate(-1.5deg); } 50% { transform: translateY(-8px) rotate(-0.5deg); } }
+        .gift-env-float { animation: gift-env-float 7s ease-in-out infinite; }
+        @keyframes gift-env-float { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-6px) rotate(-0.4deg); } }
+        .gift-env-paper { background-image: radial-gradient(rgba(0,0,0,0.035) 0.6px, transparent 0.7px); background-size: 7px 7px; }
         @media (prefers-reduced-motion: reduce) { .gift-env-bob, .gift-env-float { animation: none; } }
       `}</style>
       {!look.atelier && !staticRender && <Snowfall count={Math.max(0, Math.min(60, props.snow ?? 26))} />}
@@ -158,15 +173,26 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
         {logo ? <img src={logo} alt={logoText || "Logo"} className="h-6 w-auto" /> : <span className="text-[15px] font-semibold uppercase tracking-[0.42em]">{logoText}</span>}
       </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-page flex-1 flex-col items-center justify-center px-6 pb-16">
-        <AnimatePresence mode="wait" initial={false}>
-          {!isOpen ? (
+      <div className="relative z-10 mx-auto flex w-full max-w-page flex-1 flex-col items-center justify-center px-6 pb-16" style={{ minHeight: "calc(100svh - 72px)" }}>
+        {/* Envelope. Stays mounted through "open" so it can sink away under
+            the card instead of cutting to it. */}
+        <AnimatePresence initial={false}>
+          {(phase !== "open" || !envelopeGone) && (
             <motion.div
               key="envelope"
-              className="flex w-full flex-col items-center gap-10"
-              exit={reduced ? undefined : { opacity: 0, y: 40, scale: 0.96, transition: { duration: 0.45 } }}
+              className={cn("flex w-full flex-col items-center gap-10", isOpen && "pointer-events-none absolute inset-x-0 top-0")}
+              animate={isOpen ? { opacity: 0, y: 140, scale: 0.9, filter: "blur(2px)" } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              transition={{ duration: 0.9, ease: SETTLE }}
+              onAnimationComplete={() => { if (isOpen) setEnvelopeGone(true); }}
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.32em]" style={{ color: look.stageMuted }}>{props.kicker || "Something for you"}</p>
+              <motion.p
+                className="text-[11px] font-semibold uppercase tracking-[0.32em]"
+                style={{ color: look.stageMuted }}
+                animate={{ opacity: phase === "closed" ? 1 : 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                {props.kicker || "Something for you"}
+              </motion.p>
               <div
                 role="button"
                 tabIndex={0}
@@ -174,69 +200,96 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
                 onClick={open}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}
                 className={cn("relative w-[min(560px,88vw)] cursor-pointer", phase === "closed" && "gift-env-float")}
-                style={{ aspectRatio: "1.55 / 1", perspective: "1400px" }}
+                style={{ aspectRatio: "1.55 / 1", perspective: "1100px", perspectiveOrigin: "50% 100%" }}
                 data-gift-envelope-body="true"
               >
-                {/* back of the envelope + liner */}
-                <div className="absolute inset-0 rounded-[10px]" style={{ background: look.envelopeShade, boxShadow: "0 50px 90px -40px rgba(0,0,0,0.6)" }} />
-                <div className="absolute inset-0 rounded-[10px]" style={{ clipPath: "polygon(3% 1.5%, 97% 1.5%, 50% 54%)", background: `repeating-linear-gradient(135deg, ${look.liner} 0 14px, ${look.linerAccent} 14px 16px)` }} />
+                {/* envelope body (back panel) */}
+                <div className="absolute inset-0 rounded-[10px]" style={{ background: `linear-gradient(180deg, ${look.envelopeShade} 0%, ${mixHex(look.envelopeShade, "#000000", 0.9)} 100%)`, boxShadow: "0 60px 90px -44px rgba(0,0,0,0.55), 0 2px 0 rgba(255,255,255,0.25) inset" }} />
+                {/* satin liner, seen once the flap is up */}
+                <div className="absolute inset-0 rounded-[10px]" style={{ clipPath: "polygon(2.5% 1.5%, 97.5% 1.5%, 50% 55%)", background: satin(look, "180deg") }} />
+                <div className="absolute inset-0 rounded-[10px]" style={{ clipPath: "polygon(2.5% 1.5%, 97.5% 1.5%, 50% 55%)", background: "linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 45%)" }} />
+
                 {/* the card inside */}
                 <motion.div
-                  className="absolute inset-x-[6%] top-[5%] bottom-[6%] flex flex-col items-center justify-center gap-2 rounded-[6px]"
+                  className="absolute inset-x-[6%] top-[5%] bottom-[6%] flex flex-col items-center justify-center gap-2 rounded-[6px] gift-env-paper"
                   style={{ background: look.card, color: look.cardInk, zIndex: 2, boxShadow: `inset 0 0 0 1px ${look.cardLine}` }}
-                  animate={phase === "rise" ? { y: "-58%" } : { y: 0 }}
-                  transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                  animate={phase === "rise" || isOpen ? { y: "-64%", scale: 1.04, boxShadow: `inset 0 0 0 1px ${look.cardLine}, 0 40px 70px -40px rgba(0,0,0,0.6)` } : { y: 0, scale: 1 }}
+                  transition={{ duration: 1.05, ease: SETTLE }}
                 >
                   <span className="text-[10px] font-semibold uppercase tracking-[0.3em]" style={{ color: look.cardMuted }}>{props.tagTo || "To you"}</span>
                   <span className="text-center leading-none" style={{ fontFamily: look.display, fontSize: "clamp(1.6rem, 4.4vw, 2.6rem)", letterSpacing: "-0.03em" }}>{front}</span>
                 </motion.div>
+
                 {/* front pocket */}
                 <div
-                  className="absolute inset-0 rounded-[10px]"
+                  className="absolute inset-0 rounded-[10px] gift-env-paper"
                   style={{
                     zIndex: 3,
                     clipPath: "polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%)",
-                    background: `linear-gradient(160deg, ${look.envelope} 0%, ${mixHex(look.envelope, look.envelopeShade, 0.6)} 100%)`,
+                    background: `linear-gradient(165deg, ${mixHex(look.envelope, "#FFFFFF", 0.5)} 0%, ${look.envelope} 45%, ${mixHex(look.envelope, look.envelopeShade, 0.55)} 100%)`,
                   }}
                 >
-                  <div className="absolute inset-0" style={{ background: `linear-gradient(to top right, transparent 49.6%, ${mixHex(look.envelopeShade, "#000000", 0.85)}22 50%, transparent 50.6%), linear-gradient(to top left, transparent 49.6%, ${mixHex(look.envelopeShade, "#000000", 0.85)}22 50%, transparent 50.6%)` }} />
+                  {/* soft creases where the side flaps meet */}
+                  <div className="absolute inset-0" style={{ background: `linear-gradient(to top right, transparent 49.4%, rgba(0,0,0,0.10) 50%, rgba(255,255,255,0.35) 50.5%, transparent 51.2%), linear-gradient(to top left, transparent 49.4%, rgba(0,0,0,0.10) 50%, rgba(255,255,255,0.35) 50.5%, transparent 51.2%)` }} />
                   <span className="absolute inset-x-0 bottom-[14%] text-center" style={{ fontFamily: look.display, fontSize: "clamp(1.1rem, 2.6vw, 1.6rem)", letterSpacing: "-0.02em", color: look.cardInk }} data-gift-envelope-to="true">
                     {to}
                   </span>
                 </div>
-                {/* flap */}
+
+                {/* flap: paper on the front, satin on the back, lifting over the top edge */}
                 <motion.div
                   className="absolute inset-x-0 top-0"
                   style={{ height: "56%", transformOrigin: "50% 0%", transformStyle: "preserve-3d", zIndex: flapBehind ? 1 : 4 }}
-                  animate={{ rotateX: phase === "closed" ? 0 : 180 }}
-                  transition={{ duration: 0.75, ease: [0.65, 0, 0.35, 1] }}
+                  animate={{ rotateX: phase === "closed" ? 0 : -152 }}
+                  transition={{ duration: 1.15, ease: [0.4, 0, 0.1, 1] }}
                 >
-                  <div className="absolute inset-0 rounded-t-[10px]" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", background: `linear-gradient(180deg, ${look.envelope} 0%, ${mixHex(look.envelope, look.envelopeShade, 0.5)} 100%)`, backfaceVisibility: "hidden", filter: "drop-shadow(0 6px 8px rgba(0,0,0,0.15))" }} />
-                  <div className="absolute inset-0" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", background: `repeating-linear-gradient(135deg, ${look.liner} 0 14px, ${look.linerAccent} 14px 16px)`, transform: "rotateX(180deg)", backfaceVisibility: "hidden" }} />
+                  <div className="absolute inset-0 rounded-t-[10px] gift-env-paper" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", background: `linear-gradient(180deg, ${mixHex(look.envelope, "#FFFFFF", 0.35)} 0%, ${look.envelope} 55%, ${mixHex(look.envelope, look.envelopeShade, 0.6)} 100%)`, backfaceVisibility: "hidden" }} />
+                  <motion.div
+                    className="absolute inset-0"
+                    style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", background: "linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)", backfaceVisibility: "hidden" }}
+                    animate={{ opacity: phase === "closed" ? 1 : 0 }}
+                    transition={{ duration: 0.5 }}
+                  />
+                  <div className="absolute inset-0" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", background: satin(look, "0deg"), transform: "rotateX(180deg)", backfaceVisibility: "hidden" }} />
+                  <div className="absolute inset-0" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", background: "linear-gradient(0deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 50%)", transform: "rotateX(180deg)", backfaceVisibility: "hidden" }} />
                 </motion.div>
-                {/* wax seal */}
+
+                {/* wax seal: lifts with the flap, then melts away */}
                 <motion.div
                   className="absolute left-1/2 top-[56%] flex h-[17%] items-center justify-center rounded-full"
-                  style={{ zIndex: 5, aspectRatio: "1 / 1", x: "-50%", y: "-50%", background: `radial-gradient(circle at 35% 30%, ${mixHex(look.seal, "#FFFFFF", 0.7)} 0%, ${look.seal} 55%, ${mixHex(look.seal, "#000000", 0.7)} 100%)`, color: look.sealInk, boxShadow: "0 6px 14px -4px rgba(0,0,0,0.45), inset 0 0 0 3px rgba(255,255,255,0.15)" }}
-                  animate={phase === "closed" ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.6 }}
-                  transition={{ duration: 0.25 }}
+                  style={{ zIndex: 5, aspectRatio: "1 / 1", x: "-50%", y: "-50%", background: `radial-gradient(circle at 35% 30%, ${mixHex(look.seal, "#FFFFFF", 0.7)} 0%, ${look.seal} 55%, ${mixHex(look.seal, "#000000", 0.7)} 100%)`, color: look.sealInk, boxShadow: "0 8px 18px -6px rgba(0,0,0,0.5), inset 0 0 0 3px rgba(255,255,255,0.14), inset 0 -2px 4px rgba(0,0,0,0.25)" }}
+                  animate={phase === "closed" ? { opacity: 1, scale: 1, y: "-50%" } : { opacity: 0, scale: 0.7, y: "-110%" }}
+                  transition={{ duration: 0.45, ease: SETTLE }}
                   aria-hidden="true"
                 >
                   <span style={{ fontFamily: look.display, fontSize: "clamp(1rem, 2.6vw, 1.5rem)", lineHeight: 1 }}>{initial}</span>
                 </motion.div>
               </div>
-              <button type="button" onClick={open} className={button.className} style={button.style} data-gift-open-card="true" disabled={phase !== "closed"}>
+              <motion.button
+                type="button"
+                onClick={open}
+                className={button.className}
+                style={button.style}
+                data-gift-open-card="true"
+                disabled={phase !== "closed"}
+                animate={{ opacity: phase === "closed" ? 1 : 0, y: phase === "closed" ? 0 : 8 }}
+                transition={{ duration: 0.4 }}
+              >
                 <Gift className="h-4 w-4" aria-hidden />
                 {props.openCardText || "Open card"}
-              </button>
+              </motion.button>
             </motion.div>
-          ) : (
+          )}
+        </AnimatePresence>
+
+        {/* The full card rises into place as the envelope sinks away. */}
+        {isOpen && (
             <motion.div
               key="card"
-              className="flex w-full flex-col items-center gap-10 pt-4"
-              initial={reduced ? false : { opacity: 0, y: 30, scale: 0.96 }}
+              className="relative z-10 flex w-full flex-col items-center gap-10 pt-4"
+              initial={reduced || flapBehind === false ? false : { opacity: 0, y: 90, scale: 0.92 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 1.0, ease: SETTLE }}
             >
               <article
                 data-gift-card="true"
@@ -295,8 +348,7 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
                 <ArrowDown className="gift-env-bob h-5 w-5" aria-hidden style={{ color: look.stageMuted }} />
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+        )}
       </div>
     </section>
   );

@@ -370,3 +370,21 @@ describe("bulk-page personalization — personal note and form pre-fill", () => 
     expect(cleanPrefill("Dan MacAdam")).toBe("Dan MacAdam");
   });
 });
+
+describe("gift-picker — the photo itself selects the gift", () => {
+  it.each(["classic", "atelier"])("%s: every live tile is a labelled button; the builder tile is not", (layout) => {
+    const live = render(BlockGiftPicker as never, { ...defaultsFor("gift-picker"), layout }, true);
+    expect(live.match(/data-gift-select="true"/g)).toHaveLength(3);
+    expect(live).toContain('aria-label="Choose Gift one"');
+    const el = createElement(BlockGiftPicker as never, { props: { ...defaultsFor("gift-picker"), layout }, brand: DEFAULT_BRAND, onFieldChange: () => {} } as never);
+    const builder = renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, el));
+    expect(builder).not.toContain("data-gift-select");
+  });
+
+  it("a gift with a second image keeps a separate flip control so a tap on the photo still selects", () => {
+    const d = defaultsFor("gift-picker") as { options: Array<Record<string, unknown>> };
+    const html = render(BlockGiftPicker as never, { ...d, options: [{ ...d.options[0], hoverImageUrl: "/img/back.webp" }, d.options[1]] }, true);
+    expect(html).toContain('aria-label="Show the other view"');
+    expect(html.match(/data-gift-select="true"/g)).toHaveLength(2);
+  });
+});
