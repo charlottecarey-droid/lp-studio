@@ -5,6 +5,24 @@ import type { GiftFormBlockProps } from "../BlockGiftForm";
 import { readGiftFromSearch, selectGift, useGiftSelection, type GiftDetail } from "./gift-selection";
 
 export type GiftFormValues = Record<string, string>;
+
+/** A prefill value, or "" when blank or still an unresolved {{token}} (the builder). */
+export function cleanPrefill(v: string | undefined): string {
+  const s = (v ?? "").trim();
+  return s && !s.includes("{{") ? s : "";
+}
+
+export function prefillValues(props: Pick<GiftFormBlockProps, "prefillFirstName" | "prefillLastName" | "prefillEmail" | "prefillCompany">): GiftFormValues {
+  const out: GiftFormValues = {};
+  const pairs: Array<[string, string | undefined]> = [
+    ["firstName", props.prefillFirstName],
+    ["lastName", props.prefillLastName],
+    ["email", props.prefillEmail],
+    ["company", props.prefillCompany],
+  ];
+  for (const [k, v] of pairs) { const c = cleanPrefill(v); if (c) out[k] = c; }
+  return out;
+}
 export type GiftFormStatus = "idle" | "loading" | "success" | "error";
 
 /**
@@ -24,7 +42,19 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
   const askSize = sizes.length > 0;
 
   const [step, setStep] = useState(0);
-  const [values, setValues] = useState<GiftFormValues>({});
+  const [values, setValues] = useState<GiftFormValues>(() => prefillValues(props));
+  // Prefill can arrive after mount (builder edits, hydration): fill only the
+  // fields the visitor hasn't typed into.
+  const prefillKey = JSON.stringify(prefillValues(props));
+  useEffect(() => {
+    const pre = JSON.parse(prefillKey) as GiftFormValues;
+    setValues((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(pre)) if (!next[k]) { next[k] = v; changed = true; }
+      return changed ? next : prev;
+    });
+  }, [prefillKey]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<GiftFormStatus>("idle");
 
@@ -105,6 +135,7 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
       "Delivery notes": values.notes ?? "",
       Campaign: resolveHiddenValue("{{utm_campaign}}"),
       Rep: resolveHiddenValue("{{utm_content}}"),
+      ...(cleanPrefill(props.sentBy) ? { "Sent by": cleanPrefill(props.sentBy) } : {}),
       Source: props.source || "holiday-gift",
     };
     try {

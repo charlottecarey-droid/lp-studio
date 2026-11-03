@@ -57,6 +57,11 @@ export function AtelierGiftNote({ props, brand, onCtaClick, onFieldChange }: { p
                   <InlineText as="span" value={props.body ?? ""} onUpdate={field("body")} multiline />
                 </p>
               )}
+              {(props.personalNote || isEditor) && (
+                <p className="max-w-[50ch] whitespace-pre-line text-[16px] leading-[1.75]" style={{ color: pal.ink }} data-gift-personal-note="true">
+                  <InlineText as="span" value={props.personalNote ?? ""} onUpdate={field("personalNote")} multiline />
+                </p>
+              )}
               {(props.signoff || props.signature || isEditor) && (
                 <div className="mt-2 flex flex-col gap-1">
                   {(props.signoff || isEditor) && (

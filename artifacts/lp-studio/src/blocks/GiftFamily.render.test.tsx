@@ -353,3 +353,20 @@ describe("gift-hero — optional envelope intro", () => {
     expect(render(BlockGiftNote as never, defaultsFor("gift-note"), true)).toContain("Thank you for a great year.");
   });
 });
+
+describe("bulk-page personalization — personal note and form pre-fill", () => {
+  it.each(["classic", "atelier"])("%s: the personal line shows when set and hides when blank", (layout) => {
+    const withNote = render(BlockGiftNote as never, { ...defaultsFor("gift-note"), layout, personalNote: "Great seeing you in Austin!" }, true);
+    expect(withNote).toContain('data-gift-personal-note="true"');
+    expect(withNote).toContain("Great seeing you in Austin!");
+    const blank = render(BlockGiftNote as never, { ...defaultsFor("gift-note"), layout, personalNote: "" }, true);
+    expect(blank).not.toContain("data-gift-personal-note");
+  });
+
+  it("pre-fill ignores blanks and unresolved {{tokens}} (the builder) and keeps real values", async () => {
+    const { prefillValues, cleanPrefill } = await import("./gift/use-gift-form");
+    expect(prefillValues({ prefillFirstName: "Gilberto", prefillLastName: "{{last_name}}", prefillEmail: " g@apex.com ", prefillCompany: "" })).toEqual({ firstName: "Gilberto", email: "g@apex.com" });
+    expect(cleanPrefill("{{rep_name}}")).toBe("");
+    expect(cleanPrefill("Dan MacAdam")).toBe("Dan MacAdam");
+  });
+});

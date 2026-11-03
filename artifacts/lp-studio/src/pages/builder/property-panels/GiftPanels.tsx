@@ -354,6 +354,16 @@ export function GiftFormPanel({ props, onChange, onApplyLayoutToAll }: { props: 
         <Field label="Submit button"><Input value={props.submitText ?? ""} onChange={(e) => update({ submitText: e.target.value })} className="h-8 text-xs" /></Field>
         <ListField label="“What happens next” lines (beside the card)" value={props.nextSteps ?? []} onChange={(v) => update({ nextSteps: v })} />
       </PanelSection>
+      <PanelSection title="Pre-fill and tracking">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="First name"><Input value={props.prefillFirstName ?? ""} onChange={(e) => update({ prefillFirstName: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{first_name}}" /></Field>
+          <Field label="Last name"><Input value={props.prefillLastName ?? ""} onChange={(e) => update({ prefillLastName: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{last_name}}" /></Field>
+          <Field label="Email"><Input value={props.prefillEmail ?? ""} onChange={(e) => update({ prefillEmail: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{email}}" /></Field>
+          <Field label="Company"><Input value={props.prefillCompany ?? ""} onChange={(e) => update({ prefillCompany: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{company}}" /></Field>
+        </div>
+        <Field label="Sent by (saved on the lead)"><Input value={props.sentBy ?? ""} onChange={(e) => update({ sentBy: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{rep_name}}" /></Field>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">Step two starts filled in with these, so the recipient mostly just adds an address. Use tokens on templates for bulk-created pages; blank = start empty.</p>
+      </PanelSection>
       <PanelSection title="After submit">
         <Field label="Success headline"><Input value={props.successHeadline ?? ""} onChange={(e) => update({ successHeadline: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Success message"><Textarea value={props.successMessage ?? ""} onChange={(e) => update({ successMessage: e.target.value })} rows={2} className="text-xs" /></Field>
@@ -394,6 +404,10 @@ export function GiftNotePanel({ props, onChange, onApplyLayoutToAll }: { props: 
         <Field label="Greeting (blank hides it)">
           <Input value={props.greeting ?? ""} onChange={(e) => update({ greeting: e.target.value })} className="h-8 text-xs" placeholder="Hi {{first_name|there}}," />
           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Type the recipient's name, or keep <span className="font-mono">{"{{first_name|there}}"}</span> and add <span className="font-mono">?first_name=Gilberto</span> to the link you send.</p>
+        </Field>
+        <Field label="Personal line from the rep (blank hides it)">
+          <Textarea value={props.personalNote ?? ""} onChange={(e) => update({ personalNote: e.target.value })} rows={2} className="text-xs" placeholder="{{personal_note}}" />
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Shown under the note. Bulk-created pages fill <span className="font-mono">{"{{personal_note}}"}</span> from the spreadsheet.</p>
         </Field>
         <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Headline"><Textarea value={props.headline ?? ""} onChange={(e) => update({ headline: e.target.value })} rows={2} className="text-xs" /></Field>

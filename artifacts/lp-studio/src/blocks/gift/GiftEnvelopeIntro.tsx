@@ -265,6 +265,7 @@ export function GiftEnvelopeIntro({ props, brand, onCtaClick }: { props: GiftHer
                   )}
                   {card?.greeting && <p className="text-[17px] font-medium">{card.greeting}</p>}
                   {card?.body && <p className="max-w-[52ch] whitespace-pre-line text-[16px] leading-[1.7]" style={{ color: look.cardMuted }}>{card.body}</p>}
+                  {card?.personalNote && <p className="max-w-[52ch] whitespace-pre-line text-[16px] leading-[1.7]" data-gift-personal-note="true">{card.personalNote}</p>}
                   {(card?.signoff || card?.signature) && (
                     <div className="mt-1 flex flex-col gap-1">
                       {card.signoff && <p className="text-[12px] font-medium uppercase tracking-[0.24em]" style={{ color: look.cardMuted }}>{card.signoff}</p>}

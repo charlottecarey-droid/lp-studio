@@ -51,6 +51,13 @@ export interface GiftFormBlockProps {
   successHeadline?: string;
   successMessage?: string;
   consentText?: string;
+  /** Pre-fill step two (e.g. "{{first_name}}" filled per page). Values still containing "{{" are ignored. */
+  prefillFirstName?: string;
+  prefillLastName?: string;
+  prefillEmail?: string;
+  prefillCompany?: string;
+  /** Saved on the lead as "Sent by" (e.g. "{{rep_name}}"). */
+  sentBy?: string;
   /** Lead source label saved with the lead. */
   source?: string;
   anchorId?: string;

@@ -31,6 +31,8 @@ export interface GiftNoteBlockProps {
   body?: string;
   /** Greeting above the note, e.g. "Hi {{first_name|there}}," (fills from ?first_name=). Blank hides it. */
   greeting?: string;
+  /** A short personal line from the rep, shown under the note (blank hides it). E.g. "{{personal_note}}" filled per page. */
+  personalNote?: string;
   signoff?: string;
   signature?: string;
   /** The rep sending the gift (filled by the panel's "From" picker from Content Library team members). */
@@ -62,6 +64,7 @@ export const GIFT_NOTE_DEFAULT_PROPS: GiftNoteBlockProps = {
   headline: "Thank you for a great year.",
   body: "Working with you this year has been a highlight for all of us. Whatever you pick, we hope it brings a little joy to the season, and we're looking forward to what's next.",
   greeting: "",
+  personalNote: "",
   signoff: "With thanks,",
   signature: "The team",
   repTitle: "",
@@ -78,8 +81,8 @@ export const GIFT_NOTE_DEFAULT_PROPS: GiftNoteBlockProps = {
 };
 
 export function BlockGiftNote(p: Props) {
-  const { kicker, headline, greeting, body, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText } = p.props;
-  useRegisterGiftNote({ kicker, headline, greeting, body, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText });
+  const { kicker, headline, greeting, body, personalNote, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText } = p.props;
+  useRegisterGiftNote({ kicker, headline, greeting, body, personalNote, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText });
   const { envelopeActive } = useGiftNoteStore();
   // When the hero opens on an envelope, the card that slides out IS this
   // note — hide it on the live page so the letter doesn't appear twice.
@@ -137,6 +140,11 @@ function ClassicGiftNote({ props, brand, onCtaClick, onFieldChange }: Props) {
               {(props.body || isEditor) && (
                 <p className="max-w-[52ch] whitespace-pre-line text-[16px] leading-relaxed" style={{ color: pal.creamMuted }}>
                   <InlineText as="span" value={props.body ?? ""} onUpdate={field("body")} multiline />
+                </p>
+              )}
+              {(props.personalNote || isEditor) && (
+                <p className="max-w-[52ch] whitespace-pre-line text-[16px] leading-relaxed" style={{ color: pal.creamInk }} data-gift-personal-note="true">
+                  <InlineText as="span" value={props.personalNote ?? ""} onUpdate={field("personalNote")} multiline />
                 </p>
               )}
               {(props.signoff || props.signature || isEditor) && (

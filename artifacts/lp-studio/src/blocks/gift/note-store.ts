@@ -14,6 +14,7 @@ export interface GiftNoteContent {
   headline?: string;
   greeting?: string;
   body?: string;
+  personalNote?: string;
   signoff?: string;
   signature?: string;
   repTitle?: string;
