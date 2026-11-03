@@ -5057,6 +5057,10 @@ export type { KitHeroBlockProps, KitFact } from "@/blocks/BlockKitHero";
 export type { KitContentsBlockProps, KitContentsItem } from "@/blocks/BlockKitContents";
 export type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockKitSteps";
 export type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
+export type { GiftHeroBlockProps, GiftFact } from "@/blocks/BlockGiftHero";
+export type { GiftPickerBlockProps, GiftOption } from "@/blocks/BlockGiftPicker";
+export type { GiftFormBlockProps } from "@/blocks/BlockGiftForm";
+export type { GiftNoteBlockProps } from "@/blocks/BlockGiftNote";
 export type { KitTileFit, KitTileFrame } from "@/blocks/kit/KitProductTile";
 
 /* ── Content Hub family (Oct 2026): ungated resource library of PDFs, videos and links. */

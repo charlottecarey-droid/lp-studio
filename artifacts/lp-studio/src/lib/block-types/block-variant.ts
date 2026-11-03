@@ -182,6 +182,10 @@ import type {
   KitContentsBlockProps,
   KitStepsBlockProps,
   KitSupportBlockProps,
+  GiftHeroBlockProps,
+  GiftPickerBlockProps,
+  GiftFormBlockProps,
+  GiftNoteBlockProps,
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
@@ -502,6 +506,10 @@ export type BlockVariant =
   | { type: "kit-contents"; props: KitContentsBlockProps }
   | { type: "kit-steps"; props: KitStepsBlockProps }
   | { type: "kit-support"; props: KitSupportBlockProps }
+  | { type: "gift-hero"; props: GiftHeroBlockProps }
+  | { type: "gift-picker"; props: GiftPickerBlockProps }
+  | { type: "gift-form"; props: GiftFormBlockProps }
+  | { type: "gift-note"; props: GiftNoteBlockProps }
   | { type: "hub-hero"; props: HubHeroBlockProps }
   | { type: "hub-featured"; props: HubFeaturedBlockProps }
   | { type: "hub-library"; props: HubLibraryBlockProps }

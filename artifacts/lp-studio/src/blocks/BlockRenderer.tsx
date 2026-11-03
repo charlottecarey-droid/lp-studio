@@ -176,6 +176,10 @@ import { BlockHubPaths } from "./BlockHubPaths";
 import { BlockKitContents } from "./BlockKitContents";
 import { BlockKitSteps } from "./BlockKitSteps";
 import { BlockKitSupport } from "./BlockKitSupport";
+import { BlockGiftHero } from "./BlockGiftHero";
+import { BlockGiftPicker } from "./BlockGiftPicker";
+import { BlockGiftForm } from "./BlockGiftForm";
+import { BlockGiftNote } from "./BlockGiftNote";
 import { BlockAbmSplitHero } from "./BlockAbmSplitHero";
 import { BlockAbmPhoneShowcase } from "./BlockAbmPhoneShowcase";
 import { BlockAbmSolutionTabs } from "./BlockAbmSolutionTabs";
@@ -513,6 +517,8 @@ export const NO_REVEAL = new Set<string>([
   "invite-demo-hero", "invite-details", "invite-agenda", "invite-showcase", "invite-proof", "invite-reserve",
   // Kit family: self-nav hero with floating product stage + sections with their own staggered reveals.
   "kit-hero", "kit-contents", "kit-steps", "kit-support",
+  // Holiday Gift family (Nov 2026): self-nav hero with snow + floating stage; sections with their own reveals.
+  "gift-hero", "gift-picker", "gift-form", "gift-note",
   // Content Hub family: self-nav hero with its own entrance + sections with staggered card reveals.
   "hub-hero", "hub-featured", "hub-library", "hub-support", "hub-paths",
   // ABM account-page family: self-nav hero + sections with their own staggered reveals.
@@ -1875,6 +1881,52 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "gift-hero":
+        return (
+          <BlockGiftHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "gift-picker":
+        return (
+          <BlockGiftPicker
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "gift-form":
+        return (
+          <BlockGiftForm
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "gift-note":
+        return (
+          <BlockGiftNote
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.linkUrl ?? "#") : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

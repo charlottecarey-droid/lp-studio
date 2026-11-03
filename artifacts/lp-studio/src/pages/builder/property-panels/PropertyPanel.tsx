@@ -216,6 +216,7 @@ import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
 import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
 import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
 import { KitHeroPanel, KitContentsPanel, KitStepsPanel, KitSupportPanel } from "./KitPanels";
+import { GiftHeroPanel, GiftPickerPanel, GiftFormPanel, GiftNotePanel } from "./GiftPanels";
 import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel, HubPathsPanel, type ApplyHubStyle } from "./HubPanels";
 import {
   AbmSplitHeroPanel,
@@ -1767,6 +1768,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "kit-support":
         return (
           <KitSupportPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "gift-hero":
+        return (
+          <GiftHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "gift-picker":
+        return (
+          <GiftPickerPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "gift-form":
+        return (
+          <GiftFormPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "gift-note":
+        return (
+          <GiftNotePanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

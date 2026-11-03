@@ -120,6 +120,8 @@ export const HERO_TYPES = new Set([
   "invite-demo-hero",
   // Kit family self-nav hero (Oct 2026).
   "kit-hero",
+  // Holiday Gift family self-nav hero (Nov 2026).
+  "gift-hero",
   // Content Hub family self-nav hero (Oct 2026).
   "hub-hero",
   // ABM account-page family self-nav hero (Oct 2026).
@@ -141,6 +143,8 @@ export const CTA_TYPES = new Set([
   "invite-reserve",
   // Kit family close (support CTA).
   "kit-support",
+  // Holiday Gift family close (thank-you note with an optional link).
+  "gift-note",
   // Content Hub close: mailto pill + help-center link (Oct 2026).
   "hub-support",
   // ABM account-page family: ROI band + ratings close carry the page CTA.
@@ -157,6 +161,8 @@ export const LEAD_CAPTURE_TYPES = new Set([
   "glow-form-hero",
   // Invite family reservation form.
   "invite-reserve",
+  // Holiday Gift family three-step claim form.
+  "gift-form",
 ]);
 
 // Social proof: testimonials, customer stories, case studies, results galleries.
@@ -251,6 +257,8 @@ export const STRUCTURED_TYPES = new Set([
   "invite-details", "invite-agenda", "invite-showcase",
   // Kit family structured sections.
   "kit-contents", "kit-steps",
+  // Holiday Gift family gift cards.
+  "gift-picker",
   // Content Hub family (Oct 2026): a sectioned resource library + its spotlight.
   "hub-featured", "hub-library", "hub-paths",
   // ABM account-page family structured sections.

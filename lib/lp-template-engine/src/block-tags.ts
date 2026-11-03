@@ -339,6 +339,11 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "kit-contents": ["features", "media"],
   "kit-steps": ["features"],
   "kit-support": ["cta"],
+  // Holiday Gift family (Nov 2026): the "pick your gift" page a rep sends a prospect.
+  "gift-hero": ["hero", "media", "cta"],
+  "gift-picker": ["features", "media"],
+  "gift-form": ["form"],
+  "gift-note": ["cta"],
   // Content Hub family (Oct 2026): ungated resource library (PDFs, videos, links).
   "hub-hero": ["hero", "media", "cta"],
   "hub-featured": ["media", "features"],

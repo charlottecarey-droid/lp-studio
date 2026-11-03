@@ -182,6 +182,10 @@ import type {
   KitContentsBlockProps,
   KitStepsBlockProps,
   KitSupportBlockProps,
+  GiftHeroBlockProps,
+  GiftPickerBlockProps,
+  GiftFormBlockProps,
+  GiftNoteBlockProps,
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
@@ -232,6 +236,10 @@ import { INVITE_SHOWCASE_DEFAULT_PROPS } from "@/blocks/BlockInviteShowcase";
 import { INVITE_PROOF_DEFAULT_PROPS } from "@/blocks/BlockInviteProof";
 import { INVITE_RESERVE_DEFAULT_PROPS } from "@/blocks/BlockInviteReserve";
 import { KIT_HERO_DEFAULT_PROPS } from "@/blocks/BlockKitHero";
+import { GIFT_HERO_DEFAULT_PROPS } from "@/blocks/BlockGiftHero";
+import { GIFT_PICKER_DEFAULT_PROPS } from "@/blocks/BlockGiftPicker";
+import { GIFT_FORM_DEFAULT_PROPS } from "@/blocks/BlockGiftForm";
+import { GIFT_NOTE_DEFAULT_PROPS } from "@/blocks/BlockGiftNote";
 import { HUB_HERO_DEFAULT_PROPS } from "@/blocks/BlockHubHero";
 import { HUB_FEATURED_DEFAULT_PROPS } from "@/blocks/BlockHubFeatured";
 import { HUB_LIBRARY_DEFAULT_PROPS } from "@/blocks/BlockHubLibrary";
@@ -9581,6 +9589,43 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#D9E84A" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="30" height="7" rx="2" fill="#ffffff" /><rect x="8" y="44" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="66" y="12" width="46" height="46" rx="6" fill="#0b2a22" stroke="#ffffff" strokeOpacity="0.2" /><rect x="72" y="20" width="10" height="1.5" fill="#D9E84A" /><rect x="72" y="26" width="30" height="5" rx="1.5" fill="#ffffff" opacity="0.9" /><rect x="72" y="34" width="34" height="2" rx="1" fill="#ffffff" opacity="0.35" /><rect x="72" y="46" width="24" height="7" rx="3.5" fill="none" stroke="#ffffff" strokeOpacity="0.4" /></svg>
     ),
   },
+  // ── Holiday Gift family (Nov 2026): the "pick your gift" page a rep sends a prospect ──
+  {
+    type: "gift-hero",
+    label: "Hero — Holiday Gift",
+    category: "Showcase",
+    defaultProps: (): GiftHeroBlockProps => structuredClone(GIFT_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><circle cx="20" cy="10" r="1" fill="#fff" opacity="0.6" /><circle cx="48" cy="6" r="1" fill="#fff" opacity="0.5" /><circle cx="96" cy="9" r="1" fill="#fff" opacity="0.6" /><circle cx="70" cy="62" r="1" fill="#fff" opacity="0.5" /><rect x="8" y="14" width="14" height="1.5" fill="#E8CC8A" /><rect x="8" y="20" width="44" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="36" height="7" rx="2" fill="#ffffff" /><rect x="8" y="44" width="26" height="8" rx="4" fill="#D9E84A" /><rect x="66" y="10" width="46" height="38" rx="6" fill="#F6F1E6" /><rect x="60" y="40" width="22" height="18" rx="4" fill="#F6F1E6" transform="rotate(-6 71 49)" /><rect x="73" y="40" width="3" height="18" fill="#E8CC8A" transform="rotate(-6 71 49)" /><rect x="60" y="46" width="22" height="3" fill="#E8CC8A" transform="rotate(-6 71 49)" /><rect x="62" y="6" width="12" height="7" rx="1.5" fill="#FBF7EE" transform="rotate(-8 68 9)" /></svg>
+    ),
+  },
+  {
+    type: "gift-picker",
+    label: "Holiday Gift — Pick Your Gift",
+    category: "Showcase",
+    defaultProps: (): GiftPickerBlockProps => structuredClone(GIFT_PICKER_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="40" y="6" width="40" height="5" rx="2" fill="#ffffff" /><rect x="8" y="16" width="32" height="46" rx="5" fill="#FBF7EE" /><rect x="44" y="16" width="32" height="46" rx="5" fill="#FBF7EE" /><rect x="80" y="16" width="32" height="46" rx="5" fill="#FBF7EE" /><rect x="11" y="19" width="26" height="20" rx="3" fill="#F6F1E6" /><rect x="47" y="19" width="26" height="20" rx="3" fill="#F6F1E6" /><rect x="83" y="19" width="26" height="20" rx="3" fill="#F6F1E6" /><rect x="11" y="43" width="18" height="3" rx="1" fill="#14211C" /><rect x="47" y="43" width="18" height="3" rx="1" fill="#14211C" /><rect x="83" y="43" width="18" height="3" rx="1" fill="#14211C" /><rect x="11" y="52" width="20" height="6" rx="3" fill="#D9E84A" /><rect x="47" y="52" width="20" height="6" rx="3" fill="#D9E84A" /><rect x="83" y="52" width="20" height="6" rx="3" fill="#D9E84A" /><path d="M8 24 L16 16 L20 16 L8 28 Z" fill="#E8CC8A" /><path d="M44 24 L52 16 L56 16 L44 28 Z" fill="#E8CC8A" /><path d="M80 24 L88 16 L92 16 L80 28 Z" fill="#E8CC8A" /></svg>
+    ),
+  },
+  {
+    type: "gift-form",
+    label: "Holiday Gift — Claim Form (3 steps)",
+    category: "Lead Capture",
+    defaultProps: (): GiftFormBlockProps => structuredClone(GIFT_FORM_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#E8CC8A" /><rect x="8" y="20" width="36" height="7" rx="2" fill="#ffffff" /><rect x="8" y="30" width="28" height="7" rx="2" fill="#ffffff" /><circle cx="12" cy="46" r="3" fill="#E8CC8A" /><circle cx="12" cy="54" r="3" fill="none" stroke="#E8CC8A" strokeOpacity="0.5" /><circle cx="12" cy="62" r="3" fill="none" stroke="#E8CC8A" strokeOpacity="0.5" /><rect x="54" y="8" width="58" height="56" rx="6" fill="#FBF7EE" /><rect x="60" y="14" width="14" height="2" rx="1" fill="#E8CC8A" /><rect x="76" y="14" width="14" height="2" rx="1" fill="#E5DFD2" /><rect x="92" y="14" width="14" height="2" rx="1" fill="#E5DFD2" /><rect x="60" y="22" width="46" height="8" rx="3" fill="#fff" stroke="#D9E84A" /><rect x="60" y="33" width="46" height="8" rx="3" fill="#fff" /><rect x="60" y="44" width="46" height="8" rx="3" fill="#fff" /><rect x="78" y="55" width="28" height="6" rx="3" fill="#D9E84A" /></svg>
+    ),
+  },
+  {
+    type: "gift-note",
+    label: "Holiday Gift — Thank-You Note",
+    category: "CTA",
+    defaultProps: (): GiftNoteBlockProps => structuredClone(GIFT_NOTE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><circle cx="14" cy="12" r="1" fill="#fff" opacity="0.6" /><circle cx="104" cy="18" r="1" fill="#fff" opacity="0.5" /><circle cx="30" cy="60" r="1" fill="#fff" opacity="0.5" /><g transform="rotate(-2 60 35)"><rect x="22" y="12" width="76" height="46" rx="5" fill="#FBF7EE" /><rect x="26" y="16" width="68" height="38" rx="3" fill="none" stroke="#E8CC8A" strokeOpacity="0.8" /><circle cx="36" cy="26" r="4" fill="#001814" /><rect x="44" y="23" width="12" height="1.5" fill="#E8CC8A" /><rect x="44" y="28" width="34" height="4" rx="1.5" fill="#14211C" /><rect x="32" y="36" width="52" height="2" rx="1" fill="#14211C" opacity="0.4" /><rect x="32" y="40" width="40" height="2" rx="1" fill="#14211C" opacity="0.4" /><rect x="32" y="47" width="18" height="3" rx="1.5" fill="#14211C" opacity="0.8" /></g></svg>
+    ),
+  },
   // ── ABM account-page family (Oct 2026): brand-aware replica of the enterprise 1:1 account page idiom ──
   {
     type: "abm-split-hero",
@@ -10018,6 +10063,10 @@ export function createBlock(type: "hub-paths"): Extract<PageBlock, { type: "hub-
 export function createBlock(type: "kit-contents"): Extract<PageBlock, { type: "kit-contents" }>;
 export function createBlock(type: "kit-steps"): Extract<PageBlock, { type: "kit-steps" }>;
 export function createBlock(type: "kit-support"): Extract<PageBlock, { type: "kit-support" }>;
+export function createBlock(type: "gift-hero"): Extract<PageBlock, { type: "gift-hero" }>;
+export function createBlock(type: "gift-picker"): Extract<PageBlock, { type: "gift-picker" }>;
+export function createBlock(type: "gift-form"): Extract<PageBlock, { type: "gift-form" }>;
+export function createBlock(type: "gift-note"): Extract<PageBlock, { type: "gift-note" }>;
 export function createBlock(type: "abm-split-hero"): Extract<PageBlock, { type: "abm-split-hero" }>;
 export function createBlock(type: "abm-phone-showcase"): Extract<PageBlock, { type: "abm-phone-showcase" }>;
 export function createBlock(type: "abm-solution-tabs"): Extract<PageBlock, { type: "abm-solution-tabs" }>;
@@ -10421,6 +10470,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "kit-contents": return { id, type: "kit-contents", props: props as KitContentsBlockProps };
     case "kit-steps": return { id, type: "kit-steps", props: props as KitStepsBlockProps };
     case "kit-support": return { id, type: "kit-support", props: props as KitSupportBlockProps };
+    case "gift-hero": return { id, type: "gift-hero", props: props as GiftHeroBlockProps };
+    case "gift-picker": return { id, type: "gift-picker", props: props as GiftPickerBlockProps };
+    case "gift-form": return { id, type: "gift-form", props: props as GiftFormBlockProps };
+    case "gift-note": return { id, type: "gift-note", props: props as GiftNoteBlockProps };
     case "abm-split-hero": return { id, type: "abm-split-hero", props: props as AbmSplitHeroBlockProps };
     case "abm-phone-showcase": return { id, type: "abm-phone-showcase", props: props as AbmPhoneShowcaseBlockProps };
     case "abm-solution-tabs": return { id, type: "abm-solution-tabs", props: props as AbmSolutionTabsBlockProps };
