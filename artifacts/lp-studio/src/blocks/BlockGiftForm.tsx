@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Gift, Loader2, MapPin, Sparkles, User } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useAnimInitial, useStaticRender } from "@/lib/reveal-fallback";
-import { usePageContext } from "@/lib/page-context";
-import { buildAttributionBody, resolveHiddenValue } from "@/lib/global-form-submission";
 import { InlineText } from "@/components/InlineText";
 import { INVITE_BODY, INVITE_PILL_CLASS, displayStyle, pillStyle } from "@/lib/invite-theme";
 import { GIFT_CSS, GiftKicker, SparkleField, resolveGiftPalette, type GiftPalette } from "./gift/gift-theme";
-import { readGiftFromSearch, selectGift, useGiftSelection } from "./gift/gift-selection";
+import { useGiftForm, type GiftFormStatus, type GiftFormValues } from "./gift/use-gift-form";
 import { cn } from "@/lib/utils";
+import { AtelierGiftForm } from "./gift/AtelierGiftForm";
+import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
  * Gift Form — type "gift-form"
@@ -26,6 +25,10 @@ import { cn } from "@/lib/utils";
  * -------------------------------------------------------------------------- */
 
 export interface GiftFormBlockProps {
+  /** Classic (dark, snow, gold) or Atelier (light luxury retail). */
+  layout?: GiftLayout;
+  /** Atelier: "Label: value" lines under the selection summary. */
+  summaryLines?: string[];
   kicker?: string;
   headline?: string;
   subheadline?: string;
@@ -86,120 +89,34 @@ export const GIFT_FORM_DEFAULT_PROPS: GiftFormBlockProps = {
   consentText: "We'll only use these details to ship your gift and to follow up about it.",
   source: "holiday-gift",
   anchorId: "redeem",
+  layout: "classic",
+  summaryLines: ["Delivery: Complimentary", "Arrives: Before the holidays"],
 };
 
-type Values = Record<string, string>;
-type Status = "idle" | "loading" | "success" | "error";
+type Values = GiftFormValues;
+type Status = GiftFormStatus;
 
 const STEP_ICONS = [Gift, User, MapPin] as const;
 
-export function BlockGiftForm({ props, brand, pageId, variantId, onFieldChange }: Props) {
+export function BlockGiftForm(p: Props) {
+  return p.props.layout === "atelier" ? <AtelierGiftForm {...p} /> : <ClassicGiftForm {...p} />;
+}
+
+function ClassicGiftForm({ props, brand, pageId, variantId, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const staticRender = useStaticRender();
   const anim = useAnimInitial();
-  const ctx = usePageContext();
   const pal = resolveGiftPalette(props, brand);
   const isEditor = !!onFieldChange;
-  const selection = useGiftSelection();
-
-  const ownOptions = (props.options ?? []).map((o) => o.trim()).filter(Boolean);
-  const options = ownOptions.length > 0 ? ownOptions : selection.options;
-  const sizes = (props.sizeOptions ?? []).map((s) => s.trim()).filter(Boolean);
-  const askSize = sizes.length > 0;
+  const { options, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, submit } = useGiftForm(props, { pageId, variantId, isEditor });
   const nextSteps = (props.nextSteps ?? []).filter(Boolean).slice(0, 4);
   const stepTitles = [props.stepOneTitle || "Your pick", props.stepTwoTitle || "About you", props.stepThreeTitle || "Where to send it"];
-
-  const [step, setStep] = useState(0);
-  const [values, setValues] = useState<Values>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState<Status>("idle");
-
-  // The picker's choice (or a ?gift= deep link) pre-fills step one.
-  const gift = selection.selected || values.gift || "";
-  useEffect(() => {
-    if (typeof window === "undefined" || selection.selected || options.length === 0) return;
-    const fromUrl = readGiftFromSearch(window.location.search, options);
-    if (fromUrl) selectGift(fromUrl);
-  }, [options, selection.selected]);
-
-  const set = (key: string, v: string) => {
-    setValues((prev) => ({ ...prev, [key]: v }));
-    setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
-  };
 
   const field = (key: keyof GiftFormBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as GiftFormBlockProps[typeof key] }) : undefined;
   const updateNextStep = onFieldChange
     ? (i: number, v: string) => onFieldChange({ ...props, nextSteps: nextSteps.map((s, idx) => (idx === i ? v : s)) })
     : undefined;
-
-  const requiredByStep: string[][] = useMemo(
-    () => [
-      ["gift"],
-      ["firstName", "lastName", "email", ...(props.askCompany ?? true ? ["company"] : [])],
-      ["address", "city", "state", "zip"],
-    ],
-    [props.askCompany],
-  );
-
-  const validate = (s: number): boolean => {
-    const next: Record<string, string> = {};
-    for (const key of requiredByStep[s]) {
-      const v = key === "gift" ? gift : (values[key] ?? "");
-      if (!v.trim()) next[key] = key === "gift" ? "Pick one to continue." : "Required";
-    }
-    if (s === 1 && values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) next.email = "Enter a valid email address.";
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  };
-
-  const goNext = () => {
-    if (isEditor) return;
-    if (!validate(step)) return;
-    setStep((s) => Math.min(2, s + 1));
-  };
-  const goBack = () => setStep((s) => Math.max(0, s - 1));
-
-  const submit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (isEditor) return;
-    if (step < 2) { goNext(); return; }
-    if (!validate(2)) return;
-    setStatus("loading");
-    const pid = pageId ?? ctx.pageId;
-    const fields: Record<string, string> = {
-      Gift: gift,
-      ...(askSize ? { Size: values.size ?? "" } : {}),
-      "First name": values.firstName ?? "",
-      "Last name": values.lastName ?? "",
-      Email: values.email ?? "",
-      ...(props.askCompany ?? true ? { [props.companyLabel || "Company"]: values.company ?? "" } : {}),
-      ...(props.askRole ?? true ? { Role: values.role ?? "" } : {}),
-      ...(props.askPhone ?? true ? { Phone: values.phone ?? "" } : {}),
-      "Shipping address": values.address ?? "",
-      "Suite / unit": values.address2 ?? "",
-      City: values.city ?? "",
-      State: values.state ?? "",
-      ZIP: values.zip ?? "",
-      "Delivery notes": values.notes ?? "",
-      Campaign: resolveHiddenValue("{{utm_campaign}}"),
-      Rep: resolveHiddenValue("{{utm_content}}"),
-      Source: props.source || "holiday-gift",
-    };
-    try {
-      if (pid) {
-        const resp = await fetch("/api/lp/leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageId: pid, variantId: variantId ?? ctx.variantId, fields, ...buildAttributionBody() }),
-        });
-        if (!resp.ok) throw new Error("submit failed");
-      }
-      setStatus("success");
-    } catch {
-      setStatus("error");
-    }
-  };
 
   const inputStyle: React.CSSProperties = { background: "#FFFFFF", border: `1px solid ${pal.creamLine}`, color: pal.creamInk, fontFamily: INVITE_BODY };
   const inputCls = "gift-field w-full rounded-xl px-4 py-3 text-[15px] outline-none transition-shadow";
@@ -231,7 +148,7 @@ export function BlockGiftForm({ props, brand, pageId, variantId, onFieldChange }
                   className="relative flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3.5 text-[14px] font-medium transition-shadow"
                   style={{ background: "#FFFFFF", color: pal.creamInk, boxShadow: on ? `0 0 0 2px ${pal.accent}` : `0 0 0 1px ${pal.creamLine}` }}
                 >
-                  <input type="radio" name="gift" value={name} checked={on} onChange={() => { selectGift(name); set("gift", name); }} className="sr-only" disabled={isEditor} />
+                  <input type="radio" name="gift" value={name} checked={on} onChange={() => chooseGift(name)} className="sr-only" disabled={isEditor} />
                   <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ background: on ? pal.accent : "transparent", color: pal.onAccent, boxShadow: on ? "none" : `inset 0 0 0 1.5px ${pal.creamLine}` }}>
                     {on && <Check className="h-3 w-3" strokeWidth={3} aria-hidden />}
                   </span>

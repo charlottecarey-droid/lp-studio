@@ -2437,6 +2437,19 @@ export default function BuilderEditor() {
     toast({ title: "Style applied", description: `Applied this style to ${targets} other hub block${targets === 1 ? "" : "s"}. Press ⌘Z to undo.` });
   }, [selectedBlock, blocks, setBlocks, toast]);
 
+  const applyGiftLayoutToAll = useCallback((layout: "classic" | "atelier") => {
+    if (!selectedBlock) return;
+    const targets = blocks.filter((b) => b.id !== selectedBlock.id && String(b.type).startsWith("gift-")).length;
+    if (targets === 0) {
+      toast({ title: "No other gift blocks on the page", description: "Add another Holiday Gift block to apply this layout to it." });
+      return;
+    }
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === selectedBlock.id || !String(b.type).startsWith("gift-") ? b : ({ ...b, props: { ...(b.props as Record<string, unknown>), layout } } as typeof b))),
+    );
+    toast({ title: "Layout applied", description: `Switched ${targets} other gift block${targets === 1 ? "" : "s"} to ${layout === "atelier" ? "Atelier" : "Classic"}. Press ⌘Z to undo.` });
+  }, [selectedBlock, blocks, setBlocks, toast]);
+
   const applyCtaToAll = useCallback(() => {
     if (!selectedBlock) return;
     if (!blockHasCta(selectedBlock.type, selectedBlock.props)) {
@@ -3909,6 +3922,7 @@ export default function BuilderEditor() {
                  To enable app-wide later, pass `applyCtaToAll` unconditionally. */
               onApplyCtaToAll={isMicrosite ? applyCtaToAll : undefined}
               onApplyHubStyleToAll={applyHubStyleToAll}
+              onApplyGiftLayoutToAll={applyGiftLayoutToAll}
             />
           ) : (
             <div className="flex-1 flex flex-col min-h-0">

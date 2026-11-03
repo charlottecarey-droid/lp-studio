@@ -9,24 +9,37 @@
  */
 import { useSyncExternalStore } from "react";
 
+export interface GiftDetail {
+  imageUrl?: string;
+  imageAlt?: string;
+  caption?: string;
+  fit?: "contain" | "cover";
+}
+
 export interface GiftSelectionState {
   /** Names registered by the picker, in display order. */
   options: string[];
+  /** Photo / caption per name, so the form can show a "Your selection" summary. */
+  details: Record<string, GiftDetail>;
   /** The visitor's current choice (a name from `options`, or ""). */
   selected: string;
 }
 
-let state: GiftSelectionState = { options: [], selected: "" };
+let state: GiftSelectionState = { options: [], details: {}, selected: "" };
 const listeners = new Set<() => void>();
 
 function emit() {
   for (const l of listeners) l();
 }
 
-export function registerGiftOptions(options: string[]): void {
+export function registerGiftOptions(options: string[], details?: Record<string, GiftDetail>): void {
   const next = options.map((o) => o.trim()).filter(Boolean);
-  if (next.length === state.options.length && next.every((o, i) => o === state.options[i])) return;
-  state = { ...state, options: next, selected: next.includes(state.selected) ? state.selected : state.selected };
+  const nextDetails: Record<string, GiftDetail> = {};
+  if (details) for (const name of next) if (details[name]) nextDetails[name] = details[name];
+  const sameOptions = next.length === state.options.length && next.every((o, i) => o === state.options[i]);
+  const sameDetails = JSON.stringify(nextDetails) === JSON.stringify(details ? state.details : nextDetails);
+  if (sameOptions && (sameDetails || !details)) return;
+  state = { ...state, options: next, details: details ? nextDetails : state.details };
   emit();
 }
 
@@ -43,7 +56,7 @@ export function getGiftSelection(): GiftSelectionState {
 
 /** Test/editor helper: forget everything. */
 export function resetGiftSelection(): void {
-  state = { options: [], selected: "" };
+  state = { options: [], details: {}, selected: "" };
   emit();
 }
 

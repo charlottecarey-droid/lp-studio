@@ -7,6 +7,8 @@ import { InlineImage } from "@/components/InlineImage";
 import { INVITE_BODY, INVITE_DISPLAY, displayStyle } from "@/lib/invite-theme";
 import { GIFT_CSS, GiftKicker, Snowfall, resolveGiftPalette } from "./gift/gift-theme";
 import { cn } from "@/lib/utils";
+import { AtelierGiftNote } from "./gift/AtelierGiftNote";
+import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
  * Gift Note — type "gift-note"
@@ -20,6 +22,8 @@ import { cn } from "@/lib/utils";
  * -------------------------------------------------------------------------- */
 
 export interface GiftNoteBlockProps {
+  /** Classic (dark, snow, gold) or Atelier (light luxury retail). */
+  layout?: GiftLayout;
   kicker?: string;
   headline?: string;
   body?: string;
@@ -55,9 +59,14 @@ export const GIFT_NOTE_DEFAULT_PROPS: GiftNoteBlockProps = {
   linkUrl: "",
   snow: 14,
   anchorId: "note",
+  layout: "classic",
 };
 
-export function BlockGiftNote({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockGiftNote(p: Props) {
+  return p.props.layout === "atelier" ? <AtelierGiftNote {...p} /> : <ClassicGiftNote {...p} />;
+}
+
+function ClassicGiftNote({ props, brand, onCtaClick, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
   const pal = resolveGiftPalette(props, brand);

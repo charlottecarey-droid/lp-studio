@@ -193,3 +193,70 @@ describe("gift selection store", () => {
     expect(readGiftFromSearch("", ["Lab Box"])).toBe("");
   });
 });
+
+describe("Atelier layout — light luxury variant of every gift block", () => {
+  it.each(FAMILY)("%s defaults to Classic and switches to Atelier on a light surface with no leak or empty image", (type, Component) => {
+    const props = defaultsFor(type);
+    expect(props.layout).toBe("classic");
+    const html = render(Component as never, { ...props, layout: "atelier" }, true);
+    expect(html).toContain('data-gift-layout="atelier"');
+    expect(html).toMatch(/<section[^>]*style="[^"]*background:#(EFE5DA|FBF8F3)/i);
+    expect(html).not.toMatch(DANDY_LEAK);
+    expect(html).not.toMatch(/<img[^>]*src=""/);
+    expect(html).not.toMatch(/opacity:\s*0[;"]/);
+  });
+
+  it("hero: announcement strip, wordmark bar, gift-box art without a photo, photo + satin ribbon with one", () => {
+    const base = { ...defaultsFor("gift-hero"), layout: "atelier" };
+    const boxes = render(BlockGiftHero as never, base, true);
+    expect(boxes).toContain("Complimentary delivery");
+    expect(boxes).toContain('data-atl-boxes="stack"');
+    expect(boxes).toContain('data-atl-tag="true"');
+    expect(boxes).not.toContain("data-atl-ribbon");
+    const photo = render(BlockGiftHero as never, { ...base, heroImageUrl: "/images/x.webp" }, true);
+    expect(photo).toMatch(/<img[^>]*src="\/images\/x\.webp"/);
+    expect(photo).toContain('data-atl-ribbon="vertical"');
+    expect(photo).toContain('data-atl-bow="true"');
+    const forced = render(BlockGiftHero as never, { ...base, heroImageUrl: "/images/x.webp", heroArt: "boxes" }, true);
+    expect(forced).not.toMatch(/<img[^>]*src="\/images\/x\.webp"/);
+  });
+
+  it("picker: numbered serif tiles, a ribboned box where a photo is missing, the ribbon only on the chosen gift", () => {
+    const d = defaultsFor("gift-picker");
+    registerGiftOptions(["Gift one", "Gift two", "Gift three"]);
+    selectGift("Gift two");
+    const html = render(BlockGiftPicker as never, { ...d, layout: "atelier" });
+    expect(html.match(/data-atl-boxes="single"/g)).toHaveLength(3);
+    expect(html).toContain("No. 01");
+    expect(html.match(/data-gift-picked="true"/g)).toHaveLength(1);
+    expect(html.match(/data-atl-ribbon=/g)).toHaveLength(1);
+    expect(html).toContain("selection");
+  });
+
+  it("form: selection summary with the chosen gift and summary lines, numbered step tabs, Continue (no submit) on step one", () => {
+    registerGiftOptions(["Alpha", "Beta"], { Alpha: { imageUrl: "/images/alpha.webp", caption: "The alpha one." } });
+    selectGift("Alpha");
+    const html = render(BlockGiftForm as never, { ...defaultsFor("gift-form"), layout: "atelier" });
+    expect(html).toContain("Your selection");
+    expect(html).toContain('data-atl-summary="Alpha"');
+    expect(html).toMatch(/<img[^>]*src="\/images\/alpha\.webp"/);
+    expect(html).toContain("The alpha one.");
+    expect(html).toContain("Complimentary");
+    expect(html).toContain('aria-current="step"');
+    expect(html.match(/data-gift-choice=/g)).toHaveLength(2);
+    expect(html).toContain("Continue");
+    expect(html).not.toContain('type="submit"');
+  });
+
+  it("note: a ribbon-tied letter with bow, tag and serif signature", () => {
+    const html = render(BlockGiftNote as never, { ...defaultsFor("gift-note"), layout: "atelier" }, true);
+    expect(html).toContain('data-atl-ribbon="vertical"');
+    expect(html).toContain('data-atl-bow="true"');
+    expect(html).toContain("The team");
+  });
+
+  it("the store keeps photo + caption per gift and drops details for names no longer listed", () => {
+    registerGiftOptions(["A", "B"], { A: { imageUrl: "/a.webp" }, B: { caption: "bee" }, C: { caption: "gone" } });
+    expect(getGiftSelection().details).toEqual({ A: { imageUrl: "/a.webp" }, B: { caption: "bee" } });
+  });
+});

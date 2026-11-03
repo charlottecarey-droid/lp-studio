@@ -7,6 +7,8 @@ import { INVITE_BODY, INVITE_PILL_CLASS, displayStyle, pillStyle } from "@/lib/i
 import { KitProductTile, type KitTileFit } from "./kit/KitProductTile";
 import { GIFT_CSS, GIFT_TILE, GiftKicker, GiftTag, RibbonOverlay, Snowfall, SparkleField, resolveGiftPalette } from "./gift/gift-theme";
 import { cn } from "@/lib/utils";
+import { AtelierGiftHero } from "./gift/AtelierGiftHero";
+import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
  * Gift Hero — type "gift-hero"
@@ -24,6 +26,14 @@ export interface GiftFact {
 }
 
 export interface GiftHeroBlockProps {
+  /** Classic (dark, snow, gold) or Atelier (light luxury retail). */
+  layout?: GiftLayout;
+  /** Atelier: ribbon-coloured strip above the bar (blank hides it). */
+  announcement?: string;
+  /** Atelier: logo for the light bar (blank = brand logo, else text wordmark). */
+  logoUrlLight?: string;
+  /** Atelier stage: auto = photo when set, else the gift-box illustration. */
+  heroArt?: "auto" | "boxes" | "photo";
   logoText?: string;
   logoUrl?: string;
   navCtaText?: string;
@@ -92,9 +102,17 @@ export const GIFT_HERO_DEFAULT_PROPS: GiftHeroBlockProps = {
   snow: 26,
   tileColor: GIFT_TILE,
   minHeightVh: 88,
+  layout: "classic",
+  announcement: "Complimentary delivery · Ships before the holidays",
+  logoUrlLight: "",
+  heroArt: "auto",
 };
 
-export function BlockGiftHero({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockGiftHero(p: Props) {
+  return p.props.layout === "atelier" ? <AtelierGiftHero {...p} /> : <ClassicGiftHero {...p} />;
+}
+
+function ClassicGiftHero({ props, brand, onCtaClick, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const staticRender = useStaticRender();
   const anim = useAnimInitial();

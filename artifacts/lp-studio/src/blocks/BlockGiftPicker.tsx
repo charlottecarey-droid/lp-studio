@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, Gift } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -7,8 +6,11 @@ import { InlineText } from "@/components/InlineText";
 import { INVITE_BODY, INVITE_PILL_CLASS, displayStyle, pillStyle } from "@/lib/invite-theme";
 import { KitProductTile, type KitTileFit } from "./kit/KitProductTile";
 import { GIFT_CSS, GIFT_TILE, GiftKicker, SparkleField, resolveGiftPalette } from "./gift/gift-theme";
-import { registerGiftOptions, selectGift, useGiftSelection } from "./gift/gift-selection";
+import { selectGift, useGiftSelection } from "./gift/gift-selection";
+import { useRegisterGiftOptions } from "./gift/use-register-gift-options";
 import { cn } from "@/lib/utils";
+import { AtelierGiftPicker } from "./gift/AtelierGiftPicker";
+import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
  * Gift Picker — type "gift-picker"
@@ -32,6 +34,8 @@ export interface GiftOption {
 }
 
 export interface GiftPickerBlockProps {
+  /** Classic (dark, snow, gold) or Atelier (light luxury retail). */
+  layout?: GiftLayout;
   kicker?: string;
   headline?: string;
   subheadline?: string;
@@ -67,9 +71,18 @@ export const GIFT_PICKER_DEFAULT_PROPS: GiftPickerBlockProps = {
   formAnchor: "#redeem",
   anchorId: "gifts",
   tileColor: GIFT_TILE,
+  layout: "classic",
 };
 
-export function BlockGiftPicker({ props, brand, onFieldChange }: Props) {
+export function BlockGiftPicker(p: Props) {
+  if (p.props.layout === "atelier") {
+    const options = p.props.options && p.props.options.length > 0 ? p.props.options : GIFT_PICKER_DEFAULT_PROPS.options;
+    return <AtelierGiftPicker {...p} props={{ ...p.props, options }} />;
+  }
+  return <ClassicGiftPicker {...p} />;
+}
+
+function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const anim = useAnimInitial();
   const pal = resolveGiftPalette(props, brand);
@@ -77,12 +90,7 @@ export function BlockGiftPicker({ props, brand, onFieldChange }: Props) {
   const options = props.options && props.options.length > 0 ? props.options : GIFT_PICKER_DEFAULT_PROPS.options;
   const tile = props.tileColor && /^#[0-9a-f]{6}$/i.test(props.tileColor) ? props.tileColor : GIFT_TILE;
   const selection = useGiftSelection();
-  const names = options.map((o) => o.name);
-  const namesKey = names.join("\u0000");
-
-  useEffect(() => {
-    registerGiftOptions(namesKey.split("\u0000"));
-  }, [namesKey]);
+  useRegisterGiftOptions(options);
 
   const field = (key: keyof GiftPickerBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as GiftPickerBlockProps[typeof key] }) : undefined;

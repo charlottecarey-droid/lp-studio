@@ -216,7 +216,7 @@ import { GlowFormHeroPanel } from "./GlowFormHeroPanel";
 import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
 import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
 import { KitHeroPanel, KitContentsPanel, KitStepsPanel, KitSupportPanel } from "./KitPanels";
-import { GiftHeroPanel, GiftPickerPanel, GiftFormPanel, GiftNotePanel } from "./GiftPanels";
+import { GiftHeroPanel, GiftPickerPanel, GiftFormPanel, GiftNotePanel, type ApplyGiftLayout } from "./GiftPanels";
 import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel, HubPathsPanel, type ApplyHubStyle } from "./HubPanels";
 import {
   AbmSplitHeroPanel,
@@ -314,6 +314,8 @@ interface Props {
   onApplyCtaToAll?: () => void;
   /** Content Hub family: set one style preset on every hub-* block of the page. */
   onApplyHubStyleToAll?: ApplyHubStyle;
+  /** Holiday Gift family: set one layout on every gift block. */
+  onApplyGiftLayoutToAll?: ApplyGiftLayout;
   /** Page-level default CTA (lp_pages.cta_default). Used to compute each block's
    *  effective CTA source (tenant → page → block) for the source indicator. */
   pageCta?: CtaConfig | null;
@@ -1054,7 +1056,7 @@ function StageReorderList({
   );
 }
 
-export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll, onApplyHubStyleToAll, pageCta, extraTabs }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll, onApplyHubStyleToAll, onApplyGiftLayoutToAll, pageCta, extraTabs }: Props) {
   // Resolve once per render so every child panel + every inline Background
   // <Select> below shares the same brand-aware label set.
   const bgOptions = getBgOptions(brand);
@@ -1777,6 +1779,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <GiftHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyLayoutToAll={onApplyGiftLayoutToAll}
           />
         );
       case "gift-picker":
@@ -1784,6 +1787,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <GiftPickerPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyLayoutToAll={onApplyGiftLayoutToAll}
           />
         );
       case "gift-form":
@@ -1791,6 +1795,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <GiftFormPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyLayoutToAll={onApplyGiftLayoutToAll}
           />
         );
       case "gift-note":
@@ -1798,6 +1803,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <GiftNotePanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyLayoutToAll={onApplyGiftLayoutToAll}
           />
         );
       case "abm-split-hero":

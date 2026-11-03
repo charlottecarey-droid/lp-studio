@@ -19,7 +19,38 @@ import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ColorField } from "./BlockSettingsPanel";
 import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
 import { InviteColorFields } from "./invite/InviteColorFields";
-import { Plus } from "lucide-react";
+import { Copy, Plus } from "lucide-react";
+import { GIFT_LAYOUT_LABELS, type GiftLayout } from "@/blocks/gift/atelier-theme";
+
+export type ApplyGiftLayout = (layout: GiftLayout) => void;
+
+/** Layout picker shared by every gift panel, with "apply to every gift block". */
+function LayoutField({ value, onChange, onApplyToAll }: { value: GiftLayout | undefined; onChange: (v: GiftLayout) => void; onApplyToAll?: ApplyGiftLayout }) {
+  const layout: GiftLayout = value === "atelier" ? "atelier" : "classic";
+  return (
+    <PanelSection title="Layout" hint="Keep the same on every gift block" defaultOpen>
+      <Select value={layout} onValueChange={(v) => onChange(v as GiftLayout)}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {(Object.keys(GIFT_LAYOUT_LABELS) as GiftLayout[]).map((k) => (
+            <SelectItem key={k} value={k} className="text-xs">{GIFT_LAYOUT_LABELS[k].label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{GIFT_LAYOUT_LABELS[layout].hint}</p>
+      {onApplyToAll && (
+        <button
+          type="button"
+          onClick={() => onApplyToAll(layout)}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+          title="Set this layout on every gift block on the page"
+        >
+          <Copy className="h-3 w-3" aria-hidden="true" /> Apply this layout to every gift block
+        </button>
+      )}
+    </PanelSection>
+  );
+}
 
 type HeaderProps = { kicker?: string; headline?: string; subheadline?: string; anchorId?: string };
 
@@ -73,11 +104,30 @@ function ListField({ label, hint, value, onChange }: { label: string; hint?: str
 }
 
 /* ── Hero ────────────────────────────────────────────────────────────────── */
-export function GiftHeroPanel({ props, onChange }: { props: GiftHeroBlockProps; onChange: (p: GiftHeroBlockProps) => void }) {
+export function GiftHeroPanel({ props, onChange, onApplyLayoutToAll }: { props: GiftHeroBlockProps; onChange: (p: GiftHeroBlockProps) => void; onApplyLayoutToAll?: ApplyGiftLayout }) {
   const update = (patch: Partial<GiftHeroBlockProps>) => onChange({ ...props, ...patch });
   const facts = props.facts ?? [];
+  const atelier = props.layout === "atelier";
   return (
     <div className="space-y-3">
+      <LayoutField value={props.layout} onChange={(v) => update({ layout: v })} onApplyToAll={onApplyLayoutToAll} />
+      {atelier && (
+        <PanelSection title="Atelier details" defaultOpen>
+          <Field label="Announcement strip (blank hides it)"><Input value={props.announcement ?? ""} onChange={(e) => update({ announcement: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label="Logo for the light bar (blank = brand logo)"><ImagePicker value={props.logoUrlLight ?? ""} onChange={(v) => update({ logoUrlLight: v })} placeholder="Dark logo for a light background" /></Field>
+          <Field label="Stage art">
+            <Select value={props.heroArt ?? "auto"} onValueChange={(v) => update({ heroArt: v as GiftHeroBlockProps["heroArt"] })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto" className="text-xs">Photo when set, else gift boxes</SelectItem>
+                <SelectItem value="boxes" className="text-xs">Illustrated gift boxes (ribbon in your colour)</SelectItem>
+                <SelectItem value="photo" className="text-xs">Hero product photo + satin ribbon</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <p className="text-[10px] leading-relaxed text-muted-foreground">The ribbon colour is the Accent colour under Colors (blank = brand primary).</p>
+        </PanelSection>
+      )}
       <HeaderFields props={props} update={update} blockType="gift-hero" />
       <PanelSection title="Buttons" defaultOpen>
         <div className="grid grid-cols-2 gap-2">
@@ -112,7 +162,7 @@ export function GiftHeroPanel({ props, onChange }: { props: GiftHeroBlockProps; 
           <Field label="Fit"><FitSelect value={props.secondaryImageFit} onChange={(v) => update({ secondaryImageFit: v })} /></Field>
         </div>
         <div className="flex items-center justify-between py-1">
-          <span className="text-xs">Gold ribbon and bow on the smaller tile</span>
+          <span className="text-xs">{atelier ? "Satin ribbon and bow over the photo" : "Gold ribbon and bow on the smaller tile"}</span>
           <Switch checked={props.showRibbon ?? true} onCheckedChange={(v) => update({ showRibbon: v })} />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -134,13 +184,14 @@ export function GiftHeroPanel({ props, onChange }: { props: GiftHeroBlockProps; 
 }
 
 /* ── Picker ──────────────────────────────────────────────────────────────── */
-export function GiftPickerPanel({ props, onChange }: { props: GiftPickerBlockProps; onChange: (p: GiftPickerBlockProps) => void }) {
+export function GiftPickerPanel({ props, onChange, onApplyLayoutToAll }: { props: GiftPickerBlockProps; onChange: (p: GiftPickerBlockProps) => void; onApplyLayoutToAll?: ApplyGiftLayout }) {
   const update = (p: Partial<GiftPickerBlockProps>) => onChange({ ...props, ...p });
   const options = props.options ?? [];
   const set = (next: GiftOption[]) => update({ options: next });
   const patch = (i: number, p: Partial<GiftOption>) => set(options.map((it, idx) => (idx === i ? { ...it, ...p } : it)));
   return (
     <div className="space-y-3">
+      <LayoutField value={props.layout} onChange={(v) => update({ layout: v })} onApplyToAll={onApplyLayoutToAll} />
       <HeaderFields props={props} update={update} blockType="gift-picker" />
       <PanelSection title={`Gifts (${options.length})`} hint="2–4 cards. The form on this page uses these names." defaultOpen>
         <div className="space-y-2">
@@ -176,11 +227,17 @@ export function GiftPickerPanel({ props, onChange }: { props: GiftPickerBlockPro
 }
 
 /* ── Form ────────────────────────────────────────────────────────────────── */
-export function GiftFormPanel({ props, onChange }: { props: GiftFormBlockProps; onChange: (p: GiftFormBlockProps) => void }) {
+export function GiftFormPanel({ props, onChange, onApplyLayoutToAll }: { props: GiftFormBlockProps; onChange: (p: GiftFormBlockProps) => void; onApplyLayoutToAll?: ApplyGiftLayout }) {
   const update = (p: Partial<GiftFormBlockProps>) => onChange({ ...props, ...p });
   return (
     <div className="space-y-3">
+      <LayoutField value={props.layout} onChange={(v) => update({ layout: v })} onApplyToAll={onApplyLayoutToAll} />
       <HeaderFields props={props} update={update} blockType="gift-form" />
+      {props.layout === "atelier" && (
+        <PanelSection title="Atelier — selection summary" defaultOpen>
+          <ListField label="Summary lines (Label: value)" hint="Shown under the chosen gift, like an order summary." value={props.summaryLines ?? []} onChange={(v) => update({ summaryLines: v })} />
+        </PanelSection>
+      )}
       <PanelSection title="Step 1 — the gift" defaultOpen>
         <Field label="Question"><Input value={props.giftLabel ?? ""} onChange={(e) => update({ giftLabel: e.target.value })} className="h-8 text-xs" /></Field>
         <ListField label="Gift names (blank = use the gift picker's)" hint="Leave empty so the names stay in one place — the picker above the form." value={props.options ?? []} onChange={(v) => update({ options: v })} />
@@ -215,10 +272,11 @@ export function GiftFormPanel({ props, onChange }: { props: GiftFormBlockProps; 
 }
 
 /* ── Note ────────────────────────────────────────────────────────────────── */
-export function GiftNotePanel({ props, onChange }: { props: GiftNoteBlockProps; onChange: (p: GiftNoteBlockProps) => void }) {
+export function GiftNotePanel({ props, onChange, onApplyLayoutToAll }: { props: GiftNoteBlockProps; onChange: (p: GiftNoteBlockProps) => void; onApplyLayoutToAll?: ApplyGiftLayout }) {
   const update = (p: Partial<GiftNoteBlockProps>) => onChange({ ...props, ...p });
   return (
     <div className="space-y-3">
+      <LayoutField value={props.layout} onChange={(v) => update({ layout: v })} onApplyToAll={onApplyLayoutToAll} />
       <BlockRefreshButton blockType="gift-note" fields={["kicker", "headline", "body"]} values={{ kicker: props.kicker ?? "", headline: props.headline ?? "", body: props.body ?? "" }} onApply={(u) => update(u)} />
       <PanelSection title="The card" defaultOpen>
         <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" /></Field>
