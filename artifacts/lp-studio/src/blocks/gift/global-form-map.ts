@@ -47,6 +47,8 @@ export function classifyGlobalField(field: { type?: string; label?: string }): k
   if (/\b(full name|your name|name)\b/.test(label) && !/company|practice|organi[sz]ation|business/.test(label)) return "fullName";
   if (/company|organi[sz]ation|practice|business|dso|employer/.test(label)) return "company";
   if (/\b(title|role|position)\b/.test(label)) return "role";
+  // A field named for delivery/shipping notes takes just the notes, not the whole gift summary.
+  if (/(delivery|shipping) (notes?|instructions)/.test(label)) return "notes";
   if (/\bzip|postal|postcode\b/.test(label)) return "zip";
   if (/\bstate|province|region\b/.test(label)) return "state";
   if (/\bcity|town\b/.test(label)) return "city";

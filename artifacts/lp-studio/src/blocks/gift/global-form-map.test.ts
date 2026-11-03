@@ -65,3 +65,38 @@ describe("mapToGlobalForm", () => {
     expect(giftSummary({ gift: "Tee", size: "M" })).toBe("Gift: Tee (M)");
   });
 });
+
+describe("the Dandy 'Holiday Gifts' global form (labels mirror the gift form)", () => {
+  const holidayForm: FormStep[] = [{ title: "Holiday gift", fields: [
+    { id: "1", type: "text", label: "First name", required: true },
+    { id: "2", type: "text", label: "Last name", required: true },
+    { id: "3", type: "email", label: "Email", required: true },
+    { id: "4", type: "text", label: "Company / Practice", required: false },
+    { id: "5", type: "text", label: "Role", required: false },
+    { id: "6", type: "phone", label: "Phone", required: false },
+    { id: "7", type: "text", label: "Gift", required: true, excludeFromCrmSync: true },
+    { id: "8", type: "text", label: "Size", required: false, excludeFromCrmSync: true },
+    { id: "9", type: "text", label: "Shipping address", required: true, excludeFromCrmSync: true },
+    { id: "10", type: "text", label: "Suite / unit", required: false, excludeFromCrmSync: true },
+    { id: "11", type: "text", label: "City", required: true, excludeFromCrmSync: true },
+    { id: "12", type: "text", label: "State", required: true, excludeFromCrmSync: true },
+    { id: "13", type: "text", label: "ZIP", required: true, excludeFromCrmSync: true },
+    { id: "14", type: "text", label: "Delivery notes", required: false, excludeFromCrmSync: true },
+    { id: "15", type: "text", label: "Sent by", required: false, excludeFromCrmSync: true },
+    { id: "16", type: "text", label: "Rep", required: false, excludeFromCrmSync: true },
+    { id: "17", type: "text", label: "Campaign", required: false, excludeFromCrmSync: true },
+    { id: "18", type: "text", label: "Source", required: false, excludeFromCrmSync: true },
+  ] }];
+
+  it("every form field is filled from the gift submission, in place, with nothing overwritten by a summary", () => {
+    const out = mapToGlobalForm(holidayForm, { ...values, role: "COO" }, { ...native, Role: "COO", "Suite / unit": "", Size: "", Rep: "dan", Campaign: "holiday-2026" });
+    for (const f of holidayForm[0].fields) expect(out, f.label).toHaveProperty(f.label);
+    expect(out["Delivery notes"]).toBe("Front desk");
+    expect(out["Company / Practice"]).toBe("Apex");
+    expect(out["Shipping address"]).toBe("1 Main St");
+    expect(out.Gift).toBe("Lab Tour in a Box");
+    expect(out["Sent by"]).toBe("Dan MacAdam");
+    expect(out["First name"]).toBe("Gilberto");
+    expect(out.Email).toBe("g@apex.com");
+  });
+});
