@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePageContext } from "@/lib/page-context";
 import { buildAttributionBody, resolveHiddenValue } from "@/lib/global-form-submission";
+import { safeNavigate } from "@/lib/safe-url";
+import { fetchGlobalForm, mapToGlobalForm, type PublicGlobalForm } from "./global-form-map";
 import type { GiftFormBlockProps } from "../BlockGiftForm";
 import { readGiftFromSearch, selectGift, useGiftSelection, type GiftDetail } from "./gift-selection";
 
@@ -57,6 +59,16 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
   }, [prefillKey]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<GiftFormStatus>("idle");
+
+  // Linked global form: load its definition once so the submission can be
+  // filed under that form's field labels (see global-form-map.ts).
+  const [globalForm, setGlobalForm] = useState<PublicGlobalForm | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!props.formId) { setGlobalForm(null); return; }
+    fetchGlobalForm(props.formId).then((f) => { if (alive) setGlobalForm(f); });
+    return () => { alive = false; };
+  }, [props.formId]);
 
   // The picker's choice (or a ?gift= deep link) pre-fills step one.
   const gift = selection.selected || values.gift || "";
@@ -118,7 +130,7 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
     if (!validate(2)) return;
     setStatus("loading");
     const pid = opts.pageId ?? ctx.pageId;
-    const fields: Record<string, string> = {
+    const nativeFields: Record<string, string> = {
       Gift: gift,
       ...(askSize ? { Size: values.size ?? "" } : {}),
       "First name": values.firstName ?? "",
@@ -138,16 +150,24 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
       ...(cleanPrefill(props.sentBy) ? { "Sent by": cleanPrefill(props.sentBy) } : {}),
       Source: props.source || "holiday-gift",
     };
+    const fields = props.formId
+      ? mapToGlobalForm(globalForm?.steps, { firstName: values.firstName, lastName: values.lastName, email: values.email, company: values.company, role: values.role, phone: values.phone, address: values.address, address2: values.address2, city: values.city, state: values.state, zip: values.zip, notes: values.notes, gift, size: values.size }, nativeFields)
+      : nativeFields;
     try {
       if (pid) {
+        const body: Record<string, unknown> = { pageId: pid, variantId: opts.variantId ?? ctx.variantId, fields, ...buildAttributionBody() };
+        if (props.formId) body.formId = props.formId;
         const resp = await fetch("/api/lp/leads", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageId: pid, variantId: opts.variantId ?? ctx.variantId, fields, ...buildAttributionBody() }),
+          body: JSON.stringify(body),
         });
         if (!resp.ok) throw new Error("submit failed");
       }
       setStatus("success");
+      // The global form's redirect (if any) wins after a short beat on the success state.
+      const redirect = globalForm?.redirectUrl?.trim();
+      if (props.formId && redirect) window.setTimeout(() => safeNavigate(redirect), 1500);
     } catch {
       setStatus("error");
     }

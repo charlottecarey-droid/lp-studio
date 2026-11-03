@@ -176,6 +176,42 @@ function ListField({ label, hint, value, onChange }: { label: string; hint?: str
   );
 }
 
+/**
+ * "Route leads through a global form": the gift form keeps its own design;
+ * only the submission goes through the chosen form (its notifications, CRM
+ * sync, Sheets, webhook, follow-up email and redirect). Fields are filed
+ * under the global form's labels by type/keyword (global-form-map.ts).
+ */
+function GlobalFormPicker({ value, onChange }: { value: number | undefined; onChange: (id: number | undefined) => void }) {
+  const [forms, setForms] = useState<Array<{ id: number; name: string }>>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/lp/forms`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Array<{ id: number; name: string }>) => { if (alive) setForms(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (alive) setForms([]); })
+      .finally(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
+  }, []);
+  return (
+    <>
+      <Field label="Route leads through a global form">
+        <Select value={value ? String(value) : "none"} onValueChange={(v) => onChange(v === "none" ? undefined : Number(v))}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={loaded ? "Choose…" : "Loading forms…"} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none" className="text-xs">None — leads stay on this page</SelectItem>
+            {forms.map((f) => <SelectItem key={f.id} value={String(f.id)} className="text-xs">{f.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </Field>
+      <p className="text-[10px] leading-relaxed text-muted-foreground">
+        The gift form keeps this design. Only the submission goes through the chosen form, so its email notifications, Slack, Sheets, webhook, Marketo/Salesforce sync, follow-up email and redirect all apply. Name, email, company, role, phone and address are filed under that form's own field names; a Message field gets the gift and shipping details; the gift-specific fields stay on the lead but are not sent to the CRM.
+      </p>
+    </>
+  );
+}
+
 /* ── Hero ────────────────────────────────────────────────────────────────── */
 export function GiftHeroPanel({ props, onChange, onApplyLayoutToAll }: { props: GiftHeroBlockProps; onChange: (p: GiftHeroBlockProps) => void; onApplyLayoutToAll?: ApplyGiftLayout }) {
   const update = (patch: Partial<GiftHeroBlockProps>) => onChange({ ...props, ...patch });
@@ -363,6 +399,9 @@ export function GiftFormPanel({ props, onChange, onApplyLayoutToAll }: { props: 
         </div>
         <Field label="Sent by (saved on the lead)"><Input value={props.sentBy ?? ""} onChange={(e) => update({ sentBy: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{rep_name}}" /></Field>
         <p className="text-[10px] leading-relaxed text-muted-foreground">Step two starts filled in with these, so the recipient mostly just adds an address. Use tokens on templates for bulk-created pages; blank = start empty.</p>
+      </PanelSection>
+      <PanelSection title="Lead routing" defaultOpen={!!props.formId}>
+        <GlobalFormPicker value={props.formId} onChange={(id) => update({ formId: id })} />
       </PanelSection>
       <PanelSection title="After submit">
         <Field label="Success headline"><Input value={props.successHeadline ?? ""} onChange={(e) => update({ successHeadline: e.target.value })} className="h-8 text-xs" /></Field>
