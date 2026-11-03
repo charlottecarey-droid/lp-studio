@@ -24,10 +24,37 @@ import { useEffect, useState } from "react";
 
 const API_BASE = "/api";
 
-interface TeamMember {
+export interface TeamMember {
   id: number;
   name: string;
   content?: { name?: string; role?: string; email?: string; photo?: string; chilipiperUrl?: string; calendlyUrl?: string };
+}
+
+/**
+ * One entry per person: the library can hold duplicate records for a rep
+ * (one with the booking link, another with the headshot), so merge them by
+ * email (else name), keeping the first non-empty value of each field.
+ * Booking links live in `chilipiperUrl` or, for older records, `calendlyUrl`.
+ */
+export function mergeTeamMembers(rows: TeamMember[]): TeamMember[] {
+  const byKey = new Map<string, TeamMember>();
+  for (const m of rows) {
+    const key = (m.content?.email || m.name || "").trim().toLowerCase();
+    if (!key) continue;
+    const prev = byKey.get(key);
+    if (!prev) { byKey.set(key, { ...m, content: { ...(m.content ?? {}) } }); continue; }
+    const merged = { ...(prev.content ?? {}) } as Record<string, string | undefined>;
+    for (const [k, v] of Object.entries(m.content ?? {})) {
+      if (typeof v === "string" && v.trim() && !(merged[k] ?? "").trim()) merged[k] = v;
+    }
+    byKey.set(key, { ...prev, content: merged });
+  }
+  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The rep's booking link, whichever field it was saved under. */
+export function teamMemberCalendar(m: TeamMember): string {
+  return (m.content?.chilipiperUrl || "").trim() || (m.content?.calendlyUrl || "").trim();
 }
 
 /**
@@ -44,15 +71,7 @@ function RepPicker({ onPick }: { onPick: (m: TeamMember) => void }) {
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: TeamMember[]) => {
         if (!alive) return;
-        // One entry per person (the library can hold duplicates); prefer the record with a photo / calendar.
-        const byName = new Map<string, TeamMember>();
-        for (const m of Array.isArray(rows) ? rows : []) {
-          const key = (m.content?.email || m.name || "").trim().toLowerCase();
-          const prev = byName.get(key);
-          const score = (x?: TeamMember) => (x?.content?.chilipiperUrl || x?.content?.calendlyUrl ? 2 : 0) + (x?.content?.photo ? 1 : 0);
-          if (!prev || score(m) > score(prev)) byName.set(key, m);
-        }
-        setMembers([...byName.values()].sort((a, b) => a.name.localeCompare(b.name)));
+        setMembers(mergeTeamMembers(Array.isArray(rows) ? rows : []));
       })
       .catch(() => setMembers([]))
       .finally(() => alive && setLoaded(true));
@@ -65,12 +84,12 @@ function RepPicker({ onPick }: { onPick: (m: TeamMember) => void }) {
         <SelectContent>
           {members.map((m) => (
             <SelectItem key={m.id} value={String(m.id)} className="text-xs">
-              {m.name}{m.content?.role ? ` — ${m.content.role}` : ""}{m.content?.chilipiperUrl || m.content?.calendlyUrl ? " · calendar" : ""}
+              {m.name}{m.content?.role ? ` — ${m.content.role}` : ""}{teamMemberCalendar(m) ? " · calendar" : ""}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Reps live in Content Library → Team members. Add each rep's Chili Piper or Calendly link there once and it fills in here.</p>
+      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Reps live in Content Library → Team members. Each rep's booking link there fills in here.</p>
     </Field>
   );
 }
@@ -338,7 +357,7 @@ export function GiftNotePanel({ props, onChange, onApplyLayoutToAll }: { props: 
             signature: m.content?.name || m.name,
             repTitle: m.content?.role || "",
             repPhotoUrl: m.content?.photo || "",
-            calendarUrl: m.content?.chilipiperUrl || m.content?.calendlyUrl || props.calendarUrl || "",
+            calendarUrl: teamMemberCalendar(m) || props.calendarUrl || "",
           })}
         />
         <div className="grid grid-cols-2 gap-2">

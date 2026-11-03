@@ -206,7 +206,11 @@ function ResourceForm({
 }
 
 function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
-  const v = value as { name?: string; role?: string; email?: string; phone?: string; chilipiperUrl?: string; photo?: string };
+  const v = value as { name?: string; role?: string; email?: string; phone?: string; chilipiperUrl?: string; calendlyUrl?: string; photo?: string };
+  // Older rep records keep their booking link in `calendlyUrl` (no field of
+  // its own). Show it here, and move it to `chilipiperUrl` on edit, so the
+  // field never reads blank for a rep who has a link.
+  const bookingUrl = v.chilipiperUrl || v.calendlyUrl || "";
   return (
     <div className="space-y-2">
       <Input placeholder="Full name" value={v.name ?? ""} onChange={e => onChange({ ...v, name: e.target.value })} className="text-xs h-7" />
@@ -215,7 +219,7 @@ function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; o
       {/* Optional — the event-agenda account-team roster prints a phone line;
           without this the rep has to be retyped there. */}
       <Input placeholder="Phone (optional)" value={v.phone ?? ""} onChange={e => onChange({ ...v, phone: e.target.value })} className="text-xs h-7" />
-      <Input placeholder="Chili Piper URL" value={v.chilipiperUrl ?? ""} onChange={e => onChange({ ...v, chilipiperUrl: e.target.value })} className="text-xs h-7" />
+      <Input placeholder="Booking link (Chili Piper or Calendly)" value={bookingUrl} onChange={e => { const { calendlyUrl: _legacy, ...rest } = v; onChange({ ...rest, chilipiperUrl: e.target.value }); }} className="text-xs h-7" />
       <ImagePicker label="Headshot" value={v.photo ?? ""} onChange={url => onChange({ ...v, photo: url })} />
     </div>
   );
