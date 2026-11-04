@@ -17,7 +17,7 @@ const steps: FormStep[] = [{
 }];
 
 const values = { firstName: "Gilberto", lastName: "Ruiz", email: "g@apex.com", company: "Apex", phone: "555", gift: "Lab Tour in a Box", address: "1 Main St", city: "Austin", state: "TX", zip: "78701", notes: "Front desk" };
-const native = { Gift: "Lab Tour in a Box", "First name": "Gilberto", "Last name": "Ruiz", Email: "g@apex.com", "DSO / organization": "Apex", Phone: "555", "Shipping address": "1 Main St", City: "Austin", State: "TX", ZIP: "78701", "Delivery notes": "Front desk", "Sent by": "Dan MacAdam", Source: "holiday-gift" };
+const native = { Gift: "Lab Tour in a Box", "First name": "Gilberto", "Last name": "Ruiz", Email: "g@apex.com", "DSO / organization": "Apex", Phone: "555", "Shipping address": "1 Main St", City: "Austin", State: "TX", ZIP: "78701", "Delivery notes": "Front desk", "Sent by": "Dan MacAdam", "Rep email": "dan@x.com", Source: "holiday-gift" };
 
 describe("classifyGlobalField", () => {
   it("judges by type first, then by label keywords", () => {
@@ -83,6 +83,7 @@ describe("the Dandy 'Holiday Gifts' global form (labels mirror the gift form)", 
     { id: "13", type: "text", label: "ZIP", required: true, excludeFromCrmSync: true },
     { id: "14", type: "text", label: "Delivery notes", required: false, excludeFromCrmSync: true },
     { id: "15", type: "text", label: "Sent by", required: false, excludeFromCrmSync: true },
+    { id: "15b", type: "text", label: "Rep email", required: false, excludeFromCrmSync: true },
     { id: "16", type: "text", label: "Rep", required: false, excludeFromCrmSync: true },
     { id: "17", type: "text", label: "Campaign", required: false, excludeFromCrmSync: true },
     { id: "18", type: "text", label: "Source", required: false, excludeFromCrmSync: true },
@@ -96,6 +97,8 @@ describe("the Dandy 'Holiday Gifts' global form (labels mirror the gift form)", 
     expect(out["Shipping address"]).toBe("1 Main St");
     expect(out.Gift).toBe("Lab Tour in a Box");
     expect(out["Sent by"]).toBe("Dan MacAdam");
+    // The rep's email field is the rep's, never the recipient's.
+    expect(out["Rep email"]).toBe("dan@x.com");
     expect(out["First name"]).toBe("Gilberto");
     expect(out.Email).toBe("g@apex.com");
   });

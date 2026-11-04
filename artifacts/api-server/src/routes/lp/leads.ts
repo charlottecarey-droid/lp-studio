@@ -19,6 +19,7 @@ import {
 } from "../../lib/notifications";
 import { syncLeadToSheets, syncLeadToMarketo } from "./integrations";
 import { buildGlobalFormCrmFields } from "../../lib/crmFieldSuppression";
+import { resolveRepRecipientForTenant } from "../../lib/sales/rep-directory";
 import { appendGuestApplicationToSheet } from "./podcast-availability";
 import { sfdcService } from "../../lib/sfdc-service";
 import { hubspotService } from "../../lib/hubspot-service";
@@ -606,6 +607,20 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           });
         } catch (err) {
           console.error("Campaign enrollment error for lead", lead.id, ":", err);
+        }
+      }
+
+      // The rep who sent this page (its "Rep email" field, filled from the
+      // Sales Reps library on bulk-created gift pages) hears about their own
+      // prospect's submission too — but only an address that IS a library rep,
+      // so a public post can't turn the notifier into a mailer for strangers.
+      if (page.tenantId) {
+        const repRecipient = await resolveRepRecipientForTenant(page.tenantId, fields as Record<string, unknown>).catch((err) => {
+          console.error("Rep recipient lookup error for lead", lead.id, ":", err);
+          return null;
+        });
+        if (repRecipient && !emailRecipients.some((e) => e.trim().toLowerCase() === repRecipient)) {
+          emailRecipients = [...emailRecipients, repRecipient];
         }
       }
 

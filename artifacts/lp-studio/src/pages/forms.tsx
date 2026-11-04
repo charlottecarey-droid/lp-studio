@@ -568,7 +568,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
           <TabsContent value="notifications" className="space-y-6 mt-0">
             <div>
               <Label className={LABEL_CLS}>Email Recipients</Label>
-              <p className="text-xs text-muted-foreground mb-2">Get an email for each new submission.</p>
+              <p className="text-xs text-muted-foreground mb-2">Get an email for each new submission. A submission that names a rep (a "Rep email" field matching someone in Content Library → Team members) also notifies that rep.</p>
               <div className="flex gap-2">
                 <Input value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder="email@example.com" className="text-sm"
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addEmail(); } }} />

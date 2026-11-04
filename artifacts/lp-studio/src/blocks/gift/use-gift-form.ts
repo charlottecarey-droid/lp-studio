@@ -147,7 +147,8 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
       "Delivery notes": values.notes ?? "",
       Campaign: resolveHiddenValue("{{utm_campaign}}"),
       Rep: resolveHiddenValue("{{utm_content}}"),
-      ...(cleanPrefill(props.sentBy) ? { "Sent by": cleanPrefill(props.sentBy) } : {}),
+      "Sent by": cleanPrefill(props.sentBy),
+      "Rep email": cleanPrefill(props.repEmail),
       Source: props.source || "holiday-gift",
     };
     const fields = props.formId

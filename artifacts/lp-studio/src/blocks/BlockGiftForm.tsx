@@ -58,6 +58,8 @@ export interface GiftFormBlockProps {
   prefillCompany?: string;
   /** Saved on the lead as "Sent by" (e.g. "{{rep_name}}"). */
   sentBy?: string;
+  /** Saved on the lead as "Rep email" (e.g. "{{rep_email}}"); a library rep at this address is emailed on each submission. */
+  repEmail?: string;
   /** Route leads through this global form (lp_forms id): its notifications, CRM sync, Sheets, webhook, follow-up and redirect apply; the gift form keeps its own design. */
   formId?: number;
   /** Lead source label saved with the lead. */

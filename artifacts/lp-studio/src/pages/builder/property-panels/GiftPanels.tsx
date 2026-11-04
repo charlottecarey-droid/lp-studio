@@ -62,7 +62,7 @@ export function teamMemberCalendar(m: TeamMember): string {
  * members (the same rep records the microsite generator uses) and fills the
  * signature, role, headshot and calendar link from the chosen one.
  */
-function RepPicker({ onPick }: { onPick: (m: TeamMember) => void }) {
+function RepPicker({ onPick, label = "Sent from (fills name, role, photo and calendar)", hint = "Reps live in Content Library → Team members. Each rep's booking link there fills in here." }: { onPick: (m: TeamMember) => void; label?: string; hint?: string }) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
@@ -78,7 +78,7 @@ function RepPicker({ onPick }: { onPick: (m: TeamMember) => void }) {
     return () => { alive = false; };
   }, []);
   return (
-    <Field label="Sent from (fills name, role, photo and calendar)">
+    <Field label={label}>
       <Select value="" onValueChange={(v) => { const m = members.find((x) => String(x.id) === v); if (m) onPick(m); }}>
         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={loaded ? (members.length ? "Choose a rep…" : "No team members in Content Library") : "Loading reps…"} /></SelectTrigger>
         <SelectContent>
@@ -89,7 +89,7 @@ function RepPicker({ onPick }: { onPick: (m: TeamMember) => void }) {
           ))}
         </SelectContent>
       </Select>
-      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Reps live in Content Library → Team members. Each rep's booking link there fills in here.</p>
+      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{hint}</p>
     </Field>
   );
 }
@@ -397,8 +397,19 @@ export function GiftFormPanel({ props, onChange, onApplyLayoutToAll }: { props: 
           <Field label="Email"><Input value={props.prefillEmail ?? ""} onChange={(e) => update({ prefillEmail: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{email}}" /></Field>
           <Field label="Company"><Input value={props.prefillCompany ?? ""} onChange={(e) => update({ prefillCompany: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{company}}" /></Field>
         </div>
-        <Field label="Sent by (saved on the lead)"><Input value={props.sentBy ?? ""} onChange={(e) => update({ sentBy: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{rep_name}}" /></Field>
         <p className="text-[10px] leading-relaxed text-muted-foreground">Step two starts filled in with these, so the recipient mostly just adds an address. Use tokens on templates for bulk-created pages; blank = start empty.</p>
+      </PanelSection>
+      <PanelSection title="Rep (notified on each submission)" defaultOpen>
+        <RepPicker
+          label="Choose the rep sending this page"
+          hint="Fills the two fields below from Content Library → Team members. On a template, leave the tokens: bulk-created pages fill them from each row's rep_email."
+          onPick={(m) => update({ sentBy: m.name, repEmail: (m.content?.email ?? "").trim() })}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Sent by (saved on the lead)"><Input value={props.sentBy ?? ""} onChange={(e) => update({ sentBy: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{rep_name}}" /></Field>
+          <Field label="Rep email"><Input value={props.repEmail ?? ""} onChange={(e) => update({ repEmail: e.target.value })} className="h-8 text-xs font-mono" placeholder="{{rep_email}}" /></Field>
+        </div>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">Each submission emails the linked form's recipients plus this rep, as long as the address belongs to a rep in the Sales Reps library.</p>
       </PanelSection>
       <PanelSection title="Lead routing" defaultOpen={!!props.formId}>
         <GlobalFormPicker value={props.formId} onChange={(id) => update({ formId: id })} />

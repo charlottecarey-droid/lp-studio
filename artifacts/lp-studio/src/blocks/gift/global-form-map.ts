@@ -39,6 +39,9 @@ const norm = (s: string) => s.trim().toLowerCase();
 export function classifyGlobalField(field: { type?: string; label?: string }): keyof GiftLeadValues | "fullName" | "summary" | null {
   const type = field.type ?? "text";
   const label = norm(field.label ?? "");
+  // Fields about the REP (rep email, account owner…) are not the recipient's;
+  // the gift form fills them natively, so leave them alone.
+  if (/\b(rep|owner)\b/.test(label)) return null;
   if (type === "email" || /\be-?mail\b/.test(label)) return "email";
   if (type === "phone" || type === "tel" || /\b(phone|mobile|cell|tel)\b/.test(label)) return "phone";
   if (type === "hidden" || type === "checkbox" || type === "select") return null;

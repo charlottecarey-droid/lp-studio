@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRepDirectory, fillRepVariables } from "./rep-directory-match";
+import { buildRepDirectory, fillRepVariables, findRepEmailField, resolveRepRecipient } from "./rep-directory-match";
 
 const library = [
   { name: "Harrison Corman", role: "Business Development", email: "harrison.corman@x.com", calendlyUrl: "https://cp/harrison" },
@@ -27,5 +27,17 @@ describe("rep directory", () => {
     const dir = buildRepDirectory(library);
     expect(fillRepVariables({ rep_email: "nobody@x.com" }, dir)).toEqual({ vars: { rep_email: "nobody@x.com" }, matched: false });
     expect(fillRepVariables({ first_name: "A" }, dir)).toEqual({ vars: { first_name: "A" }, matched: null });
+  });
+
+  it("notifies the rep a submission names only when they are in the library", () => {
+    const dir = buildRepDirectory(library);
+    const lead = { Email: "g@apex.com", Gift: "Lab Tour in a Box", "Rep email": " Dan@x.com ", "Sent by": "Dan MacAdam" };
+    expect(findRepEmailField(lead)).toBe("dan@x.com");
+    expect(resolveRepRecipient(lead, dir)).toBe("dan@x.com");
+    // A stranger posting an arbitrary address gets nobody mailed.
+    expect(resolveRepRecipient({ Email: "g@apex.com", "Rep email": "attacker@evil.com" }, dir)).toBeNull();
+    // The submitter's own email is never mistaken for the rep's.
+    expect(resolveRepRecipient({ Email: "dan@x.com" }, dir)).toBeNull();
+    expect(findRepEmailField({ rep_email: "HARRISON.CORMAN@x.com" })).toBe("harrison.corman@x.com");
   });
 });

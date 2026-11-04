@@ -79,3 +79,30 @@ export function fillRepVariables(variables: Record<string, string>, dir: RepDire
   }
   return { vars, matched: true };
 }
+
+/**
+ * The rep a submission names, if any: a field labelled "Rep email" (any
+ * casing/spacing; "Sales rep email" and "rep_email" count too). Pages
+ * created from a gift template carry the rep's email in such a field so
+ * the rep can be notified about their own prospect's submission.
+ */
+export function findRepEmailField(fields: Record<string, unknown>): string {
+  for (const [k, v] of Object.entries(fields)) {
+    if (typeof v !== "string" || !v.includes("@")) continue;
+    const key = k.toLowerCase().replace(/[^a-z]/g, "");
+    if (key === "repemail" || key === "salesrepemail" || key === "accountowneremail" || key === "owneremail") return v.trim().toLowerCase();
+  }
+  return "";
+}
+
+/**
+ * The address to notify for a submission's rep: the "Rep email" field, but
+ * only when it names someone in the tenant's Sales Reps library. A public
+ * form post can carry any field, so without this allowlist a stranger could
+ * make the server mail lead notifications to arbitrary addresses.
+ */
+export function resolveRepRecipient(fields: Record<string, unknown>, dir: RepDirectory): string | null {
+  const email = findRepEmailField(fields);
+  if (!email) return null;
+  return dir.has(email) ? email : null;
+}
