@@ -457,7 +457,7 @@ export function GiftNotePanel({ props, onChange, onApplyLayoutToAll }: { props: 
         </Field>
         <Field label="Personal line from the rep (blank hides it)">
           <Textarea value={props.personalNote ?? ""} onChange={(e) => update({ personalNote: e.target.value })} rows={2} className="text-xs" placeholder="{{personal_note}}" />
-          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Shown under the note. Bulk-created pages fill <span className="font-mono">{"{{personal_note}}"}</span> from the spreadsheet.</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">When filled, it replaces the note below on the live page (the builder shows both). Bulk-created pages fill <span className="font-mono">{"{{personal_note}}"}</span> from the spreadsheet; rows that leave it blank get the note below.</p>
         </Field>
         <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Headline"><Textarea value={props.headline ?? ""} onChange={(e) => update({ headline: e.target.value })} rows={2} className="text-xs" /></Field>

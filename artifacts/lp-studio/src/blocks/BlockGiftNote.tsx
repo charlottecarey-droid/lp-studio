@@ -80,14 +80,27 @@ export const GIFT_NOTE_DEFAULT_PROPS: GiftNoteBlockProps = {
   layout: "classic",
 };
 
+/** A rep's own note, if one was filled in: an unresolved "{{personal_note}}" token counts as none. */
+export function ownNoteOf(personalNote?: string): string {
+  const v = (personalNote ?? "").trim();
+  return /^\{\{[^{}]*\}\}$/.test(v) ? "" : v;
+}
+
 export function BlockGiftNote(p: Props) {
-  const { kicker, headline, greeting, body, personalNote, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText } = p.props;
+  const isEditor = !!p.onFieldChange;
+  // On the live page a rep's own note REPLACES the template's note rather
+  // than stacking under it; the builder keeps showing both so the template
+  // copy stays editable next to the token.
+  const own = ownNoteOf(p.props.personalNote);
+  const props: GiftNoteBlockProps = isEditor ? p.props : { ...p.props, body: own ? "" : p.props.body, personalNote: own };
+  const { kicker, headline, greeting, body, personalNote, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText } = props;
   useRegisterGiftNote({ kicker, headline, greeting, body, personalNote, signoff, signature, repTitle, repPhotoUrl, calendarUrl, calendarText });
   const { envelopeActive } = useGiftNoteStore();
   // When the hero opens on an envelope, the card that slides out IS this
   // note — hide it on the live page so the letter doesn't appear twice.
-  if (envelopeActive && !p.onFieldChange) return null;
-  return p.props.layout === "atelier" ? <AtelierGiftNote {...p} /> : <ClassicGiftNote {...p} />;
+  if (envelopeActive && !isEditor) return null;
+  const view = { ...p, props };
+  return props.layout === "atelier" ? <AtelierGiftNote {...view} /> : <ClassicGiftNote {...view} />;
 }
 
 function ClassicGiftNote({ props, brand, onCtaClick, onFieldChange }: Props) {

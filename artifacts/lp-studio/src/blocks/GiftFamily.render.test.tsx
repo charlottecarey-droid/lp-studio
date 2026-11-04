@@ -355,12 +355,21 @@ describe("gift-hero — optional envelope intro", () => {
 });
 
 describe("bulk-page personalization — personal note and form pre-fill", () => {
-  it.each(["classic", "atelier"])("%s: the personal line shows when set and hides when blank", (layout) => {
-    const withNote = render(BlockGiftNote as never, { ...defaultsFor("gift-note"), layout, personalNote: "Great seeing you in Austin!" }, true);
+  it.each(["classic", "atelier"])("%s: a rep's own note replaces the template note; blank or unresolved keeps it", (layout) => {
+    const base = { ...defaultsFor("gift-note"), layout, body: "Working with you this year has been a highlight." };
+    const withNote = render(BlockGiftNote as never, { ...base, personalNote: "Great seeing you in Austin!" }, true);
     expect(withNote).toContain('data-gift-personal-note="true"');
     expect(withNote).toContain("Great seeing you in Austin!");
-    const blank = render(BlockGiftNote as never, { ...defaultsFor("gift-note"), layout, personalNote: "" }, true);
-    expect(blank).not.toContain("data-gift-personal-note");
+    expect(withNote).not.toContain("has been a highlight");
+    for (const personalNote of ["", "  ", "{{personal_note}}"]) {
+      const kept = render(BlockGiftNote as never, { ...base, personalNote }, true);
+      expect(kept).not.toContain("data-gift-personal-note");
+      expect(kept).toContain("has been a highlight");
+    }
+    // The builder shows both, so the template copy stays editable.
+    const editor = renderToStaticMarkup(createElement(BlockGiftNote as never, { props: { ...base, personalNote: "Great seeing you in Austin!" }, brand: DEFAULT_BRAND, onFieldChange: () => {} } as never));
+    expect(editor).toContain("has been a highlight");
+    expect(editor).toContain("Great seeing you in Austin!");
   });
 
   it("pre-fill ignores blanks and unresolved {{tokens}} (the builder) and keeps real values", async () => {
