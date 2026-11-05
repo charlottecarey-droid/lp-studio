@@ -180,7 +180,7 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
           <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
         </motion.h2>
 
-        <div className="mt-10 grid gap-10 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-start min-[1000px]:gap-[72px]">
+        <div className="mt-12 grid gap-10 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-start min-[1000px]:gap-[72px]">
           {/* Steps */}
           <div className="flex flex-col">
             {steps.map((s, i) => {

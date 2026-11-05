@@ -224,7 +224,7 @@ export function BlockForestFaq({ props, brand, pageId, variantId, onCtaClick, on
         <motion.h2 {...rise(0.1)} className="mt-[18px] max-w-[16ch]" style={forestDisplay("clamp(2rem, 4vw, 3.25rem)", pal.heading)}>
           <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
         </motion.h2>
-        <motion.div {...rise(0.2)} className="mt-10" style={{ borderTop: `1px solid ${pal.hairline}` }}>
+        <motion.div {...rise(0.2)} className="mt-12" style={{ borderTop: `1px solid ${pal.hairline}` }}>
           {items.map((it, i) => (
             <FaqRow
               key={i}

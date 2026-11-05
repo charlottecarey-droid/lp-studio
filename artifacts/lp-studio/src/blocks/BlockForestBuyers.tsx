@@ -215,13 +215,13 @@ export function BlockForestBuyers({ props, brand, onFieldChange }: Props) {
         </div>
 
         {p.showSteps !== false && steps.length > 0 && (
-          <div className={cn("mt-10 grid", steps.length >= 5 ? "min-[900px]:grid-cols-5" : steps.length === 4 ? "min-[900px]:grid-cols-4" : steps.length === 3 ? "min-[900px]:grid-cols-3" : "min-[900px]:grid-cols-2")} style={{ borderTop: `1px solid ${pal.hairline}` }}>
+          <div className={cn("mt-12 grid", steps.length >= 5 ? "min-[900px]:grid-cols-5" : steps.length === 4 ? "min-[900px]:grid-cols-4" : steps.length === 3 ? "min-[900px]:grid-cols-3" : "min-[900px]:grid-cols-2")} style={{ borderTop: `1px solid ${pal.hairline}` }}>
             {steps.map((s, i) => (
               <motion.div
                 key={i}
                 {...rise(0.1 + i * 0.1)}
                 className={cn(
-                  "relative min-w-0 border-b py-7 pr-6 min-[900px]:border-b-0 min-[900px]:border-r min-[900px]:pb-2.5 min-[900px]:pt-[30px]",
+                  "relative flex min-w-0 flex-col border-b py-7 pr-6 min-[900px]:border-b-0 min-[900px]:border-r min-[900px]:pb-2.5 min-[900px]:pt-[30px]",
                   i > 0 && "min-[900px]:pl-6",
                   i === steps.length - 1 && "min-[900px]:border-r-0",
                 )}
@@ -241,7 +241,8 @@ export function BlockForestBuyers({ props, brand, onFieldChange }: Props) {
                     <InlineText as="span" value={s.body} onUpdate={updateStep ? (v) => updateStep(i, { body: v }) : undefined} multiline />
                   </p>
                 )}
-                <div className="mt-[22px] h-[3px] overflow-hidden rounded-[2px]" style={{ background: pal.hairline }} aria-hidden>
+                <div className="min-h-[22px] flex-1" aria-hidden />
+                <div className="h-[3px] overflow-hidden rounded-[2px]" style={{ background: pal.hairline }} aria-hidden>
                   <div className="h-full" style={{ width: filled ? "100%" : "0%", background: pal.accentDeco, transition: reduced || staticRender ? "none" : `width 1.4s cubic-bezier(.16,1,.3,1) ${0.2 + i * 0.12}s` }} />
                 </div>
               </motion.div>

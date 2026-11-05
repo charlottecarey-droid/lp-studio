@@ -195,7 +195,7 @@ export function BlockForestComparison({ props, brand, pageId, variantId, onCtaCl
         </motion.div>
 
         {showCta && (
-          <motion.div {...rise(0.24)} className={cn("mt-10")}>
+          <motion.div {...rise(0.24)} className={cn("mt-12")}>
             <ForestCtaButtons
               props={p}
               brand={brand}

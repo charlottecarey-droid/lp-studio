@@ -168,7 +168,7 @@ export function BlockMintBand({ props, brand, pageId, variantId, onCtaClick, onF
 
       <div className={cn(MINT_WRAP, "mint-band-copy relative z-10 text-center")} style={{ paddingBlock: "clamp(120px, 18vw, 220px)" }}>
         {(p.headline || isEditor) && (
-          <motion.h2 {...rise(0, 18)} className="mx-auto max-w-[14ch]" style={mintDisplay("clamp(2rem, 4.2vw, 3.4rem)", ink)}>
+          <motion.h2 {...rise(0, 18)} className="mx-auto max-w-[14ch] text-center" style={{ ...mintDisplay("clamp(2rem, 4.2vw, 3.4rem)", ink), marginLeft: "auto", marginRight: "auto" }}>
             {isEditor ? (
               <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
             ) : (

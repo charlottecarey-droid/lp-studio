@@ -121,12 +121,12 @@ export const FOREST_CSS = `
   .forest-link { transition: opacity .2s ease; }
   .forest-link svg { transition: transform .4s cubic-bezier(.16,1,.3,1); }
   @media (hover: hover) { .forest-link:hover { opacity: .8; } .forest-link:hover svg { transform: translateX(4px); } }
-  @media (prefers-reduced-motion: reduce) { .forest-btn, .forest-btn:hover, .forest-btn svg, .forest-card, .forest-card:hover, .forest-link svg { transition: none; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .forest-btn, .forest-btn svg, .forest-card, .forest-link svg { transition: none; } .forest-btn:hover, .forest-card:hover { transform: none; } }
 `;
 
 /** Display headline style: the brand display face set light with tight tracking. */
 export function forestDisplay(size: string, color: string, weight = 400): CSSProperties {
-  return { fontFamily: FOREST_DISPLAY, fontSize: size, lineHeight: 1.1, letterSpacing: "-0.03em", fontWeight: weight, color, margin: 0, textWrap: "balance" } as CSSProperties;
+  return { fontFamily: FOREST_DISPLAY, fontSize: size, lineHeight: 1.1, letterSpacing: "-0.03em", fontWeight: weight, color, textWrap: "balance" } as CSSProperties;
 }
 
 /** Eyebrow: 11px uppercase tracked label with a short rule in front. */

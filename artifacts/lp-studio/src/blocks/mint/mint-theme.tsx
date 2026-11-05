@@ -113,7 +113,7 @@ export const MINT_SECTION_PAD: CSSProperties = { paddingBlock: "clamp(80px, 9vw,
 
 /** Centred display headline: brand display face, light weight, tight tracking. */
 export function mintDisplay(size: string, color: string, weight = 400): CSSProperties {
-  return { fontFamily: MINT_DISPLAY, fontSize: size, lineHeight: 1.08, letterSpacing: "-0.03em", fontWeight: weight, color, margin: 0, textWrap: "balance" } as CSSProperties;
+  return { fontFamily: MINT_DISPLAY, fontSize: size, lineHeight: 1.08, letterSpacing: "-0.03em", fontWeight: weight, color, textWrap: "balance" } as CSSProperties;
 }
 
 /** The artifact's `.sub`: centred support copy, 40ch, muted. */
@@ -135,7 +135,7 @@ export const MINT_CSS = `
   @media (hover: hover) { .mint-btn:hover { transform: translateY(-1px); filter: brightness(1.06); } }
   .mint-card { transition: transform .6s cubic-bezier(.16,1,.3,1), box-shadow .5s cubic-bezier(.16,1,.3,1), border-color .3s; }
   @media (hover: hover) { .mint-card:hover { transform: translateY(-3px); } }
-  @media (prefers-reduced-motion: reduce) { .mint-link::after, .mint-btn, .mint-btn:hover, .mint-card, .mint-card:hover { transition: none; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .mint-link::after, .mint-btn, .mint-card { transition: none; } .mint-btn:hover, .mint-card:hover { transform: none; } }
 `;
 
 /** The quiet chevron link ("Read the story ›"). */

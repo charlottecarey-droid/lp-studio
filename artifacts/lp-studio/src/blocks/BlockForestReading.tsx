@@ -110,7 +110,7 @@ export function BlockForestReading({ props, brand, onFieldChange }: Props) {
           </motion.h2>
         )}
 
-        <div className={cn("mt-10 grid grid-cols-1 gap-[18px] md:gap-[22px]", COLS[columns])}>
+        <div className={cn("mt-12 grid grid-cols-1 gap-[18px] md:gap-[22px]", COLS[columns])}>
           {tiles.map((t, i) => {
             const linked = !!t.linkUrl && !isEditor;
             const inner = (

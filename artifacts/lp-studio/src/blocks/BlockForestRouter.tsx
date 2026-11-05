@@ -132,7 +132,7 @@ export function BlockForestRouter({ props, brand, onFieldChange }: Props) {
           .forest-rcard:hover { transform: translateY(-5px); box-shadow: ${pal.shadowHover}; border-color: transparent !important; }
           .forest-rcard:hover .forest-rcard-bar { transform: scaleX(1); }
         }
-        @media (prefers-reduced-motion: reduce) { .forest-rcard, .forest-rcard:hover, .forest-rcard-bar { transition: none; transform: none; } }
+        @media (prefers-reduced-motion: reduce) { .forest-rcard, .forest-rcard-bar { transition: none; } .forest-rcard:hover { transform: none; } }
       `}</style>
       <div className={FOREST_CONTAINER}>
         {(p.eyebrow || isEditor) && (
