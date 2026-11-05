@@ -141,3 +141,11 @@ describe("NO_REVEAL — DSO Page family (Nov 2026)", () => {
     expect(NO_REVEAL.has(type)).toBe(true);
   });
 });
+
+describe("NO_REVEAL — DSO Page (Light) family (Nov 2026)", () => {
+  it.each([
+    "mint-hero", "mint-proof", "mint-band", "mint-features", "mint-router", "mint-story", "mint-comparison", "mint-steps", "mint-faq", "mint-reading", "mint-close", "mint-footer",
+  ])("excludes %s from reveal wrapping", (type) => {
+    expect(NO_REVEAL.has(type)).toBe(true);
+  });
+});

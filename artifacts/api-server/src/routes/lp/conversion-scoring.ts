@@ -89,6 +89,8 @@ const SOCIAL_PROOF_TYPES = new Set<string>([
   "forest-proof",
   "forest-story",
   "forest-logos",
+  "mint-proof",
+  "mint-story",
   "dso-success-stories",
   "dso-testimonials",
   "dso-case-study",

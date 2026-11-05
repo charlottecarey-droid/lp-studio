@@ -30,6 +30,7 @@ export const SELF_NAV_TYPES = new Set([
   "kit-hero",
   "gift-hero",
   "forest-hero",
+  "mint-hero",
   "hub-hero",
   "abm-split-hero",
   "hero",

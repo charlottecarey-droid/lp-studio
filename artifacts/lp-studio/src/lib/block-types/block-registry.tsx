@@ -199,6 +199,18 @@ import type {
   ForestReadingBlockProps,
   ForestCloseBlockProps,
   ForestFooterBlockProps,
+  MintHeroBlockProps,
+  MintProofBlockProps,
+  MintBandBlockProps,
+  MintFeaturesBlockProps,
+  MintRouterBlockProps,
+  MintStoryBlockProps,
+  MintComparisonBlockProps,
+  MintStepsBlockProps,
+  MintFaqBlockProps,
+  MintReadingBlockProps,
+  MintCloseBlockProps,
+  MintFooterBlockProps,
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
@@ -266,6 +278,18 @@ import { FOREST_FAQ_DEFAULT_PROPS } from "@/blocks/BlockForestFaq";
 import { FOREST_READING_DEFAULT_PROPS } from "@/blocks/BlockForestReading";
 import { FOREST_CLOSE_DEFAULT_PROPS } from "@/blocks/BlockForestClose";
 import { FOREST_FOOTER_DEFAULT_PROPS } from "@/blocks/BlockForestFooter";
+import { MINT_HERO_DEFAULT_PROPS } from "@/blocks/BlockMintHero";
+import { MINT_PROOF_DEFAULT_PROPS } from "@/blocks/BlockMintProof";
+import { MINT_BAND_DEFAULT_PROPS } from "@/blocks/BlockMintBand";
+import { MINT_FEATURES_DEFAULT_PROPS } from "@/blocks/BlockMintFeatures";
+import { MINT_ROUTER_DEFAULT_PROPS } from "@/blocks/BlockMintRouter";
+import { MINT_STORY_DEFAULT_PROPS } from "@/blocks/BlockMintStory";
+import { MINT_COMPARISON_DEFAULT_PROPS } from "@/blocks/BlockMintComparison";
+import { MINT_STEPS_DEFAULT_PROPS } from "@/blocks/BlockMintSteps";
+import { MINT_FAQ_DEFAULT_PROPS } from "@/blocks/BlockMintFaq";
+import { MINT_READING_DEFAULT_PROPS } from "@/blocks/BlockMintReading";
+import { MINT_CLOSE_DEFAULT_PROPS } from "@/blocks/BlockMintClose";
+import { MINT_FOOTER_DEFAULT_PROPS } from "@/blocks/BlockMintFooter";
 import { HUB_HERO_DEFAULT_PROPS } from "@/blocks/BlockHubHero";
 import { HUB_FEATURED_DEFAULT_PROPS } from "@/blocks/BlockHubFeatured";
 import { HUB_LIBRARY_DEFAULT_PROPS } from "@/blocks/BlockHubLibrary";
@@ -9770,6 +9794,115 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#00261F" rx="4" /><rect x="0" y="6" width="120" height="0.8" fill="#FFFCEF" opacity="0.14" /><rect x="8" y="14" width="18" height="5" rx="1" fill="#FFFCEF" /><rect x="8" y="24" width="30" height="3" rx="1" fill="#FFFCEF" opacity="0.8" /><rect x="8" y="29" width="22" height="3" rx="1" fill="#FFFCEF" opacity="0.8" /><rect x="52" y="14" width="12" height="1.5" fill="#FFFCEF" /><rect x="52" y="19" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="23" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="27" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="31" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="35" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="14" width="12" height="1.5" fill="#FFFCEF" /><rect x="74" y="19" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="23" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="27" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="31" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="35" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="14" width="12" height="1.5" fill="#FFFCEF" /><rect x="96" y="19" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="23" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="27" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="31" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="35" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="8" y="46" width="104" height="0.8" fill="#FFFCEF" opacity="0.14" /><rect x="8" y="50" width="16" height="1.5" fill="#FFFCEF" /><rect x="8" y="55.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="8" y="58.5" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="8" y="62.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="62" y="55.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="62" y="58.5" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="62" y="62.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /></svg>
     ),
   },
+  // ── DSO Page (Light) family (Nov 2026): the second "Dandy for DSOs" artifact ported as mint-* blocks ──
+  {
+    type: "mint-hero",
+    label: "DSO Page (Light) — Hero (Nav + Photo + Numbers)",
+    category: "DSO",
+    defaultProps: (): MintHeroBlockProps => structuredClone(MINT_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="0" y="0" width="120" height="8" fill="#ffffff" /><rect x="0" y="8" width="120" height="0.6" fill="#E5E5E3" /><rect x="6" y="2.5" width="12" height="3" rx="1" fill="#003A30" /><rect x="98" y="2" width="16" height="4" rx="2" fill="#003A30" /><rect x="30" y="14" width="60" height="7" rx="2" fill="#1D1D1F" /><rect x="40" y="24" width="40" height="7" rx="2" fill="#1D1D1F" /><rect x="40" y="29" width="40" height="2" fill="#C7E738" /><rect x="34" y="35" width="52" height="2" rx="1" fill="#A1A1A6" /><rect x="14" y="43" width="92" height="27" rx="4" fill="#EEF4EF" /><rect x="8" y="56" width="22" height="10" rx="2" fill="#ffffff" stroke="#E5E5E3" strokeWidth="0.5" /><rect x="92" y="46" width="22" height="10" rx="2" fill="#ffffff" stroke="#E5E5E3" strokeWidth="0.5" /></svg>
+    ),
+  },
+  {
+    type: "mint-proof",
+    label: "DSO Page (Light) — Proof Cards",
+    category: "DSO",
+    defaultProps: (): MintProofBlockProps => structuredClone(MINT_PROOF_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="34" y="8" width="52" height="6" rx="2" fill="#1D1D1F" /><rect x="8" y="22" width="32" height="42" rx="5" fill="#EEF4EF" /><rect x="12" y="27" width="14" height="2" rx="1" fill="#A1A1A6" opacity="0.8" /><rect x="12" y="32" width="20" height="10" rx="2" fill="#1D1D1F" /><rect x="12" y="46" width="24" height="2" rx="1" fill="#A1A1A6" opacity="0.7" /><rect x="12" y="56" width="12" height="2" rx="1" fill="#003A30" /><rect x="44" y="22" width="32" height="42" rx="5" fill="#F1F8CF" /><rect x="48" y="27" width="14" height="2" rx="1" fill="#A1A1A6" opacity="0.8" /><rect x="48" y="32" width="20" height="10" rx="2" fill="#1D1D1F" /><rect x="48" y="46" width="24" height="2" rx="1" fill="#A1A1A6" opacity="0.7" /><rect x="48" y="56" width="12" height="2" rx="1" fill="#003A30" /><rect x="80" y="22" width="32" height="42" rx="5" fill="#003A30" /><rect x="84" y="27" width="14" height="2" rx="1" fill="#FFFCEF" opacity="0.8" /><rect x="84" y="32" width="20" height="10" rx="2" fill="#FFFCEF" /><rect x="84" y="46" width="24" height="2" rx="1" fill="#FFFCEF" opacity="0.7" /><rect x="84" y="56" width="12" height="2" rx="1" fill="#C7E738" /></svg>
+    ),
+  },
+  {
+    type: "mint-band",
+    label: "DSO Page (Light) — Photo Band",
+    category: "DSO",
+    defaultProps: (): MintBandBlockProps => structuredClone(MINT_BAND_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#00261F" rx="4" /><rect x="0" y="0" width="120" height="70" fill="#0B3029" rx="4" /><rect x="30" y="22" width="60" height="7" rx="2" fill="#FFFCEF" /><rect x="40" y="32" width="40" height="7" rx="2" fill="#FFFCEF" /><rect x="58" y="36" width="22" height="2" fill="#C7E738" opacity="0.6" /><rect x="34" y="45" width="52" height="2" rx="1" fill="#FFFCEF" opacity="0.6" /></svg>
+    ),
+  },
+  {
+    type: "mint-features",
+    label: "DSO Page (Light) — Feature Rows (UI Mocks)",
+    category: "DSO",
+    defaultProps: (): MintFeaturesBlockProps => structuredClone(MINT_FEATURES_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="36" y="6" width="48" height="5" rx="2" fill="#1D1D1F" /><rect x="8" y="18" width="48" height="22" rx="4" fill="#EEF4EF" /><rect x="14" y="23" width="36" height="12" rx="2" fill="#ffffff" /><circle cx="64" cy="22" r="1.5" fill="#C7E738" /><rect x="68" y="21" width="14" height="2" rx="1" fill="#003A30" /><rect x="62" y="26" width="46" height="4" rx="1.5" fill="#1D1D1F" /><rect x="62" y="33" width="40" height="2" rx="1" fill="#A1A1A6" /><rect x="8" y="46" width="104" height="0.6" fill="#E5E5E3" /><rect x="64" y="50" width="48" height="16" rx="4" fill="#F1F8CF" /><circle cx="10" cy="54" r="1.5" fill="#C7E738" /><rect x="14" y="53" width="14" height="2" rx="1" fill="#003A30" /><rect x="8" y="58" width="46" height="4" rx="1.5" fill="#1D1D1F" /></svg>
+    ),
+  },
+  {
+    type: "mint-router",
+    label: "DSO Page (Light) — Where Are You Today",
+    category: "DSO",
+    defaultProps: (): MintRouterBlockProps => structuredClone(MINT_ROUTER_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="30" y="8" width="60" height="6" rx="2" fill="#1D1D1F" /><rect x="59.7" y="20" width="0.6" height="46" fill="#E5E5E3" /><rect x="8" y="42.7" width="104" height="0.6" fill="#E5E5E3" /><circle cx="14" cy="26" r="1.5" fill="#C7E738" /><rect x="18" y="25" width="14" height="2" rx="1" fill="#003A30" /><rect x="12" y="30" width="40" height="5" rx="1.5" fill="#1D1D1F" /><rect x="12" y="37" width="16" height="2" rx="1" fill="#003A30" /><circle cx="68" cy="26" r="1.5" fill="#C7E738" /><rect x="72" y="25" width="14" height="2" rx="1" fill="#003A30" /><rect x="66" y="30" width="40" height="5" rx="1.5" fill="#1D1D1F" /><rect x="66" y="37" width="16" height="2" rx="1" fill="#003A30" /><circle cx="14" cy="49" r="1.5" fill="#C7E738" /><rect x="18" y="48" width="14" height="2" rx="1" fill="#003A30" /><rect x="12" y="53" width="40" height="5" rx="1.5" fill="#1D1D1F" /><rect x="12" y="60" width="16" height="2" rx="1" fill="#003A30" /><circle cx="68" cy="49" r="1.5" fill="#C7E738" /><rect x="72" y="48" width="14" height="2" rx="1" fill="#003A30" /><rect x="66" y="53" width="40" height="5" rx="1.5" fill="#1D1D1F" /><rect x="66" y="60" width="16" height="2" rx="1" fill="#003A30" /></svg>
+    ),
+  },
+  {
+    type: "mint-story",
+    label: "DSO Page (Light) — Video Story",
+    category: "DSO",
+    defaultProps: (): MintStoryBlockProps => structuredClone(MINT_STORY_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="30" y="6" width="60" height="5" rx="2" fill="#1D1D1F" /><rect x="8" y="18" width="62" height="46" rx="5" fill="#00261F" /><circle cx="39" cy="40" r="6" fill="#C7E738" /><rect x="12" y="58" width="54" height="2" rx="1" fill="#FFFCEF" opacity="0.4" /><rect x="76" y="20" width="36" height="4" rx="1.5" fill="#1D1D1F" /><rect x="76" y="26" width="30" height="4" rx="1.5" fill="#1D1D1F" /><rect x="76" y="28" width="30" height="1.5" fill="#C7E738" /><rect x="76" y="36" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="76" y="46" width="12" height="7" rx="1.5" fill="#1D1D1F" /><rect x="92" y="46" width="12" height="7" rx="1.5" fill="#1D1D1F" /><rect x="76" y="60" width="16" height="2" rx="1" fill="#003A30" /></svg>
+    ),
+  },
+  {
+    type: "mint-comparison",
+    label: "DSO Page (Light) — Comparison Table",
+    category: "DSO",
+    defaultProps: (): MintComparisonBlockProps => structuredClone(MINT_COMPARISON_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F5F5F3" rx="4" /><rect x="30" y="8" width="60" height="6" rx="2" fill="#1D1D1F" /><rect x="8" y="24" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="27" width="18" height="2" rx="1" fill="#A1A1A6" /><circle cx="36" cy="28" r="1.8" fill="#003A30" /><rect x="40" y="27" width="22" height="2" rx="1" fill="#1D1D1F" /><rect x="70" y="27" width="16" height="2" rx="1" fill="#A1A1A6" /><rect x="94" y="27" width="14" height="2" rx="1" fill="#A1A1A6" /><rect x="8" y="32" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="35" width="18" height="2" rx="1" fill="#A1A1A6" /><circle cx="36" cy="36" r="1.8" fill="#003A30" /><rect x="40" y="35" width="22" height="2" rx="1" fill="#1D1D1F" /><rect x="70" y="35" width="16" height="2" rx="1" fill="#A1A1A6" /><rect x="94" y="35" width="14" height="2" rx="1" fill="#A1A1A6" /><rect x="8" y="40" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="43" width="18" height="2" rx="1" fill="#A1A1A6" /><circle cx="36" cy="44" r="1.8" fill="#003A30" /><rect x="40" y="43" width="22" height="2" rx="1" fill="#1D1D1F" /><rect x="70" y="43" width="16" height="2" rx="1" fill="#A1A1A6" /><rect x="94" y="43" width="14" height="2" rx="1" fill="#A1A1A6" /><rect x="8" y="48" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="51" width="18" height="2" rx="1" fill="#A1A1A6" /><circle cx="36" cy="52" r="1.8" fill="#003A30" /><rect x="40" y="51" width="22" height="2" rx="1" fill="#1D1D1F" /><rect x="70" y="51" width="16" height="2" rx="1" fill="#A1A1A6" /><rect x="94" y="51" width="14" height="2" rx="1" fill="#A1A1A6" /><rect x="8" y="56" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="59" width="18" height="2" rx="1" fill="#A1A1A6" /><circle cx="36" cy="60" r="1.8" fill="#003A30" /><rect x="40" y="59" width="22" height="2" rx="1" fill="#1D1D1F" /><rect x="70" y="59" width="16" height="2" rx="1" fill="#A1A1A6" /><rect x="94" y="59" width="14" height="2" rx="1" fill="#A1A1A6" /></svg>
+    ),
+  },
+  {
+    type: "mint-steps",
+    label: "DSO Page (Light) — Rollout Steps",
+    category: "DSO",
+    defaultProps: (): MintStepsBlockProps => structuredClone(MINT_STEPS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="30" y="8" width="60" height="6" rx="2" fill="#1D1D1F" /><rect x="8" y="26" width="104" height="1.2" fill="#E5E5E3" /><rect x="8" y="26" width="70" height="1.2" fill="#003A30" /><rect x="8" y="32" width="8" height="2" rx="1" fill="#003A30" /><rect x="8" y="37" width="20" height="4" rx="1.5" fill="#1D1D1F" /><rect x="8" y="44" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="8" y="48" width="18" height="2" rx="1" fill="#A1A1A6" /><rect x="35" y="32" width="8" height="2" rx="1" fill="#003A30" /><rect x="35" y="37" width="20" height="4" rx="1.5" fill="#1D1D1F" /><rect x="35" y="44" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="35" y="48" width="18" height="2" rx="1" fill="#A1A1A6" /><rect x="62" y="32" width="8" height="2" rx="1" fill="#003A30" /><rect x="62" y="37" width="20" height="4" rx="1.5" fill="#1D1D1F" /><rect x="62" y="44" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="62" y="48" width="18" height="2" rx="1" fill="#A1A1A6" /><rect x="89" y="32" width="8" height="2" rx="1" fill="#003A30" /><rect x="89" y="37" width="20" height="4" rx="1.5" fill="#1D1D1F" /><rect x="89" y="44" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="89" y="48" width="18" height="2" rx="1" fill="#A1A1A6" /></svg>
+    ),
+  },
+  {
+    type: "mint-faq",
+    label: "DSO Page (Light) — Objections FAQ",
+    category: "DSO",
+    defaultProps: (): MintFaqBlockProps => structuredClone(MINT_FAQ_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F5F5F3" rx="4" /><rect x="30" y="8" width="60" height="6" rx="2" fill="#1D1D1F" /><rect x="8" y="24" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="28" width="60" height="3" rx="1" fill="#1D1D1F" /><rect x="105" y="29" width="6" height="1" fill="#1D1D1F" /><rect x="8" y="34" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="38" width="54" height="3" rx="1" fill="#1D1D1F" /><rect x="105" y="39" width="6" height="1" fill="#1D1D1F" /><rect x="8" y="44" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="48" width="48" height="3" rx="1" fill="#1D1D1F" /><rect x="105" y="49" width="6" height="1" fill="#1D1D1F" /><rect x="8" y="54" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="58" width="42" height="3" rx="1" fill="#1D1D1F" /><rect x="105" y="59" width="6" height="1" fill="#1D1D1F" /><rect x="8" y="34" width="70" height="2" rx="1" fill="#A1A1A6" /></svg>
+    ),
+  },
+  {
+    type: "mint-reading",
+    label: "DSO Page (Light) — Reading Tiles",
+    category: "DSO",
+    defaultProps: (): MintReadingBlockProps => structuredClone(MINT_READING_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F5F5F3" rx="4" /><rect x="30" y="8" width="60" height="6" rx="2" fill="#1D1D1F" /><rect x="8" y="22" width="32" height="42" rx="4" fill="#ffffff" /><rect x="8" y="22" width="32" height="16" rx="4" fill="#EEF4EF" /><rect x="12" y="42" width="12" height="1.5" fill="#A1A1A6" /><rect x="12" y="46" width="24" height="4" rx="1.5" fill="#1D1D1F" /><rect x="12" y="52" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="12" y="58" width="8" height="2" rx="1" fill="#003A30" /><rect x="44" y="22" width="32" height="42" rx="4" fill="#ffffff" /><rect x="44" y="22" width="32" height="16" rx="4" fill="#EEF4EF" /><rect x="48" y="42" width="12" height="1.5" fill="#A1A1A6" /><rect x="48" y="46" width="24" height="4" rx="1.5" fill="#1D1D1F" /><rect x="48" y="52" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="48" y="58" width="8" height="2" rx="1" fill="#003A30" /><rect x="80" y="22" width="32" height="42" rx="4" fill="#ffffff" /><rect x="80" y="22" width="32" height="16" rx="4" fill="#EEF4EF" /><rect x="84" y="42" width="12" height="1.5" fill="#A1A1A6" /><rect x="84" y="46" width="24" height="4" rx="1.5" fill="#1D1D1F" /><rect x="84" y="52" width="22" height="2" rx="1" fill="#A1A1A6" /><rect x="84" y="58" width="8" height="2" rx="1" fill="#003A30" /></svg>
+    ),
+  },
+  {
+    type: "mint-close",
+    label: "DSO Page (Light) — Close (Form)",
+    category: "DSO",
+    defaultProps: (): MintCloseBlockProps => structuredClone(MINT_CLOSE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#003A30" rx="4" /><rect x="30" y="8" width="60" height="6" rx="2" fill="#FFFCEF" /><rect x="40" y="16" width="40" height="6" rx="2" fill="#FFFCEF" /><rect x="34" y="26" width="52" height="2" rx="1" fill="#FFFCEF" opacity="0.6" /><rect x="26" y="34" width="68" height="32" rx="5" fill="#ffffff" /><rect x="30" y="38" width="28" height="5" rx="2" fill="#ffffff" stroke="#D2D2D7" strokeWidth="0.6" /><rect x="62" y="38" width="28" height="5" rx="2" fill="#ffffff" stroke="#D2D2D7" strokeWidth="0.6" /><rect x="30" y="45" width="28" height="5" rx="2" fill="#ffffff" stroke="#D2D2D7" strokeWidth="0.6" /><rect x="62" y="45" width="28" height="5" rx="2" fill="#ffffff" stroke="#D2D2D7" strokeWidth="0.6" /><rect x="30" y="52" width="28" height="5" rx="2" fill="#ffffff" stroke="#D2D2D7" strokeWidth="0.6" /><rect x="62" y="52" width="28" height="5" rx="2" fill="#ffffff" stroke="#D2D2D7" strokeWidth="0.6" /><rect x="30" y="60" width="60" height="5" rx="2.5" fill="#C7E738" /></svg>
+    ),
+  },
+  {
+    type: "mint-footer",
+    label: "DSO Page (Light) — Footnotes + Footer",
+    category: "DSO",
+    defaultProps: (): MintFooterBlockProps => structuredClone(MINT_FOOTER_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="8" y="10" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="16" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="8" y="21" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="8" y="26" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="8" y="31" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="62" y="16" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="62" y="21" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="62" y="26" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="62" y="31" width="46" height="1.5" rx="0.5" fill="#A1A1A6" /><rect x="8" y="44" width="104" height="0.6" fill="#E5E5E3" /><rect x="8" y="52" width="40" height="2" rx="1" fill="#A1A1A6" /><rect x="66" y="52" width="9" height="2" rx="1" fill="#A1A1A6" /><rect x="78" y="52" width="9" height="2" rx="1" fill="#A1A1A6" /><rect x="90" y="52" width="9" height="2" rx="1" fill="#A1A1A6" /><rect x="102" y="52" width="9" height="2" rx="1" fill="#A1A1A6" /></svg>
+    ),
+  },
   // ── ABM account-page family (Oct 2026): brand-aware replica of the enterprise 1:1 account page idiom ──
   {
     type: "abm-split-hero",
@@ -10224,6 +10357,18 @@ export function createBlock(type: "forest-faq"): Extract<PageBlock, { type: "for
 export function createBlock(type: "forest-reading"): Extract<PageBlock, { type: "forest-reading" }>;
 export function createBlock(type: "forest-close"): Extract<PageBlock, { type: "forest-close" }>;
 export function createBlock(type: "forest-footer"): Extract<PageBlock, { type: "forest-footer" }>;
+export function createBlock(type: "mint-hero"): Extract<PageBlock, { type: "mint-hero" }>;
+export function createBlock(type: "mint-proof"): Extract<PageBlock, { type: "mint-proof" }>;
+export function createBlock(type: "mint-band"): Extract<PageBlock, { type: "mint-band" }>;
+export function createBlock(type: "mint-features"): Extract<PageBlock, { type: "mint-features" }>;
+export function createBlock(type: "mint-router"): Extract<PageBlock, { type: "mint-router" }>;
+export function createBlock(type: "mint-story"): Extract<PageBlock, { type: "mint-story" }>;
+export function createBlock(type: "mint-comparison"): Extract<PageBlock, { type: "mint-comparison" }>;
+export function createBlock(type: "mint-steps"): Extract<PageBlock, { type: "mint-steps" }>;
+export function createBlock(type: "mint-faq"): Extract<PageBlock, { type: "mint-faq" }>;
+export function createBlock(type: "mint-reading"): Extract<PageBlock, { type: "mint-reading" }>;
+export function createBlock(type: "mint-close"): Extract<PageBlock, { type: "mint-close" }>;
+export function createBlock(type: "mint-footer"): Extract<PageBlock, { type: "mint-footer" }>;
 export function createBlock(type: "abm-split-hero"): Extract<PageBlock, { type: "abm-split-hero" }>;
 export function createBlock(type: "abm-phone-showcase"): Extract<PageBlock, { type: "abm-phone-showcase" }>;
 export function createBlock(type: "abm-solution-tabs"): Extract<PageBlock, { type: "abm-solution-tabs" }>;
@@ -10644,6 +10789,18 @@ export function createBlock(type: BlockType): PageBlock {
     case "forest-reading": return { id, type: "forest-reading", props: props as ForestReadingBlockProps };
     case "forest-close": return { id, type: "forest-close", props: props as ForestCloseBlockProps };
     case "forest-footer": return { id, type: "forest-footer", props: props as ForestFooterBlockProps };
+    case "mint-hero": return { id, type: "mint-hero", props: props as MintHeroBlockProps };
+    case "mint-proof": return { id, type: "mint-proof", props: props as MintProofBlockProps };
+    case "mint-band": return { id, type: "mint-band", props: props as MintBandBlockProps };
+    case "mint-features": return { id, type: "mint-features", props: props as MintFeaturesBlockProps };
+    case "mint-router": return { id, type: "mint-router", props: props as MintRouterBlockProps };
+    case "mint-story": return { id, type: "mint-story", props: props as MintStoryBlockProps };
+    case "mint-comparison": return { id, type: "mint-comparison", props: props as MintComparisonBlockProps };
+    case "mint-steps": return { id, type: "mint-steps", props: props as MintStepsBlockProps };
+    case "mint-faq": return { id, type: "mint-faq", props: props as MintFaqBlockProps };
+    case "mint-reading": return { id, type: "mint-reading", props: props as MintReadingBlockProps };
+    case "mint-close": return { id, type: "mint-close", props: props as MintCloseBlockProps };
+    case "mint-footer": return { id, type: "mint-footer", props: props as MintFooterBlockProps };
     case "abm-split-hero": return { id, type: "abm-split-hero", props: props as AbmSplitHeroBlockProps };
     case "abm-phone-showcase": return { id, type: "abm-phone-showcase", props: props as AbmPhoneShowcaseBlockProps };
     case "abm-solution-tabs": return { id, type: "abm-solution-tabs", props: props as AbmSolutionTabsBlockProps };

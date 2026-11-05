@@ -193,6 +193,18 @@ import { BlockForestFaq } from "./BlockForestFaq";
 import { BlockForestReading } from "./BlockForestReading";
 import { BlockForestClose } from "./BlockForestClose";
 import { BlockForestFooter } from "./BlockForestFooter";
+import { BlockMintHero } from "./BlockMintHero";
+import { BlockMintProof } from "./BlockMintProof";
+import { BlockMintBand } from "./BlockMintBand";
+import { BlockMintFeatures } from "./BlockMintFeatures";
+import { BlockMintRouter } from "./BlockMintRouter";
+import { BlockMintStory } from "./BlockMintStory";
+import { BlockMintComparison } from "./BlockMintComparison";
+import { BlockMintSteps } from "./BlockMintSteps";
+import { BlockMintFaq } from "./BlockMintFaq";
+import { BlockMintReading } from "./BlockMintReading";
+import { BlockMintClose } from "./BlockMintClose";
+import { BlockMintFooter } from "./BlockMintFooter";
 import { BlockAbmSplitHero } from "./BlockAbmSplitHero";
 import { BlockAbmPhoneShowcase } from "./BlockAbmPhoneShowcase";
 import { BlockAbmSolutionTabs } from "./BlockAbmSolutionTabs";
@@ -533,6 +545,8 @@ export const NO_REVEAL = new Set<string>([
   // Holiday Gift family (Nov 2026): self-nav hero with snow + floating stage; sections with their own reveals.
   "gift-hero", "gift-picker", "gift-form", "gift-note",
   // DSO Page family (Nov 2026): self-nav hero with word rise; sticky convergence canvas + scrollytelling; sections with their own reveals and count-ups.
+  // DSO Page (Light) family (Nov 2026): self-nav hero with floating cards; parallax photo band; rows with bar/ring fills, count-ups and a custom player.
+  "mint-hero", "mint-proof", "mint-band", "mint-features", "mint-router", "mint-story", "mint-comparison", "mint-steps", "mint-faq", "mint-reading", "mint-close", "mint-footer",
   "forest-hero", "forest-logos", "forest-proof", "forest-convergence", "forest-router", "forest-story", "forest-system", "forest-comparison", "forest-buyers", "forest-faq", "forest-reading", "forest-close", "forest-footer",
   // Content Hub family: self-nav hero with its own entrance + sections with staggered card reveals.
   "hub-hero", "hub-featured", "hub-library", "hub-support", "hub-paths",
@@ -2106,6 +2120,162 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "forest-footer":
         return (
           <BlockForestFooter
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-hero":
+        return (
+          <BlockMintHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-proof":
+        return (
+          <BlockMintProof
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-band":
+        return (
+          <BlockMintBand
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-features":
+        return (
+          <BlockMintFeatures
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-router":
+        return (
+          <BlockMintRouter
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-story":
+        return (
+          <BlockMintStory
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-comparison":
+        return (
+          <BlockMintComparison
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-steps":
+        return (
+          <BlockMintSteps
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-faq":
+        return (
+          <BlockMintFaq
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-reading":
+        return (
+          <BlockMintReading
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-close":
+        return (
+          <BlockMintClose
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "mint-footer":
+        return (
+          <BlockMintFooter
             props={block.props}
             brand={brand}
             pageId={pageId}

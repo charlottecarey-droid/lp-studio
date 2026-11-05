@@ -199,6 +199,18 @@ import type {
   ForestReadingBlockProps,
   ForestCloseBlockProps,
   ForestFooterBlockProps,
+  MintHeroBlockProps,
+  MintProofBlockProps,
+  MintBandBlockProps,
+  MintFeaturesBlockProps,
+  MintRouterBlockProps,
+  MintStoryBlockProps,
+  MintComparisonBlockProps,
+  MintStepsBlockProps,
+  MintFaqBlockProps,
+  MintReadingBlockProps,
+  MintCloseBlockProps,
+  MintFooterBlockProps,
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
@@ -536,6 +548,18 @@ export type BlockVariant =
   | { type: "forest-reading"; props: ForestReadingBlockProps }
   | { type: "forest-close"; props: ForestCloseBlockProps }
   | { type: "forest-footer"; props: ForestFooterBlockProps }
+  | { type: "mint-hero"; props: MintHeroBlockProps }
+  | { type: "mint-proof"; props: MintProofBlockProps }
+  | { type: "mint-band"; props: MintBandBlockProps }
+  | { type: "mint-features"; props: MintFeaturesBlockProps }
+  | { type: "mint-router"; props: MintRouterBlockProps }
+  | { type: "mint-story"; props: MintStoryBlockProps }
+  | { type: "mint-comparison"; props: MintComparisonBlockProps }
+  | { type: "mint-steps"; props: MintStepsBlockProps }
+  | { type: "mint-faq"; props: MintFaqBlockProps }
+  | { type: "mint-reading"; props: MintReadingBlockProps }
+  | { type: "mint-close"; props: MintCloseBlockProps }
+  | { type: "mint-footer"; props: MintFooterBlockProps }
   | { type: "hub-hero"; props: HubHeroBlockProps }
   | { type: "hub-featured"; props: HubFeaturedBlockProps }
   | { type: "hub-library"; props: HubLibraryBlockProps }

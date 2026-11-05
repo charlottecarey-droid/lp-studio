@@ -72,6 +72,20 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "forest-close": ["eyebrow", "headline", "lede", "submitText", "fineprint", "ctaText"],
   "forest-footer": ["tagline"],
 
+  // ── DSO Page (Light) family (Nov 2026) ───────────────────────────────────
+  "mint-hero": ["cap", "headline", "subheadline", "ctaText", "ctaSecondaryText"],
+  "mint-proof": ["headline", "subheadline"],
+  "mint-band": ["headline", "subheadline"],
+  "mint-features": ["headline", "subheadline"],
+  "mint-router": ["headline", "subheadline"],
+  "mint-story": ["headline", "quote", "linkText"],
+  "mint-comparison": ["headline", "ctaText"],
+  "mint-steps": ["headline", "subheadline"],
+  "mint-faq": ["headline", "ctaText"],
+  "mint-reading": ["headline", "subheadline"],
+  "mint-close": ["headline", "lede", "submitText", "fineprint", "altText", "ctaText"],
+  "mint-footer": ["legal"],
+
 
   // ── DSO Practices blocks ──────────────────────────────────────────────────
   "dso-practice-nav":       ["ctaText"],

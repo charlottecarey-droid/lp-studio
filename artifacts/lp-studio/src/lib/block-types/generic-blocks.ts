@@ -5072,6 +5072,19 @@ export type { ForestFaqBlockProps } from "@/blocks/BlockForestFaq";
 export type { ForestReadingBlockProps } from "@/blocks/BlockForestReading";
 export type { ForestCloseBlockProps } from "@/blocks/BlockForestClose";
 export type { ForestFooterBlockProps } from "@/blocks/BlockForestFooter";
+// DSO Page (Light) family (Nov 2026): the second "Dandy for DSOs" artifact (Ramp/Apple register), ported as mint-* blocks.
+export type { MintHeroBlockProps } from "@/blocks/BlockMintHero";
+export type { MintProofBlockProps } from "@/blocks/BlockMintProof";
+export type { MintBandBlockProps } from "@/blocks/BlockMintBand";
+export type { MintFeaturesBlockProps } from "@/blocks/BlockMintFeatures";
+export type { MintRouterBlockProps } from "@/blocks/BlockMintRouter";
+export type { MintStoryBlockProps } from "@/blocks/BlockMintStory";
+export type { MintComparisonBlockProps } from "@/blocks/BlockMintComparison";
+export type { MintStepsBlockProps } from "@/blocks/BlockMintSteps";
+export type { MintFaqBlockProps } from "@/blocks/BlockMintFaq";
+export type { MintReadingBlockProps } from "@/blocks/BlockMintReading";
+export type { MintCloseBlockProps } from "@/blocks/BlockMintClose";
+export type { MintFooterBlockProps } from "@/blocks/BlockMintFooter";
 
 export type { GiftPickerBlockProps, GiftOption } from "@/blocks/BlockGiftPicker";
 export type { GiftFormBlockProps } from "@/blocks/BlockGiftForm";

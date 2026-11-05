@@ -330,6 +330,11 @@ const DESIGNED_EMPTY_MEDIA_TYPES: ReadonlySet<string> = new Set([
   "forest-story",
   "forest-system",
   "forest-reading",
+  "mint-hero",
+  "mint-band",
+  "mint-features",
+  "mint-story",
+  "mint-reading",
 ]);
 
 /**

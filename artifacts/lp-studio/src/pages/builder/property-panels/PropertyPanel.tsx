@@ -230,6 +230,18 @@ import { ForestFaqPanel } from "./forest/ForestFaqPanel";
 import { ForestReadingPanel } from "./forest/ForestReadingPanel";
 import { ForestClosePanel } from "./forest/ForestClosePanel";
 import { ForestFooterPanel } from "./forest/ForestFooterPanel";
+import { MintHeroPanel } from "./mint/MintHeroPanel";
+import { MintProofPanel } from "./mint/MintProofPanel";
+import { MintBandPanel } from "./mint/MintBandPanel";
+import { MintFeaturesPanel } from "./mint/MintFeaturesPanel";
+import { MintRouterPanel } from "./mint/MintRouterPanel";
+import { MintStoryPanel } from "./mint/MintStoryPanel";
+import { MintComparisonPanel } from "./mint/MintComparisonPanel";
+import { MintStepsPanel } from "./mint/MintStepsPanel";
+import { MintFaqPanel } from "./mint/MintFaqPanel";
+import { MintReadingPanel } from "./mint/MintReadingPanel";
+import { MintClosePanel } from "./mint/MintClosePanel";
+import { MintFooterPanel } from "./mint/MintFooterPanel";
 import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel, HubPathsPanel, type ApplyHubStyle } from "./HubPanels";
 import {
   AbmSplitHeroPanel,
@@ -1918,6 +1930,102 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "forest-footer":
         return (
           <ForestFooterPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-hero":
+        return (
+          <MintHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-proof":
+        return (
+          <MintProofPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-band":
+        return (
+          <MintBandPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-features":
+        return (
+          <MintFeaturesPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-router":
+        return (
+          <MintRouterPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-story":
+        return (
+          <MintStoryPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-comparison":
+        return (
+          <MintComparisonPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-steps":
+        return (
+          <MintStepsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-faq":
+        return (
+          <MintFaqPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-reading":
+        return (
+          <MintReadingPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-close":
+        return (
+          <MintClosePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "mint-footer":
+        return (
+          <MintFooterPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             ctaSource={ctaSource}
