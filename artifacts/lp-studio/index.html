@@ -29,6 +29,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NHJFVSJ'); }</script>
     <!-- End Google Tag Manager -->
+    <!-- Apollo Website Tracker — partners.meetdandy.com only (Nov 2026,
+         restored). Loads Apollo's visitor-identification tracker so Apollo
+         can resolve the company/person behind a partner-page visit and POST
+         it to this tenant's /api/webhooks/apollo/<secret> URL (Settings →
+         Integrations → Visitor identification), where it lands as a Sales
+         Console signal. lp.meetdandy.com gets the same tag via the GTM
+         container instead, behind OneTrust, so it is deliberately not
+         loaded here on that host. assets.apollo.io / *.apollo.io are already
+         in the CSP allowlist (api-server app.ts). -->
+    <script>if (location.hostname === 'partners.meetdandy.com') { (function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,o.onload=function(){window.trackingFunctions.onLoad({appId:"68405d9cf09fef0021474660"})},document.head.appendChild(o)})(); }</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <!-- Force browsers to revalidate index.html on every navigation so a fresh
