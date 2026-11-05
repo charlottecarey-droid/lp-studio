@@ -182,7 +182,7 @@ function ListField({ label, hint, value, onChange }: { label: string; hint?: str
  * sync, Sheets, webhook, follow-up email and redirect). Fields are filed
  * under the global form's labels by type/keyword (global-form-map.ts).
  */
-function GlobalFormPicker({ value, onChange }: { value: number | undefined; onChange: (id: number | undefined) => void }) {
+export function GlobalFormPicker({ value, onChange }: { value: number | undefined; onChange: (id: number | undefined) => void }) {
   const [forms, setForms] = useState<Array<{ id: number; name: string }>>([]);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
