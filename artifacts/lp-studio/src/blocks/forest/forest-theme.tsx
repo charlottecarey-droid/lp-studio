@@ -75,7 +75,8 @@ export const FOREST_BONE = "#FBFAF6";
  */
 export function resolveForestPalette(props: ForestStyleProps, brand: BrandConfig, fallbackBg = "#FFFFFF"): ForestPalette {
   const pal = resolveAbmPalette(props, brand, fallbackBg);
-  const deep = pal.dark ? mixHex(pal.base, "#000000", 0.34) : pal.base;
+  // mixHex(a, b, amount) keeps `amount` of a: 66% of the surface over black (the artifact's green-deep).
+  const deep = pal.dark ? mixHex(pal.base, "#000000", 0.66) : pal.base;
   const cream = pal.dark ? "#FFFCEF" : pal.text;
   const accentHex = isValidHex(pal.accentDeco) ? pal.accentDeco : pal.accent;
   const onAccent = isValidHex(accentHex) ? (relativeLuminance(accentHex) < 0.4 ? "#FFFFFF" : (isValidHex(brand.primaryColor) && relativeLuminance(brand.primaryColor) < 0.25 ? brand.primaryColor : "#0B1410")) : "#0B1410";

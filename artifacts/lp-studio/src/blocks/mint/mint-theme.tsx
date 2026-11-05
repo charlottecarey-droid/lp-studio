@@ -75,8 +75,9 @@ export function resolveMintPalette(props: MintStyleProps, brand: BrandConfig, fa
   const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
   const accentHex = props.accentColor && isValidHex(props.accentColor) ? props.accentColor : (isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor);
   // A pale brand primary cannot carry cream text; sink it until it can.
-  const green = relativeLuminance(primary) > 0.25 ? mixHex(primary, "#000000", 0.45) : primary;
-  const deep = mixHex(green, "#000000", 0.34);
+  // mixHex(a, b, amount) keeps `amount` of a: 55% primary over black.
+  const green = relativeLuminance(primary) > 0.25 ? mixHex(primary, "#000000", 0.55) : primary;
+  const deep = mixHex(green, "#000000", 0.66);
   const lime = accentHex;
   const onLime = relativeLuminance(lime) < 0.4 ? "#FFFFFF" : green;
   const onGreen = "#FFFCEF";
@@ -90,9 +91,9 @@ export function resolveMintPalette(props: MintStyleProps, brand: BrandConfig, fa
     lime,
     onLime,
     onGreen,
-    mint: mixHex(green, "#FFFFFF", 0.93),
-    mint2: mixHex(green, "#FFFFFF", 0.86),
-    limeSoft: mixHex(lime, "#FFFFFF", 0.78),
+    mint: mixHex(green, "#FFFFFF", 0.07),
+    mint2: mixHex(green, "#FFFFFF", 0.14),
+    limeSoft: mixHex(lime, "#FFFFFF", 0.22),
     grey: MINT_GREY,
     line: pal.dark ? pal.hairline : "#E5E5E3",
     ink,
