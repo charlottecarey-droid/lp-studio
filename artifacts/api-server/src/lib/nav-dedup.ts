@@ -29,6 +29,7 @@ export const SELF_NAV_TYPES = new Set([
   "invite-demo-hero",
   "kit-hero",
   "gift-hero",
+  "forest-hero",
   "hub-hero",
   "abm-split-hero",
   "hero",

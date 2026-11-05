@@ -325,6 +325,11 @@ const DESIGNED_EMPTY_MEDIA_TYPES: ReadonlySet<string> = new Set([
   "abm-solution-tabs",
   "abm-story-quote",
   "abm-reading-tiles",
+  // DSO Page family: photo slots paint a designed gradient placeholder when empty.
+  "forest-hero",
+  "forest-story",
+  "forest-system",
+  "forest-reading",
 ]);
 
 /**

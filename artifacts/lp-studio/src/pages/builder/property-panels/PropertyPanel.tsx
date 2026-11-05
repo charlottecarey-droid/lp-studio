@@ -217,6 +217,19 @@ import { InviteDemoHeroPanel } from "./InviteDemoHeroPanel";
 import { InviteDetailsPanel, InviteAgendaPanel, InviteShowcasePanel, InviteProofPanel, InviteReservePanel } from "./InviteSectionPanels";
 import { KitHeroPanel, KitContentsPanel, KitStepsPanel, KitSupportPanel } from "./KitPanels";
 import { GiftHeroPanel, GiftPickerPanel, GiftFormPanel, GiftNotePanel, type ApplyGiftLayout } from "./GiftPanels";
+import { ForestHeroPanel } from "./forest/ForestHeroPanel";
+import { ForestLogosPanel } from "./forest/ForestLogosPanel";
+import { ForestProofPanel } from "./forest/ForestProofPanel";
+import { ForestConvergencePanel } from "./forest/ForestConvergencePanel";
+import { ForestRouterPanel } from "./forest/ForestRouterPanel";
+import { ForestStoryPanel } from "./forest/ForestStoryPanel";
+import { ForestSystemPanel } from "./forest/ForestSystemPanel";
+import { ForestComparisonPanel } from "./forest/ForestComparisonPanel";
+import { ForestBuyersPanel } from "./forest/ForestBuyersPanel";
+import { ForestFaqPanel } from "./forest/ForestFaqPanel";
+import { ForestReadingPanel } from "./forest/ForestReadingPanel";
+import { ForestClosePanel } from "./forest/ForestClosePanel";
+import { ForestFooterPanel } from "./forest/ForestFooterPanel";
 import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel, HubPathsPanel, type ApplyHubStyle } from "./HubPanels";
 import {
   AbmSplitHeroPanel,
@@ -1804,6 +1817,110 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             onApplyLayoutToAll={onApplyGiftLayoutToAll}
+          />
+        );
+      case "forest-hero":
+        return (
+          <ForestHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-logos":
+        return (
+          <ForestLogosPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-proof":
+        return (
+          <ForestProofPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-convergence":
+        return (
+          <ForestConvergencePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-router":
+        return (
+          <ForestRouterPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-story":
+        return (
+          <ForestStoryPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-system":
+        return (
+          <ForestSystemPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-comparison":
+        return (
+          <ForestComparisonPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-buyers":
+        return (
+          <ForestBuyersPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-faq":
+        return (
+          <ForestFaqPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-reading":
+        return (
+          <ForestReadingPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-close":
+        return (
+          <ForestClosePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
+          />
+        );
+      case "forest-footer":
+        return (
+          <ForestFooterPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "abm-split-hero":

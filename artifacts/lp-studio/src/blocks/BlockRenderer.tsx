@@ -180,6 +180,19 @@ import { BlockGiftHero } from "./BlockGiftHero";
 import { BlockGiftPicker } from "./BlockGiftPicker";
 import { BlockGiftForm } from "./BlockGiftForm";
 import { BlockGiftNote } from "./BlockGiftNote";
+import { BlockForestHero } from "./BlockForestHero";
+import { BlockForestLogos } from "./BlockForestLogos";
+import { BlockForestProof } from "./BlockForestProof";
+import { BlockForestConvergence } from "./BlockForestConvergence";
+import { BlockForestRouter } from "./BlockForestRouter";
+import { BlockForestStory } from "./BlockForestStory";
+import { BlockForestSystem } from "./BlockForestSystem";
+import { BlockForestComparison } from "./BlockForestComparison";
+import { BlockForestBuyers } from "./BlockForestBuyers";
+import { BlockForestFaq } from "./BlockForestFaq";
+import { BlockForestReading } from "./BlockForestReading";
+import { BlockForestClose } from "./BlockForestClose";
+import { BlockForestFooter } from "./BlockForestFooter";
 import { BlockAbmSplitHero } from "./BlockAbmSplitHero";
 import { BlockAbmPhoneShowcase } from "./BlockAbmPhoneShowcase";
 import { BlockAbmSolutionTabs } from "./BlockAbmSolutionTabs";
@@ -519,6 +532,8 @@ export const NO_REVEAL = new Set<string>([
   "kit-hero", "kit-contents", "kit-steps", "kit-support",
   // Holiday Gift family (Nov 2026): self-nav hero with snow + floating stage; sections with their own reveals.
   "gift-hero", "gift-picker", "gift-form", "gift-note",
+  // DSO Page family (Nov 2026): self-nav hero with word rise; sticky convergence canvas + scrollytelling; sections with their own reveals and count-ups.
+  "forest-hero", "forest-logos", "forest-proof", "forest-convergence", "forest-router", "forest-story", "forest-system", "forest-comparison", "forest-buyers", "forest-faq", "forest-reading", "forest-close", "forest-footer",
   // Content Hub family: self-nav hero with its own entrance + sections with staggered card reveals.
   "hub-hero", "hub-featured", "hub-library", "hub-support", "hub-paths",
   // ABM account-page family: self-nav hero + sections with their own staggered reveals.
@@ -1927,6 +1942,175 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.linkUrl ?? "#") : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-hero":
+        return (
+          <BlockForestHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-logos":
+        return (
+          <BlockForestLogos
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-proof":
+        return (
+          <BlockForestProof
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-convergence":
+        return (
+          <BlockForestConvergence
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-router":
+        return (
+          <BlockForestRouter
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-story":
+        return (
+          <BlockForestStory
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-system":
+        return (
+          <BlockForestSystem
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-comparison":
+        return (
+          <BlockForestComparison
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-buyers":
+        return (
+          <BlockForestBuyers
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-faq":
+        return (
+          <BlockForestFaq
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-reading":
+        return (
+          <BlockForestReading
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-close":
+        return (
+          <BlockForestClose
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "forest-footer":
+        return (
+          <BlockForestFooter
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props as unknown as { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string })) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

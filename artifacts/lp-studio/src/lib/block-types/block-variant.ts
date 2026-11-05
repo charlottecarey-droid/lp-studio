@@ -186,6 +186,19 @@ import type {
   GiftPickerBlockProps,
   GiftFormBlockProps,
   GiftNoteBlockProps,
+  ForestHeroBlockProps,
+  ForestLogosBlockProps,
+  ForestProofBlockProps,
+  ForestConvergenceBlockProps,
+  ForestRouterBlockProps,
+  ForestStoryBlockProps,
+  ForestSystemBlockProps,
+  ForestComparisonBlockProps,
+  ForestBuyersBlockProps,
+  ForestFaqBlockProps,
+  ForestReadingBlockProps,
+  ForestCloseBlockProps,
+  ForestFooterBlockProps,
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
@@ -510,6 +523,19 @@ export type BlockVariant =
   | { type: "gift-picker"; props: GiftPickerBlockProps }
   | { type: "gift-form"; props: GiftFormBlockProps }
   | { type: "gift-note"; props: GiftNoteBlockProps }
+  | { type: "forest-hero"; props: ForestHeroBlockProps }
+  | { type: "forest-logos"; props: ForestLogosBlockProps }
+  | { type: "forest-proof"; props: ForestProofBlockProps }
+  | { type: "forest-convergence"; props: ForestConvergenceBlockProps }
+  | { type: "forest-router"; props: ForestRouterBlockProps }
+  | { type: "forest-story"; props: ForestStoryBlockProps }
+  | { type: "forest-system"; props: ForestSystemBlockProps }
+  | { type: "forest-comparison"; props: ForestComparisonBlockProps }
+  | { type: "forest-buyers"; props: ForestBuyersBlockProps }
+  | { type: "forest-faq"; props: ForestFaqBlockProps }
+  | { type: "forest-reading"; props: ForestReadingBlockProps }
+  | { type: "forest-close"; props: ForestCloseBlockProps }
+  | { type: "forest-footer"; props: ForestFooterBlockProps }
   | { type: "hub-hero"; props: HubHeroBlockProps }
   | { type: "hub-featured"; props: HubFeaturedBlockProps }
   | { type: "hub-library"; props: HubLibraryBlockProps }

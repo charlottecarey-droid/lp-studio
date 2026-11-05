@@ -122,6 +122,8 @@ export const HERO_TYPES = new Set([
   "kit-hero",
   // Holiday Gift family self-nav hero (Nov 2026).
   "gift-hero",
+  // DSO Page family self-nav hero (Nov 2026).
+  "forest-hero",
   // Content Hub family self-nav hero (Oct 2026).
   "hub-hero",
   // ABM account-page family self-nav hero (Oct 2026).
@@ -163,6 +165,8 @@ export const LEAD_CAPTURE_TYPES = new Set([
   "invite-reserve",
   // Holiday Gift family three-step claim form.
   "gift-form",
+  // DSO Page family close with its inline lead form.
+  "forest-close",
 ]);
 
 // Social proof: testimonials, customer stories, case studies, results galleries.
@@ -198,6 +202,8 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "abm-story-quote", "abm-logo-strip", "abm-account-team",
   // DSO video case study (Nov 2026): filmed customer story with outcome numbers.
   "dso-video-case-study",
+  // DSO Page family proof: customer logos, proof cards, the video story.
+  "forest-logos", "forest-proof", "forest-story",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
@@ -263,6 +269,8 @@ export const STRUCTURED_TYPES = new Set([
   "hub-featured", "hub-library", "hub-paths",
   // ABM account-page family structured sections.
   "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-feature-grid", "abm-reading-tiles",
+  // DSO Page family structured sections.
+  "forest-router", "forest-system", "forest-buyers", "forest-reading", "forest-convergence",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").
@@ -273,10 +281,12 @@ export const COMPARISON_TYPES = new Set([
   "pas-before-after",
   // Stack family benchmark chart.
   "benchmark-bars",
+  // DSO Page family comparison table.
+  "forest-comparison",
 ]);
 
 // FAQ / Q&A blocks reinforce the question-answer GEO signal.
-export const FAQ_TYPES = new Set(["dso-faq"]);
+export const FAQ_TYPES = new Set(["dso-faq", "forest-faq"]);
 
 // ── Scorer ⇄ block-registry reconciliation contract ────────────────────────
 //

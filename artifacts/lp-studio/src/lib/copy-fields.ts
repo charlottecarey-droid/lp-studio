@@ -57,6 +57,22 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "dso-final-cta":        ["eyebrow", "headline", "subheadline", "primaryCtaText", "secondaryCtaText"],
   "dso-stat-bar":         ["eyebrow", "headline"],
 
+  // ── DSO Page family (Nov 2026) ───────────────────────────────────────────
+  "forest-hero": ["eyebrow", "headline", "headlineMuted", "subheadline", "ctaText", "ctaSecondaryText"],
+  "forest-logos": ["caption"],
+  "forest-proof": ["eyebrow", "headline"],
+  "forest-convergence": ["eyebrow", "headlineBefore", "headlineAfter", "bodyBefore", "bodyAfter"],
+  "forest-router": ["eyebrow", "headline", "lede"],
+  "forest-story": ["eyebrow", "quote", "ctaText"],
+  "forest-system": ["eyebrow", "headline"],
+  "forest-comparison": ["eyebrow", "headline", "ctaText"],
+  "forest-buyers": ["eyebrow", "headline", "leftTitle", "rightTitle"],
+  "forest-faq": ["eyebrow", "headline", "ctaText"],
+  "forest-reading": ["eyebrow", "headline"],
+  "forest-close": ["eyebrow", "headline", "lede", "submitText", "fineprint", "ctaText"],
+  "forest-footer": ["tagline"],
+
+
   // ── DSO Practices blocks ──────────────────────────────────────────────────
   "dso-practice-nav":       ["ctaText"],
   "dso-practice-hero":      ["eyebrow", "headline", "subheadline", "primaryCtaText", "secondaryCtaText", "trustLine"],

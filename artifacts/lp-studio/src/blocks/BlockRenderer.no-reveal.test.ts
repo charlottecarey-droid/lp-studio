@@ -128,3 +128,16 @@ describe("NO_REVEAL — hover-interactive section blocks", () => {
     expect(NO_REVEAL.has("feature-card-grid")).toBe(true);
   });
 });
+
+describe("NO_REVEAL — DSO Page family (Nov 2026)", () => {
+  // The forest hero is first-paint with its own word rise; the convergence
+  // canvas and the system scrollytelling are sticky, scroll-driven sections;
+  // the rest own staggered reveals, count-ups and bar fills.
+  it.each([
+    "forest-hero", "forest-logos", "forest-proof", "forest-convergence", "forest-router",
+    "forest-story", "forest-system", "forest-comparison", "forest-buyers", "forest-faq",
+    "forest-reading", "forest-close", "forest-footer",
+  ])("excludes %s from reveal wrapping", (type) => {
+    expect(NO_REVEAL.has(type)).toBe(true);
+  });
+});

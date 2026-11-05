@@ -5058,6 +5058,21 @@ export type { KitContentsBlockProps, KitContentsItem } from "@/blocks/BlockKitCo
 export type { KitStepsBlockProps, KitStep, KitStepVisual } from "@/blocks/BlockKitSteps";
 export type { KitSupportBlockProps } from "@/blocks/BlockKitSupport";
 export type { GiftHeroBlockProps, GiftFact } from "@/blocks/BlockGiftHero";
+// DSO Page family (Nov 2026): the premium "Dandy for DSOs" artifact, ported as forest-* blocks.
+export type { ForestHeroBlockProps } from "@/blocks/BlockForestHero";
+export type { ForestLogosBlockProps } from "@/blocks/BlockForestLogos";
+export type { ForestProofBlockProps } from "@/blocks/BlockForestProof";
+export type { ForestConvergenceBlockProps } from "@/blocks/BlockForestConvergence";
+export type { ForestRouterBlockProps } from "@/blocks/BlockForestRouter";
+export type { ForestStoryBlockProps } from "@/blocks/BlockForestStory";
+export type { ForestSystemBlockProps } from "@/blocks/BlockForestSystem";
+export type { ForestComparisonBlockProps } from "@/blocks/BlockForestComparison";
+export type { ForestBuyersBlockProps } from "@/blocks/BlockForestBuyers";
+export type { ForestFaqBlockProps } from "@/blocks/BlockForestFaq";
+export type { ForestReadingBlockProps } from "@/blocks/BlockForestReading";
+export type { ForestCloseBlockProps } from "@/blocks/BlockForestClose";
+export type { ForestFooterBlockProps } from "@/blocks/BlockForestFooter";
+
 export type { GiftPickerBlockProps, GiftOption } from "@/blocks/BlockGiftPicker";
 export type { GiftFormBlockProps } from "@/blocks/BlockGiftForm";
 export type { GiftNoteBlockProps } from "@/blocks/BlockGiftNote";

@@ -186,6 +186,19 @@ import type {
   GiftPickerBlockProps,
   GiftFormBlockProps,
   GiftNoteBlockProps,
+  ForestHeroBlockProps,
+  ForestLogosBlockProps,
+  ForestProofBlockProps,
+  ForestConvergenceBlockProps,
+  ForestRouterBlockProps,
+  ForestStoryBlockProps,
+  ForestSystemBlockProps,
+  ForestComparisonBlockProps,
+  ForestBuyersBlockProps,
+  ForestFaqBlockProps,
+  ForestReadingBlockProps,
+  ForestCloseBlockProps,
+  ForestFooterBlockProps,
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
@@ -240,6 +253,19 @@ import { GIFT_HERO_DEFAULT_PROPS } from "@/blocks/BlockGiftHero";
 import { GIFT_PICKER_DEFAULT_PROPS } from "@/blocks/BlockGiftPicker";
 import { GIFT_FORM_DEFAULT_PROPS } from "@/blocks/BlockGiftForm";
 import { GIFT_NOTE_DEFAULT_PROPS } from "@/blocks/BlockGiftNote";
+import { FOREST_HERO_DEFAULT_PROPS } from "@/blocks/BlockForestHero";
+import { FOREST_LOGOS_DEFAULT_PROPS } from "@/blocks/BlockForestLogos";
+import { FOREST_PROOF_DEFAULT_PROPS } from "@/blocks/BlockForestProof";
+import { FOREST_CONVERGENCE_DEFAULT_PROPS } from "@/blocks/BlockForestConvergence";
+import { FOREST_ROUTER_DEFAULT_PROPS } from "@/blocks/BlockForestRouter";
+import { FOREST_STORY_DEFAULT_PROPS } from "@/blocks/BlockForestStory";
+import { FOREST_SYSTEM_DEFAULT_PROPS } from "@/blocks/BlockForestSystem";
+import { FOREST_COMPARISON_DEFAULT_PROPS } from "@/blocks/BlockForestComparison";
+import { FOREST_BUYERS_DEFAULT_PROPS } from "@/blocks/BlockForestBuyers";
+import { FOREST_FAQ_DEFAULT_PROPS } from "@/blocks/BlockForestFaq";
+import { FOREST_READING_DEFAULT_PROPS } from "@/blocks/BlockForestReading";
+import { FOREST_CLOSE_DEFAULT_PROPS } from "@/blocks/BlockForestClose";
+import { FOREST_FOOTER_DEFAULT_PROPS } from "@/blocks/BlockForestFooter";
 import { HUB_HERO_DEFAULT_PROPS } from "@/blocks/BlockHubHero";
 import { HUB_FEATURED_DEFAULT_PROPS } from "@/blocks/BlockHubFeatured";
 import { HUB_LIBRARY_DEFAULT_PROPS } from "@/blocks/BlockHubLibrary";
@@ -9626,6 +9652,124 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#001814" rx="4" /><circle cx="14" cy="12" r="1" fill="#fff" opacity="0.6" /><circle cx="104" cy="18" r="1" fill="#fff" opacity="0.5" /><circle cx="30" cy="60" r="1" fill="#fff" opacity="0.5" /><g transform="rotate(-2 60 35)"><rect x="22" y="12" width="76" height="46" rx="5" fill="#FBF7EE" /><rect x="26" y="16" width="68" height="38" rx="3" fill="none" stroke="#E8CC8A" strokeOpacity="0.8" /><circle cx="36" cy="26" r="4" fill="#001814" /><rect x="44" y="23" width="12" height="1.5" fill="#E8CC8A" /><rect x="44" y="28" width="34" height="4" rx="1.5" fill="#14211C" /><rect x="32" y="36" width="52" height="2" rx="1" fill="#14211C" opacity="0.4" /><rect x="32" y="40" width="40" height="2" rx="1" fill="#14211C" opacity="0.4" /><rect x="32" y="47" width="18" height="3" rx="1.5" fill="#14211C" opacity="0.8" /></g></svg>
     ),
   },
+  // ── DSO Page family (Nov 2026): the premium "Dandy for DSOs" artifact ported as forest-* blocks ──
+  {
+    type: "forest-hero",
+    label: "DSO Page — Hero (Nav + Scan Card)",
+    category: "DSO",
+    defaultProps: (): ForestHeroBlockProps => structuredClone(FOREST_HERO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#00261F" rx="4" /><rect x="0" y="0" width="120" height="10" fill="#00261F" /><rect x="6" y="3" width="14" height="4" rx="1" fill="#ffffff" opacity="0.9" /><rect x="94" y="2.5" width="20" height="5" rx="2.5" fill="#C7E738" /><rect x="6" y="16" width="12" height="1.5" fill="#C7E738" /><rect x="6" y="21" width="52" height="8" rx="2" fill="#FFFCEF" /><rect x="6" y="32" width="40" height="8" rx="2" fill="#FFFCEF" /><rect x="6" y="43" width="36" height="4" rx="1" fill="#FFFCEF" opacity="0.5" /><rect x="6" y="51" width="24" height="7" rx="3.5" fill="#C7E738" /><rect x="33" y="51" width="22" height="7" rx="3.5" fill="none" stroke="#FFFCEF" strokeOpacity="0.4" /><rect x="68" y="14" width="46" height="44" rx="7" fill="#ffffff" fillOpacity="0.08" stroke="#FFFCEF" strokeOpacity="0.2" /><rect x="73" y="19" width="36" height="24" rx="3" fill="#0B3029" /><rect x="73" y="47" width="18" height="2.5" rx="1" fill="#FFFCEF" /><rect x="97" y="46" width="12" height="5" rx="2.5" fill="#C7E738" fillOpacity="0.3" /></svg>
+    ),
+  },
+  {
+    type: "forest-logos",
+    label: "DSO Page — Customer Logos",
+    category: "DSO",
+    defaultProps: (): ForestLogosBlockProps => structuredClone(FOREST_LOGOS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="8" y="30" width="26" height="3" rx="1" fill="#5A6661" /><rect x="8" y="36" width="20" height="3" rx="1" fill="#5A6661" opacity="0.6" /><rect x="44" y="29" width="14" height="6" rx="1.5" fill="#003A30" opacity="0.5" /><rect x="62" y="29" width="14" height="6" rx="1.5" fill="#003A30" opacity="0.5" /><rect x="80" y="29" width="14" height="6" rx="1.5" fill="#003A30" opacity="0.5" /><rect x="98" y="29" width="14" height="6" rx="1.5" fill="#003A30" opacity="0.5" /></svg>
+    ),
+  },
+  {
+    type: "forest-proof",
+    label: "DSO Page — Proof Cards",
+    category: "DSO",
+    defaultProps: (): ForestProofBlockProps => structuredClone(FOREST_PROOF_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F6F4EE" rx="4" /><rect x="8" y="8" width="12" height="1.5" fill="#3F5E52" /><rect x="8" y="13" width="52" height="6" rx="2" fill="#003A30" /><rect x="8" y="26" width="32" height="38" rx="5" fill="#FFFFFF" /><rect x="12" y="31" width="12" height="2" rx="1" fill="#3F5E52" /><rect x="12" y="37" width="18" height="9" rx="2" fill="#003A30" /><rect x="12" y="50" width="22" height="2" rx="1" fill="#5A6661" opacity="0.6" /><circle cx="35" cy="58" r="3" fill="none" stroke="#E5E7E1" /><rect x="44" y="26" width="32" height="38" rx="5" fill="#FFFFFF" /><rect x="48" y="31" width="12" height="2" rx="1" fill="#3F5E52" /><rect x="48" y="37" width="18" height="9" rx="2" fill="#003A30" /><rect x="48" y="50" width="22" height="2" rx="1" fill="#5A6661" opacity="0.6" /><circle cx="71" cy="58" r="3" fill="none" stroke="#E5E7E1" /><rect x="80" y="26" width="32" height="38" rx="5" fill="#FFFFFF" /><rect x="84" y="31" width="12" height="2" rx="1" fill="#3F5E52" /><rect x="84" y="37" width="18" height="9" rx="2" fill="#003A30" /><rect x="84" y="50" width="22" height="2" rx="1" fill="#5A6661" opacity="0.6" /><circle cx="107" cy="58" r="3" fill="none" stroke="#E5E7E1" /></svg>
+    ),
+  },
+  {
+    type: "forest-convergence",
+    label: "DSO Page — Convergence (Scroll Moment)",
+    category: "DSO",
+    defaultProps: (): ForestConvergenceBlockProps => structuredClone(FOREST_CONVERGENCE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#00261F" rx="4" /><rect x="8" y="14" width="12" height="1.5" fill="#C7E738" /><rect x="8" y="20" width="40" height="7" rx="2" fill="#FFFCEF" /><rect x="8" y="30" width="34" height="7" rx="2" fill="#FFFCEF" /><rect x="8" y="42" width="36" height="2" rx="1" fill="#FFFCEF" opacity="0.5" /><line x1="68" y1="14" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="68" cy="14" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="77" y1="14" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="77" cy="14" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="86" y1="14" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="86" cy="14" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="95" y1="14" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="95" cy="14" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="68" y1="26" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="68" cy="26" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="77" y1="26" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="77" cy="26" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="86" y1="26" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="86" cy="26" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="95" y1="26" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="95" cy="26" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="68" y1="38" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="68" cy="38" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="77" y1="38" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="77" cy="38" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="86" y1="38" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="86" cy="38" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="95" y1="38" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="95" cy="38" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="68" y1="50" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="68" cy="50" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="77" y1="50" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="77" cy="50" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="86" y1="50" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="86" cy="50" r="1.2" fill="#FFFCEF" opacity="0.7" /><line x1="95" y1="50" x2="86" y2="38" stroke="#C7E738" strokeOpacity="0.35" strokeWidth="0.6" /><circle cx="95" cy="50" r="1.2" fill="#FFFCEF" opacity="0.7" /><circle cx="86" cy="38" r="7" fill="#C7E738" /><rect x="92" y="54" width="20" height="9" rx="2" fill="#C7E738" /></svg>
+    ),
+  },
+  {
+    type: "forest-router",
+    label: "DSO Page — Start Where You Are",
+    category: "DSO",
+    defaultProps: (): ForestRouterBlockProps => structuredClone(FOREST_ROUTER_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="8" y="8" width="12" height="1.5" fill="#3F5E52" /><rect x="8" y="13" width="48" height="6" rx="2" fill="#003A30" /><rect x="8" y="26" width="24" height="38" rx="4" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="11" y="31" width="16" height="5" rx="1.5" fill="#003A30" /><rect x="11" y="39" width="18" height="2" rx="1" fill="#5A6661" opacity="0.6" /><circle cx="12.5" cy="47" r="1.2" fill="#C7E738" /><rect x="15" y="46" width="12" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="11" y="57" width="12" height="2" rx="1" fill="#003A30" /><rect x="8" y="62" width="24" height="2" fill="#C7E738" /><rect x="35" y="26" width="24" height="38" rx="4" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="38" y="31" width="16" height="5" rx="1.5" fill="#003A30" /><rect x="38" y="39" width="18" height="2" rx="1" fill="#5A6661" opacity="0.6" /><circle cx="39.5" cy="47" r="1.2" fill="#C7E738" /><rect x="42" y="46" width="12" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="38" y="57" width="12" height="2" rx="1" fill="#003A30" /><rect x="35" y="62" width="24" height="2" fill="#C7E738" /><rect x="62" y="26" width="24" height="38" rx="4" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="65" y="31" width="16" height="5" rx="1.5" fill="#003A30" /><rect x="65" y="39" width="18" height="2" rx="1" fill="#5A6661" opacity="0.6" /><circle cx="66.5" cy="47" r="1.2" fill="#C7E738" /><rect x="69" y="46" width="12" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="65" y="57" width="12" height="2" rx="1" fill="#003A30" /><rect x="62" y="62" width="24" height="2" fill="#C7E738" /><rect x="89" y="26" width="24" height="38" rx="4" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="92" y="31" width="16" height="5" rx="1.5" fill="#003A30" /><rect x="92" y="39" width="18" height="2" rx="1" fill="#5A6661" opacity="0.6" /><circle cx="93.5" cy="47" r="1.2" fill="#C7E738" /><rect x="96" y="46" width="12" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="92" y="57" width="12" height="2" rx="1" fill="#003A30" /><rect x="89" y="62" width="24" height="2" fill="#C7E738" /></svg>
+    ),
+  },
+  {
+    type: "forest-story",
+    label: "DSO Page — Video Story",
+    category: "DSO",
+    defaultProps: (): ForestStoryBlockProps => structuredClone(FOREST_STORY_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F6F4EE" rx="4" /><rect x="6" y="10" width="62" height="50" rx="6" fill="#003A30" /><circle cx="37" cy="33" r="7" fill="#C7E738" /><path d="M35 29.5v7l6-3.5z" fill="#003A30" /><rect x="11" y="50" width="20" height="3" rx="1" fill="#FFFCEF" /><rect x="76" y="12" width="10" height="1.5" fill="#3F5E52" /><rect x="76" y="18" width="38" height="5" rx="2" fill="#003A30" /><rect x="76" y="25" width="32" height="5" rx="2" fill="#003A30" /><rect x="76" y="36" width="22" height="2" rx="1" fill="#121917" /><rect x="76" y="40" width="18" height="2" rx="1" fill="#5A6661" opacity="0.6" /><rect x="76" y="50" width="16" height="7" rx="1.5" fill="#003A30" /><rect x="96" y="50" width="16" height="7" rx="1.5" fill="#003A30" /></svg>
+    ),
+  },
+  {
+    type: "forest-system",
+    label: "DSO Page — The System (Scrollytelling)",
+    category: "DSO",
+    defaultProps: (): ForestSystemBlockProps => structuredClone(FOREST_SYSTEM_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#003A30" rx="4" /><rect x="8" y="8" width="12" height="1.5" fill="#C7E738" /><rect x="8" y="13" width="44" height="6" rx="2" fill="#FFFCEF" /><rect x="8" y="26" width="40" height="0.8" fill="#FFFCEF" opacity="0.15" /><rect x="8" y="29" width="8" height="1.5" fill="#C7E738" opacity="1" /><rect x="8" y="32" width="30" height="3" rx="1" fill="#FFFCEF" opacity="0.95" /><rect x="8" y="36" width="40" height="0.8" fill="#FFFCEF" opacity="0.15" /><rect x="8" y="39" width="8" height="1.5" fill="#C7E738" opacity="0.4" /><rect x="8" y="42" width="30" height="3" rx="1" fill="#FFFCEF" opacity="0.35" /><rect x="8" y="46" width="40" height="0.8" fill="#FFFCEF" opacity="0.15" /><rect x="8" y="49" width="8" height="1.5" fill="#C7E738" opacity="0.4" /><rect x="8" y="52" width="30" height="3" rx="1" fill="#FFFCEF" opacity="0.35" /><rect x="8" y="56" width="40" height="0.8" fill="#FFFCEF" opacity="0.15" /><rect x="8" y="59" width="8" height="1.5" fill="#C7E738" opacity="0.4" /><rect x="8" y="62" width="30" height="3" rx="1" fill="#FFFCEF" opacity="0.35" /><rect x="58" y="24" width="54" height="40" rx="6" fill="#00261F" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="63" y="29" width="14" height="5" rx="2.5" fill="#C7E738" fillOpacity="0.3" /><rect x="63" y="55" width="22" height="2.5" rx="1" fill="#FFFCEF" /></svg>
+    ),
+  },
+  {
+    type: "forest-comparison",
+    label: "DSO Page — Comparison Table",
+    category: "DSO",
+    defaultProps: (): ForestComparisonBlockProps => structuredClone(FOREST_COMPARISON_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="8" y="8" width="12" height="1.5" fill="#3F5E52" /><rect x="8" y="13" width="52" height="6" rx="2" fill="#003A30" /><rect x="8" y="26" width="104" height="38" rx="5" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="8" y="26" width="104" height="8" rx="5" fill="#FBFAF6" /><rect x="40" y="26" width="26" height="8" fill="#003A30" /><rect x="44" y="29" width="14" height="2" rx="1" fill="#C7E738" /><rect x="40" y="34.0" width="26" height="7.5" fill="#C7E738" fillOpacity="0.12" /><rect x="40" y="34.0" width="1.5" height="7.5" fill="#C7E738" /><rect x="12" y="37.0" width="20" height="2" rx="1" fill="#121917" opacity="0.8" /><rect x="44" y="37.0" width="18" height="2" rx="1" fill="#003A30" /><rect x="70" y="37.0" width="16" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="92" y="37.0" width="14" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="40" y="41.5" width="26" height="7.5" fill="#C7E738" fillOpacity="0.12" /><rect x="40" y="41.5" width="1.5" height="7.5" fill="#C7E738" /><rect x="12" y="44.5" width="20" height="2" rx="1" fill="#121917" opacity="0.8" /><rect x="44" y="44.5" width="18" height="2" rx="1" fill="#003A30" /><rect x="70" y="44.5" width="16" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="92" y="44.5" width="14" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="40" y="49.0" width="26" height="7.5" fill="#C7E738" fillOpacity="0.12" /><rect x="40" y="49.0" width="1.5" height="7.5" fill="#C7E738" /><rect x="12" y="52.0" width="20" height="2" rx="1" fill="#121917" opacity="0.8" /><rect x="44" y="52.0" width="18" height="2" rx="1" fill="#003A30" /><rect x="70" y="52.0" width="16" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="92" y="52.0" width="14" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="40" y="56.5" width="26" height="7.5" fill="#C7E738" fillOpacity="0.12" /><rect x="40" y="56.5" width="1.5" height="7.5" fill="#C7E738" /><rect x="12" y="59.5" width="20" height="2" rx="1" fill="#121917" opacity="0.8" /><rect x="44" y="59.5" width="18" height="2" rx="1" fill="#003A30" /><rect x="70" y="59.5" width="16" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="92" y="59.5" width="14" height="2" rx="1" fill="#5A6661" opacity="0.5" /></svg>
+    ),
+  },
+  {
+    type: "forest-buyers",
+    label: "DSO Page — Two Buyers + Rollout",
+    category: "DSO",
+    defaultProps: (): ForestBuyersBlockProps => structuredClone(FOREST_BUYERS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F6F4EE" rx="4" /><rect x="8" y="6" width="12" height="1.5" fill="#3F5E52" /><rect x="8" y="11" width="48" height="5" rx="2" fill="#003A30" /><rect x="8" y="22" width="50" height="26" rx="5" fill="#FFFFFF" /><rect x="62" y="22" width="50" height="26" rx="5" fill="#003A30" /><rect x="13" y="28" width="2" height="2" fill="#003A30" /><rect x="17" y="28" width="30" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="67" y="28" width="2" height="2" fill="#C7E738" /><rect x="71" y="28" width="30" height="2" rx="1" fill="#FFFCEF" opacity="0.7" /><rect x="13" y="33" width="2" height="2" fill="#003A30" /><rect x="17" y="33" width="30" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="67" y="33" width="2" height="2" fill="#C7E738" /><rect x="71" y="33" width="30" height="2" rx="1" fill="#FFFCEF" opacity="0.7" /><rect x="13" y="38" width="2" height="2" fill="#003A30" /><rect x="17" y="38" width="30" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="67" y="38" width="2" height="2" fill="#C7E738" /><rect x="71" y="38" width="30" height="2" rx="1" fill="#FFFCEF" opacity="0.7" /><rect x="13" y="43" width="2" height="2" fill="#003A30" /><rect x="17" y="43" width="30" height="2" rx="1" fill="#121917" opacity="0.7" /><rect x="67" y="43" width="2" height="2" fill="#C7E738" /><rect x="71" y="43" width="30" height="2" rx="1" fill="#FFFCEF" opacity="0.7" /><rect x="8" y="54" width="24" height="2" rx="1" fill="#003A30" /><rect x="8" y="60" width="24" height="1.5" fill="#E5E7E1" /><rect x="8" y="60" width="12" height="1.5" fill="#C7E738" /><rect x="35" y="54" width="24" height="2" rx="1" fill="#003A30" /><rect x="35" y="60" width="24" height="1.5" fill="#E5E7E1" /><rect x="35" y="60" width="15" height="1.5" fill="#C7E738" /><rect x="62" y="54" width="24" height="2" rx="1" fill="#003A30" /><rect x="62" y="60" width="24" height="1.5" fill="#E5E7E1" /><rect x="62" y="60" width="18" height="1.5" fill="#C7E738" /><rect x="89" y="54" width="24" height="2" rx="1" fill="#003A30" /><rect x="89" y="60" width="24" height="1.5" fill="#E5E7E1" /><rect x="89" y="60" width="21" height="1.5" fill="#C7E738" /></svg>
+    ),
+  },
+  {
+    type: "forest-faq",
+    label: "DSO Page — Objections FAQ",
+    category: "DSO",
+    defaultProps: (): ForestFaqBlockProps => structuredClone(FOREST_FAQ_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FFFFFF" rx="4" /><rect x="8" y="8" width="12" height="1.5" fill="#3F5E52" /><rect x="8" y="13" width="52" height="6" rx="2" fill="#003A30" /><rect x="8" y="26" width="104" height="0.8" fill="#E5E7E1" /><rect x="8" y="30" width="60" height="3" rx="1" fill="#121917" opacity="0.85" /><circle cx="106" cy="31.5" r="3.5" fill="#C7E738" stroke="#E5E7E1" /><rect x="8" y="37" width="104" height="0.8" fill="#E5E7E1" /><rect x="8" y="41" width="54" height="3" rx="1" fill="#121917" opacity="0.85" /><circle cx="106" cy="42.5" r="3.5" fill="none" stroke="#E5E7E1" /><rect x="8" y="48" width="104" height="0.8" fill="#E5E7E1" /><rect x="8" y="52" width="48" height="3" rx="1" fill="#121917" opacity="0.85" /><circle cx="106" cy="53.5" r="3.5" fill="none" stroke="#E5E7E1" /><rect x="8" y="37" width="70" height="2" rx="1" fill="#5A6661" opacity="0.5" /></svg>
+    ),
+  },
+  {
+    type: "forest-reading",
+    label: "DSO Page — Reading Tiles",
+    category: "DSO",
+    defaultProps: (): ForestReadingBlockProps => structuredClone(FOREST_READING_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F6F4EE" rx="4" /><rect x="8" y="8" width="12" height="1.5" fill="#3F5E52" /><rect x="8" y="13" width="48" height="6" rx="2" fill="#003A30" /><rect x="8" y="26" width="32" height="38" rx="4" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="12" y="31" width="12" height="1.5" fill="#3F5E52" /><rect x="12" y="36" width="24" height="4" rx="1.5" fill="#003A30" /><rect x="12" y="42" width="20" height="4" rx="1.5" fill="#003A30" /><rect x="12" y="50" width="24" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="12" y="58" width="12" height="2" rx="1" fill="#003A30" /><rect x="44" y="26" width="32" height="38" rx="4" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="48" y="31" width="12" height="1.5" fill="#3F5E52" /><rect x="48" y="36" width="24" height="4" rx="1.5" fill="#003A30" /><rect x="48" y="42" width="20" height="4" rx="1.5" fill="#003A30" /><rect x="48" y="50" width="24" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="48" y="58" width="12" height="2" rx="1" fill="#003A30" /><rect x="80" y="26" width="32" height="38" rx="4" fill="#FFFFFF" stroke="#E5E7E1" /><rect x="84" y="31" width="12" height="1.5" fill="#3F5E52" /><rect x="84" y="36" width="24" height="4" rx="1.5" fill="#003A30" /><rect x="84" y="42" width="20" height="4" rx="1.5" fill="#003A30" /><rect x="84" y="50" width="24" height="2" rx="1" fill="#5A6661" opacity="0.5" /><rect x="84" y="58" width="12" height="2" rx="1" fill="#003A30" /></svg>
+    ),
+  },
+  {
+    type: "forest-close",
+    label: "DSO Page — Close (Form)",
+    category: "DSO",
+    defaultProps: (): ForestCloseBlockProps => structuredClone(FOREST_CLOSE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#00261F" rx="4" /><circle cx="10" cy="8" r="22" fill="#C7E738" fillOpacity="0.14" /><circle cx="112" cy="66" r="20" fill="#2B8F6E" fillOpacity="0.2" /><rect x="8" y="14" width="12" height="1.5" fill="#C7E738" /><rect x="8" y="19" width="42" height="7" rx="2" fill="#FFFCEF" /><rect x="8" y="29" width="34" height="7" rx="2" fill="#FFFCEF" /><rect x="8" y="42" width="36" height="2" rx="1" fill="#FFFCEF" opacity="0.5" /><rect x="8" y="49" width="2" height="2" fill="#C7E738" /><rect x="12" y="49" width="30" height="2" rx="1" fill="#FFFCEF" opacity="0.6" /><rect x="8" y="54" width="2" height="2" fill="#C7E738" /><rect x="12" y="54" width="30" height="2" rx="1" fill="#FFFCEF" opacity="0.6" /><rect x="8" y="59" width="2" height="2" fill="#C7E738" /><rect x="12" y="59" width="30" height="2" rx="1" fill="#FFFCEF" opacity="0.6" /><rect x="58" y="10" width="54" height="52" rx="6" fill="#FFFCEF" fillOpacity="0.06" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="63" y="15" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="87" y="15" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="63" y="24" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="87" y="24" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="63" y="33" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="87" y="33" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="63" y="42" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="87" y="42" width="20" height="6" rx="2" fill="#000000" fillOpacity="0.25" stroke="#FFFCEF" strokeOpacity="0.15" /><rect x="63" y="52" width="44" height="6" rx="3" fill="#C7E738" /></svg>
+    ),
+  },
+  {
+    type: "forest-footer",
+    label: "DSO Page — Footer + Sources",
+    category: "DSO",
+    defaultProps: (): ForestFooterBlockProps => structuredClone(FOREST_FOOTER_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#00261F" rx="4" /><rect x="0" y="6" width="120" height="0.8" fill="#FFFCEF" opacity="0.14" /><rect x="8" y="14" width="18" height="5" rx="1" fill="#FFFCEF" /><rect x="8" y="24" width="30" height="3" rx="1" fill="#FFFCEF" opacity="0.8" /><rect x="8" y="29" width="22" height="3" rx="1" fill="#FFFCEF" opacity="0.8" /><rect x="52" y="14" width="12" height="1.5" fill="#FFFCEF" /><rect x="52" y="19" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="23" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="27" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="31" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="52" y="35" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="14" width="12" height="1.5" fill="#FFFCEF" /><rect x="74" y="19" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="23" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="27" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="31" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="74" y="35" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="14" width="12" height="1.5" fill="#FFFCEF" /><rect x="96" y="19" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="23" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="27" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="31" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="96" y="35" width="16" height="1.5" rx="0.5" fill="#FFFCEF" opacity="0.45" /><rect x="8" y="46" width="104" height="0.8" fill="#FFFCEF" opacity="0.14" /><rect x="8" y="50" width="16" height="1.5" fill="#FFFCEF" /><rect x="8" y="55.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="8" y="58.5" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="8" y="62.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="62" y="55.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="62" y="58.5" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /><rect x="62" y="62.0" width="46" height="1.2" rx="0.5" fill="#FFFCEF" opacity="0.4" /></svg>
+    ),
+  },
   // ── ABM account-page family (Oct 2026): brand-aware replica of the enterprise 1:1 account page idiom ──
   {
     type: "abm-split-hero",
@@ -10067,6 +10211,19 @@ export function createBlock(type: "gift-hero"): Extract<PageBlock, { type: "gift
 export function createBlock(type: "gift-picker"): Extract<PageBlock, { type: "gift-picker" }>;
 export function createBlock(type: "gift-form"): Extract<PageBlock, { type: "gift-form" }>;
 export function createBlock(type: "gift-note"): Extract<PageBlock, { type: "gift-note" }>;
+export function createBlock(type: "forest-hero"): Extract<PageBlock, { type: "forest-hero" }>;
+export function createBlock(type: "forest-logos"): Extract<PageBlock, { type: "forest-logos" }>;
+export function createBlock(type: "forest-proof"): Extract<PageBlock, { type: "forest-proof" }>;
+export function createBlock(type: "forest-convergence"): Extract<PageBlock, { type: "forest-convergence" }>;
+export function createBlock(type: "forest-router"): Extract<PageBlock, { type: "forest-router" }>;
+export function createBlock(type: "forest-story"): Extract<PageBlock, { type: "forest-story" }>;
+export function createBlock(type: "forest-system"): Extract<PageBlock, { type: "forest-system" }>;
+export function createBlock(type: "forest-comparison"): Extract<PageBlock, { type: "forest-comparison" }>;
+export function createBlock(type: "forest-buyers"): Extract<PageBlock, { type: "forest-buyers" }>;
+export function createBlock(type: "forest-faq"): Extract<PageBlock, { type: "forest-faq" }>;
+export function createBlock(type: "forest-reading"): Extract<PageBlock, { type: "forest-reading" }>;
+export function createBlock(type: "forest-close"): Extract<PageBlock, { type: "forest-close" }>;
+export function createBlock(type: "forest-footer"): Extract<PageBlock, { type: "forest-footer" }>;
 export function createBlock(type: "abm-split-hero"): Extract<PageBlock, { type: "abm-split-hero" }>;
 export function createBlock(type: "abm-phone-showcase"): Extract<PageBlock, { type: "abm-phone-showcase" }>;
 export function createBlock(type: "abm-solution-tabs"): Extract<PageBlock, { type: "abm-solution-tabs" }>;
@@ -10474,6 +10631,19 @@ export function createBlock(type: BlockType): PageBlock {
     case "gift-picker": return { id, type: "gift-picker", props: props as GiftPickerBlockProps };
     case "gift-form": return { id, type: "gift-form", props: props as GiftFormBlockProps };
     case "gift-note": return { id, type: "gift-note", props: props as GiftNoteBlockProps };
+    case "forest-hero": return { id, type: "forest-hero", props: props as ForestHeroBlockProps };
+    case "forest-logos": return { id, type: "forest-logos", props: props as ForestLogosBlockProps };
+    case "forest-proof": return { id, type: "forest-proof", props: props as ForestProofBlockProps };
+    case "forest-convergence": return { id, type: "forest-convergence", props: props as ForestConvergenceBlockProps };
+    case "forest-router": return { id, type: "forest-router", props: props as ForestRouterBlockProps };
+    case "forest-story": return { id, type: "forest-story", props: props as ForestStoryBlockProps };
+    case "forest-system": return { id, type: "forest-system", props: props as ForestSystemBlockProps };
+    case "forest-comparison": return { id, type: "forest-comparison", props: props as ForestComparisonBlockProps };
+    case "forest-buyers": return { id, type: "forest-buyers", props: props as ForestBuyersBlockProps };
+    case "forest-faq": return { id, type: "forest-faq", props: props as ForestFaqBlockProps };
+    case "forest-reading": return { id, type: "forest-reading", props: props as ForestReadingBlockProps };
+    case "forest-close": return { id, type: "forest-close", props: props as ForestCloseBlockProps };
+    case "forest-footer": return { id, type: "forest-footer", props: props as ForestFooterBlockProps };
     case "abm-split-hero": return { id, type: "abm-split-hero", props: props as AbmSplitHeroBlockProps };
     case "abm-phone-showcase": return { id, type: "abm-phone-showcase", props: props as AbmPhoneShowcaseBlockProps };
     case "abm-solution-tabs": return { id, type: "abm-solution-tabs", props: props as AbmSolutionTabsBlockProps };
