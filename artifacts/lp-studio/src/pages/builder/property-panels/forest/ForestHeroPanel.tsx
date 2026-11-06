@@ -15,6 +15,12 @@ interface Props {
   ctaSource?: CtaSourceProps;
 }
 
+/** "18, 14, 9" → [18, 14, 9]; an empty field clears the sparkline. */
+function parseNumbers(raw: string): number[] | undefined {
+  const nums = raw.split(/[,\s]+/).map((s) => Number(s)).filter((n) => Number.isFinite(n));
+  return nums.length ? nums.slice(0, 12) : undefined;
+}
+
 export function ForestHeroPanel({ props, onChange, ctaSource }: Props) {
   const update = (patch: Partial<ForestHeroBlockProps>) => onChange({ ...props, ...patch });
   const stats = props.stats ?? [];
@@ -80,17 +86,21 @@ export function ForestHeroPanel({ props, onChange, ctaSource }: Props) {
         </div>
       </PanelSection>
 
-      <PanelSection title={`Numbers (${stats.length} of 4)`} hint="Hairline row under the hero; they count up on the live page">
+      <PanelSection title={`Numbers (${stats.length} of 4)`} hint="A bordered strip under the hero: small label + cell index, the number (counts up on the live page), a caption and an optional sparkline">
         {stats.map((s, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={s.value || `Number ${i + 1}`} index={i} total={stats.length} onMove={(d) => setStats(moveItem(stats, i, d))} onRemove={() => setStats(stats.filter((_, idx) => idx !== i))} />
             <div className="grid grid-cols-2 gap-1.5">
-              <Input value={s.value} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, value: e.target.value } : x))} placeholder="150+" className="h-7 text-xs" />
-              <Input value={s.label} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, label: e.target.value } : x))} placeholder="groups on the platform" className="h-7 text-xs" />
+              <Field label="Small label"><Input value={s.kicker ?? ""} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, kicker: e.target.value } : x))} placeholder="Groups" className="h-7 text-xs" /></Field>
+              <Field label="Number"><Input value={s.value} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, value: e.target.value } : x))} placeholder="150+" className="h-7 text-xs" /></Field>
             </div>
+            <Field label="Caption"><Input value={s.label} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, label: e.target.value } : x))} placeholder="groups on the platform" className="h-7 text-xs" /></Field>
+            <Field label="Sparkline values (comma-separated, blank hides it)">
+              <Input value={(s.spark ?? []).join(", ")} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, spark: parseNumbers(e.target.value) } : x))} placeholder="18, 14, 15, 9, 5, 2" className="h-7 text-xs font-mono" />
+            </Field>
           </div>
         ))}
-        <AddButton label="Add number" disabled={stats.length >= 4} onClick={() => setStats([...stats, { value: "", label: "" }])} />
+        <AddButton label="Add number" disabled={stats.length >= 4} onClick={() => setStats([...stats, { value: "", label: "", kicker: "" }])} />
       </PanelSection>
 
       <PanelSection title="Top bar" hint="The page's own nav — never add a separate nav block above this hero">

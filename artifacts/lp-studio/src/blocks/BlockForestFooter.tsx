@@ -11,11 +11,13 @@ import { cn } from "@/lib/utils";
 /* ----------------------------------------------------------------------------
  * Forest Footer — type "forest-footer"  (DSO Page family, Nov 2026)
  *
- * The page footer on the deep-forest band: a top hairline, the brand logo
- * with a display-face tagline, up to three link columns with tracked titles,
- * then the "Sources and notes" block — a numbered list in two columns that
- * carries the page's footnotes — and an optional legal line. The notes are
- * hidden entirely on the live page when there are none.
+ * The page footer on the deep-forest band, in the v2's order and measure:
+ * the "Sources and notes" block first (an 11px uppercase title, a numbered
+ * 12px list in two columns), a hairline, then the brand logo with a
+ * display-face tagline and up to three link columns (11px uppercase titles
+ * in cream, 12.5px muted links that turn cream on hover) with 28px above
+ * and 48px below, and an optional legal line. The notes are hidden entirely
+ * on the live page when there are none.
  * -------------------------------------------------------------------------- */
 
 export interface ForestFooterLink {
@@ -86,12 +88,12 @@ export const FOREST_FOOTER_DEFAULT_PROPS: ForestFooterBlockProps = {
   backgroundStyle: "dandy-green",
 };
 
-/** Enumerated so Tailwind sees every grid literal (1.4fr brand column + n link columns). */
+/** Enumerated so Tailwind sees every grid literal (1.3fr brand column + n link columns). */
 const GRID_COLS: Record<number, string> = {
   0: "",
-  1: "md:grid-cols-[1.4fr_1fr]",
-  2: "md:grid-cols-[1.4fr_1fr_1fr]",
-  3: "md:grid-cols-[1.4fr_1fr_1fr_1fr]",
+  1: "min-[900px]:grid-cols-[1.3fr_1fr]",
+  2: "min-[900px]:grid-cols-[1.3fr_1fr_1fr]",
+  3: "min-[900px]:grid-cols-[1.3fr_1fr_1fr_1fr]",
 };
 
 export function BlockForestFooter({ props, brand, onFieldChange }: Props) {
@@ -117,6 +119,7 @@ export function BlockForestFooter({ props, brand, onFieldChange }: Props) {
   const dark = pal.dark;
   const cream = pal.cream;
   const onDarkMuted = dark ? "rgba(255,252,239,0.66)" : pal.muted;
+  const subtle = dark ? "rgba(255,252,239,0.5)" : pal.muted;
   const hairline = dark ? "rgba(255,252,239,0.14)" : pal.hairline;
   const notesList = isEditor ? (p.notes ?? []) : notes;
 
@@ -125,48 +128,16 @@ export function BlockForestFooter({ props, brand, onFieldChange }: Props) {
       id={p.anchorId || undefined}
       data-block="forest-footer"
       className="forest-footer relative"
-      style={{ background: dark ? pal.deep : pal.bg, color: onDarkMuted, fontFamily: FOREST_BODY, fontSize: 13, borderTop: `1px solid ${hairline}` }}
+      style={{ background: dark ? pal.deep : pal.bg, color: onDarkMuted, fontFamily: FOREST_BODY, fontSize: 12.5, borderTop: `1px solid ${hairline}` }}
     >
       <style>{`${FOREST_CSS} .forest-footer a{transition:color .2s ease} @media (hover:hover){.forest-footer a:hover{color:${cream}}}`}</style>
-      <div className={cn(FOREST_CONTAINER, "grid gap-7 pt-12 pb-10", GRID_COLS[columns.length])}>
-        <div className="min-w-0">
-          <BrandLogo brand={brand} tone={dark ? "onDark" : "onLight"} autoContrast alt={brand.brandName || "Logo"} className="h-8 w-auto" />
-          {(p.tagline || isEditor) && (
-            <p className="mt-4 max-w-[22ch]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.15rem", lineHeight: 1.25, letterSpacing: "-0.02em", color: cream, margin: "16px 0 0" }}>
-              <InlineText as="span" value={p.tagline ?? ""} onUpdate={field("tagline")} multiline />
-            </p>
-          )}
-        </div>
-        {columns.map((c, ci) => (
-          <div key={ci} className="min-w-0">
-            {(c.title || isEditor) && (
-              <h5 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: cream, margin: "0 0 12px" }}>
-                <InlineText as="span" value={c.title ?? ""} onUpdate={updateColumn ? (v) => updateColumn(ci, { title: v }) : undefined} />
-              </h5>
-            )}
-            <ul className="m-0 grid list-none gap-2 p-0">
-              {(c.links ?? []).map((l, li) => (
-                <li key={li}>
-                  {isEditor ? (
-                    <span style={{ color: "inherit" }}>
-                      <InlineText as="span" value={l.label} onUpdate={updateLink ? (v) => updateLink(ci, li, v) : undefined} />
-                    </span>
-                  ) : (
-                    <a href={l.url || "#"} onClick={forestAnchorClick(l.url)} className="no-underline" style={{ color: "inherit" }}>{l.label}</a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
 
       {showNotes && (
-        <div className={cn(FOREST_CONTAINER, "pb-10")} style={{ fontSize: 12, lineHeight: 1.6 }}>
-          <div className="mb-3 pt-7 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: cream, borderTop: `1px solid ${hairline}` }}>
+        <div className={cn(FOREST_CONTAINER, "pb-5 pt-9")} style={{ fontSize: 12, lineHeight: 1.55 }}>
+          <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: subtle }}>
             <InlineText as="span" value={p.notesTitle ?? ""} onUpdate={field("notesTitle")} />
           </div>
-          <ol className="m-0 max-w-[1000px] columns-1 pl-[18px] md:columns-2" style={{ columnGap: 40 }}>
+          <ol className="m-0 list-decimal columns-1 pl-4 md:columns-2" style={{ columnGap: 40 }}>
             {notesList.map((n, i) => (
               <li key={i} className="mb-1 break-inside-avoid">
                 <InlineText as="span" value={n} onUpdate={updateNote ? (v) => updateNote(i, v) : undefined} multiline />
@@ -179,9 +150,44 @@ export function BlockForestFooter({ props, brand, onFieldChange }: Props) {
         </div>
       )}
 
+      <div style={{ borderTop: showNotes ? `1px solid ${hairline}` : undefined }}>
+        <div className={cn(FOREST_CONTAINER, "grid gap-[22px] pb-12 pt-7", GRID_COLS[columns.length])}>
+          <div className="min-w-0">
+            <BrandLogo brand={brand} tone={dark ? "onDark" : "onLight"} autoContrast alt={brand.brandName || "Logo"} className="h-7 w-auto" />
+            {(p.tagline || isEditor) && (
+              <p className="mt-3.5 max-w-[22ch]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.05rem", lineHeight: 1.3, letterSpacing: "-0.02em", color: cream, margin: "14px 0 0" }}>
+                <InlineText as="span" value={p.tagline ?? ""} onUpdate={field("tagline")} multiline />
+              </p>
+            )}
+          </div>
+          {columns.map((c, ci) => (
+            <div key={ci} className="min-w-0">
+              {(c.title || isEditor) && (
+                <h5 className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: cream, margin: "0 0 10px" }}>
+                  <InlineText as="span" value={c.title ?? ""} onUpdate={updateColumn ? (v) => updateColumn(ci, { title: v }) : undefined} />
+                </h5>
+              )}
+              <ul className="m-0 grid list-none gap-1.5 p-0">
+                {(c.links ?? []).map((l, li) => (
+                  <li key={li}>
+                    {isEditor ? (
+                      <span style={{ color: "inherit" }}>
+                        <InlineText as="span" value={l.label} onUpdate={updateLink ? (v) => updateLink(ci, li, v) : undefined} />
+                      </span>
+                    ) : (
+                      <a href={l.url || "#"} onClick={forestAnchorClick(l.url)} className="no-underline" style={{ color: "inherit" }}>{l.label}</a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {(p.legal || isEditor) && (
         <div className={cn(FOREST_CONTAINER, "pb-8")}>
-          <p className="pt-5 text-[12px]" style={{ color: onDarkMuted, borderTop: `1px solid ${hairline}`, margin: 0 }}>
+          <p className="pt-5 text-[12px]" style={{ color: subtle, borderTop: `1px solid ${hairline}`, margin: 0 }}>
             <InlineText as="span" value={p.legal ?? ""} onUpdate={field("legal")} />
           </p>
         </div>

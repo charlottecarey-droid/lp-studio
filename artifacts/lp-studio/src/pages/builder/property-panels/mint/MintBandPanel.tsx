@@ -1,11 +1,13 @@
-import type { MintBandBlockProps } from "@/blocks/BlockMintBand";
+import type { MintBandBlockProps, MintLedgerRow } from "@/blocks/BlockMintBand";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ImagePicker } from "@/components/ImagePicker";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AnchorField, Field, ForestCtaSection, ForestStyleSection, PanelSection, TextField } from "../forest/ForestPanelKit";
+import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, ItemHeader, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
 
 interface Props {
   props: MintBandBlockProps;
@@ -16,6 +18,9 @@ interface Props {
 export function MintBandPanel({ props, onChange, ctaSource }: Props) {
   const update = (patch: Partial<MintBandBlockProps>) => onChange({ ...props, ...patch });
   const tint = typeof props.tint === "number" && Number.isFinite(props.tint) ? props.tint : 0.72;
+  const rows = props.ledger ?? [];
+  const setRows = (next: MintLedgerRow[]) => update({ ledger: next });
+  const patchRow = (i: number, patch: Partial<MintLedgerRow>) => setRows(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   return (
     <div className="space-y-3">
@@ -27,6 +32,7 @@ export function MintBandPanel({ props, onChange, ctaSource }: Props) {
       />
 
       <PanelSection title="Copy" defaultOpen>
+        <TextField label="Eyebrow (small line with the lime dot)" value={props.eyebrow} onChange={(v) => update({ eyebrow: v })} placeholder="The thesis" />
         <Field label="Headline (one line per row)">
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("mint-band", "headline", props.headline ?? "", { subheadline: props.subheadline ?? "" })} />
@@ -40,7 +46,25 @@ export function MintBandPanel({ props, onChange, ctaSource }: Props) {
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="thesis" />
       </PanelSection>
 
-      <PanelSection title="Photo" defaultOpen hint="Full-bleed behind the copy; desaturated and darkened, with a gentle drift as the page scrolls">
+      <PanelSection title={`Ledger card (${rows.length} of 6)`} hint="The glass card at the right: a label and a big number per row. The arrow row sits above the first highlighted number." defaultOpen>
+        {rows.map((r, i) => (
+          <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
+            <ItemHeader label={r.label || `Row ${i + 1}`} index={i} total={rows.length} onMove={(d) => setRows(moveItem(rows, i, d))} onRemove={() => setRows(rows.filter((_, idx) => idx !== i))} />
+            <div className="grid grid-cols-[minmax(0,1fr)_72px] gap-1.5">
+              <Input value={r.label} onChange={(e) => patchRow(i, { label: e.target.value })} placeholder="Labs across a typical emerging group" className="h-7 text-xs" />
+              <Input value={r.value} onChange={(e) => patchRow(i, { value: e.target.value })} placeholder="11–25" className="h-7 text-xs" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] text-muted-foreground">Lime number (the "after" row)</Label>
+              <Switch checked={!!r.highlight} onCheckedChange={(v) => patchRow(i, { highlight: v })} />
+            </div>
+          </div>
+        ))}
+        <AddButton label="Add row" disabled={rows.length >= 6} onClick={() => setRows([...rows, { label: "", value: "" }])} />
+        <TextField label="Arrow row label (blank = no arrow row)" value={props.ledgerArrowText} onChange={(v) => update({ ledgerArrowText: v })} placeholder="With us" />
+      </PanelSection>
+
+      <PanelSection title="Photo" defaultOpen hint="Full-bleed behind the copy; desaturated and darkened under a deep-green scrim, with a gentle drift as the page scrolls">
         <Field label="Photo">
           <ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" />
         </Field>

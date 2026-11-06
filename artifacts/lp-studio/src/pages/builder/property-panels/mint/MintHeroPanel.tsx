@@ -1,4 +1,4 @@
-import type { MintFloatCard, MintHeroBlockProps, MintHeroStat, MintNavLink } from "@/blocks/BlockMintHero";
+import type { MintFloatCard, MintHeroBlockProps, MintHeroStat, MintMiniCard, MintNavLink } from "@/blocks/BlockMintHero";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,12 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
   const floats = props.floats ?? [];
   const setFloats = (next: MintFloatCard[]) => update({ floats: next });
   const patchFloat = (i: number, patch: Partial<MintFloatCard>) => setFloats(floats.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+  const minis = props.miniCards ?? [];
+  const setMinis = (next: MintMiniCard[]) => update({ miniCards: next });
+  const patchMini = (i: number, patch: Partial<MintMiniCard>) => setMinis(minis.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  const patchStat = (i: number, patch: Partial<MintHeroStat>) => setStats(stats.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  /** "20, 40, 35" ⇄ [20, 40, 35] for the sparkline (any scale; the block normalises). */
+  const parseSpark = (text: string) => text.split(/[,\s]+/).map((t) => Number(t)).filter((n) => Number.isFinite(n)).slice(0, 12);
 
   return (
     <div className="space-y-3">
@@ -36,7 +42,10 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
       />
 
       <PanelSection title="Copy" defaultOpen>
-        <TextField label="Small line above the headline" value={props.cap} onChange={(v) => update({ cap: v })} placeholder="For multi-location groups" />
+        <div className="grid grid-cols-2 gap-1.5">
+          <TextField label="Eyebrow (with the lime dot)" value={props.cap} onChange={(v) => update({ cap: v })} placeholder="For multi-location groups" />
+          <TextField label="Eyebrow suffix (muted)" value={props.eyebrowSuffix} onChange={(v) => update({ eyebrowSuffix: v })} placeholder="· Enterprise" />
+        </div>
         <Field label="Headline (one line per row)">
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("mint-hero", "headline", props.headline ?? "", { subheadline: props.subheadline ?? "" })} />
@@ -51,22 +60,38 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
 
       <ForestCtaSection value={props} onChange={onChange} ctaSource={ctaSource} primaryPlaceholder="Talk to the enterprise team" secondaryPlaceholder="See the proof">
         <Field label="Button style">
-          <Select value={props.ctaStyle ?? "link"} onValueChange={(v) => update({ ctaStyle: v as MintHeroBlockProps["ctaStyle"] })}>
+          <Select value={props.ctaStyle ?? "pill-link"} onValueChange={(v) => update({ ctaStyle: v as MintHeroBlockProps["ctaStyle"] })}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="link" className="text-xs">Quiet chevron links (the design)</SelectItem>
-              <SelectItem value="pill" className="text-xs">Filled pills</SelectItem>
+              <SelectItem value="pill-link" className="text-xs">Lime pill + chevron link (the design)</SelectItem>
+              <SelectItem value="link" className="text-xs">Two quiet chevron links</SelectItem>
+              <SelectItem value="pill" className="text-xs">Two filled pills</SelectItem>
             </SelectContent>
           </Select>
         </Field>
       </ForestCtaSection>
+
+      <PanelSection title={`Mini cards beside the headline (${minis.length} of 3)`} hint="Icon tile, bold title, muted caption and a big value at the right">
+        {minis.map((c, i) => (
+          <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
+            <ItemHeader label={c.title || `Card ${i + 1}`} index={i} total={minis.length} onMove={(d) => setMinis(moveItem(minis, i, d))} onRemove={() => setMinis(minis.filter((_, idx) => idx !== i))} />
+            <div className="grid grid-cols-[minmax(0,1fr)_72px] gap-1.5">
+              <Input value={c.title} onChange={(e) => patchMini(i, { title: e.target.value })} placeholder="Adoption, not mandates" className="h-7 text-xs" />
+              <Input value={c.value} onChange={(e) => patchMini(i, { value: e.target.value })} placeholder="70%" className="h-7 text-xs" />
+            </div>
+            <Input value={c.caption} onChange={(e) => patchMini(i, { caption: e.target.value })} placeholder="of practices activate on training day" className="h-7 text-xs" />
+            <Input value={c.icon ?? ""} onChange={(e) => patchMini(i, { icon: e.target.value })} placeholder="Lucide icon name (Activity, Monitor, BarChart3)" className="h-7 text-xs font-mono" />
+          </div>
+        ))}
+        <AddButton label="Add mini card" disabled={minis.length >= 3} onClick={() => setMinis([...minis, { icon: "", title: "New card", caption: "", value: "" }])} />
+      </PanelSection>
 
       <PanelSection title="Photo + floating cards" defaultOpen>
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">Show the photo card</Label>
           <Switch checked={props.showImage !== false} onCheckedChange={(v) => update({ showImage: v })} />
         </div>
-        <Field label="Photo (16:9)">
+        <Field label="Photo (21:9, on a mint plate)">
           <ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" />
         </Field>
         <TextField label="Alt text" value={props.imageAlt} onChange={(v) => update({ imageAlt: v })} />
@@ -100,18 +125,21 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
         <AddButton label="Add floating card" disabled={floats.length >= 3} onClick={() => setFloats([...floats, { kind: "figure", label: "New card", value: "", note: "" }])} />
       </PanelSection>
 
-      <PanelSection title={`Numbers (${stats.length} of 4)`} hint="Centred row under the photo; they count up on the live page">
+      <PanelSection title={`Stat strip (${stats.length} of 4)`} hint="The bordered strip under the photo: a tiny label with its index, a number that counts up on the live page, a caption and a lime sparkline">
         {stats.map((s, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={s.value || `Number ${i + 1}`} index={i} total={stats.length} onMove={(d) => setStats(moveItem(stats, i, d))} onRemove={() => setStats(stats.filter((_, idx) => idx !== i))} />
-            <div className="grid grid-cols-2 gap-1.5">
-              <Input value={s.value} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, value: e.target.value } : x))} placeholder="150+" className="h-7 text-xs" />
-              <Input value={s.label} onChange={(e) => setStats(stats.map((x, idx) => idx === i ? { ...x, label: e.target.value } : x))} placeholder="groups on the platform" className="h-7 text-xs" />
+            <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-1.5">
+              <Input value={s.heading ?? ""} onChange={(e) => patchStat(i, { heading: e.target.value })} placeholder="Groups" className="h-7 text-xs" />
+              <Input value={s.value} onChange={(e) => patchStat(i, { value: e.target.value })} placeholder="150+" className="h-7 text-xs" />
             </div>
+            <Input value={s.label} onChange={(e) => patchStat(i, { label: e.target.value })} placeholder="groups on the platform" className="h-7 text-xs" />
+            <Input value={(s.spark ?? []).join(", ")} onChange={(e) => patchStat(i, { spark: parseSpark(e.target.value) })} placeholder="Sparkline points, e.g. 4, 8, 7, 13, 12, 17, 20 (blank = none)" className="h-7 text-xs font-mono" />
           </div>
         ))}
-        <AddButton label="Add number" disabled={stats.length >= 4} onClick={() => setStats([...stats, { value: "", label: "" }])} />
-        <ListField label="Customer names (hairline row)" value={props.names ?? []} onChange={(v) => update({ names: v })} hint="Plain names, one per line. Blank = no row." />
+        <AddButton label="Add number" disabled={stats.length >= 4} onClick={() => setStats([...stats, { heading: "", value: "", label: "", spark: [] }])} />
+        <TextField label="Names row label" value={props.namesLabel} onChange={(v) => update({ namesLabel: v })} placeholder="Trusted by" />
+        <ListField label="Customer names" value={props.names ?? []} onChange={(v) => update({ names: v })} hint="Plain names, one per line. Blank = no row." />
       </PanelSection>
 
       <PanelSection title="Top bar" hint="The page's own nav — never add a separate nav block above this hero">
@@ -120,6 +148,7 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
           <Switch checked={props.showNav !== false} onCheckedChange={(v) => update({ showNav: v })} />
         </div>
         <TextField label="Nav button text (blank = the primary CTA text)" value={props.navCtaText} onChange={(v) => update({ navCtaText: v })} placeholder="Talk to the enterprise team" />
+        <TextField label="Small note left of the button (wide screens)" value={props.navNote} onChange={(v) => update({ navNote: v })} placeholder="Enterprise team · Mon–Fri" />
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">Hide the nav button</Label>
           <Switch checked={!!props.hideNavCta} onCheckedChange={(v) => update({ hideNavCta: v })} />
@@ -138,9 +167,10 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
           </div>
         </Field>
         <AddButton label="Add link" disabled={links.length >= 6} onClick={() => setLinks([...links, { label: "New link", href: "#" }])} />
+        <p className="text-[10px] text-muted-foreground leading-relaxed">The link whose URL matches this block's anchor ("#top") gets the lime underline.</p>
       </PanelSection>
 
-      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#FFFFFF" hint="White fades into a pale mint by default; pick a preset or custom colour to override" />
+      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#FFFFFF" hint="White with a soft mint glow at the top by default; pick a preset or custom colour to override" />
     </div>
   );
 }

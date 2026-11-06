@@ -9,8 +9,8 @@ import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import {
-  MINT_BODY, MINT_CSS, MINT_DISPLAY, MINT_SECTION_PAD, MINT_WIDE,
-  MintLink, MintNumber, mintAnchorClick, mintDisplay, mintHighlight, resolveMintPalette, useMintReveal,
+  MINT_BODY, MINT_CSS, MINT_DISPLAY, MINT_RING, MINT_SECTION_PAD, MINT_SHADOW_2, MINT_WIDE,
+  MintEyebrow, MintLink, MintNumber, MintSectionHeader, mintAnchorClick, mintDisplay, mintHighlight, resolveMintPalette, useMintReveal,
   type MintStyleProps,
 } from "./mint/mint-theme";
 import { cn } from "@/lib/utils";
@@ -18,14 +18,17 @@ import { cn } from "@/lib/utils";
 /* ----------------------------------------------------------------------------
  * Mint Story — type "mint-story"  (DSO Page (Light) family, Nov 2026)
  *
- * The artifact's video customer story on white: a centred display headline,
- * then a 7/5 grid. Left, a 16:9 rounded player painted in the deep brand
- * green: the poster photo (saturate .8, a slow scale on hover), a bottom
- * shade, a caption row (title + sub left, duration right), a 76px lime play
- * disc and the artifact's own control bar (play/pause, time, a clickable
- * track with a lime fill, duration, mute, full screen). Right, the quote in
- * the display face with drawn quote marks and a lime highlight under one
- * phrase, the cite (bold role, org), up to three numbers and a chevron link.
+ * The v2 video customer story on white: the section header row (eyebrow
+ * "Customer story · Org", a 20ch h2, the story link at the right), then a
+ * 7/5 grid. Left, a 16:9 ringed player painted in the deep brand green: the
+ * poster photo (saturate .8, a slow scale on hover), the v2 shade (.1 top,
+ * .7 bottom), a "Film · 3:40" tag pill top-left, a caption row (title + sub),
+ * a 76px lime play disc with an inset white highlight and the artifact's own
+ * control bar (play/pause, time, a clickable track with a lime fill,
+ * duration, mute, full screen). Right, the quote in the display face with
+ * drawn quote marks and a lime highlight under one phrase, the cite row with
+ * a 36px mint avatar disc (the org's initial), and up to three numbers as
+ * grey ringed tiles in a 3-col grid.
  *
  * Video: a native mp4/webm/storage URL is driven by the custom bar through
  * a <video preload="none">; Wistia/YouTube/Vimeo/Loom links swap an iframe
@@ -39,7 +42,10 @@ export interface MintStoryStat {
 }
 
 export interface MintStoryBlockProps extends MintStyleProps {
-  /** Centred display headline above the grid. */
+  /** Section eyebrow ("Customer story") and its muted suffix ("· Northwind Health"). */
+  eyebrow?: string;
+  eyebrowSuffix?: string;
+  /** Display headline in the header row. */
   headline: string;
   /** The pull quote (no quote marks — they are drawn). */
   quote: string;
@@ -47,12 +53,16 @@ export interface MintStoryBlockProps extends MintStyleProps {
   highlight?: string;
   citeRole?: string;
   citeOrg?: string;
+  /** The letter in the avatar disc; blank = the first letter of `citeOrg`. */
+  citeInitial?: string;
   posterUrl?: string;
   posterAlt?: string;
   posterFocal?: string;
-  /** Caption row on the poster: bold title + sub (left), duration (right). */
+  /** Caption row on the poster: bold title + sub. */
   posterTitle?: string;
   posterSub?: string;
+  /** The tag pill top-left reads "<tag> · <duration>" (either alone when the other is blank). */
+  tag?: string;
   duration?: string;
   /** Wistia, YouTube, Vimeo, Loom or a native mp4/webm/storage URL. */
   videoUrl?: string;
@@ -61,7 +71,7 @@ export interface MintStoryBlockProps extends MintStyleProps {
   mediaSide?: "left" | "right";
   /** Up to three outcome numbers under the cite. */
   stats?: MintStoryStat[];
-  /** The quiet chevron link under the numbers. */
+  /** The quiet chevron link at the right of the header row. */
   linkText?: string;
   linkUrl?: string;
   anchorId?: string;
@@ -79,15 +89,19 @@ interface Props {
 export const MINT_STORY_MAX_STATS = 3;
 
 export const MINT_STORY_DEFAULT_PROPS: MintStoryBlockProps = {
-  headline: "Northwind Health rebuilt dentures around two appointments.",
+  eyebrow: "Customer story",
+  eyebrowSuffix: "· Northwind Health",
+  headline: "Dentures rebuilt around two appointments.",
   quote: "We stopped asking doctors to change labs. We gave them a lab they would have chosen anyway, and the schedule took care of itself.",
   highlight: "took care of itself.",
   citeRole: "Chief Clinical Officer",
   citeOrg: "Northwind Health",
+  citeInitial: "",
   posterUrl: "",
   posterAlt: "",
   posterTitle: "The Northwind Health story",
   posterSub: "A mobile dental group, 6,000 denture cases a year",
+  tag: "Film",
   duration: "3:40",
   videoUrl: "",
   fallbackUrl: "",
@@ -270,7 +284,15 @@ export function BlockMintStory({ props, brand, onFieldChange }: Props) {
       ) : (
         <div aria-hidden className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 20%, color-mix(in srgb, ${pal.lime} 16%, transparent), transparent 55%), linear-gradient(160deg, ${pal.green} 0%, ${pal.deep} 100%)`, ...fade(!playing) }} />
       )}
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 40%, color-mix(in srgb, ${pal.deep} 70%, transparent))`, ...fade(!playing), pointerEvents: "none" }} />
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(180deg, color-mix(in srgb, ${pal.deep} 10%, transparent), transparent 35%, color-mix(in srgb, ${pal.deep} 70%, transparent))`, ...fade(!playing), pointerEvents: "none" }} />
+      {/* Tag pill ("Film · 3:40") */}
+      {(p.tag || p.duration || isEditor) && (
+        <span className="absolute left-[18px] top-[18px] z-[2] inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: cream, background: `color-mix(in srgb, ${pal.deep} 50%, transparent)`, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid rgba(255,252,239,0.14)", ...fade(!playing), pointerEvents: isEditor ? undefined : "none" }}>
+          {(p.tag || isEditor) && <InlineText as="span" value={p.tag ?? ""} onUpdate={field("tag")} />}
+          {(p.tag || isEditor) && (p.duration || isEditor) && <span aria-hidden>·</span>}
+          {(p.duration || isEditor) && <span className="tabular-nums"><InlineText as="span" value={p.duration ?? ""} onUpdate={field("duration")} /></span>}
+        </span>
+      )}
       {/* Caption row */}
       <div className="absolute bottom-[58px] left-[22px] right-[22px] z-[2] flex items-end justify-between gap-3.5 text-[13px]" style={{ color: cream, ...fade(!playing), pointerEvents: isEditor ? undefined : "none" }}>
         <div className="min-w-0">
@@ -285,21 +307,16 @@ export function BlockMintStory({ props, brand, onFieldChange }: Props) {
             </span>
           )}
         </div>
-        {(p.duration || isEditor) && (
-          <span className="shrink-0 tabular-nums" style={{ color: creamMuted }}>
-            <InlineText as="span" value={p.duration ?? ""} onUpdate={field("duration")} />
-          </span>
-        )}
       </div>
       {/* Big play disc */}
       <button
         type="button"
         onClick={toggle}
         aria-label={bigPlayLabel}
-        className="mint-big absolute left-1/2 top-1/2 z-[3] grid h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-0 p-0"
-        style={{ background: pal.lime, color: pal.onLime, boxShadow: "0 10px 30px rgba(0,0,0,.25)", cursor: canPlay || (fallback && !isEditor) ? "pointer" : "default", ...fade(!playing), transition: reduced ? "none" : "transform .5s cubic-bezier(.16,1,.3,1), opacity .4s" }}
+        className="mint-big absolute left-1/2 top-1/2 z-[3] grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-0 p-0 sm:h-[76px] sm:w-[76px]"
+        style={{ background: pal.lime, color: pal.onLime, boxShadow: "0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.5)", cursor: canPlay || (fallback && !isEditor) ? "pointer" : "default", ...fade(!playing), transition: reduced ? "none" : "transform .5s cubic-bezier(.16,1,.3,1), opacity .4s" }}
       >
-        <Play className="ml-[3px] h-6 w-6" fill="currentColor" strokeWidth={0} aria-hidden />
+        <Play className="ml-[3px] h-5 w-5 sm:h-6 sm:w-6" fill="currentColor" strokeWidth={0} aria-hidden />
       </button>
     </>
   );
@@ -344,7 +361,7 @@ export function BlockMintStory({ props, brand, onFieldChange }: Props) {
       <div
         ref={playerRef}
         className={cn("mint-player group relative w-full overflow-hidden rounded-[20px]", playing && "playing")}
-        style={{ aspectRatio: "16 / 9", background: pal.deep, boxShadow: `0 20px 60px color-mix(in srgb, ${pal.deep} 16%, transparent)` }}
+        style={{ aspectRatio: "16 / 9", background: pal.deep, boxShadow: `${MINT_RING}, ${MINT_SHADOW_2}` }}
       >
         {native && (
           <video
@@ -378,9 +395,11 @@ export function BlockMintStory({ props, brand, onFieldChange }: Props) {
     </motion.div>
   );
 
+  const initial = (p.citeInitial ?? "").trim() || (p.citeOrg ?? "").trim().charAt(0).toUpperCase();
+  const tileBg = pal.dark ? pal.card : pal.grey;
   const copy = (
     <motion.div {...rise(0.1)} className={cn("text-left", mediaRight && "min-[900px]:order-1")}>
-      <p style={{ fontFamily: MINT_DISPLAY, fontSize: "clamp(1.35rem, 2.2vw, 1.9rem)", lineHeight: 1.2, letterSpacing: "-0.03em", color: heading, fontWeight: 400, margin: 0 }}>
+      <p style={{ fontFamily: MINT_DISPLAY, fontSize: "clamp(1.35rem, 2.1vw, 1.85rem)", lineHeight: 1.22, letterSpacing: "-0.025em", color: heading, fontWeight: 400, margin: 0, textWrap: "pretty" } as React.CSSProperties}>
         <span aria-hidden>“</span>
         {isEditor ? (
           <InlineText as="span" value={p.quote} onUpdate={field("quote")} multiline />
@@ -390,33 +409,32 @@ export function BlockMintStory({ props, brand, onFieldChange }: Props) {
         <span aria-hidden>”</span>
       </p>
       {(p.citeRole || p.citeOrg || isEditor) && (
-        <p className="mt-[18px] text-[15px]" style={{ color: muted, margin: "18px 0 0" }}>
-          {(p.citeRole || isEditor) && (
-            <b style={{ fontWeight: 500, color: ink }}>
-              <InlineText as="span" value={p.citeRole ?? ""} onUpdate={field("citeRole")} />
-            </b>
+        <div className="mt-[18px] flex items-center gap-3 text-[14px]" style={{ color: muted }}>
+          {(initial || isEditor) && (
+            <span aria-hidden={!isEditor} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px]" style={{ background: pal.mint, color: pal.green, fontFamily: MINT_DISPLAY }}>
+              {isEditor ? <InlineText as="span" value={p.citeInitial || initial} onUpdate={field("citeInitial")} /> : initial}
+            </span>
           )}
-          {(p.citeRole || isEditor) && (p.citeOrg || isEditor) && ", "}
-          {(p.citeOrg || isEditor) && <InlineText as="span" value={p.citeOrg ?? ""} onUpdate={field("citeOrg")} />}
-        </p>
+          <span className="min-w-0 leading-[1.35]">
+            {(p.citeRole || isEditor) && (
+              <b className="block font-medium" style={{ color: ink }}>
+                <InlineText as="span" value={p.citeRole ?? ""} onUpdate={field("citeRole")} />
+              </b>
+            )}
+            {(p.citeOrg || isEditor) && <InlineText as="span" value={p.citeOrg ?? ""} onUpdate={field("citeOrg")} />}
+          </span>
+        </div>
       )}
       {stats.length > 0 && (
-        <div className="mt-10 flex flex-wrap gap-x-12 gap-y-6">
+        <div className="mt-[26px] grid grid-cols-3 gap-3">
           {stats.map((s, i) => (
-            <div key={i} className="min-w-0">
-              <MintNumber value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} className="block" style={{ fontFamily: MINT_DISPLAY, fontSize: "2.4rem", letterSpacing: "-0.035em", color: heading }} />
-              <span className="mt-2 block text-[14px] leading-[1.4]" style={{ color: muted }}>
+            <div key={i} className="min-w-0 rounded-[14px] px-3.5 pb-3 pt-3.5" style={{ background: tileBg, boxShadow: MINT_RING }}>
+              <MintNumber value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} className="block" style={{ fontFamily: MINT_DISPLAY, fontSize: "1.7rem", letterSpacing: "-0.035em", color: heading }} />
+              <span className="mt-1.5 block text-[12px] leading-[1.35]" style={{ color: muted }}>
                 <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} />
               </span>
             </div>
           ))}
-        </div>
-      )}
-      {(p.linkText || isEditor) && (
-        <div className="mt-[26px] flex flex-wrap gap-x-8 gap-y-3">
-          <MintLink href={isEditor ? undefined : (p.linkUrl || "#")} onClick={isEditor ? (e) => e.preventDefault() : mintAnchorClick(p.linkUrl)} color={linkInk} size={17}>
-            <InlineText as="span" value={p.linkText ?? ""} onUpdate={field("linkText")} />
-          </MintLink>
         </div>
       )}
     </motion.div>
@@ -440,12 +458,31 @@ export function BlockMintStory({ props, brand, onFieldChange }: Props) {
         }
       `}</style>
       <div className={MINT_WIDE}>
-        <div className="text-center">
-          <motion.h2 {...rise(0, 18)} className="mx-auto" style={mintDisplay("clamp(2rem, 4.2vw, 3.4rem)", heading)}>
-            <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
-          </motion.h2>
-        </div>
-        <div className="grid items-center gap-8 min-[900px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] min-[900px]:gap-14" style={{ marginTop: "clamp(28px, 4vw, 48px)" }}>
+        <MintSectionHeader
+          eyebrow={(p.eyebrow || isEditor) ? (
+            <motion.div {...rise(0, 14)}>
+              <MintEyebrow
+                palette={pal}
+                suffix={(p.eyebrowSuffix || isEditor) ? <InlineText as="span" value={p.eyebrowSuffix ?? ""} onUpdate={field("eyebrowSuffix")} /> : undefined}
+              >
+                <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} />
+              </MintEyebrow>
+            </motion.div>
+          ) : undefined}
+          headline={(
+            <motion.h2 {...rise(0.05, 18)} className="max-w-[20ch]" style={mintDisplay("clamp(1.9rem, 3.6vw, 3rem)", heading)}>
+              <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
+            </motion.h2>
+          )}
+          link={(p.linkText || isEditor) ? (
+            <motion.div {...rise(0.15, 14)}>
+              <MintLink href={isEditor ? undefined : (p.linkUrl || "#")} onClick={isEditor ? (e) => e.preventDefault() : mintAnchorClick(p.linkUrl)} color={linkInk} size={15} className="whitespace-nowrap">
+                <InlineText as="span" value={p.linkText ?? ""} onUpdate={field("linkText")} />
+              </MintLink>
+            </motion.div>
+          ) : undefined}
+        />
+        <div className="grid items-center gap-8 min-[900px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] min-[900px]:gap-14">
           {player}
           {copy}
         </div>

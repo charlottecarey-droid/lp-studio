@@ -252,3 +252,96 @@ export function MintCtaButtons({ props, brand, palette, pageId, variantId, onCta
     </div>
   );
 }
+
+/* ── v2 refinements (Nov 2026): rings, layered shadows, section header rows, chrome ── */
+
+/** 1px inset ring + the two layered shadows the v2 design uses on every card. */
+export const MINT_RING = "inset 0 0 0 1px rgba(0,38,31,.06)";
+export const MINT_SHADOW_1 = "0 1px 2px rgba(0,38,31,.04), 0 8px 24px rgba(0,38,31,.05)";
+export const MINT_SHADOW_2 = "0 2px 6px rgba(0,38,31,.05), 0 24px 60px rgba(0,38,31,.10)";
+
+/** A white card surface: ring + soft shadow, radius 20 (pass `lift` for the hover/elevated shadow). */
+export function mintCard(palette: MintPalette, opts: { lift?: boolean; radius?: number; background?: string } = {}): CSSProperties {
+  return {
+    background: opts.background ?? (palette.dark ? palette.card : "#FFFFFF"),
+    borderRadius: opts.radius ?? 20,
+    boxShadow: `${MINT_RING}, ${opts.lift ? MINT_SHADOW_2 : MINT_SHADOW_1}`,
+  };
+}
+
+/**
+ * The v2 eyebrow: a lime dot with a soft glow ring, 11.5px tracked uppercase
+ * in green (lime on dark), an optional muted suffix ("· Enterprise") and a
+ * trailing hairline that fades after 120px.
+ */
+export function MintEyebrow({ palette, children, suffix, rule = true, className, style }: { palette: MintPalette; children: ReactNode; suffix?: ReactNode; rule?: boolean; className?: string; style?: CSSProperties }) {
+  const ink = palette.dark ? palette.lime : palette.green;
+  return (
+    <div className={cn("flex items-center gap-3 text-[11.5px] font-semibold uppercase tracking-[0.14em]", className)} style={{ color: ink, fontFamily: MINT_BODY, ...style }}>
+      <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: palette.lime, boxShadow: `0 0 0 3px color-mix(in srgb, ${palette.lime} 30%, transparent)` }} />
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2">
+        <span>{children}</span>
+        {suffix ? <span className="font-medium normal-case tracking-[0.08em]" style={{ color: palette.dark ? palette.creamMuted : palette.inkSubtle, textTransform: "none" }}>{suffix}</span> : null}
+      </span>
+      {rule && <span aria-hidden className="h-px flex-1" style={{ background: palette.dark ? "rgba(255,252,239,0.14)" : palette.line, maxWidth: 120 }} />}
+    </div>
+  );
+}
+
+/**
+ * The v2 section header row: eyebrow + headline (+ sub) on the left, a quiet
+ * chevron link sitting on the headline's baseline at the right (≥800px).
+ * Pass the pieces as nodes so blocks keep their own InlineText wiring.
+ */
+export function MintSectionHeader({ eyebrow, headline, sub, link, align = "left", className, gap = "clamp(28px, 4vw, 44px)" }: { eyebrow?: ReactNode; headline: ReactNode; sub?: ReactNode; link?: ReactNode; align?: "left" | "center"; className?: string; gap?: string }) {
+  if (align === "center") {
+    return (
+      <div className={cn("mx-auto flex flex-col items-center text-center", className)} style={{ marginBottom: gap }}>
+        {eyebrow && <div className="mb-4">{eyebrow}</div>}
+        {headline}
+        {sub}
+        {link && <div className="mt-5">{link}</div>}
+      </div>
+    );
+  }
+  return (
+    <div className={cn("grid items-end gap-3.5 min-[800px]:grid-cols-[minmax(0,1fr)_auto]", className)} style={{ marginBottom: gap }}>
+      <div className="min-w-0">
+        {eyebrow && <div className="mb-4">{eyebrow}</div>}
+        {headline}
+        {sub}
+      </div>
+      {link && <div className="pb-1.5">{link}</div>}
+    </div>
+  );
+}
+
+/** Browser-window chrome strip (three dots, a title, a right-aligned meta) for UI mocks. */
+export function MintChrome({ palette, title, right, className }: { palette: MintPalette; title?: ReactNode; right?: ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex items-center gap-2 px-3.5 py-2.5 text-[11.5px] font-medium", className)} style={{ borderBottom: `1px solid ${palette.line}`, color: palette.inkMuted, fontFamily: MINT_BODY }}>
+      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "#E6B9B0" }} />
+      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "#EAD7A4" }} />
+      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "#BFD8C8" }} />
+      {title && <span className="ml-2 min-w-0 truncate">{title}</span>}
+      {right && <span className="ml-auto whitespace-nowrap tabular-nums" style={{ color: palette.inkSubtle }}>{right}</span>}
+    </div>
+  );
+}
+
+/** The dotted "stage" backdrop behind UI mocks (radial dots at 18px). */
+export function mintStageDots(palette: MintPalette): CSSProperties {
+  return { backgroundImage: `radial-gradient(color-mix(in srgb, ${palette.green} 9%, transparent) 1px, transparent 1px)`, backgroundSize: "18px 18px" };
+}
+
+/** A short lime sparkline for stat cells (v2 hero stats). `points` are 0–1 heights, left to right. */
+export function MintSparkline({ palette, points, className }: { palette: MintPalette; points: number[]; className?: string }) {
+  const w = 54, h = 22;
+  const n = Math.max(2, points.length);
+  const d = points.map((v, i) => `${i === 0 ? "M" : "L"}${(1 + (i * (w - 2)) / (n - 1)).toFixed(1)} ${(h - 2 - Math.max(0, Math.min(1, v)) * (h - 4)).toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} fill="none" aria-hidden className={className}>
+      <path d={d} stroke={palette.lime} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

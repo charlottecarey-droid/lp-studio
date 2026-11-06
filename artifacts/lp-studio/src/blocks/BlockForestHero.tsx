@@ -7,7 +7,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import {
-  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_CTA_DEFAULTS, FOREST_DISPLAY, FOREST_EASE,
+  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_CTA_DEFAULTS, FOREST_DISPLAY, FOREST_EASE, FOREST_RING, FOREST_RING_DARK,
   ForestCtaButtons, ForestEyebrow, ForestGrain, ForestNumber, forestAnchorClick, resolveForestPalette,
   type ForestCtaProps, type ForestStyleProps,
 } from "./forest/forest-theme";
@@ -34,7 +34,27 @@ export interface ForestNavLink {
 
 export interface ForestHeroStat {
   value: string;
+  /** Caption under the number ("groups on the platform"). */
   label: string;
+  /** Tiny uppercase label above the number ("Groups"); the cell index is drawn after it. */
+  kicker?: string;
+  /** 2–12 values for the small accent sparkline top-right of the cell; omit to hide it. */
+  spark?: number[];
+}
+
+/** Small accent polyline (the v2 stat-strip sparkline), normalised into a 54×22 box. */
+function ForestSparkline({ values, color }: { values: number[]; color: string }) {
+  const nums = values.filter((n) => Number.isFinite(n)).slice(0, 12);
+  if (nums.length < 2) return null;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const span = max - min || 1;
+  const pts = nums.map((n, i) => `${(1 + (i / (nums.length - 1)) * 52).toFixed(1)},${(20 - ((n - min) / span) * 18).toFixed(1)}`).join(" ");
+  return (
+    <svg aria-hidden viewBox="0 0 54 22" fill="none" className="absolute right-5 top-[22px] hidden h-[22px] w-[54px] sm:block">
+      <polyline points={pts} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 export interface ForestHeroBlockProps extends ForestStyleProps, ForestCtaProps {
@@ -110,10 +130,10 @@ export const FOREST_HERO_DEFAULT_PROPS: ForestHeroBlockProps = {
   cardBadge: "Live",
   cardSweep: true,
   stats: [
-    { value: "150+", label: "groups on the platform" },
-    { value: "70%", label: "of practices activate on training day" },
-    { value: "24%", label: "average lab cost savings" },
-    { value: "$0", label: "scanner CapEx per location" },
+    { value: "150+", label: "groups on the platform", kicker: "Groups", spark: [18, 14, 15, 9, 10, 5, 2] },
+    { value: "70%", label: "of practices activate on training day", kicker: "Adoption", spark: [20, 19, 12, 10, 4, 3] },
+    { value: "24%", label: "average lab cost savings", kicker: "Savings", spark: [6, 9, 8, 13, 15, 20] },
+    { value: "$0", label: "scanner CapEx per location", kicker: "CapEx", spark: [4, 4, 12, 20, 20] },
   ],
   anchorId: "top",
   backgroundStyle: "dandy-green",
@@ -185,6 +205,9 @@ export function BlockForestHero({ props, brand, pageId, variantId, onCtaClick, o
   const navCtaText = (p.navCtaText ?? "").trim() || p.ctaText || "";
   const dim = Math.max(0, Math.min(1, Number(p.backgroundDim ?? 0.75)));
   const links = p.navLinks ?? [];
+  /** The link that points at this page (the hero's own anchor or "#top") carries the accent underline. */
+  const isActiveLink = (href?: string) => !!href && (href === "#top" || (!!p.anchorId && href === `#${p.anchorId}`));
+  const ring = dark ? FOREST_RING_DARK : FOREST_RING;
   const revealed = mounted || reduced;
   const rise = (delay: number) => ({
     opacity: revealed ? 1 : 0,
@@ -210,12 +233,16 @@ export function BlockForestHero({ props, brand, pageId, variantId, onCtaClick, o
           <BrandLogo brand={brand} tone={dark ? "onDark" : "onLight"} alt={brand.brandName || "Logo"} className="h-[26px] w-auto" />
         </a>
         {links.length > 0 && (
-          <nav aria-label="Primary" className="hidden lg:flex items-center gap-[30px] text-[14px] font-medium" style={{ color: onDarkMuted, fontFamily: FOREST_BODY }}>
-            {links.map((l, i) => (
-              <a key={i} href={l.href || "#"} onClick={forestAnchorClick(l.href)} className="forest-link relative py-1.5 no-underline" style={{ color: "inherit" }}>
-                <InlineText as="span" value={l.label} onUpdate={updateLink ? (v) => updateLink(i, v) : undefined} />
-              </a>
-            ))}
+          <nav aria-label="Primary" className="hidden lg:flex items-center gap-7 text-[13.5px] font-medium" style={{ color: onDarkMuted, fontFamily: FOREST_BODY }}>
+            {links.map((l, i) => {
+              const on = isActiveLink(l.href);
+              return (
+                <a key={i} href={l.href || "#"} onClick={forestAnchorClick(l.href)} className="forest-link relative py-1 no-underline" style={{ color: on ? cream : "inherit" }} aria-current={on ? "page" : undefined}>
+                  <InlineText as="span" value={l.label} onUpdate={updateLink ? (v) => updateLink(i, v) : undefined} />
+                  {on && <span aria-hidden className="absolute inset-x-0 -bottom-[2px] h-[2px] rounded-[2px]" style={{ background: pal.accentDeco }} />}
+                </a>
+              );
+            })}
           </nav>
         )}
         <div className="flex items-center gap-[22px]">
@@ -343,10 +370,10 @@ export function BlockForestHero({ props, brand, pageId, variantId, onCtaClick, o
             {p.showCard !== false && (
               <div className="relative" style={rise(0.41)}>
                 <div
-                  className="relative overflow-hidden rounded-[28px] p-[22px]"
-                  style={{ background: dark ? "rgba(255,252,239,0.06)" : "rgba(0,0,0,0.04)", border: `1px solid ${hairline}`, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", boxShadow: pal.shadowElev }}
+                  className="relative overflow-hidden rounded-[20px] p-[14px]"
+                  style={{ background: dark ? "rgba(255,252,239,0.06)" : "rgba(0,0,0,0.04)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", boxShadow: `${ring}, 0 2px 6px rgba(0,0,0,.12), 0 24px 60px rgba(0,0,0,.28)` }}
                 >
-                  <div className="relative overflow-hidden rounded-2xl" style={{ aspectRatio: "4 / 3", background: dark ? "rgba(0,0,0,0.25)" : pal.panel }}>
+                  <div className="relative overflow-hidden rounded-[12px]" style={{ aspectRatio: "4 / 3", background: dark ? "rgba(0,0,0,0.25)" : pal.panel, boxShadow: ring }}>
                     {(p.cardImageUrl || isEditor) ? (
                       <InlineImage
                         src={p.cardImageUrl ?? ""}
@@ -373,23 +400,25 @@ export function BlockForestHero({ props, brand, pageId, variantId, onCtaClick, o
                       </div>
                     )}
                   </div>
-                  <div className="mt-[18px] flex items-center justify-between gap-4 text-[13px]">
-                    <div className="min-w-0">
+                  {/* Label row (the v2 `.fl .k`): tiny uppercase title + accent dot, badge at the right */}
+                  <div className="mt-[14px] px-1.5 pb-1">
+                    <div className="flex items-center justify-between gap-3">
                       {(p.cardTitle || isEditor) && (
-                        <b className="block font-semibold" style={{ color: cream }}>
+                        <span className="inline-flex min-w-0 items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.08em]" style={{ color: onDarkMuted }}>
                           <InlineText as="span" value={p.cardTitle ?? ""} onUpdate={field("cardTitle")} />
-                        </b>
+                          <i aria-hidden className="inline-block h-[6px] w-[6px] shrink-0 rounded-full" style={{ background: pal.accentDeco }} />
+                        </span>
                       )}
-                      {(p.cardSub || isEditor) && (
-                        <span className="block" style={{ color: onDarkMuted }}>
-                          <InlineText as="span" value={p.cardSub ?? ""} onUpdate={field("cardSub")} />
+                      {(p.cardBadge || isEditor) && (
+                        <span className="inline-flex shrink-0 items-center gap-2 rounded-full px-2.5 py-[5px] text-[10.5px] font-semibold uppercase tracking-[0.1em]" style={{ background: pal.accentTint, color: dark ? pal.accentDeco : pal.accent }}>
+                          <span aria-hidden className="inline-block h-[6px] w-[6px] rounded-full forest-pulse" style={{ background: pal.accentDeco, boxShadow: `0 0 0 0 ${pal.accentDeco}` }} />
+                          <InlineText as="span" value={p.cardBadge ?? ""} onUpdate={field("cardBadge")} />
                         </span>
                       )}
                     </div>
-                    {(p.cardBadge || isEditor) && (
-                      <span className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-[7px] text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ background: pal.accentTint, color: pal.accent }}>
-                        <span aria-hidden className="inline-block h-[7px] w-[7px] rounded-full forest-pulse" style={{ background: pal.accentDeco, boxShadow: `0 0 0 0 ${pal.accentDeco}` }} />
-                        <InlineText as="span" value={p.cardBadge ?? ""} onUpdate={field("cardBadge")} />
+                    {(p.cardSub || isEditor) && (
+                      <span className="mt-1.5 block text-[13.5px] font-medium leading-[1.4]" style={{ color: cream }}>
+                        <InlineText as="span" value={p.cardSub ?? ""} onUpdate={field("cardSub")} />
                       </span>
                     )}
                   </div>
@@ -398,24 +427,38 @@ export function BlockForestHero({ props, brand, pageId, variantId, onCtaClick, o
             )}
           </div>
 
+          {/* Stat strip (the v2 `.stats`): one bordered strip, hairlines between the cells, label + index, number, caption, sparkline */}
           {stats.length > 0 && (
             <div
-              className={cn("grid grid-cols-2 gap-x-6 gap-y-7", stats.length >= 3 ? "md:grid-cols-4" : "md:grid-cols-2")}
-              style={{ marginTop: "clamp(56px, 7vw, 88px)", paddingTop: 32, borderTop: `1px solid ${hairline}`, ...rise(0.5) }}
+              className={cn("grid grid-cols-2 overflow-hidden rounded-[18px]", stats.length >= 3 ? "md:grid-cols-4" : "md:grid-cols-2")}
+              style={{ marginTop: "clamp(48px, 6vw, 72px)", border: `1px solid ${hairline}`, background: dark ? "rgba(255,252,239,0.035)" : pal.card, ...rise(0.5) }}
             >
-              {stats.map((s, i) => (
-                <div key={i}>
-                  <ForestNumber value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} className="block" style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(2rem, 3.4vw, 3rem)", color: cream }} />
-                  <span className="mt-2.5 block max-w-[22ch] text-[13px] leading-[1.45]" style={{ color: onDarkMuted }}>
-                    <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} />
-                  </span>
-                </div>
-              ))}
+              {stats.map((s, i) => {
+                return (
+                  <div key={i} className={cn("forest-stat relative min-w-0 px-6 pb-[22px] pt-6", stats.length >= 3 && "forest-stat-wide")}>
+                    {(s.kicker || isEditor) && (
+                      <div className="flex justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] sm:pr-16" style={{ color: onDarkMuted, opacity: 0.85 }}>
+                        <InlineText as="span" value={s.kicker ?? ""} onUpdate={updateStat ? (v) => updateStat(i, { kicker: v }) : undefined} />
+                        <span className="tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+                      </div>
+                    )}
+                    {s.spark && s.spark.length >= 2 && <ForestSparkline values={s.spark} color={pal.accentDeco} />}
+                    <ForestNumber value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} className="block" style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(2rem, 3.2vw, 2.8rem)", letterSpacing: "-0.035em", color: cream, marginTop: s.kicker || isEditor ? 12 : 0 }} />
+                    <span className="mt-2 block max-w-[22ch] text-[13px] leading-[1.4]" style={{ color: onDarkMuted }}>
+                      <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} />
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
-      <style>{`@keyframes forest-pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb, ${pal.accentDeco} 55%, transparent)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}} .forest-pulse{animation:forest-pulse 2.2s infinite} @media (prefers-reduced-motion: reduce){.forest-pulse{animation:none}}`}</style>
+      <style>{`@keyframes forest-pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb, ${pal.accentDeco} 55%, transparent)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}} .forest-pulse{animation:forest-pulse 2.2s infinite} @media (prefers-reduced-motion: reduce){.forest-pulse{animation:none}}
+        .forest-stat{border-right:1px solid ${hairline};border-bottom:1px solid ${hairline}}
+        .forest-stat:nth-child(2n){border-right:0}
+        .forest-stat:nth-last-child(-n+2){border-bottom:0}
+        @media (min-width:768px){.forest-stat-wide{border-bottom:0;border-right:1px solid ${hairline}} .forest-stat-wide:last-child{border-right:0}}`}</style>
     </section>
   );
 }

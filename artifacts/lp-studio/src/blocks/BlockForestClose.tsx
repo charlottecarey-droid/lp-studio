@@ -1,12 +1,10 @@
-import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
-import { mixHex } from "@/lib/section-ink";
-import { useStaticRender } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import {
-  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_CTA_DEFAULTS, FOREST_DISPLAY, FOREST_PILL, FOREST_SECTION_PAD,
-  ForestCheck, ForestCtaButtons, ForestEyebrow, ForestGrain, forestDisplay, resolveForestButtonColors, resolveForestPalette, useForestReveal,
+  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_CTA_DEFAULTS, FOREST_DISPLAY, FOREST_PILL,
+  ForestCtaButtons, ForestEyebrow, ForestGrain, forestDisplay, resolveForestButtonColors, resolveForestPalette, useForestReveal,
   type ForestCtaProps, type ForestPalette, type ForestStyleProps,
 } from "./forest/forest-theme";
 import { useForestForm, type ForestFormKey, type ForestFormStatus } from "./forest/use-forest-form";
@@ -17,15 +15,19 @@ import { cn } from "@/lib/utils";
  * Forest Close — type "forest-close"  (DSO Page family, Nov 2026)
  *
  * "Talk to the team": the page's lead-capture close on the deep-forest band
- * with two blurred orbs drifting behind. Left: eyebrow, display headline,
- * lede and up to four check-marked promises. Right, by `mode`:
- *   "form"   — a glass card with the artifact's fields (name, work email,
- *              organization, role, locations, lab strategy, what prompted
- *              this), posted label-keyed to /api/lp/leads with the page's
- *              attribution and, when a global form is linked, filed under
- *              that form's labels so its routing and redirect apply.
- *   "button" — a bordered card with a headline, a line and the CTA suite,
- *              so the close can open a global-form modal or Chili Piper.
+ * with the v2 texture — a 22px dot grid masked to the upper right and a
+ * soft accent glow orb low-left. Left: eyebrow, display headline, lede and
+ * up to four promises led by 22px translucent-accent check discs. Right, by
+ * `mode`:
+ *   "form"   — a glass card with a header strip ("Working session request ·
+ *              30 min · routed by group size") over the artifact's fields
+ *              (name, work email, organization, role, locations, lab
+ *              strategy, what prompted this), posted label-keyed to
+ *              /api/lp/leads with the page's attribution and, when a global
+ *              form is linked, filed under that form's labels so its routing
+ *              and redirect apply.
+ *   "button" — the same card with a headline, a line and the CTA suite, so
+ *              the close can open a global-form modal or Chili Piper.
  * In the builder the form never submits; every visible string edits in place.
  * -------------------------------------------------------------------------- */
 
@@ -44,6 +46,9 @@ export interface ForestCloseBlockProps extends ForestStyleProps, ForestCtaProps 
   promises?: ForestPromise[];
   /** "form" = the inline form card (default); "button" = headline + CTA buttons (modal / Chili Piper). */
   mode?: ForestCloseMode;
+  /** Header strip over the card: uppercase title left, a muted meta right (both empty = no strip). */
+  formTitle?: string;
+  formMeta?: string;
   nameLabel?: string;
   emailLabel?: string;
   orgLabel?: string;
@@ -92,6 +97,8 @@ export const FOREST_CLOSE_DEFAULT_PROPS: ForestCloseBlockProps = {
     { title: "Prefer to call?", body: "Enterprise team: 1-800-000-0000" },
   ],
   mode: "form",
+  formTitle: "Working session request",
+  formMeta: "30 min · routed by group size",
   nameLabel: "Name",
   emailLabel: "Work email",
   orgLabel: "Organization",
@@ -123,6 +130,7 @@ export const FOREST_CLOSE_DEFAULT_PROPS: ForestCloseBlockProps = {
 };
 
 const ERROR_RED = "#DC4949";
+const SECTION_PAD: React.CSSProperties = { paddingBlock: "clamp(72px, 8vw, 120px)" };
 
 interface FieldChrome {
   pal: ForestPalette;
@@ -219,8 +227,6 @@ export function BlockForestClose({ props, brand, pageId, variantId, onCtaClick, 
   const p = { ...FOREST_CLOSE_DEFAULT_PROPS, ...props };
   const pal = resolveForestPalette(p, brand, "#003A30");
   const isEditor = !!onFieldChange;
-  const reduced = useReducedMotion() ?? false;
-  const staticRender = useStaticRender();
   const { ref, rise } = useForestReveal<HTMLElement>();
   const { values, errors, status, set, submit } = useForestForm(p, { pageId, variantId, isEditor });
 
@@ -236,98 +242,121 @@ export function BlockForestClose({ props, brand, pageId, variantId, onCtaClick, 
   const onDarkMuted = dark ? "rgba(255,252,239,0.66)" : pal.muted;
   const hairline = dark ? "rgba(255,252,239,0.14)" : pal.hairline;
   const cardBg = dark ? "rgba(255,252,239,0.05)" : "rgba(0,0,0,0.03)";
-  const orbB = mixHex(pal.base, "#FFFFFF", 0.35);
-  const animate = !reduced && !staticRender;
+  const stripBg = dark ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.04)";
+  const dotInk = dark ? "rgba(255,252,239,0.08)" : "rgba(0,0,0,0.07)";
   const mode: ForestCloseMode = p.mode === "button" ? "button" : "form";
   const primary = resolveForestButtonColors(p, pal);
   const chrome: FieldChrome = { pal, dark, isEditor, status };
   const opts = (list: string[] | undefined) => (list ?? []).map((s) => s.trim()).filter(Boolean);
   const v = (k: keyof ForestLeadValues) => values[k] ?? "";
+  const showStrip = !!p.formTitle || !!p.formMeta || isEditor;
+
+  const cardStyle: React.CSSProperties = {
+    background: cardBg,
+    border: `1px solid ${hairline}`,
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+    boxShadow: dark ? "0 30px 80px rgba(0,0,0,0.25)" : pal.shadowElev,
+  };
+
+  const strip = showStrip && (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-[22px] py-4 text-[12px]" style={{ background: stripBg, borderBottom: `1px solid ${hairline}` }}>
+      <span className="font-semibold uppercase tracking-[0.08em]" style={{ color: cream }}>
+        <InlineText as="span" value={p.formTitle ?? ""} onUpdate={field("formTitle")} />
+      </span>
+      <span className="font-medium" style={{ color: onDarkMuted }}>
+        <InlineText as="span" value={p.formMeta ?? ""} onUpdate={field("formMeta")} />
+      </span>
+    </div>
+  );
 
   const formCard = (
-    <div
-      className="relative grid gap-4 rounded-[28px] p-6 sm:p-[30px]"
-      style={{ background: cardBg, border: `1px solid ${hairline}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
-    >
-      {status === "success" ? (
-        <div className="px-2.5 py-[30px] text-center" role="status" data-forest-success="true">
-          <b className="mb-2.5 block" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.6rem", fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: cream }}>
-            {p.successHeadline}
-          </b>
-          {p.successBody && <span className="block text-[12px] leading-[1.5]" style={{ color: onDarkMuted }}>{p.successBody}</span>}
-        </div>
-      ) : (
-        <form onSubmit={(e) => void submit(e)} noValidate className="grid gap-4" data-forest-form={isEditor ? "editor" : "live"}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ForestInput {...chrome} id="name" label={p.nameLabel || "Name"} onLabelChange={field("nameLabel")} value={v("name")} onChange={(x) => set("name", x)} invalid={errors.name} placeholder="Your name" autoComplete="name" required />
-            <ForestInput {...chrome} id="email" label={p.emailLabel || "Work email"} onLabelChange={field("emailLabel")} value={v("email")} onChange={(x) => set("email", x)} invalid={errors.email} type="email" placeholder="you@yourgroup.com" autoComplete="email" required />
+    <div className="relative overflow-hidden rounded-[20px]" style={cardStyle}>
+      {strip}
+      <div className="p-[22px] sm:p-6">
+        {status === "success" ? (
+          <div className="px-2.5 py-[30px] text-center" role="status" data-forest-success="true">
+            <b className="mb-2.5 block" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.6rem", fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: cream }}>
+              {p.successHeadline}
+            </b>
+            {p.successBody && <span className="block text-[12px] leading-[1.5]" style={{ color: onDarkMuted }}>{p.successBody}</span>}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ForestInput {...chrome} id="org" label={p.orgLabel || "Organization"} onLabelChange={field("orgLabel")} value={v("org")} onChange={(x) => set("org", x)} invalid={errors.org} placeholder="Group name" autoComplete="organization" required />
-            {(p.askRole ?? true) && (
-              <ForestSelect {...chrome} id="role" label={p.roleLabel || "Role"} onLabelChange={field("roleLabel")} value={v("role") || opts(p.roleOptions)[0] || ""} onChange={(x) => set("role", x)} options={opts(p.roleOptions)} />
-            )}
-          </div>
-          {((p.askLocations ?? true) || (p.askStage ?? true)) && (
+        ) : (
+          <form onSubmit={(e) => void submit(e)} noValidate className="grid gap-4" data-forest-form={isEditor ? "editor" : "live"}>
             <div className="grid gap-4 sm:grid-cols-2">
-              {(p.askLocations ?? true) && (
-                <ForestSelect {...chrome} id="locations" label={p.locationsLabel || "Locations"} onLabelChange={field("locationsLabel")} value={v("locations") || opts(p.locationOptions)[0] || ""} onChange={(x) => set("locations", x)} options={opts(p.locationOptions)} />
-              )}
-              {(p.askStage ?? true) && (
-                <ForestSelect {...chrome} id="stage" label={p.stageLabel || "Lab strategy today"} onLabelChange={field("stageLabel")} value={v("stage") || opts(p.stageOptions)[0] || ""} onChange={(x) => set("stage", x)} options={opts(p.stageOptions)} />
+              <ForestInput {...chrome} id="name" label={p.nameLabel || "Name"} onLabelChange={field("nameLabel")} value={v("name")} onChange={(x) => set("name", x)} invalid={errors.name} placeholder="Your name" autoComplete="name" required />
+              <ForestInput {...chrome} id="email" label={p.emailLabel || "Work email"} onLabelChange={field("emailLabel")} value={v("email")} onChange={(x) => set("email", x)} invalid={errors.email} type="email" placeholder="you@yourgroup.com" autoComplete="email" required />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ForestInput {...chrome} id="org" label={p.orgLabel || "Organization"} onLabelChange={field("orgLabel")} value={v("org")} onChange={(x) => set("org", x)} invalid={errors.org} placeholder="Group name" autoComplete="organization" required />
+              {(p.askRole ?? true) && (
+                <ForestSelect {...chrome} id="role" label={p.roleLabel || "Role"} onLabelChange={field("roleLabel")} value={v("role") || opts(p.roleOptions)[0] || ""} onChange={(x) => set("role", x)} options={opts(p.roleOptions)} />
               )}
             </div>
-          )}
-          {(p.askWhy ?? true) && (
-            <ForestSelect {...chrome} id="why" label={p.whyLabel || "What prompted this"} onLabelChange={field("whyLabel")} value={v("why") || opts(p.whyOptions)[0] || ""} onChange={(x) => set("why", x)} options={opts(p.whyOptions)} />
-          )}
-          {status === "error" && (
-            <p className="rounded-xl px-4 py-3 text-[13px]" style={{ background: "rgba(220,73,73,0.14)", color: dark ? "#FFD6D6" : "#8A2B2B", border: `1px solid ${ERROR_RED}` }}>Something went wrong sending that. Please try again.</p>
-          )}
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className={cn(FOREST_PILL, "mt-1.5 w-full disabled:opacity-70")}
-            style={{ background: primary.bg, color: primary.text, fontFamily: FOREST_BODY }}
-          >
-            <InlineText as="span" value={p.submitText || "Book the working session"} onUpdate={field("submitText")} />
-            {status === "loading" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />}
-          </button>
-          {(p.fineprint || isEditor) && (
-            <p className="text-[12px] leading-[1.5]" style={{ color: onDarkMuted, margin: 0 }}>
-              <InlineText as="span" value={p.fineprint ?? ""} onUpdate={field("fineprint")} multiline />
-            </p>
-          )}
-        </form>
-      )}
+            {((p.askLocations ?? true) || (p.askStage ?? true)) && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {(p.askLocations ?? true) && (
+                  <ForestSelect {...chrome} id="locations" label={p.locationsLabel || "Locations"} onLabelChange={field("locationsLabel")} value={v("locations") || opts(p.locationOptions)[0] || ""} onChange={(x) => set("locations", x)} options={opts(p.locationOptions)} />
+                )}
+                {(p.askStage ?? true) && (
+                  <ForestSelect {...chrome} id="stage" label={p.stageLabel || "Lab strategy today"} onLabelChange={field("stageLabel")} value={v("stage") || opts(p.stageOptions)[0] || ""} onChange={(x) => set("stage", x)} options={opts(p.stageOptions)} />
+                )}
+              </div>
+            )}
+            {(p.askWhy ?? true) && (
+              <ForestSelect {...chrome} id="why" label={p.whyLabel || "What prompted this"} onLabelChange={field("whyLabel")} value={v("why") || opts(p.whyOptions)[0] || ""} onChange={(x) => set("why", x)} options={opts(p.whyOptions)} />
+            )}
+            {status === "error" && (
+              <p className="rounded-xl px-4 py-3 text-[13px]" style={{ background: "rgba(220,73,73,0.14)", color: dark ? "#FFD6D6" : "#8A2B2B", border: `1px solid ${ERROR_RED}` }}>Something went wrong sending that. Please try again.</p>
+            )}
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className={cn(FOREST_PILL, "mt-1 w-full disabled:opacity-70")}
+              style={{ background: primary.bg, color: primary.text, fontFamily: FOREST_BODY, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35)" }}
+            >
+              <InlineText as="span" value={p.submitText || "Book the working session"} onUpdate={field("submitText")} />
+              {status === "loading" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />}
+            </button>
+            {(p.fineprint || isEditor) && (
+              <p className="text-center text-[12px] leading-[1.5]" style={{ color: onDarkMuted, margin: 0 }}>
+                <InlineText as="span" value={p.fineprint ?? ""} onUpdate={field("fineprint")} multiline />
+              </p>
+            )}
+          </form>
+        )}
+      </div>
     </div>
   );
 
   const buttonCard = (
-    <div className="relative rounded-[28px] p-6 sm:p-[30px]" style={{ background: cardBg, border: `1px solid ${hairline}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}>
-      {(p.buttonHeadline || isEditor) && (
-        <h3 style={forestDisplay("clamp(1.5rem, 2.4vw, 2rem)", cream)}>
-          <InlineText as="span" value={p.buttonHeadline ?? ""} onUpdate={field("buttonHeadline")} multiline />
-        </h3>
-      )}
-      {(p.buttonBody || isEditor) && (
-        <p className="mt-4 max-w-[46ch] text-[15.5px] leading-[1.6]" style={{ color: onDarkMuted, margin: "16px 0 0" }}>
-          <InlineText as="span" value={p.buttonBody ?? ""} onUpdate={field("buttonBody")} multiline />
-        </p>
-      )}
-      <ForestCtaButtons
-        props={p}
-        brand={brand}
-        palette={pal}
-        pageId={pageId}
-        variantId={variantId}
-        onCtaClick={onCtaClick}
-        onLabelChange={onFieldChange ? (k, val) => onFieldChange({ ...props, [k]: val }) : undefined}
-        source="forest-close"
-        className="mt-7"
-        primaryPlaceholder="Book the working session"
-        secondaryPlaceholder="See how it works"
-      />
+    <div className="relative overflow-hidden rounded-[20px]" style={cardStyle}>
+      {strip}
+      <div className="p-6 sm:p-[30px]">
+        {(p.buttonHeadline || isEditor) && (
+          <h3 style={forestDisplay("clamp(1.5rem, 2.4vw, 2rem)", cream)}>
+            <InlineText as="span" value={p.buttonHeadline ?? ""} onUpdate={field("buttonHeadline")} multiline />
+          </h3>
+        )}
+        {(p.buttonBody || isEditor) && (
+          <p className="mt-4 max-w-[46ch] text-[15.5px] leading-[1.6]" style={{ color: onDarkMuted, margin: "16px 0 0" }}>
+            <InlineText as="span" value={p.buttonBody ?? ""} onUpdate={field("buttonBody")} multiline />
+          </p>
+        )}
+        <ForestCtaButtons
+          props={p}
+          brand={brand}
+          palette={pal}
+          pageId={pageId}
+          variantId={variantId}
+          onCtaClick={onCtaClick}
+          onLabelChange={onFieldChange ? (k, val) => onFieldChange({ ...props, [k]: val }) : undefined}
+          source="forest-close"
+          className="mt-7"
+          primaryPlaceholder="Book the working session"
+          secondaryPlaceholder="See how it works"
+        />
+      </div>
     </div>
   );
 
@@ -337,24 +366,33 @@ export function BlockForestClose({ props, brand, pageId, variantId, onCtaClick, 
       id={p.anchorId || undefined}
       data-block="forest-close"
       className="forest-close relative overflow-hidden"
-      style={{ background: dark ? pal.deep : pal.bg, color: cream, fontFamily: FOREST_BODY, isolation: "isolate", ...FOREST_SECTION_PAD }}
+      style={{ background: dark ? pal.deep : pal.bg, color: cream, fontFamily: FOREST_BODY, isolation: "isolate", ...SECTION_PAD }}
     >
       <style>{`${FOREST_CSS}
-        @keyframes forest-drift{to{transform:translate(60px,40px)}}
-        .forest-close .forest-orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.22;pointer-events:none;z-index:0}
-        .forest-close .forest-orb-a{animation:forest-drift 18s ease-in-out infinite alternate}
-        .forest-close .forest-orb-b{animation:forest-drift 22s ease-in-out infinite alternate-reverse}
-        .forest-close .forest-orb-static{animation:none}
         .forest-close .forest-input::placeholder{color:${dark ? "rgba(255,252,239,0.35)" : pal.muted};opacity:1}
         .forest-close .forest-input:focus{outline:none;border-color:${pal.accentDeco};box-shadow:0 0 0 4px ${pal.accentTint}}
         .forest-close select.forest-input option{color:#111111;background:#FFFFFF}
-        @media (prefers-reduced-motion:reduce){.forest-close .forest-orb{animation:none}}
       `}</style>
-      <div aria-hidden className={cn("forest-orb forest-orb-a", !animate && "forest-orb-static")} style={{ width: 620, height: 620, background: pal.accentDeco, left: -160, top: -200 }} />
-      <div aria-hidden className={cn("forest-orb forest-orb-b", !animate && "forest-orb-static")} style={{ width: 520, height: 520, background: orbB, right: -140, bottom: -220 }} />
-      {dark && <ForestGrain />}
+      {/* The v2 texture: a 22px dot grid masked to the upper right, and a soft accent glow low-left. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: `radial-gradient(${dotInk} 1px, transparent 1px)`,
+          backgroundSize: "22px 22px",
+          maskImage: "radial-gradient(60% 60% at 70% 40%, #000, transparent)",
+          WebkitMaskImage: "radial-gradient(60% 60% at 70% 40%, #000, transparent)",
+          zIndex: 0,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute rounded-full"
+        style={{ width: 700, height: 700, left: -200, bottom: -400, background: `radial-gradient(closest-side, color-mix(in srgb, ${pal.accentDeco} 18%, transparent), transparent)`, zIndex: 0 }}
+      />
+      {dark && <ForestGrain opacity={0.04} />}
       <div className={cn(FOREST_CONTAINER, "relative")} style={{ zIndex: 1 }}>
-        <div className="grid gap-11 lg:grid-cols-2 lg:items-start lg:gap-20">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-start lg:gap-[72px]">
           <div className="min-w-0">
             {(p.eyebrow || isEditor) && (
               <motion.div {...rise(0)}>
@@ -364,22 +402,24 @@ export function BlockForestClose({ props, brand, pageId, variantId, onCtaClick, 
               </motion.div>
             )}
             {(p.headline || isEditor) && (
-              <motion.h2 {...rise(0.08)} className="mt-[22px] max-w-[14ch]" style={forestDisplay("clamp(2rem, 4vw, 3.25rem)", cream)}>
+              <motion.h2 {...rise(0.08)} className="mt-[18px] max-w-[16ch]" style={{ ...forestDisplay("clamp(1.9rem, 3.6vw, 3rem)", cream), margin: "18px 0 0" }}>
                 <InlineText as="span" value={p.headline ?? ""} onUpdate={field("headline")} multiline />
               </motion.h2>
             )}
             {(p.lede || isEditor) && (
-              <motion.p {...rise(0.16)} className="mt-5 max-w-[60ch]" style={{ fontSize: "clamp(1.05rem, 1.4vw, 1.25rem)", lineHeight: 1.6, color: onDarkMuted, margin: "20px 0 0" }}>
+              <motion.p {...rise(0.16)} className="max-w-[46ch]" style={{ fontSize: "clamp(1.05rem, 1.4vw, 1.25rem)", lineHeight: 1.5, color: onDarkMuted, margin: "16px 0 0" }}>
                 <InlineText as="span" value={p.lede ?? ""} onUpdate={field("lede")} multiline />
               </motion.p>
             )}
             {promises.length > 0 && (
-              <motion.div {...rise(0.24)} className="mt-[34px] grid gap-3.5 text-[14.5px]" style={{ color: onDarkMuted }}>
+              <motion.div {...rise(0.24)} className="mt-7 grid gap-3 text-[14px]" style={{ color: onDarkMuted }}>
                 {promises.map((x, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <ForestCheck color={pal.accentDeco} className="mt-[2px]" />
+                  <div key={i} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+                    <span aria-hidden className="mt-[1px] grid h-[22px] w-[22px] place-items-center rounded-full" style={{ background: `color-mix(in srgb, ${pal.accentDeco} 16%, transparent)`, color: pal.accent }}>
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                    </span>
                     <span className="leading-[1.55]">
-                      <b className="font-semibold" style={{ color: cream }}>
+                      <b className="font-medium" style={{ color: cream }}>
                         <InlineText as="span" value={x.title ?? ""} onUpdate={updatePromise ? (val) => updatePromise(i, { title: val }) : undefined} />
                       </b>
                       {(x.body || isEditor) && (

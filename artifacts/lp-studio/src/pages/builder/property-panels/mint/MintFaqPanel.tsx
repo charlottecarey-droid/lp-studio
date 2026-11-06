@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, ItemHeader, PanelSection, moveItem } from "../forest/ForestPanelKit";
+import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, ItemHeader, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
 
 interface Props {
   props: MintFaqBlockProps;
@@ -34,6 +34,10 @@ export function MintFaqPanel({ props, onChange, ctaSource }: Props) {
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("mint-faq", "headline", props.headline ?? "", {})} />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Eyebrow" value={props.eyebrow} onChange={(v) => update({ eyebrow: v })} placeholder="Questions" />
+          <TextField label="Eyebrow suffix (muted)" value={props.eyebrowSuffix} onChange={(v) => update({ eyebrowSuffix: v })} placeholder="· In the order procurement asks them" />
+        </div>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="faq" />
       </PanelSection>
 
@@ -51,6 +55,10 @@ export function MintFaqPanel({ props, onChange, ctaSource }: Props) {
 
       <PanelSection title="Behaviour">
         <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">Number the questions (01, 02 …)</Label>
+          <Switch checked={props.numbered !== false} onCheckedChange={(v) => update({ numbered: v })} />
+        </div>
+        <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">First question starts open</Label>
           <Switch checked={props.openFirst !== false} onCheckedChange={(v) => update({ openFirst: v })} />
         </div>
@@ -62,7 +70,7 @@ export function MintFaqPanel({ props, onChange, ctaSource }: Props) {
 
       <ForestCtaSection value={props} onChange={onChange} ctaSource={ctaSource} title="Links under the list" defaultOpen={false} primaryPlaceholder="Ask the enterprise team" secondaryPlaceholder="See the proof" />
 
-      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#F5F5F3" hint="Pale grey by default" />
+      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#F5F5F3" hint="Pale grey by default; the questions sit in a white card" />
     </div>
   );
 }

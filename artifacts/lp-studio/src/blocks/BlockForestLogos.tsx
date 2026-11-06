@@ -25,6 +25,8 @@ export interface ForestLogo {
 }
 
 export interface ForestLogosBlockProps extends ForestStyleProps {
+  /** Tiny uppercase label above the caption ("Trusted by"); blank hides it. */
+  captionLabel?: string;
   /** Short line at the left of the strip (220px column on desktop). */
   caption?: string;
   /** 3–14 customer marks; no image = a display-face wordmark. */
@@ -50,7 +52,8 @@ interface Props {
 }
 
 export const FOREST_LOGOS_DEFAULT_PROPS: ForestLogosBlockProps = {
-  caption: "Trusted by the groups that run lab strategy as a discipline, from 20 locations to 400.",
+  captionLabel: "Trusted by",
+  caption: "The groups that run lab strategy as a discipline, from 20 locations to 400.",
   logos: [
     { name: "Northwind Dental Partners" },
     { name: "Harbor Smiles Group" },
@@ -120,8 +123,8 @@ export function BlockForestLogos({ props, brand, onFieldChange }: Props) {
     ) : null;
 
     const wordmark = (!logo.imageUrl || editable) && (
-      <span className="inline-flex items-center gap-2.5 whitespace-nowrap" style={{ fontFamily: FOREST_DISPLAY, fontSize: 21, letterSpacing: "-0.02em", color: markColor, lineHeight: 1 }}>
-        <i aria-hidden className="inline-block h-[9px] w-[9px] shrink-0 rotate-45 rounded-[2px]" style={{ background: markColor, opacity: 0.5 }} />
+      <span className="inline-flex items-center gap-2 whitespace-nowrap" style={{ fontFamily: FOREST_DISPLAY, fontSize: 17, letterSpacing: "-0.01em", color: markColor, lineHeight: 1 }}>
+        <i aria-hidden className="inline-block h-[7px] w-[7px] shrink-0 rotate-45 rounded-[1.5px]" style={{ background: markColor, opacity: 0.45 }} />
         {live ? (
           <InlineText as="span" value={logo.name} onUpdate={updateLogo ? (v) => updateLogo(i, { name: v }) : undefined} />
         ) : (
@@ -153,7 +156,7 @@ export function BlockForestLogos({ props, brand, onFieldChange }: Props) {
   };
 
   const copy = (live: boolean) => (
-    <div className={cn("flex shrink-0 items-center gap-14", !live && "pl-14")} aria-hidden={live ? undefined : true}>
+    <div className={cn("flex shrink-0 items-center gap-12", !live && "pl-12")} aria-hidden={live ? undefined : true}>
       {logos.map((l, i) => renderMark(l, i, live))}
     </div>
   );
@@ -177,14 +180,23 @@ export function BlockForestLogos({ props, brand, onFieldChange }: Props) {
         @media (prefers-reduced-motion: reduce) { .forest-marquee-track { animation: none; } }
       `}</style>
       <div className={cn(FOREST_CONTAINER, "grid gap-[22px] min-[900px]:grid-cols-[220px_minmax(0,1fr)] min-[900px]:items-center min-[900px]:gap-10")}>
-        {(p.caption || isEditor) && (
-          <p className="m-0 text-[13px] leading-[1.5]" style={{ color: pal.muted }}>
-            <InlineText as="span" value={p.caption ?? ""} onUpdate={field("caption")} multiline />
-          </p>
+        {(p.caption || p.captionLabel || isEditor) && (
+          <div className="min-w-0">
+            {(p.captionLabel || isEditor) && (
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: pal.muted, opacity: 0.8 }}>
+                <InlineText as="span" value={p.captionLabel ?? ""} onUpdate={field("captionLabel")} />
+              </span>
+            )}
+            {(p.caption || isEditor) && (
+              <p className="m-0 text-[13px] leading-[1.5]" style={{ color: pal.muted }}>
+                <InlineText as="span" value={p.caption ?? ""} onUpdate={field("caption")} multiline />
+              </p>
+            )}
+          </div>
         )}
         {logos.length > 0 && (
           reduced ? (
-            <div className="flex flex-wrap items-center gap-x-10 gap-y-4 min-w-0">
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 min-w-0">
               {logos.map((l, i) => renderMark(l, i, true))}
             </div>
           ) : (

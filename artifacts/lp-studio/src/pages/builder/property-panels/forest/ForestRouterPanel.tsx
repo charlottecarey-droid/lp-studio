@@ -42,6 +42,10 @@ export function ForestRouterPanel({ props, onChange }: Props) {
           <AiTextField value={props.lede ?? ""} onChange={(v) => update({ lede: v })} rows={3} className="text-xs" fieldLabel="Lede"
             onSuggest={() => suggestCopy("forest-router", "lede", props.lede ?? "", { headline: props.headline ?? "" })} />
         </Field>
+        <div className="grid grid-cols-2 gap-1.5">
+          <Field label="Header link (blank hides it)"><Input value={props.headerLinkText ?? ""} onChange={(e) => update({ headerLinkText: e.target.value })} placeholder="Not sure? Talk to us" className="h-7 text-xs" /></Field>
+          <Field label="Link URL"><Input value={props.headerLinkUrl ?? ""} onChange={(e) => update({ headerLinkUrl: e.target.value })} placeholder="#talk or https://" className="h-7 text-xs font-mono" /></Field>
+        </div>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="start" />
       </PanelSection>
 
@@ -78,7 +82,7 @@ export function ForestRouterPanel({ props, onChange }: Props) {
         </Field>
       </PanelSection>
 
-      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#FFFFFF" hint="A white band; cards keep a hairline border" />
+      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#FFFFFF" hint="A white band; cards sit in a hairline ring with a soft shadow" />
     </div>
   );
 }

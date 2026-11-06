@@ -84,6 +84,11 @@ export function ForestClosePanel({ props, onChange, ctaSource }: Props) {
         </p>
       </PanelSection>
 
+      <PanelSection title="Card header strip" hint="The strip across the top of the card: an uppercase title left, a muted meta right. Clear both to drop it.">
+        <TextField label="Title" value={props.formTitle} onChange={(v) => update({ formTitle: v })} placeholder="Working session request" />
+        <TextField label="Meta" value={props.formMeta} onChange={(v) => update({ formMeta: v })} placeholder="30 min · routed by group size" />
+      </PanelSection>
+
       <PanelSection title="Form fields (form mode)" defaultOpen={mode === "form"}>
         <div className="grid grid-cols-2 gap-2">
           <TextField label="Name label" value={props.nameLabel} onChange={(v) => update({ nameLabel: v })} placeholder="Name" />

@@ -1,11 +1,13 @@
-import type { ForestConvergenceBlockProps } from "@/blocks/BlockForestConvergence";
+import { FOREST_CONVERGENCE_MAX_LEDGER, type ForestConvergenceBlockProps, type ForestLedgerRow } from "@/blocks/BlockForestConvergence";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ImagePicker } from "@/components/ImagePicker";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AnchorField, Field, ForestStyleSection, PanelSection, TextField } from "./ForestPanelKit";
+import { AddButton, AnchorField, Field, ForestStyleSection, ItemHeader, PanelSection, TextField, moveItem } from "./ForestPanelKit";
 
 interface Props {
   props: ForestConvergenceBlockProps;
@@ -17,6 +19,9 @@ const num = (v: string, fallback: number) => { const n = Number(v); return Numbe
 
 export function ForestConvergencePanel({ props, onChange }: Props) {
   const update = (patch: Partial<ForestConvergenceBlockProps>) => onChange({ ...props, ...patch });
+  const ledger = props.ledger ?? [];
+  const setLedger = (next: ForestLedgerRow[]) => update({ ledger: next });
+  const patchRow = (i: number, patch: Partial<ForestLedgerRow>) => setLedger(ledger.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   return (
     <div className="space-y-3">
@@ -61,6 +66,24 @@ export function ForestConvergencePanel({ props, onChange }: Props) {
           </Field>
           <TextField label="Count label" value={props.labelAfter} onChange={(v) => update({ labelAfter: v })} placeholder="lab system, every location" />
         </div>
+      </PanelSection>
+
+      <PanelSection title={`Ledger (${ledger.length} of ${FOREST_CONVERGENCE_MAX_LEDGER})`} hint="The glass card beside the copy: a label and a big number per row. Leave it empty to show the canvas alone.">
+        {ledger.map((r, i) => (
+          <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
+            <ItemHeader label={r.label || `Row ${i + 1}`} index={i} total={ledger.length} onMove={(d) => setLedger(moveItem(ledger, i, d))} onRemove={() => setLedger(ledger.filter((_, idx) => idx !== i))} />
+            <div className="grid grid-cols-[minmax(0,1fr)_84px] gap-1.5">
+              <Input value={r.label} onChange={(e) => patchRow(i, { label: e.target.value })} placeholder="Labs across a typical group" className="h-7 text-xs" />
+              <Input value={r.value} onChange={(e) => patchRow(i, { value: e.target.value })} placeholder="11–25" className="h-7 text-xs font-mono" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] text-muted-foreground">Number in the accent colour</Label>
+              <Switch checked={!!r.highlight} onCheckedChange={(v) => patchRow(i, { highlight: v })} />
+            </div>
+          </div>
+        ))}
+        <AddButton label="Add row" disabled={ledger.length >= FOREST_CONVERGENCE_MAX_LEDGER} onClick={() => setLedger([...ledger, { label: "", value: "", highlight: false }])} />
+        <TextField label="Arrow row (shown before the last row)" value={props.ledgerArrowText} onChange={(v) => update({ ledgerArrowText: v })} placeholder="With one system" />
       </PanelSection>
 
       <PanelSection title="Network canvas" hint="The builder shows the canvas paused part-way; the live page drives it with the scroll">

@@ -39,6 +39,10 @@ export function ForestReadingPanel({ props, onChange }: Props) {
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("forest-reading", "headline", props.headline ?? "", { eyebrow: props.eyebrow ?? "" })} />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Header link text" value={props.headerLinkText} onChange={(v) => update({ headerLinkText: v })} placeholder="Library" />
+          <TextField label="Header link URL" value={props.headerLinkUrl} onChange={(v) => update({ headerLinkUrl: v })} placeholder="https:// or #section" />
+        </div>
         <Field label="Tiles per row (desktop)">
           <Select value={String(props.columns === 2 ? 2 : 3)} onValueChange={(v) => update({ columns: v === "2" ? 2 : 3 })}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -64,6 +68,9 @@ export function ForestReadingPanel({ props, onChange }: Props) {
             <Field label="Excerpt">
               <Textarea value={t.body ?? ""} onChange={(e) => setTile(i, { body: e.target.value })} rows={3} className="text-xs" />
             </Field>
+            <Field label="Meta line (bottom-left of the tile)">
+              <Input value={t.meta ?? ""} onChange={(e) => setTile(i, { meta: e.target.value })} placeholder="6 min read" className="h-7 text-xs" />
+            </Field>
             <div className="grid grid-cols-2 gap-1.5">
               <Field label="Link text">
                 <Input value={t.linkText ?? ""} onChange={(e) => setTile(i, { linkText: e.target.value })} placeholder="Read the story" className="h-7 text-xs" />
@@ -82,7 +89,7 @@ export function ForestReadingPanel({ props, onChange }: Props) {
             )}
           </div>
         ))}
-        <AddButton label="Add tile" disabled={tiles.length >= MAX_TILES} onClick={() => setTiles([...tiles, { kicker: "Guide", title: "New resource", body: "", linkText: "Read more", linkUrl: "#", imageUrl: "", imageAlt: "" }])} />
+        <AddButton label="Add tile" disabled={tiles.length >= MAX_TILES} onClick={() => setTiles([...tiles, { kicker: "Guide", title: "New resource", body: "", meta: "", linkText: "Read more", linkUrl: "#", imageUrl: "", imageAlt: "" }])} />
         {tiles.length <= MIN_TILES && <p className="text-[10px] text-muted-foreground">Keep at least {MIN_TILES} tiles.</p>}
       </PanelSection>
 

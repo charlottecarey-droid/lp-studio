@@ -29,7 +29,11 @@ export function MintStoryPanel({ props, onChange }: Props) {
         onApply={(u) => update(u)}
       />
 
-      <PanelSection title="Copy" defaultOpen>
+      <PanelSection title="Copy" defaultOpen hint="The header row: a lime-dot eyebrow with a muted suffix, the headline, and the story link on the right">
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Eyebrow" value={props.eyebrow} onChange={(v) => update({ eyebrow: v })} placeholder="Customer story" />
+          <TextField label="Eyebrow suffix" value={props.eyebrowSuffix} onChange={(v) => update({ eyebrowSuffix: v })} placeholder="· Northwind Health" />
+        </div>
         <Field label="Headline">
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("mint-story", "headline", props.headline ?? "", { quote: props.quote ?? "" })} />
@@ -43,6 +47,7 @@ export function MintStoryPanel({ props, onChange }: Props) {
           <TextField label="Role" value={props.citeRole} onChange={(v) => update({ citeRole: v })} placeholder="Chief Clinical Officer" />
           <TextField label="Organisation" value={props.citeOrg} onChange={(v) => update({ citeOrg: v })} placeholder="Northwind Health" />
         </div>
+        <TextField label="Avatar initial (blank = first letter of the organisation)" value={props.citeInitial} onChange={(v) => update({ citeInitial: v })} placeholder="N" />
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="story" />
       </PanelSection>
 
@@ -58,7 +63,10 @@ export function MintStoryPanel({ props, onChange }: Props) {
         <TextField label="Caption title" value={props.posterTitle} onChange={(v) => update({ posterTitle: v })} placeholder="The Northwind Health story" />
         <TextField label="Caption line" value={props.posterSub} onChange={(v) => update({ posterSub: v })} placeholder="A mobile dental group, 6,000 denture cases a year" />
         <div className="grid grid-cols-2 gap-2">
-          <TextField label="Duration" value={props.duration} onChange={(v) => update({ duration: v })} placeholder="3:40" />
+          <TextField label="Tag pill (top-left)" value={props.tag} onChange={(v) => update({ tag: v })} placeholder="Film" />
+          <TextField label="Duration (after the tag, and in the bar)" value={props.duration} onChange={(v) => update({ duration: v })} placeholder="3:40" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
           <Field label="Video side (desktop)">
             <Select value={props.mediaSide ?? "left"} onValueChange={(v) => update({ mediaSide: v as MintStoryBlockProps["mediaSide"] })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -68,10 +76,11 @@ export function MintStoryPanel({ props, onChange }: Props) {
               </SelectContent>
             </Select>
           </Field>
+          <div />
         </div>
       </PanelSection>
 
-      <PanelSection title={`Numbers (${stats.length} of ${MINT_STORY_MAX_STATS})`} hint="Outcome numbers under the cite; they count up on the live page">
+      <PanelSection title={`Numbers (${stats.length} of ${MINT_STORY_MAX_STATS})`} hint="Outcome numbers under the cite as three ringed tiles; they count up on the live page">
         {stats.map((s, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={s.value || `Number ${i + 1}`} index={i} total={stats.length} onMove={(d) => setStats(moveItem(stats, i, d))} onRemove={() => setStats(stats.filter((_, idx) => idx !== i))} />
@@ -84,7 +93,7 @@ export function MintStoryPanel({ props, onChange }: Props) {
         <AddButton label="Add number" disabled={stats.length >= MINT_STORY_MAX_STATS} onClick={() => setStats([...stats, { value: "", label: "" }])} />
       </PanelSection>
 
-      <PanelSection title="Link" hint="The quiet chevron link under the numbers. Blank = no link.">
+      <PanelSection title="Link" hint="The quiet chevron link at the right of the header row. Blank = no link.">
         <div className="grid grid-cols-2 gap-2">
           <TextField label="Link text" value={props.linkText} onChange={(v) => update({ linkText: v })} placeholder="Read the Northwind story" />
           <Field label="Link URL">

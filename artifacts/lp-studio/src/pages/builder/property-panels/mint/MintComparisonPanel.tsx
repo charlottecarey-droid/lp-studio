@@ -35,23 +35,33 @@ export function MintComparisonPanel({ props, onChange, ctaSource }: Props) {
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("mint-comparison", "headline", props.headline ?? "", { providerLabel: props.providerLabel ?? "" })} />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Eyebrow" value={props.eyebrow} onChange={(v) => update({ eyebrow: v })} placeholder="Side by side" />
+          <TextField label="Eyebrow suffix (muted)" value={props.eyebrowSuffix} onChange={(v) => update({ eyebrowSuffix: v })} placeholder="· Per location" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Header link text" value={props.headerLinkText} onChange={(v) => update({ headerLinkText: v })} placeholder="Full pricing" />
+          <TextField label="Header link URL" value={props.headerLinkUrl} onChange={(v) => update({ headerLinkUrl: v })} placeholder="#pricing" />
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">The link sits at the right of the headline on wide screens. Clear the text to hide it.</p>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="compare" />
       </PanelSection>
 
       <PanelSection title="Columns" defaultOpen>
         <div className="grid grid-cols-2 gap-2">
           <TextField label="First column" value={props.firstColumnLabel} onChange={(v) => update({ firstColumnLabel: v })} placeholder="Per location" />
-          <TextField label="Your column (set in ink)" value={props.providerLabel} onChange={(v) => update({ providerLabel: v })} placeholder="Our platform" />
+          <TextField label="Your column (green header)" value={props.providerLabel} onChange={(v) => update({ providerLabel: v })} placeholder="Our platform" />
           <TextField label="Column B" value={props.columnBLabel} onChange={(v) => update({ columnBLabel: v })} placeholder="Traditional lab network" />
           <TextField label="Column C" value={props.columnCLabel} onChange={(v) => update({ columnCLabel: v })} placeholder="In-office milling" />
         </div>
+        <TextField label="Your column sub-label (lime, under the header)" value={props.providerSubLabel} onChange={(v) => update({ providerSubLabel: v })} placeholder="The lab and the platform" />
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">Show column C</Label>
           <Switch checked={showC} onCheckedChange={(v) => update({ showColumnC: v })} />
         </div>
       </PanelSection>
 
-      <PanelSection title={`Rows (${rows.length} of ${MINT_COMPARISON_MAX_ROWS})`} defaultOpen hint={'Start a cell with "✓ " to draw the green check dot in front of the text'}>
+      <PanelSection title={`Rows (${rows.length} of ${MINT_COMPARISON_MAX_ROWS})`} defaultOpen hint={'Start a cell with "✓ " to draw the green check dot in front of the text. The other columns open with a short dash.'}>
         {rows.map((r, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={r.need || `Row ${i + 1}`} index={i} total={rows.length} onMove={(d) => setRows(moveItem(rows, i, d))} onRemove={() => { if (rows.length > MINT_COMPARISON_MIN_ROWS) setRows(rows.filter((_, idx) => idx !== i)); }} />
@@ -69,7 +79,7 @@ export function MintComparisonPanel({ props, onChange, ctaSource }: Props) {
 
       <ForestCtaSection value={props} onChange={onChange} ctaSource={ctaSource} title="Links under the table" defaultOpen={false} primaryPlaceholder="Talk to the enterprise team" secondaryPlaceholder="See the proof" />
 
-      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#F5F5F3" hint="Pale grey by default; the table stays a plain hairline grid on any surface" />
+      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#F5F5F3" hint="Pale grey by default; the table sits in a white card on any surface" />
     </div>
   );
 }

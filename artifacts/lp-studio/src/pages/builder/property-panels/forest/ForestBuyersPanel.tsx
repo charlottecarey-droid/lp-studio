@@ -19,7 +19,10 @@ export function ForestBuyersPanel({ props, onChange }: Props) {
   const update = (patch: Partial<ForestBuyersBlockProps>) => onChange({ ...props, ...patch });
   const steps = props.steps ?? [];
   const setSteps = (next: ForestBuyerStep[]) => update({ steps: next });
+  const patchStep = (i: number, patch: Partial<ForestBuyerStep>) => setSteps(steps.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   const capItems = (v: string[]) => v.slice(0, FOREST_BUYERS_MAX_ITEMS);
+  /** "A, B, C" → chips; a trailing comma keeps an empty chip so the user can keep typing. */
+  const splitChips = (v: string) => v.split(",").map((s) => s.trimStart());
 
   return (
     <div className="space-y-3">
@@ -36,6 +39,10 @@ export function ForestBuyersPanel({ props, onChange }: Props) {
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("forest-buyers", "headline", props.headline ?? "", { eyebrow: props.eyebrow ?? "" })} />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Header link text" value={props.headerLinkText} onChange={(v) => update({ headerLinkText: v })} placeholder="The rollout plan" />
+          <TextField label="Header link URL" value={props.headerLinkUrl} onChange={(v) => update({ headerLinkUrl: v })} placeholder="https:// or #section" />
+        </div>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="rollout" />
       </PanelSection>
 
@@ -51,7 +58,7 @@ export function ForestBuyersPanel({ props, onChange }: Props) {
         <ListField label={`Bullets (${(props.rightItems ?? []).length} of ${FOREST_BUYERS_MAX_ITEMS})`} value={props.rightItems ?? []} onChange={(v) => update({ rightItems: capItems(v) })} hint={`One per line, up to ${FOREST_BUYERS_MAX_ITEMS}.`} />
       </PanelSection>
 
-      <PanelSection title={`Rollout steps (${steps.length} of ${FOREST_BUYERS_MAX_STEPS})`} hint="The hairline strip under the halves; each bar fills as it scrolls into view">
+      <PanelSection title={`Rollout steps (${steps.length} of ${FOREST_BUYERS_MAX_STEPS})`} hint="The timeline under the halves: a numbered dot per step on a line that fills as it scrolls into view">
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">Show the steps</Label>
           <Switch checked={props.showSteps !== false} onCheckedChange={(v) => update({ showSteps: v })} />
@@ -59,15 +66,19 @@ export function ForestBuyersPanel({ props, onChange }: Props) {
         {steps.map((s, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={s.kicker || s.title || `Step ${i + 1}`} index={i} total={steps.length} onMove={(d) => setSteps(moveItem(steps, i, d))} onRemove={() => setSteps(steps.filter((_, idx) => idx !== i))} />
-            <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-1.5">
-              <Input value={s.num} onChange={(e) => setSteps(steps.map((x, idx) => idx === i ? { ...x, num: e.target.value } : x))} placeholder="01" className="h-7 text-xs font-mono" />
-              <Input value={s.kicker} onChange={(e) => setSteps(steps.map((x, idx) => idx === i ? { ...x, kicker: e.target.value } : x))} placeholder="Align" className="h-7 text-xs" />
+            <div className="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)] gap-1.5">
+              <Input value={s.num} onChange={(e) => patchStep(i, { num: e.target.value })} placeholder="01" className="h-7 text-xs font-mono" />
+              <Input value={s.when ?? ""} onChange={(e) => patchStep(i, { when: e.target.value })} placeholder="Week 1" className="h-7 text-xs" />
+              <Input value={s.kicker} onChange={(e) => patchStep(i, { kicker: e.target.value })} placeholder="Align" className="h-7 text-xs" />
             </div>
-            <Input value={s.title} onChange={(e) => setSteps(steps.map((x, idx) => idx === i ? { ...x, title: e.target.value } : x))} placeholder="Pick the sites and the metrics." className="h-7 text-xs" />
-            <Textarea value={s.body} onChange={(e) => setSteps(steps.map((x, idx) => idx === i ? { ...x, body: e.target.value } : x))} rows={2} placeholder="What happens in this step" className="text-xs" />
+            <Input value={s.title} onChange={(e) => patchStep(i, { title: e.target.value })} placeholder="Pick the sites and the metrics." className="h-7 text-xs" />
+            <Textarea value={s.body} onChange={(e) => patchStep(i, { body: e.target.value })} rows={2} placeholder="What happens in this step" className="text-xs" />
+            <Field label="Who is in the room (comma-separated chips)">
+              <Input value={(s.who ?? []).join(", ")} onChange={(e) => patchStep(i, { who: splitChips(e.target.value) })} placeholder="Clinical leadership, Procurement" className="h-7 text-xs" />
+            </Field>
           </div>
         ))}
-        <AddButton label="Add step" disabled={steps.length >= FOREST_BUYERS_MAX_STEPS} onClick={() => setSteps([...steps, { num: String(steps.length + 1).padStart(2, "0"), kicker: "", title: "", body: "" }])} />
+        <AddButton label="Add step" disabled={steps.length >= FOREST_BUYERS_MAX_STEPS} onClick={() => setSteps([...steps, { num: String(steps.length + 1).padStart(2, "0"), kicker: "", when: "", title: "", body: "", who: [] }])} />
         {steps.length <= FOREST_BUYERS_MIN_STEPS && <p className="text-[10px] text-muted-foreground">Keep at least {FOREST_BUYERS_MIN_STEPS} steps, or switch the strip off.</p>}
       </PanelSection>
 

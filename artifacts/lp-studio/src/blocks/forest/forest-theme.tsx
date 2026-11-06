@@ -292,3 +292,55 @@ export const FOREST_GRAIN = `url("data:image/svg+xml;utf8,<svg xmlns='http://www
 export function ForestGrain({ opacity = 0.05 }: { opacity?: number }) {
   return <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: FOREST_GRAIN, backgroundSize: "180px 180px", opacity, zIndex: 0 }} />;
 }
+
+/* ── v2 refinements (Nov 2026): rings, section header rows, chrome ── */
+
+/** 1px inset ring that keeps light cards crisp on sand/white (the v2 `--ring`). */
+export const FOREST_RING = "inset 0 0 0 1px rgba(0,38,31,.06)";
+export const FOREST_RING_DARK = "inset 0 0 0 1px rgba(255,252,239,.12)";
+
+/** Card surface for the section: white on light bands, lifted on dark; ring + the section's soft shadow. */
+export function forestCard(palette: ForestPalette, opts: { lift?: boolean; radius?: number; background?: string } = {}): CSSProperties {
+  return {
+    background: opts.background ?? palette.card,
+    borderRadius: opts.radius ?? 22,
+    boxShadow: `${palette.dark ? FOREST_RING_DARK : FOREST_RING}, ${opts.lift ? palette.shadowHover : palette.shadowCard}`,
+  };
+}
+
+/**
+ * Section header row: eyebrow + headline (+ lede) left, a quiet uppercase
+ * arrow link on the headline's baseline at the right (≥800px). Nodes in, so
+ * blocks keep their own InlineText wiring.
+ */
+export function ForestSectionHeader({ eyebrow, headline, lede, link, className, gap = "clamp(32px, 4vw, 48px)" }: { eyebrow?: ReactNode; headline: ReactNode; lede?: ReactNode; link?: ReactNode; className?: string; gap?: string }) {
+  return (
+    <div className={cn("grid items-end gap-3.5 min-[800px]:grid-cols-[minmax(0,1fr)_auto]", className)} style={{ marginBottom: gap }}>
+      <div className="min-w-0">
+        {eyebrow && <div className="mb-[18px]">{eyebrow}</div>}
+        {headline}
+        {lede}
+      </div>
+      {link && <div className="pb-1.5">{link}</div>}
+    </div>
+  );
+}
+
+/** Browser-window chrome strip (three dots, a title, a right-aligned meta) for UI frames. */
+export function ForestChrome({ palette, title, right, className }: { palette: ForestPalette; title?: ReactNode; right?: ReactNode; className?: string }) {
+  const onDark = palette.dark;
+  return (
+    <div className={cn("flex items-center gap-2 px-3.5 py-2.5 text-[11.5px] font-medium", className)} style={{ borderBottom: `1px solid ${onDark ? "rgba(255,252,239,0.12)" : palette.hairline}`, color: palette.muted, fontFamily: FOREST_BODY }}>
+      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "#E6B9B0" }} />
+      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "#EAD7A4" }} />
+      <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: "#BFD8C8" }} />
+      {title && <span className="ml-2 min-w-0 truncate">{title}</span>}
+      {right && <span className="ml-auto whitespace-nowrap tabular-nums" style={{ opacity: 0.7 }}>{right}</span>}
+    </div>
+  );
+}
+
+/** Dash shown before a competitor cell ("— $40–75K") so the provider column's check reads as the contrast. */
+export function ForestDash({ color }: { color: string }) {
+  return <span aria-hidden className="mr-2 inline-block h-[2px] w-3.5 rounded-[1px] align-middle" style={{ background: color }} />;
+}

@@ -39,6 +39,10 @@ export function ForestComparisonPanel({ props, onChange, ctaSource }: Props) {
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("forest-comparison", "headline", props.headline ?? "", { eyebrow: props.eyebrow ?? "" })} />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Header link text" value={props.headerLinkText} onChange={(v) => update({ headerLinkText: v })} placeholder="Full pricing" />
+          <TextField label="Header link URL" value={props.headerLinkUrl} onChange={(v) => update({ headerLinkUrl: v })} placeholder="https:// or #section" />
+        </div>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="compare" />
       </PanelSection>
 
@@ -49,6 +53,7 @@ export function ForestComparisonPanel({ props, onChange, ctaSource }: Props) {
           <TextField label="Column B" value={props.columnBLabel} onChange={(v) => update({ columnBLabel: v })} placeholder="Traditional lab network" />
           <TextField label="Column C" value={props.columnCLabel} onChange={(v) => update({ columnCLabel: v })} placeholder="In-office milling" />
         </div>
+        <TextField label="Line under the highlighted header" value={props.providerSubLabel} onChange={(v) => update({ providerSubLabel: v })} placeholder="The lab and the platform" />
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">Show column C</Label>
           <Switch checked={showC} onCheckedChange={(v) => update({ showColumnC: v })} />

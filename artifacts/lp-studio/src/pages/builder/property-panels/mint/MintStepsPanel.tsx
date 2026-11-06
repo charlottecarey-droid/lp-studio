@@ -1,16 +1,35 @@
-import { MINT_STEPS_MAX, MINT_STEPS_MIN, type MintStep, type MintStepsBlockProps } from "@/blocks/BlockMintSteps";
+import { MINT_STEPS_MAX, MINT_STEPS_MIN, MINT_STEP_MAX_WHO, type MintStep, type MintStepsBlockProps } from "@/blocks/BlockMintSteps";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, ItemHeader, PanelSection, moveItem } from "../forest/ForestPanelKit";
+import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, ItemHeader, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
 
 interface Props {
   props: MintStepsBlockProps;
   onChange: (props: MintStepsBlockProps) => void;
   ctaSource?: CtaSourceProps;
+}
+
+/** The 0–3 "who" chips of one step: inline inputs with remove, reorder and add. */
+function WhoChips({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] text-muted-foreground">Who is in the room (up to {MINT_STEP_MAX_WHO} chips)</p>
+      {value.map((w, j) => (
+        <div key={j} className="flex items-center gap-1">
+          <Input value={w} onChange={(e) => onChange(value.map((x, idx) => (idx === j ? e.target.value : x)))} placeholder="Rollout lead" className="h-7 text-xs" />
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled={j === 0} onClick={() => onChange(moveItem(value, j, -1))} aria-label="Move chip up">↑</Button>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled={j === value.length - 1} onClick={() => onChange(moveItem(value, j, 1))} aria-label="Move chip down">↓</Button>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-1.5 text-xs" onClick={() => onChange(value.filter((_, idx) => idx !== j))} aria-label="Remove chip">×</Button>
+        </div>
+      ))}
+      <AddButton label="Add chip" disabled={value.length >= MINT_STEP_MAX_WHO} onClick={() => onChange([...value, ""])} />
+    </div>
+  );
 }
 
 export function MintStepsPanel({ props, onChange, ctaSource }: Props) {
@@ -37,21 +56,32 @@ export function MintStepsPanel({ props, onChange, ctaSource }: Props) {
           <AiTextField value={props.subheadline ?? ""} onChange={(v) => update({ subheadline: v })} rows={2} className="text-xs" fieldLabel="Supporting line"
             onSuggest={() => suggestCopy("mint-steps", "subheadline", props.subheadline ?? "", { headline: props.headline ?? "" })} />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Eyebrow" value={props.eyebrow} onChange={(v) => update({ eyebrow: v })} placeholder="Rollout" />
+          <TextField label="Eyebrow suffix (muted)" value={props.eyebrowSuffix} onChange={(v) => update({ eyebrowSuffix: v })} placeholder="· 90 days" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Header link text" value={props.headerLinkText} onChange={(v) => update({ headerLinkText: v })} placeholder="The rollout plan" />
+          <TextField label="Header link URL" value={props.headerLinkUrl} onChange={(v) => update({ headerLinkUrl: v })} placeholder="#rollout" />
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">The link sits at the right of the headline on wide screens. Clear the text to hide it.</p>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="rollout" />
       </PanelSection>
 
-      <PanelSection title={`Steps (${steps.length} of ${MINT_STEPS_MAX})`} defaultOpen hint="One column per step on wide screens; the green line across the top fills as the strip scrolls into view">
+      <PanelSection title={`Steps (${steps.length} of ${MINT_STEPS_MAX})`} defaultOpen hint="One column per step on wide screens; the green line through the dots fills as the strip scrolls into view">
         {steps.map((s, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={s.title || `Step ${i + 1}`} index={i} total={steps.length} onMove={(d) => setSteps(moveItem(steps, i, d))} onRemove={() => { if (steps.length > MINT_STEPS_MIN) setSteps(steps.filter((_, idx) => idx !== i)); }} />
             <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-1.5">
               <Input value={s.num} onChange={(e) => patchStep(i, { num: e.target.value })} placeholder="01" className="h-7 text-xs font-mono" />
-              <Input value={s.title} onChange={(e) => patchStep(i, { title: e.target.value })} placeholder="Align" className="h-7 text-xs" />
+              <Input value={s.when ?? ""} onChange={(e) => patchStep(i, { when: e.target.value })} placeholder="When (Week 1)" className="h-7 text-xs" />
             </div>
+            <Input value={s.title} onChange={(e) => patchStep(i, { title: e.target.value })} placeholder="Align" className="h-7 text-xs" />
             <Textarea value={s.body} onChange={(e) => patchStep(i, { body: e.target.value })} rows={2} placeholder="What happens in this step" className="text-xs" />
+            <WhoChips value={s.who ?? []} onChange={(who) => patchStep(i, { who })} />
           </div>
         ))}
-        <AddButton label="Add step" disabled={steps.length >= MINT_STEPS_MAX} onClick={() => setSteps([...steps, { num: String(steps.length + 1).padStart(2, "0"), title: "", body: "" }])} />
+        <AddButton label="Add step" disabled={steps.length >= MINT_STEPS_MAX} onClick={() => setSteps([...steps, { num: String(steps.length + 1).padStart(2, "0"), when: "", title: "", body: "", who: [] }])} />
         {steps.length <= MINT_STEPS_MIN && <p className="text-[10px] text-muted-foreground leading-relaxed">Keep at least {MINT_STEPS_MIN} steps.</p>}
       </PanelSection>
 

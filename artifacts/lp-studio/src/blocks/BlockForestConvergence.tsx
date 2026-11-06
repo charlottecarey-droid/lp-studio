@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import { isValidHex } from "@/lib/brand-config";
@@ -22,12 +22,25 @@ import { cn } from "@/lib/utils";
  * the left and the big count bottom-right swap from the "before" to the
  * "after" state past 70% progress.
  *
+ * The v2 "ledger": an optional glass card (the deep surface at 55% + blur,
+ * hairline rows of label + display number, an uppercase arrow row before the
+ * last row, the last number in the accent) sits in a right column on wide
+ * screens and under the copy on narrow ones; the hub shifts toward the
+ * centre to make room for it.
+ *
  * Reveal contract: reduced motion and the static render paint the converged
  * state (target = 1, "after" copy). In the builder the band is a single stage
  * (the builder canvas cannot scroll-drive a sticky section) paused at ~0.6
  * progress, with the "before" copy editable in place and the "after" copy in
  * a small stacked panel inside the stage.
  * -------------------------------------------------------------------------- */
+
+export interface ForestLedgerRow {
+  label: string;
+  value: string;
+  /** Set the number in the accent (the v2 sets the last row). */
+  highlight?: boolean;
+}
 
 export interface ForestConvergenceBlockProps extends ForestStyleProps {
   eyebrow?: string;
@@ -49,8 +62,14 @@ export interface ForestConvergenceBlockProps extends ForestStyleProps {
   scrollLength?: number;
   /** Optional image drawn inside the hub once it has formed (a logo, a mark). */
   hubImageUrl?: string;
+  /** 0–6 glass-ledger rows beside the copy (empty = no ledger). */
+  ledger?: ForestLedgerRow[];
+  /** The uppercase arrow row shown before the last ledger row ("With one system ———"). */
+  ledgerArrowText?: string;
   anchorId?: string;
 }
+
+export const FOREST_CONVERGENCE_MAX_LEDGER = 6;
 
 interface Props {
   props: ForestConvergenceBlockProps;
@@ -74,6 +93,13 @@ export const FOREST_CONVERGENCE_DEFAULT_PROPS: ForestConvergenceBlockProps = {
   dots: 47,
   scrollLength: 210,
   hubImageUrl: "",
+  ledger: [
+    { label: "Labs across a typical emerging group", value: "11–25" },
+    { label: "Call consolidation a priority or under consideration", value: "96%" },
+    { label: "Actually executing a consolidation plan", value: "1%" },
+    { label: "Labs, platforms and scanners to manage", value: "1", highlight: true },
+  ],
+  ledgerArrowText: "With one system",
   anchorId: "thesis",
   backgroundStyle: "dandy-green",
 };
@@ -138,6 +164,11 @@ export function BlockForestConvergence({ props, brand, onFieldChange }: Props) {
   const creamRgb = rgbChannels(cream, "#FFFCEF");
   const hubInk = rgbChannels(pal.onAccent, "#0B1410");
   const hubImageUrl = (p.hubImageUrl ?? "").trim();
+  const ledger = (p.ledger ?? []).slice(0, FOREST_CONVERGENCE_MAX_LEDGER).filter((r) => (r.label ?? "").trim() || (r.value ?? "").trim() || isEditor);
+  const hasLedger = ledger.length > 0;
+  const updateLedger = onFieldChange
+    ? (i: number, patch: Partial<ForestLedgerRow>) => onFieldChange({ ...props, ledger: (p.ledger ?? []).map((r, idx) => (idx === i ? { ...r, ...patch } : r)) })
+    : undefined;
 
   /* Canvas: a faithful port of the artifact's "Convergence canvas". */
   useEffect(() => {
@@ -164,8 +195,9 @@ export function BlockForestConvergence({ props, brand, onFieldChange }: Props) {
       cv!.height = Math.max(1, Math.round(H * dpr));
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
       seed = 7; dots = [];
-      const wide = W > 900, cx = wide ? W * 0.72 : W * 0.5, cy = wide ? H * 0.5 : H * 0.74;
-      const ring = wide ? Math.min(W, H) * 0.25 : Math.min(W, H) * 0.36;
+      // With a ledger in the right column the hub moves toward the centre and tightens so neither column covers it.
+      const wide = W > 900, cx = wide ? W * (hasLedger ? 0.51 : 0.72) : W * 0.5, cy = wide ? H * 0.5 : H * 0.74;
+      const ring = wide ? Math.min(W, H) * (hasLedger ? 0.2 : 0.25) : Math.min(W, H) * 0.36;
       for (let i = 0; i < N; i++) {
         // scattered "labs": clustered in 6 loose groups around the right half (left-centred on mobile)
         const gx = (wide ? W * 0.42 : W * 0.08) + rnd() * (wide ? W * 0.52 : W * 0.84);
@@ -262,7 +294,7 @@ export function BlockForestConvergence({ props, brand, onFieldChange }: Props) {
       if (raf) cancelAnimationFrame(raf);
       if (ro) ro.disconnect(); else window.removeEventListener("resize", onResize);
     };
-  }, [dotCount, accent, creamRgb, hubInk, hubImageUrl, frozen, isEditor]);
+  }, [dotCount, accent, creamRgb, hubInk, hubImageUrl, frozen, isEditor, hasLedger]);
 
   /* Scroll progress → target + copy swap (live page only). */
   useEffect(() => {
@@ -303,15 +335,56 @@ export function BlockForestConvergence({ props, brand, onFieldChange }: Props) {
   const h2Style: React.CSSProperties = { fontFamily: FOREST_DISPLAY, fontSize: "clamp(2rem, 4vw, 3.25rem)", lineHeight: 1.1, letterSpacing: "-0.03em", fontWeight: 400, color: cream, margin: "22px 0 0", textWrap: "balance" } as React.CSSProperties;
   const ledeStyle: React.CSSProperties = { fontSize: "clamp(1.05rem, 1.4vw, 1.25rem)", lineHeight: 1.6, color: onDarkMuted, marginTop: 20 };
 
+  /* The v2 ledger: a glass card of hairline rows (label + display number), an uppercase arrow row before the last row, the last number in the accent. */
+  const ledgerCard = hasLedger && (
+    <div
+      className="forest-ledger grid gap-3.5 rounded-[18px] px-6 py-[22px] text-[13.5px]"
+      style={{
+        background: dark ? `color-mix(in srgb, ${pal.deep} 55%, transparent)` : "rgba(255,255,255,0.55)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        border: `1px solid ${hairline}`,
+        color: cream,
+      }}
+    >
+      {ledger.map((r, i) => {
+        const last = i === ledger.length - 1;
+        return (
+          <Fragment key={i}>
+            {last && ledger.length > 1 && (p.ledgerArrowText || isEditor) && (
+              <div className="flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: pal.accent }}>
+                <InlineText as="span" value={p.ledgerArrowText ?? ""} onUpdate={field("ledgerArrowText")} />
+                <span aria-hidden className="h-px min-w-6 flex-1" style={{ background: `linear-gradient(90deg, ${pal.accentDeco}, transparent)` }} />
+              </div>
+            )}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3.5" style={{ paddingBottom: last ? 0 : 12, borderBottom: last ? 0 : `1px solid ${hairline}` }}>
+              <span className="leading-[1.4]" style={{ color: onDarkMuted }}>
+                <InlineText as="span" value={r.label ?? ""} onUpdate={updateLedger ? (v) => updateLedger(i, { label: v }) : undefined} multiline />
+              </span>
+              <b className="tabular-nums" style={{ fontFamily: FOREST_DISPLAY, fontWeight: 400, fontSize: "1.5rem", letterSpacing: "-0.03em", lineHeight: 1, color: r.highlight ? pal.accent : cream }}>
+                <InlineText as="span" value={r.value ?? ""} onUpdate={updateLedger ? (v) => updateLedger(i, { value: v }) : undefined} />
+              </b>
+            </div>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+
   const stage = (
     <div
       ref={stageRef}
       className={cn("conv-stage relative grid w-full items-start overflow-hidden pt-[clamp(72px,12vh,120px)] md:items-center md:pt-0", isEditor ? "" : "sticky top-0")}
-      style={{ height: isEditor ? "auto" : "100svh", minHeight: 560 }}
+      style={isEditor ? { height: "auto", minHeight: 560 } : { height: "auto", minHeight: "max(560px, 100svh)" }}
     >
       <canvas ref={canvasRef} aria-hidden className="absolute inset-0 h-full w-full" style={{ zIndex: 0 }} />
       {dark && <ForestGrain opacity={0.04} />}
-      <div className={cn(FOREST_CONTAINER, "relative", isEditor ? "pointer-events-auto pb-[160px] md:pb-[120px]" : "pointer-events-none")} style={{ zIndex: 2 }}>
+      <div
+        className={cn(FOREST_CONTAINER, "relative", isEditor ? "pointer-events-auto pb-[160px] md:pb-[120px]" : cn("pointer-events-none", hasLedger && "pb-[150px] lg:pb-0"))}
+        style={{ zIndex: 2 }}
+      >
+        <div className={cn("grid gap-10", hasLedger && "lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:gap-12")}>
+        <div className="min-w-0">
         {(p.eyebrow || isEditor) && (
           <ForestEyebrow palette={pal}>
             <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} />
@@ -321,7 +394,7 @@ export function BlockForestConvergence({ props, brand, onFieldChange }: Props) {
           <InlineText as="span" value={headline} onUpdate={field("headlineBefore")} multiline />
         </h2>
         {(body || isEditor) && (
-          <p className="max-w-[60ch] md:max-w-[40ch]" style={ledeStyle}>
+          <p className={cn("max-w-[60ch] md:max-w-[40ch]", hasLedger && "lg:max-w-[31ch]")} style={ledeStyle}>
             <InlineText as="span" value={body} onUpdate={field("bodyBefore")} multiline />
           </p>
         )}
@@ -344,6 +417,9 @@ export function BlockForestConvergence({ props, brand, onFieldChange }: Props) {
             </div>
           </div>
         )}
+        </div>
+        {hasLedger && <div className="w-full min-w-0 lg:max-w-[400px] lg:justify-self-end">{ledgerCard}</div>}
+        </div>
       </div>
       <div
         className="conv-count absolute right-4 bottom-10 text-right tabular-nums md:right-10 md:bottom-14"

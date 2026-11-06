@@ -34,6 +34,7 @@ export function ForestLogosPanel({ props, onChange }: Props) {
       />
 
       <PanelSection title="Copy" defaultOpen>
+        <TextField label="Small uppercase label (blank hides it)" value={props.captionLabel} onChange={(v) => update({ captionLabel: v })} placeholder="Trusted by" />
         <Field label="Caption (left of the marquee)">
           <AiTextField value={props.caption ?? ""} onChange={(v) => update({ caption: v })} rows={2} className="text-xs" fieldLabel="Caption"
             onSuggest={() => suggestCopy("forest-logos", "caption", props.caption ?? "", {})} />

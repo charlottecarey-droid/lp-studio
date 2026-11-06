@@ -15,7 +15,7 @@ interface Props {
   ctaSource?: CtaSourceProps;
 }
 
-const MAX_STATS = 2;
+const MAX_STATS = 3;
 
 export function ForestStoryPanel({ props, onChange, ctaSource }: Props) {
   const update = (patch: Partial<ForestStoryBlockProps>) => onChange({ ...props, ...patch });
@@ -41,6 +41,7 @@ export function ForestStoryPanel({ props, onChange, ctaSource }: Props) {
           <TextField label="Role" value={props.citeRole} onChange={(v) => update({ citeRole: v })} placeholder="Chief Clinical Officer" />
           <TextField label="Organisation" value={props.citeOrg} onChange={(v) => update({ citeOrg: v })} placeholder="Northwind Health" />
         </div>
+        <TextField label="Avatar initial (blank = first letter of the organisation)" value={props.citeInitial} onChange={(v) => update({ citeInitial: v.slice(0, 2) })} placeholder="N" />
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="story" />
       </PanelSection>
 
@@ -64,7 +65,10 @@ export function ForestStoryPanel({ props, onChange, ctaSource }: Props) {
         <TextField label="Caption title" value={props.posterTitle} onChange={(v) => update({ posterTitle: v })} placeholder="Northwind Health" />
         <TextField label="Caption line" value={props.posterSub} onChange={(v) => update({ posterSub: v })} placeholder="How a mobile dental group rebuilt dentures around two appointments" />
         <div className="grid grid-cols-2 gap-2">
+          <TextField label="Tag pill (blank = “Film · duration”)" value={props.tag} onChange={(v) => update({ tag: v })} placeholder="Film · 3:40" />
           <TextField label="Duration" value={props.duration} onChange={(v) => update({ duration: v })} placeholder="3:40" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
           <Field label="Video side (desktop)">
             <Select value={props.mediaSide ?? "left"} onValueChange={(v) => update({ mediaSide: v as ForestStoryBlockProps["mediaSide"] })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -77,7 +81,7 @@ export function ForestStoryPanel({ props, onChange, ctaSource }: Props) {
         </div>
       </PanelSection>
 
-      <PanelSection title={`Numbers (${stats.length} of ${MAX_STATS})`} hint="Two outcome numbers under the cite; they count up on the live page">
+      <PanelSection title={`Numbers (${stats.length} of ${MAX_STATS})`} hint="Up to three outcome numbers as small ringed tiles under the cite; they count up on the live page">
         {stats.map((s, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={s.value || `Number ${i + 1}`} index={i} total={stats.length} onMove={(d) => setStats(moveItem(stats, i, d))} onRemove={() => setStats(stats.filter((_, idx) => idx !== i))} />

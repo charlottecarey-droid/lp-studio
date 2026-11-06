@@ -1,6 +1,6 @@
 import {
-  MINT_FEATURES_MAX_BARS, MINT_FEATURES_MAX_CHECKS, MINT_FEATURES_MAX_LINES, MINT_FEATURES_MAX_ROWS, MINT_FEATURES_MIN_ROWS,
-  type MintFeatureBar, type MintFeatureCheck, type MintFeatureLine, type MintFeatureRow, type MintFeaturesBlockProps,
+  MINT_FEATURES_MAX_BARS, MINT_FEATURES_MAX_CHECKS, MINT_FEATURES_MAX_LINES, MINT_FEATURES_MAX_META, MINT_FEATURES_MAX_ROWS, MINT_FEATURES_MIN_ROWS,
+  type MintFeatureBar, type MintFeatureCheck, type MintFeatureLine, type MintFeatureRow, type MintFeatureStat, type MintFeaturesBlockProps,
 } from "@/blocks/BlockMintFeatures";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
@@ -83,8 +83,7 @@ export function MintFeaturesPanel({ props, onChange }: Props) {
     kicker: "New part",
     title: "What this part does.",
     body: "",
-    statValue: "",
-    statLabel: "",
+    metaStats: [],
     linkText: "",
     linkUrl: "#",
     visual: "image",
@@ -102,7 +101,11 @@ export function MintFeaturesPanel({ props, onChange }: Props) {
         onApply={(u) => update(u)}
       />
 
-      <PanelSection title="Copy" defaultOpen>
+      <PanelSection title="Copy" defaultOpen hint="The header row: a lime-dot eyebrow with a muted suffix, the headline, and a quiet chevron link on the right">
+        <div className="grid grid-cols-2 gap-1.5">
+          <TextField label="Eyebrow" value={props.eyebrow} onChange={(v) => update({ eyebrow: v })} placeholder="The system" />
+          <TextField label="Eyebrow suffix" value={props.eyebrowSuffix} onChange={(v) => update({ eyebrowSuffix: v })} placeholder="· Four parts" />
+        </div>
         <Field label="Headline">
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
             onSuggest={() => suggestCopy("mint-features", "headline", props.headline ?? "", { subheadline: props.subheadline ?? "" })} />
@@ -111,6 +114,12 @@ export function MintFeaturesPanel({ props, onChange }: Props) {
           <AiTextField value={props.subheadline ?? ""} onChange={(v) => update({ subheadline: v })} rows={2} className="text-xs" fieldLabel="Supporting line"
             onSuggest={() => suggestCopy("mint-features", "subheadline", props.subheadline ?? "", { headline: props.headline ?? "" })} />
         </Field>
+        <div className="grid grid-cols-2 gap-1.5">
+          <TextField label="Header link (blank = none)" value={props.headerLinkText} onChange={(v) => update({ headerLinkText: v })} placeholder="How it works" />
+          <Field label="Header link URL">
+            <Input value={props.headerLinkUrl ?? ""} onChange={(e) => update({ headerLinkUrl: e.target.value })} placeholder="#section or https://" className="h-8 text-xs font-mono" />
+          </Field>
+        </div>
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="system" />
       </PanelSection>
 
@@ -118,13 +127,26 @@ export function MintFeaturesPanel({ props, onChange }: Props) {
         {rows.map((r, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={r.kicker || r.title || `Row ${i + 1}`} index={i} total={rows.length} onMove={(d) => setRows(moveItem(rows, i, d))} onRemove={() => { if (rows.length > MINT_FEATURES_MIN_ROWS) setRows(rows.filter((_, idx) => idx !== i)); }} />
-            <Input value={r.kicker} onChange={(e) => patchRow(i, { kicker: e.target.value })} placeholder="Kicker (Adoption)" className="h-7 text-xs" />
+            <div className="grid grid-cols-[56px_minmax(0,1fr)] gap-1.5">
+              <Input value={r.index ?? ""} onChange={(e) => patchRow(i, { index: e.target.value })} placeholder={String(i + 1).padStart(2, "0")} className="h-7 text-xs" title="Index in front of the kicker (blank = numbered by position)" />
+              <Input value={r.kicker} onChange={(e) => patchRow(i, { kicker: e.target.value })} placeholder="Kicker (Adoption)" className="h-7 text-xs" />
+            </div>
             <Input value={r.title} onChange={(e) => patchRow(i, { title: e.target.value })} placeholder="Title" className="h-7 text-xs" />
             <Textarea value={r.body} onChange={(e) => patchRow(i, { body: e.target.value })} placeholder="Paragraph" rows={3} className="text-xs" />
-            <div className="grid grid-cols-2 gap-1.5">
-              <Input value={r.statValue ?? ""} onChange={(e) => patchRow(i, { statValue: e.target.value })} placeholder="Number (70%)" className="h-7 text-xs" />
-              <Input value={r.statLabel ?? ""} onChange={(e) => patchRow(i, { statLabel: e.target.value })} placeholder="Number label" className="h-7 text-xs" />
-            </div>
+            <MiniList<MintFeatureStat>
+              label="Numbers under the body"
+              items={r.metaStats && r.metaStats.length > 0 ? r.metaStats : (r.statValue ? [{ value: r.statValue, label: r.statLabel ?? "" }] : [])}
+              max={MINT_FEATURES_MAX_META}
+              onChange={(v) => patchRow(i, { metaStats: v, statValue: "", statLabel: "" })}
+              blank={() => ({ value: "70%", label: "of practices activate on training day" })}
+              render={(st, patch) => (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Input value={st.value} onChange={(e) => patch({ value: e.target.value })} placeholder="Number (70%)" className="h-7 text-xs" />
+                  <Input value={st.label} onChange={(e) => patch({ label: e.target.value })} placeholder="Caption" className="h-7 text-xs" />
+                </div>
+              )}
+              hint="A two-cell grid under a hairline. Blank = no grid."
+            />
             <div className="grid grid-cols-2 gap-1.5">
               <Input value={r.linkText ?? ""} onChange={(e) => patchRow(i, { linkText: e.target.value })} placeholder="Link text (blank = none)" className="h-7 text-xs" />
               <Input value={r.linkUrl ?? ""} onChange={(e) => patchRow(i, { linkUrl: e.target.value })} placeholder="#section or https://" className="h-7 text-xs font-mono" />
@@ -197,7 +219,7 @@ export function MintFeaturesPanel({ props, onChange }: Props) {
                       <Toggle label="Green value" checked={!!l.emphasis} onChange={(v) => patch({ emphasis: v })} />
                     </>
                   )}
-                  hint="The last line is bold, like an invoice total."
+                  hint="Dashed hairlines between lines; green values read as included."
                 />
                 <TextField label="Small label over the total" value={r.mockFooterLabel} onChange={(v) => patchRow(i, { mockFooterLabel: v })} placeholder="Scanner CapEx avoided" />
                 <div className="grid grid-cols-2 gap-1.5">

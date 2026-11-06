@@ -1,24 +1,27 @@
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex, relativeLuminance } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import {
-  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_CTA_DEFAULTS, FOREST_DISPLAY, FOREST_SECTION_PAD,
-  ForestCtaButtons, ForestEyebrow, resolveForestPalette, useForestReveal,
-  type ForestCtaProps, type ForestStyleProps,
+  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_CTA_DEFAULTS,
+  ForestCtaButtons, ForestDash, ForestEyebrow, ForestSectionHeader, forestAnchorClick, forestCard, forestDisplay, resolveForestPalette, useForestReveal,
+  type ForestCtaProps, type ForestPalette, type ForestStyleProps,
 } from "./forest/forest-theme";
 import { cn } from "@/lib/utils";
 
 /* ----------------------------------------------------------------------------
  * Forest Comparison — type "forest-comparison"  (DSO Page family, Nov 2026)
  *
- * "Side by side": a white band, eyebrow + headline, then a rounded elevated
- * card holding a horizontally scrollable table. The bone thead carries 11px
- * uppercase headers; the provider column's header is painted the brand
- * primary with accent text, and its cells are tinted with the accent, set in
- * 500-weight accent ink with a 3px accent bar on the left. A cell value that
- * starts with "✓ " renders a check icon in front of the rest. Optional CTA
+ * "Side by side": a white band opening with the v2 section header row
+ * (eyebrow, 20ch headline, a quiet chevron link on the headline baseline),
+ * then a ringed white card holding a horizontally scrollable table. The grey
+ * thead carries 11.5px uppercase headers; the provider column's header is
+ * painted the brand primary in cream with a small accent sub-label ("The lab
+ * and the platform"); its cells carry an accent tint gradient, 500-weight
+ * ink and a 2px accent bar. Competitor cells open with a short dash so the
+ * provider column reads as the contrast. A cell value that starts with "✓ "
+ * renders a small filled check disc in front of the rest. Optional CTA
  * buttons sit centred under the table.
  * -------------------------------------------------------------------------- */
 
@@ -34,8 +37,13 @@ export interface ForestComparisonRow {
 export interface ForestComparisonBlockProps extends ForestStyleProps, ForestCtaProps {
   eyebrow?: string;
   headline: string;
+  /** Quiet link on the headline baseline, right (empty = hidden). */
+  headerLinkText?: string;
+  headerLinkUrl?: string;
   firstColumnLabel?: string;
   providerLabel?: string;
+  /** Small accent line under the provider header ("The lab and the platform"). */
+  providerSubLabel?: string;
   columnBLabel?: string;
   columnCLabel?: string;
   showColumnC?: boolean;
@@ -58,8 +66,11 @@ export const FOREST_COMPARISON_DEFAULT_PROPS: ForestComparisonBlockProps = {
   ...FOREST_CTA_DEFAULTS,
   eyebrow: "Side by side",
   headline: "What a lab partner should cost a group. And what it usually does.",
+  headerLinkText: "Full pricing",
+  headerLinkUrl: "#",
   firstColumnLabel: "Per location",
   providerLabel: "Our platform",
+  providerSubLabel: "The lab and the platform",
   columnBLabel: "Traditional lab network",
   columnCLabel: "In-office milling",
   showColumnC: true,
@@ -77,18 +88,46 @@ export const FOREST_COMPARISON_DEFAULT_PROPS: ForestComparisonBlockProps = {
 };
 
 const CHECK_PREFIX = "✓ ";
+const SECTION_PAD: React.CSSProperties = { paddingBlock: "clamp(72px, 8vw, 120px)" };
 
-/** A table cell: inline-editable, with the "✓ " prefix rendered as a check icon. */
-function Cell({ value, onUpdate, color }: { value: string; onUpdate?: (v: string) => void; color: string }) {
+/** The v2 `.link`: 15px/500 with a chevron that nudges on hover; a span in the builder so clicks never navigate. */
+function HeaderLink({ text, url, color, onUpdate, isEditor }: { text?: string; url?: string; color: string; onUpdate?: (v: string) => void; isEditor: boolean }) {
+  if (!text && !isEditor) return null;
+  const cls = "forest-link inline-flex items-center gap-1 whitespace-nowrap text-[15px] font-medium no-underline";
+  const style: React.CSSProperties = { color, fontFamily: FOREST_BODY };
+  const inner = (
+    <>
+      <InlineText as="span" value={text ?? ""} onUpdate={onUpdate} />
+      <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+    </>
+  );
+  if (isEditor) return <span className={cls} style={style}>{inner}</span>;
+  return <a href={url || "#"} onClick={forestAnchorClick(url)} className={cls} style={style}>{inner}</a>;
+}
+
+/** A table cell: inline-editable; "✓ " renders a filled check disc, competitor cells open with a dash. */
+function Cell({ value, onUpdate, pal, kind }: { value: string; onUpdate?: (v: string) => void; pal: ForestPalette; kind: "need" | "provider" | "other" }) {
   const checked = value.startsWith(CHECK_PREFIX);
   const rest = checked ? value.slice(CHECK_PREFIX.length) : value;
-  if (!checked) return <InlineText as="span" value={value} onUpdate={onUpdate} multiline />;
-  return (
-    <span className="inline-flex items-center gap-2">
-      <Check className="h-4 w-4 shrink-0" strokeWidth={2.4} aria-hidden style={{ color }} />
-      <InlineText as="span" value={rest} onUpdate={onUpdate ? (v) => onUpdate(CHECK_PREFIX + v) : undefined} multiline />
-    </span>
-  );
+  if (checked) {
+    return (
+      <span className="inline">
+        <span aria-hidden className="mr-2 inline-grid h-4 w-4 shrink-0 place-items-center rounded-full align-[-3px]" style={{ background: pal.dark ? pal.accentDeco : pal.heading }}>
+          <Check className="h-[10px] w-[10px]" strokeWidth={3} style={{ color: pal.dark ? pal.onAccent : "#FFFFFF" }} aria-hidden />
+        </span>
+        <InlineText as="span" value={rest} onUpdate={onUpdate ? (v) => onUpdate(CHECK_PREFIX + v) : undefined} multiline />
+      </span>
+    );
+  }
+  if (kind === "other") {
+    return (
+      <span className="inline">
+        <ForestDash color={pal.dark ? "rgba(255,252,239,0.22)" : pal.hairline} />
+        <InlineText as="span" value={value} onUpdate={onUpdate} multiline />
+      </span>
+    );
+  }
+  return <InlineText as="span" value={value} onUpdate={onUpdate} multiline />;
 }
 
 export function BlockForestComparison({ props, brand, pageId, variantId, onCtaClick, onFieldChange }: Props) {
@@ -106,18 +145,18 @@ export function BlockForestComparison({ props, brand, pageId, variantId, onCtaCl
     ? (i: number, patch: Partial<ForestComparisonRow>) => onFieldChange({ ...props, rows: (p.rows ?? []).map((r, idx) => (idx === i ? { ...r, ...patch } : r)) })
     : undefined;
 
-  const cardBg = pal.dark ? pal.card : "#FFFFFF";
   const hairline = pal.dark ? "rgba(255,252,239,0.14)" : pal.hairline;
-  // The provider header: the brand primary (the artifact's forest) with the accent on top; falls back to the heading ink.
+  const accentHex = isValidHex(pal.accentDeco) ? pal.accentDeco : pal.accent;
+  // The provider header: the brand primary (the artifact's forest) in cream with the accent sub-label; falls back to the heading ink.
   const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : pal.heading;
   const headBg = pal.dark ? pal.deep : primary;
-  const headInk = isValidHex(headBg) && relativeLuminance(headBg) < 0.4
-    ? (isValidHex(pal.accentDeco) ? pal.accentDeco : pal.accent)
-    : contrastTextColor(headBg);
+  const headDark = isValidHex(headBg) && relativeLuminance(headBg) < 0.4;
+  const headInk = headDark ? "#FFFCEF" : contrastTextColor(headBg);
+  const headEm = headDark ? accentHex : pal.muted;
   const showCta = !!p.ctaText || !!p.ctaSecondaryText || isEditor;
 
-  const thBase: React.CSSProperties = { textAlign: "left", padding: "26px 22px 18px", borderBottom: `1px solid ${hairline}`, verticalAlign: "top", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: pal.muted, fontWeight: 600, background: pal.panel };
-  const tdBase: React.CSSProperties = { textAlign: "left", padding: "20px 22px", borderBottom: `1px solid ${hairline}`, verticalAlign: "top" };
+  const thBase: React.CSSProperties = { textAlign: "left", padding: "18px 20px 14px", borderBottom: `1px solid ${hairline}`, verticalAlign: "top", fontSize: 11.5, letterSpacing: "0.1em", textTransform: "uppercase", color: pal.muted, fontWeight: 600, background: pal.panel, lineHeight: 1.3 };
+  const tdBase: React.CSSProperties = { textAlign: "left", padding: "18px 20px", borderBottom: `1px solid ${hairline}`, verticalAlign: "top", lineHeight: 1.45 };
 
   return (
     <section
@@ -125,35 +164,41 @@ export function BlockForestComparison({ props, brand, pageId, variantId, onCtaCl
       id={p.anchorId || undefined}
       data-block="forest-comparison"
       className="forest-comparison relative"
-      style={{ background: pal.bg, color: pal.text, fontFamily: FOREST_BODY, ...FOREST_SECTION_PAD }}
+      style={{ background: pal.bg, color: pal.text, fontFamily: FOREST_BODY, ...SECTION_PAD }}
     >
       <style>{FOREST_CSS}</style>
       <div className={FOREST_CONTAINER}>
-        {(p.eyebrow || isEditor) && (
-          <motion.div {...rise(0)}>
-            <ForestEyebrow palette={pal}>
-              <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} />
-            </ForestEyebrow>
-          </motion.div>
-        )}
-        <motion.h2
-          {...rise(0.08)}
-          className="max-w-[18ch]"
-          style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(2rem, 4vw, 3.25rem)", lineHeight: 1.1, letterSpacing: "-0.03em", fontWeight: 400, color: pal.heading, margin: "18px 0 0", textWrap: "balance" } as React.CSSProperties}
-        >
-          <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
-        </motion.h2>
+        <motion.div {...rise(0)}>
+          <ForestSectionHeader
+            eyebrow={(p.eyebrow || isEditor) ? (
+              <ForestEyebrow palette={pal}>
+                <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} />
+              </ForestEyebrow>
+            ) : undefined}
+            headline={(
+              <h2 className="max-w-[20ch]" style={{ ...forestDisplay("clamp(1.9rem, 3.6vw, 3rem)", pal.heading), margin: 0 }}>
+                <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
+              </h2>
+            )}
+            link={<HeaderLink text={p.headerLinkText} url={p.headerLinkUrl} color={pal.dark ? pal.accent : pal.heading} onUpdate={field("headerLinkText")} isEditor={isEditor} />}
+          />
+        </motion.div>
 
-        <motion.div {...rise(0.16)} className="cmp mt-11 overflow-hidden rounded-[28px]" style={{ background: cardBg, boxShadow: pal.shadowElev, border: `1px solid ${hairline}` }}>
+        <motion.div {...rise(0.12)} className="cmp overflow-hidden" style={forestCard(pal, { radius: 20 })}>
           <div className="cmp-scroll overflow-x-auto">
-            <table className="w-full border-collapse text-[15px]" style={{ minWidth: 720 }}>
+            <table className="w-full border-separate border-spacing-0 text-[14.5px]" style={{ minWidth: 720 }}>
               <thead>
                 <tr>
-                  <th scope="col" style={thBase}>
+                  <th scope="col" style={{ ...thBase, width: "22%" }}>
                     <InlineText as="span" value={p.firstColumnLabel ?? ""} onUpdate={field("firstColumnLabel")} />
                   </th>
-                  <th scope="col" style={{ ...thBase, background: headBg, color: headInk }}>
+                  <th scope="col" style={{ ...thBase, background: headBg, color: headInk, borderBottomColor: headBg }}>
                     <InlineText as="span" value={p.providerLabel ?? ""} onUpdate={field("providerLabel")} />
+                    {(p.providerSubLabel || isEditor) && (
+                      <em className="mt-[3px] block not-italic text-[10px] font-semibold tracking-[0.14em]" style={{ color: headEm }}>
+                        <InlineText as="span" value={p.providerSubLabel ?? ""} onUpdate={field("providerSubLabel")} />
+                      </em>
+                    )}
                   </th>
                   <th scope="col" style={thBase}>
                     <InlineText as="span" value={p.columnBLabel ?? ""} onUpdate={field("columnBLabel")} />
@@ -171,19 +216,19 @@ export function BlockForestComparison({ props, brand, pageId, variantId, onCtaCl
                   const border = last ? "0" : `1px solid ${hairline}`;
                   return (
                     <tr key={i}>
-                      <td style={{ ...tdBase, borderBottom: border, fontWeight: 500, color: pal.text }}>
-                        <Cell value={r.need} onUpdate={updateRow ? (v) => updateRow(i, { need: v }) : undefined} color={pal.accent} />
+                      <td style={{ ...tdBase, borderBottom: border, fontWeight: 500, color: pal.muted }}>
+                        <Cell value={r.need} onUpdate={updateRow ? (v) => updateRow(i, { need: v }) : undefined} pal={pal} kind="need" />
                       </td>
-                      <td className="relative" style={{ ...tdBase, borderBottom: border, background: pal.accentTint, color: pal.accent, fontWeight: 500 }}>
-                        <span aria-hidden className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: pal.accentDeco }} />
-                        <Cell value={r.provider} onUpdate={updateRow ? (v) => updateRow(i, { provider: v }) : undefined} color={pal.accent} />
+                      <td className="relative" style={{ ...tdBase, borderBottom: border, background: `linear-gradient(90deg, ${pal.accentTint}, color-mix(in srgb, ${accentHex} 5%, transparent))`, color: pal.text, fontWeight: 500 }}>
+                        <span aria-hidden className="absolute bottom-0 left-0 top-0 w-[2px]" style={{ background: pal.accentDeco }} />
+                        <Cell value={r.provider} onUpdate={updateRow ? (v) => updateRow(i, { provider: v }) : undefined} pal={pal} kind="provider" />
                       </td>
                       <td style={{ ...tdBase, borderBottom: border, color: pal.muted }}>
-                        <Cell value={r.b} onUpdate={updateRow ? (v) => updateRow(i, { b: v }) : undefined} color={pal.muted} />
+                        <Cell value={r.b} onUpdate={updateRow ? (v) => updateRow(i, { b: v }) : undefined} pal={pal} kind="other" />
                       </td>
                       {showC && (
                         <td style={{ ...tdBase, borderBottom: border, color: pal.muted }}>
-                          <Cell value={r.c ?? ""} onUpdate={updateRow ? (v) => updateRow(i, { c: v }) : undefined} color={pal.muted} />
+                          <Cell value={r.c ?? ""} onUpdate={updateRow ? (v) => updateRow(i, { c: v }) : undefined} pal={pal} kind="other" />
                         </td>
                       )}
                     </tr>
@@ -195,7 +240,7 @@ export function BlockForestComparison({ props, brand, pageId, variantId, onCtaCl
         </motion.div>
 
         {showCta && (
-          <motion.div {...rise(0.24)} className={cn("mt-12")}>
+          <motion.div {...rise(0.2)} className={cn("mt-12")}>
             <ForestCtaButtons
               props={p}
               brand={brand}

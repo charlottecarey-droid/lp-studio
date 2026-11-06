@@ -52,6 +52,10 @@ export function ForestFaqPanel({ props, onChange, ctaSource }: Props) {
 
       <PanelSection title="Behaviour">
         <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">Number the rows (01, 02 …)</Label>
+          <Switch checked={props.numbered !== false} onCheckedChange={(v) => update({ numbered: v })} />
+        </div>
+        <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">First question starts open</Label>
           <Switch checked={props.openFirst !== false} onCheckedChange={(v) => update({ openFirst: v })} />
         </div>

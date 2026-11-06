@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Activity, BarChart3, Menu, Monitor, X } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useStaticRender } from "@/lib/reveal-fallback";
+import { resolveLucideIcon, type IconComp } from "@/lib/icon-value";
+import { pickCtaModalConfig } from "@/lib/cta-modal";
+import { CtaButton } from "@/components/CtaButton";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import {
-  MINT_BODY, MINT_CSS, MINT_CTA_DEFAULTS, MINT_DISPLAY, MINT_WIDE, MINT_WRAP,
-  MintCheckDot, MintCtaButtons, MintNumber, mintAnchorClick, mintHighlight, mintSub, resolveMintButtonColors, resolveMintPalette, useMintReveal,
+  MINT_BODY, MINT_CSS, MINT_CTA_DEFAULTS, MINT_DISPLAY, MINT_RING, MINT_SHADOW_1, MINT_SHADOW_2, MINT_WIDE,
+  MintCheckDot, MintCtaButtons, MintEyebrow, MintNumber, MintSparkline, mintAnchorClick, mintCard, mintHighlight, mintStageDots, resolveMintButtonColors, resolveMintPalette, useMintReveal,
   type MintCtaProps, type MintStyleProps,
 } from "./mint/mint-theme";
 import { cn } from "@/lib/utils";
@@ -16,12 +19,14 @@ import { cn } from "@/lib/utils";
 /* ----------------------------------------------------------------------------
  * Mint Hero — type "mint-hero"  (DSO Page (Light) family, Nov 2026)
  *
- * The artifact's opening: a slim white glass top bar (logo, links, green
- * pill), a centred cap line, a display headline whose last line carries a
- * lime highlight, a muted sub, two chevron links, then a wide 16:9 photo
- * card with three small floating "UI" cards (a metric with a bar, a
- * checklist, a figure with a note), a centred row of four count-up numbers
- * and a hairline row of customer names. White-to-mint gradient surface.
+ * The page's opening, ported from the third "Dandy for DSOs" artifact: a
+ * 60px glass top bar (logo, 13.5px links with a lime underline under the
+ * active one, a small note, a green pill), then a 7/5 grid — eyebrow with a
+ * lime dot, a 12ch display headline carrying a lime highlight, a 44ch sub,
+ * a lime pill + chevron link — beside three small "mini" cards (icon tile,
+ * title, caption, display-face value). Below: a 21:9 photo frame on a mint
+ * plate with floating "UI" cards, a bordered four-cell stat strip (label +
+ * index, big number, caption, sparkline) and a "Trusted by" names row.
  *
  * Self-nav hero: never stack a nav block above it. Reveal contract: fade-ups
  * through useMintReveal; the photo's slow settle is a CSS transition gated
@@ -36,6 +41,10 @@ export interface MintNavLink {
 export interface MintHeroStat {
   value: string;
   label: string;
+  /** Tiny uppercase label above the number ("Groups"); blank = none. */
+  heading?: string;
+  /** Sparkline points, left to right (any scale; normalised to the tallest). Blank = no sparkline. */
+  spark?: number[];
 }
 
 /** A floating card over the hero photo. `kind` picks the artifact's three shapes. */
@@ -52,21 +61,37 @@ export interface MintFloatCard {
   items?: string[];
 }
 
+/** One of the three small cards beside the headline. */
+export interface MintMiniCard {
+  /** Lucide icon name ("Activity", "Monitor", "BarChart3"); blank = a fixed default per slot. */
+  icon?: string;
+  title: string;
+  caption: string;
+  /** Display-face value at the right ("70%"). */
+  value: string;
+}
+
 export interface MintHeroBlockProps extends MintStyleProps, MintCtaProps {
   showNav?: boolean;
   navLinks?: MintNavLink[];
   /** Nav pill label; blank = the primary CTA text. */
   navCtaText?: string;
   hideNavCta?: boolean;
-  /** Small line above the headline ("Dandy for DSOs"). */
+  /** Small muted note left of the nav pill ("Enterprise team · Mon–Fri"); shown ≥1000px. */
+  navNote?: string;
+  /** Eyebrow above the headline ("For multi-location groups"). */
   cap?: string;
+  /** Muted suffix after the eyebrow ("· Enterprise"). */
+  eyebrowSuffix?: string;
   /** "\n" breaks a line. */
   headline: string;
   /** The phrase that gets the lime highlight; blank = none. Defaults to the last line of the headline. */
   highlight?: string;
   subheadline?: string;
-  /** "link" = the artifact's chevron links; "pill" = filled buttons. */
-  ctaStyle?: "link" | "pill";
+  /** "pill-link" = lime pill + chevron link (the design); "link" = two chevron links; "pill" = two pills. */
+  ctaStyle?: "link" | "pill" | "pill-link";
+  /** Up to three small cards beside the headline. */
+  miniCards?: MintMiniCard[];
   imageUrl?: string;
   imageAlt?: string;
   imageFocal?: string;
@@ -74,7 +99,9 @@ export interface MintHeroBlockProps extends MintStyleProps, MintCtaProps {
   /** Up to three floating cards over the photo (hidden on phones except the first). */
   floats?: MintFloatCard[];
   stats?: MintHeroStat[];
-  /** Customer names in the hairline row under the numbers. */
+  /** Uppercase label in front of the names row ("Trusted by"). */
+  namesLabel?: string;
+  /** Customer names in the row under the numbers. */
   names?: string[];
   anchorId?: string;
 }
@@ -99,17 +126,24 @@ export const MINT_HERO_DEFAULT_PROPS: MintHeroBlockProps = {
     { label: "Learning", href: "#" },
   ],
   navCtaText: "Talk to the enterprise team",
+  navNote: "Enterprise team · Mon–Fri",
   cap: "For multi-location groups",
+  eyebrowSuffix: "· Enterprise",
   headline: "One lab system.\nEvery location.",
   highlight: "Every location.",
-  subheadline: "One platform and one lab across every office, adopted doctor by doctor and measured location by location.",
+  subheadline: "One platform and one lab across every office, adopted doctor by doctor and measured location by location. Your clinicians get a lab they choose. Your leadership gets numbers they can see.",
   ctaText: "Talk to the enterprise team",
   ctaUrl: "#talk",
   ctaAction: "url",
   ctaSecondaryText: "See the proof",
   ctaSecondaryUrl: "#proof",
   ctaSecondaryAction: "url",
-  ctaStyle: "link",
+  ctaStyle: "pill-link",
+  miniCards: [
+    { icon: "Activity", title: "Adoption, not mandates", caption: "of practices activate on training day", value: "70%" },
+    { icon: "Monitor", title: "A scanner in every operatory", caption: "CapEx per location", value: "$0" },
+    { icon: "BarChart3", title: "Measured by location", caption: "average lab cost savings", value: "24%" },
+  ],
   showImage: true,
   imageUrl: "",
   imageAlt: "",
@@ -119,11 +153,12 @@ export const MINT_HERO_DEFAULT_PROPS: MintHeroBlockProps = {
     { kind: "figure", label: "Lab spend · July", value: "$270,141", note: "147 locations · one invoice" },
   ],
   stats: [
-    { value: "150+", label: "groups on the platform" },
-    { value: "70%", label: "of practices activate on training day" },
-    { value: "24%", label: "average lab cost savings" },
-    { value: "$0", label: "scanner CapEx per location" },
+    { heading: "Groups", value: "150+", label: "groups on the platform", spark: [18, 14, 15, 9, 10, 5, 2].map((v) => 22 - v) },
+    { heading: "Adoption", value: "70%", label: "of practices activate on training day", spark: [20, 19, 12, 10, 4, 3].map((v) => 22 - v) },
+    { heading: "Savings", value: "24%", label: "average lab cost savings", spark: [6, 9, 8, 13, 15, 20].map((v) => 22 - v) },
+    { heading: "CapEx", value: "$0", label: "scanner CapEx per location", spark: [4, 4, 12, 20, 20].map((v) => 22 - v) },
   ],
+  namesLabel: "Trusted by",
   names: ["Northwind Dental Partners", "Harbor Smiles Group", "Summit Dental Alliance", "Meridian Oral Health", "Lakeside Dental Group", "Atlas Dental Partners"],
   anchorId: "top",
   backgroundStyle: "white",
@@ -153,12 +188,28 @@ function Headline({ text, highlight, lime }: { text: string; highlight?: string;
   );
 }
 
-const FLOAT_POS: CSSPositions = [
-  { left: -14, bottom: "14%", width: 220, delay: "-2s" },
-  { right: -14, top: "12%", width: 210, delay: "-4.5s" },
-  { right: "8%", bottom: -18, width: 190, delay: "0s" },
+type FloatPos = { left?: number | string; right?: number | string; top?: number | string; bottom?: number | string; width: number; delay: string };
+const FLOAT_POS: FloatPos[] = [
+  { left: "4%", bottom: "12%", width: 210, delay: "-2s" },
+  { right: "4%", top: "12%", width: 200, delay: "-4.5s" },
+  { right: "4%", bottom: "12%", width: 200, delay: "0s" },
 ];
-type CSSPositions = Array<{ left?: number | string; right?: number | string; top?: number | string; bottom?: number | string; width: number; delay: string }>;
+
+/** Fixed icon per mini-card slot when no Lucide name is given. */
+const MINI_ICONS: IconComp[] = [Activity, Monitor, BarChart3];
+
+/** Sparkline points come in any scale; MintSparkline wants 0–1. */
+function normaliseSpark(points?: number[]): number[] | null {
+  const pts = (points ?? []).filter((v) => typeof v === "number" && Number.isFinite(v));
+  if (pts.length < 2) return null;
+  const max = Math.max(...pts);
+  if (max <= 1) return pts.map((v) => Math.max(0, v));
+  return pts.map((v) => Math.max(0, v) / max);
+}
+
+const ArrowIcon = () => (
+  <svg aria-hidden viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+);
 
 export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onFieldChange }: Props) {
   const p = { ...MINT_HERO_DEFAULT_PROPS, ...props };
@@ -199,6 +250,9 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
   const updateFloat = onFieldChange
     ? (i: number, patch: Partial<MintFloatCard>) => onFieldChange({ ...props, floats: (p.floats ?? []).map((f, idx) => (idx === i ? { ...f, ...patch } : f)) })
     : undefined;
+  const updateMini = onFieldChange
+    ? (i: number, patch: Partial<MintMiniCard>) => onFieldChange({ ...props, miniCards: (p.miniCards ?? []).map((c, idx) => (idx === i ? { ...c, ...patch } : c)) })
+    : undefined;
 
   const dark = pal.dark;
   const ink = pal.ink;
@@ -207,12 +261,19 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
   const navCtaText = (p.navCtaText ?? "").trim() || p.ctaText || "";
   const navBtn = resolveMintButtonColors(p, pal, "green");
   const floats = (p.floats ?? []).slice(0, 3);
+  const miniCards = (p.miniCards ?? []).filter((c) => c.title?.trim() || c.value?.trim() || isEditor).slice(0, 3);
   const names = (p.names ?? []).filter((n) => n.trim() || isEditor);
-  const surface = dark
+  const anchorHref = p.anchorId ? `#${p.anchorId}` : undefined;
+  const customSurface = !!p.bgColor || (!!p.backgroundStyle && p.backgroundStyle !== "white");
+  const surface = dark || customSurface
     ? pal.bg
-    : p.bgColor || (p.backgroundStyle && p.backgroundStyle !== "white")
-      ? pal.bg
-      : `linear-gradient(180deg, #FFFFFF 0%, ${pal.mint} 100%)`;
+    : `radial-gradient(1200px 500px at 50% -10%, ${pal.mint} 0%, transparent 70%), #FFFFFF`;
+  const hairline = dark ? "rgba(255,252,239,0.14)" : pal.line;
+  const cardSurface = dark ? pal.card : "#FFFFFF";
+  const ctaMode: "link" | "pill" | "pill-link" = p.ctaStyle === "link" || p.ctaStyle === "pill" ? p.ctaStyle : "pill-link";
+  const limeBtn = resolveMintButtonColors(p, pal, "lime");
+  const modalCfg = pickCtaModalConfig(p);
+  const ctaCommon = { brand, pageId, variantId, modalTheme: (dark ? "dark" : "light") as "dark" | "light", ...modalCfg };
 
   const nav = p.showNav !== false && (
     <header
@@ -220,27 +281,35 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
       style={{
         position: isEditor ? "relative" : "sticky",
         top: 0,
-        height: 52,
-        background: dark ? `color-mix(in srgb, ${pal.deep} 80%, transparent)` : "rgba(255,255,255,0.78)",
+        background: dark ? `color-mix(in srgb, ${pal.deep} 82%, transparent)` : "rgba(255,255,255,0.82)",
         backdropFilter: "saturate(180%) blur(20px)",
         WebkitBackdropFilter: "saturate(180%) blur(20px)",
         borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.08)" : scrolled ? "rgba(0,0,0,0.08)" : "rgba(0,0,0,0.06)"}`,
       }}
     >
-      <div className={cn(MINT_WIDE, "flex h-[52px] items-center justify-between gap-5")}>
-        <a href={p.anchorId ? `#${p.anchorId}` : "#"} onClick={mintAnchorClick(p.anchorId ? `#${p.anchorId}` : undefined)} className="flex items-center no-underline" aria-label={brand.brandName || "Home"}>
+      <div className={cn(MINT_WIDE, "flex h-[60px] items-center justify-between gap-5")}>
+        <a href={anchorHref ?? "#"} onClick={mintAnchorClick(anchorHref)} className="flex items-center no-underline" aria-label={brand.brandName || "Home"}>
           <BrandLogo brand={brand} tone={dark ? "onDark" : "onLight"} alt={brand.brandName || "Logo"} className="h-[22px] w-auto" />
         </a>
         {links.length > 0 && (
-          <nav aria-label="Primary" className="hidden md:flex items-center gap-7 text-[13px]" style={{ color: ink, fontFamily: MINT_BODY }}>
-            {links.map((l, i) => (
-              <a key={i} href={l.href || "#"} onClick={mintAnchorClick(l.href)} className="no-underline opacity-75 transition-opacity hover:opacity-100" style={{ color: "inherit" }}>
-                <InlineText as="span" value={l.label} onUpdate={updateLink ? (v) => updateLink(i, v) : undefined} />
-              </a>
-            ))}
+          <nav aria-label="Primary" className="hidden min-[1000px]:flex items-center gap-7 text-[13.5px] font-medium" style={{ color: ink, fontFamily: MINT_BODY }}>
+            {links.map((l, i) => {
+              const active = !!anchorHref && l.href === anchorHref;
+              return (
+                <a key={i} href={l.href || "#"} onClick={mintAnchorClick(l.href)} className={cn("relative py-1 no-underline transition-opacity hover:opacity-100", active ? "opacity-100" : "opacity-70")} style={{ color: "inherit" }} aria-current={active ? "page" : undefined}>
+                  <InlineText as="span" value={l.label} onUpdate={updateLink ? (v) => updateLink(i, v) : undefined} />
+                  {active && <span aria-hidden className="absolute left-0 right-0 -bottom-0.5 h-0.5 rounded-sm" style={{ background: pal.lime }} />}
+                </a>
+              );
+            })}
           </nav>
         )}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[18px]">
+          {(p.navNote || isEditor) && (
+            <span className="hidden min-[1000px]:block text-[12.5px] tabular-nums" style={{ color: muted, fontFamily: MINT_BODY }}>
+              <InlineText as="span" value={p.navNote ?? ""} onUpdate={field("navNote")} />
+            </span>
+          )}
           {!p.hideNavCta && navCtaText && (
             <MintCtaButtons
               props={{ ...p, ctaText: navCtaText }}
@@ -257,14 +326,14 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
             />
           )}
           {links.length > 0 && (
-            <button type="button" onClick={() => setMenuOpen((o) => !o)} className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ color: ink, border: `1px solid ${pal.line}`, background: "transparent" }} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>
+            <button type="button" onClick={() => setMenuOpen((o) => !o)} className="min-[1000px]:hidden inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ color: ink, border: `1px solid ${pal.line}`, background: "transparent" }} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>
               {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
           )}
         </div>
       </div>
       {menuOpen && links.length > 0 && (
-        <div className="md:hidden" style={{ background: dark ? pal.deep : "#FFFFFF", borderTop: `1px solid ${pal.line}` }}>
+        <div className="min-[1000px]:hidden" style={{ background: dark ? pal.deep : "#FFFFFF", borderTop: `1px solid ${pal.line}` }}>
           <div className={cn(MINT_WIDE, "flex flex-col gap-1 py-3")}>
             {links.map((l, i) => (
               <a key={i} href={l.href || "#"} onClick={(e) => { mintAnchorClick(l.href)(e); setMenuOpen(false); }} className="py-2 text-[15px] font-medium no-underline" style={{ color: ink, fontFamily: MINT_BODY }}>{l.label}</a>
@@ -279,41 +348,81 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
     </header>
   );
 
+  /** The design's CTA row: a lime pill with an arrow and a quiet chevron link beside it. */
+  const pillLinkCtas = (
+    <div className="flex flex-wrap items-center gap-3">
+      {(p.ctaText || isEditor) && (
+        <CtaButton
+          {...ctaCommon}
+          ctaAction={p.ctaAction || "url"}
+          ctaUrl={p.ctaUrl}
+          chilipiperUrl={p.chilipiperUrl}
+          videoUrl={p.videoUrl}
+          videoPosterUrl={p.videoPosterUrl}
+          onClick={(p.ctaAction || "url") === "url" ? onCtaClick : undefined}
+          source="mint-hero-primary"
+          className="mint-btn inline-flex items-center justify-center gap-2.5 rounded-full whitespace-nowrap no-underline"
+          style={{ background: limeBtn.bg, color: limeBtn.text, fontFamily: MINT_BODY, padding: "14px 24px", fontSize: 14, fontWeight: 500, lineHeight: 1, boxShadow: "inset 0 1px 0 rgba(255,255,255,.5)" }}
+        >
+          <InlineText as="span" value={p.ctaText || "Talk to the enterprise team"} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, ctaText: v }) : undefined} />
+          <ArrowIcon />
+        </CtaButton>
+      )}
+      {(p.ctaSecondaryText || isEditor) && (
+        <CtaButton
+          {...ctaCommon}
+          ctaAction={p.ctaSecondaryAction || "url"}
+          ctaUrl={p.ctaSecondaryUrl}
+          chilipiperUrl={p.secondaryChilipiperUrl}
+          videoUrl={p.secondaryVideoUrl}
+          onClick={(p.ctaSecondaryAction || "url") === "url" ? onCtaClick : undefined}
+          source="mint-hero-secondary"
+          className="mint-link ml-2 text-[15px]"
+          style={{ background: "transparent", color: dark ? pal.lime : pal.green, fontFamily: MINT_BODY, padding: 0 }}
+        >
+          <InlineText as="span" value={p.ctaSecondaryText || "See the proof"} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, ctaSecondaryText: v }) : undefined} />
+        </CtaButton>
+      )}
+    </div>
+  );
+
   const floatCard = (f: MintFloatCard, i: number) => {
     const pos = FLOAT_POS[i] ?? FLOAT_POS[0];
     const cardStyle: React.CSSProperties = {
-      position: "absolute", left: pos.left, right: pos.right, top: pos.top, bottom: pos.bottom, width: pos.width,
-      background: "#FFFFFF", borderRadius: 16, boxShadow: "0 10px 40px rgba(0,38,31,.14), 0 2px 6px rgba(0,0,0,.04)", padding: "14px 16px",
-      fontSize: 13, lineHeight: 1.35, color: "#1D1D1F", fontFamily: MINT_BODY,
+      position: "absolute", zIndex: 2, left: pos.left, right: pos.right, top: pos.top, bottom: pos.bottom, width: pos.width,
+      background: "rgba(255,255,255,0.96)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+      borderRadius: 14, boxShadow: `${MINT_RING}, 0 14px 40px rgba(0,38,31,.16)`, padding: "12px 14px",
+      fontSize: 12.5, lineHeight: 1.35, color: "#1D1D1F", fontFamily: MINT_BODY,
       animation: reduced || staticRender ? "none" : `mint-float 7s ease-in-out infinite ${pos.delay}`,
     };
     return (
       <div key={i} className={cn("mint-float", i === 0 ? "" : "hidden md:block")} style={cardStyle} data-float-kind={f.kind}>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: "#6E6E73" }}>
+        <div className="flex items-start justify-between gap-3 text-[10.5px] font-semibold uppercase tracking-[0.08em]" style={{ color: "#6E6E73" }}>
           <InlineText as="span" value={f.label} onUpdate={updateFloat ? (v) => updateFloat(i, { label: v }) : undefined} />
+          <span aria-hidden className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: pal.lime }} />
         </div>
         {f.kind !== "checklist" && (
-          <div style={{ fontFamily: MINT_DISPLAY, fontSize: "1.6rem", letterSpacing: "-0.03em", lineHeight: 1.05, marginTop: 4 }}>
+          <div className="tabular-nums" style={{ fontFamily: MINT_DISPLAY, fontSize: "1.5rem", letterSpacing: "-0.03em", lineHeight: 1.05, marginTop: 4 }}>
             <InlineText as="span" value={f.value ?? ""} onUpdate={updateFloat ? (v) => updateFloat(i, { value: v }) : undefined} />
           </div>
         )}
         {f.kind === "metric" && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-[3px]" style={{ background: pal.mint2 }}>
+          <div className="mt-2 flex items-center gap-2" style={{ color: "#6E6E73" }}>
+            <div className="h-[5px] flex-1 overflow-hidden rounded-[3px]" style={{ background: pal.mint2 }}>
               <i className="block h-full rounded-[3px]" style={{ background: pal.green, width: settled ? `${Math.max(0, Math.min(100, f.bar ?? 40))}%` : 0, transition: reduced ? "none" : "width 1.6s cubic-bezier(.16,1,.3,1)" }} />
             </div>
             {(f.note || isEditor) && <span><InlineText as="span" value={f.note ?? ""} onUpdate={updateFloat ? (v) => updateFloat(i, { note: v }) : undefined} /></span>}
           </div>
         )}
         {f.kind === "figure" && (f.note || isEditor) && (
-          <div className="mt-2" style={{ color: "#6E6E73" }}>
+          <div className="mt-1.5" style={{ color: "#6E6E73" }}>
             <InlineText as="span" value={f.note ?? ""} onUpdate={updateFloat ? (v) => updateFloat(i, { note: v }) : undefined} />
           </div>
         )}
         {f.kind === "checklist" && (
-          <div className="mt-1.5 grid gap-2">
+          <div className="mt-1.5 grid gap-1.5">
             {(f.items ?? []).slice(0, 4).map((it, j) => (
-              <span key={j} className="inline-flex items-center gap-1.5 font-medium" style={{ color: pal.green }}>
+              <span key={j} className="inline-flex items-center gap-[7px] font-medium" style={{ color: "#1D1D1F" }}>
                 <MintCheckDot palette={pal} lime />
                 <InlineText as="span" value={it} onUpdate={updateFloat ? (v) => updateFloat(i, { items: (f.items ?? []).map((x, k) => (k === j ? v : x)) }) : undefined} />
               </span>
@@ -332,92 +441,160 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
       className="mint-hero relative"
       style={{ background: surface, color: ink, fontFamily: MINT_BODY }}
     >
-      <style>{MINT_CSS}{`@keyframes mint-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}} @media (prefers-reduced-motion: reduce){.mint-float{animation:none!important}}`}</style>
+      <style>{MINT_CSS}{`
+        @keyframes mint-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+        @media (prefers-reduced-motion: reduce){.mint-float{animation:none!important}}
+        .mint-stat{border-top:1px solid ${hairline}}
+        .mint-stat:nth-child(-n+2){border-top:0}
+        .mint-stat:nth-child(odd):not(:last-child){border-right:1px solid ${hairline}}
+        @media (min-width: 800px){.mint-stat{border-top:0;border-right:1px solid ${hairline}}.mint-stat:last-child{border-right:0}}
+      `}</style>
       {nav}
-      <div style={{ paddingTop: "clamp(70px, 9vw, 120px)" }}>
-        <div className={cn(MINT_WRAP, "text-center")}>
-          {(p.cap || isEditor) && (
-            <p className="mb-[18px] text-[14px] font-medium tracking-[0.01em]" style={{ color: muted, ...riseStyle(0) }}>
-              <InlineText as="span" value={p.cap ?? ""} onUpdate={field("cap")} />
-            </p>
-          )}
-          <h1 className="mx-auto" style={{ ...riseStyle(0.1), fontFamily: MINT_DISPLAY, fontSize: "clamp(2.6rem, 6vw, 5rem)", letterSpacing: "-0.035em", lineHeight: 1.02, fontWeight: 400, margin: 0, color: ink, textWrap: "balance" } as React.CSSProperties}>
-            {isEditor ? (
-              <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
-            ) : (
-              <Headline text={p.headline} highlight={p.highlight} lime={pal.lime} />
+      <div className={MINT_WIDE} style={{ paddingTop: "clamp(56px, 7vw, 96px)" }}>
+        <div className={cn("grid gap-9 min-[1000px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] min-[1000px]:items-end min-[1000px]:gap-12")}>
+          <div className="min-w-0">
+            {(p.cap || isEditor) && (
+              <div style={riseStyle(0)}>
+                <MintEyebrow
+                  palette={pal}
+                  suffix={(p.eyebrowSuffix || isEditor) ? <InlineText as="span" value={p.eyebrowSuffix ?? ""} onUpdate={field("eyebrowSuffix")} /> : undefined}
+                  style={{ marginBottom: 16 }}
+                >
+                  <InlineText as="span" value={p.cap ?? ""} onUpdate={field("cap")} />
+                </MintEyebrow>
+              </div>
             )}
-          </h1>
-          {(p.subheadline || isEditor) && (
-            <p className="mx-auto" style={{ ...mintSub(muted), ...riseStyle(0.2) }}>
-              <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
-            </p>
-          )}
-          <div className="mt-[26px]" style={riseStyle(0.3)}>
-            <MintCtaButtons
-              props={p}
-              brand={brand}
-              palette={pal}
-              pageId={pageId}
-              variantId={variantId}
-              onCtaClick={onCtaClick}
-              onLabelChange={onFieldChange ? (k, v) => onFieldChange({ ...props, [k]: v }) : undefined}
-              source="mint-hero"
-              style={p.ctaStyle === "pill" ? "pill" : "link"}
-              primaryPlaceholder="Talk to the enterprise team"
-              secondaryPlaceholder="See the proof"
-            />
+            <h1 style={{ ...riseStyle(0.1), fontFamily: MINT_DISPLAY, fontSize: "clamp(2.7rem, 6vw, 5rem)", letterSpacing: "-0.035em", lineHeight: 1.02, fontWeight: 400, margin: "4px 0 0", maxWidth: "12ch", color: ink, textWrap: "balance" } as React.CSSProperties}>
+              {isEditor ? (
+                <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
+              ) : (
+                <Headline text={p.headline} highlight={p.highlight} lime={pal.lime} />
+              )}
+            </h1>
+            {(p.subheadline || isEditor) && (
+              <p style={{ ...riseStyle(0.2), fontFamily: MINT_BODY, fontSize: "clamp(1.05rem, 1.5vw, 1.3rem)", lineHeight: 1.5, color: muted, maxWidth: "44ch", margin: "16px 0 0", textWrap: "pretty" } as React.CSSProperties}>
+                <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+              </p>
+            )}
+            <div className="mt-7" style={riseStyle(0.3)}>
+              {ctaMode === "pill-link" ? pillLinkCtas : (
+                <MintCtaButtons
+                  props={p}
+                  brand={brand}
+                  palette={pal}
+                  pageId={pageId}
+                  variantId={variantId}
+                  onCtaClick={onCtaClick}
+                  onLabelChange={onFieldChange ? (k, v) => onFieldChange({ ...props, [k]: v }) : undefined}
+                  source="mint-hero"
+                  style={ctaMode}
+                  align="start"
+                  primaryPlaceholder="Talk to the enterprise team"
+                  secondaryPlaceholder="See the proof"
+                />
+              )}
+            </div>
           </div>
+
+          {miniCards.length > 0 && (
+            <div className="grid gap-3" style={riseStyle(0.2)}>
+              {miniCards.map((c, i) => {
+                const Icon = resolveLucideIcon(c.icon?.trim() || undefined, MINI_ICONS[i % MINI_ICONS.length]);
+                return (
+                  <div key={i} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3.5" style={{ ...mintCard(pal), padding: "16px 18px" }}>
+                    <span aria-hidden className="grid h-[38px] w-[38px] place-items-center rounded-[11px]" style={{ background: pal.mint, color: pal.green }}>
+                      <Icon className="h-[18px] w-[18px]" />
+                    </span>
+                    <div className="min-w-0">
+                      <b className="block text-[14px] font-medium leading-[1.3]" style={{ color: ink }}>
+                        <InlineText as="span" value={c.title} onUpdate={updateMini ? (v) => updateMini(i, { title: v }) : undefined} />
+                      </b>
+                      {(c.caption || isEditor) && (
+                        <span className="block text-[12.5px] leading-[1.35]" style={{ color: muted }}>
+                          <InlineText as="span" value={c.caption ?? ""} onUpdate={updateMini ? (v) => updateMini(i, { caption: v }) : undefined} />
+                        </span>
+                      )}
+                    </div>
+                    <span className="tabular-nums" style={{ fontFamily: MINT_DISPLAY, fontSize: "1.5rem", letterSpacing: "-0.03em", lineHeight: 1, color: dark ? pal.lime : pal.green }}>
+                      <InlineText as="span" value={c.value} onUpdate={updateMini ? (v) => updateMini(i, { value: v }) : undefined} />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {p.showImage !== false && (
-          <div className={MINT_WIDE} style={{ marginTop: "clamp(44px, 6vw, 80px)" }}>
-            <div className="relative" style={{ borderRadius: 22, aspectRatio: "16 / 9", background: pal.grey }}>
-              <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: 22 }}>
-                {(p.imageUrl || isEditor) ? (
-                  <InlineImage
-                    src={p.imageUrl ?? ""}
-                    alt={p.imageAlt ?? ""}
-                    className="h-full w-full object-cover"
-                    wrapperClassName="absolute inset-0"
-                    style={{ filter: "saturate(.85)", transform: settled ? "scale(1)" : "scale(1.04)", transition: reduced ? "none" : "transform 2.2s cubic-bezier(.16,1,.3,1)" }}
-                    focalPoint={p.imageFocal}
-                    onUpdate={field("imageUrl")}
-                    onAltUpdate={field("imageAlt")}
-                    onFocalUpdate={field("imageFocal")}
-                  />
-                ) : (
-                  <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${pal.mint} 0%, ${pal.mint2} 100%)` }} />
-                )}
-              </div>
-              {floats.map(floatCard)}
+          <div className="relative" style={{ marginTop: "clamp(40px, 5vw, 64px)", ...riseStyle(0.3) }}>
+            <div aria-hidden className="absolute z-0 rounded-[24px]" style={{ inset: "14px -14px -14px 14px", background: pal.mint }} />
+            <div className="relative z-[1] overflow-hidden" style={{ borderRadius: 20, aspectRatio: "21 / 9", background: pal.grey, boxShadow: `${MINT_RING}, ${MINT_SHADOW_2}` }}>
+              {(p.imageUrl || isEditor) ? (
+                <InlineImage
+                  src={p.imageUrl ?? ""}
+                  alt={p.imageAlt ?? ""}
+                  className="h-full w-full object-cover"
+                  wrapperClassName="absolute inset-0"
+                  style={{ filter: "saturate(.8)", transform: settled ? "scale(1)" : "scale(1.04)", transition: reduced ? "none" : "transform 2.4s cubic-bezier(.16,1,.3,1)" }}
+                  focalPoint={p.imageFocal}
+                  onUpdate={field("imageUrl")}
+                  onAltUpdate={field("imageAlt")}
+                  onFocalUpdate={field("imageFocal")}
+                />
+              ) : (
+                <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${pal.mint} 0%, ${pal.mint2} 100%)` }}>
+                  <div className="absolute inset-0" style={mintStageDots(pal)} />
+                </div>
+              )}
+              <div aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: "inherit", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.35)" }} />
             </div>
+            {floats.map(floatCard)}
           </div>
         )}
 
         {stats.length > 0 && (
-          <div className={cn(MINT_WRAP, "grid grid-cols-2 gap-x-5 gap-y-[34px] text-center", stats.length >= 3 ? "md:grid-cols-4" : "md:grid-cols-2")} style={{ marginTop: "clamp(48px, 6vw, 80px)" }}>
-            {stats.map((s, i) => (
-              <div key={i}>
-                <MintNumber value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} className="block" style={{ fontFamily: MINT_DISPLAY, fontSize: "clamp(2.2rem, 4vw, 3.4rem)", letterSpacing: "-0.035em", color: ink }} />
-                <span className="mx-auto mt-2.5 block max-w-[20ch] text-[14px] leading-[1.4]" style={{ color: muted }}>
-                  <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} />
-                </span>
-              </div>
-            ))}
+          <div
+            className={cn("grid grid-cols-2 overflow-hidden", stats.length >= 3 ? "min-[800px]:grid-cols-4" : "min-[800px]:grid-cols-2")}
+            style={{ marginTop: "clamp(48px, 6vw, 72px)", borderRadius: 18, background: cardSurface, boxShadow: `${MINT_RING}, ${MINT_SHADOW_1}`, ...riseStyle(0.35) }}
+          >
+            {stats.map((s, i) => {
+              const spark = normaliseSpark(s.spark);
+              return (
+                <div key={i} className="mint-stat relative min-w-0 p-[18px] pb-4 sm:px-[22px] sm:pt-[22px] sm:pb-5">
+                  <div className="flex items-start justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: pal.inkSubtle, minHeight: 22 }}>
+                    <span className="min-w-0 pt-[3px]">
+                      <InlineText as="span" value={s.heading ?? ""} onUpdate={updateStat ? (v) => updateStat(i, { heading: v }) : undefined} />
+                    </span>
+                    <span className="flex shrink-0 items-start gap-2.5">
+                      <span className="pt-[3px]">{String(i + 1).padStart(2, "0")}</span>
+                      {spark && <MintSparkline palette={pal} points={spark} className="hidden sm:block" />}
+                    </span>
+                  </div>
+                  <MintNumber value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} className="mt-2.5 block" style={{ fontFamily: MINT_DISPLAY, fontSize: "clamp(2rem, 3.2vw, 2.8rem)", letterSpacing: "-0.035em", lineHeight: 1, color: ink }} />
+                  <span className="mt-2 block text-[13px] leading-[1.4]" style={{ color: muted }}>
+                    <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} />
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {names.length > 0 && (
-          <div className={MINT_WRAP}>
-            <div className="flex flex-wrap justify-center gap-x-9 gap-y-3.5 text-[14px] font-medium" style={{ marginTop: "clamp(56px, 7vw, 88px)", paddingTop: 28, borderTop: `1px solid ${pal.line}`, color: muted }}>
+          <div className="grid items-center gap-3.5 min-[900px]:grid-cols-[auto_minmax(0,1fr)] min-[900px]:gap-7" style={{ marginTop: 36, ...riseStyle(0.45) }}>
+            {(p.namesLabel || isEditor) && (
+              <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: pal.inkSubtle }}>
+                <InlineText as="span" value={p.namesLabel ?? ""} onUpdate={field("namesLabel")} />
+              </span>
+            )}
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-[15px] min-[900px]:gap-x-[30px] min-[900px]:gap-y-2.5 min-[900px]:text-[17px]" style={{ fontFamily: MINT_DISPLAY, letterSpacing: "-0.01em", color: muted }}>
               {names.map((n, i) => (
                 <span key={i}><InlineText as="span" value={n} onUpdate={updateName ? (v) => updateName(i, v) : undefined} /></span>
               ))}
             </div>
           </div>
         )}
-        <div style={{ height: "clamp(48px, 6vw, 80px)" }} />
+        <div style={{ height: "clamp(56px, 7vw, 96px)" }} />
       </div>
     </section>
   );

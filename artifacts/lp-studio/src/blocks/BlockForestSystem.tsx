@@ -5,8 +5,8 @@ import { useStaticRender } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import {
-  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_DISPLAY, FOREST_SECTION_PAD,
-  ForestEyebrow, ForestNumber, resolveForestPalette, useForestReveal,
+  FOREST_BODY, FOREST_CONTAINER, FOREST_CSS, FOREST_DISPLAY, FOREST_RING, FOREST_RING_DARK, FOREST_SECTION_PAD,
+  ForestArrowLink, ForestChrome, ForestEyebrow, ForestNumber, ForestSectionHeader, forestAnchorClick, resolveForestPalette, useForestReveal,
   type ForestStyleProps,
 } from "./forest/forest-theme";
 import { cn } from "@/lib/utils";
@@ -14,10 +14,13 @@ import { cn } from "@/lib/utils";
 /* ----------------------------------------------------------------------------
  * Forest System — type "forest-system"  (DSO Page family, Nov 2026)
  *
- * "Four parts. One lab your network runs on." A forest band with a column of
- * steps on the left (kicker with a rule that extends when active, h3, body,
- * a big stat) and a sticky 4:3 frame on the right that crossfades between the
- * steps' photos, with an accent badge, a caption row and a "01 / 04" counter.
+ * "Four parts. One lab your network runs on." A forest band that opens with
+ * the section header row (eyebrow + display h2, an optional arrow link at
+ * the right), then a column of steps on the left — a kicker with a
+ * display-face index ("01  Adoption"), h3, body, and a two-stat `meta` grid
+ * under a hairline — and a sticky frame on the right: a browser-window
+ * chrome strip (three dots, the active kicker, a "01 / 04" counter) over a
+ * 4:3 stage that crossfades between the steps' photos, with a caption row.
  * The active step is the one crossing the viewport middle; steps are also
  * clickable. Below 1000px the frame is hidden and each step shows its own
  * photo under its text.
@@ -26,13 +29,21 @@ import { cn } from "@/lib/utils";
  * at opacity 0 if the observer never fires; the static render shows step one.
  * -------------------------------------------------------------------------- */
 
+export interface ForestSystemMetaStat {
+  value: string;
+  label: string;
+}
+
 export interface ForestSystemStep {
-  /** Short accent label ("Adoption"). */
+  /** Short accent label ("Adoption"); the "01" index is drawn in front of it. */
   kicker: string;
   title: string;
   body: string;
+  /** Legacy single stat; shown as the only `meta` cell when `metaStats` is empty. */
   statValue?: string;
   statLabel?: string;
+  /** Up to two numbers in the `meta` grid under the body (the v2 `.feat .meta`). */
+  metaStats?: ForestSystemMetaStat[];
   imageUrl?: string;
   imageAlt?: string;
   imageFocal?: string;
@@ -44,6 +55,9 @@ export interface ForestSystemStep {
 export interface ForestSystemBlockProps extends ForestStyleProps {
   eyebrow?: string;
   headline: string;
+  /** Quiet arrow link at the right of the header row; blank hides it. */
+  headerLinkText?: string;
+  headerLinkUrl?: string;
   steps: ForestSystemStep[];
   anchorId?: string;
 }
@@ -58,10 +72,13 @@ interface Props {
 }
 
 export const FOREST_SYSTEM_MAX_STEPS = 6;
+export const FOREST_SYSTEM_MAX_META = 2;
 
 export const FOREST_SYSTEM_DEFAULT_PROPS: ForestSystemBlockProps = {
   eyebrow: "The system",
   headline: "Four parts. One lab your network runs on.",
+  headerLinkText: "",
+  headerLinkUrl: "#",
   steps: [
     {
       kicker: "Adoption",
@@ -69,6 +86,10 @@ export const FOREST_SYSTEM_DEFAULT_PROPS: ForestSystemBlockProps = {
       body: "No mandates. A scanner in every operatory, a technician on every case, and training that happens in the office on day one. Doctors switch because the work is better, and leadership never has to argue.",
       statValue: "70%",
       statLabel: "of practices activate on training day",
+      metaStats: [
+        { value: "70%", label: "of practices activate on training day" },
+        { value: "<2 min", label: "to reach a technician" },
+      ],
       imageUrl: "",
       imageAlt: "",
       frameTitle: "Training day, in the office",
@@ -80,6 +101,10 @@ export const FOREST_SYSTEM_DEFAULT_PROPS: ForestSystemBlockProps = {
       body: "A scanner per location at $0 CapEx. Volume pricing across the group, one invoice, month-to-month terms. The lab line on the P&L becomes something you can forecast.",
       statValue: "$0",
       statLabel: "scanner CapEx per location",
+      metaStats: [
+        { value: "$0", label: "scanner CapEx per location" },
+        { value: "24%", label: "average lab cost savings" },
+      ],
       imageUrl: "",
       imageAlt: "",
       frameTitle: "A scanner in every operatory, $0 CapEx",
@@ -91,6 +116,10 @@ export const FOREST_SYSTEM_DEFAULT_PROPS: ForestSystemBlockProps = {
       body: "Remakes, turnaround, spend and scan quality by provider and by location, in one dashboard. The lab-management layer other networks buy from a second vendor. Here it is the lab.",
       statValue: "1",
       statLabel: "view of the whole network, by provider and by office",
+      metaStats: [
+        { value: "7", label: "metrics tracked per office" },
+        { value: "90", label: "days to the first executive review" },
+      ],
       imageUrl: "",
       imageAlt: "",
       frameTitle: "Remakes, spend and turnaround by office",
@@ -102,6 +131,10 @@ export const FOREST_SYSTEM_DEFAULT_PROPS: ForestSystemBlockProps = {
       body: "AI checks every scan at the chair. Guided design keeps every case consistent. The work is made at two domestic sites, with a full quality check before it ships.",
       statValue: "98%",
       statLabel: "first-fit across the network",
+      metaStats: [
+        { value: "98%", label: "first-fit across the network" },
+        { value: "360°", label: "quality check before it ships" },
+      ],
       imageUrl: "",
       imageAlt: "",
       frameTitle: "AI scan review at the chair",
@@ -113,6 +146,14 @@ export const FOREST_SYSTEM_DEFAULT_PROPS: ForestSystemBlockProps = {
 };
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** The step's meta cells: `metaStats` when present, else the legacy single stat. */
+function metaCells(s: ForestSystemStep, isEditor: boolean): ForestSystemMetaStat[] {
+  const meta = (s.metaStats ?? []).filter((m) => m.value?.trim() || m.label?.trim() || isEditor).slice(0, FOREST_SYSTEM_MAX_META);
+  if (meta.length) return meta;
+  if (s.statValue?.trim() || (isEditor && !s.metaStats)) return [{ value: s.statValue ?? "", label: s.statLabel ?? "" }];
+  return [];
+}
 
 export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
   const p = { ...FOREST_SYSTEM_DEFAULT_PROPS, ...props };
@@ -132,6 +173,15 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
   const updateStep = onFieldChange
     ? (i: number, patch: Partial<ForestSystemStep>) => onFieldChange({ ...props, steps: (p.steps ?? []).map((s, idx) => (idx === i ? { ...s, ...patch } : s)) })
     : undefined;
+  /** Edit one meta cell in place; a legacy single-stat step writes back to statValue/statLabel so the old props keep working. */
+  const updateMeta = updateStep
+    ? (i: number, j: number, patch: Partial<ForestSystemMetaStat>) => {
+        const s = steps[i];
+        const meta = (s.metaStats ?? []).slice(0, FOREST_SYSTEM_MAX_META);
+        if (meta.length) updateStep(i, { metaStats: meta.map((m, idx) => (idx === j ? { ...m, ...patch } : m)) });
+        else updateStep(i, { statValue: patch.value ?? s.statValue, statLabel: patch.label ?? s.statLabel });
+      }
+    : undefined;
 
   /* Active step = the one crossing the viewport middle (live page only). */
   useEffect(() => {
@@ -150,7 +200,9 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
   const dark = pal.dark;
   const cream = pal.cream;
   const onDarkMuted = dark ? "rgba(255,252,239,0.66)" : pal.muted;
+  const subtle = dark ? "rgba(255,252,239,0.45)" : `color-mix(in srgb, ${pal.muted} 72%, ${pal.bg})`;
   const hairline = dark ? "rgba(255,252,239,0.14)" : pal.hairline;
+  const ring = dark ? FOREST_RING_DARK : FOREST_RING;
   const ease = "cubic-bezier(.16,1,.3,1)";
   const activeStep = steps[current];
 
@@ -163,28 +215,40 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
       style={{ background: pal.bg, color: cream, fontFamily: FOREST_BODY, ...FOREST_SECTION_PAD }}
     >
       <style>{FOREST_CSS}</style>
-      <style>{`@keyframes forest-sys-pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb, ${pal.accentDeco} 55%, transparent)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}} .forest-sys-pulse{animation:forest-sys-pulse 2.2s infinite} @media (prefers-reduced-motion: reduce){.forest-sys-pulse{animation:none}}`}</style>
       <div className={FOREST_CONTAINER}>
-        {(p.eyebrow || isEditor) && (
-          <motion.div {...rise(0)}>
-            <ForestEyebrow palette={pal}>
-              <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} />
-            </ForestEyebrow>
-          </motion.div>
-        )}
-        <motion.h2
-          {...rise(0.08)}
-          className="max-w-[16ch]"
-          style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(2rem, 4vw, 3.25rem)", lineHeight: 1.1, letterSpacing: "-0.03em", fontWeight: 400, color: cream, margin: "18px 0 0", textWrap: "balance" } as React.CSSProperties}
-        >
-          <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
-        </motion.h2>
+        <ForestSectionHeader
+          eyebrow={(p.eyebrow || isEditor) && (
+            <motion.div {...rise(0)}>
+              <ForestEyebrow palette={pal}>
+                <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} />
+              </ForestEyebrow>
+            </motion.div>
+          )}
+          headline={
+            <motion.h2
+              {...rise(0.08)}
+              className="max-w-[20ch]"
+              style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(1.9rem, 3.6vw, 3rem)", lineHeight: 1.08, letterSpacing: "-0.03em", fontWeight: 400, color: cream, margin: 0, textWrap: "balance" } as React.CSSProperties}
+            >
+              <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
+            </motion.h2>
+          }
+          link={(p.headerLinkText || isEditor) && (
+            <motion.div {...rise(0.16)}>
+              <ForestArrowLink href={p.headerLinkUrl || "#"} color={dark ? pal.accentDeco : pal.accent} onClick={forestAnchorClick(p.headerLinkUrl)}>
+                <InlineText as="span" value={p.headerLinkText ?? ""} onUpdate={field("headerLinkText")} />
+              </ForestArrowLink>
+            </motion.div>
+          )}
+          gap="clamp(28px, 4vw, 44px)"
+        />
 
-        <div className="mt-12 grid gap-10 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-start min-[1000px]:gap-[72px]">
+        <div className="grid gap-10 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-start min-[1000px]:gap-[64px]">
           {/* Steps */}
           <div className="flex flex-col">
             {steps.map((s, i) => {
               const on = i === current;
+              const meta = metaCells(s, isEditor);
               return (
                 <div
                   key={i}
@@ -192,33 +256,39 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
                   data-step={i}
                   className="step cursor-pointer"
                   onClick={() => setActive(i)}
-                  style={{ padding: "34px 0", borderTop: `1px solid ${hairline}`, opacity: on ? 1 : 0.38, transition: reduced ? "none" : "opacity .6s", scrollMarginTop: "30vh" }}
+                  style={{ padding: "clamp(28px, 3.5vw, 40px) 0", borderTop: i === 0 ? 0 : `1px solid ${hairline}`, paddingTop: i === 0 ? 0 : undefined, opacity: on ? 1 : 0.42, transition: reduced ? "none" : "opacity .6s", scrollMarginTop: "30vh" }}
                 >
-                  <span className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: pal.accent }}>
-                    <i aria-hidden className="block h-px w-7 shrink-0" style={{ background: pal.accentDeco, transform: on ? "scaleX(1)" : "scaleX(.4)", transformOrigin: "0 50%", transition: reduced ? "none" : `transform .8s ${ease}` }} />
+                  {/* Kicker with the display-face index (the v2 `.feat .k`) */}
+                  <span className="flex items-center gap-2.5 text-[12px] font-semibold uppercase tracking-[0.1em]" style={{ color: dark ? pal.accentDeco : pal.accent }}>
+                    <b aria-hidden className="font-normal normal-case tabular-nums tracking-[-0.02em]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.1rem", color: on ? cream : subtle, transition: reduced ? "none" : "color .6s" }}>{pad2(i + 1)}</b>
                     <InlineText as="span" value={s.kicker} onUpdate={updateStep ? (v) => updateStep(i, { kicker: v }) : undefined} />
                   </span>
-                  <h3 className="mt-3.5 max-w-[22ch]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(1.3rem, 2.2vw, 1.75rem)", lineHeight: 1.18, letterSpacing: "-0.025em", fontWeight: 400, color: cream, margin: "14px 0 0", textWrap: "balance" } as React.CSSProperties}>
+                  <h3 className="mt-3.5 max-w-[24ch]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(1.35rem, 2.2vw, 1.85rem)", lineHeight: 1.12, letterSpacing: "-0.025em", fontWeight: 400, color: cream, margin: "14px 0 0", textWrap: "pretty" } as React.CSSProperties}>
                     <InlineText as="span" value={s.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} multiline />
                   </h3>
                   {(s.body || isEditor) && (
-                    <p className="mt-3.5 max-w-[46ch] text-[15.5px] leading-[1.6]" style={{ color: onDarkMuted }}>
+                    <p className="max-w-[44ch] text-[16px] leading-[1.55]" style={{ color: onDarkMuted, margin: "14px 0 0" }}>
                       <InlineText as="span" value={s.body} onUpdate={updateStep ? (v) => updateStep(i, { body: v }) : undefined} multiline />
                     </p>
                   )}
-                  {(s.statValue || isEditor) && (
-                    <div className="mt-[18px] flex items-baseline gap-2.5">
-                      <ForestNumber value={s.statValue ?? ""} onUpdate={updateStep ? (v) => updateStep(i, { statValue: v }) : undefined} style={{ fontFamily: FOREST_DISPLAY, fontSize: "2.4rem", color: cream }} />
-                      {(s.statLabel || isEditor) && (
-                        <span className="text-[13px] leading-[1.45]" style={{ color: onDarkMuted }}>
-                          <InlineText as="span" value={s.statLabel ?? ""} onUpdate={updateStep ? (v) => updateStep(i, { statLabel: v }) : undefined} />
-                        </span>
-                      )}
+                  {/* Meta grid: two numbers under a hairline (the v2 `.feat .meta`) */}
+                  {meta.length > 0 && (
+                    <div className={cn("mt-[22px] grid max-w-[420px] gap-[18px] pt-[18px]", meta.length > 1 ? "grid-cols-2" : "grid-cols-1")} style={{ borderTop: `1px solid ${hairline}` }}>
+                      {meta.map((m, j) => (
+                        <div key={j} className="min-w-0">
+                          <ForestNumber value={m.value} onUpdate={updateMeta ? (v) => updateMeta(i, j, { value: v }) : undefined} className="block" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.9rem", letterSpacing: "-0.035em", color: cream }} />
+                          {(m.label || isEditor) && (
+                            <span className="mt-1.5 block text-[12.5px] leading-[1.35]" style={{ color: onDarkMuted }}>
+                              <InlineText as="span" value={m.label} onUpdate={updateMeta ? (v) => updateMeta(i, j, { label: v }) : undefined} />
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                   {/* Mobile photo (the sticky frame is hidden below 1000px) */}
                   {(s.imageUrl || isEditor) && (
-                    <div className="mt-5 overflow-hidden rounded-2xl min-[1000px]:hidden" style={{ aspectRatio: "16 / 10", background: pal.deep }}>
+                    <div className="mt-5 overflow-hidden rounded-[16px] min-[1000px]:hidden" style={{ aspectRatio: "16 / 10", background: pal.deep, boxShadow: ring }}>
                       <InlineImage
                         src={s.imageUrl ?? ""}
                         alt={s.imageAlt || s.frameTitle || s.title}
@@ -237,64 +307,69 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
             })}
           </div>
 
-          {/* Sticky frame (≥1000px) */}
+          {/* Sticky frame (≥1000px): chrome strip + crossfading stage */}
           {steps.length > 0 && (
             <div className="hidden min-[1000px]:block min-[1000px]:sticky" style={{ top: 84 }}>
-              <div className="relative overflow-hidden rounded-[28px]" style={{ aspectRatio: "4 / 3", background: pal.deep, border: `1px solid ${hairline}`, boxShadow: pal.shadowElev }}>
-                {steps.map((s, i) => {
-                  const on = i === current;
-                  return (
-                    <div
-                      key={i}
-                      className="absolute inset-0"
-                      style={{ opacity: on ? 1 : 0, transform: on ? "scale(1)" : "scale(1.06)", transition: reduced ? "none" : `opacity .9s ${ease}, transform 1.6s ${ease}`, pointerEvents: on ? "auto" : "none", zIndex: on ? 1 : 0 }}
-                      aria-hidden={!on}
-                    >
-                      {(s.imageUrl || (isEditor && on)) ? (
-                        <InlineImage
-                          src={s.imageUrl ?? ""}
-                          alt={s.imageAlt || s.frameTitle || s.title}
-                          className="absolute inset-0 h-full w-full object-cover"
-                          wrapperClassName="absolute inset-0"
-                          style={{ filter: "saturate(.85)" }}
-                          focalPoint={s.imageFocal}
-                          onUpdate={updateStep && on ? (v) => updateStep(i, { imageUrl: v }) : undefined}
-                          onAltUpdate={updateStep && on ? (v) => updateStep(i, { imageAlt: v }) : undefined}
-                          onFocalUpdate={updateStep && on ? (v) => updateStep(i, { imageFocal: v }) : undefined}
-                        />
-                      ) : (
-                        <div aria-hidden className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 20%, color-mix(in srgb, ${pal.accentDeco} 18%, transparent), transparent 55%), linear-gradient(160deg, ${pal.base} 0%, ${pal.deep} 100%)` }} />
-                      )}
+              <div className="relative overflow-hidden rounded-[20px]" style={{ background: pal.deep, boxShadow: `${ring}, ${pal.shadowHover}` }}>
+                {/* The strip sits on a lifted tint so the stage reads as a window. */}
+                <div className="relative z-[4]" style={{ background: dark ? "rgba(255,252,239,0.05)" : pal.panel }}>
+                  <ForestChrome
+                    palette={pal}
+                    title={activeStep ? <span style={{ color: cream, opacity: 0.85 }}>{activeStep.kicker}</span> : undefined}
+                    right={<span style={{ color: cream }}>{pad2(current + 1)} / {pad2(steps.length)}</span>}
+                  />
+                </div>
+                <div className="relative" style={{ aspectRatio: "4 / 3" }}>
+                  {steps.map((s, i) => {
+                    const on = i === current;
+                    return (
+                      <div
+                        key={i}
+                        className="absolute inset-0"
+                        style={{ opacity: on ? 1 : 0, transform: on ? "scale(1)" : "scale(1.06)", transition: reduced ? "none" : `opacity .9s ${ease}, transform 1.6s ${ease}`, pointerEvents: on ? "auto" : "none", zIndex: on ? 1 : 0 }}
+                        aria-hidden={!on}
+                      >
+                        {(s.imageUrl || (isEditor && on)) ? (
+                          <InlineImage
+                            src={s.imageUrl ?? ""}
+                            alt={s.imageAlt || s.frameTitle || s.title}
+                            className="absolute inset-0 h-full w-full object-cover"
+                            wrapperClassName="absolute inset-0"
+                            style={{ filter: "saturate(.85)" }}
+                            focalPoint={s.imageFocal}
+                            onUpdate={updateStep && on ? (v) => updateStep(i, { imageUrl: v }) : undefined}
+                            onAltUpdate={updateStep && on ? (v) => updateStep(i, { imageAlt: v }) : undefined}
+                            onFocalUpdate={updateStep && on ? (v) => updateStep(i, { imageFocal: v }) : undefined}
+                          />
+                        ) : (
+                          <div aria-hidden className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 20%, color-mix(in srgb, ${pal.accentDeco} 18%, transparent), transparent 55%), linear-gradient(160deg, ${pal.base} 0%, ${pal.deep} 100%)` }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* dotted stage texture + scrim */}
+                  <div aria-hidden className="pointer-events-none absolute inset-0" style={{ zIndex: 2, backgroundImage: `radial-gradient(rgba(255,252,239,0.09) 1px, transparent 1px)`, backgroundSize: "18px 18px", opacity: 0.6, maskImage: "linear-gradient(180deg, #000, transparent 70%)", WebkitMaskImage: "linear-gradient(180deg, #000, transparent 70%)" }} />
+                  <div aria-hidden className="pointer-events-none absolute inset-0" style={{ zIndex: 2, background: `linear-gradient(180deg, color-mix(in srgb, ${pal.deep} 10%, transparent), color-mix(in srgb, ${pal.deep} 72%, transparent))` }} />
+                  {/* caption row */}
+                  {activeStep && (
+                    <div className="absolute bottom-[22px] left-[22px] right-[22px] flex items-end justify-between gap-4 text-[13px]" style={{ zIndex: 3, color: cream }}>
+                      <div className="min-w-0">
+                        {(activeStep.frameTitle || activeStep.title || isEditor) && (
+                          <b className="block font-normal" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.2rem", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                            <InlineText as="span" value={activeStep.frameTitle || (isEditor ? "" : activeStep.title)} onUpdate={updateStep ? (v) => updateStep(current, { frameTitle: v }) : undefined} />
+                          </b>
+                        )}
+                        {(activeStep.frameSub || isEditor) && (
+                          <span className="block" style={{ color: onDarkMuted }}>
+                            <InlineText as="span" value={activeStep.frameSub ?? ""} onUpdate={updateStep ? (v) => updateStep(current, { frameSub: v }) : undefined} />
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  );
-                })}
-                {/* scrim */}
-                <div aria-hidden className="pointer-events-none absolute inset-0" style={{ zIndex: 2, background: `linear-gradient(180deg, color-mix(in srgb, ${pal.deep} 15%, transparent), color-mix(in srgb, ${pal.deep} 70%, transparent))` }} />
-                {/* badge */}
-                {activeStep && (
-                  <span className="absolute left-[22px] top-[22px] inline-flex items-center gap-2 rounded-full px-3 py-[7px] text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ zIndex: 3, background: pal.accentTint, color: dark ? pal.accentDeco : pal.accent, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
-                    <i aria-hidden className="forest-sys-pulse inline-block h-[7px] w-[7px] rounded-full" style={{ background: pal.accentDeco }} />
-                    <span>{activeStep.kicker}</span>
-                  </span>
-                )}
-                {/* footer row */}
-                {activeStep && (
-                  <div className="absolute bottom-[22px] left-[22px] right-[22px] flex items-end justify-between gap-4 text-[13px]" style={{ zIndex: 3, color: cream }}>
-                    <div className="min-w-0">
-                      {(activeStep.frameTitle || activeStep.title || isEditor) && (
-                        <b className="block font-normal" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.2rem", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                          <InlineText as="span" value={activeStep.frameTitle || (isEditor ? "" : activeStep.title)} onUpdate={updateStep ? (v) => updateStep(current, { frameTitle: v }) : undefined} />
-                        </b>
-                      )}
-                      {(activeStep.frameSub || isEditor) && (
-                        <span className="block" style={{ color: onDarkMuted }}>
-                          <InlineText as="span" value={activeStep.frameSub ?? ""} onUpdate={updateStep ? (v) => updateStep(current, { frameSub: v }) : undefined} />
-                        </span>
-                      )}
-                    </div>
-                    <span className="shrink-0 tabular-nums">{pad2(current + 1)} / {pad2(steps.length)}</span>
-                  </div>
-                )}
+                  )}
+                </div>
+                {/* Inner 1px highlight (the v2 `.frame::after`) */}
+                <span aria-hidden className="pointer-events-none absolute inset-0 z-[5] rounded-[inherit]" style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)" }} />
               </div>
             </div>
           )}
