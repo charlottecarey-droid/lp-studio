@@ -757,11 +757,17 @@ const DISPLAY = DISPLAY_FONT;
  * mint hero's media slot) can mount the same dashboard without the section
  * header. `variant` must match the surface it sits on.
  */
-export function DsoInsightsDashboardFrame({ variant, browserUrl, override, className }: {
+export function DsoInsightsDashboardFrame({ variant, browserUrl, override, className, shell, tabsClassName, tabsStyle }: {
   variant: "light" | "dark";
   browserUrl?: string;
   override?: React.ReactNode;
+  /** Extra classes on the frame box (the chrome + content window). */
   className?: string;
+  /** Lays out the frame and the tab bar; default = tabs above the frame. The host decides where the tabs float. */
+  shell?: (frame: React.ReactNode, tabs: React.ReactNode) => React.ReactNode;
+  /** Classes / styles for the tab-bar pill (the host restyles it to match its surface). */
+  tabsClassName?: string;
+  tabsStyle?: React.CSSProperties;
 }) {
   const anim = useAnimInitial();
   const isDark = variant === "dark";
@@ -801,12 +807,9 @@ export function DsoInsightsDashboardFrame({ variant, browserUrl, override, class
     }
   };
 
-  return (
-    <>
-        {/* Tab bar — hidden when a video or image replaces the dashboard */}
-        {!override && (
-        <div className="flex justify-center mb-6">
-          <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-1 flex gap-1`}>
+  const tabs = !override ? (
+        <div className={`flex justify-center ${shell ? "" : "mb-6"}`}>
+          <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-1 flex gap-1 ${tabsClassName ?? ""}`} style={tabsStyle}>
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -825,10 +828,9 @@ export function DsoInsightsDashboardFrame({ variant, browserUrl, override, class
             })}
           </div>
         </div>
-        )}
+  ) : null;
 
-
-        {/* Dashboard frame */}
+  const frame = (
         <div className={`rounded-xl border ${t.cardBorder} overflow-hidden ${className ?? ""}`}>
           {/* Browser chrome */}
           <div className={`flex items-center gap-2 px-4 py-2.5 border-b ${t.browserChromeBorder} ${t.browserChromeBg}`}>
@@ -900,8 +902,9 @@ export function DsoInsightsDashboardFrame({ variant, browserUrl, override, class
           </div>
           )}
         </div>
-    </>
   );
+
+  return <>{shell ? shell(frame, tabs) : <>{tabs}{frame}</>}</>;
 }
 
 export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {

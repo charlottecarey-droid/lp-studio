@@ -72,6 +72,15 @@ export interface MintMiniCard {
   value: string;
 }
 
+export interface MintHeroLogo {
+  name: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  url?: string;
+}
+
+export const MINT_HERO_MAX_LOGOS = 8;
+
 export interface MintHeroBlockProps extends MintStyleProps, MintCtaProps {
   showNav?: boolean;
   navLinks?: MintNavLink[];
@@ -108,6 +117,12 @@ export interface MintHeroBlockProps extends MintStyleProps, MintCtaProps {
   namesLabel?: string;
   /** Customer names in the row under the numbers. */
   names?: string[];
+  /** Customer logos (up to 8) shown in that row instead of the names when any has an image. */
+  logos?: MintHeroLogo[];
+  /** Logo image height in px (default 26). */
+  logoHeight?: number;
+  /** Render the logos in grayscale (default true) so a mixed set reads as one row. */
+  logoGrayscale?: boolean;
   anchorId?: string;
 }
 
@@ -166,6 +181,9 @@ export const MINT_HERO_DEFAULT_PROPS: MintHeroBlockProps = {
     { heading: "CapEx", value: "$0", label: "scanner CapEx per location", spark: [4, 4, 12, 20, 20].map((v) => 22 - v) },
   ],
   namesLabel: "Trusted by",
+  logos: [],
+  logoHeight: 26,
+  logoGrayscale: true,
   names: ["Northwind Dental Partners", "Harbor Smiles Group", "Summit Dental Alliance", "Meridian Oral Health", "Lakeside Dental Group", "Atlas Dental Partners"],
   anchorId: "top",
   backgroundStyle: "white",
@@ -270,6 +288,12 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
   const floats = (p.floats ?? []).slice(0, 3);
   const miniCards = (p.miniCards ?? []).filter((c) => c.title?.trim() || c.value?.trim() || isEditor).slice(0, 3);
   const names = (p.names ?? []).filter((n) => n.trim() || isEditor);
+  const logos = (p.logos ?? []).filter((l) => l.imageUrl || l.name?.trim() || isEditor).slice(0, MINT_HERO_MAX_LOGOS);
+  const useLogos = logos.some((l) => !!l.imageUrl) || (isEditor && logos.length > 0);
+  const updateLogo = onFieldChange
+    ? (i: number, patch: Partial<MintHeroLogo>) => onFieldChange({ ...props, logos: (p.logos ?? []).map((l, idx) => (idx === i ? { ...l, ...patch } : l)) })
+    : undefined;
+  const logoHeight = Math.max(14, Math.min(56, Number(p.logoHeight) || 26));
   const anchorHref = p.anchorId ? `#${p.anchorId}` : undefined;
   const customSurface = !!p.bgColor || (!!p.backgroundStyle && p.backgroundStyle !== "white");
   const surface = dark || customSurface
@@ -533,14 +557,28 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
         </div>
 
         {p.showImage !== false && p.mediaKind === "dashboard" && (
-          <div className="relative" style={{ marginTop: "clamp(40px, 5vw, 64px)", ...riseStyle(0.3) }}>
-            <div aria-hidden className="absolute z-0 rounded-[24px]" style={{ inset: "14px -14px -14px 14px", background: pal.mint }} />
-            <div className="relative z-[1] overflow-hidden" style={{ borderRadius: 20, background: dark ? pal.deep : "#FFFFFF", boxShadow: `${MINT_RING}, ${MINT_SHADOW_2}` }}>
-              <div className="p-3 pb-0 min-[800px]:p-5 min-[800px]:pb-0" style={{ fontFamily: "inherit" }}>
-                <DsoInsightsDashboardFrame variant={dark ? "dark" : "light"} browserUrl={p.dashboardUrl} className="!rounded-b-none !border-b-0" />
-              </div>
-              <div aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: "inherit", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.35)" }} />
-            </div>
+          <div style={{ marginTop: "clamp(40px, 5vw, 64px)", ...riseStyle(0.3) }}>
+            <DsoInsightsDashboardFrame
+              variant={dark ? "dark" : "light"}
+              browserUrl={p.dashboardUrl}
+              className="!rounded-[20px] !border-0"
+              tabsClassName="!rounded-full !border-0 !p-1.5 !gap-0.5"
+              tabsStyle={{ background: dark ? pal.deep : "#FFFFFF", boxShadow: `${MINT_RING}, ${MINT_SHADOW_1}` }}
+              shell={(frame, tabs) => (
+                <>
+                  {/* The window on the mint plate, edge to edge — no gutter around the dashboard. */}
+                  <div className="relative">
+                    <div aria-hidden className="absolute z-0 rounded-[24px]" style={{ inset: "14px -14px -14px 14px", background: pal.mint }} />
+                    <div className="relative z-[1] overflow-hidden" style={{ borderRadius: 20, background: dark ? pal.deep : "#FFFFFF", boxShadow: `${MINT_RING}, ${MINT_SHADOW_2}` }}>
+                      {frame}
+                      <div aria-hidden className="pointer-events-none absolute inset-0 z-[5]" style={{ borderRadius: "inherit", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.35)" }} />
+                    </div>
+                  </div>
+                  {/* The view switcher floats under the window. */}
+                  {tabs && <div className="relative z-[2]" style={{ marginTop: 26 }}>{tabs}</div>}
+                </>
+              )}
+            />
           </div>
         )}
 
@@ -599,18 +637,44 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
           </div>
         )}
 
-        {names.length > 0 && (
+        {(useLogos || names.length > 0) && (
           <div className="grid items-center gap-3.5 min-[900px]:grid-cols-[auto_minmax(0,1fr)] min-[900px]:gap-7" style={{ marginTop: 36, ...riseStyle(0.45) }}>
             {(p.namesLabel || isEditor) && (
               <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: pal.inkSubtle }}>
                 <InlineText as="span" value={p.namesLabel ?? ""} onUpdate={field("namesLabel")} />
               </span>
             )}
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-[15px] min-[900px]:gap-x-[30px] min-[900px]:gap-y-2.5 min-[900px]:text-[17px]" style={{ fontFamily: MINT_DISPLAY, letterSpacing: "-0.01em", color: muted }}>
-              {names.map((n, i) => (
-                <span key={i}><InlineText as="span" value={n} onUpdate={updateName ? (v) => updateName(i, v) : undefined} /></span>
-              ))}
-            </div>
+            {useLogos ? (
+              <div className="flex flex-wrap items-center gap-x-7 gap-y-4 min-[900px]:gap-x-10" data-hero-logos>
+                {logos.map((l, i) => {
+                  if (!l.imageUrl && !isEditor) {
+                    return <span key={i} className="text-[15px] min-[900px]:text-[17px]" style={{ fontFamily: MINT_DISPLAY, letterSpacing: "-0.01em", color: muted }}>{l.name}</span>;
+                  }
+                  const img = (
+                    <InlineImage
+                      src={l.imageUrl ?? ""}
+                      alt={l.imageAlt || l.name || ""}
+                      className="block w-auto object-contain"
+                      wrapperClassName="inline-block"
+                      style={{ height: logoHeight, maxWidth: logoHeight * 6, filter: p.logoGrayscale !== false && l.imageUrl ? "grayscale(1)" : undefined, opacity: p.logoGrayscale !== false && l.imageUrl ? (dark ? 0.78 : 0.64) : 1 }}
+                      onUpdate={updateLogo ? (v) => updateLogo(i, { imageUrl: v }) : undefined}
+                      onAltUpdate={updateLogo ? (v) => updateLogo(i, { imageAlt: v }) : undefined}
+                    />
+                  );
+                  return l.url && !isEditor ? (
+                    <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" aria-label={l.name || l.imageAlt || "Customer"} className="inline-flex items-center">{img}</a>
+                  ) : (
+                    <span key={i} className="inline-flex items-center">{img}</span>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-[15px] min-[900px]:gap-x-[30px] min-[900px]:gap-y-2.5 min-[900px]:text-[17px]" style={{ fontFamily: MINT_DISPLAY, letterSpacing: "-0.01em", color: muted }}>
+                {names.map((n, i) => (
+                  <span key={i}><InlineText as="span" value={n} onUpdate={updateName ? (v) => updateName(i, v) : undefined} /></span>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <div style={{ height: "clamp(56px, 7vw, 96px)" }} />

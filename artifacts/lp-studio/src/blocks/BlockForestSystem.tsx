@@ -243,9 +243,16 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
           gap="clamp(28px, 4vw, 44px)"
         />
 
-        <div className="grid gap-10 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-start min-[1000px]:gap-[64px]">
-          {/* Steps */}
-          <div className="flex flex-col">
+        <style>{`
+          /* Each step holds the frame for most of a screen on desktop, so the crossfade never races the reader. */
+          @media (min-width: 1000px) { .forest-system .fs-step { min-height: 72vh; display: flex; flex-direction: column; justify-content: center; } }
+          .forest-system .fs-rail::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--fs-hairline); }
+          @media (hover: hover) { .forest-system .fs-step:hover { opacity: 1 !important; } }
+          @media (prefers-reduced-motion: reduce) { .forest-system .fs-step, .forest-system .fs-mark, .forest-system .fs-seg, .forest-system .fs-idx { transition: none !important; } }
+        `}</style>
+        <div className="grid gap-10 min-[1000px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] min-[1000px]:items-start min-[1000px]:gap-[72px]">
+          {/* Steps, hung off a hairline rail; the active step's segment fills in the accent. */}
+          <div className="fs-rail relative flex flex-col pl-7 min-[1000px]:pl-9" style={{ "--fs-hairline": hairline } as React.CSSProperties}>
             {steps.map((s, i) => {
               const on = i === current;
               const meta = metaCells(s, isEditor);
@@ -254,13 +261,15 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
                   key={i}
                   ref={(el) => { stepRefs.current[i] = el; }}
                   data-step={i}
-                  className="step cursor-pointer"
+                  className="fs-step relative cursor-pointer"
                   onClick={() => setActive(i)}
-                  style={{ padding: "clamp(28px, 3.5vw, 40px) 0", borderTop: i === 0 ? 0 : `1px solid ${hairline}`, paddingTop: i === 0 ? 0 : undefined, opacity: on ? 1 : 0.42, transition: reduced ? "none" : "opacity .6s", scrollMarginTop: "30vh" }}
+                  style={{ padding: "clamp(32px, 4vw, 48px) 0", paddingTop: i === 0 ? 0 : undefined, opacity: on ? 1 : 0.38, transition: reduced ? "none" : "opacity .7s", scrollMarginTop: "30vh" }}
                 >
+                  {/* Rail marker: a 2px accent segment that grows down the rail while this step is active */}
+                  <span aria-hidden className="fs-mark absolute top-0 bottom-0 w-[2px] left-[-28px] min-[1000px]:left-[-36px]" style={{ background: dark ? pal.accentDeco : pal.accent, transform: on ? "scaleY(1)" : "scaleY(0)", transformOrigin: "top", transition: reduced ? "none" : `transform .9s ${ease}` }} />
                   {/* Kicker with the display-face index (the v2 `.feat .k`) */}
                   <span className="flex items-center gap-2.5 text-[12px] font-semibold uppercase tracking-[0.1em]" style={{ color: dark ? pal.accentDeco : pal.accent }}>
-                    <b aria-hidden className="font-normal normal-case tabular-nums tracking-[-0.02em]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.1rem", color: on ? cream : subtle, transition: reduced ? "none" : "color .6s" }}>{pad2(i + 1)}</b>
+                    <b aria-hidden className="fs-idx font-normal normal-case tabular-nums tracking-[-0.02em]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.1rem", color: on ? cream : subtle, transition: reduced ? "none" : "color .7s" }}>{pad2(i + 1)}</b>
                     <InlineText as="span" value={s.kicker} onUpdate={updateStep ? (v) => updateStep(i, { kicker: v }) : undefined} />
                   </span>
                   <h3 className="mt-3.5 max-w-[24ch]" style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(1.35rem, 2.2vw, 1.85rem)", lineHeight: 1.12, letterSpacing: "-0.025em", fontWeight: 400, color: cream, margin: "14px 0 0", textWrap: "pretty" } as React.CSSProperties}>
@@ -309,7 +318,7 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
 
           {/* Sticky frame (≥1000px): chrome strip + crossfading stage */}
           {steps.length > 0 && (
-            <div className="hidden min-[1000px]:block min-[1000px]:sticky" style={{ top: 84 }}>
+            <div className="hidden min-[1000px]:block min-[1000px]:sticky" style={{ top: "max(84px, calc(50vh - 300px))" }}>
               <div className="relative overflow-hidden rounded-[20px]" style={{ background: pal.deep, boxShadow: `${ring}, ${pal.shadowHover}` }}>
                 {/* The strip sits on a lifted tint so the stage reads as a window. */}
                 <div className="relative z-[4]" style={{ background: dark ? "rgba(255,252,239,0.05)" : pal.panel }}>
@@ -319,7 +328,7 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
                     right={<span style={{ color: cream }}>{pad2(current + 1)} / {pad2(steps.length)}</span>}
                   />
                 </div>
-                <div className="relative" style={{ aspectRatio: "4 / 3" }}>
+                <div className="relative" style={{ aspectRatio: "5 / 4" }}>
                   {steps.map((s, i) => {
                     const on = i === current;
                     return (
@@ -355,16 +364,24 @@ export function BlockForestSystem({ props, brand, onFieldChange }: Props) {
                     <div className="absolute bottom-[22px] left-[22px] right-[22px] flex items-end justify-between gap-4 text-[13px]" style={{ zIndex: 3, color: cream }}>
                       <div className="min-w-0">
                         {(activeStep.frameTitle || activeStep.title || isEditor) && (
-                          <b className="block font-normal" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.2rem", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                          <b className="block font-normal" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.3rem", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                             <InlineText as="span" value={activeStep.frameTitle || (isEditor ? "" : activeStep.title)} onUpdate={updateStep ? (v) => updateStep(current, { frameTitle: v }) : undefined} />
                           </b>
                         )}
                         {(activeStep.frameSub || isEditor) && (
-                          <span className="block" style={{ color: onDarkMuted }}>
+                          <span className="mt-1 block" style={{ color: onDarkMuted }}>
                             <InlineText as="span" value={activeStep.frameSub ?? ""} onUpdate={updateStep ? (v) => updateStep(current, { frameSub: v }) : undefined} />
                           </span>
                         )}
                       </div>
+                      {/* Progress: one segment per step, the active one in the accent */}
+                      {steps.length > 1 && (
+                        <div className="flex shrink-0 items-center gap-1.5 pb-1" aria-hidden>
+                          {steps.map((_, i) => (
+                            <span key={i} className="fs-seg block h-[3px] rounded-full" style={{ width: i === current ? 26 : 12, background: i === current ? (dark ? pal.accentDeco : pal.accent) : "rgba(255,252,239,0.28)", transition: reduced ? "none" : `width .6s ${ease}, background .6s` }} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

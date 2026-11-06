@@ -1,4 +1,4 @@
-import type { MintFloatCard, MintHeroBlockProps, MintHeroStat, MintMiniCard, MintNavLink } from "@/blocks/BlockMintHero";
+import { MINT_HERO_MAX_LOGOS, type MintFloatCard, type MintHeroBlockProps, type MintHeroLogo, type MintHeroStat, type MintMiniCard, type MintNavLink } from "@/blocks/BlockMintHero";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,9 @@ interface Props {
 
 export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
   const update = (patch: Partial<MintHeroBlockProps>) => onChange({ ...props, ...patch });
+  const logosList = props.logos ?? [];
+  const setLogos = (next: MintHeroLogo[]) => update({ logos: next });
+  const patchLogo = (i: number, patch: Partial<MintHeroLogo>) => setLogos(logosList.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const stats = props.stats ?? [];
   const setStats = (next: MintHeroStat[]) => update({ stats: next });
   const links = props.navLinks ?? [];
@@ -160,7 +163,33 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
         ))}
         <AddButton label="Add number" disabled={stats.length >= 4} onClick={() => setStats([...stats, { heading: "", value: "", label: "", spark: [] }])} />
         <TextField label="Names row label" value={props.namesLabel} onChange={(v) => update({ namesLabel: v })} placeholder="Trusted by" />
-        <ListField label="Customer names" value={props.names ?? []} onChange={(v) => update({ names: v })} hint="Plain names, one per line. Blank = no row." />
+        <ListField label="Customer names" value={props.names ?? []} onChange={(v) => update({ names: v })} hint="Plain names, one per line. Blank = no row. Logos below replace the names once any logo has an image." />
+        <Field label={`Customer logos (${logosList.length} of ${MINT_HERO_MAX_LOGOS})`}>
+          <div className="space-y-2">
+            {logosList.map((l, i) => (
+              <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
+                <ItemHeader label={l.name || `Logo ${i + 1}`} index={i} total={logosList.length} onMove={(d) => setLogos(moveItem(logosList, i, d))} onRemove={() => setLogos(logosList.filter((_, idx) => idx !== i))} />
+                <ImagePicker value={l.imageUrl ?? ""} onChange={(v) => patchLogo(i, { imageUrl: v })} placeholder="Upload or paste the logo (SVG or PNG)" />
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Input value={l.name} onChange={(e) => patchLogo(i, { name: e.target.value })} placeholder="Company name" className="h-7 text-xs" />
+                  <Input value={l.url ?? ""} onChange={(e) => patchLogo(i, { url: e.target.value })} placeholder="Link (optional)" className="h-7 text-xs font-mono" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Field>
+        <AddButton label="Add logo" disabled={logosList.length >= MINT_HERO_MAX_LOGOS} onClick={() => setLogos([...logosList, { name: "", imageUrl: "" }])} />
+        {logosList.length > 0 && (
+          <div className="grid grid-cols-2 items-end gap-2">
+            <Field label={`Logo height (${props.logoHeight ?? 26}px)`}>
+              <input type="range" min={14} max={56} step={1} value={props.logoHeight ?? 26} onChange={(e) => update({ logoHeight: Number(e.target.value) })} className="w-full" />
+            </Field>
+            <div className="flex items-center justify-between pb-1">
+              <Label className="text-[11px] text-muted-foreground">Grayscale</Label>
+              <Switch checked={props.logoGrayscale !== false} onCheckedChange={(v) => update({ logoGrayscale: v })} />
+            </div>
+          </div>
+        )}
       </PanelSection>
 
       <PanelSection title="Top bar" hint="The page's own nav — never add a separate nav block above this hero">
