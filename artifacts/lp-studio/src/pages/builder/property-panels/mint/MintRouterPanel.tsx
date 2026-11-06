@@ -7,7 +7,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AddButton, AnchorField, Field, ForestStyleSection, ItemHeader, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
+import { AddButton, AnchorField, Field, FocalSelect, ForestStyleSection, ItemHeader, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
 
 interface Props {
   props: MintRouterBlockProps;
@@ -155,6 +155,7 @@ export function MintRouterPanel({ props, onChange }: Props) {
                     <ImagePicker value={c.imageUrl ?? ""} onChange={(v) => patchCard(i, { imageUrl: v })} placeholder="Upload or paste image URL" aiHint={c.panelTitle || c.stage} />
                   </Field>
                   <Input value={c.imageAlt ?? ""} onChange={(e) => patchCard(i, { imageAlt: e.target.value })} placeholder="Alt text" className="h-7 text-xs" />
+                  <FocalSelect value={c.imageFocal} onChange={(v) => patchCard(i, { imageFocal: v })} />
                   <Field label={`Stat tiles (${stats.length} of ${MINT_ROUTER_MAX_PANEL_STATS})`}>
                     <div className="space-y-1.5">
                       {stats.map((st, j) => (

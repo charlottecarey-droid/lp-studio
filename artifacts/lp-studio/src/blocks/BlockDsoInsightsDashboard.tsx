@@ -750,40 +750,22 @@ const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 const DISPLAY = DISPLAY_FONT;
 
 /* ── Main block component ───────────────────────────────── */
-export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {
-  // Fail-open reveal — see lib/reveal-fallback.ts.
+/**
+ * The interactive dashboard on its own: the tab bar, the browser chrome and
+ * the simulated Insights views (or `override` — a video / image — in place of
+ * the views, which also hides the tab bar). Exported so other blocks (the
+ * mint hero's media slot) can mount the same dashboard without the section
+ * header. `variant` must match the surface it sits on.
+ */
+export function DsoInsightsDashboardFrame({ variant, browserUrl, override, className }: {
+  variant: "light" | "dark";
+  browserUrl?: string;
+  override?: React.ReactNode;
+  className?: string;
+}) {
   const anim = useAnimInitial();
-  const {
-    eyebrow, headline, subheadline,
-    backgroundStyle,
-    dashboardVariant = "light",
-  } = props;
-  // A null / empty / unknown backgroundStyle (common on AI-generated and
-  // imported microsites, where the value is saved as "" rather than undefined)
-  // must not leave the <section> with no background — that renders a dark-themed
-  // dashboard floating on the page's white background ("dark mode on white").
-  // Fall back to a style that MATCHES the dashboard theme so the two never
-  // disagree: dark dashboard → dark section, light dashboard → muted section.
-  const resolvedBackgroundStyle =
-    backgroundStyle && BG_STYLE[backgroundStyle]
-      ? backgroundStyle
-      : dashboardVariant === "dark"
-        ? "dark"
-        : "muted";
-  // The inner dashboard theme MUST follow the surface it actually renders on.
-  // `dashboardVariant` is a separate control that can disagree with the section
-  // background (e.g. a "dark" dashboard saved onto a light/muted section — the
-  // common result of the microsite layout-variability pass). That paints
-  // near-white text + glass cards on a light background and washes the whole
-  // block out. Derive the theme from the resolved section background so the two
-  // can never diverge — this also matches the header text, which already uses
-  // the same `isDark` signal.
-  const isDark = ["dark", "dandy-green", "black", "gradient"].includes(resolvedBackgroundStyle);
-  const field = (key: keyof DsoInsightsDashboardBlockProps) =>
-    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsDashboardBlockProps[typeof key] }) : undefined;
-
-  const t = getTheme(isDark ? "dark" : "light");
-
+  const isDark = variant === "dark";
+  const t = getTheme(variant);
   const [activeTab, setActiveTab]         = useState("overview");
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
@@ -791,40 +773,6 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
   const [liveOffset, setLiveOffset]       = useState(0);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef     = useRef<HTMLVideoElement>(null);
-  const [videoMuted, setVideoMuted] = useState(true);
-  const inView       = useInView(containerRef, { once: true, amount: 0 });
-
-  const toggleVideoMute = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    const el = videoRef.current;
-    if (!el) return;
-    el.muted = !el.muted;
-    setVideoMuted(el.muted);
-  }, []);
-
-  const attachDashboardVideo = useCallback((el: HTMLVideoElement | null) => {
-    (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
-    if (!el) return;
-    el.muted = true;
-    setVideoMuted(true);
-  }, []);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || props.videoAutoplay === false) return;
-    v.muted = true;
-    v.load();
-    v.play().catch(() => {});
-  }, [props.videoUrl, props.videoAutoplay]);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !props.videoPlayOnScroll) return;
-    if (inView) { v.muted = true; v.play().catch(() => {}); }
-    else { v.pause(); }
-  }, [inView, props.videoPlayOnScroll]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -854,40 +802,9 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
   };
 
   return (
-    <section ref={containerRef} style={BG_STYLE[resolvedBackgroundStyle]} className="py-24 md:py-32">
-      <div className="max-w-[1100px] mx-auto px-6 md:px-10">
-        {/* Header */}
-        <div className="text-center mb-10">
-          {eyebrow && (
-            <motion.p initial={anim({ opacity: 0, y: 8 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))", marginBottom: "1.25rem", fontFamily: BODY }}>
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
-            </motion.p>
-          )}
-          <motion.h2
-            initial={anim({ opacity: 0, y: 16 })}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-            style={{
-              fontFamily: DISPLAY_FONT,
-              fontSize: "clamp(2rem,4vw,3.25rem)",
-              lineHeight: 1.1,
-              fontWeight: 600,
-              letterSpacing: 0,
-              color: isDark ? "hsl(48,100%,96%)" : "hsl(152,40%,13%)",
-            }}
-          >
-            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
-          </motion.h2>
-          {subheadline && (
-            <motion.p initial={anim({ opacity: 0, y: 12 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)", fontFamily: BODY }}>
-              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
-            </motion.p>
-          )}
-        </div>
-
-        {/* Tab bar — hidden when a video replaces the dashboard */}
-        {!props.videoUrl && (
+    <>
+        {/* Tab bar — hidden when a video or image replaces the dashboard */}
+        {!override && (
         <div className="flex justify-center mb-6">
           <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-1 flex gap-1`}>
             {TABS.map((tab) => {
@@ -910,8 +827,9 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
         </div>
         )}
 
+
         {/* Dashboard frame */}
-        <div className={`rounded-xl border ${t.cardBorder} overflow-hidden`}>
+        <div className={`rounded-xl border ${t.cardBorder} overflow-hidden ${className ?? ""}`}>
           {/* Browser chrome */}
           <div className={`flex items-center gap-2 px-4 py-2.5 border-b ${t.browserChromeBorder} ${t.browserChromeBg}`}>
             <div className="flex gap-1.5">
@@ -929,7 +847,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
             </div>
             <div className="flex-1 max-w-xs">
               <div className={`rounded ${t.browserUrlBg} px-3 py-1 text-[11px] ${t.browserUrlText} text-center`}>
-                {props.browserUrl || "app/dashboard"}
+                {browserUrl || "app/dashboard"}
               </div>
             </div>
             <div className="relative ml-auto">
@@ -966,8 +884,95 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
             </div>
           </div>
 
-          {/* Content — video or interactive dashboard */}
-          {props.videoUrl ? (
+          {override ?? (
+          <div className={`p-5 md:p-7 min-h-[400px] ${t.contentBg}`}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeTab}-${selectedLocation}-${selectedProvider}`}
+                initial={anim({ opacity: 0, y: 10 })}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25 }}
+              >
+                {renderContent()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          )}
+        </div>
+    </>
+  );
+}
+
+export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {
+  // Fail-open reveal — see lib/reveal-fallback.ts.
+  const anim = useAnimInitial();
+  const {
+    eyebrow, headline, subheadline,
+    backgroundStyle,
+    dashboardVariant = "light",
+  } = props;
+  // A null / empty / unknown backgroundStyle (common on AI-generated and
+  // imported microsites, where the value is saved as "" rather than undefined)
+  // must not leave the <section> with no background — that renders a dark-themed
+  // dashboard floating on the page's white background ("dark mode on white").
+  // Fall back to a style that MATCHES the dashboard theme so the two never
+  // disagree: dark dashboard → dark section, light dashboard → muted section.
+  const resolvedBackgroundStyle =
+    backgroundStyle && BG_STYLE[backgroundStyle]
+      ? backgroundStyle
+      : dashboardVariant === "dark"
+        ? "dark"
+        : "muted";
+  // The inner dashboard theme MUST follow the surface it actually renders on.
+  // `dashboardVariant` is a separate control that can disagree with the section
+  // background (e.g. a "dark" dashboard saved onto a light/muted section — the
+  // common result of the microsite layout-variability pass). That paints
+  // near-white text + glass cards on a light background and washes the whole
+  // block out. Derive the theme from the resolved section background so the two
+  // can never diverge — this also matches the header text, which already uses
+  // the same `isDark` signal.
+  const isDark = ["dark", "dandy-green", "black", "gradient"].includes(resolvedBackgroundStyle);
+  const field = (key: keyof DsoInsightsDashboardBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsDashboardBlockProps[typeof key] }) : undefined;
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef     = useRef<HTMLVideoElement>(null);
+  const [videoMuted, setVideoMuted] = useState(true);
+  const inView       = useInView(containerRef, { once: true, amount: 0 });
+
+  const toggleVideoMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setVideoMuted(el.muted);
+  }, []);
+
+  const attachDashboardVideo = useCallback((el: HTMLVideoElement | null) => {
+    (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    if (!el) return;
+    el.muted = true;
+    setVideoMuted(true);
+  }, []);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || props.videoAutoplay === false) return;
+    v.muted = true;
+    v.load();
+    v.play().catch(() => {});
+  }, [props.videoUrl, props.videoAutoplay]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !props.videoPlayOnScroll) return;
+    if (inView) { v.muted = true; v.play().catch(() => {}); }
+    else { v.pause(); }
+  }, [inView, props.videoPlayOnScroll]);
+
+  const override = (
+    props.videoUrl ? (
             <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
               {isNativeVideoUrl(props.videoUrl) ? (
                 <>
@@ -1006,22 +1011,43 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
                 onAltUpdate={field("dashboardImageAlt")}
               />
             </div>
-          ) : (
-          <div className={`p-5 md:p-7 min-h-[400px] ${t.contentBg}`}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`${activeTab}-${selectedLocation}-${selectedProvider}`}
-                initial={anim({ opacity: 0, y: 10 })}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.25 }}
-              >
-                {renderContent()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
+          ) : null
+  );
+
+  return (
+    <section ref={containerRef} style={BG_STYLE[resolvedBackgroundStyle]} className="py-24 md:py-32">
+      <div className="max-w-[1100px] mx-auto px-6 md:px-10">
+        {/* Header */}
+        <div className="text-center mb-10">
+          {eyebrow && (
+            <motion.p initial={anim({ opacity: 0, y: 8 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))", marginBottom: "1.25rem", fontFamily: BODY }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
+            </motion.p>
+          )}
+          <motion.h2
+            initial={anim({ opacity: 0, y: 16 })}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            style={{
+              fontFamily: DISPLAY_FONT,
+              fontSize: "clamp(2rem,4vw,3.25rem)",
+              lineHeight: 1.1,
+              fontWeight: 600,
+              letterSpacing: 0,
+              color: isDark ? "hsl(48,100%,96%)" : "hsl(152,40%,13%)",
+            }}
+          >
+            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
+          </motion.h2>
+          {subheadline && (
+            <motion.p initial={anim({ opacity: 0, y: 12 })} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)", fontFamily: BODY }}>
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
+            </motion.p>
           )}
         </div>
+
+        <DsoInsightsDashboardFrame variant={isDark ? "dark" : "light"} browserUrl={props.browserUrl} override={override} />
       </div>
     </section>
   );

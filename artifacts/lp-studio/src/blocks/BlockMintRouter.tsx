@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useStaticRender } from "@/lib/reveal-fallback";
@@ -309,6 +309,9 @@ function Picker({ p, pal, cards, isEditor, reduced, staticRender, rise, field, u
             >
               {cards.map((c, i) => {
                 const selected = i === idx;
+                const optBg = pal.dark ? "rgba(255,252,239,.10)" : pal.mint;
+                const chipBg = selected ? pal.lime : pal.dark ? "rgba(255,252,239,.12)" : pal.grey;
+                const chipInk = selected ? pal.onLime : pal.dark ? pal.cream : pal.green;
                 return (
                   <li
                     key={i}
@@ -318,9 +321,9 @@ function Picker({ p, pal, cards, isEditor, reduced, staticRender, rise, field, u
                     onClick={(e) => { e.stopPropagation(); pick(i); }}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(i); } }}
                     className="mint-dd-opt grid cursor-pointer items-center gap-x-3 gap-y-0.5 rounded-[10px] px-3.5 py-[13px]"
-                    style={{ gridTemplateColumns: "auto minmax(0, 1fr)", background: selected ? pal.mint : undefined }}
+                    style={{ gridTemplateColumns: "auto minmax(0, 1fr)", background: selected ? optBg : undefined, "--mint-opt-hover": optBg } as CSSProperties}
                   >
-                    <span className="row-span-2 grid h-7 w-7 place-items-center rounded-[8px] text-[11px] font-semibold tabular-nums" style={{ background: selected ? pal.lime : pal.grey, color: selected ? pal.onLime : pal.green }}>{pad2(i + 1)}</span>
+                    <span className="row-span-2 grid h-7 w-7 place-items-center rounded-[8px] text-[11px] font-semibold tabular-nums" style={{ background: chipBg, color: chipInk }}>{pad2(i + 1)}</span>
                     <b className="font-medium" style={{ color: pal.dark ? pal.text : "#1D1D1F" }}>{optionOf(c)}</b>
                     <span className="text-[12.5px]" style={{ color: pal.dark ? pal.muted : "#6E6E73" }}>{c.stage}</span>
                   </li>
@@ -436,8 +439,9 @@ export function BlockMintRouter({ props, brand, onFieldChange }: Props) {
   const linkInk = pal.dark ? pal.lime : pal.green;
   const hoverBg = pal.dark ? pal.panel : pal.grey;
 
+
   const quoteText = (c: MintRouterCard, i: number, size: string) => (
-    <p className="m-0 max-w-[16ch]" style={{ fontFamily: MINT_DISPLAY, fontSize: size, letterSpacing: "-0.03em", lineHeight: 1.1, color: ink, textWrap: "balance" } as React.CSSProperties}>
+    <p className="m-0 max-w-[16ch]" style={{ fontFamily: MINT_DISPLAY, fontSize: size, letterSpacing: "-0.03em", lineHeight: 1.1, color: ink, textWrap: "balance" } as CSSProperties}>
       {isEditor ? (
         <InlineText as="span" value={c.quote} onUpdate={updateCard ? (v) => updateCard(i, { quote: v }) : undefined} multiline />
       ) : (
@@ -464,7 +468,7 @@ export function BlockMintRouter({ props, brand, onFieldChange }: Props) {
         </motion.h2>
       )}
       sub={(p.subheadline || isEditor) ? (
-        <motion.p {...rise(0.1, 18)} className="max-w-[46ch]" style={{ fontFamily: MINT_BODY, fontSize: "clamp(1.05rem, 1.4vw, 1.25rem)", lineHeight: 1.5, color: muted, margin: "12px 0 0", textWrap: "pretty" } as React.CSSProperties}>
+        <motion.p {...rise(0.1, 18)} className="max-w-[46ch]" style={{ fontFamily: MINT_BODY, fontSize: "clamp(1.05rem, 1.4vw, 1.25rem)", lineHeight: 1.5, color: muted, margin: "12px 0 0", textWrap: "pretty" } as CSSProperties}>
           <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
         </motion.p>
       ) : undefined}
@@ -496,7 +500,7 @@ export function BlockMintRouter({ props, brand, onFieldChange }: Props) {
           .mint-cq { border-bottom: 0 !important; }
         }
         .mint-cq { transition: background .5s; }
-        @media (hover: hover) { .mint-cq:hover { background: ${hoverBg}; } }
+        @media (hover: hover) { .mint-cq:hover { background: var(--mint-cq-hover); } }
         .mint-rrow { transition: transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s cubic-bezier(.16,1,.3,1); }
         @media (hover: hover) { .mint-rrow:hover { transform: translateY(-2px); box-shadow: ${MINT_RING}, ${MINT_SHADOW_2}; } }
         .mint-dd-btn { font: inherit; background: none; border: 0; padding: 0 .1em; display: inline-flex; align-items: center; gap: .25em; border-bottom: 3px solid; cursor: pointer; line-height: 1.15; white-space: normal; max-width: 100%; text-align: center; transition: background .3s; border-radius: 2px 2px 0 0; }
@@ -507,7 +511,7 @@ export function BlockMintRouter({ props, brand, onFieldChange }: Props) {
         .mint-dd-menu { opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .35s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1); }
         .mint-dd.open .mint-dd-menu { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
         .mint-dd-opt { transition: background .2s; }
-        @media (hover: hover) { .mint-dd-opt:hover { background: ${pal.mint} !important; } }
+        @media (hover: hover) { .mint-dd-opt:hover { background: var(--mint-opt-hover) !important; } }
         @media (prefers-reduced-motion: reduce) { .mint-cq, .mint-rrow, .mint-rrow:hover, .mint-dd-btn, .mint-car, .mint-dd-menu, .mint-dd-opt { transition: none; } .mint-rrow:hover { transform: none; } }
       `}</style>
 
@@ -523,7 +527,7 @@ export function BlockMintRouter({ props, brand, onFieldChange }: Props) {
                   key={i}
                   {...rise(0.1 + i * 0.08, 18)}
                   className="mint-cq flex min-w-0 flex-col gap-[18px]"
-                  style={{ padding: "clamp(28px, 4vw, 56px) clamp(8px, 3vw, 48px)", borderBottom: `1px solid ${pal.line}` }}
+                  style={{ padding: "clamp(28px, 4vw, 56px) clamp(8px, 3vw, 48px)", borderBottom: `1px solid ${pal.line}`, "--mint-cq-hover": hoverBg } as CSSProperties}
                 >
                   {(c.stage || isEditor) && (
                     <MintKicker palette={pal} uppercase>

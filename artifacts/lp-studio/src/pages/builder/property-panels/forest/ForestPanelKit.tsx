@@ -10,6 +10,7 @@ import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { Field, PanelSection } from "../glow/GlowPanelKit";
 import { AbmCtaFields, AbmStyleFields } from "../abm/AbmSharedFields";
@@ -70,6 +71,45 @@ export function TextField({ label, value, onChange, placeholder, rows }: { label
       ) : (
         <Input value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" placeholder={placeholder} />
       )}
+    </Field>
+  );
+}
+
+const FOCAL_PRESETS: { value: string; label: string }[] = [
+  { value: "50% 50%", label: "Center" },
+  { value: "50% 0%", label: "Top" },
+  { value: "50% 100%", label: "Bottom" },
+  { value: "0% 50%", label: "Left" },
+  { value: "100% 50%", label: "Right" },
+  { value: "0% 0%", label: "Top left" },
+  { value: "100% 0%", label: "Top right" },
+  { value: "0% 100%", label: "Bottom left" },
+  { value: "100% 100%", label: "Bottom right" },
+];
+
+/** Normalises "50%  50%" / "50% 50%" to one spelling so a stored value matches a preset. */
+function normaliseFocal(v?: string): string {
+  const m = (v ?? "").match(/(-?\d+(?:\.\d+)?)\s*%\s+(-?\d+(?:\.\d+)?)\s*%/);
+  return m ? `${Math.round(Number(m[1]))}% ${Math.round(Number(m[2]))}%` : "50% 50%";
+}
+
+/**
+ * Photo focus dropdown: which part of a photo stays in view when the frame
+ * crops it (CSS object-position). A value dragged to a custom spot with the
+ * inline-image pin shows as "Custom" and is kept until a preset is picked.
+ */
+export function FocalSelect({ label = "Photo focus", value, onChange }: { label?: string; value?: string; onChange: (v: string) => void }) {
+  const current = normaliseFocal(value);
+  const isPreset = FOCAL_PRESETS.some((o) => o.value === current);
+  return (
+    <Field label={label}>
+      <Select value={isPreset ? current : "custom"} onValueChange={(v) => { if (v !== "custom") onChange(v); }}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {FOCAL_PRESETS.map((o) => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}
+          {!isPreset && <SelectItem value="custom" className="text-xs">Custom ({current})</SelectItem>}
+        </SelectContent>
+      </Select>
     </Field>
   );
 }

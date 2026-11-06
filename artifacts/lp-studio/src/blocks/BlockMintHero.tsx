@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
+import { DsoInsightsDashboardFrame } from "./BlockDsoInsightsDashboard";
 import { Activity, BarChart3, Menu, Monitor, X } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useStaticRender } from "@/lib/reveal-fallback";
@@ -92,11 +93,15 @@ export interface MintHeroBlockProps extends MintStyleProps, MintCtaProps {
   ctaStyle?: "link" | "pill" | "pill-link";
   /** Up to three small cards beside the headline. */
   miniCards?: MintMiniCard[];
+  /** What sits in the media frame: the photo (default) or the interactive Insights dashboard. */
+  mediaKind?: "photo" | "dashboard";
+  /** Address-bar text in the dashboard's browser chrome ("app/dashboard"). */
+  dashboardUrl?: string;
   imageUrl?: string;
   imageAlt?: string;
   imageFocal?: string;
   showImage?: boolean;
-  /** Up to three floating cards over the photo (hidden on phones except the first). */
+  /** Up to three floating cards over the photo (hidden on phones except the first, and not shown over the dashboard). */
   floats?: MintFloatCard[];
   stats?: MintHeroStat[];
   /** Uppercase label in front of the names row ("Trusted by"). */
@@ -145,6 +150,8 @@ export const MINT_HERO_DEFAULT_PROPS: MintHeroBlockProps = {
     { icon: "BarChart3", title: "Measured by location", caption: "average lab cost savings", value: "24%" },
   ],
   showImage: true,
+  mediaKind: "photo",
+  dashboardUrl: "",
   imageUrl: "",
   imageAlt: "",
   floats: [
@@ -525,7 +532,19 @@ export function BlockMintHero({ props, brand, pageId, variantId, onCtaClick, onF
           )}
         </div>
 
-        {p.showImage !== false && (
+        {p.showImage !== false && p.mediaKind === "dashboard" && (
+          <div className="relative" style={{ marginTop: "clamp(40px, 5vw, 64px)", ...riseStyle(0.3) }}>
+            <div aria-hidden className="absolute z-0 rounded-[24px]" style={{ inset: "14px -14px -14px 14px", background: pal.mint }} />
+            <div className="relative z-[1] overflow-hidden" style={{ borderRadius: 20, background: dark ? pal.deep : "#FFFFFF", boxShadow: `${MINT_RING}, ${MINT_SHADOW_2}` }}>
+              <div className="p-3 pb-0 min-[800px]:p-5 min-[800px]:pb-0" style={{ fontFamily: "inherit" }}>
+                <DsoInsightsDashboardFrame variant={dark ? "dark" : "light"} browserUrl={p.dashboardUrl} className="!rounded-b-none !border-b-0" />
+              </div>
+              <div aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: "inherit", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.35)" }} />
+            </div>
+          </div>
+        )}
+
+        {p.showImage !== false && p.mediaKind !== "dashboard" && (
           <div className="relative" style={{ marginTop: "clamp(40px, 5vw, 64px)", ...riseStyle(0.3) }}>
             <div aria-hidden className="absolute z-0 rounded-[24px]" style={{ inset: "14px -14px -14px 14px", background: pal.mint }} />
             <div className="relative z-[1] overflow-hidden" style={{ borderRadius: 20, aspectRatio: "21 / 9", background: pal.grey, boxShadow: `${MINT_RING}, ${MINT_SHADOW_2}` }}>

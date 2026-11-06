@@ -8,7 +8,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, ItemHeader, ListField, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
+import { AddButton, AnchorField, Field, FocalSelect, ForestCtaSection, ForestStyleSection, ItemHeader, ListField, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
 
 interface Props {
   props: MintHeroBlockProps;
@@ -86,15 +86,35 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
         <AddButton label="Add mini card" disabled={minis.length >= 3} onClick={() => setMinis([...minis, { icon: "", title: "New card", caption: "", value: "" }])} />
       </PanelSection>
 
-      <PanelSection title="Photo + floating cards" defaultOpen>
+      <PanelSection title="Media frame" defaultOpen>
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">Show the photo card</Label>
           <Switch checked={props.showImage !== false} onCheckedChange={(v) => update({ showImage: v })} />
         </div>
-        <Field label="Photo (21:9, on a mint plate)">
-          <ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" />
+        <Field label="What sits in the frame">
+          <Select value={props.mediaKind ?? "photo"} onValueChange={(v) => update({ mediaKind: v as MintHeroBlockProps["mediaKind"] })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="photo" className="text-xs">Photo with floating cards</SelectItem>
+              <SelectItem value="dashboard" className="text-xs">Interactive Insights dashboard</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
-        <TextField label="Alt text" value={props.imageAlt} onChange={(v) => update({ imageAlt: v })} />
+        {props.mediaKind === "dashboard" ? (
+          <>
+            <TextField label="Address bar text" value={props.dashboardUrl} onChange={(v) => update({ dashboardUrl: v })} placeholder="app/dashboard" />
+            <p className="text-[11px] text-muted-foreground">The dashboard is the same simulated Insights app as the “DSO Insights Dashboard” block: tabs for overview, locations, providers and trends, clickable on the live page. Floating cards are not shown over it.</p>
+          </>
+        ) : (
+          <>
+            <Field label="Photo (21:9, on a mint plate)">
+              <ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} placeholder="Upload or paste image URL" />
+            </Field>
+            <TextField label="Alt text" value={props.imageAlt} onChange={(v) => update({ imageAlt: v })} />
+            <FocalSelect label="Photo focus" value={props.imageFocal} onChange={(v) => update({ imageFocal: v })} />
+          </>
+        )}
+        {props.mediaKind !== "dashboard" && (<>
         <Field label={`Floating cards (${floats.length} of 3)`}>
           <div className="space-y-2">
             {floats.map((f, i) => (
@@ -123,6 +143,7 @@ export function MintHeroPanel({ props, onChange, ctaSource }: Props) {
           </div>
         </Field>
         <AddButton label="Add floating card" disabled={floats.length >= 3} onClick={() => setFloats([...floats, { kind: "figure", label: "New card", value: "", note: "" }])} />
+        </>)}
       </PanelSection>
 
       <PanelSection title={`Stat strip (${stats.length} of 4)`} hint="The bordered strip under the photo: a tiny label with its index, a number that counts up on the live page, a caption and a lime sparkline">

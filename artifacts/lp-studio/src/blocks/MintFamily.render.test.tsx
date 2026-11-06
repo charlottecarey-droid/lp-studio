@@ -109,6 +109,14 @@ describe("mint-hero — top bar, highlight, numbers", () => {
     for (const s of d.stats) expect(html).toContain(s.label);
   });
 
+  it("mounts the interactive Insights dashboard in the frame instead of the photo", () => {
+    const html = render(BlockMintHero as never, { ...defaultsFor("mint-hero"), mediaKind: "dashboard", dashboardUrl: "insights/network" });
+    expect(html).toContain("insights/network");
+    expect(html).toContain(">Live<");
+    expect(html).not.toContain("data-float-kind");
+    expect(html).not.toContain('role="img"');
+  });
+
   it("hides the top bar, the photo and the names when switched off", () => {
     const html = render(BlockMintHero as never, { ...defaultsFor("mint-hero"), showNav: false, showImage: false, names: [] });
     expect(html).not.toContain('aria-label="Primary"');
