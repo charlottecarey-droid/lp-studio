@@ -412,7 +412,8 @@ export const DEFAULT_WORKSPACE_PLAN: WorkspaceGroup[] = [
     checkpoint: "Team named on both sides · roster received · billing verified",
     rows: [
       M("team-assigned", "Your dedicated team assigned and introduced", "AE", "—"),
-      M("practice-roster", "Practice roster and regional manager list shared", "—", "Operations Lead"),
+      M("practice-roster", "Upload your practice list", "—", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload practice list", note: "Practice names, addresses, regional managers and an office contact for each" }),
+      M("doctor-roster", "Upload your doctor roster", "—", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload doctor roster", note: "Doctors by practice, so training and support reach the right people" }),
       M("accounts-confirmed", "Accounts, hierarchy and mailing addresses confirmed", "Implementation", "Operations Lead"),
       M("pricing-verified", "Contracted pricing verified against your first invoice", "Dandy Billing", "Procurement"),
       M("welcome-email", "Welcome email and partnership one-pager to your leadership", "Dandy Marketing", "—"),
@@ -497,16 +498,14 @@ const WORKSPACE_PARTNER_TEAM: (LaunchRoomPerson & { when?: string })[] = [
   { name: "[Name]", role: "Education Lead", owns: "Your CE calendar and event sponsorships", when: "Day 30 onward" },
 ];
 
-/** The getting-started checklist. Uploads here are private, like every room upload. */
+/** The welcome checklist: three easy first steps. The heavier asks (practice list, doctor roster) are action-plan uploads, so they sit in "Needs your attention". */
 export const DEFAULT_WORKSPACE_ONBOARDING = {
-  title: "Get set up",
-  intro: "Five things we need from you to get started. Files you upload go to your Dandy team only.",
+  title: "",
+  intro: "Three quick things to get started. The practice list and doctor roster are waiting for you below.",
   steps: [
     { key: "onboard-logo", title: "Upload your logo", description: "So everything we make for you carries your brand. Brand guidelines welcome too.", action: "upload", buttonLabel: "Upload logo" },
-    { key: "onboard-practices", title: "Upload your practice list", description: "Practice names, addresses, regional managers and an office contact for each.", action: "upload", buttonLabel: "Upload list" },
-    { key: "onboard-doctors", title: "Upload your doctor roster", description: "Doctors by practice, so training and support reach the right people.", action: "upload", buttonLabel: "Upload roster" },
+    { key: "onboard-gift", title: "Accept your welcome kit", description: "Tell us where to send it and who it's for.", action: "request", buttonLabel: "Accept kit", requestKind: "marketing" },
     { key: "onboard-team", title: "Add your team", description: "Your executive sponsor, operations lead, clinical champion and marketing contact.", action: "team", buttonLabel: "Add people" },
-    { key: "onboard-gift", title: "Accept your welcome gift", description: "Tell us where to send it and who it's for.", action: "request", buttonLabel: "Accept gift", requestKind: "marketing" },
   ],
 };
 

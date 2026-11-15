@@ -18,6 +18,7 @@ import {
   ROOM_WORKSPACE_DEFAULT_PROPS,
   phaseStates,
   goalValue,
+  welcomeName,
   resolveRoomStatus,
   rolloutDay,
   roomMilestoneKey,
@@ -107,19 +108,23 @@ describe("room-workspace — onboarding checklist", () => {
   it("shows on the overview with one row per step and the right control for each kind", () => {
     const html = render();
     expect(html).toContain("data-room-onboarding");
-    expect((html.match(/data-room-step="upload"/g) ?? []).length).toBe(2);
+    expect((html.match(/data-room-step="upload"/g) ?? []).length).toBe(1);
     expect((html.match(/data-room-step="team"/g) ?? []).length).toBe(1);
-    expect(html).toContain("0</b> of 3 done");
+    expect(html).toContain("0</b> of 2 done");
     expect(html).toContain('data-room-nav="overview"');
-    expect(html).toContain("3 to set up");
+    expect(html).toContain("2 to set up");
+    // No visitor is known during SSR: the banner greets the account.
+    expect(html).toContain("Welcome, Acme Group!");
   });
   it("goes away when hidden, and when the team has checked every step off; a hidden step doesn't count", () => {
     const base = structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS.onboarding!);
     expect(render({ onboarding: { ...base, hidden: true } })).not.toContain("data-room-onboarding");
     expect(render({ onboarding: { ...base, steps: base.steps.map((x) => ({ ...x, done: true })) } })).not.toContain("data-room-onboarding");
-    const html = render({ onboarding: { ...base, steps: base.steps.map((x, i) => ({ ...x, hidden: i === 0, done: i === 1 })) } });
+    const three = [...base.steps, { key: "extra", title: "Extra step", action: "check" as const }];
+    const html = render({ onboarding: { ...base, steps: three.map((x, i) => ({ ...x, hidden: i === 0, done: i === 1 })) } });
     expect(html).toContain("1</b> of 2 done");
     expect(html).not.toContain("Upload your logo");
+    expect(render({ onboarding: { ...base, title: "Let's get going" } })).toContain("Let&#x27;s get going");
   });
 });
 
@@ -200,5 +205,23 @@ describe("room-workspace — goals and practices", () => {
     expect(html).toContain(">Practices<");
     expect(html).toContain("data-room-practice-summary");
     expect(html).toContain("will appear here once the list is loaded");
+  });
+});
+
+describe("room-workspace — welcome banner and needs your attention", () => {
+  it("greets by first name when known, reads first.last addresses, and falls back to the account name", () => {
+    expect(welcomeName({ email: "levi@mb2dental.com", name: "Levi Ennis" }, "MB2 Dental")).toBe("Levi");
+    expect(welcomeName({ email: "x@y.com", name: "dana ruiz" }, "MB2 Dental")).toBe("Dana");
+    expect(welcomeName({ email: "sam.rivera@roomco.com", name: null }, "MB2 Dental")).toBe("Sam");
+    expect(welcomeName({ email: "ldavis@roomco.com", name: null }, "MB2 Dental")).toBe("MB2 Dental");
+    expect(welcomeName({ email: "ops@roomco.com", name: "Operations Team" }, "MB2 Dental")).toBe("Operations");
+    expect(welcomeName(null, "MB2 Dental")).toBe("MB2 Dental");
+    expect(welcomeName(null, "")).toBe("there");
+  });
+  it("upload milestones can be completed straight from Needs your attention", () => {
+    const html = render();
+    const attention = html.slice(html.indexOf("Needs your attention"));
+    expect(attention).toContain('data-room-action="upload"');
+    expect(attention).toContain("Upload roster");
   });
 });

@@ -186,6 +186,19 @@ interface Viewer {
   via: "link" | "email";
 }
 
+/** A name for an email-verified visitor, when we already know one: a sales contact with that address, else a contact added in this room. */
+async function knownNameFor(page: RoomPage, email: string): Promise<string | null> {
+  const [contact] = await db
+    .select({ firstName: salesContactsTable.firstName, lastName: salesContactsTable.lastName })
+    .from(salesContactsTable)
+    .where(and(eq(salesContactsTable.tenantId, page.tenantId), sql`lower(${salesContactsTable.email}) = ${email}`))
+    .limit(1);
+  const fromContact = contact ? [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() : "";
+  if (fromContact) return fromContact;
+  const [added] = await db.select({ name: lpRoomContactsTable.name }).from(lpRoomContactsTable).where(and(eq(lpRoomContactsTable.pageId, page.id), eq(lpRoomContactsTable.email, email))).limit(1);
+  return added?.name?.trim() || null;
+}
+
 /**
  * Who is acting? A personal link for THIS page wins (the contact is known);
  * otherwise a valid room token whose address is still allowed. Null = anonymous.
@@ -215,7 +228,7 @@ async function resolveViewer(page: RoomPage, body: { hl?: unknown; rt?: unknown 
   const claims = verifyRoomToken(body.rt, page.id);
   if (claims) {
     const [settings, status] = await Promise.all([loadSettings(page.id), memberStatus(page.id, claims.email)]);
-    if (isEmailAllowed(claims.email, settings.allowedDomains, status)) return { email: claims.email, name: null, via: "email" };
+    if (isEmailAllowed(claims.email, settings.allowedDomains, status)) return { email: claims.email, name: await knownNameFor(page, claims.email), via: "email" };
   }
   return null;
 }

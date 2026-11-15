@@ -265,11 +265,10 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
     },
   ],
   onboarding: {
-    title: "Get set up",
-    intro: "A few things we need from you to get started.",
+    title: "",
+    intro: "A couple of quick things to get started.",
     steps: [
       { key: "onboard-logo", title: "Upload your logo", description: "So everything we make for you carries your brand.", action: "upload", buttonLabel: "Upload logo" },
-      { key: "onboard-locations", title: "Upload your location list", description: "Names, addresses and a contact for each location.", action: "upload", buttonLabel: "Upload list" },
       { key: "onboard-team", title: "Add your team", description: "Who we should work with on your side.", action: "team", buttonLabel: "Add people" },
     ],
   },
@@ -374,6 +373,20 @@ export function visibleModules(hidden: readonly string[] | undefined): typeof RO
   // Overview is the landing view: it can be hidden only when something else remains.
   const rest = ROOM_MODULES.filter((m) => !h.has(m.key));
   return rest.length ? rest : ROOM_MODULES.filter((m) => m.key === "overview");
+}
+
+/**
+ * Who the welcome banner greets: the visitor's first name when we know it (or
+ * can read it from a "first.last@" address), otherwise the account name.
+ */
+export function welcomeName(viewer: { email: string; name: string | null } | null, partnerName: string): string {
+  const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  const first = (viewer?.name ?? "").trim().split(/\s+/)[0];
+  if (first && /^[\p{L}][\p{L}'’-]*$/u.test(first)) return first === first.toLowerCase() || first === first.toUpperCase() ? cap(first) : first;
+  const local = (viewer?.email ?? "").split("@")[0];
+  const parts = local.split(/[._]/);
+  if (parts.length > 1 && /^[a-z]{2,}$/i.test(parts[0])) return cap(parts[0]);
+  return partnerName.trim() || "there";
 }
 
 export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
@@ -495,11 +508,13 @@ const CSS = `
 .prw-ib svg{width:14px;height:14px}
 .prw-ib:hover,.prw-btn:hover{border-color:var(--dark)}
 .prw-ob{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;margin-bottom:22px}
-.prw-ob .oh{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line)}
-.prw-ob .oh h3{margin:0;font-size:15px;font-weight:700;color:var(--dark)}
-.prw-ob .oh p{margin:1px 0 0;font-size:12.5px;color:var(--body)}
-.prw-ob .bar{width:140px;height:5px;border-radius:3px;background:#E6E9E3;position:relative;flex:none}
-.prw-ob .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--green)}
+.prw-ob .oh{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 20px;background:var(--dark);color:var(--on-dark)}
+.prw-ob .oh h3{margin:0;font-size:24px;line-height:1.15;letter-spacing:-.025em;font-weight:700;color:var(--on-dark)}
+.prw-ob .oh p{margin:4px 0 0;font-size:13px;opacity:.78}
+.prw-ob .oh .prw-meta{color:var(--on-dark);opacity:.8}
+.prw-ob .oh .prw-meta b{color:var(--accent)}
+.prw-ob .bar{width:140px;height:5px;border-radius:3px;background:color-mix(in srgb,var(--on-dark) 22%,transparent);position:relative;flex:none}
+.prw-ob .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--accent)}
 .prw-step{display:flex;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid var(--line)}
 .prw-step:first-of-type{border-top:0}
 .prw-step .dot{width:22px;height:22px;border-radius:50%;border:1.5px solid #C9CFC7;display:grid;place-items:center;flex:none;color:#fff;font-size:11px;font-weight:700}
@@ -813,7 +828,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   <div className="prw-ob" data-room-onboarding>
                     <div className="oh">
                       <div>
-                        <h3>{props.onboarding?.title || "Get set up"}</h3>
+                        <h3 style={{ fontFamily: BRAND_DISPLAY_STACK }} data-room-welcome>{(props.onboarding?.title ?? "").trim() || `Welcome, ${welcomeName(snapshot.viewer, props.partnerName)}!`}</h3>
                         <p>{props.onboarding?.intro}</p>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -921,14 +936,14 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                       )}
                     </h3>
                     {mine.length === 0 && reviewRequests.length === 0 && <div className="prw-empty">Nothing is waiting on you.</div>}
-                    {mine.slice(0, 4).map((x) => (
+                    {[...mine].sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).slice(0, 5).map((x) => (
                       <div className="prw-li" key={x.key}>
                         <div>
                           <div className="t">{x.r.task}</div>
-                          <div className="m">Action plan{x.r.target ? ` · due ${x.r.target}` : ""}</div>
+                          <div className="m">{x.r.note || `Action plan${x.r.target ? ` · due ${x.r.target}` : ""}`}</div>
                         </div>
                         <div className="a">
-                          <button type="button" className="prw-btn" onClick={() => setView("plan")}>{x.action === "upload" ? "Upload" : "Open"}</button>
+                          <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
                         </div>
                       </div>
                     ))}
