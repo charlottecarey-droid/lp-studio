@@ -1051,6 +1051,13 @@
       "when": 1758030110000,
       "tag": "0149_room_sheet_filter_revops",
       "breakpoints": false
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1758030120000,
+      "tag": "0150_room_calendar_minutes",
+      "breakpoints": false
     }
   ]
 }

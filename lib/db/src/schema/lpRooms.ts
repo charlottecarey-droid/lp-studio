@@ -43,6 +43,10 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   practicesSheetFilterValue: text("practices_sheet_filter_value"),
   /** Slack id to mention about Salesforce gaps: a user group (S…) or a user (U…). */
   revopsSlackMention: text("revops_slack_mention"),
+  /** The Google Calendar this room reads ("primary" or a calendar id). Null = not connected. */
+  calendarId: text("calendar_id"),
+  calendarSyncedAt: timestamp("calendar_synced_at", { withTimezone: true }),
+  calendarSyncNote: text("calendar_sync_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -149,6 +153,44 @@ export const lpRoomPracticesTable = pgTable(
   (t) => [index("lp_room_practices_page_idx").on(t.pageId, t.region), uniqueIndex("lp_room_practices_page_ext_uniq").on(t.pageId, t.externalId).where(sql`${t.externalId} IS NOT NULL`)],
 );
 
+/** What the customer may read of a meeting once the team publishes it. */
+export interface RoomMinutes {
+  summary: string;
+  decisions: string[];
+  actions: { text: string; owner?: string; due?: string; done?: boolean }[];
+}
+
+/**
+ * A calendar event synced from Google Calendar (only events with a guest at
+ * one of the room's allowed domains). Minutes drafted from the meeting's notes
+ * doc live on the same row; `minutesStatus` is null (none), "draft" (team
+ * only), "published" (customer sees them) or "dismissed".
+ */
+export const lpRoomEventsTable = pgTable(
+  "lp_room_events",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    externalId: text("external_id").notNull(),
+    title: text("title").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    allDay: boolean("all_day").notNull().default(false),
+    hidden: boolean("hidden").notNull().default(false),
+    /** Guest names for the minutes ("Levi, Dana +3"); never email addresses. */
+    attendees: text("attendees"),
+    /** The Google Doc of meeting notes attached to the event, when there is one. */
+    notesFileId: text("notes_file_id"),
+    minutesStatus: text("minutes_status"),
+    minutes: jsonb("minutes").$type<RoomMinutes>(),
+    minutesDraftedAt: timestamp("minutes_drafted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_events_page_ext_uniq").on(t.pageId, t.externalId), index("lp_room_events_page_start_idx").on(t.pageId, t.startsAt)],
+);
+
 /** A decision the customer made on the page (a marketing program, an amount, an event format). */
 export const lpRoomChoicesTable = pgTable(
   "lp_room_choices",
@@ -232,3 +274,4 @@ export type LpRoomSettings = typeof lpRoomSettingsTable.$inferSelect;
 export type LpRoomMember = typeof lpRoomMembersTable.$inferSelect;
 export type LpRoomTaskState = typeof lpRoomTaskStateTable.$inferSelect;
 export type LpRoomUpload = typeof lpRoomUploadsTable.$inferSelect;
+export type LpRoomEvent = typeof lpRoomEventsTable.$inferSelect;

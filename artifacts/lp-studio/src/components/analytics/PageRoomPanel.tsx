@@ -21,6 +21,8 @@ interface RoomDetail {
   digest?: { enabled: boolean; recipients: string[]; lastSentAt: string | null };
   sheet?: { id: string | null; tab: string | null; syncedAt: string | null; note: string | null; filterColumn?: string | null; filterValue?: string | null };
   revopsSlackMention?: string | null;
+  calendar?: { id: string | null; syncedAt: string | null; note: string | null };
+  events?: RoomEventRow[];
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
   isWorkspace?: boolean;
@@ -30,6 +32,32 @@ interface RoomDetail {
   requests: { id: number; kind: string; subject: string; details: string | null; status: string; owner: string | null; due: string | null; requestedBy: string; createdAt: string; asanaTaskGid?: string | null }[];
   uploads: { id: number; taskKey: string; taskTitle: string; fileName: string; sizeBytes: number; uploadedBy: string; uploadedByEmail: string; createdAt: string }[];
 }
+
+interface RoomMinutesDraft {
+  summary: string;
+  decisions: string[];
+  actions: { text: string; owner?: string; due?: string; done?: boolean }[];
+}
+interface RoomEventRow {
+  id: number;
+  title: string;
+  startsAt: string;
+  allDay: boolean;
+  hidden: boolean;
+  attendees: string | null;
+  hasNotes: boolean;
+  minutesStatus: "draft" | "published" | "dismissed" | null;
+  minutes: RoomMinutesDraft | null;
+}
+
+/** "Send the roster | Levi | Feb 2" per line ↔ action items. A leading "x " marks one done. */
+const actionsToText = (a: RoomMinutesDraft["actions"]) => a.map((x) => `${x.done ? "x " : ""}${[x.text, x.owner ?? "", x.due ?? ""].join(" | ").replace(/( \| )+$/, "")}`).join("\n");
+const textToActions = (t: string): RoomMinutesDraft["actions"] =>
+  t.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+    const done = /^x\s+/i.test(l);
+    const [text, owner, due] = l.replace(/^x\s+/i, "").split("|").map((p) => p.trim());
+    return { text: text ?? "", ...(owner ? { owner } : {}), ...(due ? { due } : {}), ...(done ? { done: true } : {}) };
+  });
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 const fmtSize = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / (1024 * 1024)).toFixed(1)} MB`);
@@ -281,6 +309,8 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
             </div>
           </section>
         )}
+
+        {data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
 
         {data.isWorkspace && (
           <section className="space-y-2">
@@ -626,5 +656,119 @@ function WinsSection({ base, wins, run }: { base: string; wins: NonNullable<Room
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Calendar and minutes: connect a Google Calendar, hide a meeting from the
+ * customer, and review the minutes drafted from a meeting's notes. A draft is
+ * the team's only; Publish is what shows it to the customer.
+ */
+function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base: string; calendar: RoomDetail["calendar"]; events: RoomEventRow[]; hasDomain: boolean; refresh: () => Promise<void> }) {
+  const [calId, setCalId] = useState(calendar?.id ?? "");
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [openId, setOpenId] = useState<number | null>(null);
+  useEffect(() => setCalId(calendar?.id ?? ""), [calendar?.id]);
+
+  const connect = async () => {
+    setBusy(true);
+    setNote("");
+    let e = await send(`${base}/settings`, "PATCH", { calendarId: calId.trim() });
+    if (!e && calId.trim()) {
+      const r = await fetch(`${base}/calendar/sync`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const j = (await r.json().catch(() => ({}))) as { note?: string; error?: string };
+      if (r.ok) setNote(j.note ?? "Calendar read.");
+      else e = j.error ?? "Could not read the calendar";
+    } else if (!e) setNote("Calendar disconnected. Meetings already in the room stay.");
+    setErr(e ?? "");
+    setBusy(false);
+    await refresh();
+  };
+  const patch = async (id: number, body: unknown) => {
+    const e = await send(`${base}/events/${id}`, "PATCH", body);
+    setErr(e ?? "");
+    await refresh();
+    return !e;
+  };
+
+  const drafts = events.filter((e) => e.minutesStatus === "draft");
+  const now = Date.now();
+  const upcoming = events.filter((e) => new Date(e.startsAt).getTime() >= now).reverse();
+  const past = events.filter((e) => new Date(e.startsAt).getTime() < now);
+
+  return (
+    <section className="space-y-2">
+      <h4 className="text-sm font-semibold">Calendar and minutes{drafts.length > 0 ? ` · ${drafts.length} draft${drafts.length === 1 ? "" : "s"} to review` : ""}</h4>
+      <p className="text-sm text-muted-foreground">
+        Connect a Google Calendar and the room shows its meetings that have a guest at this customer’s email domain. Internal meetings never show. When a finished meeting has Gemini notes attached, minutes are drafted here for you to review; the customer sees them only after you publish.
+      </p>
+      {!hasDomain && <p className="text-sm text-amber-700">Add the customer’s email domain under Settings first: that is how the room knows which meetings are theirs.</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input className="max-w-sm" value={calId} onChange={(e) => setCalId(e.target.value)} placeholder="primary, or a calendar ID (team@group.calendar.google.com)" aria-label="Google Calendar ID" />
+        <Button size="sm" variant="brand" disabled={busy} onClick={connect}>{calId.trim() ? "Save and read the calendar" : "Disconnect"}</Button>
+        {calendar?.id && <span className="text-xs text-muted-foreground">Last read {fmtDate(calendar.syncedAt) || "never"}{calendar.note ? ` · ${calendar.note}` : ""}</span>}
+      </div>
+      {note && <p className="text-sm text-muted-foreground">{note}</p>}
+      {err && <p className="text-sm text-destructive">{err}</p>}
+
+      {events.length > 0 && (
+        <div className="divide-y rounded-md border">
+          {[...upcoming, ...past].map((e) => (
+            <div key={e.id} className="px-3 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{e.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {e.allDay ? new Date(e.startsAt).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" }) : fmtDate(e.startsAt)}
+                    {e.attendees ? ` · ${e.attendees}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {e.hidden && <Badge variant="outline">Hidden from customer</Badge>}
+                  {e.minutesStatus === "draft" && <Badge variant="secondary">Minutes draft</Badge>}
+                  {e.minutesStatus === "published" && <Badge>Minutes published</Badge>}
+                  {new Date(e.startsAt).getTime() < now && e.minutesStatus !== "dismissed" && (
+                    <Button size="sm" variant="outline" onClick={() => setOpenId(openId === e.id ? null : e.id)}>
+                      {e.minutesStatus === "draft" ? "Review" : e.minutesStatus === "published" ? "Edit minutes" : "Write minutes"}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => patch(e.id, { hidden: !e.hidden })}>{e.hidden ? "Show" : "Hide"}</Button>
+                </div>
+              </div>
+              {openId === e.id && <MinutesEditor event={e} onSave={(body) => patch(e.id, body)} onClose={() => setOpenId(null)} />}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MinutesEditor({ event, onSave, onClose }: { event: RoomEventRow; onSave: (body: unknown) => Promise<boolean>; onClose: () => void }) {
+  const [summary, setSummary] = useState(event.minutes?.summary ?? "");
+  const [decisions, setDecisions] = useState((event.minutes?.decisions ?? []).join("\n"));
+  const [actions, setActions] = useState(actionsToText(event.minutes?.actions ?? []));
+  const minutes = () => ({ summary, decisions: decisions.split("\n").map((d) => d.trim()).filter(Boolean), actions: textToActions(actions) });
+  const area = "w-full rounded-md border bg-background px-2 py-1.5 text-sm";
+  return (
+    <div className="mt-2 space-y-2 rounded-md bg-muted/40 p-3">
+      <p className="text-xs text-muted-foreground">
+        {event.minutesStatus === "draft" && event.hasNotes ? "Drafted from the meeting’s notes. Read it before publishing: remove anything internal." : "Everything here is shown to the customer once published."}
+      </p>
+      <label className="block space-y-1 text-xs font-medium">Summary<textarea className={area} rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} /></label>
+      <label className="block space-y-1 text-xs font-medium">Decisions, one per line<textarea className={area} rows={3} value={decisions} onChange={(e) => setDecisions(e.target.value)} /></label>
+      <label className="block space-y-1 text-xs font-medium">Action items, one per line: action | owner | due. Start a line with “x ” when it is done.<textarea className={area} rows={4} value={actions} onChange={(e) => setActions(e.target.value)} /></label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="brand" onClick={async () => { if (await onSave({ minutes: minutes(), minutesStatus: "published" })) onClose(); }}>
+          {event.minutesStatus === "published" ? "Save" : "Publish to the customer"}
+        </Button>
+        {event.minutesStatus !== "published" && <Button size="sm" variant="outline" onClick={async () => { if (await onSave({ minutes: minutes(), minutesStatus: "draft" })) onClose(); }}>Save draft</Button>}
+        {event.minutesStatus === "published" && <Button size="sm" variant="outline" onClick={async () => { if (await onSave({ minutesStatus: "draft" })) onClose(); }}>Unpublish</Button>}
+        {event.minutesStatus === "draft" && <Button size="sm" variant="ghost" onClick={async () => { if (await onSave({ minutesStatus: "dismissed" })) onClose(); }}>Discard</Button>}
+        <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
+      </div>
+    </div>
   );
 }

@@ -38,6 +38,14 @@ vi.mock("../../lib/objectStorage", () => ({
 }));
 const digestEmails: { recipientEmail: string; subject: string; html: string }[] = [];
 let sheetValues: unknown[][] | null = null;
+let calendarItems: unknown[] | null = null;
+let notesDoc: unknown = null;
+let modelReply = "";
+vi.mock("openai", () => ({
+  default: class {
+    chat = { completions: { create: async () => ({ choices: [{ message: { content: modelReply } }] }) } };
+  },
+}));
 vi.mock("../../lib/notifications", () => ({
   sendRoomAccessEmail: vi.fn(async (p: { recipientEmail: string; roomUrl: string }) => {
     sentEmails.push(p);
@@ -50,7 +58,10 @@ vi.mock("../../lib/notifications", () => ({
 }));
 vi.mock("@replit/connectors-sdk", () => ({
   ReplitConnectors: class {
-    async proxy() {
+    async proxy(connector: string) {
+      if (connector === "google-calendar") return calendarItems ? { ok: true, json: async () => ({ items: calendarItems }) } : { ok: false, status: 404, text: async () => "not found" };
+      if (connector === "google-docs") return notesDoc ? { ok: true, json: async () => notesDoc } : { ok: false, status: 403, text: async () => "forbidden" };
+      if (connector === "google-drive") return { ok: false, status: 403, text: async () => "forbidden" };
       return sheetValues ? { ok: true, json: async () => ({ values: sheetValues }) } : { ok: false, status: 403, text: async () => "forbidden" };
     }
   },
@@ -143,8 +154,8 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const pageId = await seedPage(tenantId);
     const state = await post("state", { pageId });
     expect(state.status).toBe(200);
-    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
-    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
+    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
+    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
     expect((await post("task", { pageId, taskKey: "announce" })).status).toBe(401);
     expect((await post("upload", { pageId, taskKey: "practice-roster", fileName: "r.xlsx", fileBase64: XLSX.toString("base64") })).status).toBe(401);
     expect((await post("task", { pageId, taskKey: "announce", rt: "forged.token" })).status).toBe(401);
@@ -192,7 +203,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await post("task", { pageId, taskKey: "announce", rt })).status).toBe(200);
 
     const anon = await post("state", { pageId });
-    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
+    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
     const known = await post("state", { pageId, rt });
     expect(known.json).toMatchObject({ viewer: { email: "levi@mb2dental.com" }, tasks: { announce: { done: true, by: "levi@mb2dental.com" } } });
 
@@ -541,5 +552,73 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { digest: { enabled: boolean; lastSentAt: string | null } };
     expect(detail.digest.enabled).toBe(true);
     expect(detail.digest.lastSentAt).not.toBeNull();
+  });
+
+  it("syncs the calendar's customer meetings, drafts minutes from notes, and shows them only once published", async () => {
+    const tenantId = await seedTenant();
+    const decoyTenantId = await seedTenant();
+    const blocks = [{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental" } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const settings = (body: unknown, as = tenantId) => inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(as), body });
+    const sync = (as = tenantId) => inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/calendar/sync`, headers: asTenant(as) });
+    const state = async () => (await post("state", { pageId })).json as { events: { id: number; title: string }[]; minutes: { title: string; summary: string; decisions: string[] }[] };
+
+    expect((await settings({ allowedDomains: [], calendarId: "a/b?c" })).status).toBe(400);
+    expect((await settings({ allowedDomains: [], calendarId: "primary" })).status).toBe(200);
+    // No customer domain yet: nothing can be matched.
+    expect((await sync()).status).toBe(400);
+    expect((await settings({ allowedDomains: ["mb2dental.com"], calendarId: "primary" })).status).toBe(200);
+    expect((await sync(decoyTenantId)).status).toBe(404);
+
+    const past = new Date(Date.now() - 2 * 86_400_000);
+    const future = new Date(Date.now() + 5 * 86_400_000);
+    calendarItems = [
+      { id: "past1", summary: "MB2 weekly sync", start: { dateTime: past.toISOString() }, end: { dateTime: new Date(past.getTime() + 1_800_000).toISOString() }, attendees: [{ email: "rep@vendor.com" }, { email: "levi@mb2dental.com", displayName: "Levi Stone" }], attachments: [{ fileId: "1AbCdEfGhIjKlMnOp", title: "MB2 weekly sync - Notes by Gemini", mimeType: "application/vnd.google-apps.document" }] },
+      { id: "next1", summary: "Business review", start: { dateTime: future.toISOString() }, end: { dateTime: new Date(future.getTime() + 3_600_000).toISOString() }, attendees: [{ email: "dana@mb2dental.com" }] },
+      { id: "internal1", summary: "Internal: MB2 deal strategy", start: { dateTime: future.toISOString() }, attendees: [{ email: "rep@vendor.com" }] },
+    ];
+    notesDoc = { body: { content: [{ paragraph: { elements: [{ textRun: { content: "Wave one is live. Decided to start Colorado Dec 1.\n" } }] } }] } };
+    modelReply = JSON.stringify({ summary: "Wave one is live.", decisions: ["Colorado starts Dec 1"], actions: [{ text: "Send the roster", owner: "Levi" }] });
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "http://test.invalid";
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "test";
+    const first = await sync();
+    expect(first.json).toMatchObject({ ok: true, drafted: 1 });
+
+    // The customer sees the two meetings they are on, and no minutes yet: the draft is the team's only.
+    let pub = await state();
+    expect(pub.events.map((e) => e.title).sort()).toEqual(["Business review", "MB2 weekly sync"]);
+    expect(pub.minutes).toEqual([]);
+    expect(JSON.stringify(pub)).not.toContain("Colorado starts Dec 1");
+    expect(JSON.stringify(pub)).not.toContain("mb2dental.com");
+
+    const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { events: { id: number; title: string; minutesStatus: string | null; minutes: { decisions: string[] } | null }[] };
+    const draft = detail.events.find((e) => e.title === "MB2 weekly sync")!;
+    expect(draft).toMatchObject({ minutesStatus: "draft", minutes: { decisions: ["Colorado starts Dec 1"] } });
+
+    // Another tenant can't touch it; an empty publish is refused; a real publish reaches the customer.
+    const patch = (id: number, body: unknown, as = tenantId) => inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/events/${id}`, headers: asTenant(as), body });
+    expect((await patch(draft.id, { minutesStatus: "published" }, decoyTenantId)).status).toBe(404);
+    const upcoming = detail.events.find((e) => e.title === "Business review")!;
+    expect((await patch(upcoming.id, { minutesStatus: "published" })).status).toBe(400);
+    expect((await patch(draft.id, { minutes: { summary: "Wave one is live.", decisions: ["Colorado starts Dec 1"], actions: [] }, minutesStatus: "published" })).status).toBe(200);
+    pub = await state();
+    expect(pub.minutes).toHaveLength(1);
+    expect(pub.minutes[0]).toMatchObject({ title: "MB2 weekly sync", decisions: ["Colorado starts Dec 1"] });
+
+    // Hiding a meeting removes it from the customer's calendar; a meeting that leaves the calendar leaves the room, but one with minutes stays.
+    expect((await patch(upcoming.id, { hidden: true })).status).toBe(200);
+    expect((await state()).events.map((e) => e.title)).toEqual(["MB2 weekly sync"]);
+    calendarItems = [];
+    expect((await sync()).status).toBe(200);
+    const after = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { events: { title: string }[] };
+    expect(after.events.map((e) => e.title)).toEqual(["MB2 weekly sync"]);
+
+    // The calendar feed carries the synced meeting.
+    expect((await inject(app, { method: "GET", url: `/lp/room/calendar.ics?pageId=${pageId}` })).text).toContain("SUMMARY:MB2 weekly sync");
+    calendarItems = null;
+    notesDoc = null;
+    delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+    delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   });
 });

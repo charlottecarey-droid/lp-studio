@@ -8,7 +8,7 @@ import { usePageContext } from "@/lib/page-context";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { trackHubAsset, type HubAsset } from "./hub/hub-assets";
-import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomWin } from "./hub/room-client";
+import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomSyncedEvent, type RoomSyncedMinutes, type RoomWin } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
  * Partner Room — Workspace — type "room-workspace"
@@ -144,6 +144,9 @@ export interface RoomEvent {
   detail?: string;
   kind?: RoomEventKind;
   hidden?: boolean;
+  /** Set on meetings synced from the team's calendar: the real start and end (ISO), used for add-to-calendar. */
+  startsAt?: string;
+  endsAt?: string | null;
 }
 
 export interface RoomMeetingAction {
@@ -444,6 +447,24 @@ export function splitEvents(events: RoomEvent[] | undefined, today: string): { u
   };
 }
 
+const localDay = (iso: string, allDay: boolean) => (allDay ? iso.slice(0, 10) : isoDay(new Date(iso)));
+
+/** A meeting synced from the team's calendar, as a calendar row in the viewer's own time zone. */
+export function syncedEventToRoomEvent(e: RoomSyncedEvent): RoomEvent {
+  const start = new Date(e.startsAt);
+  let time: string | undefined;
+  if (!e.allDay && !Number.isNaN(start.getTime())) {
+    const mins = e.endsAt ? Math.round((new Date(e.endsAt).getTime() - start.getTime()) / 60_000) : 0;
+    time = `${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZoneName: "short" })}${mins > 0 && mins < 600 ? ` · ${mins >= 60 && mins % 60 === 0 ? `${mins / 60} hr` : `${mins} min`}` : ""}`;
+  }
+  return { key: `sync-${e.id}`, date: localDay(e.startsAt, e.allDay), time, title: e.title, kind: "meeting", ...(e.allDay ? {} : { startsAt: e.startsAt, endsAt: e.endsAt }) };
+}
+
+/** Published minutes of a synced meeting, as a Meetings row. */
+export function syncedMinutesToMeeting(m: RoomSyncedMinutes): RoomMeeting {
+  return { key: `sync-${m.id}`, date: localDay(m.startsAt, m.allDay), title: m.title, attendees: m.attendees ?? undefined, summary: m.summary, decisions: m.decisions, actions: m.actions };
+}
+
 /** The standing checkpoints of a rollout, dated from the kickoff: kickoff, then Day 30 / 60 / 90. Empty without a valid kickoff date. */
 export function standardCheckpoints(kickoffDate: string | undefined): RoomEvent[] {
   if (!validDay(kickoffDate)) return [];
@@ -466,7 +487,11 @@ export function eventIcs(e: RoomEvent, calendarName: string): string {
   const day = e.date.replace(/-/g, "");
   const next = new Date(Date.UTC(+e.date.slice(0, 4), +e.date.slice(5, 7) - 1, +e.date.slice(8, 10) + 1));
   const end = `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, "0")}${String(next.getUTCDate()).padStart(2, "0")}`;
-  return ["BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:-//${icsText(calendarName)}//Room//EN`, "BEGIN:VEVENT", `UID:${icsText(e.key || e.title)}-${day}@room`, `DTSTAMP:${day}T000000Z`, `DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${icsText(e.title)}`, `DESCRIPTION:${icsText([e.time, e.detail].filter(Boolean).join(" · "))}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  // A synced meeting carries its real start and end; anything typed in is an all-day entry.
+  const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  const timed = e.startsAt && !Number.isNaN(new Date(e.startsAt).getTime());
+  const when = timed ? [`DTSTART:${stamp(e.startsAt!)}`, `DTEND:${stamp(e.endsAt && !Number.isNaN(new Date(e.endsAt).getTime()) ? e.endsAt : new Date(new Date(e.startsAt!).getTime() + 30 * 60_000).toISOString())}`] : [`DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${end}`];
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:-//${icsText(calendarName)}//Room//EN`, "BEGIN:VEVENT", `UID:${icsText(e.key || e.title)}-${day}@room`, `DTSTAMP:${day}T000000Z`, ...when, `SUMMARY:${icsText(e.title)}`, `DESCRIPTION:${icsText([e.time, e.detail].filter(Boolean).join(" · "))}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
 }
 
 export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
@@ -778,8 +803,9 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
   const goalsAgreed = snapshot.tasks[ROOM_GOALS_AGREED_KEY];
   const needsAgreement = !!props.goals?.askAgreement && goals.length > 0 && !goalsAgreed?.done;
   const today = now ? isoDay(now) : "0000-00-00";
-  const events = splitEvents(props.calendar?.events, today);
-  const meetings = (props.meetings?.items ?? []).filter((m) => !m.hidden && (m.title ?? "").trim()).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  // The page's own events and minutes, plus meetings synced from the team's calendar and the minutes published for them.
+  const events = splitEvents([...(props.calendar?.events ?? []), ...snapshot.events.map(syncedEventToRoomEvent)], today);
+  const meetings = [...(props.meetings?.items ?? []), ...snapshot.minutes.map(syncedMinutesToMeeting)].filter((m) => !m.hidden && (m.title ?? "").trim()).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const pr = snapshot.practices;
   const noun = (props.locationsNoun ?? "").trim() || "locations";
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);

@@ -492,7 +492,7 @@ export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
  * entries; the time of day rides in the description so no time zone is
  * guessed). Null when the page has no workspace block.
  */
-export function roomCalendarIcs(blocks: unknown, calendarName: string): string | null {
+export function roomCalendarIcs(blocks: unknown, calendarName: string, synced: { id: number; title: string; startsAt: string; endsAt: string | null; allDay: boolean }[] = []): string | null {
   if (!Array.isArray(blocks)) return null;
   const block = blocks.find((b) => b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace") as { props?: { calendar?: { events?: unknown } } } | undefined;
   if (!block) return null;
@@ -508,6 +508,16 @@ export function roomCalendarIcs(blocks: unknown, calendarName: string): string |
     const end = `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, "0")}${String(next.getUTCDate()).padStart(2, "0")}`;
     const key = planTaskKey({ key: e.key, task: e.title });
     lines.push("BEGIN:VEVENT", `UID:${key}-${day}@partner-room`, `DTSTAMP:${day}T000000Z`, `DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc([cleanText(e.time, 80), cleanText(e.detail, 500)].filter(Boolean).join(" · "))}`, "END:VEVENT");
+  }
+  // Meetings synced from the team's calendar carry their real start and end.
+  const stamp = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  for (const e of synced.slice(0, 600)) {
+    const start = new Date(e.startsAt);
+    const title = cleanText(e.title, 200);
+    if (Number.isNaN(start.getTime()) || !title) continue;
+    const end = e.endsAt && !Number.isNaN(new Date(e.endsAt).getTime()) ? new Date(e.endsAt) : new Date(start.getTime() + (e.allDay ? 86_400_000 : 30 * 60_000));
+    const day = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
+    lines.push("BEGIN:VEVENT", `UID:meeting-${e.id}@partner-room`, `DTSTAMP:${stamp(start.toISOString())}`, ...(e.allDay ? [`DTSTART;VALUE=DATE:${day(start)}`, `DTEND;VALUE=DATE:${day(end)}`] : [`DTSTART:${stamp(start.toISOString())}`, `DTEND:${stamp(end.toISOString())}`]), `SUMMARY:${esc(title)}`, "END:VEVENT");
   }
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");

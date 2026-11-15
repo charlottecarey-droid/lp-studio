@@ -74,6 +74,28 @@ export interface RoomSnapshot {
   contacts: RoomContact[];
   /** Practice counts by stage and the regions present (no names: safe for any visitor). */
   practices: { total: number; byStage: Record<string, number>; regions: string[] };
+  /** Meetings synced from the team's calendar (only ones with a customer guest). */
+  events: RoomSyncedEvent[];
+  /** Minutes the team published. */
+  minutes: RoomSyncedMinutes[];
+}
+
+export interface RoomSyncedEvent {
+  id: number;
+  title: string;
+  startsAt: string;
+  endsAt: string | null;
+  allDay: boolean;
+}
+export interface RoomSyncedMinutes {
+  id: number;
+  title: string;
+  startsAt: string;
+  allDay: boolean;
+  attendees: string | null;
+  summary: string;
+  decisions: string[];
+  actions: { text: string; owner?: string; due?: string; done?: boolean }[];
 }
 
 export interface RoomPractice {
@@ -101,7 +123,7 @@ export const ROOM_UPLOAD_MAX_BYTES = 7 * 1024 * 1024;
 export const ROOM_UPLOAD_ACCEPT = ".xlsx,.xls,.csv,.pdf,.docx,.doc,.pptx,.png,.jpg,.jpeg,.zip";
 
 const NO_PRACTICES = { total: 0, byStage: {}, regions: [] };
-const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: NO_PRACTICES };
+const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: NO_PRACTICES, events: [], minutes: [] };
 const rtKey = (pageId: number) => `lp_room_rt_${pageId}`;
 
 function readHl(): string | undefined {
@@ -184,6 +206,8 @@ class RoomStore {
         wins: Array.isArray(json.wins) ? (json.wins as RoomWin[]) : [],
         contacts: Array.isArray(json.contacts) ? (json.contacts as RoomContact[]) : [],
         practices: json.practices && typeof json.practices === "object" ? (json.practices as RoomSnapshot["practices"]) : NO_PRACTICES,
+        events: Array.isArray(json.events) ? (json.events as RoomSyncedEvent[]) : [],
+        minutes: Array.isArray(json.minutes) ? (json.minutes as RoomSyncedMinutes[]) : [],
       });
     } catch {
       this.set({ ...this.snap, status: "error" });

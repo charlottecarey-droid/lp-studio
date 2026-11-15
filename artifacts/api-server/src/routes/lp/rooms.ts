@@ -17,6 +17,7 @@ import { Readable } from "stream";
 import {
   db,
   lpPagesTable,
+  lpRoomEventsTable,
   lpRoomChoicesTable,
   lpRoomContactsTable,
   lpRoomMembersTable,
@@ -39,6 +40,7 @@ import { ObjectStorageService } from "../../lib/objectStorage";
 import { getActiveHostsForTenant } from "../../lib/tenantHosts";
 import { getRequestHost, getRequestProto } from "../../lib/requestHost";
 import { sendRoomAccessEmail } from "../../lib/notifications";
+import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -284,7 +286,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
   try {
     const page = await loadRoomPage(req.body?.pageId);
     if (!page) {
-      res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
+      res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {});
@@ -321,7 +323,10 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
           createdAt: r.createdAt.toISOString(),
         }))
       : [];
-    const extras = page.isWorkspace ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id) } : { choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } };
+    // Synced meetings and published minutes read the same for every visitor, like the page's own calendar. Drafts never leave the server.
+    const extras = page.isWorkspace
+      ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id), ...(await loadPublicRoomCalendar(page.id)) }
+      : { choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] };
     res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks, requests, ...extras });
   } catch (err) {
     req.log.error({ err }, "room state failed");
@@ -581,7 +586,8 @@ router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Resp
   try {
     const pageId = Number(req.query.pageId);
     const [page] = Number.isFinite(pageId) && pageId > 0 ? await db.select({ title: lpPagesTable.title, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1) : [];
-    const ics = page ? roomCalendarIcs(page.blocks, `${roomPartnerName(page.blocks) || page.title} partnership`) : null;
+    const synced = page ? (await loadPublicRoomCalendar(pageId)).events : [];
+    const ics = page ? roomCalendarIcs(page.blocks, `${roomPartnerName(page.blocks) || page.title} partnership`, synced) : null;
     if (!ics) {
       res.status(404).end();
       return;
@@ -754,6 +760,20 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       digest: { enabled: !!fullSettings?.digestEnabled, recipients: Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients : [], lastSentAt: fullSettings?.lastDigestAt?.toISOString() ?? null },
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
+      calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null },
+      events: page.isWorkspace
+        ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
+            id: e.id,
+            title: e.title,
+            startsAt: e.startsAt.toISOString(),
+            allDay: e.allDay,
+            hidden: e.hidden,
+            attendees: e.attendees,
+            hasNotes: !!e.notesFileId,
+            minutesStatus: e.minutesStatus,
+            minutes: e.minutes ? cleanMinutes(e.minutes) : null,
+          }))
+        : [],
       practices: await practiceSummary(page.id),
       choices: [...page.choices.values()].map((spec) => {
         const c = choiceRows.find((x) => x.choiceKey === spec.key);
@@ -833,7 +853,15 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
       return;
     }
     // Optional keys: only touched when the request carries them.
-    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null; practicesSheetFilterColumn?: string | null; practicesSheetFilterValue?: string | null; revopsSlackMention?: string | null } = {};
+    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null; practicesSheetFilterColumn?: string | null; practicesSheetFilterValue?: string | null; revopsSlackMention?: string | null; calendarId?: string | null } = {};
+    if (req.body?.calendarId !== undefined) {
+      const raw = typeof req.body.calendarId === "string" ? req.body.calendarId.trim() : "";
+      if (raw && !CALENDAR_ID_RE.test(raw)) {
+        res.status(400).json({ error: "Use “primary” or the calendar's ID (it looks like an email address; find it in the calendar's settings under Integrate calendar)." });
+        return;
+      }
+      extra.calendarId = raw || null;
+    }
     if (req.body?.revopsSlackMention !== undefined) {
       const raw = typeof req.body.revopsSlackMention === "string" ? req.body.revopsSlackMention.trim() : "";
       if (raw && !slackMention(raw)) {
@@ -1004,6 +1032,63 @@ router.post("/lp/partner-rooms/:pageId/practices/sync-sheet", async (req: Reques
   } catch (err) {
     req.log.error({ err }, "room sheet sync failed");
     res.status(500).json({ error: "Could not read the sheet" });
+  }
+});
+
+/** Re-read the room's Google Calendar now (it is also re-read about every hour). */
+router.post("/lp/partner-rooms/:pageId/calendar/sync", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const result = await syncRoomCalendar(page.id, { customer: page.partnerName || page.title });
+    res.status(result.ok ? 200 : 400).json(result.ok ? { ok: true, note: result.note, drafted: result.drafted } : { error: result.note });
+  } catch (err) {
+    req.log.error({ err }, "room calendar sync failed");
+    res.status(500).json({ error: "Could not read the calendar" });
+  }
+});
+
+/**
+ * A synced meeting: hide it from the customer, edit its minutes, and publish,
+ * unpublish or dismiss them. Publishing is the only way minutes reach the customer.
+ */
+router.patch("/lp/partner-rooms/:pageId/events/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const id = Number(req.params.id);
+    const [row] = Number.isFinite(id) ? await db.select().from(lpRoomEventsTable).where(and(eq(lpRoomEventsTable.id, id), eq(lpRoomEventsTable.pageId, page.id), eq(lpRoomEventsTable.tenantId, page.tenantId))).limit(1) : [];
+    if (!row) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const set: Partial<typeof lpRoomEventsTable.$inferInsert> = {};
+    if (typeof req.body?.hidden === "boolean") set.hidden = req.body.hidden;
+    const minutes = req.body?.minutes !== undefined ? cleanMinutes(req.body.minutes) : row.minutes;
+    if (req.body?.minutes !== undefined) set.minutes = minutes;
+    if (req.body?.minutesStatus !== undefined) {
+      const status = req.body.minutesStatus;
+      if (status !== "draft" && status !== "published" && status !== "dismissed") {
+        res.status(400).json({ error: "Minutes can be a draft, published or dismissed." });
+        return;
+      }
+      if (status === "published" && minutesAreEmpty(minutes)) {
+        res.status(400).json({ error: "There is nothing to publish yet: add a summary, a decision or an action item." });
+        return;
+      }
+      set.minutesStatus = status;
+    } else if (req.body?.minutes !== undefined && !row.minutesStatus) {
+      set.minutesStatus = "draft"; // minutes typed in by hand start as a draft too
+    }
+    if (Object.keys(set).length === 0) {
+      res.status(400).json({ error: "Nothing to change" });
+      return;
+    }
+    await db.update(lpRoomEventsTable).set({ ...set, updatedAt: sql`now()` }).where(eq(lpRoomEventsTable.id, row.id));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room event update failed");
+    res.status(500).json({ error: "Could not save" });
   }
 });
 
