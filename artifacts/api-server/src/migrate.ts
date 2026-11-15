@@ -2220,7 +2220,8 @@ async function runMigrationsBody(): Promise<void> {
       // v45: hub blocks carry a style preset (`theme: "site"`) instead of
       // per-block surfaces.
       // v46: "Content Hub — Home" (audience chooser, hub-paths block).
-      const SEED_MARKER = "global_templates_seed_v47";
+      // v48: "Partner Launch Room" template (hub-plan + hub-team blocks).
+      const SEED_MARKER = "global_templates_seed_v48";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

@@ -242,7 +242,7 @@ import { MintFaqPanel } from "./mint/MintFaqPanel";
 import { MintReadingPanel } from "./mint/MintReadingPanel";
 import { MintClosePanel } from "./mint/MintClosePanel";
 import { MintFooterPanel } from "./mint/MintFooterPanel";
-import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel, HubPathsPanel, type ApplyHubStyle } from "./HubPanels";
+import { HubHeroPanel, HubFeaturedPanel, HubLibraryPanel, HubSupportPanel, HubPathsPanel, HubPlanPanel, HubTeamPanel, type ApplyHubStyle } from "./HubPanels";
 import {
   AbmSplitHeroPanel,
   AbmPhoneShowcasePanel,
@@ -1773,6 +1773,22 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "hub-paths":
         return (
           <HubPathsPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            onApplyStyleToAll={onApplyHubStyleToAll}
+          />
+        );
+      case "hub-plan":
+        return (
+          <HubPlanPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            onApplyStyleToAll={onApplyHubStyleToAll}
+          />
+        );
+      case "hub-team":
+        return (
+          <HubTeamPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             onApplyStyleToAll={onApplyHubStyleToAll}

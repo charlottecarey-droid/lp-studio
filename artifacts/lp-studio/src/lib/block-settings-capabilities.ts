@@ -251,6 +251,8 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "hub-library": SELF_STYLED,
   "hub-support": SELF_STYLED,
   "hub-paths": SELF_STYLED,
+  "hub-plan": SELF_STYLED,
+  "hub-team": SELF_STYLED,
   "abm-split-hero": HERO_LIKE,
   "abm-phone-showcase": SELF_STYLED,
   "abm-solution-tabs": SELF_STYLED,

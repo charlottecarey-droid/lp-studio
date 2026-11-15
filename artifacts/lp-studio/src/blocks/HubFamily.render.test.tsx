@@ -26,6 +26,8 @@ import { BlockHubFeatured } from "./BlockHubFeatured";
 import { BlockHubLibrary, filterAssets } from "./BlockHubLibrary";
 import { BlockHubSupport } from "./BlockHubSupport";
 import { BlockHubPaths } from "./BlockHubPaths";
+import { BlockHubPlan, resolveTaskStatus } from "./BlockHubPlan";
+import { BlockHubTeam, memberInitials } from "./BlockHubTeam";
 import { assetKey, buildAssetEventPayload, buildHubInteractionPayload, opensInViewer, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub/hub-assets";
 
 const FAMILY = [
@@ -34,6 +36,8 @@ const FAMILY = [
   ["hub-library", BlockHubLibrary],
   ["hub-support", BlockHubSupport],
   ["hub-paths", BlockHubPaths],
+  ["hub-plan", BlockHubPlan],
+  ["hub-team", BlockHubTeam],
 ] as const;
 
 function defaultsFor(type: string): Record<string, unknown> {
@@ -422,5 +426,45 @@ describe("hub-assets — image and text resources (marketing kits)", () => {
     expect(html).toContain("Read &amp; copy");
     expect(html).toContain('aria-label="Download Poster"');
     expect(html).not.toContain('aria-label="Download Recall email"');
+  });
+});
+
+describe("hub-plan — rollout phases + shared action plan", () => {
+  it("renders every phase with its status, and one row per task with a status chip", () => {
+    const html = render(BlockHubPlan as never, defaultsFor("hub-plan"));
+    expect((html.match(/data-hub-phase="/g) ?? []).length).toBe(3);
+    expect(html).toContain('data-hub-phase="current"');
+    expect((html.match(/data-hub-lane/g) ?? []).length).toBe(2);
+    expect((html.match(/data-hub-task="/g) ?? []).length).toBe(5);
+    expect(html).toContain('data-hub-task="done"');
+    expect(html).toContain("On track");
+    expect(html).toContain("Not started");
+    expect(html).toContain("Success looks like");
+  });
+  it("drops the action plan when no group has tasks, and an unknown status reads as not started", () => {
+    const html = render(BlockHubPlan as never, { ...defaultsFor("hub-plan"), lanes: [{ title: "Ours", rows: [] }] });
+    expect(html).not.toContain("data-hub-action-plan");
+    expect(resolveTaskStatus("blocked")).toBe("not-started");
+    expect(resolveTaskStatus("at-risk")).toBe("at-risk");
+  });
+});
+
+describe("hub-team — people on both sides", () => {
+  it("renders each group and person, initials when there is no photo, and a mailto only when an email is set", () => {
+    const html = render(BlockHubTeam as never, defaultsFor("hub-team"));
+    expect((html.match(/data-hub-team-group/g) ?? []).length).toBe(2);
+    expect((html.match(/data-hub-member/g) ?? []).length).toBe(5);
+    expect((html.match(/href="mailto:/g) ?? []).length).toBe(3);
+    expect(html).not.toMatch(/<img/);
+    expect(html).toContain(">AM<");
+  });
+  it("uses the photo when one is set and builds a tel link from a phone number", () => {
+    const groups = [{ title: "Team", members: [{ name: "Jordan Lee", photoUrl: "/p.jpg", phone: "(555) 010-2000" }] }];
+    const html = render(BlockHubTeam as never, { ...defaultsFor("hub-team"), groups });
+    expect(html).toContain('src="/p.jpg"');
+    expect(html).toContain('href="tel:5550102000"');
+    expect(memberInitials("Jordan Lee")).toBe("JL");
+    expect(memberInitials("  ")).toBe("");
+    expect(memberInitials("[Name]")).toBe("");
   });
 });

@@ -174,6 +174,7 @@ import { DSO_INVITE_TEMPLATE_SEEDS } from "./dsoInviteTemplate";
 import { QUEST_KIT_TEMPLATE_SEEDS } from "./questKitTemplate";
 import { ABM_ACCOUNT_PAGE_TEMPLATE_SEEDS } from "./abmAccountPageTemplate";
 import { CONTENT_HUB_TEMPLATE_SEEDS } from "./contentHubTemplate";
+import { PARTNER_LAUNCH_ROOM_TEMPLATE_SEEDS } from "./partnerLaunchRoomTemplate";
 
 const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   // 1. SaaS Product Landing
@@ -4561,6 +4562,7 @@ const COMBINED: GlobalTemplateSeed[] = [
   ...QUEST_KIT_TEMPLATE_SEEDS,
   ...ABM_ACCOUNT_PAGE_TEMPLATE_SEEDS,
   ...CONTENT_HUB_TEMPLATE_SEEDS,
+  ...PARTNER_LAUNCH_ROOM_TEMPLATE_SEEDS,
   ...BUSINESS_CASE_TEMPLATE_SEEDS,
   ...GENERIC_TEMPLATE_SEEDS,
   ...INDUSTRY_TEMPLATE_SEEDS_RANKED,

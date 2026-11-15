@@ -80,6 +80,21 @@ export default function GenericCatalogFixture() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Dev-only: `?seed=<site path>.json` loads `{ seed, brand? }` (or a bare
+    // seed array) from the dev server, for previewing a page of blocks in a
+    // plain browser tab where nothing can be injected before load.
+    const seedPath = new URLSearchParams(window.location.search).get("seed");
+    if (import.meta.env.DEV && seedPath && seedPath.startsWith("/") && !seedPath.startsWith("//")) {
+      fetch(seedPath)
+        .then((r) => r.json())
+        .then((data: GenericSeedRow[] | { seed: GenericSeedRow[]; brand?: Record<string, unknown> }) => {
+          const rows = Array.isArray(data) ? data : data.seed;
+          if (!Array.isArray(data) && data.brand) (window as unknown as { __GENERIC_BRAND__?: unknown }).__GENERIC_BRAND__ = data.brand;
+          setSeed(rows);
+        })
+        .catch((e) => setError(`Could not load seed ${seedPath}: ${String(e)}`));
+      return;
+    }
     const injected = typeof window !== "undefined" ? window.__GENERIC_SEED__ : undefined;
     if (!Array.isArray(injected) || injected.length === 0) {
       setError(

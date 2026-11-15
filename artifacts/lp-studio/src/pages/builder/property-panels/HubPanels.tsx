@@ -21,6 +21,8 @@ import type { HubFeaturedBlockProps } from "@/blocks/BlockHubFeatured";
 import type { HubLibraryBlockProps, HubSection } from "@/blocks/BlockHubLibrary";
 import type { HubSupportBlockProps } from "@/blocks/BlockHubSupport";
 import type { HubPathsBlockProps, HubPath } from "@/blocks/BlockHubPaths";
+import { HUB_TASK_STATUS_LABEL, resolveTaskStatus, type HubPhaseStatus, type HubPlanBlockProps, type HubPlanLane, type HubPlanPhase, type HubPlanTask, type HubTaskStatus } from "@/blocks/BlockHubPlan";
+import type { HubTeamBlockProps, HubTeamGroup, HubTeamMember } from "@/blocks/BlockHubTeam";
 import type { HubAsset, HubAssetKind } from "@/blocks/hub/hub-assets";
 import { HUB_THEMES, HUB_THEME_LABELS, resolveHubTheme, type HubStyleProps, type HubSurface, type HubTheme } from "@/lib/hub-theme";
 import { Input } from "@/components/ui/input";
@@ -602,6 +604,147 @@ export function HubPathsPanel({ props, onChange, onApplyStyleToAll }: { props: H
         <Field label="Subheadline"><Textarea value={props.subheadline ?? ""} onChange={(e) => update({ subheadline: e.target.value })} rows={2} className="text-xs" /></Field>
         <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value })} className="h-8 text-xs" placeholder="paths" /></Field>
       </PanelSection>
+      <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
+    </div>
+  );
+}
+
+/* ── hub-plan: phases + shared action plan ──────────────────────────────── */
+const lines = (v: string) => v.split("\n").map((b) => b.trim()).filter(Boolean);
+
+function HubHeadingFields<T extends { kicker?: string; headline?: string; subheadline?: string; anchorId?: string }>({ props, update, anchorPlaceholder }: { props: T; update: (patch: Partial<T>) => void; anchorPlaceholder: string }) {
+  return (
+    <PanelSection title="Heading" hint="Kicker, headline, intro line">
+      <Field label="Kicker"><Input value={props.kicker ?? ""} onChange={(e) => update({ kicker: e.target.value } as Partial<T>)} className="h-8 text-xs" /></Field>
+      <Field label="Headline (line breaks allowed)"><Textarea value={props.headline ?? ""} onChange={(e) => update({ headline: e.target.value } as Partial<T>)} rows={2} className="text-xs" /></Field>
+      <Field label="Subheadline"><Textarea value={props.subheadline ?? ""} onChange={(e) => update({ subheadline: e.target.value } as Partial<T>)} rows={2} className="text-xs" /></Field>
+      <Field label="Anchor id (for jump links)"><Input value={props.anchorId ?? ""} onChange={(e) => update({ anchorId: e.target.value } as Partial<T>)} className="h-8 text-xs" placeholder={anchorPlaceholder} /></Field>
+    </PanelSection>
+  );
+}
+
+const PHASE_STATUS_LABEL: Record<HubPhaseStatus, string> = { done: "Done", current: "Happening now", upcoming: "Upcoming" };
+const TASK_STATUS_ORDER: HubTaskStatus[] = ["done", "on-track", "at-risk", "not-started"];
+
+export function HubPlanPanel({ props, onChange, onApplyStyleToAll }: { props: HubPlanBlockProps; onChange: (p: HubPlanBlockProps) => void; onApplyStyleToAll?: ApplyHubStyle }) {
+  const update = (patch: Partial<HubPlanBlockProps>) => onChange({ ...props, ...patch });
+  const phases = props.phases ?? [];
+  const lanes = props.lanes ?? [];
+  const setPhase = (i: number, patch: Partial<HubPlanPhase>) => update({ phases: phases.map((p, idx) => (idx === i ? { ...p, ...patch } : p)) });
+  const setLane = (i: number, patch: Partial<HubPlanLane>) => update({ lanes: lanes.map((l, idx) => (idx === i ? { ...l, ...patch } : l)) });
+  const setTask = (li: number, ri: number, patch: Partial<HubPlanTask>) => setLane(li, { rows: lanes[li].rows.map((r, idx) => (idx === ri ? { ...r, ...patch } : r)) });
+  return (
+    <div className="space-y-3">
+      <PanelSection title={`Phases (${phases.length})`} hint="What happens in each stretch, and what success looks like" defaultOpen>
+        {phases.map((p, i) => (
+          <div key={i} className="space-y-2 rounded-md border p-2">
+            <ItemHeader label={p.title || `Phase ${i + 1}`} index={i} total={phases.length} onMove={(dir) => update({ phases: moveItem(phases, i, dir) })} onRemove={() => update({ phases: phases.filter((_, idx) => idx !== i) })} />
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Label"><Input value={p.label ?? ""} onChange={(e) => setPhase(i, { label: e.target.value })} className="h-8 text-xs" placeholder="Days 1–30" /></Field>
+              <Field label="Status">
+                <Select value={p.status ?? "upcoming"} onValueChange={(v) => setPhase(i, { status: v as HubPhaseStatus })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PHASE_STATUS_LABEL) as HubPhaseStatus[]).map((s) => <SelectItem key={s} value={s} className="text-xs">{PHASE_STATUS_LABEL[s]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            <Field label="Title"><Input value={p.title ?? ""} onChange={(e) => setPhase(i, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
+            <Field label="What happens (one per line)"><Textarea value={(p.items ?? []).join("\n")} onChange={(e) => setPhase(i, { items: lines(e.target.value) })} rows={3} className="text-xs" /></Field>
+            <Field label="Success looks like"><Textarea value={p.success ?? ""} onChange={(e) => setPhase(i, { success: e.target.value })} rows={2} className="text-xs" /></Field>
+          </div>
+        ))}
+        {phases.length < 6 && (
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ phases: [...phases, { label: "", title: "New phase", items: [], success: "", status: "upcoming" }] })}>
+            <Plus className="h-3 w-3" /> Add phase
+          </Button>
+        )}
+      </PanelSection>
+      <PanelSection title="Shared action plan" hint="Tasks by side, with owner, due date and status" defaultOpen>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Title"><Input value={props.planTitle ?? ""} onChange={(e) => update({ planTitle: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label="Note"><Input value={props.planNote ?? ""} onChange={(e) => update({ planNote: e.target.value })} className="h-8 text-xs" /></Field>
+        </div>
+        {lanes.map((lane, li) => (
+          <div key={li} className="space-y-2 rounded-md border p-2">
+            <ItemHeader label={lane.title || `Group ${li + 1}`} index={li} total={lanes.length} onMove={(dir) => update({ lanes: moveItem(lanes, li, dir) })} onRemove={() => update({ lanes: lanes.filter((_, idx) => idx !== li) })} />
+            <Input value={lane.title ?? ""} onChange={(e) => setLane(li, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Our deliverables" />
+            {(lane.rows ?? []).map((r, ri) => (
+              <div key={ri} className="space-y-1 rounded border border-dashed p-1.5">
+                <div className="flex items-center gap-1">
+                  <Input value={r.task ?? ""} onChange={(e) => setTask(li, ri, { task: e.target.value })} className="h-7 flex-1 text-xs" placeholder="Task" />
+                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => setLane(li, { rows: lane.rows.filter((_, idx) => idx !== ri) })}>Remove</Button>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  <Input value={r.owner ?? ""} onChange={(e) => setTask(li, ri, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner" />
+                  <Input value={r.due ?? ""} onChange={(e) => setTask(li, ri, { due: e.target.value })} className="h-7 text-xs" placeholder="Due" />
+                  <Select value={resolveTaskStatus(r.status)} onValueChange={(v) => setTask(li, ri, { status: v as HubTaskStatus })}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {TASK_STATUS_ORDER.map((s) => <SelectItem key={s} value={s} className="text-xs">{HUB_TASK_STATUS_LABEL[s]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setLane(li, { rows: [...(lane.rows ?? []), { task: "New task", owner: "", due: "", status: "not-started" }] })}>
+              <Plus className="h-3 w-3" /> Add task
+            </Button>
+          </div>
+        ))}
+        {lanes.length < 4 && (
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ lanes: [...lanes, { title: "New group", rows: [] }] })}>
+            <Plus className="h-3 w-3" /> Add group
+          </Button>
+        )}
+      </PanelSection>
+      <HubHeadingFields props={props} update={update} anchorPlaceholder="plan" />
+      <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
+    </div>
+  );
+}
+
+/* ── hub-team: people on both sides ─────────────────────────────────────── */
+export function HubTeamPanel({ props, onChange, onApplyStyleToAll }: { props: HubTeamBlockProps; onChange: (p: HubTeamBlockProps) => void; onApplyStyleToAll?: ApplyHubStyle }) {
+  const update = (patch: Partial<HubTeamBlockProps>) => onChange({ ...props, ...patch });
+  const groups = props.groups ?? [];
+  const setGroup = (i: number, patch: Partial<HubTeamGroup>) => update({ groups: groups.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
+  const setMember = (gi: number, mi: number, patch: Partial<HubTeamMember>) => setGroup(gi, { members: groups[gi].members.map((m, idx) => (idx === mi ? { ...m, ...patch } : m)) });
+  return (
+    <div className="space-y-3">
+      {groups.map((g, gi) => (
+        <PanelSection key={gi} title={`${g.title || `Group ${gi + 1}`} (${(g.members ?? []).length})`} hint="People, roles and how to reach them" defaultOpen={gi === 0}>
+          <ItemHeader label="Group" index={gi} total={groups.length} onMove={(dir) => update({ groups: moveItem(groups, gi, dir) })} onRemove={() => update({ groups: groups.filter((_, idx) => idx !== gi) })} />
+          <Input value={g.title ?? ""} onChange={(e) => setGroup(gi, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Our team" />
+          {(g.members ?? []).map((m, mi) => (
+            <div key={mi} className="space-y-2 rounded-md border p-2">
+              <ItemHeader label={m.name || `Person ${mi + 1}`} index={mi} total={g.members.length} onMove={(dir) => setGroup(gi, { members: moveItem(g.members, mi, dir) })} onRemove={() => setGroup(gi, { members: g.members.filter((_, idx) => idx !== mi) })} />
+              <div className="flex items-center gap-2">
+                <ThumbButton value={m.photoUrl ?? ""} onChange={(url) => setMember(gi, mi, { photoUrl: url })} label="Photo" />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <Input value={m.name ?? ""} onChange={(e) => setMember(gi, mi, { name: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Name" />
+                  <Input value={m.role ?? ""} onChange={(e) => setMember(gi, mi, { role: e.target.value })} className="h-7 text-xs" placeholder="Role" />
+                </div>
+              </div>
+              <Field label="What they own"><Textarea value={m.owns ?? ""} onChange={(e) => setMember(gi, mi, { owns: e.target.value })} rows={2} className="text-xs" /></Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Email"><Input value={m.email ?? ""} onChange={(e) => setMember(gi, mi, { email: e.target.value })} className="h-8 text-xs" /></Field>
+                <Field label="Phone"><Input value={m.phone ?? ""} onChange={(e) => setMember(gi, mi, { phone: e.target.value })} className="h-8 text-xs" /></Field>
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setGroup(gi, { members: [...(g.members ?? []), { name: "New person", role: "", owns: "", email: "" }] })}>
+            <Plus className="h-3 w-3" /> Add person
+          </Button>
+        </PanelSection>
+      ))}
+      {groups.length < 3 && (
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ groups: [...groups, { title: "New group", members: [] }] })}>
+          <Plus className="h-3 w-3" /> Add group
+        </Button>
+      )}
+      <HubHeadingFields props={props} update={update} anchorPlaceholder="team" />
       <HubStyleFields value={props} onChange={(p) => update(p)} onApplyToAll={onApplyStyleToAll} />
     </div>
   );

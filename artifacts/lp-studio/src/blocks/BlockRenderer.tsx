@@ -173,6 +173,8 @@ import { BlockHubFeatured } from "./BlockHubFeatured";
 import { BlockHubLibrary } from "./BlockHubLibrary";
 import { BlockHubSupport } from "./BlockHubSupport";
 import { BlockHubPaths } from "./BlockHubPaths";
+import { BlockHubPlan } from "./BlockHubPlan";
+import { BlockHubTeam } from "./BlockHubTeam";
 import { BlockKitContents } from "./BlockKitContents";
 import { BlockKitSteps } from "./BlockKitSteps";
 import { BlockKitSupport } from "./BlockKitSupport";
@@ -549,7 +551,7 @@ export const NO_REVEAL = new Set<string>([
   "mint-hero", "mint-proof", "mint-band", "mint-features", "mint-router", "mint-story", "mint-comparison", "mint-steps", "mint-faq", "mint-reading", "mint-close", "mint-footer",
   "forest-hero", "forest-logos", "forest-proof", "forest-convergence", "forest-router", "forest-story", "forest-system", "forest-comparison", "forest-buyers", "forest-faq", "forest-reading", "forest-close", "forest-footer",
   // Content Hub family: self-nav hero with its own entrance + sections with staggered card reveals.
-  "hub-hero", "hub-featured", "hub-library", "hub-support", "hub-paths",
+  "hub-hero", "hub-featured", "hub-library", "hub-support", "hub-paths", "hub-plan", "hub-team",
   // ABM account-page family: self-nav hero + sections with their own staggered reveals.
   "abm-split-hero", "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-story-quote", "abm-logo-strip", "abm-roi-stats", "abm-feature-grid", "abm-reading-tiles", "abm-account-team", "abm-ratings-cta",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
@@ -1887,6 +1889,26 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "hub-paths":
         return (
           <BlockHubPaths
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "hub-plan":
+        return (
+          <BlockHubPlan
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "hub-team":
+        return (
+          <BlockHubTeam
             props={block.props}
             brand={brand}
             onFieldChange={onBlockChange

@@ -214,7 +214,7 @@ import type {
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
-  HubSupportBlockProps, HubPathsBlockProps,
+  HubSupportBlockProps, HubPathsBlockProps, HubPlanBlockProps, HubTeamBlockProps,
   AbmSplitHeroBlockProps,
   AbmPhoneShowcaseBlockProps,
   AbmSolutionTabsBlockProps,
@@ -295,6 +295,8 @@ import { HUB_FEATURED_DEFAULT_PROPS } from "@/blocks/BlockHubFeatured";
 import { HUB_LIBRARY_DEFAULT_PROPS } from "@/blocks/BlockHubLibrary";
 import { HUB_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockHubSupport";
 import { HUB_PATHS_DEFAULT_PROPS } from "@/blocks/BlockHubPaths";
+import { HUB_PLAN_DEFAULT_PROPS } from "@/blocks/BlockHubPlan";
+import { HUB_TEAM_DEFAULT_PROPS } from "@/blocks/BlockHubTeam";
 import { KIT_CONTENTS_DEFAULT_PROPS } from "@/blocks/BlockKitContents";
 import { KIT_STEPS_DEFAULT_PROPS } from "@/blocks/BlockKitSteps";
 import { KIT_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockKitSupport";
@@ -9594,6 +9596,24 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "hub-plan",
+    label: "Content Hub — Rollout Plan",
+    category: "Showcase",
+    defaultProps: (): HubPlanBlockProps => structuredClone(HUB_PLAN_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FDFCFA" rx="4" /><rect x="8" y="7" width="40" height="5" rx="2" fill="#0b0b0f" /><rect x="8" y="17" width="32" height="22" rx="4" fill="#ffffff" stroke="#ECEAE6" /><rect x="44" y="17" width="32" height="22" rx="4" fill="#ffffff" stroke="#ECEAE6" /><rect x="80" y="17" width="32" height="22" rx="4" fill="#ffffff" stroke="#ECEAE6" /><circle cx="14" cy="23" r="2.5" fill="#0b0b0f" /><circle cx="50" cy="23" r="2.5" fill="#0b0b0f" opacity="0.35" /><circle cx="86" cy="23" r="2.5" fill="#0b0b0f" opacity="0.35" /><rect x="8" y="44" width="104" height="20" rx="4" fill="#ffffff" stroke="#ECEAE6" /><rect x="13" y="49" width="50" height="2.5" rx="1" fill="#0b0b0f" opacity="0.7" /><rect x="94" y="48" width="13" height="4" rx="2" fill="#0b0b0f" /><rect x="13" y="57" width="42" height="2.5" rx="1" fill="#0b0b0f" opacity="0.7" /><rect x="94" y="56" width="13" height="4" rx="2" fill="#0b0b0f" opacity="0.3" /></svg>
+    ),
+  },
+  {
+    type: "hub-team",
+    label: "Content Hub — Your Team",
+    category: "Showcase",
+    defaultProps: (): HubTeamBlockProps => structuredClone(HUB_TEAM_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#FDFCFA" rx="4" /><rect x="8" y="7" width="40" height="5" rx="2" fill="#0b0b0f" /><rect x="8" y="18" width="50" height="45" rx="5" fill="#ffffff" stroke="#ECEAE6" /><rect x="62" y="18" width="50" height="45" rx="5" fill="#ffffff" stroke="#ECEAE6" /><circle cx="17" cy="29" r="4" fill="#0b0b0f" opacity="0.2" /><rect x="25" y="26" width="24" height="2.5" rx="1" fill="#0b0b0f" opacity="0.8" /><rect x="25" y="31" width="18" height="2" rx="1" fill="#0b0b0f" opacity="0.35" /><circle cx="17" cy="45" r="4" fill="#0b0b0f" opacity="0.2" /><rect x="25" y="42" width="24" height="2.5" rx="1" fill="#0b0b0f" opacity="0.8" /><rect x="25" y="47" width="18" height="2" rx="1" fill="#0b0b0f" opacity="0.35" /><circle cx="71" cy="29" r="4" fill="#0b0b0f" opacity="0.2" /><rect x="79" y="26" width="24" height="2.5" rx="1" fill="#0b0b0f" opacity="0.8" /><rect x="79" y="31" width="18" height="2" rx="1" fill="#0b0b0f" opacity="0.35" /></svg>
+    ),
+  },
+  {
     type: "hub-support",
     label: "Content Hub — Questions & Support",
     category: "CTA",
@@ -10337,6 +10357,8 @@ export function createBlock(type: "hub-featured"): Extract<PageBlock, { type: "h
 export function createBlock(type: "hub-library"): Extract<PageBlock, { type: "hub-library" }>;
 export function createBlock(type: "hub-support"): Extract<PageBlock, { type: "hub-support" }>;
 export function createBlock(type: "hub-paths"): Extract<PageBlock, { type: "hub-paths" }>;
+export function createBlock(type: "hub-plan"): Extract<PageBlock, { type: "hub-plan" }>;
+export function createBlock(type: "hub-team"): Extract<PageBlock, { type: "hub-team" }>;
 export function createBlock(type: "kit-contents"): Extract<PageBlock, { type: "kit-contents" }>;
 export function createBlock(type: "kit-steps"): Extract<PageBlock, { type: "kit-steps" }>;
 export function createBlock(type: "kit-support"): Extract<PageBlock, { type: "kit-support" }>;
@@ -10769,6 +10791,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "hub-library": return { id, type: "hub-library", props: props as HubLibraryBlockProps };
     case "hub-support": return { id, type: "hub-support", props: props as HubSupportBlockProps };
     case "hub-paths": return { id, type: "hub-paths", props: props as HubPathsBlockProps };
+    case "hub-plan": return { id, type: "hub-plan", props: props as HubPlanBlockProps };
+    case "hub-team": return { id, type: "hub-team", props: props as HubTeamBlockProps };
     case "kit-contents": return { id, type: "kit-contents", props: props as KitContentsBlockProps };
     case "kit-steps": return { id, type: "kit-steps", props: props as KitStepsBlockProps };
     case "kit-support": return { id, type: "kit-support", props: props as KitSupportBlockProps };

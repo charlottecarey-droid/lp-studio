@@ -214,7 +214,7 @@ import type {
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
-  HubSupportBlockProps, HubPathsBlockProps,
+  HubSupportBlockProps, HubPathsBlockProps, HubPlanBlockProps, HubTeamBlockProps,
   AbmSplitHeroBlockProps,
   AbmPhoneShowcaseBlockProps,
   AbmSolutionTabsBlockProps,
@@ -565,6 +565,8 @@ export type BlockVariant =
   | { type: "hub-library"; props: HubLibraryBlockProps }
   | { type: "hub-support"; props: HubSupportBlockProps }
   | { type: "hub-paths"; props: HubPathsBlockProps }
+  | { type: "hub-plan"; props: HubPlanBlockProps }
+  | { type: "hub-team"; props: HubTeamBlockProps }
   | { type: "abm-split-hero"; props: AbmSplitHeroBlockProps }
   | { type: "abm-phone-showcase"; props: AbmPhoneShowcaseBlockProps }
   | { type: "abm-solution-tabs"; props: AbmSolutionTabsBlockProps }

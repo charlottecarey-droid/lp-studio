@@ -270,7 +270,7 @@ export const STRUCTURED_TYPES = new Set([
   // Holiday Gift family gift cards.
   "gift-picker",
   // Content Hub family (Oct 2026): a sectioned resource library + its spotlight.
-  "hub-featured", "hub-library", "hub-paths",
+  "hub-featured", "hub-library", "hub-paths", "hub-plan", "hub-team",
   // ABM account-page family structured sections.
   "abm-phone-showcase", "abm-solution-tabs", "abm-integrations-row", "abm-feature-grid", "abm-reading-tiles",
   // DSO Page family structured sections.
