@@ -19,6 +19,10 @@ interface RoomDetail {
   settings: { allowedDomains: string[]; slackChannelId: string | null };
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
+  isWorkspace?: boolean;
+  choices?: { key: string; title: string; options: string[]; value: string | null; chosenBy: string | null; chosenAt: string | null }[];
+  contacts?: { id: number; name: string; role: string | null; email: string | null; addedBy: string; createdAt: string }[];
+  wins?: { id: number; body: string; headline: string | null; side: string; by: string; createdAt: string; likes: number; comments: { id: number; body: string; by: string }[] }[];
   requests: { id: number; kind: string; subject: string; details: string | null; status: string; owner: string | null; due: string | null; requestedBy: string; createdAt: string }[];
   uploads: { id: number; taskKey: string; taskTitle: string; fileName: string; sizeBytes: number; uploadedBy: string; uploadedByEmail: string; createdAt: string }[];
 }
@@ -120,6 +124,40 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
               ))}
             </div>
             <p className="text-xs text-muted-foreground">The customer sees the status, owner and due date in the room’s Requests module.</p>
+          </section>
+        )}
+
+        {(data.choices ?? []).length > 0 && (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Marketing plan decisions</h4>
+            <div className="divide-y rounded-md border">
+              {data.choices!.map((c) => (
+                <div key={c.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <span className="text-sm">{c.title}</span>
+                  {c.value ? (
+                    <span className="text-sm"><Badge variant="secondary">{c.value}</Badge> <span className="text-xs text-muted-foreground">{c.chosenBy} · {fmtDate(c.chosenAt)}</span></span>
+                  ) : (
+                    <Badge variant="outline">No decision yet</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.isWorkspace && <WinsSection base={base} wins={data.wins ?? []} run={run} />}
+
+        {(data.contacts ?? []).length > 0 && (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Contacts the customer added</h4>
+            <div className="divide-y rounded-md border">
+              {data.contacts!.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="text-sm">{c.name}{c.role ? ` · ${c.role}` : ""}{c.email ? ` · ${c.email}` : ""} <span className="text-xs text-muted-foreground">added by {c.addedBy}</span></span>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${c.name}`} onClick={() => run(send(`${base}/contacts/${c.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
+                </div>
+              ))}
+            </div>
           </section>
         )}
 
@@ -253,5 +291,42 @@ function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: 
         <Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} placeholder="Due (Nov 21)" className="h-8 max-w-[140px] text-sm" />
       </div>
     </div>
+  );
+}
+
+function WinsSection({ base, wins, run }: { base: string; wins: NonNullable<RoomDetail["wins"]>; run: (p: Promise<string | null>) => Promise<boolean> }) {
+  const [headline, setHeadline] = useState("");
+  const [body, setBody] = useState("");
+  return (
+    <section className="space-y-2">
+      <h4 className="text-sm font-semibold">Wins</h4>
+      <form
+        className="space-y-2 rounded-md border p-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (body.trim() && (await run(send(`${base}/wins`, "POST", { headline: headline.trim(), body: body.trim() })))) {
+            setHeadline("");
+            setBody("");
+          }
+        }}
+      >
+        <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Headline, optional (1,000 cases submitted)" className="h-8 text-sm" />
+        <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Share a win with the customer" className="h-8 text-sm" />
+        <Button type="submit" size="sm" variant="brand" disabled={!body.trim()}>Post to the room</Button>
+      </form>
+      {wins.length > 0 && (
+        <div className="divide-y rounded-md border">
+          {wins.map((w) => (
+            <div key={w.id} className="flex items-start justify-between gap-2 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm">{w.headline ? <strong>{w.headline}. </strong> : null}{w.body}</p>
+                <p className="text-xs text-muted-foreground">{w.by} · {fmtDate(w.createdAt)} · {w.likes} likes · {w.comments.length} comments</p>
+              </div>
+              <Button size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0 text-muted-foreground" aria-label="Remove this win" onClick={() => run(send(`${base}/wins/${w.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

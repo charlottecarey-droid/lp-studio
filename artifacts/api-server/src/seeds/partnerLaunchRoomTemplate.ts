@@ -412,7 +412,7 @@ export const DEFAULT_WORKSPACE_PLAN: WorkspaceGroup[] = [
     checkpoint: "Team named on both sides · roster received · billing verified",
     rows: [
       M("team-assigned", "Your dedicated team assigned and introduced", "AE", "—"),
-      M("practice-roster", "Practice roster and regional manager list shared", "—", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload roster" }),
+      M("practice-roster", "Practice roster and regional manager list shared", "—", "Operations Lead"),
       M("accounts-confirmed", "Accounts, hierarchy and mailing addresses confirmed", "Implementation", "Operations Lead"),
       M("pricing-verified", "Contracted pricing verified against your first invoice", "Dandy Billing", "Procurement"),
       M("welcome-email", "Welcome email and partnership one-pager to your leadership", "Dandy Marketing", "—"),
@@ -423,7 +423,7 @@ export const DEFAULT_WORKSPACE_PLAN: WorkspaceGroup[] = [
     checkpoint: "Plan signed off · partnership announced · kits shipped and tracked",
     rows: [
       M("exec-kickoff", "Executive kickoff: walk this plan together, finalize owners and dates", "AE", "Executive Sponsor"),
-      M("brand-guidelines", "Your brand guidelines and logos shared", "Dandy Marketing", "Communications", { customerAction: "upload", uploadLabel: "Upload brand files" }),
+      M("brand-guidelines", "Your brand guidelines and logos shared", "Dandy Marketing", "Communications"),
       M("internal-announcement", "Internal announcement via the co-branded launch kit", "Dandy Marketing", "Communications", { customerAction: "check" }),
       M("welcome-kits", "Welcome kits shipped to practices; leadership gifts to regional managers", "Dandy Marketing", "—"),
       M("welcome-event", "Welcome event chosen and scoped", "AE", "Executive Sponsor", { customerAction: "check" }),
@@ -497,6 +497,52 @@ const WORKSPACE_PARTNER_TEAM: (LaunchRoomPerson & { when?: string })[] = [
   { name: "[Name]", role: "Education Lead", owns: "Your CE calendar and event sponsorships", when: "Day 30 onward" },
 ];
 
+/** The getting-started checklist. Uploads here are private, like every room upload. */
+export const DEFAULT_WORKSPACE_ONBOARDING = {
+  title: "Get set up",
+  intro: "Five things we need from you to get started. Files you upload go to your Dandy team only.",
+  steps: [
+    { key: "onboard-logo", title: "Upload your logo", description: "So everything we make for you carries your brand. Brand guidelines welcome too.", action: "upload", buttonLabel: "Upload logo" },
+    { key: "onboard-practices", title: "Upload your practice list", description: "Practice names, addresses, regional managers and an office contact for each.", action: "upload", buttonLabel: "Upload list" },
+    { key: "onboard-doctors", title: "Upload your doctor roster", description: "Doctors by practice, so training and support reach the right people.", action: "upload", buttonLabel: "Upload roster" },
+    { key: "onboard-team", title: "Add your team", description: "Your executive sponsor, operations lead, clinical champion and marketing contact.", action: "team", buttonLabel: "Add people" },
+    { key: "onboard-gift", title: "Accept your welcome gift", description: "Tell us where to send it and who it's for.", action: "request", buttonLabel: "Accept gift" },
+  ],
+};
+
+const P = (key: string, title: string, description: string, audience: string, when: string, options?: string[]) => ({ key, title, description, audience, when, imageUrl: "", ...(options ? { options } : {}) });
+
+/** The marketing plan: the standard launch package plus opt-in programs the partner decides on. */
+export const DEFAULT_WORKSPACE_MARKETING = {
+  intro: "Choose the support you want from Dandy. We run it, and your choices become the plan your marketing team and ours work from.",
+  groups: [
+    {
+      title: "Standard launch package",
+      note: "Included in every partnership",
+      programs: [
+        P("mk-announcement", "Partnership announcement", "Email, social posts and one-pager for your network, in your brand.", "Leadership, practices", "Day 5"),
+        P("mk-welcome-kits", "Welcome kits to every practice", "Shipped to each practice on your list, with gifts for regional managers.", "Practices, regional managers", "Day 15"),
+        P("mk-lunch-learn", "Lunch & Learn program", "In-practice introductions led by Dandy, booked with your office managers.", "Practices", "Days 15–45", ["Include", "Not now"]),
+        P("mk-video-mailer", "Video mailer and lab-credit offer", "A video mailer to every practice with a lab credit toward first cases.", "Practices", "Days 30–45", ["Include", "Not now"]),
+        P("mk-welcome-event", "Welcome event for your team", "We plan, host and cover it. You bring the guest list.", "Leadership, regional managers", "By Day 60", ["Dinner", "Onsite training", "Not now"]),
+        P("mk-launch-promo", "90-day launch promotion", "A magalog and promotion postcard to every practice.", "Practices", "Day 60", ["Include", "Not now"]),
+      ],
+    },
+    {
+      title: "Optional add-ons",
+      note: "Based on your network's needs",
+      programs: [
+        P("mk-lab-tour", "Executive lab tour", "A private tour of the lab for your leadership, in person or in VR.", "Leadership", "Flexible", ["Include", "Not now"]),
+        P("mk-case-study", "Your own case study", "Built from your first activated practices, approved by your clinical champion.", "Your whole network", "Days 60–90", ["Include", "Not now"]),
+        P("mk-press-release", "Joint press release", "Written and distributed by Dandy, approved by your communications team.", "Public", "Flexible", ["Include", "Not now"]),
+        P("mk-podcast", "Podcast feature", "A guest spot for one of your leaders on The Margin Line.", "Public", "Flexible", ["Include", "Not now"]),
+        P("mk-regional-events", "Regional events", "Education events by territory to accelerate adoption where you want it most.", "Regional managers, practices", "Days 60–90", ["Include", "Not now"]),
+        P("mk-swag", "Co-branded swag", "Custom kits and swag carrying both brands.", "Practices", "Flexible", ["Include", "Not now"]),
+      ],
+    },
+  ],
+};
+
 /** The whole room as one `room-workspace` block. Reuses the launch-kit copy from the hub builder above. */
 export function buildPartnerWorkspaceBlocks(input: PartnerWorkspaceInput): Block[] {
   const short = input.partnerShort || input.partner;
@@ -540,6 +586,8 @@ export function buildPartnerWorkspaceBlocks(input: PartnerWorkspaceInput): Block
           { label: "Days 31–60", title: "Momentum & optimization", summary: "Early wins reviewed, Enterprise Hub walkthrough, next wave of practices scheduled.", endDay: 60 },
           { label: "Days 61–90", title: "Scaling & ROI", summary: "ROI review from your own data, your first case study, expansion plan agreed.", endDay: 90 },
         ],
+        onboarding: structuredClone(DEFAULT_WORKSPACE_ONBOARDING),
+        marketing: structuredClone(DEFAULT_WORKSPACE_MARKETING),
         planIntro: `Every milestone has an owner at Dandy and at ${short}. Anything blocked for more than a week goes to both executive sponsors. Files you upload go to your Dandy team only.`,
         planGroups: input.planGroups ?? DEFAULT_WORKSPACE_PLAN,
         kitIntro: "Approved and ready to use. Need an edit? Request a change on any item and follow it under Requests.",
@@ -564,7 +612,7 @@ export const PARTNER_LAUNCH_ROOM_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     title: "Partner Launch Room",
     templateLabel: "Partner Launch Room",
     templateDescription:
-      "The customer workspace for a new DSO partnership, in place of the shared tracker spreadsheet and the Word media kit. A branded cover over a module list: an overview of where the rollout stands, the Mutual Action Plan by phase with an owner on each side (the partner can mark items complete or upload a roster and brand files privately), the launch kit with View / Download / Request changes, a request tracker, and the named team on both sides. Hide any module per account. Set the customer name and kickoff date, attach the files, publish, and send one link.",
+      "The customer workspace for a new DSO partnership, in place of the shared tracker spreadsheet and the Word media kit. A branded cover over a module list: an overview of where the rollout stands, an onboarding checklist (logo, practice list, doctor roster, team, welcome gift), a wins feed both sides can post to, the Mutual Action Plan by phase with an owner on each side, a marketing plan where the partner chooses programs, the launch kit with view / download / request changes, a request tracker, and the named team on both sides. Hide any module per account. Set the customer name and kickoff date, attach the files, publish, and send one link.",
     ogImage: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1200&h=630&fit=crop",
     industry: "dental",
     premiumRank: 15,

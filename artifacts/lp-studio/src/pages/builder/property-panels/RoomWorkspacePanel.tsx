@@ -16,8 +16,12 @@ import {
   type RoomMilestone,
   type RoomMilestoneStatus,
   type RoomModuleKey,
+  type RoomOnboardingStep,
   type RoomPhase,
   type RoomPlanGroup,
+  type RoomProgram,
+  type RoomProgramGroup,
+  type RoomStepAction,
   type RoomTeamGroup,
   type RoomTeamMember,
   type RoomWorkspaceBlockProps,
@@ -33,6 +37,24 @@ import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
 import { ThumbButton } from "./HubPanels";
 
 const STATUS_ORDER: RoomMilestoneStatus[] = ["not-started", "on-track", "pending", "blocking", "done"];
+const STEP_ACTION_LABEL: Record<RoomStepAction, string> = {
+  upload: "Customer uploads a file",
+  check: "Customer marks it done",
+  team: "Customer adds their team",
+  request: "Customer sends details (a request)",
+  link: "Customer opens a link",
+};
+
+/** "Hide from the customer" switch, used on every item that can be hidden. */
+function HideToggle({ hidden, onChange }: { hidden?: boolean; onChange: (hidden: boolean) => void }) {
+  return (
+    <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+      <Switch checked={!hidden} onCheckedChange={(v) => onChange(!v)} aria-label="Show to the customer" />
+      {hidden ? "Hidden" : "Shown"}
+    </label>
+  );
+}
+
 const KIND_LABEL: Record<RoomAssetKind, string> = { pdf: "PDF", image: "Image", text: "Copy (text)", link: "Link", file: "Other file" };
 
 export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBlockProps; onChange: (p: RoomWorkspaceBlockProps) => void }) {
@@ -50,6 +72,16 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
   const setAsset = (i: number, patch: Partial<RoomAsset>) => update({ assets: assets.map((a, idx) => (idx === i ? { ...a, ...patch } : a)) });
   const setTeam = (i: number, patch: Partial<RoomTeamGroup>) => update({ team: team.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
   const setMember = (gi: number, mi: number, patch: Partial<RoomTeamMember>) => setTeam(gi, { members: team[gi].members.map((m, idx) => (idx === mi ? { ...m, ...patch } : m)) });
+
+  const onboarding = props.onboarding ?? { steps: [] };
+  const steps = onboarding.steps ?? [];
+  const setOnboarding = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["onboarding"]>>) => update({ onboarding: { ...onboarding, steps, ...patch } });
+  const setStep = (i: number, patch: Partial<RoomOnboardingStep>) => setOnboarding({ steps: steps.map((x, idx) => (idx === i ? { ...x, ...patch } : x)) });
+  const marketing = props.marketing ?? { groups: [] };
+  const mGroups = marketing.groups ?? [];
+  const setMarketing = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["marketing"]>>) => update({ marketing: { ...marketing, groups: mGroups, ...patch } });
+  const setMGroup = (i: number, patch: Partial<RoomProgramGroup>) => setMarketing({ groups: mGroups.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
+  const setProgram = (gi: number, pi: number, patch: Partial<RoomProgram>) => setMGroup(gi, { programs: mGroups[gi].programs.map((x, idx) => (idx === pi ? { ...x, ...patch } : x)) });
 
   const toggleModule = (key: RoomModuleKey, show: boolean) => {
     const next = new Set(hidden);
@@ -91,7 +123,89 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
             <Switch checked={!hidden.has(m.key)} onCheckedChange={(v) => toggleModule(m.key, v)} aria-label={`Show ${m.label}`} />
           </label>
         ))}
-        <p className="text-[11px] leading-snug text-muted-foreground">A hidden module keeps its content and its data. Hiding Requests also removes “Make a request” and “Request changes”.</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">A hidden module keeps its content and its data. Hiding Requests also removes “Make a request” and “Request changes”. Single items (a milestone, an asset, a person, a program, an onboarding step) each have their own Shown / Hidden switch below.</p>
+      </PanelSection>
+
+      <PanelSection title={`Onboarding checklist (${steps.length})`} hint="Shows on the overview until every step is done" defaultOpen>
+        <label className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs">
+          <span>Show the checklist</span>
+          <Switch checked={!onboarding.hidden} onCheckedChange={(v) => setOnboarding({ hidden: !v })} aria-label="Show the onboarding checklist" />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Title"><Input value={onboarding.title ?? ""} onChange={(e) => setOnboarding({ title: e.target.value })} className="h-8 text-xs" placeholder="Get set up" /></Field>
+          <Field label="Intro"><Input value={onboarding.intro ?? ""} onChange={(e) => setOnboarding({ intro: e.target.value })} className="h-8 text-xs" /></Field>
+        </div>
+        {steps.map((x, i) => (
+          <div key={i} className="space-y-1.5 rounded-md border p-2">
+            <ItemHeader label={x.title || `Step ${i + 1}`} index={i} total={steps.length} onMove={(dir) => setOnboarding({ steps: moveItem(steps, i, dir) })} onRemove={() => setOnboarding({ steps: steps.filter((_, idx) => idx !== i) })} />
+            <Input value={x.title ?? ""} onChange={(e) => setStep(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Upload your logo" />
+            <Input value={x.description ?? ""} onChange={(e) => setStep(i, { description: e.target.value })} className="h-7 text-xs" placeholder="Why we need it" />
+            <div className="grid grid-cols-2 gap-1">
+              <Select value={x.action} onValueChange={(v) => setStep(i, { action: v as RoomStepAction })}>
+                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(STEP_ACTION_LABEL) as RoomStepAction[]).map((a) => <SelectItem key={a} value={a} className="text-xs">{STEP_ACTION_LABEL[a]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input value={x.buttonLabel ?? ""} onChange={(e) => setStep(i, { buttonLabel: e.target.value })} className="h-7 text-xs" placeholder="Button label" />
+            </div>
+            {x.action === "link" && <Input value={x.url ?? ""} onChange={(e) => setStep(i, { url: e.target.value })} className="h-7 text-xs" placeholder="https://…" />}
+            <div className="flex items-center justify-between gap-2">
+              <label className="flex items-center gap-1.5 text-[11px]">
+                <Switch checked={!!x.done} onCheckedChange={(v) => setStep(i, { done: v })} aria-label="Mark this step done" />
+                {x.done ? "Checked off by you" : "Check off for the customer"}
+              </label>
+              <HideToggle hidden={x.hidden} onChange={(h) => setStep(i, { hidden: h })} />
+            </div>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setOnboarding({ steps: [...steps, { key: `onboard-${Date.now().toString(36)}`, title: "New step", action: "check" }] })}>
+          <Plus className="h-3 w-3" /> Add step
+        </Button>
+      </PanelSection>
+
+      <PanelSection title="Marketing plan" hint="Programs the customer includes, skips or picks an option for">
+        <Field label="Intro line"><Textarea value={marketing.intro ?? ""} onChange={(e) => setMarketing({ intro: e.target.value })} rows={2} className="text-xs" /></Field>
+        {mGroups.map((g, gi) => (
+          <div key={gi} className="space-y-2 rounded-md border p-2">
+            <ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={mGroups.length} onMove={(dir) => setMarketing({ groups: moveItem(mGroups, gi, dir) })} onRemove={() => setMarketing({ groups: mGroups.filter((_, idx) => idx !== gi) })} />
+            <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
+              <Input value={g.title ?? ""} onChange={(e) => setMGroup(gi, { title: e.target.value })} className="h-7 text-xs font-semibold" placeholder="Standard launch package" />
+              <Input value={g.note ?? ""} onChange={(e) => setMGroup(gi, { note: e.target.value })} className="h-7 text-xs" placeholder="Note (Included)" />
+              <HideToggle hidden={g.hidden} onChange={(h) => setMGroup(gi, { hidden: h })} />
+            </div>
+            {(g.programs ?? []).map((x, pi) => (
+              <div key={pi} className="space-y-1 rounded border border-dashed p-1.5">
+                <div className="flex items-center gap-2">
+                  <ThumbButton value={x.imageUrl ?? ""} onChange={(url) => setProgram(gi, pi, { imageUrl: url })} label="Program image" size="sm" />
+                  <Input value={x.title ?? ""} onChange={(e) => setProgram(gi, pi, { title: e.target.value })} className="h-7 flex-1 text-xs font-medium" placeholder="Program" />
+                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => setMGroup(gi, { programs: g.programs.filter((_, idx) => idx !== pi) })}>Remove</Button>
+                </div>
+                <Input value={x.description ?? ""} onChange={(e) => setProgram(gi, pi, { description: e.target.value })} className="h-7 text-xs" placeholder="What it is" />
+                <div className="grid grid-cols-2 gap-1">
+                  <Input value={x.audience ?? ""} onChange={(e) => setProgram(gi, pi, { audience: e.target.value })} className="h-7 text-xs" placeholder="Who it reaches" />
+                  <Input value={x.when ?? ""} onChange={(e) => setProgram(gi, pi, { when: e.target.value })} className="h-7 text-xs" placeholder="When (Day 15)" />
+                </div>
+                <div className="grid grid-cols-[1fr_auto] items-center gap-1">
+                  <Input
+                    value={(x.options ?? []).join(", ")}
+                    onChange={(e) => setProgram(gi, pi, { options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean) })}
+                    className="h-7 text-xs"
+                    placeholder="Choices, comma-separated (Include, Not now). Blank = fixed"
+                  />
+                  <HideToggle hidden={x.hidden} onChange={(h) => setProgram(gi, pi, { hidden: h })} />
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMGroup(gi, { programs: [...(g.programs ?? []), { key: `mk-${Date.now().toString(36)}`, title: "New program", options: ["Include", "Not now"] }] })}>
+              <Plus className="h-3 w-3" /> Add program
+            </Button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMarketing({ groups: [...mGroups, { title: "New group", programs: [] }] })}>
+          <Plus className="h-3 w-3" /> Add group
+        </Button>
+        <p className="text-[11px] leading-snug text-muted-foreground">The customer’s choices show on this page’s analytics, under Room, and post to Slack.</p>
       </PanelSection>
 
       <PanelSection title={`Rollout phases (${phases.length})`} hint="The track on the overview">
@@ -118,7 +232,10 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         {groups.map((g, gi) => (
           <div key={gi} className="space-y-2 rounded-md border p-2">
             <ItemHeader label={g.title || `Phase ${gi + 1}`} index={gi} total={groups.length} onMove={(dir) => update({ planGroups: moveItem(groups, gi, dir) })} onRemove={() => update({ planGroups: groups.filter((_, idx) => idx !== gi) })} />
-            <Input value={g.title ?? ""} onChange={(e) => setGroup(gi, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Days 1–30 · Foundation" />
+            <div className="flex items-center gap-2">
+              <Input value={g.title ?? ""} onChange={(e) => setGroup(gi, { title: e.target.value })} className="h-8 flex-1 text-xs font-semibold" placeholder="Days 1–30 · Foundation" />
+              <HideToggle hidden={g.hidden} onChange={(h) => setGroup(gi, { hidden: h })} />
+            </div>
             <Input value={g.checkpoint ?? ""} onChange={(e) => setGroup(gi, { checkpoint: e.target.value })} className="h-7 text-xs" placeholder="Checkpoint: what done looks like for this phase" />
             {(g.rows ?? []).map((r, ri) => (
               <div key={ri} className="space-y-1 rounded border border-dashed p-1.5">
@@ -154,6 +271,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                   <Input value={r.note ?? ""} onChange={(e) => setRow(gi, ri, { note: e.target.value })} className="h-7 text-xs" placeholder="Note (optional)" />
                   {r.customerAction === "upload" && <Input value={r.uploadLabel ?? ""} onChange={(e) => setRow(gi, ri, { uploadLabel: e.target.value })} className="h-7 text-xs" placeholder="Button label (Upload file)" />}
                 </div>
+                <div className="flex justify-end"><HideToggle hidden={r.hidden} onChange={(h) => setRow(gi, ri, { hidden: h })} /></div>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setGroup(gi, { rows: [...(g.rows ?? []), { task: "New milestone", status: "not-started" }] })}>
@@ -181,7 +299,10 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                 </SelectContent>
               </Select>
             </div>
-            <Input value={a.description ?? ""} onChange={(e) => setAsset(i, { description: e.target.value })} className="h-7 text-xs" placeholder="One line about it" />
+            <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+              <Input value={a.description ?? ""} onChange={(e) => setAsset(i, { description: e.target.value })} className="h-7 text-xs" placeholder="One line about it" />
+              <HideToggle hidden={a.hidden} onChange={(h) => setAsset(i, { hidden: h })} />
+            </div>
             {a.kind === "text" && <Textarea value={a.body ?? ""} onChange={(e) => setAsset(i, { body: e.target.value })} rows={5} className="text-xs" placeholder="The copy people will copy" />}
             {a.kind === "link" && <Input value={a.externalUrl ?? ""} onChange={(e) => setAsset(i, { externalUrl: e.target.value })} className="h-7 text-xs" placeholder="https://…" />}
             {a.kind === "image" && (
@@ -204,9 +325,10 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         <div className="space-y-2 pt-2">
           <span className="text-[11px] font-medium text-muted-foreground">Links</span>
           {links.map((l, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-1">
+            <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1">
               <Input value={l.title} onChange={(e) => update({ links: links.map((x, idx) => (idx === i ? { ...x, title: e.target.value } : x)) })} className="h-7 text-xs" placeholder="Title" />
               <Input value={l.url} onChange={(e) => update({ links: links.map((x, idx) => (idx === i ? { ...x, url: e.target.value } : x)) })} className="h-7 text-xs" placeholder="https://…" />
+              <HideToggle hidden={l.hidden} onChange={(h) => update({ links: links.map((x, idx) => (idx === i ? { ...x, hidden: h } : x)) })} />
               <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => update({ links: links.filter((_, idx) => idx !== i) })}>Remove</Button>
             </div>
           ))}
@@ -221,7 +343,10 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         {team.map((g, gi) => (
           <div key={gi} className="space-y-2 rounded-md border p-2">
             <ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={() => update({ team: team.filter((_, idx) => idx !== gi) })} />
-            <Input value={g.title ?? ""} onChange={(e) => setTeam(gi, { title: e.target.value })} className="h-8 text-xs font-semibold" />
+            <div className="flex items-center gap-2">
+              <Input value={g.title ?? ""} onChange={(e) => setTeam(gi, { title: e.target.value })} className="h-8 flex-1 text-xs font-semibold" />
+              <HideToggle hidden={g.hidden} onChange={(h) => setTeam(gi, { hidden: h })} />
+            </div>
             {(g.members ?? []).map((m, mi) => (
               <div key={mi} className="space-y-1 rounded border border-dashed p-1.5">
                 <div className="flex items-center gap-2">
@@ -237,6 +362,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                   <Input value={m.owns ?? ""} onChange={(e) => setMember(gi, mi, { owns: e.target.value })} className="h-7 text-xs" placeholder="What they own" />
                   <Input value={m.when ?? ""} onChange={(e) => setMember(gi, mi, { when: e.target.value })} className="h-7 text-xs" placeholder="When they engage" />
                 </div>
+                <div className="flex justify-end"><HideToggle hidden={m.hidden} onChange={(h) => setMember(gi, mi, { hidden: h })} /></div>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setTeam(gi, { members: [...(g.members ?? []), { name: "New person", role: "" }] })}>

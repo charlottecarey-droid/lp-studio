@@ -2223,7 +2223,8 @@ async function runMigrationsBody(): Promise<void> {
       // v48: "Partner Launch Room" template (hub-plan + hub-team blocks).
       // v49: Partner Launch Room — partner tasks can be ticked or take a private upload.
       // v50: Partner Launch Room is now the room-workspace block (app-style room).
-      const SEED_MARKER = "global_templates_seed_v50";
+      // v51: Partner Launch Room gains onboarding checklist, marketing plan and wins.
+      const SEED_MARKER = "global_templates_seed_v51";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

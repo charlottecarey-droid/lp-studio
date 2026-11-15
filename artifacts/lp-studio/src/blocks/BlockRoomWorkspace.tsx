@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, Download, ExternalLink, Loader2, Mail, Plus, Upload, X } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -8,7 +8,7 @@ import { usePageContext } from "@/lib/page-context";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { trackHubAsset, type HubAsset } from "./hub/hub-assets";
-import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle } from "./hub/room-client";
+import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomWin } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
  * Partner Room — Workspace — type "room-workspace"
@@ -18,7 +18,10 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  * names, where the rollout stands) over a paper sheet with a module list down
  * the side. Each module is a view:
  *
- *   overview   rollout track, what needs the customer's attention, counts
+ *   overview   onboarding checklist (until it is done), rollout track, what
+ *              needs the customer's attention, counts
+ *   wins       a feed either side can post to, like and comment on
+ *   marketing  the marketing plan: programs the customer includes or skips
  *   plan       the mutual action plan: milestones by phase, an owner on each
  *              side, target date, status, a checkpoint per phase. Milestones
  *              can be the customer's to complete (tick it, or upload a file)
@@ -26,8 +29,9 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  *   requests   everything the customer asked for and where it stands
  *   team       named people on both sides
  *
- * Any module can be hidden per account (`hiddenModules`), so a rep tailors the
- * room in the builder. Customer actions (tick, upload, request) go through
+ * Any module can be hidden per account (`hiddenModules`), and so can any single
+ * item inside one (a milestone, an asset, a link, a person, a program, an
+ * onboarding step: `hidden`), so a rep tailors the room in the builder. Customer actions (tick, upload, request) go through
  * the partner-room API (blocks/hub/room-client.ts) and need a known visitor:
  * a personal link, or a link emailed to an allowed address. Uploads are one
  * way: the page only ever shows that a file was received.
@@ -38,10 +42,12 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  * scroll-animated page.
  * -------------------------------------------------------------------------- */
 
-export type RoomModuleKey = "overview" | "plan" | "kit" | "requests" | "team";
+export type RoomModuleKey = "overview" | "wins" | "plan" | "marketing" | "kit" | "requests" | "team";
 export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "wins", label: "Wins" },
   { key: "plan", label: "Action plan" },
+  { key: "marketing", label: "Marketing plan" },
   { key: "kit", label: "Launch kit" },
   { key: "requests", label: "Requests" },
   { key: "team", label: "Your team" },
@@ -68,10 +74,12 @@ export interface RoomMilestone {
   /** Let the customer complete it from the room: tick it, or hand over a file. */
   customerAction?: "check" | "upload";
   uploadLabel?: string;
+  hidden?: boolean;
 }
 
 export interface RoomPlanGroup {
   title: string;
+  hidden?: boolean;
   /** The shared definition of done for the phase. */
   checkpoint?: string;
   rows: RoomMilestone[];
@@ -95,6 +103,44 @@ export interface RoomAsset {
   externalUrl?: string;
   /** The copy itself (kind "text"). */
   body?: string;
+  hidden?: boolean;
+}
+
+export type RoomStepAction = "upload" | "check" | "team" | "link" | "request";
+/** One line of the onboarding checklist. */
+export interface RoomOnboardingStep {
+  key: string;
+  title: string;
+  description?: string;
+  /** upload = hand over a file · check = tick it · team = add people · link = open a page, then tick · request = send details to the team. */
+  action: RoomStepAction;
+  buttonLabel?: string;
+  /** Where "link" goes. */
+  url?: string;
+  /** Checked off by the team in the builder. */
+  done?: boolean;
+  hidden?: boolean;
+}
+
+/** A marketing program the customer can include, skip, or pick an option for. */
+export interface RoomProgram {
+  key: string;
+  title: string;
+  description?: string;
+  audience?: string;
+  when?: string;
+  imageUrl?: string;
+  /** Two or more choices ("Include", "Not now"). None = fixed, shown as in plan. */
+  options?: string[];
+  /** Label when the program is fixed ("In plan"). */
+  fixedLabel?: string;
+  hidden?: boolean;
+}
+export interface RoomProgramGroup {
+  title: string;
+  note?: string;
+  programs: RoomProgram[];
+  hidden?: boolean;
 }
 
 export interface RoomTeamMember {
@@ -104,10 +150,12 @@ export interface RoomTeamMember {
   when?: string;
   email?: string;
   photoUrl?: string;
+  hidden?: boolean;
 }
 export interface RoomTeamGroup {
   title: string;
   members: RoomTeamMember[];
+  hidden?: boolean;
 }
 
 export interface RoomWorkspaceBlockProps {
@@ -129,7 +177,10 @@ export interface RoomWorkspaceBlockProps {
   planGroups?: RoomPlanGroup[];
   kitIntro?: string;
   assets?: RoomAsset[];
-  links?: { title: string; description?: string; url: string }[];
+  links?: { title: string; description?: string; url: string; hidden?: boolean }[];
+  /** The getting-started checklist on the overview, shown until every step is done. */
+  onboarding?: { hidden?: boolean; title?: string; intro?: string; steps: RoomOnboardingStep[] };
+  marketing?: { intro?: string; groups: RoomProgramGroup[] };
   teamNote?: string;
   team?: RoomTeamGroup[];
   /** Accent on the dark cover (stats, "make a request"). Blank = the brand accent. */
@@ -181,6 +232,36 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
       ],
     },
   ],
+  onboarding: {
+    title: "Get set up",
+    intro: "A few things we need from you to get started.",
+    steps: [
+      { key: "onboard-logo", title: "Upload your logo", description: "So everything we make for you carries your brand.", action: "upload", buttonLabel: "Upload logo" },
+      { key: "onboard-locations", title: "Upload your location list", description: "Names, addresses and a contact for each location.", action: "upload", buttonLabel: "Upload list" },
+      { key: "onboard-team", title: "Add your team", description: "Who we should work with on your side.", action: "team", buttonLabel: "Add people" },
+    ],
+  },
+  marketing: {
+    intro: "Choose the support you want from us. Your choices become the plan both marketing teams work from.",
+    groups: [
+      {
+        title: "Standard launch package",
+        note: "Included",
+        programs: [
+          { key: "mk-announcement", title: "Partnership announcement", description: "Email, social posts and a one-pager for your network.", audience: "Leadership, locations", when: "Week 1" },
+          { key: "mk-welcome-kits", title: "Welcome kits to every location", description: "Shipped to each location on your list.", audience: "Locations", when: "Week 2" },
+        ],
+      },
+      {
+        title: "Optional add-ons",
+        note: "Based on your needs",
+        programs: [
+          { key: "mk-case-study", title: "Your own case study", description: "Built from your first live locations.", audience: "Your whole network", when: "Days 60–90", options: ["Include", "Not now"] },
+          { key: "mk-press", title: "Joint press release", description: "Written and distributed by us, approved by your team.", audience: "Public", when: "Flexible", options: ["Include", "Not now"] },
+        ],
+      },
+    ],
+  },
   kitIntro: "Approved and ready to use. Need an edit? Request a change on any item and follow it under Requests.",
   assets: [
     { key: "one-pager", kind: "pdf", title: "Partnership one-pager", description: "For regional leaders and locations", fileUrl: "" },
@@ -358,6 +439,59 @@ const CSS = `
 .prw-btn.pri{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
 .prw-btn:disabled{opacity:.6;cursor:default}
 .prw-btn svg{width:13px;height:13px}
+.prw-ib{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:7px;border:1px solid #D4D8D0;background:#fff;color:var(--dark);padding:0;flex:none}
+.prw-ib svg{width:14px;height:14px}
+.prw-ib:hover,.prw-btn:hover{border-color:var(--dark)}
+.prw-ob{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;margin-bottom:22px}
+.prw-ob .oh{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.prw-ob .oh h3{margin:0;font-size:15px;font-weight:700;color:var(--dark)}
+.prw-ob .oh p{margin:1px 0 0;font-size:12.5px;color:var(--body)}
+.prw-ob .bar{width:140px;height:5px;border-radius:3px;background:#E6E9E3;position:relative;flex:none}
+.prw-ob .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--green)}
+.prw-step{display:flex;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid var(--line)}
+.prw-step:first-of-type{border-top:0}
+.prw-step .dot{width:22px;height:22px;border-radius:50%;border:1.5px solid #C9CFC7;display:grid;place-items:center;flex:none;color:#fff;font-size:11px;font-weight:700}
+.prw-step.done .dot{background:var(--green);border-color:var(--green)}
+.prw-step.done .t{color:var(--body)}
+.prw-step .t{font-weight:600;color:var(--ink);font-size:13.5px}
+.prw-step .m{font-size:12px;color:var(--body)}
+.prw-step .a{margin-left:auto;display:flex;gap:6px;align-items:center;flex:none}
+.prw-progs{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.prw-gh{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+.prw-gh:first-child{border-top:0}
+.prw-gh span{color:var(--body);font-weight:600;letter-spacing:0;text-transform:none;font-size:12px}
+.prw-prog{display:grid;grid-template-columns:92px minmax(0,1fr) 132px 96px 236px;gap:16px;align-items:center;padding:12px 16px 12px 12px;border-top:1px solid var(--line)}
+.prw-prog .im{width:92px;height:60px;border-radius:7px;object-fit:cover;display:block;background:var(--dark)}
+.prw-prog h3{margin:0 0 2px;font-size:14px;font-weight:700;color:var(--dark)}
+.prw-prog p{margin:0;font-size:12.5px;color:var(--body)}
+.prw-prog .who,.prw-prog .when{font-size:12.5px;color:var(--body)}
+.prw-prog .when b{display:block;color:var(--ink);font-weight:600}
+.prw-prog .dec{justify-self:end;text-align:right}
+.prw-prog .need{display:block;font-size:11.5px;font-weight:700;color:var(--amber);margin-bottom:4px}
+.prw-prog .by{display:block;font-size:11.5px;color:var(--body);margin-top:4px}
+.prw-seg{display:inline-flex;border:1px solid #D4D8D0;border-radius:8px;overflow:hidden;background:#fff}
+.prw-seg button{padding:6px 11px;font-size:12px;font-weight:600;color:var(--body);border:0;border-left:1px solid #D4D8D0;background:#fff;white-space:nowrap}
+.prw-seg button:first-child{border-left:0}
+.prw-seg button.on{background:var(--dark);color:var(--on-dark)}
+.prw-fixed{font-size:12.5px;font-weight:600;color:var(--green)}
+.prw-compose{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 14px}
+.prw-compose textarea,.prw-cbox input{flex:1;border:0;outline:0;font:inherit;background:transparent;color:var(--ink);resize:none;min-width:0}
+.prw-win{border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:10px;overflow:hidden}
+.prw-win .wt{display:flex;gap:12px;align-items:center;padding:14px 16px 0}
+.prw-win .wa{width:34px;height:34px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.prw-win .wa.team{background:var(--dark);color:var(--accent)}
+.prw-win .ww{font-size:13px}
+.prw-win .ww b{color:var(--ink)}
+.prw-win .ww span{color:var(--body);font-size:12px;display:block}
+.prw-win .wb{padding:10px 16px 12px 62px;font-size:14px;color:var(--ink);white-space:pre-wrap}
+.prw-win .wb .big{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--dark);display:block;margin-bottom:2px}
+.prw-win .wx{display:flex;gap:6px;padding:8px 16px 10px 62px;border-top:1px solid var(--line);align-items:center}
+.prw-win .wx button{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--body);background:none;border:0}
+.prw-win .wx button.on{background:color-mix(in srgb,var(--dark) 8%,#fff);color:var(--dark)}
+.prw-win .wx svg{width:14px;height:14px}
+.prw-win .wc{padding:9px 16px 9px 62px;background:#FAFBF8;border-top:1px solid var(--line);font-size:13px;color:var(--body)}
+.prw-win .wc b{color:var(--ink)}
+.prw-cbox{display:flex;gap:8px;align-items:center;padding:8px 16px 10px 62px;background:#FAFBF8;border-top:1px solid var(--line)}
 .prw-link{background:none;border:0;padding:0;font-size:12.5px;font-weight:600;color:var(--dark);text-decoration:underline;text-underline-offset:2px}
 .prw-legend{display:flex;gap:18px;margin-top:12px;font-size:12px}
 .prw-err{color:var(--red);font-size:12.5px;margin-top:4px}
@@ -418,6 +552,12 @@ const CSS = `
 .prw-plan tr.grp td,.prw-plan tr.chk td{padding:8px 14px}
 .prw-doc{flex-wrap:wrap}
 .prw-doc .a{margin-left:48px;flex-wrap:wrap}
+.prw-prog{grid-template-columns:64px minmax(0,1fr);gap:8px 12px}
+.prw-prog .im{width:64px;height:48px}
+.prw-prog .who,.prw-prog .when,.prw-prog .dec{grid-column:2;justify-self:start;text-align:left}
+.prw-step{flex-wrap:wrap}
+.prw-win .wb,.prw-win .wx,.prw-win .wc,.prw-cbox{padding-left:16px}
+.prw-ob .bar{display:none}
 .prw-body{padding-left:16px}
 .prw-team thead{display:none}
 .prw-team td{display:block;border-top:0;padding:2px 14px;white-space:normal!important}
@@ -427,7 +567,8 @@ const CSS = `
 }
 `;
 
-type Ask = { kind: "request"; preset?: { subject: string; assetKey?: string } } | { kind: "email" } | null;
+type RequestPreset = { subject: string; assetKey?: string; kind?: string; stepKey?: string; details?: string };
+type Ask = { kind: "request"; preset?: RequestPreset } | { kind: "email" } | { kind: "contact" } | null;
 
 export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Props) {
   const isEditor = !!onFieldChange;
@@ -450,7 +591,15 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
   const day = now ? rolloutDay(props.kickoffDate, now) : null;
   const phases = (props.phases ?? []).slice(0, 5);
   const states = phaseStates(phases, day);
-  const groups = props.planGroups ?? [];
+  const groups = useMemo(() => (props.planGroups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, rows: (g.rows ?? []).filter((r) => !r.hidden) })), [props.planGroups]);
+  const assets = (props.assets ?? []).filter((a) => !a.hidden);
+  const links = (props.links ?? []).filter((l) => !l.hidden);
+  const team = (props.team ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, members: (g.members ?? []).filter((m) => !m.hidden) }));
+  const programGroups = (props.marketing?.groups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, programs: (g.programs ?? []).filter((x) => !x.hidden) }));
+  const undecided = programGroups.flatMap((g) => g.programs).filter((x) => (x.options ?? []).length >= 2 && !snapshot.choices[roomMilestoneKey({ key: x.key, task: x.title })]);
+  // Onboarding: a step is done when the team ticked it in the builder or the customer completed it.
+  const steps = props.onboarding?.hidden ? [] : (props.onboarding?.steps ?? []).filter((x) => !x.hidden).map((x) => ({ step: x, key: roomMilestoneKey({ key: x.key, task: x.title }) })).map((x) => ({ ...x, saved: snapshot.tasks[x.key], done: !!x.step.done || !!snapshot.tasks[x.key]?.done }));
+  const stepsOpen = steps.filter((x) => !x.done);
 
   // Milestones with the customer's saved state laid over the builder's status.
   const rows = useMemo(
@@ -482,9 +631,12 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
     if (!store || !snapshot.viewer) setAsk({ kind: "email" });
     else fn();
   };
-  const openRequest = (preset?: { subject: string; assetKey?: string }) => needViewer(() => setAsk({ kind: "request", preset }));
+  const openRequest = (preset?: RequestPreset) => needViewer(() => setAsk({ kind: "request", preset }));
+  const canRequest = modules.some((m) => m.key === "requests");
 
   const badge: Partial<Record<RoomModuleKey, string>> = {
+    overview: stepsOpen.length ? `${stepsOpen.length} to set up` : "",
+    marketing: undecided.length ? `${undecided.length} to decide` : "",
     plan: mine.length ? `${mine.length} to do` : "",
     requests: reviewRequests.length ? `${reviewRequests.length} to review` : "",
   };
@@ -542,9 +694,9 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                     <span>plan items complete</span>
                   </div>
                 )}
-                {(mine.length > 0 || reviewRequests.length > 0) && (
+                {mine.length + reviewRequests.length + stepsOpen.length + undecided.length > 0 && (
                   <div>
-                    <b className="prw-num">{mine.length + reviewRequests.length}</b>
+                    <b className="prw-num">{mine.length + reviewRequests.length + stepsOpen.length + undecided.length}</b>
                     <span>waiting on you</span>
                   </div>
                 )}
@@ -588,6 +740,35 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
           <div className="prw-mod" data-room-view={active}>
             {active === "overview" && (
               <>
+                {stepsOpen.length > 0 && (
+                  <div className="prw-ob" data-room-onboarding>
+                    <div className="oh">
+                      <div>
+                        <h3>{props.onboarding?.title || "Get set up"}</h3>
+                        <p>{props.onboarding?.intro}</p>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span className="prw-meta prw-num"><b>{steps.length - stepsOpen.length}</b> of {steps.length} done</span>
+                        <span className="bar"><i style={{ width: `${Math.round(((steps.length - stepsOpen.length) / steps.length) * 100)}%` }} /></span>
+                      </div>
+                    </div>
+                    {steps.map((x) => (
+                      <OnboardingStep
+                        key={x.key}
+                        step={x.step}
+                        stepKey={x.key}
+                        done={x.done}
+                        saved={x.saved}
+                        snapshot={snapshot}
+                        store={store}
+                        isEditor={isEditor}
+                        onNeedEmail={() => setAsk({ kind: "email" })}
+                        onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
+                        onRequest={() => openRequest({ subject: x.step.title, kind: "other", stepKey: x.key })}
+                      />
+                    ))}
+                  </div>
+                )}
                 <div className="prw-hd">
                   <div>
                     <div className="prw-eyebrow">Overview</div>
@@ -744,32 +925,72 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                     {props.kitIntro && <p>{props.kitIntro}</p>}
                   </div>
                 </div>
-                <div className="prw-docs">
-                  {(props.assets ?? []).map((a, i) => (
-                    <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} canRequest={modules.some((m) => m.key === "requests")} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
-                  ))}
-                  {(props.assets ?? []).length === 0 && <div className="prw-empty">Nothing here yet.</div>}
-                </div>
-                {(props.links ?? []).length > 0 && (
+                {links.length > 0 && (
                   <>
-                    <div className="prw-eyebrow" style={{ margin: "24px 0 10px" }}>Links</div>
-                    <div className="prw-card">
-                      {(props.links ?? []).map((l, i) => (
-                        <div className="prw-li" key={i}>
+                    <div className="prw-eyebrow" style={{ margin: "4px 0 10px" }}>Links</div>
+                    <div className="prw-card" style={{ marginBottom: 24 }}>
+                      {links.map((l, i) => (
+                        <div className="prw-li" key={i} data-room-link>
                           <div>
                             <div className="t">{l.title}</div>
                             <div className="m">{l.description || l.url}</div>
                           </div>
                           <div className="a">
                             <CopyButton text={l.url} label="Copy link" />
-                            <a className="prw-btn" href={isEditor ? undefined : l.url} target="_blank" rel="noreferrer">
-                              <ExternalLink aria-hidden /> Open
+                            <a className="prw-ib" href={isEditor ? undefined : l.url} target="_blank" rel="noreferrer" title="Open" aria-label={`Open ${l.title}`}>
+                              <ExternalLink aria-hidden />
                             </a>
                           </div>
                         </div>
                       ))}
                     </div>
+                    <div className="prw-eyebrow" style={{ margin: "0 0 10px" }}>Assets</div>
                   </>
+                )}
+                <div className="prw-docs">
+                  {assets.map((a, i) => (
+                    <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
+                  ))}
+                  {assets.length === 0 && <div className="prw-empty">Nothing here yet.</div>}
+                </div>
+              </>
+            )}
+
+            {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
+
+            {active === "marketing" && (
+              <>
+                <div className="prw-hd">
+                  <div>
+                    <div className="prw-eyebrow">Marketing plan</div>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>How we bring your teams on board</h2>
+                    {props.marketing?.intro && <p>{props.marketing.intro}</p>}
+                  </div>
+                  {undecided.length > 0 && <div className="prw-meta"><b>{undecided.length}</b> waiting on your decision</div>}
+                </div>
+                <div className="prw-progs">
+                  {programGroups.map((g, gi) => (
+                    <div key={gi}>
+                      <div className="prw-gh" style={gi === 0 ? { borderTop: 0 } : undefined}>
+                        {g.title}
+                        {g.note && <span>{g.note}</span>}
+                      </div>
+                      {g.programs.map((x) => (
+                        <ProgramRow key={x.key || x.title} program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                {canRequest && (
+                  <div className="prw-li" style={{ border: "1px dashed #CBD1C8", borderRadius: 10, marginTop: 12, background: "#fff" }}>
+                    <div>
+                      <div className="t">Something else?</div>
+                      <div className="m">Tell us what would help your teams adopt, and we’ll scope it.</div>
+                    </div>
+                    <div className="a">
+                      <button type="button" className="prw-btn" onClick={() => openRequest({ subject: "Marketing support", kind: "marketing" })}>Ask for it</button>
+                    </div>
+                  </div>
                 )}
               </>
             )}
@@ -809,11 +1030,19 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                     </tr>
                   </thead>
                   <tbody>
-                    {(props.team ?? []).map((g, gi) => (
+                    {team.map((g, gi) => (
                       <TeamGroup key={gi} group={g} isEditor={isEditor} />
                     ))}
+                    {snapshot.contacts.length > 0 && (
+                      <TeamGroup group={{ title: `Added by ${props.partnerName}`, members: snapshot.contacts.map((c) => ({ name: c.name, role: c.role ?? undefined, email: c.email ?? undefined })) }} isEditor={isEditor} />
+                    )}
                   </tbody>
                 </table>
+                <div style={{ marginTop: 12 }}>
+                  <button type="button" className="prw-btn" onClick={() => needViewer(() => setAsk({ kind: "contact" }))} data-room-add-contact>
+                    <UserPlus aria-hidden /> Add a person
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -824,14 +1053,17 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
       </div>
 
       {ask?.kind === "email" && store && <AccessDialog store={store} onClose={() => setAsk(null)} />}
+      {ask?.kind === "contact" && store && <ContactDialog store={store} partnerName={props.partnerName} onClose={() => setAsk(null)} onNeedEmail={() => setAsk({ kind: "email" })} />}
       {ask?.kind === "request" && store && (
         <RequestDialog
           store={store}
           preset={ask.preset}
           onClose={() => setAsk(null)}
-          onSent={() => {
+          onSent={(stepKey) => {
             setAsk(null);
-            if (modules.some((m) => m.key === "requests")) setView("requests");
+            // A request sent from an onboarding step completes that step; otherwise show the tracker.
+            if (stepKey) void store.setTaskDone(stepKey, true);
+            else if (canRequest) setView("requests");
           }}
           onNeedEmail={() => setAsk({ kind: "email" })}
         />
@@ -939,7 +1171,9 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   return (
     <button
       type="button"
-      className="prw-btn"
+      className="prw-ib"
+      title={copied ? "Copied" : label}
+      aria-label={label}
       onClick={() => {
         void navigator.clipboard?.writeText(text).then(() => {
           setCopied(true);
@@ -947,7 +1181,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         });
       }}
     >
-      {copied ? <Check aria-hidden /> : <Copy aria-hidden />} {copied ? "Copied" : label}
+      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
     </button>
   );
 }
@@ -972,26 +1206,26 @@ function AssetRow({ asset, isEditor, onTrack, onRequest, canRequest }: { asset: 
         </div>
         <div className="a">
           {asset.kind === "text" && body ? (
-            <button type="button" className="prw-btn" onClick={() => { setOpen((v) => !v); if (!open) onTrack(asset, "view"); }}>
-              {open ? "Hide" : "View"}
+            <button type="button" className="prw-ib" title={open ? "Hide" : "View"} aria-label={`${open ? "Hide" : "View"} ${asset.title}`} onClick={() => { setOpen((v) => !v); if (!open) onTrack(asset, "view"); }}>
+              {open ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
             </button>
           ) : (
             viewHref && (
-              <a className="prw-btn" href={isEditor ? undefined : viewHref} target="_blank" rel="noreferrer" onClick={() => onTrack(asset, asset.kind === "link" ? "open" : "view")}>
-                View
+              <a className="prw-ib" title="View" aria-label={`View ${asset.title}`} href={isEditor ? undefined : viewHref} target="_blank" rel="noreferrer" onClick={() => onTrack(asset, asset.kind === "link" ? "open" : "view")}>
+                <Eye aria-hidden />
               </a>
             )
           )}
           {asset.kind === "text" && body && <CopyButton text={body} label="Copy text" />}
           {asset.kind === "link" && viewHref && <CopyButton text={viewHref} label="Copy link" />}
           {asset.kind !== "text" && asset.kind !== "link" && file && (
-            <a className="prw-btn" href={isEditor ? undefined : file} download onClick={() => onTrack(asset, "download")}>
-              <Download aria-hidden /> Download
+            <a className="prw-ib" title="Download" aria-label={`Download ${asset.title}`} href={isEditor ? undefined : file} download onClick={() => onTrack(asset, "download")}>
+              <Download aria-hidden />
             </a>
           )}
           {canRequest && (
-            <button type="button" className="prw-btn" onClick={onRequest} data-room-request-change>
-              Request changes
+            <button type="button" className="prw-ib" title="Request changes" aria-label={`Request changes to ${asset.title}`} onClick={onRequest} data-room-request-change>
+              <PencilLine aria-hidden />
             </button>
           )}
         </div>
@@ -1077,8 +1311,8 @@ function useEscape(onClose: () => void) {
   }, [onClose]);
 }
 
-function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store: RoomStoreHandle; preset?: { subject: string; assetKey?: string }; onClose: () => void; onSent: () => void; onNeedEmail: () => void }) {
-  const [kind, setKind] = useState(preset?.assetKey ? "asset_change" : "other");
+function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store: RoomStoreHandle; preset?: RequestPreset; onClose: () => void; onSent: (stepKey?: string) => void; onNeedEmail: () => void }) {
+  const [kind, setKind] = useState(preset?.kind ?? (preset?.assetKey ? "asset_change" : "other"));
   const [subject, setSubject] = useState(preset?.subject ?? "");
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1091,7 +1325,7 @@ function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store:
     setError("");
     const r = await store.sendRequest({ kind, subject: subject.trim(), details: details.trim(), assetKey: preset?.assetKey });
     setBusy(false);
-    if (r.ok) onSent();
+    if (r.ok) onSent(preset?.stepKey);
     else if (r.identityRequired) onNeedEmail();
     else setError(r.error);
   };
@@ -1209,8 +1443,8 @@ function TeamGroup({ group, isEditor }: { group: RoomTeamGroup; isEditor: boolea
             <td className="c">{m.when}</td>
             <td className="r">
               {email && (
-                <a className="prw-btn" href={isEditor ? undefined : `mailto:${email}`}>
-                  <Mail aria-hidden /> Email
+                <a className="prw-ib" title={`Email ${m.name}`} aria-label={`Email ${m.name}`} href={isEditor ? undefined : `mailto:${email}`}>
+                  <Mail aria-hidden />
                 </a>
               )}
             </td>
@@ -1218,5 +1452,275 @@ function TeamGroup({ group, isEditor }: { group: RoomTeamGroup; isEditor: boolea
         );
       })}
     </>
+  );
+}
+
+/* ── Onboarding ──────────────────────────────────────────────────────────── */
+
+function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor, onNeedEmail, onAddTeam, onRequest }: { step: RoomOnboardingStep; stepKey: string; done: boolean; saved: RoomSnapshot["tasks"][string] | undefined; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; onAddTeam: () => void; onRequest: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const run = async (fn: (s: RoomStoreHandle) => Promise<{ ok: true } | { ok: false; error: string; identityRequired?: boolean }>) => {
+    if (!store) return;
+    setBusy(true);
+    setError("");
+    const r = await fn(store);
+    setBusy(false);
+    if (r.ok) return;
+    if (r.identityRequired) onNeedEmail();
+    else setError(r.error);
+  };
+  const guard = (fn: () => void) => () => {
+    if (isEditor || busy) return;
+    if (!store || !snapshot.viewer) return onNeedEmail();
+    fn();
+  };
+  const tick = guard(() => void run((s) => s.setTaskDone(stepKey, true)));
+  const label = (step.buttonLabel ?? "").trim();
+  const summary = saved?.done ? [saved.fileName ? `Received ${saved.fileName}` : "Done", saved.by, fmtDate(saved.at)].filter(Boolean).join(" · ") : step.done ? "Done" : step.description;
+  return (
+    <div className={`prw-step${done ? " done" : ""}`} data-room-step={step.action}>
+      <span className="dot">{done ? <Check style={{ width: 12, height: 12 }} aria-hidden /> : null}</span>
+      <div style={{ minWidth: 0 }}>
+        <div className="t">{step.title}</div>
+        {summary && <div className="m">{summary}</div>}
+        {error && <div className="prw-err" role="alert">{error}</div>}
+      </div>
+      {!done && (
+        <div className="a">
+          {step.action === "upload" && (
+            <>
+              <button type="button" className="prw-btn pri" disabled={busy} onClick={guard(() => fileRef.current?.click())}>
+                {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Upload aria-hidden />} {busy ? "Uploading…" : label || "Upload"}
+              </button>
+              {!isEditor && (
+                <input ref={fileRef} type="file" accept={ROOM_UPLOAD_ACCEPT} hidden aria-label={step.title} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void run((s) => s.upload(stepKey, f)); }} />
+              )}
+            </>
+          )}
+          {step.action === "team" && (
+            <button type="button" className="prw-btn pri" onClick={guard(onAddTeam)}>
+              <UserPlus aria-hidden /> {label || "Add people"}
+            </button>
+          )}
+          {step.action === "request" && (
+            <button type="button" className="prw-btn pri" onClick={guard(onRequest)}>{label || "Send details"}</button>
+          )}
+          {step.action === "link" && (step.url ?? "").trim() && (
+            <a className="prw-btn pri" href={isEditor ? undefined : step.url} target="_blank" rel="noreferrer">
+              <ExternalLink aria-hidden /> {label || "Open"}
+            </a>
+          )}
+          {(step.action === "check" || step.action === "link") && (
+            <button type="button" className="prw-btn" disabled={busy} onClick={tick}>
+              <Check aria-hidden /> {step.action === "check" ? label || "Mark done" : "Mark done"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContactDialog({ store, partnerName, onClose, onNeedEmail }: { store: RoomStoreHandle; partnerName: string; onClose: () => void; onNeedEmail: () => void }) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [added, setAdded] = useState(0);
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEscape(onClose);
+  useEffect(() => nameRef.current?.focus(), []);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !name.trim()) return;
+    setBusy(true);
+    setError("");
+    const r = await store.addContact({ name: name.trim(), role: role.trim(), email: email.trim() });
+    setBusy(false);
+    if (r.ok) {
+      setAdded((n) => n + 1);
+      setName("");
+      setRole("");
+      setEmail("");
+      nameRef.current?.focus();
+    } else if (r.identityRequired) onNeedEmail();
+    else setError(r.error);
+  };
+  const solid = { background: "#0E1A16", borderColor: "#0E1A16", color: "#fff" } as const;
+  return createPortal(
+    <div className="prw prw-modal" style={{ background: "rgba(0,20,16,.5)" }} onClick={onClose} data-room-contact-dialog>
+      <form className="box" onSubmit={submit} onClick={(e) => e.stopPropagation()} style={{ fontFamily: BRAND_BODY_STACK }}>
+        <button type="button" className="x" onClick={onClose} aria-label="Close"><X style={{ width: 16, height: 16 }} /></button>
+        <h3>Add your team</h3>
+        <p>Who should we work with at {partnerName}? Add as many people as you like.</p>
+        <label htmlFor="prw-cname">Name</label>
+        <input id="prw-cname" ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
+        <label htmlFor="prw-crole">Role</label>
+        <input id="prw-crole" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Operations lead, regional manager…" maxLength={120} />
+        <label htmlFor="prw-cemail">Email</label>
+        <input id="prw-cemail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        {error && <div className="prw-err" role="alert">{error}</div>}
+        {added > 0 && <div style={{ fontSize: 12.5, color: "#0B6B3A", marginTop: 8 }}>{added} added. Add another, or close.</div>}
+        <div className="row">
+          <button type="button" className="prw-btn" onClick={onClose}>{added ? "Done" : "Cancel"}</button>
+          <button type="submit" className="prw-btn pri" disabled={busy || !name.trim()} style={solid}>{busy ? "Adding…" : "Add person"}</button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  );
+}
+
+/* ── Marketing plan ──────────────────────────────────────────────────────── */
+
+function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { program: RoomProgram; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void }) {
+  const key = roomMilestoneKey({ key: program.key, task: program.title });
+  const options = (program.options ?? []).filter((o) => o.trim());
+  const chosen = snapshot.choices[key];
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const pick = async (value: string) => {
+    if (isEditor || busy) return;
+    if (!store || !snapshot.viewer) return onNeedEmail();
+    setBusy(value);
+    setError("");
+    const r = await store.setChoice(key, value);
+    setBusy("");
+    if (!r.ok) {
+      if (r.identityRequired) onNeedEmail();
+      else setError(r.error);
+    }
+  };
+  const image = (program.imageUrl ?? "").trim();
+  return (
+    <div className="prw-prog" data-room-program={options.length >= 2 ? (chosen ? "chosen" : "open") : "fixed"}>
+      {image ? <img className="im" src={image} alt="" loading="lazy" /> : <span className="im" aria-hidden />}
+      <div>
+        <h3>{program.title}</h3>
+        {program.description && <p>{program.description}</p>}
+      </div>
+      <div className="who">{program.audience}</div>
+      <div className="when">{program.when && <b>{program.when}</b>}</div>
+      <div className="dec">
+        {options.length >= 2 ? (
+          <>
+            {!chosen && <span className="need">Your decision</span>}
+            <span className="prw-seg" role="group" aria-label={program.title}>
+              {options.map((o) => (
+                <button key={o} type="button" className={chosen?.value === o ? "on" : ""} aria-pressed={chosen?.value === o} disabled={!!busy} onClick={() => void pick(o)}>
+                  {busy === o ? "Saving…" : o}
+                </button>
+              ))}
+            </span>
+            {chosen?.by && <span className="by">{chosen.by} · {fmtDate(chosen.at)}</span>}
+            {error && <span className="prw-err" role="alert">{error}</span>}
+          </>
+        ) : (
+          <span className="prw-fixed">{program.fixedLabel || "In plan"}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Wins ────────────────────────────────────────────────────────────────── */
+
+function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; display: string }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const post = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isEditor || busy || !text.trim()) return;
+    if (!store || !snapshot.viewer) return onNeedEmail();
+    setBusy(true);
+    setError("");
+    const r = await store.postWin({ body: text.trim() });
+    setBusy(false);
+    if (r.ok) setText("");
+    else if (r.identityRequired) onNeedEmail();
+    else setError(r.error);
+  };
+  return (
+    <>
+      <div className="prw-hd">
+        <div>
+          <div className="prw-eyebrow">Wins</div>
+          <h2 style={{ fontFamily: display }}>What’s going well</h2>
+          <p>Anyone on either team can share a win, like one, or comment.</p>
+        </div>
+        {snapshot.wins.length > 0 && <div className="prw-meta"><b>{snapshot.wins.length}</b> {snapshot.wins.length === 1 ? "win" : "wins"} so far</div>}
+      </div>
+      <form className="prw-compose" onSubmit={post} data-room-win-compose>
+        <textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Share a win: a great case, a happy doctor, a milestone" maxLength={1500} aria-label="Share a win" />
+        <button type="submit" className="prw-btn pri" disabled={busy || !text.trim()}>{busy ? "Posting…" : "Post"}</button>
+      </form>
+      {error && <div className="prw-err" role="alert">{error}</div>}
+      {snapshot.wins.length === 0 && <div className="prw-card" style={{ marginTop: 10 }}><div className="prw-empty">No wins yet. Be the first to share one.</div></div>}
+      {snapshot.wins.map((w) => (
+        <WinCard key={w.id} win={w} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={onNeedEmail} />
+      ))}
+    </>
+  );
+}
+
+function WinCard({ win, snapshot, store, isEditor, onNeedEmail }: { win: RoomWin; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void }) {
+  const [commenting, setCommenting] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const act = (fn: (s: RoomStoreHandle) => Promise<{ ok: true } | { ok: false; error: string; identityRequired?: boolean }>) => async () => {
+    if (isEditor || busy) return;
+    if (!store || !snapshot.viewer) return onNeedEmail();
+    setBusy(true);
+    const r = await fn(store);
+    setBusy(false);
+    if (!r.ok && r.identityRequired) onNeedEmail();
+    return r.ok;
+  };
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    const ok = await act((s) => s.commentWin(win.id, text.trim()))();
+    if (ok) setText("");
+  };
+  return (
+    <div className="prw-win" data-room-win={win.side}>
+      <div className="wt">
+        <span className={`wa ${win.side === "team" ? "team" : ""}`}>{initials(win.by) || "·"}</span>
+        <div className="ww">
+          <b>{win.by}</b>
+          <span>
+            {fmtDate(win.createdAt)}
+            {win.region ? ` · ${win.region}` : ""}
+          </span>
+        </div>
+      </div>
+      <div className="wb">
+        {win.headline && <span className="big">{win.headline}</span>}
+        {win.body}
+      </div>
+      <div className="wx">
+        <button type="button" className={win.liked ? "on" : ""} aria-pressed={win.liked} aria-label={win.liked ? "Unlike" : "Like"} onClick={() => void act((s) => s.likeWin(win.id))()}>
+          <Heart aria-hidden fill={win.liked ? "currentColor" : "none"} /> {win.likes}
+        </button>
+        <button type="button" onClick={() => setCommenting((v) => !v)} aria-label="Comment">
+          <MessageSquare aria-hidden /> {win.comments.length}
+        </button>
+      </div>
+      {win.comments.map((c) => (
+        <div className="wc" key={c.id}>
+          <b>{c.by}</b> · {c.body}
+        </div>
+      ))}
+      {commenting && (
+        <form className="prw-cbox" onSubmit={send}>
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a comment" maxLength={1000} aria-label="Write a comment" autoFocus />
+          <button type="submit" className="prw-btn" disabled={busy || !text.trim()}>Send</button>
+        </form>
+      )}
+    </div>
   );
 }
