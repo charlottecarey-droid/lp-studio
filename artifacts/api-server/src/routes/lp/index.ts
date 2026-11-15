@@ -74,6 +74,7 @@ import blogAiRouter from "./blog-ai";
 import blogProgramRouter from "./blog-program";
 import generatorPresetsRouter from "./generator-presets";
 import roomsRouter from "./rooms";
+import googleConnectRouter from "./googleConnect";
 
 const router = Router();
 
@@ -83,6 +84,7 @@ router.use(trackingRouter);
 // Partner rooms: public visitor actions (/lp/room/*, in LP_PUBLIC) + the
 // tenant-side routes (/lp/partner-rooms/*, auth-gated like everything else).
 router.use(roomsRouter);
+router.use(googleConnectRouter);
 // Task #364: serves prerendered published landing-page HTML keyed by
 // (tenant_id, slug). Public — tenant resolved from request host. Falls
 // through to 404 for drafts/preview/unrendered pages so the SPA edge

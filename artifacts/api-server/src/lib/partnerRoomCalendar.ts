@@ -16,6 +16,7 @@ import { and, asc, desc, eq, gte, isNotNull, isNull, lt, notInArray, sql } from 
 import { db, lpRoomEventsTable, lpRoomSettingsTable, type RoomMinutes } from "@workspace/db";
 import { logger } from "./logger";
 import { slackService } from "./slack-service";
+import { googleGet, type GoogleResponse } from "./googleWorkspace";
 
 /* ── Pure helpers ────────────────────────────────────────────────────────── */
 
@@ -168,7 +169,18 @@ let connectors: ReplitConnectors | null = null;
 const WINDOW_BACK_MS = 45 * 86_400_000;
 const WINDOW_AHEAD_MS = 120 * 86_400_000;
 
-async function readNotesDoc(fileId: string): Promise<string | null> {
+/** Calendar events through the member's own Google connection when the room has one, else the workspace connector. */
+async function calendarGet(connectionId: number | null, path: string): Promise<GoogleResponse> {
+  if (connectionId) return googleGet(connectionId, `https://www.googleapis.com${path}`);
+  connectors ??= new ReplitConnectors();
+  return connectors.proxy("google-calendar", path, { method: "GET" });
+}
+
+async function readNotesDoc(fileId: string, connectionId: number | null): Promise<string | null> {
+  if (connectionId) {
+    const own = await googleGet(connectionId, `https://docs.googleapis.com/v1/documents/${fileId}`).catch(() => null);
+    return own?.ok ? googleDocText(await own.json()) || null : null;
+  }
   connectors ??= new ReplitConnectors();
   // The Docs connection first; the Drive connection's plain-text export as a fallback.
   const docs = await connectors.proxy("google-docs", `/v1/documents/${fileId}`, { method: "GET" }).catch(() => null);
@@ -211,17 +223,18 @@ export async function syncRoomCalendar(pageId: number, opts: { now?: Date; custo
   const domains = Array.isArray(settings.allowedDomains) ? settings.allowedDomains : [];
   if (domains.length === 0) return finish(false, "Add the customer's email domain under Settings first. The room shows meetings that have a guest at that domain.");
   try {
-    connectors ??= new ReplitConnectors();
+    const connectionId = settings.calendarConnectionId ?? null;
     const from = new Date(now.getTime() - WINDOW_BACK_MS);
     const items: unknown[] = [];
     let pageToken = "";
     for (let i = 0; i < 4; i++) {
       const q = new URLSearchParams({ singleEvents: "true", orderBy: "startTime", maxResults: "250", timeMin: from.toISOString(), timeMax: new Date(now.getTime() + WINDOW_AHEAD_MS).toISOString(), supportsAttachments: "true" });
       if (pageToken) q.set("pageToken", pageToken);
-      const resp = await connectors.proxy("google-calendar", `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${q.toString()}`, { method: "GET" });
+      const resp = await calendarGet(connectionId, `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${q.toString()}`);
       if (!resp.ok) {
         const body = await resp.text().catch(() => "");
         logger.warn({ pageId, status: resp.status, body: body.slice(0, 300) }, "room calendar read failed");
+        if (connectionId && resp.status === 401) return finish(false, "The Google connection this room uses no longer works. Connect Google again in the Room panel.");
         return finish(false, resp.status === 403 || resp.status === 404 ? "Couldn't open that calendar. Check the calendar ID, and that it is shared with the Google account connected to LP Studio." : `Google Calendar returned an error (${resp.status}). Check that Google Calendar is connected.`);
       }
       const json = (await resp.json()) as { items?: unknown[]; nextPageToken?: string };
@@ -244,7 +257,7 @@ export async function syncRoomCalendar(pageId: number, opts: { now?: Date; custo
     const gone = and(eq(lpRoomEventsTable.pageId, pageId), gte(lpRoomEventsTable.startsAt, from), isNull(lpRoomEventsTable.minutesStatus), ...(keep.length ? [notInArray(lpRoomEventsTable.externalId, keep)] : []));
     await db.delete(lpRoomEventsTable).where(gone);
 
-    const drafted = await draftPendingMinutes(pageId, { now, customer: opts.customer ?? "", channelId: settings.slackChannelId, tenantId: settings.tenantId });
+    const drafted = await draftPendingMinutes(pageId, { now, customer: opts.customer ?? "", channelId: settings.slackChannelId, tenantId: settings.tenantId, connectionId });
     return finish(true, `${events.length} meeting${events.length === 1 ? "" : "s"} with a guest at ${domains.join(", ")}${drafted ? ` · ${drafted} minutes draft${drafted === 1 ? "" : "s"} to review` : ""}.`, drafted);
   } catch (err) {
     logger.error({ err, pageId }, "room calendar sync failed");
@@ -253,7 +266,7 @@ export async function syncRoomCalendar(pageId: number, opts: { now?: Date; custo
 }
 
 /** Draft minutes for up to three finished meetings that have a notes doc and no minutes yet. */
-async function draftPendingMinutes(pageId: number, ctx: { now: Date; customer: string; channelId: string | null; tenantId: number }): Promise<number> {
+async function draftPendingMinutes(pageId: number, ctx: { now: Date; customer: string; channelId: string | null; tenantId: number; connectionId: number | null }): Promise<number> {
   const pending = await db
     .select()
     .from(lpRoomEventsTable)
@@ -264,7 +277,7 @@ async function draftPendingMinutes(pageId: number, ctx: { now: Date; customer: s
   for (const ev of pending) {
     if (ev.endsAt && ev.endsAt.getTime() > ctx.now.getTime()) continue;
     try {
-      const notes = await readNotesDoc(ev.notesFileId!);
+      const notes = await readNotesDoc(ev.notesFileId!, ctx.connectionId);
       if (!notes) continue; // not readable yet (or not shared): try again on the next read
       const minutes = await draftMinutes(notes, { title: ev.title, customer: ctx.customer });
       if (!minutes) continue;

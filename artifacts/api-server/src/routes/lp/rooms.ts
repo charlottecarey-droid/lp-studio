@@ -17,6 +17,7 @@ import { Readable } from "stream";
 import {
   db,
   lpPagesTable,
+  lpGoogleConnectionsTable,
   lpRoomEventsTable,
   lpRoomChoicesTable,
   lpRoomContactsTable,
@@ -760,7 +761,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       digest: { enabled: !!fullSettings?.digestEnabled, recipients: Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients : [], lastSentAt: fullSettings?.lastDigestAt?.toISOString() ?? null },
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
-      calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null },
+      calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
             id: e.id,
@@ -853,7 +854,24 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
       return;
     }
     // Optional keys: only touched when the request carries them.
-    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null; practicesSheetFilterColumn?: string | null; practicesSheetFilterValue?: string | null; revopsSlackMention?: string | null; calendarId?: string | null } = {};
+    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null; practicesSheetFilterColumn?: string | null; practicesSheetFilterValue?: string | null; revopsSlackMention?: string | null; calendarId?: string | null; calendarConnectionId?: number | null } = {};
+    // "mine" = read this room's calendar through the signed-in member's own Google connection; null = stop.
+    if (req.body?.calendarConnection !== undefined) {
+      if (req.body.calendarConnection === "mine") {
+        const userId = req.authUser?.userId;
+        const [conn] = userId ? await db.select({ id: lpGoogleConnectionsTable.id, status: lpGoogleConnectionsTable.status }).from(lpGoogleConnectionsTable).where(and(eq(lpGoogleConnectionsTable.tenantId, page.tenantId), eq(lpGoogleConnectionsTable.userId, userId))).limit(1) : [];
+        if (!conn || conn.status !== "connected") {
+          res.status(400).json({ error: "Connect Google first." });
+          return;
+        }
+        extra.calendarConnectionId = conn.id;
+      } else if (req.body.calendarConnection === null) {
+        extra.calendarConnectionId = null;
+      } else {
+        res.status(400).json({ error: "Unknown calendar connection." });
+        return;
+      }
+    }
     if (req.body?.calendarId !== undefined) {
       const raw = typeof req.body.calendarId === "string" ? req.body.calendarId.trim() : "";
       if (raw && !CALENDAR_ID_RE.test(raw)) {
@@ -1091,6 +1109,13 @@ router.patch("/lp/partner-rooms/:pageId/events/:id", async (req: Request, res: R
     res.status(500).json({ error: "Could not save" });
   }
 });
+
+/** Whose Google account a room reads through, for the team's panel (never the token). */
+async function roomCalendarConnection(connectionId: number | null, tenantId: number, userId: number | null): Promise<{ googleEmail: string; status: string; mine: boolean } | null> {
+  if (!connectionId) return null;
+  const [c] = await db.select().from(lpGoogleConnectionsTable).where(and(eq(lpGoogleConnectionsTable.id, connectionId), eq(lpGoogleConnectionsTable.tenantId, tenantId))).limit(1);
+  return c ? { googleEmail: c.googleEmail, status: c.status, mine: c.userId === userId } : null;
+}
 
 async function readUpload(page: RoomPage, idRaw: unknown): Promise<{ fileName: string; buffer: Buffer } | null> {
   const id = Number(idRaw);

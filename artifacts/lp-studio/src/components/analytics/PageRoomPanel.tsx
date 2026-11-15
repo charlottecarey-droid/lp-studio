@@ -21,7 +21,7 @@ interface RoomDetail {
   digest?: { enabled: boolean; recipients: string[]; lastSentAt: string | null };
   sheet?: { id: string | null; tab: string | null; syncedAt: string | null; note: string | null; filterColumn?: string | null; filterValue?: string | null };
   revopsSlackMention?: string | null;
-  calendar?: { id: string | null; syncedAt: string | null; note: string | null };
+  calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
@@ -672,16 +672,61 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
   const [openId, setOpenId] = useState<number | null>(null);
   useEffect(() => setCalId(calendar?.id ?? ""), [calendar?.id]);
 
-  const connect = async () => {
+  const { data: google, refetch: refetchGoogle } = useQuery({
+    queryKey: ["google-connection"],
+    queryFn: async () => {
+      const r = await fetch("/api/lp/google/status");
+      if (!r.ok) throw new Error("status");
+      return (await r.json()) as { configured: boolean; connection: { googleEmail: string; status: string; lastError: string | null } | null };
+    },
+  });
+  // Back from Google's consent screen: say how it went, then tidy the address bar.
+  useEffect(() => {
+    const u = new URL(window.location.href);
+    const outcome = u.searchParams.get("google");
+    if (!outcome) return;
+    const msg: Record<string, string> = {
+      connected: "Google is connected. Choose “Use my calendar for this room” to start.",
+      declined: "Google wasn’t connected: the request was cancelled.",
+      missing_access: "Google wasn’t connected: both permissions (calendar and docs, read-only) need to stay ticked.",
+      failed: "Google couldn’t be connected. Try again.",
+    };
+    if (outcome === "connected") setNote(msg.connected);
+    else setErr(msg[outcome] ?? msg.failed);
+    u.searchParams.delete("google");
+    window.history.replaceState(null, "", u.toString());
+  }, []);
+
+  const connectGoogle = async () => {
+    setBusy(true);
+    const r = await fetch(`/api/lp/google/auth-url?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+    const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
+    if (r.ok && j.url) window.location.href = j.url;
+    else {
+      setErr(j.error ?? "Could not start the Google connection");
+      setBusy(false);
+    }
+  };
+  const disconnectGoogle = async () => {
+    setBusy(true);
+    setErr((await send("/api/lp/google/connection", "DELETE")) ?? "");
+    setNote("Google disconnected. Rooms that were reading your calendar have stopped; meetings already in them stay.");
+    setBusy(false);
+    await Promise.all([refetchGoogle(), refresh()]);
+  };
+
+  /** Save which calendar the room reads (through `via`), then read it. */
+  const connect = async (via?: "mine" | null) => {
     setBusy(true);
     setNote("");
-    let e = await send(`${base}/settings`, "PATCH", { calendarId: calId.trim() });
-    if (!e && calId.trim()) {
+    const id = via === null ? "" : calId.trim() || (via === "mine" ? "primary" : "");
+    let e = await send(`${base}/settings`, "PATCH", { calendarId: id, ...(via !== undefined ? { calendarConnection: via } : {}) });
+    if (!e && id) {
       const r = await fetch(`${base}/calendar/sync`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const j = (await r.json().catch(() => ({}))) as { note?: string; error?: string };
       if (r.ok) setNote(j.note ?? "Calendar read.");
       else e = j.error ?? "Could not read the calendar";
-    } else if (!e) setNote("Calendar disconnected. Meetings already in the room stay.");
+    } else if (!e) setNote("This room stopped reading the calendar. Meetings already in the room stay.");
     setErr(e ?? "");
     setBusy(false);
     await refresh();
@@ -705,10 +750,43 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
         Connect a Google Calendar and the room shows its meetings that have a guest at this customer’s email domain. Internal meetings never show. When a finished meeting has Gemini notes attached, minutes are drafted here for you to review; the customer sees them only after you publish.
       </p>
       {!hasDomain && <p className="text-sm text-amber-700">Add the customer’s email domain under Settings first: that is how the room knows which meetings are theirs.</p>}
-      <div className="flex flex-wrap items-center gap-2">
-        <Input className="max-w-sm" value={calId} onChange={(e) => setCalId(e.target.value)} placeholder="primary, or a calendar ID (team@group.calendar.google.com)" aria-label="Google Calendar ID" />
-        <Button size="sm" variant="brand" disabled={busy} onClick={connect}>{calId.trim() ? "Save and read the calendar" : "Disconnect"}</Button>
-        {calendar?.id && <span className="text-xs text-muted-foreground">Last read {fmtDate(calendar.syncedAt) || "never"}{calendar.note ? ` · ${calendar.note}` : ""}</span>}
+      <div className="space-y-2 rounded-md border p-3">
+        {google?.connection ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm">
+              Your Google account: <span className="font-medium">{google.connection.googleEmail}</span>
+              {google.connection.status !== "connected" && <span className="text-amber-700"> · needs reconnecting</span>}
+            </span>
+            {google.connection.status === "connected" ? (
+              <Button size="sm" variant="brand" disabled={busy} onClick={() => connect("mine")}>{calendar?.connection?.mine ? "Read my calendar now" : "Use my calendar for this room"}</Button>
+            ) : (
+              <Button size="sm" variant="brand" disabled={busy} onClick={connectGoogle}>Reconnect Google</Button>
+            )}
+            <Button size="sm" variant="ghost" disabled={busy} onClick={disconnectGoogle}>Disconnect Google</Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="brand" disabled={busy || google?.configured === false} onClick={connectGoogle}>Connect Google</Button>
+            <span className="text-xs text-muted-foreground">
+              {google?.configured === false ? "Google isn’t set up on this server yet." : "Read-only access to your calendar events and Google Docs. Connect the account that runs this customer’s meetings."}
+            </span>
+          </div>
+        )}
+        {calendar?.connection && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>
+              This room reads {calendar.connection.mine ? "your" : `${calendar.connection.googleEmail}’s`} calendar{calendar.id && calendar.id !== "primary" ? ` (${calendar.id})` : ""}. Last read {fmtDate(calendar.syncedAt) || "never"}{calendar.note ? ` · ${calendar.note}` : ""}
+            </span>
+            <button type="button" className="underline" disabled={busy} onClick={() => connect(null)}>Stop reading</button>
+          </div>
+        )}
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">Use a shared calendar instead of the main one</summary>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Input className="max-w-sm" value={calId} onChange={(e) => setCalId(e.target.value)} placeholder="primary, or a calendar ID (team@group.calendar.google.com)" aria-label="Google Calendar ID" />
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => connect()}>Save and read</Button>
+          </div>
+        </details>
       </div>
       {note && <p className="text-sm text-muted-foreground">{note}</p>}
       {err && <p className="text-sm text-destructive">{err}</p>}

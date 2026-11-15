@@ -47,6 +47,8 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   calendarId: text("calendar_id"),
   calendarSyncedAt: timestamp("calendar_synced_at", { withTimezone: true }),
   calendarSyncNote: text("calendar_sync_note"),
+  /** The team member's Google connection this room reads its calendar and notes through. Null = the workspace connector. */
+  calendarConnectionId: integer("calendar_connection_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -151,6 +153,29 @@ export const lpRoomPracticesTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_practices_page_idx").on(t.pageId, t.region), uniqueIndex("lp_room_practices_page_ext_uniq").on(t.pageId, t.externalId).where(sql`${t.externalId} IS NOT NULL`)],
+);
+
+/**
+ * A team member's Google connection (read-only Calendar events + Docs), made
+ * with "Connect Google". One per member per tenant; `refreshToken` is stored
+ * encrypted (encryptCredential). `status`: "connected" | "revoked".
+ */
+export const lpGoogleConnectionsTable = pgTable(
+  "lp_google_connections",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    userId: integer("user_id").notNull(),
+    userEmail: text("user_email").notNull(),
+    googleEmail: text("google_email").notNull(),
+    refreshToken: text("refresh_token").notNull(),
+    scopes: text("scopes").notNull().default(""),
+    status: text("status").notNull().default("connected"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_google_connections_tenant_user_uniq").on(t.tenantId, t.userId)],
 );
 
 /** What the customer may read of a meeting once the team publishes it. */

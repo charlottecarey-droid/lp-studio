@@ -41,6 +41,20 @@ let sheetValues: unknown[][] | null = null;
 let calendarItems: unknown[] | null = null;
 let notesDoc: unknown = null;
 let modelReply = "";
+// "Connect Google": the pure parts (state signing, URLs) stay real; the calls to Google are stubbed.
+let googleGrant: { ok: true; refreshToken: string; scopes: string[]; googleEmail: string } | { ok: false; error: string } = { ok: false, error: "unset" };
+const googleGets: { connectionId: number; url: string }[] = [];
+vi.mock("../../lib/googleWorkspace", async (orig) => ({
+  ...(await orig<typeof import("../../lib/googleWorkspace")>()),
+  googleWorkspaceConfigured: () => true,
+  exchangeGoogleCode: vi.fn(async () => googleGrant),
+  revokeGoogleToken: vi.fn(async () => undefined),
+  googleGet: vi.fn(async (connectionId: number, url: string) => {
+    googleGets.push({ connectionId, url });
+    if (url.includes("/calendar/v3/")) return calendarItems ? { ok: true, status: 200, json: async () => ({ items: calendarItems }), text: async () => "" } : { ok: false, status: 401, json: async () => ({}), text: async () => "" };
+    return notesDoc ? { ok: true, status: 200, json: async () => notesDoc, text: async () => "" } : { ok: false, status: 404, json: async () => ({}), text: async () => "" };
+  }),
+}));
 vi.mock("openai", () => ({
   default: class {
     chat = { completions: { create: async () => ({ choices: [{ message: { content: modelReply } }] }) } };
@@ -72,6 +86,8 @@ import { pool } from "@workspace/db";
 import { inject } from "../../test-utils/injectRequest";
 import { __clearRecordedAsanaCalls, __getRecordedAsanaCalls } from "../../lib/asana";
 import roomsRouter from "./rooms";
+import googleConnectRouter from "./googleConnect";
+import { signConnectState } from "../../lib/googleWorkspace";
 
 let app: Express;
 const tenants: number[] = [];
@@ -130,10 +146,11 @@ beforeAll(() => {
   app.use((req: Request, _res: Response, next: NextFunction) => {
     (req as unknown as { log: unknown }).log = { error: () => {}, warn: () => {}, info: () => {} };
     const t = req.header("x-test-tenant");
-    if (t) (req as unknown as { authUser: unknown }).authUser = { userId: 1, tenantId: Number(t) };
+    if (t) (req as unknown as { authUser: unknown }).authUser = { userId: 1, tenantId: Number(t), ...(req.header("x-test-email") ? { email: req.header("x-test-email") } : {}) };
     next();
   });
   app.use(roomsRouter);
+  app.use(googleConnectRouter);
 });
 
 afterAll(async () => {
@@ -620,5 +637,65 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     notesDoc = null;
     delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
     delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  });
+
+  it("Connect Google: a signed state connects the member, and a room then reads the calendar through that connection", async () => {
+    const tenantId = await seedTenant();
+    const otherTenantId = await seedTenant();
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental" } }])]);
+    const pageId = r.rows[0].id;
+    const get = (url: string, as = tenantId) => inject(app, { method: "GET", url, headers: { ...asTenant(as), "x-test-email": "rep@vendor.com" } });
+    const settings = (body: unknown) => inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body });
+
+    expect((await get("/lp/google/status")).json).toMatchObject({ configured: true, connection: null });
+    // Nothing to read through yet.
+    expect((await settings({ allowedDomains: ["mb2dental.com"], calendarConnection: "mine" })).status).toBe(400);
+
+    // The consent URL asks for read-only calendar + docs and carries a signed state; an off-site return path is ignored.
+    const url = new URL(((await get(`/lp/google/auth-url?returnTo=${encodeURIComponent("//evil.example/x")}`)).json as { url: string }).url);
+    expect(url.searchParams.get("scope")).toContain("calendar.events.readonly");
+    expect(url.searchParams.get("scope")).toContain("documents.readonly");
+    expect(url.searchParams.get("access_type")).toBe("offline");
+    const state = url.searchParams.get("state")!;
+
+    // A forged or stale state is refused; nothing is stored.
+    expect((await inject(app, { method: "GET", url: `/lp/google/callback?code=abc&state=${state.slice(0, -2)}xx` })).status).toBe(400);
+    expect((await inject(app, { method: "GET", url: `/lp/google/callback?code=abc&state=${encodeURIComponent(signConnectState({ tenantId, userId: 1, email: "rep@vendor.com", returnTo: "http://localhost/x" }, Date.now() - 11 * 60_000))}` })).status).toBe(400);
+
+    // Unticking a permission on Google's screen doesn't connect.
+    googleGrant = { ok: true, refreshToken: "rt-1", scopes: ["openid", "email", "https://www.googleapis.com/auth/calendar.events.readonly"], googleEmail: "rep@vendor.com" };
+    const partial = await inject(app, { method: "GET", url: `/lp/google/callback?code=abc&state=${encodeURIComponent(state)}` });
+    expect(partial.status).toBe(302);
+    expect(String(partial.headers.location)).toContain("google=missing_access");
+    expect(String(partial.headers.location)).not.toContain("evil.example");
+    expect((await get("/lp/google/status")).json).toMatchObject({ connection: null });
+
+    googleGrant = { ok: true, refreshToken: "rt-secret-1", scopes: ["openid", "email", "https://www.googleapis.com/auth/calendar.events.readonly", "https://www.googleapis.com/auth/documents.readonly"], googleEmail: "rep@vendor.com" };
+    const done = await inject(app, { method: "GET", url: `/lp/google/callback?code=abc&state=${encodeURIComponent(state)}` });
+    expect(String(done.headers.location)).toContain("google=connected");
+    expect((await get("/lp/google/status")).json).toMatchObject({ connection: { googleEmail: "rep@vendor.com", status: "connected" } });
+    // The token is stored encrypted and never returned; another tenant sees no connection.
+    const stored = await pool.query<{ refresh_token: string }>(`SELECT refresh_token FROM lp_google_connections WHERE tenant_id = $1`, [tenantId]);
+    expect(stored.rows[0].refresh_token).not.toContain("rt-secret-1");
+    expect(JSON.stringify((await get("/lp/google/status")).json)).not.toContain("rt-secret-1");
+    expect((await get("/lp/google/status", otherTenantId)).json).toMatchObject({ connection: null });
+
+    // The room reads through the member's connection, not the workspace connector.
+    expect((await settings({ allowedDomains: ["mb2dental.com"], calendarConnection: "mine", calendarId: "primary" })).status).toBe(200);
+    const when = new Date(Date.now() + 3 * 86_400_000);
+    calendarItems = [{ id: "g1", summary: "MB2 kickoff", start: { dateTime: when.toISOString() }, attendees: [{ email: "levi@mb2dental.com" }] }];
+    googleGets.length = 0;
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/calendar/sync`, headers: asTenant(tenantId) })).status).toBe(200);
+    expect(googleGets[0].url).toContain("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+    expect(((await post("state", { pageId })).json as { events: { title: string }[] }).events.map((e) => e.title)).toEqual(["MB2 kickoff"]);
+    const detail = (await get(`/lp/partner-rooms/${pageId}`)).json as { calendar: { connection: { googleEmail: string; mine: boolean } } };
+    expect(detail.calendar.connection).toMatchObject({ googleEmail: "rep@vendor.com", mine: true });
+
+    // Disconnecting stops the room reading, and keeps what is already there.
+    expect((await inject(app, { method: "DELETE", url: `/lp/google/connection`, headers: asTenant(tenantId) })).status).toBe(200);
+    expect((await get("/lp/google/status")).json).toMatchObject({ connection: null });
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/calendar/sync`, headers: asTenant(tenantId) })).status).toBe(400);
+    expect(((await post("state", { pageId })).json as { events: unknown[] }).events).toHaveLength(1);
+    calendarItems = null;
   });
 });
