@@ -520,8 +520,10 @@ const initials = (name: string) => {
 const FILE_TAG: Record<RoomAssetKind, string> = { pdf: "PDF", image: "IMG", text: "TXT", link: "URL", file: "FILE" };
 
 const CSS = `
-.prw{--ink:#0E1A16;--body:#5C6B61;--faint:#9AA69E;--line:#E7E7E0;--paper:#FCFCFA;--page:#F3F4EF;--green:#1AC065;--blue:#224EA0;--amber:#A98600;--red:#B42318;background:var(--page);color:var(--ink);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.prw{--ink:#0E1A16;--body:#5C6B61;--faint:#9AA69E;--line:#E7E7E0;--paper:#FCFCFA;--page:#F3F4EF;--green:#1AC065;--blue:#224EA0;--amber:#A98600;--red:#B42318;background:var(--page);color:var(--ink);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
 .prw *{box-sizing:border-box}
+/* The display face is for the page title and each module's headline only; every other heading uses the body face. */
+.prw :is(h3,h4,h5,h6){font-family:inherit!important}
 .prw a{color:inherit;text-decoration:none}
 .prw button{font:inherit;cursor:pointer}
 .prw-wrap{max-width:1280px;margin:0 auto;padding:0 32px}
@@ -548,70 +550,76 @@ const CSS = `
 .prw-photo img{width:100%;height:100%;object-fit:cover;display:block}
 .prw-photo .cap{position:absolute;left:14px;bottom:14px;background:color-mix(in srgb,var(--dark) 84%,transparent);backdrop-filter:blur(6px);color:var(--on-dark);border-radius:9px;padding:9px 12px;font-size:12px;display:flex;gap:10px;align-items:center}
 .prw-photo .cap b{color:var(--accent);font-size:16px}
-.prw-sheet{margin-top:-64px;position:relative;display:grid;grid-template-columns:208px minmax(0,1fr);background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px -32px rgba(0,0,0,.35);min-height:520px}
-.prw-toc{padding:30px 0 30px 28px;border-right:1px solid var(--line)}
-.prw-toc .h{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
-.prw-toc button{display:flex;gap:10px;align-items:center;width:100%;padding:6px 18px 6px 0;font-size:13px;color:var(--body);font-weight:500;background:none;border:0;text-align:left}
+.prw-sheet{margin-top:-64px;position:relative;display:grid;grid-template-columns:236px minmax(0,1fr);background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px -32px rgba(0,0,0,.35);min-height:520px}
+.prw-toc{padding:44px 20px 44px 20px;border-right:1px solid var(--line)}
+.prw-toc .h{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:0 0 14px 12px}
+.prw-toc button{display:flex;gap:12px;align-items:center;width:100%;padding:9px 12px;margin-bottom:2px;border-radius:8px;font-size:13.5px;line-height:1.3;color:var(--body);font-weight:500;background:none;border:0;text-align:left;outline:0}
+.prw-toc button:hover{background:color-mix(in srgb,var(--dark) 4%,transparent)}
+.prw-toc button:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb,var(--dark) 35%,transparent)}
 .prw-toc button .n{color:var(--faint);width:16px}
 .prw-toc button em{margin-left:auto;font-style:normal;font-size:11px;font-weight:600;color:var(--amber);white-space:nowrap}
-.prw-toc button.on{color:var(--dark);font-weight:600}
+.prw-toc button.on{color:var(--dark);font-weight:600;background:color-mix(in srgb,var(--dark) 6%,transparent)}
 .prw-toc button.on .n{color:var(--green)}
-.prw-toc .who{margin:18px 18px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--body)}
+.prw-toc .who{margin:24px 12px 0;padding-top:20px;border-top:1px solid var(--line);font-size:12px;color:var(--body)}
 .prw-toc .who b{display:block;color:var(--ink);font-size:12.5px;word-break:break-word}
-.prw-mod{padding:36px 40px 40px;min-width:0}
-.prw-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:18px}
-.prw-hd h2{font-size:26px;line-height:1.15;letter-spacing:-.025em;font-weight:700;color:var(--dark);margin:6px 0 0}
-.prw-hd p{margin:6px 0 0;color:var(--body);max-width:64ch}
+.prw-mod{padding:48px 56px 64px;min-width:0}
+.prw-sec{margin-top:32px}
+.prw-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;margin-bottom:32px}
+.prw-hd h2{font-size:32px;line-height:1.12;letter-spacing:-.025em;font-weight:600;color:var(--dark);margin:10px 0 0}
+.prw-hd p{margin:12px 0 0;color:var(--body);max-width:60ch;font-size:15px}
 .prw-meta{font-size:12.5px;color:var(--body);white-space:nowrap}
 .prw-meta b{color:var(--dark)}
-.prw-track{position:relative;height:6px;background:#E6E9E3;border-radius:3px;margin:30px 0 16px}
+.prw-track{position:relative;height:6px;background:#E6E9E3;border-radius:3px;margin:48px 0 24px}
 .prw-track i{position:absolute;inset:0 auto 0 0;background:var(--green);border-radius:3px}
 .prw-track b{position:absolute;top:-5px;width:2px;height:16px;background:var(--dark)}
 .prw-track em{position:absolute;top:-27px;transform:translateX(-50%);font-style:normal;font-size:11.5px;font-weight:700;color:var(--dark);white-space:nowrap}
 .prw-phases{display:grid;grid-template-columns:repeat(var(--cols,3),1fr)}
-.prw-ph{padding-right:22px}
-.prw-ph+.prw-ph{padding-left:22px;border-left:1px solid var(--line)}
+.prw-ph{padding-right:28px}
+.prw-ph+.prw-ph{padding-left:28px;border-left:1px solid var(--line)}
 .prw-ph .d{font-size:12px;color:var(--body)}
-.prw-ph h3{margin:2px 0 6px;font-size:15px;font-weight:700;color:var(--dark)}
+.prw-ph h3{margin:6px 0 8px;font-size:16px;font-weight:600;color:var(--dark)}
 .prw-ph p{margin:0;font-size:13px;color:var(--body)}
 .prw-st{font-size:12px;font-weight:600;white-space:nowrap}
 .prw-st.done{color:var(--green)}.prw-st.on-track,.prw-st.current{color:var(--blue)}.prw-st.pending{color:var(--amber)}.prw-st.blocking{color:var(--red)}.prw-st.not-started,.prw-st.upcoming{color:var(--faint)}
-.prw-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.prw-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:26px}
-.prw-kpi{border:1px solid var(--line);border-radius:10px;background:#fff;padding:14px 16px}
-.prw-kpi .k{font-size:12px;color:var(--body)}
-.prw-kpi .v{font-size:24px;font-weight:700;letter-spacing:-.025em;color:var(--dark);margin-top:4px}
+.prw-grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.prw-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:20px;margin-top:40px}
+.prw-kpi{border:1px solid var(--line);border-radius:12px;background:#fff;padding:22px 24px}
+.prw-kpi .k{font-size:13px;color:var(--body)}
+.prw-kpi .v{font-size:30px;font-weight:600;letter-spacing:-.025em;color:var(--dark);margin-top:8px;line-height:1.1}
 .prw-kpi .v small{font-size:12.5px;font-weight:500;color:var(--body);letter-spacing:0}
-.prw-card{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
-.prw-card>h3{margin:0;padding:12px 16px;font-size:13.5px;font-weight:700;color:var(--dark);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.prw-card{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.prw-card>h3{margin:0;padding:18px 24px;font-size:14px;font-weight:600;color:var(--dark);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
 .prw-card>h3 button{font-size:12px;font-weight:600;color:var(--body);background:none;border:0;padding:0}
-.prw-li{display:flex;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid var(--line);font-size:13px}
+.prw-li{display:flex;gap:16px;align-items:center;padding:16px 24px;border-top:1px solid var(--line);font-size:13.5px}
 .prw-li:first-of-type{border-top:0}
 .prw-li .t{font-weight:600;color:var(--ink)}
-.prw-li .m{font-size:12px;color:var(--body)}
-.prw-li .a{margin-left:auto;display:flex;gap:6px;align-items:center;flex:none}
-.prw-empty{padding:18px 16px;font-size:13px;color:var(--body)}
-.prw table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
-.prw thead th{background:var(--dark);color:var(--on-dark);text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 16px}
-.prw td{padding:11px 16px;border-top:1px solid var(--line);font-size:13.5px;vertical-align:middle}
-.prw tr.grp td{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px}
-.prw tr.chk td{background:#FAFBF8;font-size:12px;color:var(--body)}
+.prw-li .m{font-size:12.5px;color:var(--body);margin-top:2px}
+.prw-li .a{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
+.prw-empty{padding:24px;font-size:13.5px;color:var(--body)}
+.prw table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.prw thead th{background:var(--dark);color:var(--on-dark);text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:14px 20px}
+.prw td{padding:16px 20px;border-top:1px solid var(--line);font-size:13.5px;vertical-align:middle}
+.prw tr.grp td{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 20px}
+.prw tr.chk td{background:#FAFBF8;font-size:12.5px;color:var(--body);padding:12px 20px}
 .prw tr.chk td b{color:var(--green)}
 .prw td .t{font-weight:600;color:var(--ink)}
-.prw td .m{font-size:12px;color:var(--body);margin-top:1px}
+.prw td .m{font-size:12.5px;color:var(--body);margin-top:3px}
 .prw td.c{color:var(--body);white-space:nowrap}
 .prw td.r{text-align:right;white-space:nowrap}
 .prw-plan,.prw-reqs{table-layout:fixed}
 .prw-plan td.c,.prw-reqs td.c{white-space:normal;overflow-wrap:break-word}
-.prw-plan td,.prw-plan th{padding-left:12px;padding-right:12px}
+.prw-plan td,.prw-plan th{padding-left:16px;padding-right:16px}
+.prw-plan td.r{overflow:hidden}
 .prw-reqs .prw-chip{white-space:normal}
-.prw-btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:7px;border:1px solid #D4D8D0;background:#fff;font-size:12.5px;font-weight:600;color:var(--dark);white-space:nowrap}
+.prw-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 14px;border-radius:8px;border:1px solid #D4D8D0;background:#fff;font-size:12.5px;font-weight:600;color:var(--dark);white-space:nowrap}
 .prw-btn.pri{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
 .prw-btn:disabled{opacity:.6;cursor:default}
 .prw-btn svg{width:13px;height:13px}
-.prw-ib{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:7px;border:1px solid #D4D8D0;background:#fff;color:var(--dark);padding:0;flex:none}
+.prw-ib{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1px solid #D4D8D0;background:#fff;color:var(--dark);padding:0;flex:none}
 .prw-ib svg{width:14px;height:14px}
 .prw-ib:hover,.prw-btn:hover{border-color:var(--dark)}
+.prw-welcome h2{font-size:40px;line-height:1.08;letter-spacing:-.03em;font-weight:600;color:var(--dark);margin:12px 0 0}
+.prw-welcome p{margin:14px 0 0;color:var(--body);font-size:15.5px;max-width:58ch}
 .prw-ob{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;margin-bottom:22px}
 .prw-ob .oh{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 20px;background:var(--dark);color:var(--on-dark)}
 .prw-ob .oh h3{margin:0;font-size:24px;line-height:1.15;letter-spacing:-.025em;font-weight:700;color:var(--on-dark)}
@@ -620,19 +628,21 @@ const CSS = `
 .prw-ob .oh .prw-meta b{color:var(--accent)}
 .prw-ob .bar{width:140px;height:5px;border-radius:3px;background:color-mix(in srgb,var(--on-dark) 22%,transparent);position:relative;flex:none}
 .prw-ob .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--accent)}
-.prw-step{display:flex;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid var(--line)}
+.prw-step{display:flex;gap:16px;align-items:center;padding:16px 24px;border-top:1px solid var(--line)}
+.prw-att .prw-step .dot{display:none}
+.prw-li .a .prw-btn,.prw-step .a .prw-btn,.prw-plan td.r .prw-btn{min-width:104px}
 .prw-step:first-of-type{border-top:0}
 .prw-step .dot{width:22px;height:22px;border-radius:50%;border:1.5px solid #C9CFC7;display:grid;place-items:center;flex:none;color:#fff;font-size:11px;font-weight:700}
 .prw-step.done .dot{background:var(--green);border-color:var(--green)}
 .prw-step.done .t{color:var(--body)}
 .prw-step .t{font-weight:600;color:var(--ink);font-size:13.5px}
-.prw-step .m{font-size:12px;color:var(--body)}
+.prw-step .m{font-size:12.5px;color:var(--body);margin-top:2px}
 .prw-step .a{margin-left:auto;display:flex;gap:6px;align-items:center;flex:none}
-.prw-progs{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
-.prw-gh{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
+.prw-progs{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.prw-gh{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
 .prw-gh:first-child{border-top:0}
 .prw-gh span{color:var(--body);font-weight:600;letter-spacing:0;text-transform:none;font-size:12px}
-.prw-prog{display:grid;grid-template-columns:92px minmax(0,1fr) 132px 96px 236px;gap:16px;align-items:center;padding:12px 16px 12px 12px;border-top:1px solid var(--line)}
+.prw-prog{display:grid;grid-template-columns:92px minmax(0,1fr) 132px 96px 236px;gap:20px;align-items:center;padding:16px 20px;border-top:1px solid var(--line)}
 .prw-prog .im{width:92px;height:60px;border-radius:7px;object-fit:cover;display:block;background:var(--dark)}
 .prw-prog h3{margin:0 0 2px;font-size:14px;font-weight:700;color:var(--dark)}
 .prw-prog p{margin:0;font-size:12.5px;color:var(--body)}
@@ -649,12 +659,12 @@ const CSS = `
 .prw-bar{height:5px;border-radius:3px;background:#E6E9E3;position:relative;min-width:90px}
 .prw-bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--green)}
 .prw-bar.warn i{background:#D9A300}
-.prw-tools{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
-.prw-tools select,.prw-tools input{height:32px;border:1px solid #D4D8D0;border-radius:7px;padding:0 10px;font:inherit;font-size:13px;color:var(--ink);background:#fff}
+.prw-tools{display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.prw-tools select,.prw-tools input{height:36px;border:1px solid #D4D8D0;border-radius:7px;padding:0 10px;font:inherit;font-size:13px;color:var(--ink);background:#fff}
 .prw-tools input{flex:1;min-width:160px}
 .prw-pager{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12.5px;color:var(--body)}
 .prw-chip.not_started{background:#F1F2EE;color:var(--body)}.prw-chip.scheduling{background:#FBF3D9;color:#7A6100}.prw-chip.training_booked,.prw-chip.trained{background:#E8EEF9;color:var(--blue)}
-.prw-agree{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--body)}
+.prw-agree{display:flex;gap:16px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;background:#fff;padding:18px 24px;margin-bottom:20px;font-size:13px;color:var(--body)}
 .prw-agree b{color:var(--dark)}
 .prw-date{width:46px;text-align:center;flex:none;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .prw-date i{display:block;font-style:normal;background:var(--dark);color:var(--on-dark);font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 0;text-transform:uppercase}
@@ -663,48 +673,48 @@ const CSS = `
 .prw-chip.training{background:#E8EEF9;color:var(--blue)}
 .prw-chip.marketing{background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A}
 .prw-chip.milestone{background:#FBF3D9;color:#7A6100}
-.prw-month{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:18px 0 8px}
+.prw-month{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:32px 0 12px}
 .prw-month:first-of-type{margin-top:0}
-.prw-min{border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:10px;overflow:hidden}
-.prw-min .mh{display:flex;gap:14px;align-items:center;padding:12px 16px;width:100%;background:none;border:0;text-align:left}
-.prw-min .mb{border-top:1px solid var(--line);padding:14px 16px 16px 76px;font-size:13.5px;color:var(--ink);display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.prw-min{border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:16px;overflow:hidden}
+.prw-min .mh{display:flex;gap:16px;align-items:center;padding:18px 24px;width:100%;background:none;border:0;text-align:left}
+.prw-min .mb{border-top:1px solid var(--line);padding:20px 24px 24px 86px;font-size:13.5px;color:var(--ink);display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .prw-min .mb h5{margin:0 0 5px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--green)}
 .prw-min .mb ul{margin:0;padding-left:16px}
 .prw-min .mb li{margin:3px 0}
 .prw-min .mb .sum{grid-column:1/-1;color:var(--body)}
-.prw-compose{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 14px}
+.prw-compose{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;background:#fff;padding:18px 20px}
 .prw-compose textarea,.prw-cbox input{flex:1;border:0;outline:0;font:inherit;background:transparent;color:var(--ink);resize:none;min-width:0}
-.prw-win{border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:10px;overflow:hidden}
-.prw-win .wt{display:flex;gap:12px;align-items:center;padding:14px 16px 0}
+.prw-win{border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:16px;overflow:hidden}
+.prw-win .wt{display:flex;gap:14px;align-items:center;padding:20px 24px 0}
 .prw-win .wa{width:34px;height:34px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
 .prw-win .wa.team{background:var(--dark);color:var(--accent)}
 .prw-win .ww{font-size:13px}
 .prw-win .ww b{color:var(--ink)}
 .prw-win .ww span{color:var(--body);font-size:12px;display:block}
-.prw-win .wb{padding:10px 16px 12px 62px;font-size:14px;color:var(--ink);white-space:pre-wrap}
+.prw-win .wb{padding:12px 24px 18px 72px;font-size:14px;color:var(--ink);white-space:pre-wrap}
 .prw-win .wb .big{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--dark);display:block;margin-bottom:2px}
-.prw-win .wx{display:flex;gap:6px;padding:8px 16px 10px 62px;border-top:1px solid var(--line);align-items:center}
+.prw-win .wx{display:flex;gap:6px;padding:10px 24px 12px 66px;border-top:1px solid var(--line);align-items:center}
 .prw-win .wx button{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--body);background:none;border:0}
 .prw-win .wx button.on{background:color-mix(in srgb,var(--dark) 8%,#fff);color:var(--dark)}
 .prw-win .wx svg{width:14px;height:14px}
-.prw-win .wc{padding:9px 16px 9px 62px;background:#FAFBF8;border-top:1px solid var(--line);font-size:13px;color:var(--body)}
+.prw-win .wc{padding:12px 24px 12px 72px;background:#FAFBF8;border-top:1px solid var(--line);font-size:13px;color:var(--body)}
 .prw-win .wc b{color:var(--ink)}
-.prw-cbox{display:flex;gap:8px;align-items:center;padding:8px 16px 10px 62px;background:#FAFBF8;border-top:1px solid var(--line)}
+.prw-cbox{display:flex;gap:8px;align-items:center;padding:12px 24px 14px 72px;background:#FAFBF8;border-top:1px solid var(--line)}
 .prw-link{background:none;border:0;padding:0;font-size:12.5px;font-weight:600;color:var(--dark);text-decoration:underline;text-underline-offset:2px}
 .prw-legend{display:flex;gap:18px;margin-top:12px;font-size:12px}
 .prw-err{color:var(--red);font-size:12.5px;margin-top:4px}
-.prw-docs{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
-.prw-doc{display:flex;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid var(--line)}
+.prw-docs{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.prw-doc{display:flex;align-items:center;gap:16px;padding:16px 24px;border-top:1px solid var(--line)}
 .prw-doc:first-child{border-top:0}
 .prw-ft{width:34px;height:40px;border-radius:5px;border:1px solid var(--line);background:var(--paper);display:grid;place-items:end center;padding-bottom:5px;font-size:8.5px;font-weight:700;color:var(--dark);letter-spacing:.04em;flex:none;overflow:hidden}
 .prw-ft.img{padding:0;place-items:stretch}
 .prw-ft.img img{width:100%;height:100%;object-fit:cover}
-.prw-doc .a{margin-left:auto;display:flex;gap:6px;flex:none}
+.prw-doc .a{margin-left:auto;display:flex;gap:8px;flex:none}
 .prw-body{border-top:1px solid var(--line);background:#FAFBF8;padding:14px 16px 16px 64px;font-size:13.5px;white-space:pre-wrap;color:var(--ink)}
 .prw-chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A;white-space:nowrap}
 .prw-chip.review{background:#FBF3D9;color:#7A6100}.prw-chip.in_progress{background:#E8EEF9;color:var(--blue)}.prw-chip.new{background:#F1F2EE;color:var(--body)}
-.prw-sum{display:flex;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:14px}
-.prw-sum div{padding:12px 18px;border-left:1px solid var(--line);font-size:12.5px;color:var(--body)}
+.prw-sum{display:flex;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:20px}
+.prw-sum div{padding:18px 24px;border-left:1px solid var(--line);font-size:12.5px;color:var(--body)}
 .prw-sum div:first-child{border-left:0}
 .prw-sum b{display:block;font-size:18px;color:var(--dark);letter-spacing:-.02em}
 .prw-av{width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none;object-fit:cover}
@@ -728,6 +738,10 @@ const CSS = `
 .prw-stats>div+div{padding-left:18px}
 .prw-stats b{font-size:20px;white-space:nowrap}
 .prw-sheet{grid-template-columns:1fr}
+.prw-mod{padding:28px 20px 36px}
+.prw-welcome h2{font-size:30px}
+.prw-hd h2{font-size:26px}
+.prw-toc button{margin-bottom:0}
 .prw-toc{border-right:0;border-bottom:1px solid var(--line);padding:14px 16px;overflow-x:auto}
 .prw-toc .h,.prw-toc .who,.prw-toc button .n{display:none}
 .prw-toc .in{display:flex;gap:6px}
@@ -843,6 +857,9 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
   const openRequest = (preset?: RequestPreset) => needViewer(() => setAsk({ kind: "request", preset }));
   const canRequest = modules.some((m) => m.key === "requests");
 
+  const blocked = rows.filter((x) => x.status === "blocking");
+  // Everything the customer has to act on, as one number and one list.
+  const attention = [...stepsOpen, ...mine, ...reviewRequests];
   const badge: Partial<Record<RoomModuleKey, string>> = {
     overview: stepsOpen.length ? `${stepsOpen.length} to set up` : "",
     goals: needsAgreement ? "to agree" : "",
@@ -950,39 +967,17 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
           <div className="prw-mod" data-room-view={active}>
             {active === "overview" && (
               <>
-                {stepsOpen.length > 0 && (
-                  <div className="prw-ob" data-room-onboarding>
-                    <div className="oh">
-                      <div>
-                        <h3 style={{ fontFamily: BRAND_DISPLAY_STACK }} data-room-welcome>{(props.onboarding?.title ?? "").trim() || `Welcome, ${welcomeName(snapshot.viewer, props.partnerName)}!`}</h3>
-                        <p>{props.onboarding?.intro}</p>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span className="prw-meta prw-num"><b>{steps.length - stepsOpen.length}</b> of {steps.length} done</span>
-                        <span className="bar"><i style={{ width: `${Math.round(((steps.length - stepsOpen.length) / steps.length) * 100)}%` }} /></span>
-                      </div>
-                    </div>
-                    {steps.map((x) => (
-                      <OnboardingStep
-                        key={x.key}
-                        step={x.step}
-                        stepKey={x.key}
-                        done={x.done}
-                        saved={x.saved}
-                        snapshot={snapshot}
-                        store={store}
-                        isEditor={isEditor}
-                        onNeedEmail={() => setAsk({ kind: "email" })}
-                        onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
-                        onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key })}
-                      />
-                    ))}
-                  </div>
-                )}
-                <div className="prw-hd">
+                <div className="prw-hd prw-welcome">
                   <div>
                     <div className="prw-eyebrow">Overview</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Where things stand</h2>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }} data-room-welcome>
+                      {(props.onboarding?.title ?? "").trim() || `Welcome, ${welcomeName(snapshot.viewer, props.partnerName)}!`}
+                    </h2>
+                    <p>
+                      {day !== null
+                        ? `Day ${Math.min(day, total)} of ${total}${states.includes("current") ? `, ${phases[states.indexOf("current")].title.toLowerCase()}` : ""}. Here is where the rollout stands.`
+                        : "Here is where the rollout stands."}
+                    </p>
                   </div>
                   {(props.kickoffDate ?? "").trim() && (
                     <div className="prw-meta">
@@ -1022,49 +1017,53 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                 )}
                 <div className="prw-kpis">
                   {pr.total > 0 ? (
-                    <>
-                      <div className="prw-kpi" data-room-kpi="live">
-                        <div className="k">{Noun} live</div>
-                        <div className="v prw-num">{pr.byStage.live ?? 0} <small>of {pr.total}</small></div>
-                      </div>
-                      <div className="prw-kpi">
-                        <div className="k">{Noun} trained</div>
-                        <div className="v prw-num">{(pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0)} <small>of {pr.total}</small></div>
-                      </div>
-                    </>
+                    <div className="prw-kpi" data-room-kpi="live">
+                      <div className="k">{Noun} live</div>
+                      <div className="v prw-num">{pr.byStage.live ?? 0} <small>of {pr.total}</small></div>
+                    </div>
                   ) : (
-                    <>
-                      <div className="prw-kpi">
-                        <div className="k">Plan items complete</div>
-                        <div className="v prw-num">{doneCount} <small>of {rows.length}</small></div>
-                      </div>
-                      <div className="prw-kpi">
-                        <div className="k">Yours to do</div>
-                        <div className="v prw-num">{mine.length}</div>
-                      </div>
-                    </>
+                    <div className="prw-kpi">
+                      <div className="k">Plan items complete</div>
+                      <div className="v prw-num">{doneCount} <small>of {rows.length}</small></div>
+                    </div>
                   )}
                   <div className="prw-kpi">
-                    <div className="k">Blocking</div>
-                    <div className="v prw-num">{rows.filter((x) => x.status === "blocking").length}</div>
+                    <div className="k">Waiting on you</div>
+                    <div className="v prw-num">{attention.length}</div>
                   </div>
                   <div className="prw-kpi">
                     <div className="k">Open requests</div>
                     <div className="v prw-num">{snapshot.viewer ? openRequests.length : "—"}</div>
                   </div>
                 </div>
-                <div className="prw-grid2" style={{ marginTop: 14 }}>
-                  <div className="prw-card">
+                <div className="prw-grid2 prw-sec">
+                  <div className="prw-card prw-att" data-room-attention>
                     <h3>
                       Needs your attention
                       {modules.some((m) => m.key === "plan") && (
                         <button type="button" onClick={() => setView("plan")}>Open action plan</button>
                       )}
                     </h3>
-                    {mine.length === 0 && reviewRequests.length === 0 && <div className="prw-empty">Nothing is waiting on you.</div>}
-                    {[...mine].sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).slice(0, 5).map((x) => (
+                    {attention.length === 0 && <div className="prw-empty">Nothing is waiting on you.</div>}
+                    {/* Setup items (logo, welcome kit, team) sit in the same list as everything else: no separate checklist. */}
+                    {stepsOpen.slice(0, 3).map((x) => (
+                      <OnboardingStep
+                        key={x.key}
+                        step={x.step}
+                        stepKey={x.key}
+                        done={x.done}
+                        saved={x.saved}
+                        snapshot={snapshot}
+                        store={store}
+                        isEditor={isEditor}
+                        onNeedEmail={() => setAsk({ kind: "email" })}
+                        onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
+                        onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key })}
+                      />
+                    ))}
+                    {[...mine].sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).slice(0, Math.max(2, 5 - Math.min(3, stepsOpen.length))).map((x) => (
                       <div className="prw-li" key={x.key}>
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                           <div className="t">{x.r.task}</div>
                           <div className="m">{x.r.note || `Action plan${x.r.target ? ` · due ${x.r.target}` : ""}`}</div>
                         </div>
@@ -1073,25 +1072,33 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                         </div>
                       </div>
                     ))}
-                    {reviewRequests.slice(0, 3).map((q) => (
+                    {reviewRequests.slice(0, 2).map((q) => (
                       <div className="prw-li" key={`q${q.id}`}>
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                           <div className="t">{q.subject}</div>
                           <div className="m">Request · ready for your review</div>
                         </div>
                         <div className="a">
-                          <button type="button" className="prw-btn" onClick={() => setView("requests")}>Review</button>
+                          <button type="button" className="prw-btn pri" onClick={() => setView("requests")}>Review</button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="prw-card">
-                    <h3>Blocking</h3>
-                    {rows.filter((x) => x.status === "blocking").length === 0 && <div className="prw-empty">Nothing is blocked.</div>}
-                    {rows
-                      .filter((x) => x.status === "blocking")
-                      .slice(0, 4)
-                      .map((x) => (
+                  {now && events.upcoming.length > 0 ? (
+                    <div className="prw-card" data-room-coming-up>
+                      <h3>
+                        Coming up
+                        {modules.some((m) => m.key === "calendar") && <button type="button" onClick={() => setView("calendar")}>Open calendar</button>}
+                      </h3>
+                      {events.upcoming.slice(0, 4).map((e) => (
+                        <EventRow key={e.key || e.title + e.date} event={e} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="prw-card">
+                      <h3>Blocked</h3>
+                      {blocked.length === 0 && <div className="prw-empty">Nothing is blocked.</div>}
+                      {blocked.slice(0, 4).map((x) => (
                         <div className="prw-li" key={x.key}>
                           <div>
                             <div className="t">{x.r.task}</div>
@@ -1099,21 +1106,23 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                           </div>
                         </div>
                       ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
+                {now && events.upcoming.length > 0 && blocked.length > 0 && (
+                  <div className="prw-card prw-sec" data-room-blocked>
+                    <h3>Blocked</h3>
+                    {blocked.slice(0, 4).map((x) => (
+                      <div className="prw-li" key={x.key}>
+                        <div>
+                          <div className="t">{x.r.task}</div>
+                          <div className="m">{[x.r.note, x.r.partnerOwner].filter(Boolean).join(" · ")}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
-            )}
-
-            {active === "overview" && now && events.upcoming.length > 0 && (
-              <div className="prw-card" style={{ marginTop: 14 }} data-room-coming-up>
-                <h3>
-                  Coming up
-                  {modules.some((m) => m.key === "calendar") && <button type="button" onClick={() => setView("calendar")}>Open calendar</button>}
-                </h3>
-                {events.upcoming.slice(0, 3).map((e) => (
-                  <EventRow key={e.key || e.title + e.date} event={e} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
-                ))}
-              </div>
             )}
 
             {active === "calendar" && (
@@ -1134,9 +1143,9 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                 {events.upcoming.length === 0 && events.past.length > 0 && <div className="prw-card"><div className="prw-empty">Nothing upcoming.</div></div>}
                 <EventList events={events.upcoming} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
                 {events.past.length > 0 && (
-                  <details style={{ marginTop: 18 }}>
+                  <details className="prw-sec">
                     <summary className="prw-meta" style={{ cursor: "pointer" }}>Earlier ({events.past.length})</summary>
-                    <div style={{ marginTop: 10 }}>
+                    <div style={{ marginTop: 16 }}>
                       <EventList events={events.past} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
                     </div>
                   </details>
@@ -1185,7 +1194,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                       <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>
                       <th style={{ width: 136 }}>{props.partnerName}</th>
                       <th style={{ width: 104 }}>Status</th>
-                      <th style={{ width: 164 }} />
+                      <th style={{ width: 132 }} />
                     </tr>
                   </thead>
                   <tbody>
@@ -1496,12 +1505,14 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row:
     if (row.action === "upload") fileRef.current?.click();
     else void run((s) => s.setTaskDone(row.key, !done));
   };
-  const label = row.action === "upload" ? (done ? "Replace file" : (row.r.uploadLabel ?? "").trim() || "Upload file") : done ? "Undo" : "Mark complete";
+  // Short labels so every action fits its column; the longer wording is the tooltip.
+  const label = row.action === "upload" ? (done ? "Replace" : "Upload") : done ? "Undo" : "Complete";
+  const hint = row.action === "upload" ? (done ? "Replace the file" : (row.r.uploadLabel ?? "").trim() || "Upload a file") : done ? "Mark as not done" : "Mark complete";
   return (
     <>
-      <button type="button" className={`prw-btn${!done && row.action === "upload" ? " pri" : ""}`} onClick={click} disabled={busy} data-room-action={row.action}>
+      <button type="button" className={`prw-btn${done ? "" : " pri"}`} onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
         {busy ? <Loader2 className="animate-spin" aria-hidden /> : row.action === "upload" ? <Upload aria-hidden /> : <Check aria-hidden />}
-        {busy ? "Working…" : label}
+        {busy ? "Saving" : label}
       </button>
       {row.action === "upload" && !isEditor && (
         <input
@@ -1849,8 +1860,8 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
         <div className="a">
           {step.action === "upload" && (
             <>
-              <button type="button" className="prw-btn pri" disabled={busy} onClick={guard(() => fileRef.current?.click())}>
-                {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Upload aria-hidden />} {busy ? "Uploading…" : label || "Upload"}
+              <button type="button" className="prw-btn pri" disabled={busy} onClick={guard(() => fileRef.current?.click())} title={label || "Upload a file"}>
+                {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Upload aria-hidden />} {busy ? "Saving" : "Upload"}
               </button>
               {!isEditor && (
                 <input ref={fileRef} type="file" accept={ROOM_UPLOAD_ACCEPT} hidden aria-label={step.title} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void run((s) => s.upload(stepKey, f)); }} />
@@ -1858,12 +1869,14 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
             </>
           )}
           {step.action === "team" && (
-            <button type="button" className="prw-btn pri" onClick={guard(onAddTeam)}>
-              <UserPlus aria-hidden /> {label || "Add people"}
+            <button type="button" className="prw-btn pri" onClick={guard(onAddTeam)} title={label || "Add people"}>
+              <UserPlus aria-hidden /> Add
             </button>
           )}
           {step.action === "request" && (
-            <button type="button" className="prw-btn pri" onClick={guard(onRequest)}>{label || "Send details"}</button>
+            <button type="button" className="prw-btn pri" onClick={guard(onRequest)} title={label || "Send details"}>
+              <Check aria-hidden /> {(label || "Send").split(/\s+/)[0]}
+            </button>
           )}
           {step.action === "link" && (step.url ?? "").trim() && (
             <a className="prw-btn pri" href={isEditor ? undefined : step.url} target="_blank" rel="noreferrer">
@@ -1872,7 +1885,7 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
           )}
           {(step.action === "check" || step.action === "link") && (
             <button type="button" className="prw-btn" disabled={busy} onClick={tick}>
-              <Check aria-hidden /> {step.action === "check" ? label || "Mark done" : "Mark done"}
+              <Check aria-hidden /> Complete
             </button>
           )}
         </div>

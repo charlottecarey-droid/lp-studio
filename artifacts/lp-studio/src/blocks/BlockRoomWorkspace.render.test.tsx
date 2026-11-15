@@ -46,7 +46,7 @@ describe("room-workspace — registry + default render", () => {
     expect(html).toContain("data-room-request-button");
     expect((html.match(/data-room-nav="/g) ?? []).length).toBe(11);
     expect(html).toContain('data-room-view="overview"');
-    expect(html).toContain("Where things stand");
+    expect(html).toContain("Here is where the rollout stands.");
     expect(html).not.toContain("One shared plan"); // other modules are separate views
     expect(html).not.toMatch(/<img[^>]*src=""/);
   });
@@ -107,25 +107,30 @@ describe("room-workspace — helpers", () => {
 const only = (key: string, extra: Partial<RoomWorkspaceBlockProps> = {}) =>
   render({ hiddenModules: (["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "requests", "team"] as const).filter((k) => k !== key && k !== "requests") as never, ...extra });
 
-describe("room-workspace — onboarding checklist", () => {
-  it("shows on the overview with one row per step and the right control for each kind", () => {
+describe("room-workspace — setup items on the home screen", () => {
+  it("has no separate checklist: setup items sit in Needs your attention with one-word buttons", () => {
     const html = render();
-    expect(html).toContain("data-room-onboarding");
-    expect((html.match(/data-room-step="upload"/g) ?? []).length).toBe(1);
-    expect((html.match(/data-room-step="team"/g) ?? []).length).toBe(1);
-    expect(html).toContain("0</b> of 2 done");
+    expect(html).not.toContain("data-room-onboarding");
+    const attention = html.slice(html.indexOf("data-room-attention"));
+    expect((attention.match(/data-room-step="upload"/g) ?? []).length).toBe(1);
+    expect((attention.match(/data-room-step="team"/g) ?? []).length).toBe(1);
+    expect(attention).toMatch(/<\/svg>\s*Upload<\/button>/);
+    expect(attention).toMatch(/<\/svg>\s*Add<\/button>/);
     expect(html).toContain('data-room-nav="overview"');
     expect(html).toContain("2 to set up");
-    // No visitor is known during SSR: the banner greets the account.
+    // No visitor is known during SSR: the headline greets the account.
     expect(html).toContain("Welcome, Acme Group!");
   });
-  it("goes away when hidden, and when the team has checked every step off; a hidden step doesn't count", () => {
+  it("setup items leave when hidden or done; the welcome headline stays", () => {
     const base = structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS.onboarding!);
-    expect(render({ onboarding: { ...base, hidden: true } })).not.toContain("data-room-onboarding");
-    expect(render({ onboarding: { ...base, steps: base.steps.map((x) => ({ ...x, done: true })) } })).not.toContain("data-room-onboarding");
+    const hidden = render({ onboarding: { ...base, hidden: true } });
+    expect(hidden).not.toContain("data-room-step=");
+    expect(hidden).toContain("data-room-welcome");
+    expect(render({ onboarding: { ...base, steps: base.steps.map((x) => ({ ...x, done: true })) } })).not.toContain("data-room-step=");
     const three = [...base.steps, { key: "extra", title: "Extra step", action: "check" as const }];
     const html = render({ onboarding: { ...base, steps: three.map((x, i) => ({ ...x, hidden: i === 0, done: i === 1 })) } });
-    expect(html).toContain("1</b> of 2 done");
+    expect((html.match(/data-room-step=/g) ?? []).length).toBe(1);
+    expect(html).toContain("Extra step");
     expect(html).not.toContain("Upload your logo");
     expect(render({ onboarding: { ...base, title: "Let's get going" } })).toContain("Let&#x27;s get going");
   });
