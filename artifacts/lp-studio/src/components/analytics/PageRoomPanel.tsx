@@ -320,6 +320,8 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
 
         {data.isWorkspace && <EngagementSection engagement={data.engagement} />}
 
+        {data.isWorkspace && <AutomaticRoomsSection />}
+
         {data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
 
         {data.isWorkspace && (
@@ -1044,6 +1046,102 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
         {busy ? "Creating…" : "Create launch kit"}
       </Button>
       <p className="text-xs text-muted-foreground">Creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
+    </section>
+  );
+}
+
+/**
+ * Automatic rooms (for the whole workspace, not just this page): watch a sheet
+ * tab of signed accounts and create a draft room for each account added to it.
+ */
+function AutomaticRoomsSection() {
+  const { data, refetch } = useQuery({
+    queryKey: ["room-autocreate"],
+    queryFn: async () => {
+      const r = await fetch("/api/lp/room-autocreate");
+      if (!r.ok) throw new Error("autocreate");
+      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; syncedAt: string | null; note: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
+    },
+  });
+  const [sheet, setSheet] = useState("");
+  const [tab, setTab] = useState("");
+  const [practicesTab, setPracticesTab] = useState("");
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => {
+    if (!data) return;
+    setSheet(data.sheetId ? `https://docs.google.com/spreadsheets/d/${data.sheetId}` : "");
+    setTab(data.sheetTab ?? "");
+    setPracticesTab(data.practicesTab ?? "");
+  }, [data]);
+
+  const save = async (enabled: boolean) => {
+    setBusy(true);
+    setNote("");
+    let e = await send("/api/lp/room-autocreate", "PUT", { enabled, sheet: sheet.trim(), tab: tab.trim(), practicesTab: practicesTab.trim() });
+    if (!e && enabled) {
+      const r = await fetch("/api/lp/room-autocreate/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const j = (await r.json().catch(() => ({}))) as { note?: string; error?: string };
+      if (r.ok) setNote(j.note ?? "Sheet read.");
+      else e = j.error ?? "Could not read the sheet";
+    } else if (!e) setNote("Automatic rooms are off. Rooms already created stay.");
+    setErr(e ?? "");
+    setBusy(false);
+    await refetch();
+  };
+  const createFor = async (key: string) => {
+    setBusy(true);
+    const r = await fetch("/api/lp/room-autocreate/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+    const j = (await r.json().catch(() => ({}))) as { error?: string };
+    setErr(r.ok ? "" : (j.error ?? "Could not create the room"));
+    setBusy(false);
+    await refetch();
+  };
+
+  const accounts = data?.accounts ?? [];
+  const withRoom = accounts.filter((a) => a.pageId);
+  return (
+    <section className="space-y-2">
+      <h4 className="text-sm font-semibold">Automatic rooms <span className="font-normal text-muted-foreground">(whole workspace)</span></h4>
+      <p className="text-sm text-muted-foreground">
+        Point LP Studio at the sheet tab that lists signed accounts. Each account added to it gets a draft room with the account’s name filled in and the standard files attached, and your Slack channel is told. Accounts already on the list when you turn this on are recorded, not created. Rooms stay drafts until someone publishes them.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
+        <Input value={sheet} onChange={(e) => setSheet(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Signed accounts sheet" />
+        <Input value={tab} onChange={(e) => setTab(e.target.value)} placeholder="Accounts with MSAs Signed" aria-label="Tab name" />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
+        <p className="text-xs text-muted-foreground">
+          Practices: name the tab of the same workbook that lists every account’s locations. Each new room then reads its own practices from it, matched by Salesforce ID. This needs an “Account ID” column on the signed-accounts tab and a “Parent Account ID” column on the locations tab.
+        </p>
+        <Input value={practicesTab} onChange={(e) => setPracticesTab(e.target.value)} placeholder="Sheet14" aria-label="Practices tab name" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="brand" disabled={busy || !sheet.trim()} onClick={() => save(true)}>{data?.enabled ? "Save and check now" : "Turn on"}</Button>
+        {data?.enabled && <Button size="sm" variant="ghost" disabled={busy} onClick={() => save(false)}>Turn off</Button>}
+        {data?.enabled && <span className="text-xs text-muted-foreground">Checked about every hour. Last read {fmtDate(data.syncedAt) || "never"}{data.note ? ` · ${data.note}` : ""}</span>}
+      </div>
+      {note && <p className="text-sm text-muted-foreground">{note}</p>}
+      {err && <p className="text-sm text-destructive">{err}</p>}
+      {accounts.length > 0 && (
+        <details className="text-sm" open={showAll} onToggle={(e) => setShowAll((e.currentTarget as HTMLDetailsElement).open)}>
+          <summary className="cursor-pointer text-xs text-muted-foreground">{accounts.length} accounts on the list · {withRoom.length} with a room made here</summary>
+          <div className="mt-2 max-h-72 divide-y overflow-y-auto rounded-md border">
+            {accounts.map((a) => (
+              <div key={a.key} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                <span className="min-w-0 truncate">{a.name}{a.signedDate ? <span className="text-xs text-muted-foreground"> · signed {a.signedDate}</span> : null}{a.sfdcId ? null : <span className="text-xs text-amber-700"> · no Salesforce ID</span>}</span>
+                {a.pageId ? (
+                  <a className="text-xs underline" href={`/pages/${a.pageId}`}>Open room</a>
+                ) : (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => createFor(a.key)}>Create room</Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </section>
   );
 }

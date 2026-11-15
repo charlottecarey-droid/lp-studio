@@ -197,6 +197,38 @@ export const lpRoomStandardAssetsTable = pgTable(
   (t) => [uniqueIndex("lp_room_standard_assets_tenant_key_uniq").on(t.tenantId, t.assetKey)],
 );
 
+/** Automatic rooms: the sheet tab of signed accounts a workspace watches. One row per workspace. */
+export const lpRoomAutocreateTable = pgTable("lp_room_autocreate", {
+  tenantId: integer("tenant_id").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  sheetId: text("sheet_id"),
+  sheetTab: text("sheet_tab"),
+  /** The tab of the same workbook that lists every account's locations; a new room reads its practices from it. */
+  practicesTab: text("practices_tab"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  syncNote: text("sync_note"),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Every account seen on that tab. `pageId` is the room made for it; null = it was already on the list, or creation is pending. */
+export const lpRoomAutocreateAccountsTable = pgTable(
+  "lp_room_autocreate_accounts",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    accountKey: text("account_key").notNull(),
+    accountName: text("account_name").notNull(),
+    signedDate: text("signed_date"),
+    owner: text("owner"),
+    /** The account's Salesforce id, when the tab has an id column. */
+    sfdcAccountId: text("sfdc_account_id"),
+    pageId: integer("page_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_autocreate_accounts_tenant_key_uniq").on(t.tenantId, t.accountKey)],
+);
+
 /** What the customer may read of a meeting once the team publishes it. */
 export interface RoomMinutes {
   summary: string;

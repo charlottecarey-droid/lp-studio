@@ -3,6 +3,8 @@
 //     last read more than 55 minutes ago (so the room tracks the sheet);
 //   - every tick: re-read each room's connected Google Calendar on the same
 //     55-minute rule, and draft minutes for finished meetings with notes;
+//   - every tick: re-read each workspace's signed-accounts sheet on the same
+//     rule and create a draft room for each account that is new on it;
 //   - Mondays 14:00–20:00 UTC: send each room's weekly digest once
 //     (sendRoomDigest claims the week atomically, so a second app instance
 //     or a restart cannot send it twice).
@@ -10,6 +12,7 @@
 import { logger } from "./logger";
 import { isDigestWindow } from "./partnerRoomDigest";
 import { calendarsDue, syncRoomCalendar } from "./partnerRoomCalendar";
+import { autocreateDue, syncRoomAutocreate } from "./partnerRoomAutocreate";
 import { roomsDueForWork, sendRoomDigest, syncPracticesFromSheet } from "./partnerRoomService";
 
 const TICK_MS = 15 * 60 * 1000;
@@ -25,6 +28,13 @@ export async function runPartnerRoomTick(now: Date = new Date()): Promise<void> 
     }
     for (const pageId of (await calendarsDue()).slice(0, 50)) {
       await syncRoomCalendar(pageId).catch((err) => logger.error({ err, pageId }, "room calendar sync tick failed"));
+    }
+    for (const tenantId of (await autocreateDue()).slice(0, 50)) {
+      const r = await syncRoomAutocreate(tenantId).catch((err) => {
+        logger.error({ err, tenantId }, "room autocreate tick failed");
+        return null;
+      });
+      if (r?.created.length) logger.info({ tenantId, created: r.created }, "partner rooms created automatically");
     }
     if (isDigestWindow(now)) {
       for (const pageId of due.digest.slice(0, 200)) {

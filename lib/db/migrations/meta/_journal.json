@@ -1079,6 +1079,13 @@
       "when": 1758030150000,
       "tag": "0153_room_standard_assets",
       "breakpoints": false
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1758030160000,
+      "tag": "0154_room_autocreate",
+      "breakpoints": false
     }
   ]
 }

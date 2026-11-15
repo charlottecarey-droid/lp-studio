@@ -136,6 +136,7 @@ async function seedHotlink(tenantId: number, pageId: number, email: string): Pro
 }
 
 const post = (path: string, body: unknown) => inject(app, { method: "POST", url: `/lp/room/${path}`, headers: { "content-type": "application/json" }, body });
+const putStdFor = (tenantId: number) => inject(app, { method: "PUT", url: `/lp/room-standard-assets/practice-welcome-guide`, headers: { "x-test-tenant": String(tenantId), "content-type": "application/json" }, body: { fileUrl: "/api/storage/objects/uploads/std-welcome" } });
 const asTenant = (tenantId: number) => ({ "x-test-tenant": String(tenantId), "content-type": "application/json" });
 const XLSX = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from("roster-bytes")]);
 const tokenFrom = (url: string) => decodeURIComponent(url.split("?rt=")[1]);
@@ -758,4 +759,70 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("access", { pageId, email: "stranger@elsewhere-co.com" })).json as { status: string }).status).not.toBe("sent");
     await pool.query(`DELETE FROM app_users WHERE email = $1`, [email]);
   });
+
+  it("automatic rooms: accounts already on the sheet are recorded, a new one gets a draft room once", async () => {
+    const tenantId = await seedTenant();
+    const otherTenantId = await seedTenant();
+    const auto = (as = tenantId) => inject(app, { method: "GET", url: `/lp/room-autocreate`, headers: asTenant(as) });
+    const sync = () => inject(app, { method: "POST", url: `/lp/room-autocreate/sync`, headers: asTenant(tenantId) });
+    const head = ["Last Activity", "Account Owner", "Account Name", "", "Contract Signed Date"];
+
+    expect((await sync()).status).toBe(400); // off
+    expect((await inject(app, { method: "PUT", url: `/lp/room-autocreate`, headers: asTenant(tenantId), body: { enabled: true, sheet: "not a sheet" } })).status).toBe(400);
+    expect((await inject(app, { method: "PUT", url: `/lp/room-autocreate`, headers: asTenant(tenantId), body: { enabled: true, sheet: "https://docs.google.com/spreadsheets/d/1VhE7TbaJD_WTLiVhpZ96qMeH_bhBXKPNpVY7uEhOhRM/edit", tab: "Accounts with MSAs Signed" } })).status).toBe(200);
+    await putStdFor(tenantId);
+
+    // First read: both existing accounts are recorded, no room is made.
+    sheetValues = [head, ["1/1/2026", "A", "Heartland Dental-HQ", "", "1/14/2026"], ["1/2/2026", "B", "MB2 Dental -HQ", "", "2/2/2026"]];
+    expect((await sync()).json).toMatchObject({ ok: true, created: [] });
+    const pagesBefore = await pool.query(`SELECT id FROM lp_pages WHERE tenant_id = $1`, [tenantId]);
+    expect(pagesBefore.rows).toHaveLength(0);
+    expect(((await auto()).json as { accounts: { name: string; pageId: number | null }[] }).accounts.map((a) => [a.name, a.pageId]).sort()).toEqual([["Heartland Dental", null], ["MB2 Dental", null]]);
+
+    // A new account appears (and an old one is re-spelled): exactly one draft room, with its name and the standard guide.
+    sheetValues = [head, ["1/1/2026", "A", "Heartland Dental - HQ", "", "1/14/2026"], ["1/2/2026", "B", "MB2 Dental", "", "2/2/2026"], ["3/3/2026", "C", "Southeast Dental Partners- Enterprise DSO Parent", "", "3/4/2026"]];
+    const second = (await sync()).json as { created: { name: string; pageId: number }[] };
+    expect(second.created.map((c) => c.name)).toEqual(["Southeast Dental Partners"]);
+    const made = await pool.query<{ title: string; slug: string; status: string; blocks: { type: string; props: { partnerName: string; assets: { key: string; fileUrl?: string }[] } }[] }>(`SELECT title, slug, status, blocks FROM lp_pages WHERE id = $1 AND tenant_id = $2`, [second.created[0].pageId, tenantId]);
+    expect(made.rows[0]).toMatchObject({ title: "Southeast Dental Partners Partner Room", slug: "southeast-dental-partners-room", status: "draft" });
+    const room = made.rows[0].blocks.find((b) => b.type === "room-workspace")!;
+    expect(room.props.partnerName).toBe("Southeast Dental Partners");
+    expect(room.props.assets.find((a) => a.key === "practice-welcome-guide")?.fileUrl).toBe("/api/storage/objects/uploads/std-welcome");
+    // Reading again makes nothing more; another workspace sees none of it.
+    expect(((await sync()).json as { created: unknown[] }).created).toEqual([]);
+    expect((await pool.query(`SELECT id FROM lp_pages WHERE tenant_id = $1`, [tenantId])).rows).toHaveLength(1);
+    expect(((await auto(otherTenantId)).json as { accounts: unknown[]; enabled: boolean })).toMatchObject({ accounts: [], enabled: false });
+
+    // An account that was already on the list can be given a room on request, once.
+    const create = (key: string, as = tenantId) => inject(app, { method: "POST", url: `/lp/room-autocreate/create`, headers: asTenant(as), body: { key } });
+    expect((await create("mb2-dental", otherTenantId)).status).toBe(404);
+    const first = (await create("mb2-dental")).json as { pageId: number };
+    expect(first.pageId).toBeGreaterThan(0);
+    expect((await create("mb2-dental")).json).toMatchObject({ pageId: first.pageId, existed: true });
+
+    // With an id column and a practices tab set, a new room reads its own practices from the locations tab by Salesforce id.
+    expect((await inject(app, { method: "PUT", url: `/lp/room-autocreate`, headers: asTenant(tenantId), body: { enabled: true, sheet: "1VhE7TbaJD_WTLiVhpZ96qMeH_bhBXKPNpVY7uEhOhRM", tab: "Accounts with MSAs Signed", practicesTab: "Sheet14" } })).status).toBe(200);
+    // The mock returns one grid for every tab, so this grid serves as both the accounts tab and the locations tab.
+    sheetValues = [
+      ["Account Name", "Account ID", "Parent Account ID", "Status"],
+      ["Heartland Dental", "0015d00000AAAAAAAA", "", ""],
+      ["MB2 Dental", "0015d000041HyXrAAK", "", ""],
+      ["Southeast Dental Partners", "0015d00000BBBBBAAA", "", ""],
+      ["Riverbend Group - Parent", "0015d00000CCCCCAAA", "", ""],
+      ["Riverbend Smiles Austin", "", "0015d00000CCCCCAAA", "Ramped"],
+      ["Riverbend Smiles Dallas", "", "0015d00000CCCCCAAA", "Onboarding"],
+      ["Someone Else's Office", "", "0015d00000ZZZZZAAA", "Ramped"],
+    ];
+    const third = (await sync()).json as { created: { name: string; pageId: number }[] };
+    const river = third.created.find((c) => c.name === "Riverbend Group")!;
+    expect(river).toBeTruthy();
+    const linked = await pool.query<{ sfdc_account_id: string; practices_sheet_tab: string }>(`SELECT sfdc_account_id, practices_sheet_tab FROM lp_room_settings WHERE page_id = $1`, [river.pageId]);
+    expect(linked.rows[0]).toMatchObject({ sfdc_account_id: "0015d00000CCCCCAAA", practices_sheet_tab: "Sheet14" });
+    const practices = await pool.query<{ name: string; stage: string }>(`SELECT name, stage FROM lp_room_practices WHERE page_id = $1 ORDER BY name`, [river.pageId]);
+    expect(practices.rows).toEqual([{ name: "Riverbend Smiles Austin", stage: "live" }, { name: "Riverbend Smiles Dallas", stage: "training_booked" }]);
+    // The id column arriving later also links the room made earlier for Southeast.
+    const backfilled = await pool.query<{ sfdc_account_id: string }>(`SELECT sfdc_account_id FROM lp_room_settings WHERE page_id = $1`, [second.created[0].pageId]);
+    expect(backfilled.rows[0]?.sfdc_account_id).toBe("0015d00000BBBBBAAA");
+    sheetValues = null;
+  }, 60_000);
 });

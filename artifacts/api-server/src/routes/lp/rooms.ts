@@ -18,6 +18,8 @@ import {
   db,
   lpPagesTable,
   lpRoomStandardAssetsTable,
+  lpRoomAutocreateTable,
+  lpRoomAutocreateAccountsTable,
   appUsersTable,
   tenantMembersTable,
   lpAssetEventsTable,
@@ -48,6 +50,7 @@ import { sendRoomAccessEmail } from "../../lib/notifications";
 import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
+import { createRoomForAccount, syncRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -1131,6 +1134,97 @@ router.post("/lp/partner-rooms/:pageId/practices/sync-sheet", async (req: Reques
   } catch (err) {
     req.log.error({ err }, "room sheet sync failed");
     res.status(500).json({ error: "Could not read the sheet" });
+  }
+});
+
+/** Automatic rooms for the workspace: the sheet being watched, how the last read went, and the accounts seen. */
+router.get("/lp/room-autocreate", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const [[cfg], accounts] = await Promise.all([
+      db.select().from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1),
+      db.select().from(lpRoomAutocreateAccountsTable).where(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId)).orderBy(desc(lpRoomAutocreateAccountsTable.createdAt)).limit(500),
+    ]);
+    res.json({
+      enabled: !!cfg?.enabled,
+      sheetId: cfg?.sheetId ?? null,
+      sheetTab: cfg?.sheetTab ?? null,
+      practicesTab: cfg?.practicesTab ?? null,
+      syncedAt: cfg?.syncedAt?.toISOString() ?? null,
+      note: cfg?.syncNote ?? null,
+      accounts: accounts.map((a) => ({ key: a.accountKey, name: a.accountName, signedDate: a.signedDate, owner: a.owner, sfdcId: a.sfdcAccountId, pageId: a.pageId && a.pageId > 0 ? a.pageId : null })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "room autocreate read failed");
+    res.status(500).json({ error: "Could not load automatic rooms" });
+  }
+});
+
+/** Turn automatic rooms on or off and say which sheet tab lists the signed accounts. */
+router.put("/lp/room-autocreate", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const rawSheet = typeof req.body?.sheet === "string" ? req.body.sheet.trim() : "";
+    const sheetId = rawSheet ? sheetIdFrom(rawSheet) : null;
+    const tab = typeof req.body?.tab === "string" ? req.body.tab.trim() : "";
+    if (rawSheet && !sheetId) {
+      res.status(400).json({ error: "Paste the Google Sheet's link (or its ID)." });
+      return;
+    }
+    const practicesTab = typeof req.body?.practicesTab === "string" ? req.body.practicesTab.trim() : "";
+    if ((tab && !SHEET_TAB_RE.test(tab)) || (practicesTab && !SHEET_TAB_RE.test(practicesTab))) {
+      res.status(400).json({ error: "That tab name has characters a sheet tab can't be read by." });
+      return;
+    }
+    const enabled = req.body?.enabled === true && !!sheetId;
+    const values = { enabled, sheetId, sheetTab: tab || null, practicesTab: practicesTab || null, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
+    await db.insert(lpRoomAutocreateTable).values({ tenantId, ...values }).onConflictDoUpdate({ target: lpRoomAutocreateTable.tenantId, set: values });
+    res.json({ ok: true, enabled });
+  } catch (err) {
+    req.log.error({ err }, "room autocreate save failed");
+    res.status(500).json({ error: "Could not save automatic rooms" });
+  }
+});
+
+/** Read the signed-accounts sheet now (it is also read about every hour). */
+router.post("/lp/room-autocreate/sync", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const result = await syncRoomAutocreate(tenantId);
+    res.status(result.ok ? 200 : 400).json(result.ok ? { ok: true, note: result.note, created: result.created } : { error: result.note });
+  } catch (err) {
+    req.log.error({ err }, "room autocreate sync failed");
+    res.status(500).json({ error: "Could not read the sheet" });
+  }
+});
+
+/** Make the room now for one account that is on the list without one (an account that was already there when the sheet was connected). */
+router.post("/lp/room-autocreate/create", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const key = typeof req.body?.key === "string" ? req.body.key : "";
+    const [row] = await db.select().from(lpRoomAutocreateAccountsTable).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, key))).limit(1);
+    if (!row) {
+      res.status(404).json({ error: "That account isn't on the list." });
+      return;
+    }
+    if (row.pageId && row.pageId > 0) {
+      res.json({ ok: true, pageId: row.pageId, existed: true });
+      return;
+    }
+    const pageId = await createRoomForAccount(tenantId, { key: row.accountKey, name: row.accountName, signedDate: row.signedDate, owner: row.owner, sfdcId: row.sfdcAccountId });
+    if (!pageId) {
+      res.status(409).json({ error: "That room is already being created." });
+      return;
+    }
+    res.json({ ok: true, pageId });
+  } catch (err) {
+    req.log.error({ err }, "room autocreate create failed");
+    res.status(500).json({ error: "Could not create the room" });
   }
 });
 
