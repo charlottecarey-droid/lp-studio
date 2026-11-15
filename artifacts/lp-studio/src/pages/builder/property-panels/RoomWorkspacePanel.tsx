@@ -217,6 +217,8 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
       {active === "account" && (
       <SectionBody title="Account" hint="Who the room is for, the kickoff date and the cover">
         <Field label="Customer name"><Input value={props.partnerName ?? ""} onChange={(e) => update({ partnerName: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
+        <Field label="Short name (optional)"><Input value={props.partnerShort ?? ""} onChange={(e) => update({ partnerShort: e.target.value })} className="h-8 text-xs" placeholder="MB2" /></Field>
+        <p className="text-[11px] leading-snug text-muted-foreground">The name fills in everywhere automatically. In any text, <code>{"{{account}}"}</code> is the customer name and <code>{"{{account_short}}"}</code> the short name; the template’s [Partner name] and [Partner] work the same way.</p>
         <div className="flex items-center gap-2">
           <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo (for the dark cover)" />
           <span className="text-[11px] text-muted-foreground">Customer logo, light version. Blank shows their name.</span>

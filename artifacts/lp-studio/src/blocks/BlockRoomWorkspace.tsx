@@ -120,6 +120,59 @@ export interface RoomAsset {
   hidden?: boolean;
 }
 
+/* ── The account name as a variable ──────────────────────────────────────── */
+
+const ACCOUNT_TOKEN = /\{\{\s*account\s*\}\}|\[partner name\]/gi;
+const ACCOUNT_SHORT_TOKEN = /\{\{\s*account_short\s*\}\}|\[partner\]/gi;
+const NAME_KEYS = new Set(["partnerName", "partnerShort"]);
+
+/** `{{account}}` / `[Partner name]` → the customer's name; `{{account_short}}` / `[Partner]` → the short name (or the name). Same rule as the server's fillAccountName. */
+export function fillAccountName(text: string, name: string, short: string): string {
+  return text.includes("{{") || text.includes("[") ? text.replace(ACCOUNT_TOKEN, name).replace(ACCOUNT_SHORT_TOKEN, short) : text;
+}
+
+/**
+ * The block's props with the account-name variables filled in from the
+ * customer name, so one template serves every account and renaming the
+ * account updates every sentence. `rawOf` maps each filled object back to the
+ * original, so editing on the page still patches the stored props.
+ */
+export function resolveRoomProps(raw: RoomWorkspaceBlockProps): { props: RoomWorkspaceBlockProps; rawOf: WeakMap<object, object> } {
+  const rawOf = new WeakMap<object, object>();
+  const name = (raw.partnerName ?? "").trim();
+  if (!name || /^\[partner/i.test(name) || /\{\{/.test(name)) return { props: raw, rawOf };
+  const shortRaw = (raw.partnerShort ?? "").trim();
+  const short = shortRaw && !/^\[partner/i.test(shortRaw) ? shortRaw : name;
+  const fill = (node: unknown): unknown => {
+    if (typeof node === "string") return fillAccountName(node, name, short);
+    if (Array.isArray(node)) {
+      let changed = false;
+      const out = node.map((n) => {
+        const r = fill(n);
+        if (r !== n) changed = true;
+        return r;
+      });
+      if (!changed) return node;
+      rawOf.set(out, node);
+      return out;
+    }
+    if (node && typeof node === "object") {
+      let changed = false;
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(node)) {
+        const r = NAME_KEYS.has(k) ? v : fill(v);
+        if (r !== v) changed = true;
+        out[k] = r;
+      }
+      if (!changed) return node;
+      rawOf.set(out, node as object);
+      return out;
+    }
+    return node;
+  };
+  return { props: fill(raw) as RoomWorkspaceBlockProps, rawOf };
+}
+
 /* ── Editing on the page (builder only) ──────────────────────────────────── */
 
 /** Replace one object inside the block's props (found by identity), leaving everything else untouched. */
@@ -352,6 +405,8 @@ export interface RoomWorkspaceBlockProps {
   goals?: { intro?: string; askAgreement?: boolean; items: RoomGoal[] };
   calendar?: { intro?: string; events: RoomEvent[] };
   meetings?: { intro?: string; items: RoomMeeting[] };
+  /** A shorter form of the customer's name for running text ("MB2" for "MB2 Dental"). Blank uses the full name. */
+  partnerShort?: string;
   /** What the customer calls a location ("practices", "locations", "stores"). */
   locationsNoun?: string;
   teamNote?: string;
@@ -886,7 +941,9 @@ const CSS = `
 type RequestPreset = { subject: string; assetKey?: string; kind?: string; stepKey?: string; details?: string };
 type Ask = { kind: "request"; preset?: RequestPreset } | { kind: "email" } | { kind: "contact" } | null;
 
-export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Props) {
+export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldChange }: Props) {
+  // What is shown has the account name filled in; what is saved keeps the variables.
+  const { props, rawOf } = useMemo(() => resolveRoomProps(rawProps), [rawProps]);
   const isEditor = !!onFieldChange;
   const { pageId, sessionId } = usePageContext();
   const room = useRoom(pageId, !isEditor);
@@ -950,13 +1007,15 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
     () =>
       onFieldChange
         ? (item: object, patch: Record<string, unknown>) => {
-            const next = swapDeep(props, item, { ...item, ...patch });
-            if (next !== props) onFieldChange(next as RoomWorkspaceBlockProps);
+            // Patch the stored object (variables intact), not the filled-in copy that is on screen.
+            const target = rawOf.get(item) ?? item;
+            const next = swapDeep(rawProps, target, { ...target, ...patch });
+            if (next !== rawProps) onFieldChange(next as RoomWorkspaceBlockProps);
           }
         : null,
-    [onFieldChange, props],
+    [onFieldChange, rawProps, rawOf],
   );
-  const field = (key: keyof RoomWorkspaceBlockProps) => (onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined);
+  const field = (key: keyof RoomWorkspaceBlockProps) => (onFieldChange ? (v: string) => onFieldChange({ ...rawProps, [key]: v }) : undefined);
   /** Record engagement with an asset. Goes through the room so the event carries who it was when the visitor is known. */
   const trackHub = (a: HubAsset, action: HubAssetAction, value?: number) => {
     if (isEditor || !store || isTrackingSuppressed()) return;

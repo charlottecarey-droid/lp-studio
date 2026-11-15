@@ -532,6 +532,10 @@ export interface RoomKitInfo {
   /** The first launch-kit link (the sign-up page), for the one-pager's QR code. */
   signupUrl: string;
   assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[];
+  /** The kit's written pieces (announcement email, social posts, approved description), for the media kit document. */
+  texts: { title: string; description: string; body: string }[];
+  /** The kit's links, for the media kit document. */
+  links: { title: string; url: string }[];
 }
 
 const workspaceBlock = (blocks: unknown): { props?: Record<string, unknown> } | null =>
@@ -550,6 +554,11 @@ export function roomKitInfo(blocks: unknown): RoomKitInfo | null {
     heroImageUrl: str(props.heroImageUrl),
     signupUrl: str(links.find((l) => l && !l.hidden && /^https?:\/\//.test(str(l.url)))?.url),
     assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true })),
+    texts: assets.filter((a) => a && !a.hidden && a.kind === "text" && str(a.body)).map((a) => ({ title: str(a.title), description: str(a.description), body: typeof a.body === "string" ? a.body.trim().slice(0, 8000) : "" })).slice(0, 20),
+    links: [
+      ...links.filter((l) => l && !l.hidden && /^https?:\/\//.test(str(l.url))).map((l) => ({ title: str(l.title), url: str(l.url) })),
+      ...assets.filter((a) => a && !a.hidden && a.kind === "link" && /^https?:\/\//.test(str(a.externalUrl))).map((a) => ({ title: str(a.title), url: str(a.externalUrl) })),
+    ].slice(0, 20),
   };
 }
 
@@ -596,3 +605,57 @@ export const ROOM_STANDARD_ASSETS: { key: string; title: string; description: st
   { key: "practice-welcome-guide", title: "Practice Welcome Guide", description: "What a practice can expect: training, first cases and who to call" },
   { key: "success-guide", title: "Success Guide", description: "The 90-day plan: how the partnership runs and what it delivers" },
 ];
+
+/* ── The account name as a variable ──────────────────────────────────────── */
+
+const ACCOUNT_TOKEN = /\{\{\s*account\s*\}\}|\[partner name\]/gi;
+const ACCOUNT_SHORT_TOKEN = /\{\{\s*account_short\s*\}\}|\[partner\]/gi;
+const NAME_KEYS = new Set(["partnerName", "partnerShort"]);
+
+/** Replace the account-name variables in one string. `{{account}}` / `[Partner name]` → the name; `{{account_short}}` / `[Partner]` → the short name (or the name). */
+export function fillAccountName(text: string, name: string, short: string): string {
+  return text.includes("{{") || text.includes("[") ? text.replace(ACCOUNT_TOKEN, name).replace(ACCOUNT_SHORT_TOKEN, short) : text;
+}
+
+function fillDeep(node: unknown, name: string, short: string): unknown {
+  if (typeof node === "string") return fillAccountName(node, name, short);
+  if (Array.isArray(node)) {
+    let changed = false;
+    const out = node.map((n) => {
+      const r = fillDeep(n, name, short);
+      if (r !== n) changed = true;
+      return r;
+    });
+    return changed ? out : node;
+  }
+  if (node && typeof node === "object") {
+    let changed = false;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node)) {
+      const r = NAME_KEYS.has(k) ? v : fillDeep(v, name, short);
+      if (r !== v) changed = true;
+      out[k] = r;
+    }
+    return changed ? out : node;
+  }
+  return node;
+}
+
+/**
+ * A room page's blocks with the account-name variables filled from the room's
+ * customer name, so every reader (tasks, digest, feed, kit) sees the same
+ * text the page shows. Untouched while the name is blank or still a placeholder.
+ * Read-only use: always write the ORIGINAL blocks back, never these.
+ */
+export function resolveRoomBlocks<T>(blocks: T): T {
+  if (!Array.isArray(blocks)) return blocks;
+  return blocks.map((b) => {
+    if (!b || typeof b !== "object" || (b as { type?: unknown }).type !== "room-workspace") return b;
+    const props = (b as { props?: Record<string, unknown> }).props ?? {};
+    const name = typeof props.partnerName === "string" ? props.partnerName.trim() : "";
+    if (!name || /^\[partner/i.test(name) || /\{\{/.test(name)) return b;
+    const short = typeof props.partnerShort === "string" && props.partnerShort.trim() && !/^\[partner/i.test(props.partnerShort.trim()) ? props.partnerShort.trim() : name;
+    const next = fillDeep(props, name, short);
+    return next === props ? b : { ...b, props: next };
+  }) as unknown as T;
+}

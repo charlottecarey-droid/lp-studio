@@ -32,7 +32,7 @@ describe("launch asset graphics: layout and colour", () => {
     expect(shade("#000000", 0.5)).toBe("#808080");
     expect(shade("#ffffff", -1)).toBe("#000000");
   });
-  it("names the three assets with the keys the room's launch kit uses", () => {
-    expect(LAUNCH_ASSETS.map((a) => a.key)).toEqual(["partnership-one-pager", "social-image-1", "social-image-2"]);
+  it("names the generated assets with the keys the room's launch kit uses", () => {
+    expect(LAUNCH_ASSETS.map((a) => a.key)).toEqual(["partnership-one-pager", "social-image-1", "social-image-2", "media-kit"]);
   });
 });

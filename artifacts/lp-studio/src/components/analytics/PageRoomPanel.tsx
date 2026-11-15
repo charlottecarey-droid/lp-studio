@@ -24,7 +24,7 @@ interface RoomDetail {
   revopsSlackMention?: string | null;
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
-  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[] } | null;
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[] } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -937,6 +937,7 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
     { key: "partnership-one-pager", title: "Partnership one-pager", note: "PDF, from the New partner one-pager template" },
     { key: "social-image-1", title: "Social graphic, link preview", note: "1200 × 627, with the cover photo" },
     { key: "social-image-2", title: "Social graphic, square", note: "1080 × 1080" },
+    { key: "media-kit", title: "Media kit", note: "PDF: the announcement copy, social posts and links in one document" },
   ] as const;
   const has = (key: string) => kit.assets.some((a) => a.key === key && a.hasFile);
   // Files that are the same for every customer: uploaded once for the workspace, added to each room.
@@ -973,7 +974,7 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
       for (const key of keys) {
         setState((s) => ({ ...s, [key]: "working" }));
         try {
-          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand });
+          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => x.title) });
           setPreviews((p) => ({ ...p, [key]: url }));
           setState((s) => ({ ...s, [key]: "done" }));
         } catch (e) {
@@ -1042,7 +1043,7 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
       <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
         {busy ? "Creating…" : "Create launch kit"}
       </Button>
-      <p className="text-xs text-muted-foreground">Creates the one-pager and both graphics, and adds the standard files.</p>
+      <p className="text-xs text-muted-foreground">Creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
     </section>
   );
 }

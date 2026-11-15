@@ -4,7 +4,7 @@ vi.mock("@workspace/db", () => ({ db: {}, pool: {} }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
 import { parentIdFilter, practicesFromSheetValues, revopsSlackLines, sheetFilterIndex, slackMention } from "./partnerRoomService";
-import { normalizePracticeStage, parseRoomKitAsset, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
+import { extractRoomTasks, fillAccountName, normalizePracticeStage, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
 
 const MB2 = "0015d000041HyXrAAK";
 const SHEET = [
@@ -113,5 +113,30 @@ describe("launch kit: generated assets", () => {
     const added = setRoomKitAsset(blocks, { key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" }) as typeof blocks;
     expect((added[1].props as { assets: Record<string, unknown>[] }).assets[2]).toEqual({ key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" });
     expect(setRoomKitAsset([{ type: "hero" }], { key: "x-y", kind: "pdf", title: "X", fileUrl: "/api/storage/a" })).toBeNull();
+  });
+});
+
+describe("the account name as a variable", () => {
+  const page = (props: Record<string, unknown>) => [{ id: "w", type: "room-workspace", props }];
+  it("fills both spellings of both variables", () => {
+    expect(fillAccountName("Welcome, {{account}}. [Partner name] and Dandy; every {{ account_short }} practice, every [partner] team.", "MB2 Dental", "MB2")).toBe("Welcome, MB2 Dental. MB2 Dental and Dandy; every MB2 practice, every MB2 team.");
+    expect(fillAccountName("No variables here [see note]", "MB2 Dental", "MB2")).toBe("No variables here [see note]");
+  });
+  it("fills every text on the page from the customer name, and leaves the name fields alone", () => {
+    const blocks = page({ partnerName: "MB2 Dental", partnerShort: "MB2", planIntro: "Every milestone has an owner at Dandy and at [Partner].", assets: [{ kind: "text", title: "Announcement email", body: "{{account}} is partnering with Dandy." }], planGroups: [{ title: "P", rows: [{ task: "Kickoff with [Partner name]", customerAction: "check" }] }] });
+    const out = resolveRoomBlocks(blocks) as typeof blocks;
+    expect(out[0].props).toMatchObject({ partnerName: "MB2 Dental", partnerShort: "MB2", planIntro: "Every milestone has an owner at Dandy and at MB2." });
+    expect(roomKitInfo(out)!.texts[0].body).toBe("MB2 Dental is partnering with Dandy.");
+    expect([...extractRoomTasks(out).values()].map((t) => t.title)).toEqual(["Kickoff with MB2 Dental"]);
+    expect(blocks[0].props.planIntro).toContain("[Partner]"); // the stored page keeps its variables
+  });
+  it("uses the full name when there is no short name, and waits while the name is blank or still a placeholder", () => {
+    expect((resolveRoomBlocks(page({ partnerName: "Heartland Dental", planIntro: "At [Partner]." })) as unknown as { props: { planIntro: string } }[])[0].props.planIntro).toBe("At Heartland Dental.");
+    for (const name of ["", "[Partner name]", "{{account}}"]) {
+      const blocks = page({ partnerName: name, planIntro: "At [Partner]." });
+      expect(resolveRoomBlocks(blocks)).toEqual(blocks);
+    }
+    const other = [{ id: "h", type: "hero", props: { title: "[Partner]" } }];
+    expect(resolveRoomBlocks(other)[0]).toBe(other[0]);
   });
 });

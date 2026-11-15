@@ -24,7 +24,7 @@ import { ObjectStorageService } from "./objectStorage";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "./partnerRoomReconcile";
 import { lpRoomUploadsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
-import { parsePracticeRow, type RoomPracticeInput } from "./partnerRoom";
+import { parsePracticeRow, resolveRoomBlocks, type RoomPracticeInput } from "./partnerRoom";
 import { collectDigest, digestIsEmpty, renderDigestEmail, renderDigestSlack, type DigestData } from "./partnerRoomDigest";
 import { sendRoomDigestEmail } from "./notifications";
 import { slackService } from "./slack-service";
@@ -294,7 +294,7 @@ export async function buildRoomDigest(pageId: number, now: Date = new Date()): P
   ]);
   const likeRows = wins.length ? await db.select({ winId: lpRoomWinLikesTable.winId }).from(lpRoomWinLikesTable).where(inArray(lpRoomWinLikesTable.winId, wins.map((w) => w.id))) : [];
   const data = collectDigest(
-    page.blocks,
+    resolveRoomBlocks(page.blocks),
     {
       tasks: tasks.map((t) => ({ key: t.taskKey, at: t.completedAt, by: t.completedByName || t.completedByEmail })),
       requests: requests.map((q) => ({ subject: q.subject, status: q.status, updatedAt: q.updatedAt, createdAt: q.createdAt })),

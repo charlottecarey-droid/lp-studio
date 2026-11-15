@@ -20,13 +20,19 @@ export interface LaunchAssetInput {
   heroImageUrl: string;
   signupUrl: string;
   brand: BrandConfig;
+  /** The kit's written pieces and links, for the media kit document. */
+  texts?: { title: string; description: string; body: string }[];
+  links?: { title: string; url: string }[];
+  /** Names of the files in the kit, listed in the media kit document. */
+  files?: string[];
 }
 
-export type LaunchAssetKey = "partnership-one-pager" | "social-image-1" | "social-image-2";
+export type LaunchAssetKey = "partnership-one-pager" | "social-image-1" | "social-image-2" | "media-kit";
 export const LAUNCH_ASSETS: { key: LaunchAssetKey; kind: "pdf" | "image"; title: string; description: string }[] = [
   { key: "partnership-one-pager", kind: "pdf", title: "Partnership one-pager", description: "For regional leaders and locations" },
   { key: "social-image-1", kind: "image", title: "Social graphic, link preview", description: "Co-branded social graphic · 1200 × 627" },
   { key: "social-image-2", kind: "image", title: "Social graphic, square", description: "Co-branded social graphic · 1080 × 1080" },
+  { key: "media-kit", kind: "pdf", title: "Media kit", description: "Announcement copy, social posts and links in one document" },
 ];
 
 /* ── Colour ──────────────────────────────────────────────────────────────── */
@@ -270,6 +276,135 @@ export async function buildPartnerOnePager(input: LaunchAssetInput): Promise<Blo
   return doc.output("blob");
 }
 
+/* ── Media kit document ──────────────────────────────────────────────────── */
+
+/**
+ * The room's written launch pieces in one document: a cover with both names,
+ * then each piece (announcement email, social posts, approved description)
+ * ready to copy, the files in the kit, and the links. Built from the kit
+ * itself, so it always says what the room says.
+ */
+export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 54;
+  const surface = graphicSurface(input.brand);
+  const [sr, sg, sb] = [1, 3, 5].map((i) => parseInt(surface.slice(i, i + 2), 16));
+  const brandName = (input.brand.brandName || "").trim();
+  const pair = brandName ? `${brandName} × ${input.partnerName}` : input.partnerName;
+
+  // Cover band
+  doc.setFillColor(sr, sg, sb);
+  doc.rect(0, 0, W, 250, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("PARTNERSHIP MEDIA KIT", M, 78, { charSpace: 1.5 });
+  doc.setFontSize(30);
+  doc.text(doc.splitTextToSize(pair, W - M * 2) as string[], M, 122);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11.5);
+  doc.text(doc.splitTextToSize("Approved copy, graphics and links for announcing the partnership. Everything here is ready to use as written.", W - M * 2) as string[], M, 196);
+
+  let y = 292;
+  const footer = () => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(140, 148, 143);
+    doc.text(pair, M, H - 30);
+    doc.text(String(doc.getNumberOfPages()), W - M, H - 30, { align: "right" });
+  };
+  const room = (needed: number) => {
+    if (y + needed <= H - 56) return;
+    footer();
+    doc.addPage();
+    y = 64;
+  };
+  const heading = (text: string) => {
+    room(44);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(sr, sg, sb);
+    doc.text(text.toUpperCase(), M, y, { charSpace: 1.2 });
+    doc.setDrawColor(222, 226, 220);
+    doc.line(M, y + 8, W - M, y + 8);
+    y += 30;
+  };
+
+  for (const t of input.texts ?? []) {
+    room(90);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.setTextColor(sr, sg, sb);
+    doc.text(t.title, M, y);
+    y += 16;
+    if (t.description) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(110, 120, 114);
+      doc.text(doc.splitTextToSize(t.description, W - M * 2) as string[], M, y);
+      y += 16;
+    }
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(28, 36, 32);
+    // The copy itself, on a rule so it reads as a block to lift out.
+    for (const para of t.body.split(/\n/)) {
+      const lines = para.trim() ? (doc.splitTextToSize(para, W - M * 2 - 16) as string[]) : [""];
+      for (const line of lines) {
+        room(15);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10.5);
+        doc.setTextColor(28, 36, 32);
+        doc.setDrawColor(sr, sg, sb);
+        doc.setLineWidth(1.5);
+        doc.line(M, y - 9, M, y + 5);
+        doc.setLineWidth(0.5);
+        doc.text(line, M + 16, y);
+        y += 15;
+      }
+    }
+    y += 22;
+  }
+
+  if ((input.files ?? []).length) {
+    heading("Files in this kit");
+    for (const f of input.files ?? []) {
+      room(16);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10.5);
+      doc.setTextColor(28, 36, 32);
+      doc.text(`•  ${f}`, M, y);
+      y += 16;
+    }
+    doc.setFontSize(9.5);
+    doc.setTextColor(110, 120, 114);
+    room(18);
+    doc.text("Download each file from the launch kit in your partner room.", M, y + 2);
+    y += 28;
+  }
+
+  if ((input.links ?? []).length) {
+    heading("Links");
+    for (const l of input.links ?? []) {
+      room(32);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(28, 36, 32);
+      doc.text(l.title, M, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(34, 78, 160);
+      doc.textWithLink((doc.splitTextToSize(l.url, W - M * 2) as string[])[0], M, y + 14, { url: l.url });
+      y += 34;
+    }
+  }
+  footer();
+  return doc.output("blob");
+}
+
 /* ── Upload + file into the room ─────────────────────────────────────────── */
 
 const fileSlug = (s: string) => s.trim().replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "partner";
@@ -292,8 +427,8 @@ async function upload(blob: Blob, name: string, kind: "pdf" | "image"): Promise<
 export async function createLaunchAsset(key: LaunchAssetKey, input: LaunchAssetInput): Promise<string> {
   const spec = LAUNCH_ASSETS.find((a) => a.key === key)!;
   const base = `${fileSlug(input.brand.brandName || "")}-x-${fileSlug(input.partnerName)}`;
-  const blob = key === "partnership-one-pager" ? await buildPartnerOnePager(input) : await buildSocialGraphic(key === "social-image-1" ? "wide" : "square", input);
-  const fileUrl = await upload(blob, key === "partnership-one-pager" ? `${base}-one-pager.pdf` : `${base}-social-${key === "social-image-1" ? "wide" : "square"}.png`, spec.kind);
+  const blob = key === "partnership-one-pager" ? await buildPartnerOnePager(input) : key === "media-kit" ? await buildMediaKit(input) : await buildSocialGraphic(key === "social-image-1" ? "wide" : "square", input);
+  const fileUrl = await upload(blob, key === "partnership-one-pager" ? `${base}-one-pager.pdf` : key === "media-kit" ? `${base}-media-kit.pdf` : `${base}-social-${key === "social-image-1" ? "wide" : "square"}.png`, spec.kind);
   const res = await fetch(`/api/lp/partner-rooms/${input.pageId}/kit-asset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl }) });
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Could not add it to the launch kit");
   return fileUrl;

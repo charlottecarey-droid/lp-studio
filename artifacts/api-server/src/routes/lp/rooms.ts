@@ -61,6 +61,7 @@ import {
   ROOM_PRACTICE_STAGES,
   roomCalendarIcs,
   roomKitInfo,
+  resolveRoomBlocks,
   ROOM_STANDARD_ASSETS,
   parseRoomKitAsset,
   setRoomKitAsset,
@@ -125,6 +126,8 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
     .where(eq(lpPagesTable.id, pageId))
     .limit(1);
   if (!page || page.tenantId == null) return null;
+  // Everything read from the page uses the account name filled in, as the page itself shows it.
+  page.blocks = resolveRoomBlocks(page.blocks);
   return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks) };
 }
 
@@ -664,7 +667,7 @@ router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Resp
     const pageId = Number(req.query.pageId);
     const [page] = Number.isFinite(pageId) && pageId > 0 ? await db.select({ title: lpPagesTable.title, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1) : [];
     const synced = page ? (await loadPublicRoomCalendar(pageId)).events : [];
-    const ics = page ? roomCalendarIcs(page.blocks, `${roomPartnerName(page.blocks) || page.title} partnership`, synced) : null;
+    const ics = page ? roomCalendarIcs(resolveRoomBlocks(page.blocks), `${roomPartnerName(page.blocks) || page.title} partnership`, synced) : null;
     if (!ics) {
       res.status(404).end();
       return;
@@ -838,7 +841,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
-      kit: page.isWorkspace ? roomKitInfo((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks) : null,
+      kit: page.isWorkspace ? roomKitInfo(resolveRoomBlocks((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks)) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
@@ -1170,7 +1173,7 @@ router.post("/lp/partner-rooms/:pageId/standard-assets", async (req: Request, re
     const page = await ownedRoomPage(req, res);
     if (!page) return;
     const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
-    const info = row ? roomKitInfo(row.blocks) : null;
+    const info = row ? roomKitInfo(resolveRoomBlocks(row.blocks)) : null;
     if (!row || !info) {
       res.status(400).json({ error: "This page isn't a workspace room." });
       return;

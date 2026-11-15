@@ -18,6 +18,7 @@ import {
   ROOM_WORKSPACE_DEFAULT_PROPS,
   phaseStates,
   roomAssetToHub,
+  resolveRoomProps,
   eventIcs,
   splitEvents,
   standardCheckpoints,
@@ -299,5 +300,19 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(editing).toContain('data-room-edit="task"');
     expect(editing).toContain('data-room-edit="planIntro"');
     expect(editing).not.toMatch(/<(a|button)\b[^>]*>(?:(?!<\/\1>).)*data-room-edit/s);
+  });
+  it("the account name is a variable: one template reads right for any customer, and edits still reach the stored props", () => {
+    const base = structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS);
+    const raw = { ...base, partnerName: "MB2 Dental", partnerShort: "MB2", planIntro: "Every milestone has an owner at Northwind and at [Partner].", kitIntro: "Made for {{account}}.", hiddenModules: ["overview", "wins", "goals"] as never };
+    const html = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: raw, brand: BRAND }));
+    expect(html).toContain("and at MB2.");
+    expect(html).not.toContain("[Partner]");
+    const { props, rawOf } = resolveRoomProps(raw);
+    expect(props.kitIntro).toBe("Made for MB2 Dental.");
+    expect(rawOf.get(props)).toBe(raw); // an edit on screen patches the stored object
+    expect(raw.kitIntro).toBe("Made for {{account}}.");
+    // No name yet: the placeholders stay visible so nobody ships "[Partner]" unnoticed as a blank.
+    const blank = { ...raw, partnerName: "[Partner name]" };
+    expect(resolveRoomProps(blank).props).toBe(blank);
   });
 });
