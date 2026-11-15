@@ -721,6 +721,16 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     // The public state never carries engagement.
     expect(JSON.stringify((await post("state", { pageId, hl })).json)).not.toContain("engagement");
 
+    // A generated launch asset is filed into the kit by the owning tenant only, and only from this app's storage.
+    const kit = (body: unknown, as = tenantId) => inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/kit-asset`, headers: asTenant(as), body });
+    const file = { key: "social-image-1", kind: "image", title: "Social graphic, link preview", fileUrl: "/api/storage/objects/uploads/generated-1" };
+    expect((await kit({ ...file, fileUrl: "https://evil.example/x.png" })).status).toBe(400);
+    expect((await kit(file, await seedTenant())).status).toBe(404);
+    expect((await kit(file)).status).toBe(200);
+    const withKit = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { kit: { partnerName: string; assets: { key: string; hasFile: boolean }[] } };
+    expect(withKit.kit.partnerName).toBe("MB2 Dental");
+    expect(withKit.kit.assets).toEqual([expect.objectContaining({ key: "social-image-1", hasFile: true })]);
+
     // A member of the page's own team is let in without being on the customer's allowed list; a stranger still has to ask.
     const email = `rep-${Math.floor(Math.random() * 1e9)}@vendor-team.com`;
     await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Sam Rep', 'active')`, [tenantId, email]);

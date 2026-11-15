@@ -522,3 +522,71 @@ export function roomCalendarIcs(blocks: unknown, calendarName: string, synced: {
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");
 }
+
+/* ── Launch kit: generated assets ────────────────────────────────────────── */
+
+export interface RoomKitInfo {
+  partnerName: string;
+  partnerLogoUrl: string;
+  heroImageUrl: string;
+  /** The first launch-kit link (the sign-up page), for the one-pager's QR code. */
+  signupUrl: string;
+  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[];
+}
+
+const workspaceBlock = (blocks: unknown): { props?: Record<string, unknown> } | null =>
+  Array.isArray(blocks) ? ((blocks.find((b) => b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace") as { props?: Record<string, unknown> } | undefined) ?? null) : null;
+
+/** What the launch-asset generator needs from the page: names, logo, cover photo, and which kit files exist. */
+export function roomKitInfo(blocks: unknown): RoomKitInfo | null {
+  const props = workspaceBlock(blocks)?.props;
+  if (!props) return null;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const links = Array.isArray(props.links) ? (props.links as Record<string, unknown>[]) : [];
+  const assets = Array.isArray(props.assets) ? (props.assets as Record<string, unknown>[]) : [];
+  return {
+    partnerName: str(props.partnerName),
+    partnerLogoUrl: str(props.partnerLogoUrl),
+    heroImageUrl: str(props.heroImageUrl),
+    signupUrl: str(links.find((l) => l && !l.hidden && /^https?:\/\//.test(str(l.url)))?.url),
+    assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true })),
+  };
+}
+
+export interface RoomKitAssetInput {
+  key: string;
+  kind: "pdf" | "image";
+  title: string;
+  description?: string;
+  fileUrl: string;
+}
+
+/** A generated file's address must be this app's own storage: never an outside URL. */
+export function parseRoomKitAsset(raw: unknown): RoomKitAssetInput | null {
+  const b = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const key = typeof b.key === "string" ? b.key.trim() : "";
+  const fileUrl = typeof b.fileUrl === "string" ? b.fileUrl.trim() : "";
+  const title = cleanText(b.title, 120);
+  if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(key) || (b.kind !== "pdf" && b.kind !== "image") || !title) return null;
+  if (!/^\/api\/storage\/[A-Za-z0-9/_.-]{1,300}$/.test(fileUrl) || fileUrl.includes("..")) return null;
+  return { key, kind: b.kind, title, description: cleanText(b.description, 200) || undefined, fileUrl };
+}
+
+/**
+ * Put a generated file into the room's launch kit: fill the asset with that
+ * key (and show it), or add it when the kit has none. Returns new blocks, or
+ * null when the page has no workspace block. Everything else is untouched.
+ */
+export function setRoomKitAsset(blocks: unknown, asset: RoomKitAssetInput): unknown[] | null {
+  const block = workspaceBlock(blocks);
+  if (!block || !Array.isArray(blocks)) return null;
+  const props = block.props ?? {};
+  const assets = Array.isArray(props.assets) ? (props.assets as Record<string, unknown>[]) : [];
+  const keyOf = (a: Record<string, unknown>) => (typeof a?.key === "string" && a.key.trim() ? a.key.trim() : planTaskKey({ task: a?.title }));
+  const at = assets.findIndex((a) => a && keyOf(a) === asset.key);
+  const next =
+    at >= 0
+      ? assets.map((a, i) => (i === at ? { ...a, kind: asset.kind, fileUrl: asset.fileUrl, hidden: false } : a))
+      : [...assets, { key: asset.key, kind: asset.kind, title: asset.title, ...(asset.description ? { description: asset.description } : {}), fileUrl: asset.fileUrl }];
+  return blocks.map((b) => (b === block ? { ...(b as object), props: { ...props, assets: next } } : b));
+}

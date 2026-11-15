@@ -23,6 +23,7 @@ interface RoomDetail {
   revopsSlackMention?: string | null;
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[] } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -313,6 +314,8 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
             </div>
           </section>
         )}
+
+        {data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} />}
 
         {data.isWorkspace && <EngagementSection engagement={data.engagement} />}
 
@@ -916,6 +919,81 @@ function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"
           </ul>
         </details>
       )}
+    </section>
+  );
+}
+
+/**
+ * Launch assets made from what the room already knows (both names, both logos,
+ * the cover photo): the partnership one-pager and two social graphics. Each is
+ * generated here, uploaded, and filed into the room's launch kit.
+ */
+function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: NonNullable<RoomDetail["kit"]>; refresh: () => Promise<void> }) {
+  const [state, setState] = useState<Record<string, "working" | "done" | string>>({});
+  const [busy, setBusy] = useState(false);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const SPECS = [
+    { key: "partnership-one-pager", title: "Partnership one-pager", note: "PDF, from the New partner one-pager template" },
+    { key: "social-image-1", title: "Social graphic, link preview", note: "1200 × 627, with the cover photo" },
+    { key: "social-image-2", title: "Social graphic, square", note: "1080 × 1080" },
+  ] as const;
+  const has = (key: string) => kit.assets.some((a) => a.key === key && a.hasFile);
+
+  const create = async (keys: readonly string[]) => {
+    setBusy(true);
+    try {
+      const [{ createLaunchAsset }, { fetchBrandConfig }] = await Promise.all([import("@/lib/room-launch-assets"), import("@/lib/brand-config")]);
+      const brand = await fetchBrandConfig();
+      for (const key of keys) {
+        setState((s) => ({ ...s, [key]: "working" }));
+        try {
+          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand });
+          setPreviews((p) => ({ ...p, [key]: url }));
+          setState((s) => ({ ...s, [key]: "done" }));
+        } catch (e) {
+          setState((s) => ({ ...s, [key]: e instanceof Error ? e.message : "Could not create it" }));
+        }
+      }
+    } finally {
+      setBusy(false);
+      await refresh();
+    }
+  };
+
+  const missing = [!kit.partnerName && "the customer’s name", !kit.partnerLogoUrl && "the customer’s logo (their name is used instead)", !kit.heroImageUrl && "a cover photo (the link-preview graphic is made without one)"].filter(Boolean) as string[];
+  return (
+    <section className="space-y-2">
+      <h4 className="text-sm font-semibold">Launch assets</h4>
+      <p className="text-sm text-muted-foreground">
+        Made for {kit.partnerName || "this customer"} from the room’s names, logos and cover photo, then added to the launch kit. Creating one again replaces the file in the kit; the customer’s “Request changes” still works on it.
+      </p>
+      {missing.length > 0 && <p className="text-xs text-amber-700">Not set on the page yet: {missing.join("; ")}.</p>}
+      <div className="divide-y rounded-md border">
+        {SPECS.map((a) => {
+          const st = state[a.key];
+          return (
+            <div key={a.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{a.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  {a.note}
+                  {st && st !== "working" && st !== "done" ? <span className="text-destructive"> · {st}</span> : null}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {st === "done" || has(a.key) ? <Badge variant="secondary">{st === "done" ? "Created" : "In the kit"}</Badge> : null}
+                {previews[a.key] && <a className="text-xs underline" href={previews[a.key]} target="_blank" rel="noreferrer">Open</a>}
+                <Button size="sm" variant="outline" disabled={busy || !kit.partnerName} onClick={() => create([a.key])}>
+                  {st === "working" ? "Creating…" : has(a.key) || st === "done" ? "Create again" : "Create"}
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
+        {busy ? "Creating…" : "Create all three"}
+      </Button>
     </section>
   );
 }

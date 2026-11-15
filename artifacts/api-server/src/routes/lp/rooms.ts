@@ -59,6 +59,9 @@ import {
   parsePracticeCsv,
   ROOM_PRACTICE_STAGES,
   roomCalendarIcs,
+  roomKitInfo,
+  parseRoomKitAsset,
+  setRoomKitAsset,
   roomPartnerName,
   type RoomPracticeInput,
   extractRoomChoices,
@@ -833,6 +836,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
+      kit: page.isWorkspace ? roomKitInfo((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
@@ -1122,6 +1126,34 @@ router.post("/lp/partner-rooms/:pageId/practices/sync-sheet", async (req: Reques
   } catch (err) {
     req.log.error({ err }, "room sheet sync failed");
     res.status(500).json({ error: "Could not read the sheet" });
+  }
+});
+
+/**
+ * Put a generated launch asset (a one-pager, a social graphic) into the room's
+ * launch kit. The file was just uploaded to this app's storage by the same
+ * signed-in member; only the kit entry on the page changes.
+ */
+router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const asset = parseRoomKitAsset(req.body);
+    if (!asset) {
+      res.status(400).json({ error: "That isn't a launch asset this room can take." });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomKitAsset(row.blocks, asset) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a workspace room." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date() }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room kit asset save failed");
+    res.status(500).json({ error: "Could not add the asset to the launch kit" });
   }
 });
 

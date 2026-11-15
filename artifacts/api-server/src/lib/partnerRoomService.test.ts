@@ -4,7 +4,7 @@ vi.mock("@workspace/db", () => ({ db: {}, pool: {} }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
 import { parentIdFilter, practicesFromSheetValues, revopsSlackLines, sheetFilterIndex, slackMention } from "./partnerRoomService";
-import { normalizePracticeStage, roomCalendarIcs } from "./partnerRoom";
+import { normalizePracticeStage, parseRoomKitAsset, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
 
 const MB2 = "0015d000041HyXrAAK";
 const SHEET = [
@@ -81,5 +81,37 @@ describe("calendar feed", () => {
     expect(ics).toContain("DESCRIPTION:2:00 pm CT");
     expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(1);
     expect(roomCalendarIcs([{ type: "hero" }], "x")).toBeNull();
+  });
+});
+
+describe("launch kit: generated assets", () => {
+  const blocks = [
+    { id: "a", type: "hero", props: {} },
+    { id: "w", type: "room-workspace", props: { partnerName: "MB2 Dental", partnerLogoUrl: "/api/storage/objects/uploads/logo", heroImageUrl: "", links: [{ title: "Hidden", url: "https://x.example.com", hidden: true }, { title: "Sign-up", url: "https://partners.example.com/mb2" }], assets: [{ key: "partnership-one-pager", kind: "pdf", title: "Partnership one-pager", fileUrl: "", hidden: true }, { kind: "text", title: "Announcement email", body: "Hello" }] } },
+  ];
+  it("reads what the generator needs from the page", () => {
+    expect(roomKitInfo(blocks)).toMatchObject({ partnerName: "MB2 Dental", partnerLogoUrl: "/api/storage/objects/uploads/logo", heroImageUrl: "", signupUrl: "https://partners.example.com/mb2" });
+    expect(roomKitInfo(blocks)!.assets).toEqual([{ key: "partnership-one-pager", title: "Partnership one-pager", kind: "pdf", hasFile: false, hidden: true }, { key: "announcement-email", title: "Announcement email", kind: "text", hasFile: true, hidden: false }]);
+    expect(roomKitInfo([{ type: "hero" }])).toBeNull();
+  });
+  it("only accepts a file in this app's own storage", () => {
+    const ok = { key: "social-image-1", kind: "image", title: "Social graphic", fileUrl: "/api/storage/objects/uploads/abc-123" };
+    expect(parseRoomKitAsset(ok)).toMatchObject({ key: "social-image-1", kind: "image" });
+    expect(parseRoomKitAsset({ ...ok, fileUrl: "https://evil.example/x.png" })).toBeNull();
+    expect(parseRoomKitAsset({ ...ok, fileUrl: "/api/storage/../secrets" })).toBeNull();
+    expect(parseRoomKitAsset({ ...ok, fileUrl: "javascript:alert(1)" })).toBeNull();
+    expect(parseRoomKitAsset({ ...ok, kind: "text" })).toBeNull();
+    expect(parseRoomKitAsset({ ...ok, key: "Bad Key" })).toBeNull();
+  });
+  it("fills the matching kit entry and shows it, or adds one, and touches nothing else", () => {
+    const filled = setRoomKitAsset(blocks, { key: "partnership-one-pager", kind: "pdf", title: "Partnership one-pager", fileUrl: "/api/storage/objects/uploads/pdf1" }) as typeof blocks;
+    const assets = (filled[1].props as { assets: Record<string, unknown>[] }).assets;
+    expect(assets[0]).toMatchObject({ key: "partnership-one-pager", fileUrl: "/api/storage/objects/uploads/pdf1", hidden: false, title: "Partnership one-pager" });
+    expect(assets).toHaveLength(2);
+    expect(filled[0]).toBe(blocks[0]);
+    expect((filled[1].props as { partnerName: string }).partnerName).toBe("MB2 Dental");
+    const added = setRoomKitAsset(blocks, { key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" }) as typeof blocks;
+    expect((added[1].props as { assets: Record<string, unknown>[] }).assets[2]).toEqual({ key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" });
+    expect(setRoomKitAsset([{ type: "hero" }], { key: "x-y", kind: "pdf", title: "X", fileUrl: "/api/storage/a" })).toBeNull();
   });
 });
