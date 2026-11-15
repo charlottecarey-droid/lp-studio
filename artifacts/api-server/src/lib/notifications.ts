@@ -381,6 +381,7 @@ async function sendAuthActionEmail(opts: {
   subject: string;
   html: string;
   fromEmail?: string;
+  replyTo?: string;
   logContext: Record<string, unknown>;
   logMessage: string;
 }): Promise<boolean> {
@@ -398,7 +399,7 @@ async function sendAuthActionEmail(opts: {
       },
       body: JSON.stringify({
         from: opts.fromEmail ?? platformFromAddress(),
-        reply_to: platformReplyTo(),
+        reply_to: opts.replyTo ?? platformReplyTo(),
         to: [opts.to],
         subject: opts.subject,
         html: opts.html,
@@ -468,12 +469,30 @@ export async function sendRoomAccessEmail(payload: {
     expiryNote: "This link works on this address for 90 days. If you didn't ask for it, you can safely ignore this email.",
     footerNote: "You're receiving this because someone entered this email address to get access to a shared room.",
   });
+  // From the workspace that owns the room (its sending identity), not the platform.
+  const sender = await resolveTenantSenderSafe(tenantId, "notifications");
   return sendAuthActionEmail({
     to: recipientEmail,
     subject: `Your link to ${roomTitle}`,
     html,
+    fromEmail: sender.from,
+    replyTo: sender.replyTo,
     logContext: { tenantId, room: roomTitle },
     logMessage: "room access email",
+  });
+}
+
+/** Partner room weekly digest to one customer address, from the workspace's own sending identity. */
+export async function sendRoomDigestEmail(payload: { recipientEmail: string; subject: string; html: string; tenantId: number }): Promise<boolean> {
+  const sender = await resolveTenantSenderSafe(payload.tenantId, "notifications");
+  return sendAuthActionEmail({
+    to: payload.recipientEmail,
+    subject: payload.subject,
+    html: payload.html,
+    fromEmail: sender.from,
+    replyTo: sender.replyTo,
+    logContext: { tenantId: payload.tenantId },
+    logMessage: "room digest email",
   });
 }
 

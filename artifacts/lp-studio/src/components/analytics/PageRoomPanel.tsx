@@ -18,6 +18,8 @@ interface RoomDetail {
   isRoom: boolean;
   settings: { allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId?: string | null; asanaProjectGid?: string | null };
   practices?: { total: number; byStage: Record<string, number>; regions: string[] };
+  digest?: { enabled: boolean; recipients: string[]; lastSentAt: string | null };
+  sheet?: { id: string | null; tab: string | null; syncedAt: string | null; note: string | null };
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
   isWorkspace?: boolean;
@@ -58,6 +60,14 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
   const [asanaProject, setAsanaProject] = useState("");
   const [csv, setCsv] = useState("");
   const [note, setNote] = useState("");
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetTab, setSheetTab] = useState("");
+  const [digestOn, setDigestOn] = useState(false);
+  const [digestTo, setDigestTo] = useState("");
+  const [preview, setPreview] = useState<{ subject: string; html: string; recipients: string[]; slackText: string; empty: boolean } | null>(null);
+  const [digestNote, setDigestNote] = useState("");
+  const [compare, setCompare] = useState<{ uploadId: number; fileName: string; practices: { uploaded: number; inRoom: number; matched: number; missingFromRoom: string[]; notOnUpload: string[]; sheet: string } | null; doctors: { count: number; sheet: string } | null } | null>(null);
+  const [revops, setRevops] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -68,6 +78,10 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
     setChannel(data.settings.slackChannelId ?? "");
     setSfdcId(data.settings.sfdcAccountId ?? "");
     setAsanaProject(data.settings.asanaProjectGid ?? "");
+    setSheetUrl(data.sheet?.id ? `https://docs.google.com/spreadsheets/d/${data.sheet.id}` : "");
+    setSheetTab(data.sheet?.tab ?? "");
+    setDigestOn(!!data.digest?.enabled);
+    setDigestTo((data.digest?.recipients ?? []).join(", "));
   }, [data]);
 
   if (isLoading) return <Skeleton className="h-24 w-full" />;
@@ -86,6 +100,13 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
   const saveSettings = async () => {
     const list = domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean);
     if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim() }))) setSaved(true);
+  };
+  const baseSettings = () => ({ allowedDomains: domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean), slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim() });
+  const post = async (url: string, body?: unknown): Promise<{ ok: boolean; json: Record<string, unknown> }> => {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+    const json = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    setError(r.ok ? "" : String(json.error ?? "Something went wrong"));
+    return { ok: r.ok, json };
   };
   const setMember = (email: string, status: "allowed" | "denied" | null) => run(send(`${base}/members`, "POST", { email, status }));
 
@@ -160,6 +181,40 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
                 ? `${data.practices.total} in the room · ${data.practices.byStage.live ?? 0} live · ${(data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0)} trained · ${data.practices.regions.length} regions`
                 : "No practices loaded yet."}
             </p>
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="text-sm font-medium">Live Google Sheet</p>
+              <p className="text-xs text-muted-foreground">
+                The room re-reads this sheet about every hour and matches it exactly: rows removed from the sheet leave the room. First row = column names: name, region, wave, stage, training date, live date. Share the sheet with the Google account connected to LP Studio.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
+                <Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" />
+                <Input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder="Tab name (blank = first)" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="brand"
+                  onClick={async () => {
+                    setNote("");
+                    const err = await send(`${base}/settings`, "PATCH", { ...baseSettings(), practicesSheet: sheetUrl.trim(), practicesSheetTab: sheetTab.trim() });
+                    setError(err ?? "");
+                    if (err) return;
+                    if (sheetUrl.trim()) {
+                      const r = await post(`${base}/practices/sync-sheet`);
+                      if (r.ok) setNote(String(r.json.note ?? "Sheet read."));
+                    } else setNote("Sheet disconnected. The practices already loaded stay.");
+                    await refresh();
+                  }}
+                >
+                  {sheetUrl.trim() ? "Save and read the sheet" : "Disconnect"}
+                </Button>
+                {data.sheet?.id && (
+                  <span className="text-xs text-muted-foreground">
+                    Last read {fmtDate(data.sheet.syncedAt) || "never"}{data.sheet.note ? ` · ${data.sheet.note}` : ""}
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
@@ -213,6 +268,63 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
+        {data.isWorkspace && (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Weekly digest</h4>
+            <p className="text-sm text-muted-foreground">
+              Every Monday morning: an email to the customer addresses below, and a post in this room’s Slack channel with what’s blocking and what’s waiting. A week with nothing to report is skipped.
+              {data.digest?.lastSentAt ? ` Last sent ${fmtDate(data.digest.lastSentAt)}.` : ""}
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={digestOn} onChange={(e) => setDigestOn(e.target.checked)} />
+              Send the weekly digest for this room
+            </label>
+            <Input value={digestTo} onChange={(e) => setDigestTo(e.target.value)} placeholder="Customer emails, comma-separated" />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="brand"
+                onClick={async () => {
+                  setDigestNote("");
+                  const err = await send(`${base}/settings`, "PATCH", { ...baseSettings(), digestEnabled: digestOn, digestRecipients: digestTo.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean) });
+                  setError(err ?? "");
+                  if (!err) {
+                    setDigestNote("Saved.");
+                    await refresh();
+                  }
+                }}
+              >
+                Save digest settings
+              </Button>
+              <Button size="sm" variant="outline" onClick={async () => { const r = await post(`${base}/digest/preview`); if (r.ok) setPreview(r.json as never); }}>Preview</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  if (!window.confirm("Send the digest now to the saved recipients and the Slack channel?")) return;
+                  const r = await post(`${base}/digest/send`);
+                  if (r.ok) setDigestNote(`Sent: ${String(r.json.emails ?? 0)} email${r.json.emails === 1 ? "" : "s"}${r.json.slack ? ", Slack posted" : ", Slack not posted"}.`);
+                  await refresh();
+                }}
+              >
+                Send now
+              </Button>
+              {digestNote && <span className="text-sm text-muted-foreground">{digestNote}</span>}
+            </div>
+            {preview && (
+              <div className="space-y-2 rounded-md border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm"><strong>{preview.subject}</strong><br /><span className="text-xs text-muted-foreground">To: {preview.recipients.length ? preview.recipients.join(", ") : "no recipients saved yet"}{preview.empty ? " · nothing to report this week, so the scheduled send would skip it" : ""}</span></p>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close preview" onClick={() => setPreview(null)}><X className="h-4 w-4" /></Button>
+                </div>
+                <iframe title="Digest email preview" sandbox="" srcDoc={preview.html} className="h-[420px] w-full rounded border bg-white" />
+                <p className="text-xs font-medium">Slack post</p>
+                <pre className="whitespace-pre-wrap rounded bg-muted p-2 text-xs">{preview.slackText}</pre>
+              </div>
+            )}
+          </section>
+        )}
+
         {data.isWorkspace && <WinsSection base={base} wins={data.wins ?? []} run={run} />}
 
         {(data.contacts ?? []).length > 0 && (
@@ -241,14 +353,91 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
                     <p className="truncate text-sm font-medium">{u.fileName}</p>
                     <p className="text-xs text-muted-foreground">{u.taskTitle} · {u.uploadedBy} · {fmtDate(u.createdAt)} · {fmtSize(u.sizeBytes)}</p>
                   </div>
-                  <Button asChild size="sm" variant="outline" className="h-8 gap-1">
-                    <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
-                  </Button>
+                  <span className="flex gap-2">
+                    {data.isWorkspace && /\.(xlsx|csv|tsv|txt)$/i.test(u.fileName) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8"
+                        onClick={async () => {
+                          setRevops("");
+                          const r = await post(`${base}/uploads/${u.id}/compare`);
+                          if (r.ok) setCompare({ uploadId: u.id, ...(r.json as unknown as Omit<NonNullable<typeof compare>, "uploadId">) });
+                        }}
+                      >
+                        Compare with practices
+                      </Button>
+                    )}
+                    <Button asChild size="sm" variant="outline" className="h-8 gap-1">
+                      <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
+                    </Button>
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </section>
+
+        {compare && (
+          <section className="space-y-2 rounded-md border p-3" data-testid="room-compare">
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="text-sm font-semibold">Comparison: {compare.fileName}</h4>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close comparison" onClick={() => setCompare(null)}><X className="h-4 w-4" /></Button>
+            </div>
+            {compare.practices ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Their list ({compare.practices.sheet}) has {compare.practices.uploaded} practices; we hold {compare.practices.inRoom}. {compare.practices.matched} match.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-medium">On their list, not in ours ({compare.practices.missingFromRoom.length})</p>
+                    <p className="text-xs text-muted-foreground">Salesforce is missing these.</p>
+                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.missingFromRoom.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">In ours, not on their list ({compare.practices.notOnUpload.length})</p>
+                    <p className="text-xs text-muted-foreground">Closed, renamed, or not in the rollout.</p>
+                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.notOnUpload.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No practice column found in this file.</p>
+            )}
+            {compare.doctors && <p className="text-sm text-muted-foreground">The roster ({compare.doctors.sheet}) lists {compare.doctors.count} doctors. Doctors can't be compared yet: LP Studio has no doctor records to compare against.</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="brand"
+                disabled={!(compare.practices?.missingFromRoom.length || compare.doctors?.count)}
+                onClick={async () => {
+                  const r = await post(`${base}/revops-task`, { missing: compare.practices?.missingFromRoom ?? [], doctors: compare.practices ? 0 : compare.doctors?.count ?? 0, fileName: compare.fileName });
+                  if (r.ok) setRevops(r.json.asanaTaskGid ? `Raised for RevOps in Asana and Slack: ${String(r.json.name)}` : `Posted to Slack. Asana task was not created${r.json.warning ? `: ${String(r.json.warning)}` : "."}`);
+                }}
+              >
+                Raise as a RevOps action item
+              </Button>
+              {!!compare.practices?.missingFromRoom.length && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([["practice name", ...compare.practices!.missingFromRoom.map((n) => `"${n.replace(/"/g, '""')}"`)].join("\n")], { type: "text/csv" });
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "missing-from-salesforce.csv";
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                  }}
+                >
+                  Download the missing list
+                </Button>
+              )}
+              {revops && <span className="text-sm text-muted-foreground">{revops}</span>}
+            </div>
+          </section>
+        )}
 
         <section className="space-y-2">
           <h4 className="text-sm font-semibold">Customer tasks</h4>

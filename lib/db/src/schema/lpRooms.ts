@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 /**
@@ -28,6 +28,16 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   sfdcAccountId: text("sfdc_account_id"),
   /** Asana project for this room's marketing requests. Null = the tenant's Asana project. */
   asanaProjectGid: text("asana_project_gid"),
+  /** Weekly digest: off until the team turns it on; recipients are the customer addresses it emails. */
+  digestEnabled: boolean("digest_enabled").notNull().default(false),
+  digestRecipients: jsonb("digest_recipients").$type<string[]>().notNull().default([]),
+  lastDigestAt: timestamp("last_digest_at", { withTimezone: true }),
+  /** A live Google Sheet that IS the practice list while connected (read through the workspace's Sheets connection). */
+  practicesSheetId: text("practices_sheet_id"),
+  practicesSheetTab: text("practices_sheet_tab"),
+  practicesSyncedAt: timestamp("practices_synced_at", { withTimezone: true }),
+  /** How the last read went ("122 practices" or the error), shown to the team. */
+  practicesSyncNote: text("practices_sync_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

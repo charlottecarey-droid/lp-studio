@@ -36,11 +36,24 @@ vi.mock("../../lib/objectStorage", () => ({
     }
   },
 }));
+const digestEmails: { recipientEmail: string; subject: string; html: string }[] = [];
+let sheetValues: unknown[][] | null = null;
 vi.mock("../../lib/notifications", () => ({
   sendRoomAccessEmail: vi.fn(async (p: { recipientEmail: string; roomUrl: string }) => {
     sentEmails.push(p);
     return true;
   }),
+  sendRoomDigestEmail: vi.fn(async (p: { recipientEmail: string; subject: string; html: string }) => {
+    digestEmails.push(p);
+    return true;
+  }),
+}));
+vi.mock("@replit/connectors-sdk", () => ({
+  ReplitConnectors: class {
+    async proxy() {
+      return sheetValues ? { ok: true, json: async () => ({ values: sheetValues }) } : { ok: false, status: 403, text: async () => "forbidden" };
+    }
+  },
 }));
 vi.mock("../../lib/slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
@@ -122,7 +135,7 @@ afterAll(async () => {
     }
     await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
   }
-});
+}, 120_000);
 
 describe.skipIf(!dbAvailable)("partner rooms", () => {
   it("anonymous visitors can read state but cannot act; unknown pages reveal nothing", async () => {
@@ -370,10 +383,10 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
 
     expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(decoyTenantId), body: { csv } })).status).toBe(404);
     expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: "nothing" } })).status).toBe(400);
-    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv } })).json).toEqual({ ok: true, added: 3, updated: 0 });
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv } })).json).toEqual({ ok: true, added: 3, updated: 0, removed: 0 });
     // Pasting again updates by name; a blank stage keeps the saved one.
     const again = ["name,stage,wave", "Summit Dental,scheduling,2", "Lakeside Family,,1", "Brand New Dental,not started,3"].join("\n");
-    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: again } })).json).toEqual({ ok: true, added: 1, updated: 2 });
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: again } })).json).toEqual({ ok: true, added: 1, updated: 2, removed: 0 });
 
     const anon = (await post("state", { pageId })).json as { practices: { total: number; byStage: Record<string, number>; regions: string[] } };
     expect(anon.practices).toEqual({ total: 4, byStage: { live: 1, trained: 1, scheduling: 1, not_started: 1 }, regions: ["Colorado", "North Texas"] });
@@ -428,5 +441,89 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { requests: { kind: string; asanaTaskGid: string | null }[] };
     expect(detail.requests.filter((q) => q.asanaTaskGid).map((q) => q.kind).sort()).toEqual(["asset_change", "marketing"]);
     expect(detail.requests.find((q) => q.kind === "training")?.asanaTaskGid).toBeNull();
+  });
+
+  it("a connected Google Sheet is the practice list: it mirrors the sheet, and an unreadable sheet changes nothing", async () => {
+    const tenantId = await seedTenant();
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental" } }])]);
+    const pageId = r.rows[0].id;
+    const settings = (body: object) => inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], ...body } });
+    const sync = () => inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/sync-sheet`, headers: asTenant(tenantId) });
+
+    expect((await sync()).status).toBe(400); // nothing connected
+    expect((await settings({ practicesSheet: "not a sheet" })).status).toBe(400);
+    expect((await settings({ practicesSheet: "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/edit#gid=0", practicesSheetTab: "All practices" })).status).toBe(200);
+
+    sheetValues = [["Name", "Region", "Wave", "Stage", "Training Date"], ["Main Street Dental", "North Texas", "1", "Live", "Nov 4"], ["Lakeside Family", "Colorado", "2", "", ""], ["", "No name", "", "", ""]];
+    expect((await sync()).json).toEqual({ ok: true, note: "2 practices in the sheet (2 added, 0 updated, 0 removed)." });
+    // The sheet changes: one practice goes live, one leaves, one arrives.
+    sheetValues = [["Name", "Region", "Stage"], ["Main Street Dental", "North Texas", "Live"], ["Summit Dental", "Colorado", "Scheduling"]];
+    expect((await sync()).json).toEqual({ ok: true, note: "2 practices in the sheet (1 added, 1 updated, 1 removed)." });
+    const state = (await post("state", { pageId })).json as { practices: { total: number; byStage: Record<string, number> } };
+    expect(state.practices).toMatchObject({ total: 2, byStage: { live: 1, scheduling: 1 } });
+
+    // A sheet we can't open, or an empty one, never wipes the list.
+    sheetValues = null;
+    expect((await sync()).status).toBe(400);
+    sheetValues = [["Name"]];
+    expect((await sync()).status).toBe(400);
+    expect(((await post("state", { pageId })).json as { practices: { total: number } }).practices.total).toBe(2);
+    const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { sheet: { id: string; tab: string; note: string } };
+    expect(detail.sheet).toMatchObject({ id: "1AbCdEfGhIjKlMnOpQrStUvWxYz012345", tab: "All practices" });
+    expect(detail.sheet.note).toContain("no rows with a practice name");
+  });
+
+  it("an uploaded list is compared with the room's practices, and the gap is raised for RevOps", async () => {
+    const tenantId = await seedTenant();
+    const decoyTenantId = await seedTenant();
+    await pool.query(`INSERT INTO lp_integrations (tenant_id, provider, enabled, config) VALUES ($1, 'asana', true, $2::jsonb)`, [tenantId, JSON.stringify({ pat: "test-pat", projectId: "111111111" })]);
+    const blocks = [{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental", planGroups: [{ title: "P", rows: [{ key: "practice-roster", task: "Upload your practice list", customerAction: "upload" }] }] } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: "name\nMain Street Dental\nLakeside Family Dentistry\nClosed Practice LLC" } });
+    const list = 'Practice Name,City\n"Main Street Dental, P.C.",Dallas\nLakeside Family Dentistry,Austin\nBrand New Dental,Denver\n';
+    expect((await post("upload", { pageId, taskKey: "practice-roster", hl, fileName: "MB2 practices.csv", fileBase64: Buffer.from(list).toString("base64") })).status).toBe(200);
+    const uploads = ((await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { uploads: { id: number }[] }).uploads;
+
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/uploads/${uploads[0].id}/compare`, headers: asTenant(decoyTenantId) })).status).toBe(404);
+    const cmp = (await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/uploads/${uploads[0].id}/compare`, headers: asTenant(tenantId) })).json as { practices: { uploaded: number; matched: number; missingFromRoom: string[]; notOnUpload: string[] } };
+    expect(cmp.practices).toMatchObject({ uploaded: 3, matched: 2, missingFromRoom: ["Brand New Dental"], notOnUpload: ["Closed Practice LLC"] });
+
+    __clearRecordedAsanaCalls();
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/revops-task`, headers: asTenant(tenantId), body: { missing: [], doctors: 0 } })).status).toBe(400);
+    const raised = await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/revops-task`, headers: asTenant(tenantId), body: { missing: cmp.practices.missingFromRoom, fileName: "MB2 practices.csv" } });
+    expect(raised.json).toMatchObject({ ok: true, name: "RevOps - MB2 Dental - Add 1 child account to Salesforce" });
+    const call = __getRecordedAsanaCalls().find((c) => c.tenantId === tenantId)!;
+    expect(call.payload.name).toBe("RevOps - MB2 Dental - Add 1 child account to Salesforce");
+    expect(String(call.payload.notes)).toContain("- Brand New Dental");
+    expect(call.payload.intakeStatus).not.toBe("submitted"); // not a marketing request
+  });
+
+  it("weekly digest: preview shows what would go out; a manual send emails each saved recipient once", async () => {
+    const tenantId = await seedTenant();
+    const blocks = [{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental", planGroups: [{ title: "P", rows: [{ key: "announce", task: "Internal announcement", customerAction: "check" }, { key: "roster", task: "Upload your practice list", customerAction: "upload" }] }] } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    await post("task", { pageId, taskKey: "announce", hl });
+
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], digestEnabled: true, digestRecipients: ["nope"] } })).status).toBe(400);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], digestEnabled: true, digestRecipients: ["Dana@RoomCo.com", "sam@roomco.com", "dana@roomco.com"] } })).status).toBe(200);
+
+    const preview = (await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/digest/preview`, headers: asTenant(tenantId) })).json as { subject: string; html: string; recipients: string[]; slackText: string; empty: boolean };
+    expect(preview.recipients).toEqual(["dana@roomco.com", "sam@roomco.com"]);
+    expect(preview.subject).toContain("MB2 Dental");
+    expect(preview.html).toContain("Internal announcement");
+    expect(preview.html).toContain("Upload your practice list");
+    expect(preview.empty).toBe(false);
+
+    digestEmails.length = 0;
+    const sent = (await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/digest/send`, headers: asTenant(tenantId) })).json as { sent: boolean; emails: number };
+    expect(sent).toMatchObject({ sent: true, emails: 2 });
+    expect(digestEmails.map((e) => e.recipientEmail).sort()).toEqual(["dana@roomco.com", "sam@roomco.com"]);
+    const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { digest: { enabled: boolean; lastSentAt: string | null } };
+    expect(detail.digest.enabled).toBe(true);
+    expect(detail.digest.lastSentAt).not.toBeNull();
   });
 });

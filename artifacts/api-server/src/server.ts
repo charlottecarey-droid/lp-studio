@@ -32,6 +32,7 @@ import { startMarketoSyncPoller } from "./lib/marketoSyncPoller";
 import { startHubspotSyncPoller } from "./lib/hubspotSyncPoller";
 import { startSfdcMicrositeRequestPoller } from "./lib/sfdcMicrositeRequestPoller";
 import { startBlogPublishPoller } from "./lib/blogPublishPoller";
+import { startPartnerRoomPoller } from "./lib/partnerRoomPoller";
 import { startBlogProgramPoller } from "./lib/blogProgramPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
@@ -656,6 +657,11 @@ const httpServer = app.listen(port, (err) => {
   // advisory-locked, fail-open + crash-safe). Production-only unless
   // BLOG_PUBLISH_POLLER_ENABLED is set (see poller).
   startBlogPublishPoller();
+
+  // Partner rooms: re-read connected practice sheets (hourly per room) and
+  // send the weekly digest on Monday mornings. Production-only unless
+  // ROOM_POLLER_ENABLED=1 (see poller).
+  startPartnerRoomPoller();
 
   // Blog Phase 4 — autonomous content-program tick. In AUTONOMOUS mode keeps
   // the publishing backlog healthy (tops up recommendations, generates drafts

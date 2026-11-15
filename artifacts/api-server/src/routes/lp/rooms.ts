@@ -42,6 +42,8 @@ import { sendRoomAccessEmail } from "../../lib/notifications";
 import { slackService } from "../../lib/slack-service";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
+import { buildRoomDigest, practiceSummary, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
+import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "../../lib/partnerRoomReconcile";
 import {
   ASANA_REQUEST_KINDS,
   asanaRequestTaskName,
@@ -119,56 +121,6 @@ async function loadSettings(pageId: number): Promise<{ allowedDomains: string[];
     .where(eq(lpRoomSettingsTable.pageId, pageId))
     .limit(1);
   return { allowedDomains: Array.isArray(row?.allowedDomains) ? row.allowedDomains : [], slackChannelId: row?.slackChannelId ?? null, sfdcAccountId: row?.sfdcAccountId ?? null, asanaProjectGid: row?.asanaProjectGid ?? null };
-}
-
-/** Practice counts by stage and the list of regions: safe for any visitor (no practice names). */
-async function practiceSummary(pageId: number): Promise<{ total: number; byStage: Record<string, number>; regions: string[] }> {
-  const rows = (await db.execute(sql`SELECT stage, region, COUNT(*)::int AS n FROM lp_room_practices WHERE page_id = ${pageId} GROUP BY stage, region`)).rows as Array<{ stage: string; region: string | null; n: number }>;
-  const byStage: Record<string, number> = {};
-  const regions = new Set<string>();
-  let total = 0;
-  for (const r of rows) {
-    byStage[r.stage] = (byStage[r.stage] ?? 0) + r.n;
-    total += r.n;
-    if (r.region) regions.add(r.region);
-  }
-  return { total, byStage, regions: [...regions].sort() };
-}
-
-/** Add or update practices: matched by Salesforce id when given, else by name. A row that says nothing about the stage keeps the saved one. */
-async function upsertPractices(page: RoomPage, rows: RoomPracticeInput[]): Promise<{ added: number; updated: number }> {
-  const existing = await db.select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
-  const byExt = new Map(existing.filter((e) => e.externalId).map((e) => [e.externalId as string, e.id]));
-  const byName = new Map(existing.map((e) => [e.name.trim().toLowerCase(), e.id]));
-  const inserts: (typeof lpRoomPracticesTable.$inferInsert)[] = [];
-  let updated = 0;
-  for (const r of rows) {
-    const id = (r.externalId && byExt.get(r.externalId)) || byName.get(r.name.trim().toLowerCase());
-    if (id) {
-      await db
-        .update(lpRoomPracticesTable)
-        .set({
-          name: r.name,
-          ...(r.externalId ? { externalId: r.externalId } : {}),
-          ...(r.region ? { region: r.region } : {}),
-          ...(r.city ? { city: r.city } : {}),
-          ...(r.state ? { state: r.state } : {}),
-          ...(r.wave ? { wave: r.wave } : {}),
-          ...(r.stageGiven ? { stage: r.stage } : {}),
-          ...(r.trainingDate ? { trainingDate: r.trainingDate } : {}),
-          ...(r.liveDate ? { liveDate: r.liveDate } : {}),
-          updatedAt: sql`now()`,
-        })
-        .where(eq(lpRoomPracticesTable.id, id));
-      updated++;
-    } else {
-      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate });
-      byName.set(r.name.trim().toLowerCase(), -1);
-      if (r.externalId) byExt.set(r.externalId, -1);
-    }
-  }
-  for (let i = 0; i < inserts.length; i += 200) await db.insert(lpRoomPracticesTable).values(inserts.slice(i, i + 200));
-  return { added: inserts.length, updated };
 }
 
 async function memberStatus(pageId: number, email: string): Promise<RoomMemberStatus | null> {
@@ -776,8 +728,11 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
           loadWins(page.id, req.authUser?.email?.toLowerCase() ?? null, true),
         ])
       : [[], [], []];
+    const [fullSettings] = await db.select().from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1);
     res.json({
       isWorkspace: page.isWorkspace,
+      digest: { enabled: !!fullSettings?.digestEnabled, recipients: Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients : [], lastSentAt: fullSettings?.lastDigestAt?.toISOString() ?? null },
+      sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null },
       practices: await practiceSummary(page.id),
       choices: [...page.choices.values()].map((spec) => {
         const c = choiceRows.find((x) => x.choiceKey === spec.key);
@@ -856,7 +811,37 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
       res.status(400).json({ error: "That doesn't look like an Asana project ID (the long number in the project's URL)" });
       return;
     }
-    const values = { allowedDomains: domains, slackChannelId: channelRaw || null, sfdcAccountId: sfdcRaw || null, asanaProjectGid: asanaRaw || null };
+    // Optional keys: only touched when the request carries them.
+    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null } = {};
+    if (typeof req.body?.digestEnabled === "boolean") extra.digestEnabled = req.body.digestEnabled;
+    if (Array.isArray(req.body?.digestRecipients)) {
+      const list: string[] = [];
+      for (const raw of (req.body.digestRecipients as unknown[]).slice(0, 50)) {
+        const e = normalizeEmail(raw);
+        if (!e) {
+          res.status(400).json({ error: `"${String(raw)}" isn't a valid email address` });
+          return;
+        }
+        if (!list.includes(e)) list.push(e);
+      }
+      extra.digestRecipients = list;
+    }
+    if (req.body?.practicesSheet !== undefined) {
+      const rawSheet = typeof req.body.practicesSheet === "string" ? req.body.practicesSheet.trim() : "";
+      const sheetId = rawSheet ? sheetIdFrom(rawSheet) : null;
+      if (rawSheet && !sheetId) {
+        res.status(400).json({ error: "Paste the Google Sheet's link (or its ID)." });
+        return;
+      }
+      const tab = typeof req.body?.practicesSheetTab === "string" ? req.body.practicesSheetTab.trim() : "";
+      if (tab && !SHEET_TAB_RE.test(tab)) {
+        res.status(400).json({ error: "That tab name has characters a sheet tab can't be read by." });
+        return;
+      }
+      extra.practicesSheetId = sheetId;
+      extra.practicesSheetTab = tab || null;
+    }
+    const values = { allowedDomains: domains, slackChannelId: channelRaw || null, sfdcAccountId: sfdcRaw || null, asanaProjectGid: asanaRaw || null, ...extra };
     await db
       .insert(lpRoomSettingsTable)
       .values({ pageId: page.id, tenantId: page.tenantId, ...values })
@@ -973,6 +958,134 @@ router.post("/lp/partner-rooms/:pageId/practices/sync-salesforce", async (req: R
   } catch (err) {
     req.log.error({ err }, "room practices sfdc sync failed");
     res.status(502).json({ error: "Could not read from Salesforce. Check the connection and try again." });
+  }
+});
+
+/** Read the connected Google Sheet now and make the practice list match it. */
+router.post("/lp/partner-rooms/:pageId/practices/sync-sheet", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const result = await syncPracticesFromSheet(page.id);
+    res.status(result.ok ? 200 : 400).json(result.ok ? { ok: true, note: result.note } : { error: result.note });
+  } catch (err) {
+    req.log.error({ err }, "room sheet sync failed");
+    res.status(500).json({ error: "Could not read the sheet" });
+  }
+});
+
+async function readUpload(page: RoomPage, idRaw: unknown): Promise<{ fileName: string; buffer: Buffer } | null> {
+  const id = Number(idRaw);
+  if (!Number.isFinite(id)) return null;
+  const [row] = await db.select().from(lpRoomUploadsTable).where(and(eq(lpRoomUploadsTable.id, id), eq(lpRoomUploadsTable.pageId, page.id), eq(lpRoomUploadsTable.tenantId, page.tenantId))).limit(1);
+  if (!row) return null;
+  const file = await objectStorage.getObjectEntityFile(row.objectPath);
+  const chunks: Buffer[] = [];
+  for await (const chunk of file.createReadStream() as Readable) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  return { fileName: row.fileName, buffer: Buffer.concat(chunks) };
+}
+
+/**
+ * Compare a file the customer uploaded (their practice list or doctor roster)
+ * with the practices we hold for the room: what is on their list but not in
+ * ours (Salesforce is missing it), and the reverse.
+ */
+router.post("/lp/partner-rooms/:pageId/uploads/:id/compare", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const upload = await readUpload(page, req.params.id);
+    if (!upload) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    let names: ReturnType<typeof practiceNamesFromUpload>;
+    let doctors: ReturnType<typeof doctorCountFromUpload>;
+    try {
+      names = practiceNamesFromUpload(upload.fileName, upload.buffer);
+      doctors = doctorCountFromUpload(upload.fileName, upload.buffer);
+    } catch {
+      res.status(400).json({ error: "That file can't be compared. Use an .xlsx or .csv list." });
+      return;
+    }
+    if (!names && !doctors) {
+      res.status(400).json({ error: "Couldn't find a practice or doctor column in that file. The header row needs a column like “Practice name” or “Doctor”." });
+      return;
+    }
+    const roomNames = (await db.select({ name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id))).map((p) => p.name);
+    const result = names ? reconcilePractices(names.names, roomNames) : null;
+    res.json({
+      fileName: upload.fileName,
+      practices: result && { ...result, sheet: names!.sheet, missingFromRoom: result.missingFromRoom.slice(0, 2000), notOnUpload: result.notOnUpload.slice(0, 2000) },
+      doctors: doctors && { count: doctors.count, sheet: doctors.sheet },
+    });
+  } catch (err) {
+    req.log.error({ err }, "room upload compare failed");
+    res.status(500).json({ error: "Could not compare that file" });
+  }
+});
+
+/**
+ * Raise the gaps as an action item for RevOps: an Asana task listing the
+ * practices to add to Salesforce (and the doctor count), plus a Slack post.
+ * It is not a marketing request, so no intake status is set.
+ */
+router.post("/lp/partner-rooms/:pageId/revops-task", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const missing = (Array.isArray(req.body?.missing) ? (req.body.missing as unknown[]) : []).map((m) => String(m ?? "").trim().slice(0, 160)).filter(Boolean).slice(0, 2000);
+    const doctors = Number.isFinite(Number(req.body?.doctors)) ? Math.max(0, Math.floor(Number(req.body.doctors))) : 0;
+    const fileName = typeof req.body?.fileName === "string" ? req.body.fileName.slice(0, 160) : "";
+    if (missing.length === 0 && doctors === 0) {
+      res.status(400).json({ error: "Nothing to raise: no missing practices or doctors." });
+      return;
+    }
+    const customer = page.partnerName || page.title;
+    const what = [missing.length ? `${missing.length} child account${missing.length === 1 ? "" : "s"}` : null, doctors ? `${doctors} doctor${doctors === 1 ? "" : "s"}` : null].filter(Boolean).join(" and ");
+    const name = `RevOps - ${customer} - Add ${what} to Salesforce`.slice(0, 250);
+    const notes = [
+      `${customer}'s uploaded list${fileName ? ` (${fileName})` : ""} was compared with the practices held for their partner room.`,
+      missing.length ? `\n${missing.length} practice${missing.length === 1 ? " is" : "s are"} on the customer's list but not in Salesforce. Please add as child accounts of the parent account:\n${missing.map((m) => `- ${m}`).join("\n")}` : "",
+      doctors ? `\nThe doctor roster lists ${doctors} doctor${doctors === 1 ? "" : "s"}. Please add them as contacts on their practices. The roster file is in the room's Files received (LP Studio → page analytics → Room).` : "",
+      `\nRaised by ${req.authUser?.name || req.authUser?.email || "the account team"}.`,
+    ].join("\n");
+    const settings = await loadSettings(page.id);
+    const asana = await createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name, notes, projectGid: settings.asanaProjectGid, statusFieldName: "__none__", statusOptionName: "__none__" });
+    postToSlack(page, settings.slackChannelId, "🧾 RevOps action item", [`*Add ${mrk(what)} to Salesforce* for ${mrk(customer)}.`, ...(missing.length ? [missing.slice(0, 15).map((m) => `• ${mrk(m)}`).join("\n") + (missing.length > 15 ? `\n• and ${missing.length - 15} more` : "")] : []), asana.taskId ? `Asana: https://app.asana.com/0/0/${asana.taskId}` : "Asana task could not be created; this post is the record."]);
+    res.json({ ok: true, asanaTaskGid: asana.taskId ?? null, name, warning: asana.ok ? null : asana.warning ?? null });
+  } catch (err) {
+    req.log.error({ err }, "room revops task failed");
+    res.status(500).json({ error: "Could not raise the action item" });
+  }
+});
+
+/** The weekly digest as it would go out now: the email, who gets it, and the Slack text. */
+router.post("/lp/partner-rooms/:pageId/digest/preview", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const digest = await buildRoomDigest(page.id);
+    if (!digest) {
+      res.status(400).json({ error: "This page isn't a workspace room." });
+      return;
+    }
+    res.json({ subject: digest.email.subject, html: digest.email.html, recipients: digest.recipients, slackText: (digest.slack.blocks[1] as { text?: { text?: string } })?.text?.text ?? "", empty: digest.empty });
+  } catch (err) {
+    req.log.error({ err }, "room digest preview failed");
+    res.status(500).json({ error: "Could not build the digest" });
+  }
+});
+
+/** Send the digest now (Slack post + an email to each recipient). */
+router.post("/lp/partner-rooms/:pageId/digest/send", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    res.json(await sendRoomDigest(page.id, { scheduled: false }));
+  } catch (err) {
+    req.log.error({ err }, "room digest send failed");
+    res.status(500).json({ error: "Could not send the digest" });
   }
 });
 
