@@ -300,6 +300,24 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         <Field label="Label above the title"><Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Title (after “Customer × You”)"><Input value={props.title ?? ""} onChange={(e) => update({ title: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Intro line"><Textarea value={props.lede ?? ""} onChange={(e) => update({ lede: e.target.value })} rows={2} className="text-xs" /></Field>
+        <Field label="Cover style">
+          <div className="grid grid-cols-3 gap-1">
+            {(
+              [
+                { id: "split", label: "Photo card", hint: "Text beside a framed photo" },
+                { id: "fullbleed", label: "Full-bleed", hint: "The photo fills the cover" },
+                { id: "light", label: "Light", hint: "Pale, editorial" },
+              ] as const
+            ).map((c) => {
+              const on = (props.coverStyle ?? "split") === c.id;
+              return (
+                <button key={c.id} type="button" onClick={() => update({ coverStyle: c.id })} aria-pressed={on} title={c.hint} className={`rounded-md border px-2 py-1.5 text-[11px] font-medium ${on ? "border-foreground bg-muted" : "text-muted-foreground hover:bg-muted/50"}`} data-room-cover-option={c.id}>
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
         <div className="flex items-center gap-2">
           <ThumbButton value={props.heroImageUrl ?? ""} onChange={(url) => update({ heroImageUrl: url })} label="Cover photo" />
           <span className="text-[11px] text-muted-foreground">Cover photo. Blank gives a text-only cover.</span>

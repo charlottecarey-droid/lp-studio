@@ -4,7 +4,7 @@ vi.mock("@workspace/db", () => ({ db: {}, pool: {} }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
 import { parentIdFilter, practicesFromSheetValues, revopsSlackLines, sheetFilterIndex, slackMention } from "./partnerRoomService";
-import { extractRoomTasks, fillAccountName, normalizePracticeStage, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
+import { extractRoomTasks, fillAccountName, normalizePracticeStage, parsePracticeRow, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
 
 const MB2 = "0015d000041HyXrAAK";
 const SHEET = [
@@ -139,5 +139,19 @@ describe("the account name as a variable", () => {
     }
     const other = [{ id: "h", type: "hero", props: { title: "[Partner]" } }];
     expect(resolveRoomBlocks(other)[0]).toBe(other[0]);
+  });
+});
+
+describe("practice rows with scanner and manager data", () => {
+  it("reads Salesforce's scanner columns and a regional manager", () => {
+    expect(parsePracticeRow({ "account name": "Lakeside Family", status: "Ramped", "scanner delivered": "3/4/2026", "scanner connected": "3/9/2026", "regional manager": "Dana Ruiz" })).toMatchObject({ name: "Lakeside Family", stage: "live", stageGiven: true, scannerSent: "3/4/2026", scannerActivated: "3/9/2026", regionalManager: "Dana Ruiz", scannerCount: null });
+  });
+  it("reads the scanner tracker's office breakdown without touching the rollout stage", () => {
+    const row = parsePracticeRow({ office: "Ohio Cosmetic Dentists", status: "Active", "current total": "4", "trios 3": "1", "trios 5": "0", "dandy vision": "3", "first opp": "2023-03-28", "last opp": "2026-11-13" })!;
+    expect(row).toMatchObject({ name: "Ohio Cosmetic Dentists", scannerCount: 4, scannerModels: "1 Trios 3 · 3 Dandy Vision", scannerSent: "2023-03-28" });
+    // "Active" there means the office is open, not that it is live in this rollout.
+    expect(row.stageGiven).toBe(false);
+    expect(parsePracticeRow({ office: "No scanners yet", "current total": "0" })).toMatchObject({ scannerCount: 0, scannerModels: null });
+    expect(parsePracticeRow({ office: "Odd", "current total": "lots" })!.scannerCount).toBeNull();
   });
 });

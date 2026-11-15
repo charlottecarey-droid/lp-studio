@@ -341,6 +341,32 @@ export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: 
               >
                 Import list
               </Button>
+              <label className="inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50">
+                Upload a file (.xlsx or .csv)
+                <input
+                  type="file"
+                  accept=".xlsx,.csv"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setNote("");
+                    if (file.size > 7 * 1024 * 1024) return setError("That file is over 7 MB.");
+                    const bytes = new Uint8Array(await file.arrayBuffer());
+                    let bin = "";
+                    for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
+                    const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileBase64: btoa(bin) }) });
+                    const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number; sheet?: string };
+                    setError(r.ok ? "" : j.error ?? "Import failed");
+                    if (r.ok) {
+                      setNote(`${j.added ?? 0} added, ${j.updated ?? 0} updated${j.sheet ? ` from “${j.sheet}”` : ""}.`);
+                      await refresh();
+                    }
+                  }}
+                />
+              </label>
+              <span className="text-xs text-muted-foreground">A file fills in what it carries and leaves the rest. The scanner tracker’s Excel export adds scanner counts and models to the practices it names.</span>
               <span className="text-xs text-muted-foreground">Stages: not started, scheduling, training booked, trained, live. Pasting again updates practices by name.</span>
             </div>
           </section>

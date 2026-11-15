@@ -387,7 +387,15 @@ export interface RoomPracticeInput {
   stageGiven: boolean;
   trainingDate: string | null;
   liveDate: string | null;
+  scannerSent: string | null;
+  scannerActivated: string | null;
+  regionalManager: string | null;
+  /** Scanners at the practice now; null when the source doesn't say. */
+  scannerCount: number | null;
+  scannerModels: string | null;
 }
+
+const SCANNER_MODEL_COLUMNS: [string, string][] = [["trios 3", "Trios 3"], ["trios 5", "Trios 5"], ["dandy vision", "Dandy Vision"], ["medit", "Medit"], ["itero", "iTero"]];
 
 /** One practice row from a pasted list or an API body; null when it has no name. */
 export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInput | null {
@@ -398,8 +406,12 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     }
     return null;
   };
-  const name = get("name", "practice", "practice_name", "practice name", "account", "account name");
+  // "Office" is the scanner tracker's export: its Status column says whether the office is active, not where it is in the rollout.
+  const fromScannerExport = !get("name", "practice", "practice_name", "practice name", "account", "account name") && !!get("office", "office name");
+  const name = get("name", "practice", "practice_name", "practice name", "account", "account name", "office", "office name");
   if (!name) return null;
+  const count = get("scannerCount", "scanner_count", "scanners", "scanner count", "current total", "total scanners");
+  const models = SCANNER_MODEL_COLUMNS.map(([col, label]) => [Number(get(col)), label] as const).filter(([n]) => Number.isFinite(n) && n > 0).map(([n, label]) => `${n} ${label}`).join(" · ");
   const state = get("state", "billing state/province", "billing state", "billing state / province");
   return {
     externalId: get("externalId", "external_id", "sfdc_id", "sfdc id", "salesforce_id", "id", "account id", "18 digit id", "account id (18)"),
@@ -409,10 +421,16 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     city: get("city", "billing city"),
     state,
     wave: get("wave"),
-    stage: normalizePracticeStage(get("stage", "status")),
-    stageGiven: !!get("stage", "status"),
+    stage: fromScannerExport ? "not_started" : normalizePracticeStage(get("stage", "status")),
+    stageGiven: !fromScannerExport && !!get("stage", "status"),
     trainingDate: get("trainingDate", "training_date", "training date", "training"),
     liveDate: get("liveDate", "live_date", "live date", "activated date", "activated"),
+    // Salesforce's own column names for the scanner dates are accepted as they are.
+    scannerSent: get("scannerSent", "scanner_sent", "scanner sent", "scanner delivered", "scanner shipped", "scanner sent date", "first opp"),
+    scannerActivated: get("scannerActivated", "scanner_activated", "scanner activated", "scanner connected", "scanner activation date"),
+    regionalManager: get("regionalManager", "regional_manager", "regional manager", "regional manager name", "region manager", "rm"),
+    scannerCount: count != null && /^\d{1,4}$/.test(count) ? Number(count) : null,
+    scannerModels: get("scannerModels", "scanner_models", "scanner models", "scanner type") ?? (models || null),
   };
 }
 

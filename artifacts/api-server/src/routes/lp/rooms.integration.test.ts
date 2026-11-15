@@ -825,4 +825,32 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(backfilled.rows[0]?.sfdc_account_id).toBe("0015d00000BBBBBAAA");
     sheetValues = null;
   }, 60_000);
+
+  it("practices: a scanner export fills counts without changing stages, and the list sorts by any column", async () => {
+    const tenantId = await seedTenant();
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental" } }])]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    const imp = (body: unknown) => inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body });
+    expect((await imp({ csv: "name,region,stage,regional manager\nAlpha Dental,Texas,Live,Dana Ruiz\nBravo Dental,Colorado,Scheduling,Sam Ortiz\nCharlie Dental,Arizona,Trained," })).status).toBe(200);
+
+    // The scanner tracker's export, as a .csv file: matched by name, adds scanner data only.
+    const file = "Office,Status,Current Total,Trios 3,Trios 5,Dandy Vision,First Opp,Last Opp\nAlpha Dental,Active,4,1,0,3,2023-03-28,2026-11-13\nCharlie Dental,Active,1,0,1,0,2024-05-21,2026-11-13\n";
+    const up = await imp({ fileName: "scanner-export.csv", fileBase64: Buffer.from(file).toString("base64") });
+    expect(up.json).toMatchObject({ ok: true, added: 0, updated: 2 });
+    expect((await imp({ fileName: "empty.csv", fileBase64: Buffer.from("nothing,here\n1,2\n").toString("base64") })).status).toBe(400);
+
+    const list = async (body: Record<string, unknown>) => (await post("practices", { pageId, hl, ...body })).json as { columns: Record<string, boolean>; rows: { name: string; stage: string; scannerCount: number | null; scannerModels: string | null; regionalManager: string | null }[] };
+    const byCount = await list({ sort: "scannerCount", dir: "desc" });
+    expect(byCount.rows.map((p) => [p.name, p.scannerCount])).toEqual([["Alpha Dental", 4], ["Charlie Dental", 1], ["Bravo Dental", null]]); // blanks last
+    expect(byCount.rows[0]).toMatchObject({ stage: "live", scannerModels: "1 Trios 3 · 3 Dandy Vision", regionalManager: "Dana Ruiz" });
+    expect(byCount.rows[1].stage).toBe("trained"); // "Active" in the export did not overwrite the rollout stage
+    expect(byCount.columns).toMatchObject({ scannerCount: true, manager: true, scanner: true });
+    expect((await list({ sort: "stage", dir: "asc" })).rows.map((p) => p.stage)).toEqual(["scheduling", "trained", "live"]);
+    expect((await list({ sort: "regionalManager" })).rows.map((p) => p.name)).toEqual(["Alpha Dental", "Bravo Dental", "Charlie Dental"]);
+    // A sort name that isn't a column is ignored rather than trusted.
+    expect((await list({ sort: "name; DROP TABLE lp_pages" })).rows).toHaveLength(3);
+    const state = (await post("state", { pageId })).json as { practices: { scanners?: { total: number; practices: number } } };
+    expect(state.practices.scanners).toEqual({ total: 5, practices: 2 });
+  });
 });

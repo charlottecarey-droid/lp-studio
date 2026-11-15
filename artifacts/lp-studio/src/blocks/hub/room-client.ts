@@ -73,7 +73,7 @@ export interface RoomSnapshot {
   /** People the customer added to their team. Empty for an anonymous visitor. */
   contacts: RoomContact[];
   /** Practice counts by stage and the regions present (no names: safe for any visitor). */
-  practices: { total: number; byStage: Record<string, number>; regions: string[] };
+  practices: { total: number; byStage: Record<string, number>; regions: string[]; scanners?: { total: number; practices: number } };
   /** Meetings synced from the team's calendar (only ones with a customer guest). */
   events: RoomSyncedEvent[];
   /** Minutes the team published. */
@@ -108,11 +108,19 @@ export interface RoomPractice {
   stage: string;
   trainingDate: string | null;
   liveDate: string | null;
+  scannerSent?: string | null;
+  scannerActivated?: string | null;
+  regionalManager?: string | null;
+  scannerCount?: number | null;
+  scannerModels?: string | null;
 }
+export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount";
 export interface RoomPracticePage {
   total: number;
   page: number;
   pageSize: number;
+  /** Which optional columns this room has any data for. */
+  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean };
   rows: RoomPractice[];
 }
 
@@ -268,7 +276,7 @@ class RoomStore {
   }
 
   /** One page of the practice list (known visitors only). Null when it could not be loaded. */
-  async loadPractices(filter: { region?: string; q?: string; page?: number }): Promise<RoomPracticePage | "identity" | null> {
+  async loadPractices(filter: { region?: string; q?: string; page?: number; sort?: RoomPracticeSort; dir?: "asc" | "desc" }): Promise<RoomPracticePage | "identity" | null> {
     try {
       const { status, json } = await this.post("practices", filter);
       if (status === 200) return json as unknown as RoomPracticePage;

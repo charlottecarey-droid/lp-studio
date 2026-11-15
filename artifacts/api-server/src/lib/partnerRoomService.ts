@@ -30,7 +30,7 @@ import { sendRoomDigestEmail } from "./notifications";
 import { slackService } from "./slack-service";
 
 /** Practice counts by stage and the list of regions: safe for any visitor (no practice names). */
-export async function practiceSummary(pageId: number): Promise<{ total: number; byStage: Record<string, number>; regions: string[] }> {
+export async function practiceSummary(pageId: number): Promise<{ total: number; byStage: Record<string, number>; regions: string[]; scanners?: { total: number; practices: number } }> {
   const rows = (await db.execute(sql`SELECT stage, region, COUNT(*)::int AS n FROM lp_room_practices WHERE page_id = ${pageId} GROUP BY stage, region`)).rows as Array<{ stage: string; region: string | null; n: number }>;
   const byStage: Record<string, number> = {};
   const regions = new Set<string>();
@@ -40,7 +40,9 @@ export async function practiceSummary(pageId: number): Promise<{ total: number; 
     total += r.n;
     if (r.region) regions.add(r.region);
   }
-  return { total, byStage, regions: [...regions].sort() };
+  // Scanner counts, when the list carries them (the scanner tracker's office breakdown).
+  const [sc] = (await db.execute(sql`SELECT COALESCE(SUM(scanner_count), 0)::int AS total, COUNT(*) FILTER (WHERE scanner_count > 0)::int AS practices, COUNT(scanner_count)::int AS known FROM lp_room_practices WHERE page_id = ${pageId}`)).rows as Array<{ total: number; practices: number; known: number }>;
+  return { total, byStage, regions: [...regions].sort(), ...(sc && sc.known > 0 ? { scanners: { total: sc.total, practices: sc.practices } } : {}) };
 }
 
 /** Add or update practices: matched by Salesforce id when given, else by name. A row that says nothing about the stage keeps the saved one. */
@@ -65,12 +67,17 @@ export async function upsertPractices(page: { id: number; tenantId: number }, ro
           ...(r.stageGiven ? { stage: r.stage } : {}),
           ...(r.trainingDate ? { trainingDate: r.trainingDate } : {}),
           ...(r.liveDate ? { liveDate: r.liveDate } : {}),
+          ...(r.scannerSent ? { scannerSent: r.scannerSent } : {}),
+          ...(r.scannerActivated ? { scannerActivated: r.scannerActivated } : {}),
+          ...(r.regionalManager ? { regionalManager: r.regionalManager } : {}),
+          ...(r.scannerCount != null ? { scannerCount: r.scannerCount } : {}),
+          ...(r.scannerModels ? { scannerModels: r.scannerModels } : {}),
           updatedAt: sql`now()`,
         })
         .where(eq(lpRoomPracticesTable.id, id));
       updated++;
     } else {
-      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate });
+      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels });
       byName.set(r.name.trim().toLowerCase(), -1);
       if (r.externalId) byExt.set(r.externalId, -1);
     }

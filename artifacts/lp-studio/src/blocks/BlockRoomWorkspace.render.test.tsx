@@ -18,6 +18,8 @@ import {
   ROOM_WORKSPACE_DEFAULT_PROPS,
   phaseStates,
   roomAssetToHub,
+  isDeclineOption,
+  sortProgramsByDecision,
   resolveRoomProps,
   eventIcs,
   splitEvents,
@@ -145,8 +147,8 @@ describe("room-workspace — marketing plan, launch kit, hide anything", () => {
     expect((html.match(/data-room-program="fixed"/g) ?? []).length).toBe(2);
     expect((html.match(/data-room-program="open"/g) ?? []).length).toBe(2);
     expect(html).toContain("In plan");
-    expect(html).toContain(">Include<");
-    expect(html).toContain(">Not now<");
+    expect(html).toContain('title="Include"');
+    expect(html).toContain('title="Not now"');
   });
   it("launch kit: links come first, and actions are icon buttons with accessible names", () => {
     const html = only("kit", { links: [{ title: "Sign-up page", url: "https://example.com/signup" }], assets: [{ key: "a", kind: "pdf", title: "One-pager", fileUrl: "/files/one.pdf" }] });
@@ -314,5 +316,33 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     // No name yet: the placeholders stay visible so nobody ships "[Partner]" unnoticed as a blank.
     const blank = { ...raw, partnerName: "[Partner name]" };
     expect(resolveRoomProps(blank).props).toBe(blank);
+  });
+  it("marketing programs: yes/no is a thumbs up or down, and declined programs sort to the end", () => {
+    expect(isDeclineOption("Not now")).toBe(true);
+    expect(isDeclineOption(" skip ")).toBe(true);
+    expect(isDeclineOption("Include")).toBe(false);
+    expect(isDeclineOption("Dinner")).toBe(false);
+    const programs = [{ key: "a", title: "A", options: ["Include", "Not now"] }, { key: "b", title: "B", options: ["Include", "Not now"] }, { key: "c", title: "C" }];
+    const choices = { a: { value: "Not now" }, b: { value: "Include" } };
+    expect(sortProgramsByDecision(programs, choices).map((p) => p.key)).toEqual(["b", "c", "a"]);
+    expect(sortProgramsByDecision(programs, {}).map((p) => p.key)).toEqual(["a", "b", "c"]);
+    const html = only("marketing", { marketing: { groups: [{ title: "G", programs: [{ key: "a", title: "Lunch & Learn", options: ["Include", "Not now"] }, { key: "e", title: "Welcome event", options: ["Dinner", "Onsite training", "Not now"] }] }] } });
+    expect((html.match(/data-room-thumb="up"/g) ?? []).length).toBe(1); // one way to say yes
+    expect((html.match(/data-room-thumb="down"/g) ?? []).length).toBe(2);
+    expect(html).toContain(">Dinner</button>"); // several ways to say yes stay named
+    expect(html).not.toContain(">Not now</button>");
+  });
+  it("cover styles: photo card by default, full-bleed puts the photo behind the cover, light is pale", () => {
+    const img = "/api/storage/objects/uploads/cover";
+    expect(render({ heroImageUrl: img })).toContain('data-room-cover="split"');
+    const fb = render({ heroImageUrl: img, coverStyle: "fullbleed", nextMilestoneLabel: "Business review" });
+    expect(fb).toContain('data-room-cover="fullbleed"');
+    expect(fb).toContain("background-image:url(/api/storage/objects/uploads/cover)");
+    expect(fb).not.toContain('class="prw-photo"');
+    expect(fb).toContain("Next: Business review");
+    const lt = render({ heroImageUrl: img, coverStyle: "light", partnerLogoUrl: "/logo-white.png" });
+    expect(lt).toContain('data-room-cover="light"');
+    expect(lt).not.toContain("/logo-white.png"); // a white logo would vanish on the pale cover
+    expect(render({ coverStyle: "nope" as never })).toContain('data-room-cover="split"');
   });
 });

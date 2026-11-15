@@ -150,6 +150,13 @@ export const lpRoomPracticesTable = pgTable(
     stage: text("stage").notNull().default("not_started"),
     trainingDate: text("training_date"),
     liveDate: text("live_date"),
+    /** When the practice's scanner was sent and when it was activated, as the source writes them. */
+    scannerSent: text("scanner_sent"),
+    scannerActivated: text("scanner_activated"),
+    regionalManager: text("regional_manager"),
+    /** Scanners at the practice now, and which models ("1 Trios 3 · 3 Dandy Vision"). */
+    scannerCount: integer("scanner_count"),
+    scannerModels: text("scanner_models"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_practices_page_idx").on(t.pageId, t.region), uniqueIndex("lp_room_practices_page_ext_uniq").on(t.pageId, t.externalId).where(sql`${t.externalId} IS NOT NULL`)],

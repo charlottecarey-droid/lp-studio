@@ -1086,6 +1086,13 @@
       "when": 1758030160000,
       "tag": "0154_room_autocreate",
       "breakpoints": false
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1758030170000,
+      "tag": "0155_room_practice_columns",
+      "breakpoints": false
     }
   ]
 }

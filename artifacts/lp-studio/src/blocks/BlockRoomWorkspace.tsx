@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarPlus, Check, Play, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -11,7 +11,7 @@ import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { resolveHubPalette } from "@/lib/hub-theme";
 import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
-import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomSyncedEvent, type RoomSyncedMinutes, type RoomWin } from "./hub/room-client";
+import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomPracticePage, type RoomPracticeSort, type RoomSyncedEvent, type RoomSyncedMinutes, type RoomWin } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
  * Partner Room — Workspace — type "room-workspace"
@@ -387,6 +387,8 @@ export interface RoomWorkspaceBlockProps {
   lede?: string;
   heroImageUrl?: string;
   heroImageAlt?: string;
+  /** How the cover looks: "split" = text beside a photo card; "fullbleed" = the photo behind the whole cover; "light" = a pale, editorial cover. */
+  coverStyle?: "split" | "fullbleed" | "light";
   /** Kickoff date, YYYY-MM-DD. Drives "Day N of 90" and each phase's state. */
   kickoffDate?: string;
   rolloutDays?: number;
@@ -649,6 +651,18 @@ export function eventIcs(e: RoomEvent, calendarName: string): string {
   return ["BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:-//${icsText(calendarName)}//Room//EN`, "BEGIN:VEVENT", `UID:${icsText(e.key || e.title)}-${day}@room`, `DTSTAMP:${day}T000000Z`, ...when, `SUMMARY:${icsText(e.title)}`, `DESCRIPTION:${icsText([e.time, e.detail].filter(Boolean).join(" · "))}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
 }
 
+/** An option that means "no" ("Not now", "Skip", "No thanks"). Shown as a thumbs-down. */
+export const isDeclineOption = (o: string) => /^(not now|no|no thanks|skip|pass|not for us|decline|later)$/i.test(o.trim());
+const programKey = (p: RoomProgram) => roomMilestoneKey({ key: p.key, task: p.title });
+export function programDeclined(p: RoomProgram, choices: Record<string, { value: string }>): boolean {
+  const c = choices[programKey(p)];
+  return !!c && isDeclineOption(c.value);
+}
+/** Programs in their own order, with the declined ones moved to the end. */
+export function sortProgramsByDecision(programs: RoomProgram[], choices: Record<string, { value: string }>): RoomProgram[] {
+  return [...programs.filter((p) => !programDeclined(p, choices)), ...programs.filter((p) => programDeclined(p, choices))];
+}
+
 export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
 export const ROOM_PRACTICE_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
 
@@ -683,6 +697,39 @@ const CSS = `
 .prw button{font:inherit;cursor:pointer}
 .prw-wrap{max-width:1280px;margin:0 auto;padding:0 32px}
 .prw-num{font-variant-numeric:tabular-nums}
+.prw{zoom:1.1}
+.prw-cover.fb{background-position:center;background-size:cover;background-repeat:no-repeat}
+.prw-cover.fb::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,color-mix(in srgb,var(--dark) 94%,transparent) 0%,color-mix(in srgb,var(--dark) 78%,transparent) 42%,color-mix(in srgb,var(--dark) 22%,transparent) 100%),linear-gradient(0deg,color-mix(in srgb,var(--dark) 88%,transparent) 0%,transparent 46%)}
+.prw-cover.fb .prw-wrap{position:relative}
+.prw-cover.fb .prw-hero{grid-template-columns:minmax(0,680px);padding:64px 0 148px}
+.prw-cover.fb h1{font-size:54px}
+.prw-cover.fb .prw-next,.prw-cover.lt .prw-next{display:inline-flex;gap:10px;align-items:center;margin-top:22px;padding:8px 14px;border-radius:999px;font-size:12.5px;border:1px solid color-mix(in srgb,currentColor 28%,transparent)}
+.prw-cover.fb .prw-next b,.prw-cover.lt .prw-next b{color:var(--accent)}
+.prw-cover.lt{background:var(--paper);color:var(--ink);border-bottom:1px solid var(--line)}
+.prw-cover.lt .prw-eyebrow{color:var(--green)}
+.prw-cover.lt h1{color:var(--dark)}
+.prw-cover.lt p.lede{color:var(--body);opacity:1}
+.prw-cover.lt .prw-stats,.prw-cover.lt .prw-stats>div+div{border-color:var(--line)}
+.prw-cover.lt .prw-stats b{color:var(--dark)}
+.prw-cover.lt .prw-req{background:var(--dark);color:var(--on-dark)}
+.prw-cover.lt .prw-next b{color:var(--green)}
+.prw-cover.lt .prw-hero{padding:34px 0 108px}
+.prw-cover.lt .prw-photo{box-shadow:0 24px 48px -28px rgba(0,0,0,.35)}
+.prw-thumbs{display:inline-flex;gap:8px;align-items:center}
+.prw-thumb{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;border:1.5px solid #D4D8D0;background:#fff;color:var(--body);padding:0;transition:background .12s,color .12s,border-color .12s}
+.prw-thumb svg{width:16px;height:16px}
+.prw-thumb.up:hover,.prw-thumb.up.on{border-color:#16A34A;color:#16A34A}
+.prw-thumb.up.on{background:#16A34A;color:#fff}
+.prw-thumb.down:hover,.prw-thumb.down.on{border-color:#DC2626;color:#DC2626}
+.prw-thumb.down.on{background:#DC2626;color:#fff}
+.prw-thumb:disabled{opacity:.6;cursor:default}
+.prw-prog.off{background:#FAFAF8}
+.prw-prog.off>*:not(.dec){opacity:.45;filter:grayscale(1)}
+.prw-later{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:10px 20px;border-top:1px solid var(--line);background:#FAFAF8}
+.prw-scroll{overflow-x:auto;border-radius:12px}
+.prw-th{display:inline-flex;align-items:center;gap:5px;background:none;border:0;padding:0;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;white-space:nowrap}
+.prw-th svg{width:11px;height:11px;opacity:.55}
+.prw-th.on svg{opacity:1}
 .prw-edit{outline:0;border-radius:4px;cursor:text;white-space:pre-wrap;transition:box-shadow .12s}
 .prw-edit:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--dark) 28%,transparent)}
 .prw-edit:focus{box-shadow:0 0 0 2px var(--green);background:#fff}
@@ -896,6 +943,9 @@ const CSS = `
 .prw-stats>div{padding:14px 18px 0 0}
 .prw-stats>div+div{padding-left:18px}
 .prw-stats b{font-size:20px;white-space:nowrap}
+.prw{zoom:1}
+.prw-cover.fb h1{font-size:34px}
+.prw-cover.fb .prw-hero{padding:36px 0 110px}
 .prw-sheet{grid-template-columns:1fr}
 .prw-mod{padding:28px 20px 36px}
 .prw-welcome h2{font-size:30px}
@@ -1057,18 +1107,20 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
     requests: reviewRequests.length ? `${reviewRequests.length} to review` : "",
   };
   const heroImage = (props.heroImageUrl ?? "").trim();
-  const partnerLogo = (props.partnerLogoUrl ?? "").trim();
+  const cover = props.coverStyle === "fullbleed" || props.coverStyle === "light" ? props.coverStyle : "split";
+  // The customer's logo is a light version made for dark covers; on the pale cover their name is set in type instead.
+  const partnerLogo = cover === "light" ? "" : (props.partnerLogoUrl ?? "").trim();
   const pct = day === null ? 0 : Math.min(100, Math.round((day / total) * 100));
 
   return (
     <RoomEditContext.Provider value={editItem}>
     <section className="prw" style={vars} data-room-workspace>
       <style>{CSS}</style>
-      <div className="prw-cover">
+      <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
         <div className="prw-wrap">
           <div className="prw-top">
             <div className="prw-lock">
-              {brandHasLogo(brand) ? <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || "Logo"} /> : <span>{brand.brandName}</span>}
+              {brandHasLogo(brand) ? <BrandLogo brand={brand} tone={cover === "light" ? "onLight" : "onDark"} alt={brand.brandName || "Logo"} /> : <span>{brand.brandName}</span>}
               <span className="x">×</span>
               {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} /> : <span>{props.partnerName}</span>}
             </div>
@@ -1081,7 +1133,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               {snapshot.viewer && <span className="prw-me">{snapshot.viewer.name || snapshot.viewer.email}</span>}
             </div>
           </div>
-          <div className={`prw-hero${heroImage ? "" : " solo"}`}>
+          <div className={`prw-hero${heroImage && cover !== "fullbleed" ? "" : " solo"}`}>
             <div>
               {(props.eyebrow || isEditor) && (
                 <div className="prw-eyebrow">
@@ -1118,8 +1170,14 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                   </div>
                 )}
               </div>
+              {cover === "fullbleed" && (props.nextMilestoneLabel ?? "").trim() && (
+                <div className="prw-next">
+                  {(props.nextMilestoneDate ?? "").trim() && <b>{fmtDate(props.nextMilestoneDate)}</b>}
+                  <span>Next: {props.nextMilestoneLabel}</span>
+                </div>
+              )}
             </div>
-            {heroImage && (
+            {heroImage && cover !== "fullbleed" && (
               <div className="prw-photo">
                 <img src={heroImage} alt={props.heroImageAlt ?? ""} />
                 {(props.nextMilestoneLabel ?? "").trim() && (
@@ -1542,9 +1600,16 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                         {g.title}
                         {g.note && <span>{g.note}</span>}
                       </div>
-                      {g.programs.map((x) => (
-                        <ProgramRow key={x.key || x.title} program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
-                      ))}
+                      {/* Declined programs drop to the bottom, greyed, so what is in the plan reads first. */}
+                      {sortProgramsByDecision(g.programs, snapshot.choices).map((x, i, all) => {
+                        const off = programDeclined(x, snapshot.choices);
+                        return (
+                          <div key={x.key || x.title}>
+                            {off && (i === 0 || !programDeclined(all[i - 1], snapshot.choices)) && <div className="prw-later">Not now</div>}
+                            <ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -2188,8 +2253,11 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { progr
     }
   };
   const image = (program.imageUrl ?? "").trim();
+  const no = options.find(isDeclineOption);
+  const yes = options.filter((o) => o !== no);
+  const declined = !!chosen && !!no && chosen.value === no;
   return (
-    <div className="prw-prog" data-room-program={options.length >= 2 ? (chosen ? "chosen" : "open") : "fixed"}>
+    <div className={`prw-prog${declined ? " off" : ""}`} data-room-program={options.length >= 2 ? (declined ? "declined" : chosen ? "chosen" : "open") : "fixed"}>
       {image ? <img className="im" src={image} alt="" loading="lazy" /> : <span className="im" aria-hidden />}
       <div>
         <h3><E item={program} field="title" placeholder="Program" /></h3>
@@ -2201,12 +2269,26 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { progr
         {options.length >= 2 ? (
           <>
             {!chosen && <span className="need">Your decision</span>}
-            <span className="prw-seg" role="group" aria-label={program.title}>
-              {options.map((o) => (
-                <button key={o} type="button" className={chosen?.value === o ? "on" : ""} aria-pressed={chosen?.value === o} disabled={!!busy} onClick={() => void pick(o)}>
-                  {busy === o ? "Saving…" : o}
+            <span className="prw-thumbs" role="group" aria-label={program.title}>
+              {/* Several ways to say yes (Dinner / Onsite training) stay as named choices; one way is a thumbs-up. */}
+              {no && yes.length === 1 ? (
+                <button type="button" className={`prw-thumb up${chosen?.value === yes[0] ? " on" : ""}`} aria-pressed={chosen?.value === yes[0]} aria-label={`${yes[0]}: ${program.title}`} title={yes[0]} disabled={!!busy} onClick={() => void pick(yes[0])} data-room-thumb="up">
+                  {busy === yes[0] ? <Loader2 className="animate-spin" aria-hidden /> : <ThumbsUp aria-hidden />}
                 </button>
-              ))}
+              ) : (
+                <span className="prw-seg">
+                  {yes.map((o) => (
+                    <button key={o} type="button" className={chosen?.value === o ? "on" : ""} aria-pressed={chosen?.value === o} disabled={!!busy} onClick={() => void pick(o)}>
+                      {busy === o ? "Saving" : o}
+                    </button>
+                  ))}
+                </span>
+              )}
+              {no && (
+                <button type="button" className={`prw-thumb down${declined ? " on" : ""}`} aria-pressed={declined} aria-label={`${no}: ${program.title}`} title={no} disabled={!!busy} onClick={() => void pick(no)} data-room-thumb="down">
+                  {busy === no ? <Loader2 className="animate-spin" aria-hidden /> : <ThumbsDown aria-hidden />}
+                </button>
+              )}
             </span>
             {chosen?.by && <span className="by">{chosen.by} · {fmtDate(chosen.at)}</span>}
             {error && <span className="prw-err" role="alert">{error}</span>}
@@ -2325,7 +2407,21 @@ function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }
   const [region, setRegion] = useState("");
   const [q, setQ] = useState("");
   const [pageNo, setPageNo] = useState(0);
-  const [data, setData] = useState<{ total: number; rows: RoomPractice[]; pageSize: number } | null>(null);
+  const [data, setData] = useState<RoomPracticePage | null>(null);
+  const [sort, setSort] = useState<{ key: RoomPracticeSort; dir: "asc" | "desc" } | null>(null);
+  /** Click a column to sort by it; click again to reverse; a third click returns to the default order. */
+  const sortBy = (key: RoomPracticeSort) => {
+    setPageNo(0);
+    setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
+  };
+  const Th = ({ k, children, width }: { k: RoomPracticeSort; children: React.ReactNode; width?: string }) => (
+    <th style={width ? { width } : undefined} aria-sort={sort?.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className={`prw-th${sort?.key === k ? " on" : ""}`} onClick={() => sortBy(k)} data-room-sort={k}>
+        {children}
+        {sort?.key === k ? sort.dir === "asc" ? <ArrowUp aria-hidden /> : <ArrowDown aria-hidden /> : <ArrowUpDown aria-hidden />}
+      </button>
+    </th>
+  );
   const [loading, setLoading] = useState(false);
   const viewerKey = snapshot.viewer?.email ?? "";
   useEffect(() => {
@@ -2333,7 +2429,7 @@ function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }
     let cancelled = false;
     setLoading(true);
     const t = window.setTimeout(() => {
-      void store.loadPractices({ region, q, page: pageNo }).then((r) => {
+      void store.loadPractices({ region, q, page: pageNo, ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
         if (cancelled) return;
         setLoading(false);
         if (r && r !== "identity") setData(r);
@@ -2343,7 +2439,9 @@ function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [store, viewerKey, region, q, pageNo, pr.total]);
+  }, [store, viewerKey, region, q, pageNo, pr.total, sort]);
+  const cols = data?.columns ?? { scanner: false, scannerCount: false, manager: false, wave: true };
+  const colCount = 5 + Number(cols.wave) + Number(cols.manager) + Number(cols.scanner) * 2 + Number(cols.scannerCount);
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
   const stat = (label: string, n: number) => (
     <div><b className="prw-num">{n}</b>{label}</div>
@@ -2363,6 +2461,8 @@ function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }
         {stat("training booked", pr.byStage.training_booked ?? 0)}
         {stat("trained", (pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0))}
         {stat("live", pr.byStage.live ?? 0)}
+        {pr.scanners && stat("with scanners", pr.scanners.practices)}
+        {pr.scanners && stat("scanners", pr.scanners.total)}
       </div>
       {pr.total === 0 ? (
         <div className="prw-card"><div className="prw-empty">Your {noun} will appear here once the list is loaded.</div></div>
@@ -2385,15 +2485,20 @@ function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }
             </select>
             <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} placeholder={`Search ${noun}`} aria-label={`Search ${noun}`} />
           </div>
-          <table>
+          <div className="prw-scroll">
+          <table style={{ minWidth: colCount > 6 ? 980 : undefined }}>
             <thead>
               <tr>
-                <th style={{ width: "34%" }}>{Noun.replace(/s$/, "")}</th>
-                <th>Region</th>
-                <th>Wave</th>
-                <th>Training</th>
-                <th>Live</th>
-                <th>Status</th>
+                <Th k="name" width={colCount > 6 ? "24%" : "34%"}>{Noun.replace(/s$/, "")}</Th>
+                <Th k="region">Region</Th>
+                {cols.manager && <Th k="regionalManager">Regional manager</Th>}
+                {cols.wave && <Th k="wave">Wave</Th>}
+                <Th k="trainingDate">Training</Th>
+                <Th k="liveDate">Live</Th>
+                {cols.scannerCount && <Th k="scannerCount">Scanners</Th>}
+                {cols.scanner && <Th k="scannerSent">Scanner sent</Th>}
+                {cols.scanner && <Th k="scannerActivated">Activated</Th>}
+                <Th k="stage">Status</Th>
               </tr>
             </thead>
             <tbody>
@@ -2404,20 +2509,30 @@ function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }
                     {(p.city || p.state) && <div className="m">{[p.city, p.state].filter(Boolean).join(", ")}</div>}
                   </td>
                   <td className="c">{p.region}</td>
-                  <td className="c">{p.wave}</td>
+                  {cols.manager && <td className="c">{p.regionalManager}</td>}
+                  {cols.wave && <td className="c">{p.wave}</td>}
                   <td className="c">{p.trainingDate}</td>
                   <td className="c">{p.liveDate}</td>
+                  {cols.scannerCount && (
+                    <td className="c">
+                      {p.scannerCount != null && <span className="prw-num" style={{ color: "var(--ink)", fontWeight: 600 }}>{p.scannerCount}</span>}
+                      {p.scannerModels && <div className="m">{p.scannerModels}</div>}
+                    </td>
+                  )}
+                  {cols.scanner && <td className="c">{p.scannerSent}</td>}
+                  {cols.scanner && <td className="c">{p.scannerActivated}</td>}
                   <td><span className={`prw-chip ${p.stage}`}>{ROOM_PRACTICE_STAGE_LABEL[p.stage] ?? p.stage}</span></td>
                 </tr>
               ))}
               {data && data.rows.length === 0 && (
-                <tr><td colSpan={6} className="c">Nothing matches.</td></tr>
+                <tr><td colSpan={colCount} className="c">Nothing matches.</td></tr>
               )}
               {!data && (
-                <tr><td colSpan={6} className="c">{loading ? "Loading…" : ""}</td></tr>
+                <tr><td colSpan={colCount} className="c">{loading ? "Loading…" : ""}</td></tr>
               )}
             </tbody>
           </table>
+          </div>
           {data && data.total > data.pageSize && (
             <div className="prw-pager">
               <span className="prw-num">{pageNo * data.pageSize + 1}–{Math.min(data.total, (pageNo + 1) * data.pageSize)} of {data.total}</span>

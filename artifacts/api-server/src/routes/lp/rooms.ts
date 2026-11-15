@@ -55,12 +55,13 @@ import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomE
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { buildRoomDigest, practiceSummary, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
-import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "../../lib/partnerRoomReconcile";
+import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices, rowsFromUpload } from "../../lib/partnerRoomReconcile";
 import {
   ASANA_REQUEST_KINDS,
   asanaRequestTaskName,
   normalizePracticeStage,
   parsePracticeCsv,
+  parsePracticeRow,
   ROOM_PRACTICE_STAGES,
   roomCalendarIcs,
   roomKitInfo,
@@ -611,20 +612,42 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const region = typeof req.body?.region === "string" ? req.body.region.trim().slice(0, 80) : "";
     const q = typeof req.body?.q === "string" ? req.body.q.trim().slice(0, 80) : "";
     const pageNo = Math.max(0, Math.min(1000, Math.floor(Number(req.body?.page) || 0)));
+    // Sorting: one of a fixed set of columns (never a name from the request), blanks last.
+    const SORTS = {
+      name: lpRoomPracticesTable.name,
+      region: lpRoomPracticesTable.region,
+      wave: lpRoomPracticesTable.wave,
+      stage: sql`CASE ${lpRoomPracticesTable.stage} WHEN 'live' THEN 5 WHEN 'trained' THEN 4 WHEN 'training_booked' THEN 3 WHEN 'scheduling' THEN 2 ELSE 1 END`,
+      trainingDate: lpRoomPracticesTable.trainingDate,
+      liveDate: lpRoomPracticesTable.liveDate,
+      scannerSent: lpRoomPracticesTable.scannerSent,
+      scannerActivated: lpRoomPracticesTable.scannerActivated,
+      regionalManager: lpRoomPracticesTable.regionalManager,
+      scannerCount: lpRoomPracticesTable.scannerCount,
+    } as const;
+    const sortKey = typeof req.body?.sort === "string" && req.body.sort in SORTS ? (req.body.sort as keyof typeof SORTS) : null;
+    const down = req.body?.dir === "desc";
+    const order = sortKey ? [down ? sql`${SORTS[sortKey]} DESC NULLS LAST` : sql`${SORTS[sortKey]} ASC NULLS LAST`, asc(lpRoomPracticesTable.name)] : [asc(lpRoomPracticesTable.region), asc(lpRoomPracticesTable.name)];
     const where = and(
       eq(lpRoomPracticesTable.pageId, page.id),
       region ? eq(lpRoomPracticesTable.region, region) : undefined,
-      q ? or(ilike(lpRoomPracticesTable.name, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.city, `%${q.replace(/[%_\\]/g, "")}%`)) : undefined,
+      q ? or(ilike(lpRoomPracticesTable.name, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.city, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.regionalManager, `%${q.replace(/[%_\\]/g, "")}%`)) : undefined,
     );
-    const [rows, [{ n }]] = await Promise.all([
-      db.select().from(lpRoomPracticesTable).where(where).orderBy(asc(lpRoomPracticesTable.region), asc(lpRoomPracticesTable.name)).limit(50).offset(pageNo * 50),
+    const [rows, [{ n }], [has]] = await Promise.all([
+      db.select().from(lpRoomPracticesTable).where(where).orderBy(...order).limit(50).offset(pageNo * 50),
       db.select({ n: sql<number>`COUNT(*)::int` }).from(lpRoomPracticesTable).where(where),
+      // Which optional columns this room has any data for, so the page shows only those.
+      db
+        .select({ scanner: sql<boolean>`bool_or(${lpRoomPracticesTable.scannerSent} IS NOT NULL OR ${lpRoomPracticesTable.scannerActivated} IS NOT NULL)`, scannerCount: sql<boolean>`bool_or(${lpRoomPracticesTable.scannerCount} IS NOT NULL)`, manager: sql<boolean>`bool_or(${lpRoomPracticesTable.regionalManager} IS NOT NULL)`, wave: sql<boolean>`bool_or(${lpRoomPracticesTable.wave} IS NOT NULL)` })
+        .from(lpRoomPracticesTable)
+        .where(eq(lpRoomPracticesTable.pageId, page.id)),
     ]);
     res.json({
       total: n,
       page: pageNo,
       pageSize: 50,
-      rows: rows.map((p) => ({ id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate })),
+      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave },
+      rows: rows.map((p) => ({ id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels })),
     });
   } catch (err) {
     req.log.error({ err }, "room practices failed");
@@ -1082,12 +1105,35 @@ router.post("/lp/partner-rooms/:pageId/practices/import", async (req: Request, r
   try {
     const page = await ownedRoomPage(req, res);
     if (!page) return;
-    const rows = parsePracticeCsv(req.body?.csv);
+    // Pasted text, or a file (.xlsx / .csv) such as the scanner tracker's Excel export. A file's rows are matched to
+    // practices by name and only fill in what they carry, so a scanner export adds scanner counts without touching stages.
+    let rows = parsePracticeCsv(req.body?.csv);
+    let sheetName: string | null = null;
+    if (rows.length === 0 && typeof req.body?.fileBase64 === "string" && typeof req.body?.fileName === "string") {
+      const buf = Buffer.from(req.body.fileBase64, "base64");
+      if (buf.length > 7 * 1024 * 1024) {
+        res.status(400).json({ error: "That file is over 7 MB." });
+        return;
+      }
+      let best: RoomPracticeInput[] = [];
+      for (const sheet of rowsFromUpload(req.body.fileName.slice(0, 200), buf)) {
+        const [head, ...body] = sheet.rows;
+        if (!head) continue;
+        const keys = head.map((h) => String(h ?? "").trim().toLowerCase());
+        const parsed = body.map((r) => parsePracticeRow(Object.fromEntries(keys.map((k, i) => [k, r[i] ?? ""])))).filter((r): r is RoomPracticeInput => !!r);
+        // A workbook can hold several sheets (a timeline, a change log): take the one that reads as a list of practices.
+        if (parsed.length > best.length) {
+          best = parsed;
+          sheetName = sheet.sheet;
+        }
+      }
+      rows = best.slice(0, 5000);
+    }
     if (rows.length === 0) {
-      res.status(400).json({ error: "Nothing to import. The first line needs column names, including “name”." });
+      res.status(400).json({ error: "Nothing to import. The first row needs column names, including “name” (or “office”)." });
       return;
     }
-    res.json({ ok: true, ...(await upsertPractices(page, rows)) });
+    res.json({ ok: true, ...(sheetName ? { sheet: sheetName } : {}), ...(await upsertPractices(page, rows)) });
   } catch (err) {
     req.log.error({ err }, "room practices import failed");
     res.status(500).json({ error: "Import failed" });
@@ -1112,7 +1158,7 @@ router.post("/lp/partner-rooms/:pageId/practices/sync-salesforce", async (req: R
     const result = await sfdcService.querySalesforce(conn.id, `SELECT Id, Name, BillingCity, BillingState FROM Account WHERE ParentId = '${settings.sfdcAccountId}' ORDER BY Name LIMIT 2000`);
     const rows: RoomPracticeInput[] = (result.records as Array<{ Id?: string; Name?: string; BillingCity?: string | null; BillingState?: string | null }>)
       .filter((a) => a.Id && a.Name)
-      .map((a) => ({ externalId: String(a.Id), name: String(a.Name).slice(0, 160), region: a.BillingState ?? null, city: a.BillingCity ?? null, state: a.BillingState ?? null, wave: null, stage: "not_started", stageGiven: false, trainingDate: null, liveDate: null }));
+      .map((a) => ({ externalId: String(a.Id), name: String(a.Name).slice(0, 160), region: a.BillingState ?? null, city: a.BillingCity ?? null, state: a.BillingState ?? null, wave: null, stage: "not_started", stageGiven: false, trainingDate: null, liveDate: null, scannerSent: null, scannerActivated: null, regionalManager: null, scannerCount: null, scannerModels: null }));
     if (rows.length === 0) {
       res.json({ ok: true, added: 0, updated: 0, note: "Salesforce returned no child accounts for that account." });
       return;
