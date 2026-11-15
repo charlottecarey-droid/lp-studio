@@ -23,8 +23,22 @@ export const GOOGLE_WORKSPACE_SCOPES = ["openid", "email", "https://www.googleap
 /** The two a room cannot work without. */
 export const REQUIRED_SCOPES = GOOGLE_WORKSPACE_SCOPES.slice(2);
 
+/**
+ * The Google client "Connect Google" uses. Its own client when
+ * GOOGLE_WORKSPACE_CLIENT_ID / _SECRET are set (so the calendar and docs
+ * permissions, which Google treats as sensitive, live on a separate consent
+ * screen and can never affect sign-in); otherwise the sign-in client.
+ */
+function client(): { id: string; secret: string } {
+  const id = process.env.GOOGLE_WORKSPACE_CLIENT_ID;
+  const secret = process.env.GOOGLE_WORKSPACE_CLIENT_SECRET;
+  if (id && secret) return { id, secret };
+  return { id: process.env.GOOGLE_CLIENT_ID ?? "", secret: process.env.GOOGLE_CLIENT_SECRET ?? "" };
+}
+
 export function googleWorkspaceConfigured(): boolean {
-  return !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+  const c = client();
+  return !!c.id && !!c.secret;
 }
 
 export function googleWorkspaceRedirectUri(): string {
@@ -85,7 +99,7 @@ export function safeReturnPath(raw: unknown): string {
 
 export function googleConsentUrl(state: string): string {
   const q = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID ?? "",
+    client_id: client().id,
     redirect_uri: googleWorkspaceRedirectUri(),
     response_type: "code",
     scope: GOOGLE_WORKSPACE_SCOPES.join(" "),
@@ -104,7 +118,7 @@ async function tokenRequest(params: Record<string, string>): Promise<{ ok: boole
   const resp = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID ?? "", client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "", ...params }).toString(),
+    body: new URLSearchParams({ client_id: client().id, client_secret: client().secret, ...params }).toString(),
   });
   const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
   return { ok: resp.ok, status: resp.status, json };

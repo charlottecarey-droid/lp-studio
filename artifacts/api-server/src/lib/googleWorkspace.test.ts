@@ -46,4 +46,21 @@ describe("return path and URLs", () => {
     if (prev.a === undefined) delete process.env.GOOGLE_REDIRECT_URI; else process.env.GOOGLE_REDIRECT_URI = prev.a;
     if (prev.b === undefined) delete process.env.GOOGLE_WORKSPACE_REDIRECT_URI; else process.env.GOOGLE_WORKSPACE_REDIRECT_URI = prev.b;
   });
+
+describe("which Google client", () => {
+  it("uses its own client when one is set, and the sign-in client otherwise", () => {
+    const keep = { a: process.env.GOOGLE_CLIENT_ID, b: process.env.GOOGLE_WORKSPACE_CLIENT_ID, c: process.env.GOOGLE_WORKSPACE_CLIENT_SECRET };
+    process.env.GOOGLE_CLIENT_ID = "signin.apps.googleusercontent.com";
+    delete process.env.GOOGLE_WORKSPACE_CLIENT_ID;
+    delete process.env.GOOGLE_WORKSPACE_CLIENT_SECRET;
+    expect(new URL(googleConsentUrl("s")).searchParams.get("client_id")).toBe("signin.apps.googleusercontent.com");
+    process.env.GOOGLE_WORKSPACE_CLIENT_ID = "calendar.apps.googleusercontent.com";
+    process.env.GOOGLE_WORKSPACE_CLIENT_SECRET = "x";
+    expect(new URL(googleConsentUrl("s")).searchParams.get("client_id")).toBe("calendar.apps.googleusercontent.com");
+    for (const [k, v] of [["GOOGLE_CLIENT_ID", keep.a], ["GOOGLE_WORKSPACE_CLIENT_ID", keep.b], ["GOOGLE_WORKSPACE_CLIENT_SECRET", keep.c]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+});
 });
