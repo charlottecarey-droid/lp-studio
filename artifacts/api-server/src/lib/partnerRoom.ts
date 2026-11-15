@@ -608,7 +608,8 @@ export const ROOM_STANDARD_ASSETS: { key: string; title: string; description: st
 
 /* ── The account name as a variable ──────────────────────────────────────── */
 
-const ACCOUNT_TOKEN = /\{\{\s*account\s*\}\}|\[partner name\]/gi;
+// The builder's page-level names for the same thing ({{account_name}}, {{company}}, {{company_name}}) work too.
+const ACCOUNT_TOKEN = /\{\{\s*(?:account|account_name|company|company_name)\s*\}\}|\[partner name\]/gi;
 const ACCOUNT_SHORT_TOKEN = /\{\{\s*account_short\s*\}\}|\[partner\]/gi;
 const NAME_KEYS = new Set(["partnerName", "partnerShort"]);
 

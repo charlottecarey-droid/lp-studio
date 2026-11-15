@@ -79,7 +79,12 @@ async function send(url: string, method: string, body?: unknown): Promise<string
   }
 }
 
-export function PageRoomPanel({ pageId }: { pageId: number }) {
+export type RoomPanelTab = "activity" | "kit" | "practices" | "calendar" | "settings";
+/** A file the Room panel just put in the launch kit. The builder applies it to its own copy of the page too, so its next save keeps it. */
+export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
+
+export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; initialTab?: RoomPanelTab }) {
+  const [tab, setTab] = useState<RoomPanelTab>(initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["page-room", pageId],
@@ -167,9 +172,34 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Room sections">
+          {(
+            [
+              { id: "activity", label: "Activity", count: requests.length + (data.requests ?? []).filter((q) => q.status === "new").length },
+              ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
+              { id: "practices", label: data.isWorkspace ? "Practices & files" : "Files", count: 0 },
+              ...(data.isWorkspace ? [{ id: "calendar", label: "Calendar & minutes", count: (data.events ?? []).filter((e) => e.minutesStatus === "draft").length }] : []),
+              { id: "settings", label: "Settings", count: 0 },
+            ] as { id: RoomPanelTab; label: string; count: number }[]
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t.id ? "border-foreground font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              data-room-tab={t.id}
+            >
+              {t.label}
+              {t.count > 0 && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">{t.count}</span>}
+            </button>
+          ))}
+        </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {tab === "activity" && requests.length === 0 && (data.requests ?? []).length === 0 && (data.choices ?? []).length === 0 && !data.isWorkspace && data.tasks.length === 0 && <p className="text-sm text-muted-foreground">Nothing has happened in this room yet.</p>}
 
-        {requests.length > 0 && (
+        {tab === "activity" && requests.length > 0 && (
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Waiting for approval</h4>
             {requests.map((m) => (
@@ -184,7 +214,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
-        {(data.requests ?? []).length > 0 && (
+        {tab === "activity" && (data.requests ?? []).length > 0 && (
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Requests</h4>
             <div className="divide-y rounded-md border">
@@ -196,7 +226,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
-        {(data.choices ?? []).length > 0 && (
+        {tab === "activity" && (data.choices ?? []).length > 0 && (
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Marketing plan decisions</h4>
             <div className="divide-y rounded-md border">
@@ -214,7 +244,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
-        {data.isWorkspace && (
+        {tab === "practices" && data.isWorkspace && (
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Practices</h4>
             <p className="text-sm text-muted-foreground">
@@ -316,15 +346,14 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
-        {data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} />}
+        {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} />}
 
-        {data.isWorkspace && <EngagementSection engagement={data.engagement} />}
+        {tab === "kit" && data.isWorkspace && <EngagementSection engagement={data.engagement} />}
 
-        {data.isWorkspace && <AutomaticRoomsSection />}
 
-        {data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
+        {tab === "calendar" && data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
 
-        {data.isWorkspace && (
+        {tab === "settings" && data.isWorkspace && (
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Weekly digest</h4>
             <p className="text-sm text-muted-foreground">
@@ -381,9 +410,9 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
-        {data.isWorkspace && <WinsSection base={base} wins={data.wins ?? []} run={run} />}
+        {tab === "activity" && data.isWorkspace && <WinsSection base={base} wins={data.wins ?? []} run={run} />}
 
-        {(data.contacts ?? []).length > 0 && (
+        {tab === "activity" && (data.contacts ?? []).length > 0 && (
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Contacts the customer added</h4>
             <div className="divide-y rounded-md border">
@@ -397,6 +426,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
+        {tab === "practices" && (
         <section className="space-y-2">
           <h4 className="text-sm font-semibold">Files received</h4>
           {data.uploads.length === 0 ? (
@@ -433,8 +463,9 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
             </div>
           )}
         </section>
+        )}
 
-        {compare && (
+        {tab === "practices" && compare && (
           <section className="space-y-2 rounded-md border p-3" data-testid="room-compare">
             <div className="flex items-start justify-between gap-2">
               <h4 className="text-sm font-semibold">Comparison: {compare.fileName}</h4>
@@ -495,6 +526,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
           </section>
         )}
 
+        {tab === "activity" && (
         <section className="space-y-2">
           <h4 className="text-sm font-semibold">Customer tasks</h4>
           <div className="divide-y rounded-md border">
@@ -519,7 +551,9 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
             ))}
           </div>
         </section>
+        )}
 
+        {tab === "settings" && (
         <section className="space-y-3">
           <h4 className="text-sm font-semibold">Who can act</h4>
           {noAccessYet && (
@@ -590,6 +624,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
             )}
           </div>
         </section>
+        )}
       </CardContent>
     </Card>
   );
@@ -931,7 +966,7 @@ function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"
  * the cover photo): the partnership one-pager and two social graphics. Each is
  * generated here, uploaded, and filed into the room's launch kit.
  */
-function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: NonNullable<RoomDetail["kit"]>; refresh: () => Promise<void> }) {
+function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets }: { pageId: number; kit: NonNullable<RoomDetail["kit"]>; refresh: () => Promise<void>; onKitAssets?: (assets: RoomKitAssetChange[]) => void }) {
   const [state, setState] = useState<Record<string, "working" | "done" | string>>({});
   const [busy, setBusy] = useState(false);
   const [previews, setPreviews] = useState<Record<string, string>>({});
@@ -952,11 +987,6 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
     },
   });
   const [stdNote, setStdNote] = useState("");
-  const setStandard = async (key: string, fileUrl: string) => {
-    const e = await send(`/api/lp/room-standard-assets/${key}`, "PUT", { fileUrl });
-    setStdNote(e ?? "Saved as the standard file for every room.");
-    await refetchStandard();
-  };
   const addStandard = async (replace: boolean) => {
     const r = await fetch(`/api/lp/partner-rooms/${pageId}/standard-assets`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ replace }) });
     const j = (await r.json().catch(() => ({}))) as { added?: string[]; kept?: string[]; missing?: string[]; error?: string };
@@ -965,6 +995,9 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
         ? (j.error ?? "Could not add the standard files")
         : [j.added?.length ? `Added: ${j.added.join(", ")}.` : "", j.kept?.length ? `Kept this room’s own file: ${j.kept.join(", ")}.` : "", j.missing?.length ? `Not uploaded yet: ${j.missing.join(", ")}.` : ""].filter(Boolean).join(" ") || "Nothing to add.",
     );
+    // Tell the builder (when this panel is open inside it) which files just went into the kit.
+    const added = (standard ?? []).filter((a) => a.fileUrl && (j.added ?? []).includes(a.title));
+    if (r.ok && added.length) onKitAssets?.(added.map((a) => ({ key: a.key, kind: "pdf", title: a.title, description: a.description, fileUrl: a.fileUrl! })));
     await refresh();
   };
 
@@ -978,6 +1011,8 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
         try {
           const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => x.title) });
           setPreviews((p) => ({ ...p, [key]: url }));
+          const spec = (await import("@/lib/room-launch-assets")).LAUNCH_ASSETS.find((x) => x.key === key);
+          if (spec) onKitAssets?.([{ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl: url }]);
           setState((s) => ({ ...s, [key]: "done" }));
         } catch (e) {
           setState((s) => ({ ...s, [key]: e instanceof Error ? e.message : "Could not create it" }));
@@ -1024,18 +1059,14 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
       </div>
       <div className="space-y-2 rounded-md border p-3">
         <p className="text-sm font-medium">Standard files</p>
-        <p className="text-xs text-muted-foreground">The same for every customer. Upload each one once; it is added to every room’s launch kit. A room with its own version keeps it.</p>
+        <p className="text-xs text-muted-foreground">
+          The same for every customer, uploaded once under <a className="underline" href="/settings/integrations">Settings → Integrations → Partner rooms</a>. A room with its own version keeps it.
+        </p>
         {(standard ?? []).map((a) => (
-          <div key={a.key} className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm">{a.title}</p>
-              <p className="text-xs text-muted-foreground">
-                {a.fileUrl ? <>Uploaded {fmtDate(a.updatedAt)} · <a className="underline" href={a.fileUrl} target="_blank" rel="noreferrer">Open</a></> : "Not uploaded yet"}
-                {has(a.key) ? " · in this room’s kit" : ""}
-              </p>
-            </div>
-            <PdfUploadButton label={a.fileUrl ? "Replace" : "Upload PDF"} onUploaded={(r) => void setStandard(a.key, r.url)} />
-          </div>
+          <p key={a.key} className="text-sm">
+            {a.title}
+            <span className="text-xs text-muted-foreground"> · {a.fileUrl ? "uploaded" : "not uploaded yet"}{has(a.key) ? " · in this room’s kit" : ""}</span>
+          </p>
         ))}
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} onClick={() => addStandard(false)}>Add to this room</Button>
@@ -1054,7 +1085,45 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
  * Automatic rooms (for the whole workspace, not just this page): watch a sheet
  * tab of signed accounts and create a draft room for each account added to it.
  */
-function AutomaticRoomsSection() {
+/** Upload the launch-kit files that are the same for every customer (workspace-wide). */
+export function StandardFilesManager() {
+  const { data: standard, refetch } = useQuery({
+    queryKey: ["room-standard-assets"],
+    queryFn: async () => {
+      const r = await fetch("/api/lp/room-standard-assets");
+      if (!r.ok) throw new Error("standard");
+      return ((await r.json()) as { assets: { key: string; title: string; description: string; fileUrl: string | null; updatedAt: string | null }[] }).assets;
+    },
+  });
+  const [note, setNote] = useState("");
+  const save = async (key: string, fileUrl: string) => {
+    const e = await send(`/api/lp/room-standard-assets/${key}`, "PUT", { fileUrl });
+    setNote(e ?? "Saved. New rooms get this file; add it to an existing room from that room’s Launch kit tab.");
+    await refetch();
+  };
+  return (
+    <section className="space-y-2">
+      <h4 className="text-sm font-semibold">Standard launch files</h4>
+      <p className="text-sm text-muted-foreground">Files that are the same for every customer. Upload each one once; it is attached to every new room, and can be added to any existing room.</p>
+      <div className="divide-y rounded-md border">
+        {(standard ?? []).map((a) => (
+          <div key={a.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{a.title}</p>
+              <p className="text-xs text-muted-foreground">
+                {a.description} · {a.fileUrl ? <>uploaded {fmtDate(a.updatedAt)} · <a className="underline" href={a.fileUrl} target="_blank" rel="noreferrer">Open</a></> : "not uploaded yet"}
+              </p>
+            </div>
+            <PdfUploadButton label={a.fileUrl ? "Replace" : "Upload PDF"} onUploaded={(r) => void save(a.key, r.url)} />
+          </div>
+        ))}
+      </div>
+      {note && <p className="text-sm text-muted-foreground">{note}</p>}
+    </section>
+  );
+}
+
+export function AutomaticRoomsSection() {
   const { data, refetch } = useQuery({
     queryKey: ["room-autocreate"],
     queryFn: async () => {
@@ -1104,7 +1173,7 @@ function AutomaticRoomsSection() {
   const withRoom = accounts.filter((a) => a.pageId);
   return (
     <section className="space-y-2">
-      <h4 className="text-sm font-semibold">Automatic rooms <span className="font-normal text-muted-foreground">(whole workspace)</span></h4>
+      <h4 className="text-sm font-semibold">Automatic rooms</h4>
       <p className="text-sm text-muted-foreground">
         Point LP Studio at the sheet tab that lists signed accounts. Each account added to it gets a draft room with the account’s name filled in and the standard files attached, and your Slack channel is told. Accounts already on the list when you turn this on are recorded, not created. Rooms stay drafts until someone publishes them.
       </p>
@@ -1133,7 +1202,7 @@ function AutomaticRoomsSection() {
               <div key={a.key} className="flex items-center justify-between gap-2 px-3 py-1.5">
                 <span className="min-w-0 truncate">{a.name}{a.signedDate ? <span className="text-xs text-muted-foreground"> · signed {a.signedDate}</span> : null}{a.sfdcId ? null : <span className="text-xs text-amber-700"> · no Salesforce ID</span>}</span>
                 {a.pageId ? (
-                  <a className="text-xs underline" href={`/pages/${a.pageId}`}>Open room</a>
+                  <a className="text-xs underline" href={`/builder/${a.pageId}`}>Open room</a>
                 ) : (
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => createFor(a.key)}>Create room</Button>
                 )}

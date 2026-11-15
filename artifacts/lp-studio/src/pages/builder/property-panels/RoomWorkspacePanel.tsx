@@ -40,8 +40,14 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
-import { useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { useRoute } from "wouter";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { RoomKitAssetChange, RoomPanelTab } from "@/components/analytics/PageRoomPanel";
+import { ChevronLeft, ChevronRight, DoorOpen, Plus, X } from "lucide-react";
+
+// The team's Room panel (uploads, practices, launch kit, calendar, settings). Loaded only when opened.
+const PageRoomPanel = lazy(() => import("@/components/analytics/PageRoomPanel").then((m) => ({ default: m.PageRoomPanel })));
 import { Field, ItemHeader, moveItem } from "./glow/GlowPanelKit";
 import { ThumbButton } from "./HubPanels";
 
@@ -106,6 +112,42 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
   const update = (patch: Partial<RoomWorkspaceBlockProps>) => onChange({ ...props, ...patch });
   // One screen at a time: the list of modules, or one module's settings.
   const [active, setActive] = useState<string | null>(null);
+  // The Room panel, in a pop-up, so managing the room doesn't mean leaving the builder.
+  const [, params] = useRoute("/builder/:pageId");
+  const pageId = Number(params?.pageId);
+  const [roomTab, setRoomTab] = useState<RoomPanelTab | null>(null);
+  // Files the Room panel puts in the launch kit are saved on the server straight away; apply them to the
+  // builder's copy of the page as well, or the builder's next save would drop them.
+  const propsRef = useRef(props);
+  useEffect(() => {
+    propsRef.current = props;
+  }, [props]);
+  const applyKitAssets = (changes: RoomKitAssetChange[]) => {
+    const current = propsRef.current;
+    let assets = current.assets ?? [];
+    for (const c of changes) {
+      const at = assets.findIndex((a) => (a.key || roomMilestoneKey({ task: a.title })) === c.key);
+      assets = at >= 0 ? assets.map((a, i) => (i === at ? { ...a, kind: c.kind, fileUrl: c.fileUrl, hidden: false } : a)) : [...assets, { key: c.key, kind: c.kind, title: c.title, description: c.description, fileUrl: c.fileUrl }];
+    }
+    const next = { ...current, assets };
+    propsRef.current = next;
+    onChange(next);
+  };
+  const roomDialog = Number.isFinite(pageId) && pageId > 0 && (
+    <Dialog open={roomTab !== null} onOpenChange={(open) => !open && setRoomTab(null)}>
+      <DialogContent className="max-w-5xl" data-room-manager>
+        <DialogHeader>
+          <DialogTitle>Manage room</DialogTitle>
+          <DialogDescription>What the customer has done and sent, the launch kit, practices, calendar and who has access. Changes here save straight away.</DialogDescription>
+        </DialogHeader>
+        {roomTab !== null && (
+          <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+            <PageRoomPanel pageId={pageId} initialTab={roomTab} onKitAssets={applyKitAssets} />
+          </Suspense>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
   const hidden = new Set(props.hiddenModules ?? []);
   const groups = props.planGroups ?? [];
   const phases = props.phases ?? [];
@@ -154,15 +196,15 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
 
   const MODULE_HINT: Partial<Record<RoomModuleKey, string>> = {
     overview: `${steps.length} setup item${steps.length === 1 ? "" : "s"} · ${phases.length} phases`,
-    wins: "Posted from the room and from the page’s Room panel",
+    wins: "Posted from the room, or under Manage → Activity",
     goals: `${goalItems.length} goal${goalItems.length === 1 ? "" : "s"}`,
     plan: `${groups.reduce((n, g) => n + (g.rows ?? []).length, 0)} milestones in ${groups.length} phases`,
-    practices: "The list is loaded in the page’s Room panel",
+    practices: "Loaded under Manage → Practices & files",
     marketing: `${mGroups.reduce((n, g) => n + (g.programs ?? []).length, 0)} programs`,
     kit: `${links.length} link${links.length === 1 ? "" : "s"} · ${assets.length} asset${assets.length === 1 ? "" : "s"}`,
     calendar: `${events.length} event${events.length === 1 ? "" : "s"}, plus synced meetings`,
     meetings: `${meetingItems.length} typed in, plus published minutes`,
-    requests: "Managed in the page’s Room panel",
+    requests: "Answered under Manage → Activity",
     team: `${team.reduce((n, g) => n + (g.members ?? []).length, 0)} people`,
   };
   const EDITABLE = new Set<string>(["overview", "goals", "plan", "marketing", "kit", "calendar", "meetings", "team"]);
@@ -170,6 +212,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
   if (active === null) {
     return (
       <div className="space-y-3">
+        {roomDialog}
         <button type="button" onClick={() => setActive("account")} className="flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left hover:bg-muted/50">
           <span className="min-w-0">
             <span className="block text-sm font-semibold">{props.partnerName || "Account"}</span>
@@ -204,6 +247,32 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
             })}
           </div>
         </div>
+        {Number.isFinite(pageId) && pageId > 0 && (
+          <div>
+            <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Manage</div>
+            <div className="divide-y rounded-lg border">
+              {(
+                [
+                  { tab: "kit", label: "Launch kit", hint: "Create the one-pager, graphics and media kit; see who opened what" },
+                  { tab: "activity", label: "Activity", hint: "Access requests, customer requests, wins, tasks" },
+                  { tab: "practices", label: "Practices & files", hint: "The practice list and files the customer uploaded" },
+                  { tab: "calendar", label: "Calendar & minutes", hint: "Connect a calendar, review minutes drafts" },
+                  { tab: "settings", label: "Room settings", hint: "Who has access, Slack channel, weekly digest" },
+                ] as { tab: RoomPanelTab; label: string; hint: string }[]
+              ).map((m) => (
+                <button key={m.tab} type="button" onClick={() => setRoomTab(m.tab)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50" data-room-manage={m.tab}>
+                  <DoorOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">{m.label}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{m.hint}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Opens in a pop-up. Automatic rooms and the standard launch files are under Settings → Integrations → Partner rooms.</p>
+          </div>
+        )}
         <p className="px-1 text-[11px] leading-snug text-muted-foreground">Switch a module off to hide it from this customer; its content and data are kept. Most text can also be edited by clicking it on the page.</p>
       </div>
     );

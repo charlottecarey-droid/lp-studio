@@ -121,6 +121,7 @@ describe("the account name as a variable", () => {
   it("fills both spellings of both variables", () => {
     expect(fillAccountName("Welcome, {{account}}. [Partner name] and Dandy; every {{ account_short }} practice, every [partner] team.", "MB2 Dental", "MB2")).toBe("Welcome, MB2 Dental. MB2 Dental and Dandy; every MB2 practice, every MB2 team.");
     expect(fillAccountName("No variables here [see note]", "MB2 Dental", "MB2")).toBe("No variables here [see note]");
+    expect(fillAccountName("{{account_name}}, {{company}} and {{ company_name }}", "MB2 Dental", "MB2")).toBe("MB2 Dental, MB2 Dental and MB2 Dental");
   });
   it("fills every text on the page from the customer name, and leaves the name fields alone", () => {
     const blocks = page({ partnerName: "MB2 Dental", partnerShort: "MB2", planIntro: "Every milestone has an owner at Dandy and at [Partner].", assets: [{ kind: "text", title: "Announcement email", body: "{{account}} is partnering with Dandy." }], planGroups: [{ title: "P", rows: [{ task: "Kickoff with [Partner name]", customerAction: "check" }] }] });
