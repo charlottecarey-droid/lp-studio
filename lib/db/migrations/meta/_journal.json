@@ -1009,6 +1009,13 @@
       "when": 1758030050000,
       "tag": "0143_lp_asset_events_value_detail",
       "breakpoints": false
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1758030060000,
+      "tag": "0144_partner_rooms",
+      "breakpoints": false
     }
   ]
 }

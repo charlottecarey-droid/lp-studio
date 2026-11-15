@@ -448,6 +448,36 @@ export async function sendMagicLinkEmail(payload: {
 }
 
 /**
+ * Partner room access link: sent when a visitor to a room page asks to act
+ * (upload a file, tick a task) with an address the room allows. The link
+ * carries a signed room token (lib/partnerRoom.ts) and is not single-use, so
+ * mail scanners opening it first do no harm.
+ */
+export async function sendRoomAccessEmail(payload: {
+  recipientEmail: string;
+  roomUrl: string;
+  roomTitle: string;
+  tenantId: number;
+}): Promise<boolean> {
+  const { recipientEmail, roomUrl, roomTitle, tenantId } = payload;
+  const html = buildAuthActionEmailHtml({
+    headline: "Your link to the room",
+    bodyHtml: `Use the button below to open <strong>${escapeHtml(roomTitle)}</strong> as yourself. From there you can upload files and mark tasks done.`,
+    ctaLabel: "Open the room",
+    ctaUrl: roomUrl,
+    expiryNote: "This link works on this address for 90 days. If you didn't ask for it, you can safely ignore this email.",
+    footerNote: "You're receiving this because someone entered this email address to get access to a shared room.",
+  });
+  return sendAuthActionEmail({
+    to: recipientEmail,
+    subject: `Your link to ${roomTitle}`,
+    html,
+    logContext: { tenantId, room: roomTitle },
+    logMessage: "room access email",
+  });
+}
+
+/**
  * Forgot-password reset link. Returns true if Resend accepted the message.
  */
 export async function sendPasswordResetEmail(payload: {

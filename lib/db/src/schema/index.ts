@@ -121,3 +121,6 @@ export * from "./generatorPresets";
 // description / style notes + on/off). Recipe skeletons stay code-defined.
 export * from "./pageRecipeOverrides";
 export * from "./lpGenerationJobs";
+
+// Partner rooms (Nov 2026): who may act in a room page, completed tasks, private uploads.
+export * from "./lpRooms";

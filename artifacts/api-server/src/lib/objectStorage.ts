@@ -57,6 +57,14 @@ export interface UploadObjectOptions {
    * object that carries a tenant-owner ACL.
    */
   tenantId?: number;
+  /**
+   * Folder under the private object dir. Default "uploads", which the public
+   * serve route (`GET /storage/objects/uploads/*`) hands to anonymous callers.
+   * Any OTHER folder is unreachable through that route — use one for files
+   * that must only ever be read through an authenticated endpoint
+   * (e.g. "room-uploads").
+   */
+  folder?: string;
 }
 
 export class ObjectStorageService {
@@ -68,7 +76,8 @@ export class ObjectStorageService {
     const objectId = randomUUID();
     let dir = getPrivateObjectDir();
     if (!dir.endsWith("/")) dir = `${dir}/`;
-    const { bucketName, objectName } = parseObjectPath(`${dir}uploads/${objectId}`);
+    const folder = opts.folder && /^[a-z0-9-]+$/.test(opts.folder) ? opts.folder : "uploads";
+    const { bucketName, objectName } = parseObjectPath(`${dir}${folder}/${objectId}`);
     const file = storageClient.bucket(bucketName).file(objectName);
 
     const customMetadata: Record<string, string> = {};
@@ -89,7 +98,7 @@ export class ObjectStorageService {
     }
 
     await file.save(buffer, saveOpts);
-    return `/objects/uploads/${objectId}`;
+    return `/objects/${folder}/${objectId}`;
   }
 
   /**
