@@ -20,6 +20,10 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { ObjectStorageService } from "./objectStorage";
+import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "./partnerRoomReconcile";
+import { lpRoomUploadsTable } from "@workspace/db";
+import { desc } from "drizzle-orm";
 import { parsePracticeRow, type RoomPracticeInput } from "./partnerRoom";
 import { collectDigest, digestIsEmpty, renderDigestEmail, renderDigestSlack, type DigestData } from "./partnerRoomDigest";
 import { sendRoomDigestEmail } from "./notifications";
@@ -97,14 +101,45 @@ export function sheetIdFrom(raw: unknown): string | null {
   return SHEET_ID_RE.test(id) ? id : null;
 }
 
-/** Sheet values (first row = column names) → practice rows. */
-export function practicesFromSheetValues(values: unknown): RoomPracticeInput[] {
+export interface SheetFilter {
+  column: string;
+  value: string;
+  /** "sfid" compares Salesforce ids (15- and 18-character forms of one id match); default is "contains". */
+  mode?: "contains" | "sfid";
+}
+
+const PARENT_ID_HEADERS = ["parent account id", "parent account id (18)", "parent account 18 digit id", "parent id", "parent account: account id", "parent account: 18 digit id", "parent 18 digit id"];
+
+/** When the sheet has a parent-account-id column and the room knows the customer's Salesforce account id, filter on it. */
+export function parentIdFilter(values: unknown, sfdcAccountId: string | null | undefined): SheetFilter | null {
+  const id = (sfdcAccountId ?? "").trim();
+  if (!/^[a-zA-Z0-9]{15,18}$/.test(id) || !Array.isArray(values) || !Array.isArray(values[0])) return null;
+  const header = (values[0] as unknown[]).map((h) => String(h ?? "").trim()).find((h) => PARENT_ID_HEADERS.includes(h.toLowerCase()));
+  return header ? { column: header, value: id, mode: "sfid" } : null;
+}
+
+/** The header's position for a filter column (case-insensitive), or -1. */
+export function sheetFilterIndex(values: unknown, filter: SheetFilter | null): number {
+  if (!filter || !Array.isArray(values) || !Array.isArray(values[0])) return -1;
+  const want = filter.column.trim().toLowerCase();
+  return (values[0] as unknown[]).findIndex((h) => String(h ?? "").trim().toLowerCase() === want);
+}
+
+/** Sheet values (first row = column names) → practice rows; with a filter, only rows whose filter column contains the value. */
+export function practicesFromSheetValues(values: unknown, filter: SheetFilter | null = null): RoomPracticeInput[] {
   if (!Array.isArray(values) || values.length < 2) return [];
   const headers = (values[0] as unknown[]).map((h) => String(h ?? "").trim().toLowerCase());
+  const filterAt = sheetFilterIndex(values, filter);
+  const needle = filter ? filter.value.trim().toLowerCase() : "";
   const out: RoomPracticeInput[] = [];
   const seen = new Set<string>();
-  for (const raw of values.slice(1, 10_001)) {
+  for (const raw of values.slice(1, 20_001)) {
     if (!Array.isArray(raw)) continue;
+    if (filter) {
+      const cell = String(raw[filterAt] ?? "").trim();
+      const hit = filterAt >= 0 && (filter.mode === "sfid" ? cell.length >= 15 && cell.slice(0, 15) === filter.value.trim().slice(0, 15) : cell.toLowerCase().includes(needle));
+      if (!hit) continue;
+    }
     const row: Record<string, unknown> = {};
     headers.forEach((h, i) => (row[h] = String(raw[i] ?? "")));
     const parsed = parsePracticeRow(row);
@@ -136,21 +171,95 @@ export async function syncPracticesFromSheet(pageId: number): Promise<{ ok: bool
   };
   try {
     connectors ??= new ReplitConnectors();
-    const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:Z10001` : "A1:Z10001");
+    const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:AZ20001` : "A1:AZ20001");
     const resp = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}/values/${range}`, { method: "GET" });
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
       logger.warn({ pageId, status: resp.status, body: body.slice(0, 300) }, "room practices sheet read failed");
       return finish(false, resp.status === 403 || resp.status === 404 ? "Couldn't open the sheet. Share it with the Google account connected to LP Studio, and check the tab name." : `Google Sheets returned an error (${resp.status}).`);
     }
-    const rows = practicesFromSheetValues(((await resp.json()) as { values?: unknown }).values);
-    if (rows.length === 0) return finish(false, "The sheet has no rows with a practice name. The first row needs column names, including “name”.");
+    const values = ((await resp.json()) as { values?: unknown }).values;
+    // An explicit filter wins; otherwise filter by the customer's Salesforce account id when the sheet has a parent-id column.
+    const filter: SheetFilter | null = settings.practicesSheetFilterColumn?.trim() && settings.practicesSheetFilterValue?.trim() ? { column: settings.practicesSheetFilterColumn, value: settings.practicesSheetFilterValue } : parentIdFilter(values, settings.sfdcAccountId);
+    if (filter && sheetFilterIndex(values, filter) < 0) return finish(false, `The sheet has no “${filter.column}” column to filter on. Add it to the report, or change the filter.`);
+    const rows = practicesFromSheetValues(values, filter);
+    if (rows.length === 0) return finish(false, filter ? `No rows where “${filter.column}” ${filter.mode === "sfid" ? "is" : "contains"} “${filter.value}”.` : "The sheet has no rows with a practice name. The first row needs column names, including “name” or “Account Name”.");
+    // A sheet this large is a report across customers: without a filter it would load everyone's practices into one room.
+    if (!filter && rows.length > 2000) return finish(false, `This sheet lists ${rows.length} practices, which looks like every customer's. Save the customer's Salesforce account ID (the sheet needs a “Parent Account ID” column), or set a filter such as Parent Account Name contains the customer's name.`);
     const r = await upsertPractices({ id: pageId, tenantId: settings.tenantId }, rows, { mirror: true });
     return finish(true, `${rows.length} practices in the sheet (${r.added} added, ${r.updated} updated, ${r.removed} removed).`);
   } catch (err) {
     logger.error({ err, pageId }, "room practices sheet sync failed");
     return finish(false, "Couldn't reach Google Sheets.");
   }
+}
+
+/* ── What Salesforce is missing ──────────────────────────────────────────── */
+
+/** `<!subteam^S…>` for a user group, `<@U…>` for a person; empty when the setting isn't a Slack id. */
+export function slackMention(raw: string | null | undefined): string {
+  const v = (raw ?? "").trim().replace(/^[<@!]+|[>]+$/g, "").replace(/^subteam\^/, "");
+  if (/^S[A-Z0-9]{6,}$/.test(v)) return `<!subteam^${v}>`;
+  if (/^[UW][A-Z0-9]{6,}$/.test(v)) return `<@${v}>`;
+  return "";
+}
+
+export interface SalesforceGap {
+  fileName: string;
+  missing: string[];
+  matched: number;
+  uploaded: number;
+  doctors: number | null;
+}
+
+const storage = new ObjectStorageService();
+
+/**
+ * Compare the customer's most recent practice list (an .xlsx / .csv they
+ * uploaded to the room) with the practices the room holds, and count the
+ * doctors on their latest roster. Null when they have uploaded no list we
+ * can read. Reads at most the eight newest uploads.
+ */
+export async function loadSalesforceGap(pageId: number): Promise<SalesforceGap | null> {
+  const uploads = await db.select().from(lpRoomUploadsTable).where(eq(lpRoomUploadsTable.pageId, pageId)).orderBy(desc(lpRoomUploadsTable.createdAt)).limit(8);
+  let names: { fileName: string; names: string[] } | null = null;
+  let doctors: number | null = null;
+  for (const u of uploads) {
+    if (!/\.(xlsx|csv|tsv|txt)$/i.test(u.fileName) || (names && doctors !== null)) continue;
+    try {
+      const file = await storage.getObjectEntityFile(u.objectPath);
+      const chunks: Buffer[] = [];
+      for await (const chunk of file.createReadStream()) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
+      const buf = Buffer.concat(chunks);
+      if (!names) {
+        const found = practiceNamesFromUpload(u.fileName, buf);
+        if (found && found.names.length) names = { fileName: u.fileName, names: found.names };
+      }
+      if (doctors === null) {
+        const d = doctorCountFromUpload(u.fileName, buf);
+        if (d && d.count) doctors = d.count;
+      }
+    } catch (err) {
+      logger.warn({ err, pageId, uploadId: u.id }, "room upload could not be read for the Salesforce gap");
+    }
+  }
+  if (!names && doctors === null) return null;
+  const roomNames = (await db.select({ name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, pageId))).map((p) => p.name);
+  const r = names ? reconcilePractices(names.names, roomNames) : null;
+  return { fileName: names?.fileName ?? "", missing: r?.missingFromRoom ?? [], matched: r?.matched ?? 0, uploaded: r?.uploaded ?? 0, doctors };
+}
+
+/** The RevOps lines for Slack: who to mention, how many child accounts and doctors to add, and the first names. Empty when there is no gap. */
+export function revopsSlackLines(gap: SalesforceGap | null, mention: string, customer: string): string[] {
+  if (!gap || (gap.missing.length === 0 && !gap.doctors)) return [];
+  const m = (s: string) => s.replace(/[<>&*_~`]/g, " ");
+  const parts = [gap.missing.length ? `${gap.missing.length} child account${gap.missing.length === 1 ? "" : "s"}` : null, gap.doctors ? `${gap.doctors} doctor${gap.doctors === 1 ? "" : "s"}` : null].filter(Boolean).join(" and ");
+  const lines = [`*RevOps${mention ? ` ${mention}` : ""}: add ${parts} to Salesforce for ${m(customer)}*`];
+  if (gap.missing.length) {
+    lines.push(`On ${m(customer)}'s list${gap.fileName ? ` (${m(gap.fileName)})` : ""} but not in Salesforce:\n${gap.missing.slice(0, 15).map((n) => `• ${m(n)}`).join("\n")}${gap.missing.length > 15 ? `\n• and ${gap.missing.length - 15} more (full list: LP Studio → page analytics → Room → Compare with practices)` : ""}`);
+  }
+  if (gap.doctors) lines.push(`Their doctor roster lists ${gap.doctors} doctor${gap.doctors === 1 ? "" : "s"} to add as contacts on their practices. The file is in the room's Files received.`);
+  return lines;
 }
 
 /* ── Weekly digest ───────────────────────────────────────────────────────── */
@@ -164,6 +273,8 @@ export interface RoomDigest {
   tenantId: number;
   slackChannelId: string | null;
   empty: boolean;
+  /** The Slack post carries a RevOps item (so it goes out even in an otherwise quiet week; the customer email still skips). */
+  hasRevops: boolean;
 }
 
 /** Everything the weekly digest says for a room, or null when the page is not a workspace. */
@@ -200,15 +311,19 @@ export async function buildRoomDigest(pageId: number, now: Date = new Date()): P
   const roomUrl = tenant?.micrositeDomain ? `https://${tenant.micrositeDomain}/${page.slug}` : tenant?.domain ? `https://${tenant.domain}/lp/${page.slug}` : `/lp/${page.slug}`;
   const settings = settingsRows[0];
   const recipients = [...new Set((Array.isArray(settings?.digestRecipients) ? settings.digestRecipients : []).map((e) => String(e).trim().toLowerCase()).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))].slice(0, 50);
+  // RevOps is told in the team's Slack digest (never in the customer email) while Salesforce is missing practices from the customer's list.
+  const gap = await loadSalesforceGap(pageId).catch(() => null);
+  const revops = revopsSlackLines(gap, slackMention(settingsRows[0]?.revopsSlackMention), data.partnerName);
   return {
     data,
     email: renderDigestEmail(data, { roomUrl, senderName, brandColor: typeof brand.primaryColor === "string" ? brand.primaryColor : undefined }),
-    slack: renderDigestSlack(data, roomUrl),
+    slack: renderDigestSlack(data, roomUrl, revops),
     recipients,
     roomUrl,
     tenantId,
     slackChannelId: settings?.slackChannelId ?? null,
     empty: digestIsEmpty(data),
+    hasRevops: revops.length > 0,
   };
 }
 
@@ -229,10 +344,11 @@ export async function sendRoomDigest(pageId: number, opts: { scheduled: boolean;
   }
   const digest = await buildRoomDigest(pageId, opts.now);
   if (!digest) return { sent: false, emails: 0, slack: false, reason: "not a workspace" };
-  if (opts.scheduled && digest.empty) return { sent: false, emails: 0, slack: false, reason: "nothing to report" };
+  if (opts.scheduled && digest.empty && !digest.hasRevops) return { sent: false, emails: 0, slack: false, reason: "nothing to report" };
   const slack = await slackService.postMessage(digest.tenantId, { ...digest.slack, channelId: digest.slackChannelId ?? undefined }).catch(() => false);
   let emails = 0;
-  for (const to of digest.recipients) {
+  // A scheduled send in a quiet week only went ahead for the RevOps item: Slack only, no customer email.
+  for (const to of opts.scheduled && digest.empty ? [] : digest.recipients) {
     if (await sendRoomDigestEmail({ recipientEmail: to, subject: digest.email.subject, html: digest.email.html, tenantId: digest.tenantId })) emails++;
   }
   if (!opts.scheduled) await db.update(lpRoomSettingsTable).set({ lastDigestAt: sql`now()` }).where(eq(lpRoomSettingsTable.pageId, pageId));

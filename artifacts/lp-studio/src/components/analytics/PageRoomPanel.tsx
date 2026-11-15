@@ -19,7 +19,8 @@ interface RoomDetail {
   settings: { allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId?: string | null; asanaProjectGid?: string | null };
   practices?: { total: number; byStage: Record<string, number>; regions: string[] };
   digest?: { enabled: boolean; recipients: string[]; lastSentAt: string | null };
-  sheet?: { id: string | null; tab: string | null; syncedAt: string | null; note: string | null };
+  sheet?: { id: string | null; tab: string | null; syncedAt: string | null; note: string | null; filterColumn?: string | null; filterValue?: string | null };
+  revopsSlackMention?: string | null;
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
   isWorkspace?: boolean;
@@ -62,6 +63,9 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
   const [note, setNote] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetTab, setSheetTab] = useState("");
+  const [filterCol, setFilterCol] = useState("");
+  const [filterVal, setFilterVal] = useState("");
+  const [revopsMention, setRevopsMention] = useState("");
   const [digestOn, setDigestOn] = useState(false);
   const [digestTo, setDigestTo] = useState("");
   const [preview, setPreview] = useState<{ subject: string; html: string; recipients: string[]; slackText: string; empty: boolean } | null>(null);
@@ -80,6 +84,9 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
     setAsanaProject(data.settings.asanaProjectGid ?? "");
     setSheetUrl(data.sheet?.id ? `https://docs.google.com/spreadsheets/d/${data.sheet.id}` : "");
     setSheetTab(data.sheet?.tab ?? "");
+    setFilterCol(data.sheet?.filterColumn ?? "");
+    setFilterVal(data.sheet?.filterValue ?? "");
+    setRevopsMention(data.revopsSlackMention ?? "");
     setDigestOn(!!data.digest?.enabled);
     setDigestTo((data.digest?.recipients ?? []).join(", "));
   }, [data]);
@@ -99,7 +106,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
 
   const saveSettings = async () => {
     const list = domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean);
-    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim() }))) setSaved(true);
+    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim(), revopsSlackMention: revopsMention.trim() }))) setSaved(true);
   };
   const baseSettings = () => ({ allowedDomains: domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean), slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim() });
   const post = async (url: string, body?: unknown): Promise<{ ok: boolean; json: Record<string, unknown> }> => {
@@ -190,13 +197,20 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
                 <Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" />
                 <Input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder="Tab name (blank = first)" />
               </div>
+              <p className="text-xs text-muted-foreground">
+                A sheet that lists every customer’s locations needs narrowing to this one. If it has a “Parent Account ID” column, the room keeps the rows that match the Salesforce account ID saved below, and you can leave these blank. Otherwise name a column and the text its rows must contain.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input value={filterCol} onChange={(e) => setFilterCol(e.target.value)} placeholder="Only rows where this column… (Parent Account Name)" aria-label="Filter column" />
+                <Input value={filterVal} onChange={(e) => setFilterVal(e.target.value)} placeholder="…contains this (Acme Group)" aria-label="Filter value" />
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   variant="brand"
                   onClick={async () => {
                     setNote("");
-                    const err = await send(`${base}/settings`, "PATCH", { ...baseSettings(), practicesSheet: sheetUrl.trim(), practicesSheetTab: sheetTab.trim() });
+                    const err = await send(`${base}/settings`, "PATCH", { ...baseSettings(), practicesSheet: sheetUrl.trim(), practicesSheetTab: sheetTab.trim(), practicesSheetFilterColumn: filterCol.trim(), practicesSheetFilterValue: filterVal.trim() });
                     setError(err ?? "");
                     if (err) return;
                     if (sheetUrl.trim()) {
@@ -413,10 +427,10 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
                 disabled={!(compare.practices?.missingFromRoom.length || compare.doctors?.count)}
                 onClick={async () => {
                   const r = await post(`${base}/revops-task`, { missing: compare.practices?.missingFromRoom ?? [], doctors: compare.practices ? 0 : compare.doctors?.count ?? 0, fileName: compare.fileName });
-                  if (r.ok) setRevops(r.json.asanaTaskGid ? `Raised for RevOps in Asana and Slack: ${String(r.json.name)}` : `Posted to Slack. Asana task was not created${r.json.warning ? `: ${String(r.json.warning)}` : "."}`);
+                  if (r.ok) setRevops(r.json.mentioned ? "Posted to the room’s Slack channel, with RevOps mentioned. It also rides in the weekly Slack digest until the gap closes." : "Posted to the room’s Slack channel. Nobody was mentioned: add a RevOps Slack mention under Settings.");
                 }}
               >
-                Raise as a RevOps action item
+                Post to Slack for RevOps
               </Button>
               {!!compare.practices?.missingFromRoom.length && (
                 <Button
@@ -488,6 +502,11 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
                   <span className="font-medium">Salesforce account ID</span>
                   <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} placeholder="0015d000041HyXrAAK" />
                   <span className="block text-xs text-muted-foreground">The customer’s parent account. Its child accounts become the practice list.</span>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium">RevOps Slack mention</span>
+                  <Input value={revopsMention} onChange={(e) => setRevopsMention(e.target.value)} placeholder="S0123ABCD (user group) or U0123ABCD (person)" />
+                  <span className="block text-xs text-muted-foreground">Mentioned in the weekly Slack digest when Salesforce is missing practices or doctors the customer listed. RevOps never gets an Asana task.</span>
                 </label>
                 <label className="space-y-1 text-sm">
                   <span className="font-medium">Asana project ID</span>

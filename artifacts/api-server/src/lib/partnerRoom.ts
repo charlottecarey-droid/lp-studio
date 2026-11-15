@@ -367,8 +367,10 @@ export type RoomPracticeStage = (typeof ROOM_PRACTICE_STAGES)[number];
 export function normalizePracticeStage(raw: unknown): RoomPracticeStage {
   const v = typeof raw === "string" ? raw.trim().toLowerCase().replace(/[\s-]+/g, "_") : "";
   if ((ROOM_PRACTICE_STAGES as readonly string[]).includes(v)) return v as RoomPracticeStage;
-  if (v === "active" || v === "activated" || v === "ordering") return "live";
-  if (v === "booked" || v === "training_scheduled" || v === "scheduled") return "training_booked";
+  // Salesforce account statuses: Ramping / Ramped = ordering; Onboarding = in training; Pre-Onboarding = being scheduled.
+  if (v === "active" || v === "activated" || v === "ordering" || v === "ramped" || v === "ramping") return "live";
+  if (v === "booked" || v === "training_scheduled" || v === "scheduled" || v === "onboarding") return "training_booked";
+  if (v === "pre_onboarding") return "scheduling";
   if (v === "training_complete" || v === "training_completed" || v === "complete") return "trained";
   return "not_started";
 }
@@ -396,14 +398,16 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     }
     return null;
   };
-  const name = get("name", "practice", "practice_name", "practice name", "account");
+  const name = get("name", "practice", "practice_name", "practice name", "account", "account name");
   if (!name) return null;
+  const state = get("state", "billing state/province", "billing state", "billing state / province");
   return {
-    externalId: get("externalId", "external_id", "sfdc_id", "sfdc id", "salesforce_id", "id"),
+    externalId: get("externalId", "external_id", "sfdc_id", "sfdc id", "salesforce_id", "id", "account id", "18 digit id", "account id (18)"),
     name,
-    region: get("region", "market", "region / regional manager"),
-    city: get("city"),
-    state: get("state"),
+    // No region column (a plain Salesforce report): group by state.
+    region: get("region", "market", "region / regional manager") ?? state,
+    city: get("city", "billing city"),
+    state,
     wave: get("wave"),
     stage: normalizePracticeStage(get("stage", "status")),
     stageGiven: !!get("stage", "status"),
@@ -480,3 +484,31 @@ export function roomAsksGoalAgreement(blocks: unknown): boolean {
   return Array.isArray(blocks) && blocks.some((b) => !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace" && Array.isArray((b as { props?: { goals?: { items?: unknown } } }).props?.goals?.items));
 }
 export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
+
+/* ── Calendar feed ───────────────────────────────────────────────────────── */
+
+/**
+ * The room's visible, dated calendar events as an iCalendar feed (all-day
+ * entries; the time of day rides in the description so no time zone is
+ * guessed). Null when the page has no workspace block.
+ */
+export function roomCalendarIcs(blocks: unknown, calendarName: string): string | null {
+  if (!Array.isArray(blocks)) return null;
+  const block = blocks.find((b) => b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace") as { props?: { calendar?: { events?: unknown } } } | undefined;
+  if (!block) return null;
+  const esc = (v: string) => v.replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/([,;])/g, "\\$1");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Partner Room//EN", "CALSCALE:GREGORIAN", `X-WR-CALNAME:${esc(calendarName)}`];
+  const events = Array.isArray(block.props?.calendar?.events) ? (block.props!.calendar!.events as Record<string, unknown>[]) : [];
+  for (const e of events.slice(0, 500)) {
+    const date = typeof e?.date === "string" ? e.date.trim() : "";
+    const title = cleanText(e?.title, 200);
+    if (!e || e.hidden || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue;
+    const day = date.replace(/-/g, "");
+    const next = new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10) + 1));
+    const end = `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, "0")}${String(next.getUTCDate()).padStart(2, "0")}`;
+    const key = planTaskKey({ key: e.key, task: e.title });
+    lines.push("BEGIN:VEVENT", `UID:${key}-${day}@partner-room`, `DTSTAMP:${day}T000000Z`, `DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc([cleanText(e.time, 80), cleanText(e.detail, 500)].filter(Boolean).join(" · "))}`, "END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}

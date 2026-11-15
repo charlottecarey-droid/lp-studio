@@ -493,11 +493,27 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     __clearRecordedAsanaCalls();
     expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/revops-task`, headers: asTenant(tenantId), body: { missing: [], doctors: 0 } })).status).toBe(400);
     const raised = await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/revops-task`, headers: asTenant(tenantId), body: { missing: cmp.practices.missingFromRoom, fileName: "MB2 practices.csv" } });
-    expect(raised.json).toMatchObject({ ok: true, name: "RevOps - MB2 Dental - Add 1 child account to Salesforce" });
-    const call = __getRecordedAsanaCalls().find((c) => c.tenantId === tenantId)!;
-    expect(call.payload.name).toBe("RevOps - MB2 Dental - Add 1 child account to Salesforce");
-    expect(String(call.payload.notes)).toContain("- Brand New Dental");
-    expect(call.payload.intakeStatus).not.toBe("submitted"); // not a marketing request
+    expect(raised.json).toMatchObject({ ok: true, mentioned: false });
+    // RevOps is told in Slack only: never an Asana task.
+    expect(__getRecordedAsanaCalls().filter((c) => c.tenantId === tenantId)).toHaveLength(0);
+    const { slackService } = await import("../../lib/slack-service");
+    const sent = JSON.stringify(vi.mocked(slackService.postMessage).mock.calls.at(-1));
+    expect(sent).toContain("Brand New Dental");
+
+    // With a mention saved, the post tags RevOps.
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], revopsSlackMention: "not an id" } })).status).toBe(400);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], revopsSlackMention: "S0123ABCD" } })).status).toBe(200);
+    const again = await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/revops-task`, headers: asTenant(tenantId), body: { missing: cmp.practices.missingFromRoom, fileName: "MB2 practices.csv" } });
+    expect(again.json).toMatchObject({ ok: true, mentioned: true });
+    expect(JSON.stringify(vi.mocked(slackService.postMessage).mock.calls.at(-1))).toContain("<!subteam^S0123ABCD>");
+
+    // The calendar feed lists the page's dated, visible events only.
+    await pool.query(`UPDATE lp_pages SET blocks = $2::jsonb WHERE id = $1`, [pageId, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental", calendar: { events: [{ key: "kick", date: "2027-01-12", time: "2:00 pm CT", title: "Kickoff, with sponsors" }, { key: "h", date: "2027-01-13", title: "Hidden", hidden: true }, { key: "n", date: "soon", title: "No date" }] } } }])]);
+    const feed = await inject(app, { method: "GET", url: `/lp/room/calendar.ics?pageId=${pageId}` });
+    expect(feed.status).toBe(200);
+    expect(feed.text).toContain("SUMMARY:Kickoff\\, with sponsors");
+    expect(feed.text).not.toContain("Hidden");
+    expect((await inject(app, { method: "GET", url: `/lp/room/calendar.ics?pageId=999999999` })).status).toBe(404);
   });
 
   it("weekly digest: preview shows what would go out; a manual send emails each saved recipient once", async () => {

@@ -13,6 +13,12 @@ import {
   roomMilestoneKey,
   type RoomAsset,
   type RoomAssetKind,
+  type RoomEvent,
+  type RoomEventKind,
+  type RoomMeeting,
+  type RoomMeetingAction,
+  ROOM_EVENT_KIND_LABEL,
+  standardCheckpoints,
   type RoomGoal,
   type RoomGoalMetric,
   type RoomMilestone,
@@ -34,7 +40,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
 import { ThumbButton } from "./HubPanels";
 
@@ -92,6 +98,16 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
   const setMGroup = (i: number, patch: Partial<RoomProgramGroup>) => setMarketing({ groups: mGroups.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
   const setProgram = (gi: number, pi: number, patch: Partial<RoomProgram>) => setMGroup(gi, { programs: mGroups[gi].programs.map((x, idx) => (idx === pi ? { ...x, ...patch } : x)) });
 
+  const calendar = props.calendar ?? { events: [] };
+  const events = calendar.events ?? [];
+  const setCalendar = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["calendar"]>>) => update({ calendar: { ...calendar, events, ...patch } });
+  const setEvent = (i: number, patch: Partial<RoomEvent>) => setCalendar({ events: events.map((e, idx) => (idx === i ? { ...e, ...patch } : e)) });
+  const minutes = props.meetings ?? { items: [] };
+  const meetingItems = minutes.items ?? [];
+  const setMinutes = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["meetings"]>>) => update({ meetings: { ...minutes, items: meetingItems, ...patch } });
+  const setMeeting = (i: number, patch: Partial<RoomMeeting>) => setMinutes({ items: meetingItems.map((m, idx) => (idx === i ? { ...m, ...patch } : m)) });
+  const setAction = (i: number, ai: number, patch: Partial<RoomMeetingAction>) => setMeeting(i, { actions: (meetingItems[i].actions ?? []).map((a, idx) => (idx === ai ? { ...a, ...patch } : a)) });
+  const todayIso = new Date().toISOString().slice(0, 10);
   const goals = props.goals ?? { items: [] };
   const goalItems = goals.items ?? [];
   const setGoals = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["goals"]>>) => update({ goals: { ...goals, items: goalItems, ...patch } });
@@ -225,6 +241,82 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <Plus className="h-3 w-3" /> Add goal
         </Button>
         <p className="text-[11px] leading-snug text-muted-foreground">Counted goals update on their own from the room. The practice list is loaded on this page’s analytics, under Room.</p>
+      </PanelSection>
+
+      <PanelSection title={`Calendar (${events.length})`} hint="Meetings, trainings and sends. The next three also show on the overview">
+        <Field label="Intro line"><Input value={calendar.intro ?? ""} onChange={(e) => setCalendar({ intro: e.target.value })} className="h-8 text-xs" /></Field>
+        {events.map((ev, i) => (
+          <div key={i} className="space-y-1.5 rounded-md border p-2">
+            <ItemHeader label={ev.title || `Event ${i + 1}`} index={i} total={events.length} onMove={(dir) => setCalendar({ events: moveItem(events, i, dir) })} onRemove={() => setCalendar({ events: events.filter((_, idx) => idx !== i) })} />
+            <Input value={ev.title ?? ""} onChange={(e) => setEvent(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Event" />
+            <div className="grid grid-cols-2 gap-1">
+              <Input type="date" value={ev.date ?? ""} onChange={(e) => setEvent(i, { date: e.target.value })} className="h-7 text-xs" aria-label="Date" />
+              <Input value={ev.time ?? ""} onChange={(e) => setEvent(i, { time: e.target.value })} className="h-7 text-xs" placeholder="2:00 pm CT · 30 min" />
+            </div>
+            <Input value={ev.detail ?? ""} onChange={(e) => setEvent(i, { detail: e.target.value })} className="h-7 text-xs" placeholder="Detail (who it is for, where)" />
+            <div className="grid grid-cols-[1fr_auto] items-center gap-1">
+              <Select value={ev.kind ?? "meeting"} onValueChange={(v) => setEvent(i, { kind: v as RoomEventKind })}>
+                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(ROOM_EVENT_KIND_LABEL) as RoomEventKind[]).map((k) => <SelectItem key={k} value={k} className="text-xs">{ROOM_EVENT_KIND_LABEL[k]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <HideToggle hidden={ev.hidden} onChange={(h) => setEvent(i, { hidden: h })} />
+            </div>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setCalendar({ events: [...events, { key: `event-${Date.now().toString(36)}`, title: "New event", date: todayIso, kind: "meeting" }] })}>
+          <Plus className="h-3 w-3" /> Add event
+        </Button>
+        {standardCheckpoints(props.kickoffDate).some((c) => !events.some((e) => e.key === c.key)) && (
+          <Button type="button" variant="outline" size="sm" className="ml-1 h-7 gap-1 text-[11px]" onClick={() => setCalendar({ events: [...events, ...standardCheckpoints(props.kickoffDate).filter((c) => !events.some((e) => e.key === c.key))] })}>
+            <Plus className="h-3 w-3" /> Add kickoff and Day 30 / 60 / 90
+          </Button>
+        )}
+        <p className="text-[11px] leading-snug text-muted-foreground">Events without a date stay off the page. Customers can add one event to their calendar or subscribe to all of them.</p>
+      </PanelSection>
+
+      <PanelSection title={`Meetings (${meetingItems.length})`} hint="Minutes: decisions and action items, newest first">
+        <Field label="Intro line"><Input value={minutes.intro ?? ""} onChange={(e) => setMinutes({ intro: e.target.value })} className="h-8 text-xs" /></Field>
+        {meetingItems.map((m, i) => (
+          <div key={i} className="space-y-1.5 rounded-md border p-2">
+            <ItemHeader label={m.title || `Meeting ${i + 1}`} index={i} total={meetingItems.length} onMove={(dir) => setMinutes({ items: moveItem(meetingItems, i, dir) })} onRemove={() => setMinutes({ items: meetingItems.filter((_, idx) => idx !== i) })} />
+            <div className="grid grid-cols-[1fr_130px] gap-1">
+              <Input value={m.title ?? ""} onChange={(e) => setMeeting(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Meeting" />
+              <Input type="date" value={m.date ?? ""} onChange={(e) => setMeeting(i, { date: e.target.value })} className="h-8 text-xs" aria-label="Date" />
+            </div>
+            <Input value={m.attendees ?? ""} onChange={(e) => setMeeting(i, { attendees: e.target.value })} className="h-7 text-xs" placeholder="Who attended" />
+            <Textarea value={m.summary ?? ""} onChange={(e) => setMeeting(i, { summary: e.target.value })} rows={2} className="text-xs" placeholder="Summary (two or three sentences)" />
+            <Field label="Decisions, one per line">
+              <Textarea value={(m.decisions ?? []).join("\n")} onChange={(e) => setMeeting(i, { decisions: e.target.value.split("\n") })} rows={3} className="text-xs" />
+            </Field>
+            <Field label="Action items">
+              <div className="space-y-1">
+                {(m.actions ?? []).map((a, ai) => (
+                  <div key={ai} className="grid grid-cols-[1fr_70px_70px_auto_auto] items-center gap-1">
+                    <Input value={a.text ?? ""} onChange={(e) => setAction(i, ai, { text: e.target.value })} className="h-7 text-xs" placeholder="Action" />
+                    <Input value={a.owner ?? ""} onChange={(e) => setAction(i, ai, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner" />
+                    <Input value={a.due ?? ""} onChange={(e) => setAction(i, ai, { due: e.target.value })} className="h-7 text-xs" placeholder="Due" />
+                    <Switch checked={!!a.done} onCheckedChange={(v) => setAction(i, ai, { done: v })} aria-label="Done" title="Done" />
+                    <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Remove action" onClick={() => setMeeting(i, { actions: (m.actions ?? []).filter((_, idx) => idx !== ai) })}><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                ))}
+                <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1 text-[11px]" onClick={() => setMeeting(i, { actions: [...(m.actions ?? []), { text: "" }] })}>
+                  <Plus className="h-3 w-3" /> Add action
+                </Button>
+              </div>
+            </Field>
+            <div className="grid grid-cols-2 gap-1">
+              <Input value={m.notesUrl ?? ""} onChange={(e) => setMeeting(i, { notesUrl: e.target.value })} className="h-7 text-xs" placeholder="Notes link" />
+              <Input value={m.recordingUrl ?? ""} onChange={(e) => setMeeting(i, { recordingUrl: e.target.value })} className="h-7 text-xs" placeholder="Recording link" />
+            </div>
+            <HideToggle hidden={m.hidden} onChange={(h) => setMeeting(i, { hidden: h })} />
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMinutes({ items: [{ key: `meeting-${Date.now().toString(36)}`, title: "New meeting", date: todayIso, decisions: [], actions: [] }, ...meetingItems] })}>
+          <Plus className="h-3 w-3" /> Add meeting
+        </Button>
+        <p className="text-[11px] leading-snug text-muted-foreground">Everything here is visible to the customer. Keep internal notes out, and only link notes or recordings they may open.</p>
       </PanelSection>
 
       <PanelSection title="Marketing plan" hint="Programs the customer includes, skips or picks an option for">

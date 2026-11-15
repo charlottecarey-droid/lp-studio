@@ -167,11 +167,13 @@ ${d.topWin ? section("Win of the week", `<div style="margin-top:8px;font-size:14
 }
 
 /** The team's Slack post for the account channel. */
-export function renderDigestSlack(d: DigestData, roomUrl: string): { text: string; blocks: unknown[] } {
+export function renderDigestSlack(d: DigestData, roomUrl: string, extraSections: string[] = []): { text: string; blocks: unknown[] } {
   const m = (s: string) => s.replace(/[<>&*_~`]/g, " ");
   const bullets = (items: string[], max = 6) => items.slice(0, max).map((i) => `• ${m(i)}`).join("\n") + (items.length > max ? `\n• and ${items.length - max} more` : "");
   const lines: string[] = [];
   lines.push([d.day !== null ? `Day ${d.day} of ${d.totalDays}${d.phase ? ` (${m(d.phase)})` : ""}` : null, `${d.planDone}/${d.planTotal} plan items done`, d.practicesTotal ? `${d.practicesLive}/${d.practicesTotal} practices live` : null].filter(Boolean).join(" · "));
+  // Sections the caller composed (already Slack-formatted), e.g. the RevOps item: right under the headline numbers.
+  lines.push(...extraSections);
   if (d.blocking.length) lines.push(`*Blocking (${d.blocking.length})*\n${bullets(d.blocking)}`);
   if (d.waitingOnCustomer.length) lines.push(`*Waiting on ${m(d.partnerName)} (${d.waitingOnCustomer.length})*\n${bullets(d.waitingOnCustomer)}`);
   if (d.undecided.length) lines.push(`*Marketing decisions still open (${d.undecided.length})*\n${bullets(d.undecided)}`);

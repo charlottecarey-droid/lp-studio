@@ -17,6 +17,9 @@ import {
   BlockRoomWorkspace,
   ROOM_WORKSPACE_DEFAULT_PROPS,
   phaseStates,
+  eventIcs,
+  splitEvents,
+  standardCheckpoints,
   goalValue,
   welcomeName,
   resolveRoomStatus,
@@ -41,7 +44,7 @@ describe("room-workspace — registry + default render", () => {
     expect(html).toContain("Acme Group × Northwind");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
     expect(html).toContain("data-room-request-button");
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(9);
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(11);
     expect(html).toContain('data-room-view="overview"');
     expect(html).toContain("Where things stand");
     expect(html).not.toContain("One shared plan"); // other modules are separate views
@@ -58,14 +61,14 @@ describe("room-workspace — registry + default render", () => {
 describe("room-workspace — modules can be hidden per account", () => {
   it("drops hidden modules from the nav; hiding Requests removes Make a request", () => {
     const html = render({ hiddenModules: ["requests", "team"] });
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(7);
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(9);
     expect(html).not.toContain('data-room-nav="requests"');
     expect(html).not.toContain("data-room-request-button");
   });
   it("lands on the first visible module, and never hides everything", () => {
     expect(render({ hiddenModules: ["overview", "wins", "goals"] })).toContain('data-room-view="plan"');
-    expect(visibleModules(["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
-    expect(visibleModules(undefined)).toHaveLength(9);
+    expect(visibleModules(["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar", "meetings", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
+    expect(visibleModules(undefined)).toHaveLength(11);
   });
   it("the action plan shows both owners, a checkpoint, and customer actions with no file link", () => {
     const html = render({ hiddenModules: ["overview", "wins", "goals"] });
@@ -223,5 +226,54 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     const attention = html.slice(html.indexOf("Needs your attention"));
     expect(attention).toContain('data-room-action="upload"');
     expect(attention).toContain("Upload roster");
+  });
+  it("calendar: lists dated visible events by month with add-to-calendar, and leaves hidden or undated ones out", () => {
+    const html = render({
+      hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing", "kit"],
+      calendar: { intro: "All dates.", events: [
+        { key: "b", date: "2027-02-11", title: "Day 30 checkpoint", kind: "meeting" },
+        { key: "a", date: "2027-01-12", time: "2:00 pm CT", title: "Executive kickoff", kind: "milestone" },
+        { key: "h", date: "2027-01-20", title: "Internal prep", hidden: true },
+        { key: "n", date: "TBD", title: "Undated thing" },
+      ] },
+    });
+    expect(html).toContain("What’s scheduled");
+    expect(html.indexOf("January 2027")).toBeGreaterThan(-1);
+    expect(html.indexOf("January 2027")).toBeLessThan(html.indexOf("February 2027"));
+    expect(html).toContain("Add Executive kickoff to your calendar");
+    expect(html).toContain("2:00 pm CT");
+    expect(html).not.toContain("Internal prep");
+    expect(html).not.toContain("Undated thing");
+    expect(render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing", "kit"] })).toContain("Nothing is scheduled yet.");
+    expect(visibleModules(["calendar", "meetings"]).map((m) => m.key)).not.toContain("calendar");
+  });
+  it("meetings: newest first, the latest one open with decisions and action items; hidden ones stay out", () => {
+    const html = render({
+      hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar"],
+      meetings: { items: [
+        { key: "m1", date: "2027-01-12", title: "Executive kickoff", attendees: "Levi, Dana", decisions: ["Old decision"], actions: [] },
+        { key: "m2", date: "2027-01-26", title: "Weekly sync", summary: "Wave one is set.", decisions: ["Start with Texas"], actions: [{ text: "Send the roster", owner: "Levi", due: "Feb 2" }, { text: "Book trainers", done: true }], notesUrl: "https://example.com/notes" },
+        { key: "m3", date: "2027-02-01", title: "Internal debrief", hidden: true },
+      ] },
+    });
+    expect(html.indexOf("Weekly sync")).toBeLessThan(html.indexOf("Executive kickoff"));
+    expect(html).toContain("Start with Texas");
+    expect(html).toContain("Send the roster");
+    expect(html).toContain("1 open action");
+    expect(html).toContain("Notes for Weekly sync");
+    expect(html).not.toContain("Old decision"); // only the latest starts open
+    expect(html).not.toContain("Internal debrief");
+  });
+  it("splitEvents, standardCheckpoints and eventIcs behave", () => {
+    const ev = [{ key: "a", date: "2027-01-10", title: "A" }, { key: "b", date: "2027-01-20", title: "B" }, { key: "c", date: "2027-01-05", title: "C" }];
+    const split = splitEvents(ev, "2027-01-10");
+    expect(split.upcoming.map((e) => e.key)).toEqual(["a", "b"]); // today counts as upcoming
+    expect(split.past.map((e) => e.key)).toEqual(["c"]);
+    expect(standardCheckpoints("")).toEqual([]);
+    expect(standardCheckpoints("2027-01-12").map((e) => e.date)).toEqual(["2027-01-12", "2027-02-11", "2027-03-13", "2027-04-12"]);
+    const ics = eventIcs({ key: "a", date: "2027-12-31", time: "9 am", title: "Review, final" }, "Room");
+    expect(ics).toContain("DTSTART;VALUE=DATE:20271231");
+    expect(ics).toContain("DTEND;VALUE=DATE:20280101");
+    expect(ics).toContain(String.raw`SUMMARY:Review\, final`);
   });
 });

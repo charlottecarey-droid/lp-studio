@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, Download, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
+import { CalendarPlus, Check, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -28,6 +28,8 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  *   plan       the mutual action plan: milestones by phase, an owner on each
  *              side, target date, status, a checkpoint per phase. Milestones
  *              can be the customer's to complete (tick it, or upload a file)
+ *   calendar   what is scheduled, with add-to-calendar and a calendar feed
+ *   meetings   minutes: what was decided and who took which action
  *   kit        launch-kit assets: View / Download / Request changes, plus links
  *   requests   everything the customer asked for and where it stands
  *   team       named people on both sides
@@ -45,7 +47,7 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  * scroll-animated page.
  * -------------------------------------------------------------------------- */
 
-export type RoomModuleKey = "overview" | "wins" | "goals" | "plan" | "practices" | "marketing" | "kit" | "requests" | "team";
+export type RoomModuleKey = "overview" | "wins" | "goals" | "plan" | "practices" | "marketing" | "kit" | "calendar" | "meetings" | "requests" | "team";
 export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "wins", label: "Wins" },
@@ -54,6 +56,8 @@ export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "practices", label: "Practices" },
   { key: "marketing", label: "Marketing plan" },
   { key: "kit", label: "Launch kit" },
+  { key: "calendar", label: "Calendar" },
+  { key: "meetings", label: "Meetings" },
   { key: "requests", label: "Requests" },
   { key: "team", label: "Your team" },
 ];
@@ -127,6 +131,39 @@ export interface RoomOnboardingStep {
   hidden?: boolean;
   /** For a "request" step: what kind of request it sends ("marketing" also goes to the marketing intake). */
   requestKind?: string;
+}
+
+export type RoomEventKind = "meeting" | "training" | "marketing" | "milestone";
+export interface RoomEvent {
+  key: string;
+  /** YYYY-MM-DD. */
+  date: string;
+  /** As it should read ("2:00 pm CT · 30 min"). */
+  time?: string;
+  title: string;
+  detail?: string;
+  kind?: RoomEventKind;
+  hidden?: boolean;
+}
+
+export interface RoomMeetingAction {
+  text: string;
+  owner?: string;
+  due?: string;
+  done?: boolean;
+}
+export interface RoomMeeting {
+  key: string;
+  /** YYYY-MM-DD. */
+  date: string;
+  title: string;
+  attendees?: string;
+  summary?: string;
+  decisions?: string[];
+  actions?: RoomMeetingAction[];
+  notesUrl?: string;
+  recordingUrl?: string;
+  hidden?: boolean;
 }
 
 /** Where a goal's current value comes from: typed by the team, or counted from the room. */
@@ -211,6 +248,8 @@ export interface RoomWorkspaceBlockProps {
   marketing?: { intro?: string; groups: RoomProgramGroup[] };
   /** Goals agreed with the customer. `askAgreement` shows an "Agree to these goals" control until someone agrees. */
   goals?: { intro?: string; askAgreement?: boolean; items: RoomGoal[] };
+  calendar?: { intro?: string; events: RoomEvent[] };
+  meetings?: { intro?: string; items: RoomMeeting[] };
   /** What the customer calls a location ("practices", "locations", "stores"). */
   locationsNoun?: string;
   teamNote?: string;
@@ -301,6 +340,8 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
       { key: "goal-plan", title: "Launch plan complete", target: "All milestones by Day 90", targetValue: 5, metric: "plan_complete", owner: "Both teams", status: "on-track" },
     ],
   },
+  calendar: { intro: "Meetings, trainings and marketing sends in one place.", events: [] },
+  meetings: { intro: "What was decided, and who took which action.", items: [] },
   locationsNoun: "locations",
   kitIntro: "Approved and ready to use. Need an edit? Request a change on any item and follow it under Requests.",
   assets: [
@@ -387,6 +428,45 @@ export function welcomeName(viewer: { email: string; name: string | null } | nul
   const parts = local.split(/[._]/);
   if (parts.length > 1 && /^[a-z]{2,}$/i.test(parts[0])) return cap(parts[0]);
   return partnerName.trim() || "there";
+}
+
+export const ROOM_EVENT_KIND_LABEL: Record<RoomEventKind, string> = { meeting: "Meeting", training: "Training", marketing: "Marketing", milestone: "Milestone" };
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const validDay = (v: string | undefined) => /^\d{4}-\d{2}-\d{2}$/.test((v ?? "").trim());
+
+/** Visible, dated events split around today, soonest first / most recent first. */
+export function splitEvents(events: RoomEvent[] | undefined, today: string): { upcoming: RoomEvent[]; past: RoomEvent[] } {
+  const list = (events ?? []).filter((e) => !e.hidden && validDay(e.date) && (e.title ?? "").trim());
+  return {
+    upcoming: list.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)),
+    past: list.filter((e) => e.date < today).sort((a, b) => b.date.localeCompare(a.date)),
+  };
+}
+
+/** The standing checkpoints of a rollout, dated from the kickoff: kickoff, then Day 30 / 60 / 90. Empty without a valid kickoff date. */
+export function standardCheckpoints(kickoffDate: string | undefined): RoomEvent[] {
+  if (!validDay(kickoffDate)) return [];
+  const k = kickoffDate!.trim();
+  const at = (days: number) => {
+    const d = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10) + days));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  };
+  return [
+    { key: "kickoff", date: at(0), title: "Executive kickoff", detail: "Walk the plan, confirm owners and dates", kind: "milestone" },
+    { key: "day-30", date: at(30), title: "Day 30 checkpoint", detail: "First wave, early results, what to adjust", kind: "meeting" },
+    { key: "day-60", date: at(60), title: "Day 60 checkpoint", detail: "Rollout health against goals", kind: "meeting" },
+    { key: "day-90", date: at(90), title: "Day 90 business review", detail: "Results against goals, and the next wave", kind: "milestone" },
+  ];
+}
+
+const icsText = (v: string) => v.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/([,;])/g, "\\$1");
+/** One all-day calendar entry as an .ics file (the time of day rides in the description, so no time zone is guessed). */
+export function eventIcs(e: RoomEvent, calendarName: string): string {
+  const day = e.date.replace(/-/g, "");
+  const next = new Date(Date.UTC(+e.date.slice(0, 4), +e.date.slice(5, 7) - 1, +e.date.slice(8, 10) + 1));
+  const end = `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, "0")}${String(next.getUTCDate()).padStart(2, "0")}`;
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:-//${icsText(calendarName)}//Room//EN`, "BEGIN:VEVENT", `UID:${icsText(e.key || e.title)}-${day}@room`, `DTSTAMP:${day}T000000Z`, `DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${icsText(e.title)}`, `DESCRIPTION:${icsText([e.time, e.detail].filter(Boolean).join(" · "))}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
 }
 
 export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
@@ -551,6 +631,22 @@ const CSS = `
 .prw-chip.not_started{background:#F1F2EE;color:var(--body)}.prw-chip.scheduling{background:#FBF3D9;color:#7A6100}.prw-chip.training_booked,.prw-chip.trained{background:#E8EEF9;color:var(--blue)}
 .prw-agree{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--body)}
 .prw-agree b{color:var(--dark)}
+.prw-date{width:46px;text-align:center;flex:none;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.prw-date i{display:block;font-style:normal;background:var(--dark);color:var(--on-dark);font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 0;text-transform:uppercase}
+.prw-date b{display:block;font-size:16px;font-weight:700;color:var(--dark);padding:2px 0 3px}
+.prw-chip.kind{background:#F1F2EE;color:var(--body)}
+.prw-chip.training{background:#E8EEF9;color:var(--blue)}
+.prw-chip.marketing{background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A}
+.prw-chip.milestone{background:#FBF3D9;color:#7A6100}
+.prw-month{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:18px 0 8px}
+.prw-month:first-of-type{margin-top:0}
+.prw-min{border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:10px;overflow:hidden}
+.prw-min .mh{display:flex;gap:14px;align-items:center;padding:12px 16px;width:100%;background:none;border:0;text-align:left}
+.prw-min .mb{border-top:1px solid var(--line);padding:14px 16px 16px 76px;font-size:13.5px;color:var(--ink);display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.prw-min .mb h5{margin:0 0 5px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--green)}
+.prw-min .mb ul{margin:0;padding-left:16px}
+.prw-min .mb li{margin:3px 0}
+.prw-min .mb .sum{grid-column:1/-1;color:var(--body)}
 .prw-compose{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 14px}
 .prw-compose textarea,.prw-cbox input{flex:1;border:0;outline:0;font:inherit;background:transparent;color:var(--ink);resize:none;min-width:0}
 .prw-win{border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:10px;overflow:hidden}
@@ -633,6 +729,7 @@ const CSS = `
 .prw-prog .im{width:64px;height:48px}
 .prw-prog .who,.prw-prog .when,.prw-prog .dec{grid-column:2;justify-self:start;text-align:left}
 .prw-step{flex-wrap:wrap}
+.prw-min .mb{grid-template-columns:1fr;padding-left:16px}
 .prw-win .wb,.prw-win .wx,.prw-win .wc,.prw-cbox{padding-left:16px}
 .prw-ob .bar{display:none}
 .prw-body{padding-left:16px}
@@ -680,6 +777,9 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
   const goals = (props.goals?.items ?? []).filter((g) => !g.hidden);
   const goalsAgreed = snapshot.tasks[ROOM_GOALS_AGREED_KEY];
   const needsAgreement = !!props.goals?.askAgreement && goals.length > 0 && !goalsAgreed?.done;
+  const today = now ? isoDay(now) : "0000-00-00";
+  const events = splitEvents(props.calendar?.events, today);
+  const meetings = (props.meetings?.items ?? []).filter((m) => !m.hidden && (m.title ?? "").trim()).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const pr = snapshot.practices;
   const noun = (props.locationsNoun ?? "").trim() || "locations";
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
@@ -975,6 +1075,67 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                       ))}
                   </div>
                 </div>
+              </>
+            )}
+
+            {active === "overview" && now && events.upcoming.length > 0 && (
+              <div className="prw-card" style={{ marginTop: 14 }} data-room-coming-up>
+                <h3>
+                  Coming up
+                  {modules.some((m) => m.key === "calendar") && <button type="button" onClick={() => setView("calendar")}>Open calendar</button>}
+                </h3>
+                {events.upcoming.slice(0, 3).map((e) => (
+                  <EventRow key={e.key || e.title + e.date} event={e} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
+                ))}
+              </div>
+            )}
+
+            {active === "calendar" && (
+              <>
+                <div className="prw-hd">
+                  <div>
+                    <div className="prw-eyebrow">Calendar</div>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What’s scheduled</h2>
+                    {props.calendar?.intro && <p>{props.calendar.intro}</p>}
+                  </div>
+                  {pageId && !isEditor && (
+                    <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}`} data-room-calendar-feed>
+                      <CalendarPlus aria-hidden /> Subscribe
+                    </a>
+                  )}
+                </div>
+                {events.upcoming.length === 0 && events.past.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is scheduled yet.</div></div>}
+                {events.upcoming.length === 0 && events.past.length > 0 && <div className="prw-card"><div className="prw-empty">Nothing upcoming.</div></div>}
+                <EventList events={events.upcoming} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
+                {events.past.length > 0 && (
+                  <details style={{ marginTop: 18 }}>
+                    <summary className="prw-meta" style={{ cursor: "pointer" }}>Earlier ({events.past.length})</summary>
+                    <div style={{ marginTop: 10 }}>
+                      <EventList events={events.past} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
+                    </div>
+                  </details>
+                )}
+              </>
+            )}
+
+            {active === "meetings" && (
+              <>
+                <div className="prw-hd">
+                  <div>
+                    <div className="prw-eyebrow">Meetings</div>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Minutes and decisions</h2>
+                    {props.meetings?.intro && <p>{props.meetings.intro}</p>}
+                  </div>
+                  {meetings.length > 0 && (
+                    <div className="prw-meta">
+                      <b>{meetings.length}</b> {meetings.length === 1 ? "meeting" : "meetings"} · <b>{meetings.reduce((n, m) => n + (m.actions ?? []).filter((a) => !a.done).length, 0)}</b> open actions
+                    </div>
+                  )}
+                </div>
+                {meetings.length === 0 && <div className="prw-card"><div className="prw-empty">Minutes will appear here after each meeting.</div></div>}
+                {meetings.map((m, i) => (
+                  <MeetingCard key={m.key || m.title + m.date} meeting={m} defaultOpen={i === 0} isEditor={isEditor} />
+                ))}
               </>
             )}
 
@@ -2008,5 +2169,133 @@ function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }
         </>
       )}
     </>
+  );
+}
+
+/* ── Calendar + meetings ─────────────────────────────────────────────────── */
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function DateTile({ date }: { date: string }) {
+  const m = +date.slice(5, 7) - 1;
+  return (
+    <span className="prw-date" aria-hidden>
+      <i>{MONTHS[m] ?? ""}</i>
+      <b className="prw-num">{+date.slice(8, 10) || ""}</b>
+    </span>
+  );
+}
+
+function EventRow({ event, calendarName, isEditor }: { event: RoomEvent; calendarName: string; isEditor: boolean }) {
+  const kind = event.kind && ROOM_EVENT_KIND_LABEL[event.kind] ? event.kind : null;
+  const download = () => {
+    if (isEditor) return;
+    const url = URL.createObjectURL(new Blob([eventIcs(event, calendarName)], { type: "text/calendar" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${event.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "event"}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="prw-li" data-room-event={event.kind ?? "event"}>
+      <DateTile date={event.date} />
+      <div style={{ minWidth: 0 }}>
+        <div className="t">{event.title}</div>
+        <div className="m">
+          {[event.time, event.detail].filter(Boolean).join(" · ")}
+          {kind && <>{event.time || event.detail ? " · " : ""}<span className={`prw-chip ${kind === "meeting" ? "kind" : kind}`}>{ROOM_EVENT_KIND_LABEL[kind]}</span></>}
+        </div>
+      </div>
+      <div className="a">
+        <button type="button" className="prw-ib" title="Add to calendar" aria-label={`Add ${event.title} to your calendar`} onClick={download}>
+          <CalendarPlus aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EventList({ events, calendarName, isEditor }: { events: RoomEvent[]; calendarName: string; isEditor: boolean }) {
+  const groups: { month: string; items: RoomEvent[] }[] = [];
+  for (const e of events) {
+    const month = `${MONTH_NAMES[+e.date.slice(5, 7) - 1] ?? ""} ${e.date.slice(0, 4)}`;
+    const last = groups[groups.length - 1];
+    if (last && last.month === month) last.items.push(e);
+    else groups.push({ month, items: [e] });
+  }
+  return (
+    <>
+      {groups.map((g) => (
+        <div key={g.month}>
+          <div className="prw-month">{g.month}</div>
+          <div className="prw-card">
+            {g.items.map((e) => (
+              <EventRow key={e.key || e.title + e.date} event={e} calendarName={calendarName} isEditor={isEditor} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function MeetingCard({ meeting, defaultOpen, isEditor }: { meeting: RoomMeeting; defaultOpen: boolean; isEditor: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const decisions = (meeting.decisions ?? []).filter((d) => d.trim());
+  const actions = (meeting.actions ?? []).filter((a) => (a.text ?? "").trim());
+  const openCount = actions.filter((a) => !a.done).length;
+  const hasBody = !!(meeting.summary || decisions.length || actions.length);
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(meeting.date ?? "");
+  return (
+    <div className="prw-min" data-room-meeting>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <button type="button" className="mh" onClick={() => hasBody && setOpen((v) => !v)} aria-expanded={open} style={{ cursor: hasBody ? "pointer" : "default" }}>
+          {validDate && <DateTile date={meeting.date} />}
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: "block", fontWeight: 600, color: "var(--ink)", fontSize: 14 }}>{meeting.title}</span>
+            <span style={{ display: "block", fontSize: 12, color: "var(--body)" }}>
+              {[meeting.attendees, decisions.length ? `${decisions.length} decision${decisions.length === 1 ? "" : "s"}` : "", actions.length ? `${openCount} open action${openCount === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+          {hasBody && <ChevronDown aria-hidden style={{ width: 16, height: 16, marginLeft: "auto", flex: "none", color: "var(--body)", transform: open ? "rotate(180deg)" : undefined }} />}
+        </button>
+        <span style={{ display: "flex", gap: 6, paddingRight: 16 }}>
+          {(meeting.notesUrl ?? "").trim() && (
+            <a className="prw-ib" title="Notes" aria-label={`Notes for ${meeting.title}`} href={isEditor ? undefined : meeting.notesUrl} target="_blank" rel="noreferrer"><FileText aria-hidden /></a>
+          )}
+          {(meeting.recordingUrl ?? "").trim() && (
+            <a className="prw-ib" title="Recording" aria-label={`Recording of ${meeting.title}`} href={isEditor ? undefined : meeting.recordingUrl} target="_blank" rel="noreferrer"><Video aria-hidden /></a>
+          )}
+        </span>
+      </div>
+      {open && hasBody && (
+        <div className="mb">
+          {meeting.summary && <div className="sum">{meeting.summary}</div>}
+          {decisions.length > 0 && (
+            <div>
+              <h5>Decisions</h5>
+              <ul>{decisions.map((d, i) => <li key={i}>{d}</li>)}</ul>
+            </div>
+          )}
+          {actions.length > 0 && (
+            <div>
+              <h5>Action items</h5>
+              <ul>
+                {actions.map((a, i) => (
+                  <li key={i}>
+                    {a.text}
+                    {(a.owner || a.due) && <span style={{ color: "var(--body)" }}> · {[a.owner, a.due].filter(Boolean).join(" · ")}</span>}
+                    {" · "}
+                    <span className={`prw-st ${a.done ? "done" : "on-track"}`}>{a.done ? "Done" : "Open"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

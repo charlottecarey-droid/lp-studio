@@ -38,6 +38,11 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   practicesSyncedAt: timestamp("practices_synced_at", { withTimezone: true }),
   /** How the last read went ("122 practices" or the error), shown to the team. */
   practicesSyncNote: text("practices_sync_note"),
+  /** Keep only sheet rows where this column contains this value (a report that lists every customer's practices). */
+  practicesSheetFilterColumn: text("practices_sheet_filter_column"),
+  practicesSheetFilterValue: text("practices_sheet_filter_value"),
+  /** Slack id to mention about Salesforce gaps: a user group (S…) or a user (U…). */
+  revopsSlackMention: text("revops_slack_mention"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

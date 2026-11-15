@@ -42,7 +42,7 @@ import { sendRoomAccessEmail } from "../../lib/notifications";
 import { slackService } from "../../lib/slack-service";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
-import { buildRoomDigest, practiceSummary, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
+import { buildRoomDigest, practiceSummary, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "../../lib/partnerRoomReconcile";
 import {
   ASANA_REQUEST_KINDS,
@@ -50,6 +50,7 @@ import {
   normalizePracticeStage,
   parsePracticeCsv,
   ROOM_PRACTICE_STAGES,
+  roomCalendarIcs,
   roomPartnerName,
   type RoomPracticeInput,
   extractRoomChoices,
@@ -575,6 +576,25 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
   }
 });
 
+/** The room's calendar as an iCalendar feed a calendar app can subscribe to. Events come from the page itself, which is already open to anyone with the link. */
+router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const pageId = Number(req.query.pageId);
+    const [page] = Number.isFinite(pageId) && pageId > 0 ? await db.select({ title: lpPagesTable.title, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1) : [];
+    const ics = page ? roomCalendarIcs(page.blocks, `${roomPartnerName(page.blocks) || page.title} partnership`) : null;
+    if (!ics) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=900");
+    res.send(ics);
+  } catch (err) {
+    req.log.error({ err }, "room calendar feed failed");
+    res.status(500).end();
+  }
+});
+
 /** Record a decision the page offers (a marketing program's option). */
 router.post("/lp/room/choice", actionLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -732,7 +752,8 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
     res.json({
       isWorkspace: page.isWorkspace,
       digest: { enabled: !!fullSettings?.digestEnabled, recipients: Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients : [], lastSentAt: fullSettings?.lastDigestAt?.toISOString() ?? null },
-      sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null },
+      sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
+      revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
       practices: await practiceSummary(page.id),
       choices: [...page.choices.values()].map((spec) => {
         const c = choiceRows.find((x) => x.choiceKey === spec.key);
@@ -812,7 +833,19 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
       return;
     }
     // Optional keys: only touched when the request carries them.
-    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null } = {};
+    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null; practicesSheetFilterColumn?: string | null; practicesSheetFilterValue?: string | null; revopsSlackMention?: string | null } = {};
+    if (req.body?.revopsSlackMention !== undefined) {
+      const raw = typeof req.body.revopsSlackMention === "string" ? req.body.revopsSlackMention.trim() : "";
+      if (raw && !slackMention(raw)) {
+        res.status(400).json({ error: "Use a Slack user-group ID (starts with S) or a member ID (starts with U)." });
+        return;
+      }
+      extra.revopsSlackMention = raw || null;
+    }
+    if (req.body?.practicesSheetFilterColumn !== undefined || req.body?.practicesSheetFilterValue !== undefined) {
+      extra.practicesSheetFilterColumn = (typeof req.body?.practicesSheetFilterColumn === "string" ? req.body.practicesSheetFilterColumn.trim().slice(0, 80) : "") || null;
+      extra.practicesSheetFilterValue = (typeof req.body?.practicesSheetFilterValue === "string" ? req.body.practicesSheetFilterValue.trim().slice(0, 120) : "") || null;
+    }
     if (typeof req.body?.digestEnabled === "boolean") extra.digestEnabled = req.body.digestEnabled;
     if (Array.isArray(req.body?.digestRecipients)) {
       const list: string[] = [];
@@ -1026,9 +1059,9 @@ router.post("/lp/partner-rooms/:pageId/uploads/:id/compare", async (req: Request
 });
 
 /**
- * Raise the gaps as an action item for RevOps: an Asana task listing the
- * practices to add to Salesforce (and the doctor count), plus a Slack post.
- * It is not a marketing request, so no intake status is set.
+ * Tell RevOps now, in the room's Slack channel, what Salesforce is missing
+ * (the weekly Slack digest repeats it until the gap closes). Slack only:
+ * RevOps does not get an Asana task.
  */
 router.post("/lp/partner-rooms/:pageId/revops-task", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1041,22 +1074,19 @@ router.post("/lp/partner-rooms/:pageId/revops-task", async (req: Request, res: R
       res.status(400).json({ error: "Nothing to raise: no missing practices or doctors." });
       return;
     }
-    const customer = page.partnerName || page.title;
-    const what = [missing.length ? `${missing.length} child account${missing.length === 1 ? "" : "s"}` : null, doctors ? `${doctors} doctor${doctors === 1 ? "" : "s"}` : null].filter(Boolean).join(" and ");
-    const name = `RevOps - ${customer} - Add ${what} to Salesforce`.slice(0, 250);
-    const notes = [
-      `${customer}'s uploaded list${fileName ? ` (${fileName})` : ""} was compared with the practices held for their partner room.`,
-      missing.length ? `\n${missing.length} practice${missing.length === 1 ? " is" : "s are"} on the customer's list but not in Salesforce. Please add as child accounts of the parent account:\n${missing.map((m) => `- ${m}`).join("\n")}` : "",
-      doctors ? `\nThe doctor roster lists ${doctors} doctor${doctors === 1 ? "" : "s"}. Please add them as contacts on their practices. The roster file is in the room's Files received (LP Studio → page analytics → Room).` : "",
-      `\nRaised by ${req.authUser?.name || req.authUser?.email || "the account team"}.`,
-    ].join("\n");
-    const settings = await loadSettings(page.id);
-    const asana = await createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name, notes, projectGid: settings.asanaProjectGid, statusFieldName: "__none__", statusOptionName: "__none__" });
-    postToSlack(page, settings.slackChannelId, "🧾 RevOps action item", [`*Add ${mrk(what)} to Salesforce* for ${mrk(customer)}.`, ...(missing.length ? [missing.slice(0, 15).map((m) => `• ${mrk(m)}`).join("\n") + (missing.length > 15 ? `\n• and ${missing.length - 15} more` : "")] : []), asana.taskId ? `Asana: https://app.asana.com/0/0/${asana.taskId}` : "Asana task could not be created; this post is the record."]);
-    res.json({ ok: true, asanaTaskGid: asana.taskId ?? null, name, warning: asana.ok ? null : asana.warning ?? null });
+    const [full] = await db.select({ mention: lpRoomSettingsTable.revopsSlackMention, channel: lpRoomSettingsTable.slackChannelId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1);
+    const lines = revopsSlackLines({ fileName, missing, matched: 0, uploaded: missing.length, doctors: doctors || null }, slackMention(full?.mention), page.partnerName || page.title);
+    const posted = await slackService
+      .postMessage(page.tenantId, { text: `RevOps action item: ${page.partnerName || page.title}`, channelId: full?.channel ?? undefined, blocks: [{ type: "header", text: { type: "plain_text", text: "🧾 RevOps action item", emoji: true } }, { type: "section", text: { type: "mrkdwn", text: lines.join("\n\n").slice(0, 2900) } }] })
+      .catch(() => false);
+    if (!posted) {
+      res.status(502).json({ error: "Couldn't post to Slack. Check that Slack is connected and the room has a channel." });
+      return;
+    }
+    res.json({ ok: true, mentioned: !!slackMention(full?.mention) });
   } catch (err) {
-    req.log.error({ err }, "room revops task failed");
-    res.status(500).json({ error: "Could not raise the action item" });
+    req.log.error({ err }, "room revops post failed");
+    res.status(500).json({ error: "Could not post the action item" });
   }
 });
 

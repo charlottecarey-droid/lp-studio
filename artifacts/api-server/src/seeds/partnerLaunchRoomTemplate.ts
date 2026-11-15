@@ -604,6 +604,8 @@ export function buildPartnerWorkspaceBlocks(input: PartnerWorkspaceInput): Block
         onboarding: structuredClone(DEFAULT_WORKSPACE_ONBOARDING),
         marketing: structuredClone(DEFAULT_WORKSPACE_MARKETING),
         goals: structuredClone(DEFAULT_WORKSPACE_GOALS),
+        calendar: { intro: "Meetings, trainings and marketing sends in one place.", events: [] },
+        meetings: { intro: "What was decided, and who took which action.", items: [] },
         locationsNoun: noun,
         planIntro: `Every milestone has an owner at Dandy and at ${short}. Anything blocked for more than a week goes to both executive sponsors. Files you upload go to your Dandy team only.`,
         planGroups: input.planGroups ?? DEFAULT_WORKSPACE_PLAN,
