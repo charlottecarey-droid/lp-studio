@@ -17,6 +17,7 @@ import { Readable } from "stream";
 import {
   db,
   lpPagesTable,
+  lpRoomStandardAssetsTable,
   appUsersTable,
   tenantMembersTable,
   lpAssetEventsTable,
@@ -60,6 +61,7 @@ import {
   ROOM_PRACTICE_STAGES,
   roomCalendarIcs,
   roomKitInfo,
+  ROOM_STANDARD_ASSETS,
   parseRoomKitAsset,
   setRoomKitAsset,
   roomPartnerName,
@@ -1126,6 +1128,77 @@ router.post("/lp/partner-rooms/:pageId/practices/sync-sheet", async (req: Reques
   } catch (err) {
     req.log.error({ err }, "room sheet sync failed");
     res.status(500).json({ error: "Could not read the sheet" });
+  }
+});
+
+/** The workspace's standard launch-kit files (the same for every customer), set or not. */
+router.get("/lp/room-standard-assets", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const rows = await db.select().from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, tenantId));
+    res.json({ assets: ROOM_STANDARD_ASSETS.map((a) => { const row = rows.find((r) => r.assetKey === a.key); return { ...a, fileUrl: row?.fileUrl ?? null, updatedAt: row?.updatedAt.toISOString() ?? null, updatedBy: row?.updatedBy ?? null }; }) });
+  } catch (err) {
+    req.log.error({ err }, "room standard assets read failed");
+    res.status(500).json({ error: "Could not load the standard files" });
+  }
+});
+
+/** Set (or replace) one standard file for the whole workspace. Rooms that already carry the old file keep it until it is added again. */
+router.put("/lp/room-standard-assets/:key", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const spec = ROOM_STANDARD_ASSETS.find((a) => a.key === req.params.key);
+    const asset = spec ? parseRoomKitAsset({ key: spec.key, kind: "pdf", title: spec.title, fileUrl: req.body?.fileUrl }) : null;
+    if (!spec || !asset) {
+      res.status(400).json({ error: "Upload the PDF first, then save it as the standard file." });
+      return;
+    }
+    const values = { title: spec.title, description: spec.description, fileUrl: asset.fileUrl, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
+    await db.insert(lpRoomStandardAssetsTable).values({ tenantId, assetKey: spec.key, ...values }).onConflictDoUpdate({ target: [lpRoomStandardAssetsTable.tenantId, lpRoomStandardAssetsTable.assetKey], set: values });
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room standard asset save failed");
+    res.status(500).json({ error: "Could not save the standard file" });
+  }
+});
+
+/** Add the workspace's standard files to this room's launch kit. A file the room already has under that key is replaced only when `replace` is true. */
+router.post("/lp/partner-rooms/:pageId/standard-assets", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const info = row ? roomKitInfo(row.blocks) : null;
+    if (!row || !info) {
+      res.status(400).json({ error: "This page isn't a workspace room." });
+      return;
+    }
+    const standard = await db.select().from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, page.tenantId));
+    const replace = req.body?.replace === true;
+    let blocks: unknown[] = row.blocks as unknown[];
+    const added: string[] = [];
+    const kept: string[] = [];
+    for (const spec of ROOM_STANDARD_ASSETS) {
+      const file = standard.find((r) => r.assetKey === spec.key);
+      if (!file) continue;
+      // A room that already carries its own file (a custom guide) keeps it.
+      if (!replace && info.assets.some((a) => a.key === spec.key && a.hasFile)) {
+        kept.push(spec.title);
+        continue;
+      }
+      const next = setRoomKitAsset(blocks, { key: spec.key, kind: "pdf", title: spec.title, description: spec.description, fileUrl: file.fileUrl });
+      if (next) {
+        blocks = next;
+        added.push(spec.title);
+      }
+    }
+    if (added.length) await db.update(lpPagesTable).set({ blocks: blocks as typeof row.blocks, updatedAt: new Date() }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, added, kept, missing: ROOM_STANDARD_ASSETS.filter((s) => !standard.some((r) => r.assetKey === s.key)).map((s) => s.title) });
+  } catch (err) {
+    req.log.error({ err }, "room standard assets add failed");
+    res.status(500).json({ error: "Could not add the standard files" });
   }
 });
 

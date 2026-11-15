@@ -731,6 +731,22 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(withKit.kit.partnerName).toBe("MB2 Dental");
     expect(withKit.kit.assets).toEqual([expect.objectContaining({ key: "social-image-1", hasFile: true })]);
 
+    // Standard files: set once for the workspace, added to a room, never over a room's own file unless asked.
+    const std = () => inject(app, { method: "GET", url: `/lp/room-standard-assets`, headers: asTenant(tenantId) });
+    expect(((await std()).json as { assets: { key: string; fileUrl: string | null }[] }).assets.map((x) => [x.key, x.fileUrl])).toEqual([["practice-welcome-guide", null], ["success-guide", null]]);
+    const putStd = (key: string, fileUrl: string) => inject(app, { method: "PUT", url: `/lp/room-standard-assets/${key}`, headers: asTenant(tenantId), body: { fileUrl } });
+    expect((await putStd("practice-welcome-guide", "https://evil.example/guide.pdf")).status).toBe(400);
+    expect((await putStd("not-a-standard-file", "/api/storage/objects/uploads/x")).status).toBe(400);
+    expect((await putStd("practice-welcome-guide", "/api/storage/objects/uploads/welcome-v1")).status).toBe(200);
+    const addStd = (body: unknown = {}) => inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/standard-assets`, headers: asTenant(tenantId), body });
+    expect((await addStd()).json).toMatchObject({ added: ["Practice Welcome Guide"], kept: [], missing: ["Success Guide"] });
+    // The workspace file changes; this room keeps what it has until someone replaces it on purpose.
+    expect((await putStd("practice-welcome-guide", "/api/storage/objects/uploads/welcome-v2")).status).toBe(200);
+    expect((await addStd()).json).toMatchObject({ added: [], kept: ["Practice Welcome Guide"] });
+    expect((await addStd({ replace: true })).json).toMatchObject({ added: ["Practice Welcome Guide"] });
+    const kitFiles = await pool.query<{ assets: { key: string; fileUrl: string }[] }>(`SELECT blocks->0->'props'->'assets' AS assets FROM lp_pages WHERE id = $1`, [pageId]);
+    expect(kitFiles.rows[0].assets.find((x) => x.key === "practice-welcome-guide")?.fileUrl).toBe("/api/storage/objects/uploads/welcome-v2");
+
     // A member of the page's own team is let in without being on the customer's allowed list; a stranger still has to ask.
     const email = `rep-${Math.floor(Math.random() * 1e9)}@vendor-team.com`;
     await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Sam Rep', 'active')`, [tenantId, email]);

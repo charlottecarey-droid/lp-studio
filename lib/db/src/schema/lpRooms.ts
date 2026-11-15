@@ -178,6 +178,25 @@ export const lpGoogleConnectionsTable = pgTable(
   (t) => [uniqueIndex("lp_google_connections_tenant_user_uniq").on(t.tenantId, t.userId)],
 );
 
+/**
+ * Launch-kit files that are the same for every customer (the Practice Welcome
+ * Guide, the Success Guide): uploaded once per workspace, added to each room.
+ */
+export const lpRoomStandardAssetsTable = pgTable(
+  "lp_room_standard_assets",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    assetKey: text("asset_key").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    fileUrl: text("file_url").notNull(),
+    updatedBy: text("updated_by"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_standard_assets_tenant_key_uniq").on(t.tenantId, t.assetKey)],
+);
+
 /** What the customer may read of a meeting once the team publishes it. */
 export interface RoomMinutes {
   summary: string;

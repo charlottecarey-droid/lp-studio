@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { PdfUploadButton } from "@/components/PdfUploadButton";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -938,6 +939,31 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
     { key: "social-image-2", title: "Social graphic, square", note: "1080 × 1080" },
   ] as const;
   const has = (key: string) => kit.assets.some((a) => a.key === key && a.hasFile);
+  // Files that are the same for every customer: uploaded once for the workspace, added to each room.
+  const { data: standard, refetch: refetchStandard } = useQuery({
+    queryKey: ["room-standard-assets"],
+    queryFn: async () => {
+      const r = await fetch("/api/lp/room-standard-assets");
+      if (!r.ok) throw new Error("standard");
+      return ((await r.json()) as { assets: { key: string; title: string; description: string; fileUrl: string | null; updatedAt: string | null }[] }).assets;
+    },
+  });
+  const [stdNote, setStdNote] = useState("");
+  const setStandard = async (key: string, fileUrl: string) => {
+    const e = await send(`/api/lp/room-standard-assets/${key}`, "PUT", { fileUrl });
+    setStdNote(e ?? "Saved as the standard file for every room.");
+    await refetchStandard();
+  };
+  const addStandard = async (replace: boolean) => {
+    const r = await fetch(`/api/lp/partner-rooms/${pageId}/standard-assets`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ replace }) });
+    const j = (await r.json().catch(() => ({}))) as { added?: string[]; kept?: string[]; missing?: string[]; error?: string };
+    setStdNote(
+      !r.ok
+        ? (j.error ?? "Could not add the standard files")
+        : [j.added?.length ? `Added: ${j.added.join(", ")}.` : "", j.kept?.length ? `Kept this room’s own file: ${j.kept.join(", ")}.` : "", j.missing?.length ? `Not uploaded yet: ${j.missing.join(", ")}.` : ""].filter(Boolean).join(" ") || "Nothing to add.",
+    );
+    await refresh();
+  };
 
   const create = async (keys: readonly string[]) => {
     setBusy(true);
@@ -954,6 +980,8 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
           setState((s) => ({ ...s, [key]: e instanceof Error ? e.message : "Could not create it" }));
         }
       }
+      // "Create launch kit" also brings in the standard guides (a room's own file is kept).
+      if (keys.length > 1) await addStandard(false);
     } finally {
       setBusy(false);
       await refresh();
@@ -991,9 +1019,30 @@ function LaunchAssetsSection({ pageId, kit, refresh }: { pageId: number; kit: No
           );
         })}
       </div>
+      <div className="space-y-2 rounded-md border p-3">
+        <p className="text-sm font-medium">Standard files</p>
+        <p className="text-xs text-muted-foreground">The same for every customer. Upload each one once; it is added to every room’s launch kit. A room with its own version keeps it.</p>
+        {(standard ?? []).map((a) => (
+          <div key={a.key} className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm">{a.title}</p>
+              <p className="text-xs text-muted-foreground">
+                {a.fileUrl ? <>Uploaded {fmtDate(a.updatedAt)} · <a className="underline" href={a.fileUrl} target="_blank" rel="noreferrer">Open</a></> : "Not uploaded yet"}
+                {has(a.key) ? " · in this room’s kit" : ""}
+              </p>
+            </div>
+            <PdfUploadButton label={a.fileUrl ? "Replace" : "Upload PDF"} onUploaded={(r) => void setStandard(a.key, r.url)} />
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} onClick={() => addStandard(false)}>Add to this room</Button>
+          {stdNote && <span className="text-xs text-muted-foreground">{stdNote}</span>}
+        </div>
+      </div>
       <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
-        {busy ? "Creating…" : "Create all three"}
+        {busy ? "Creating…" : "Create launch kit"}
       </Button>
+      <p className="text-xs text-muted-foreground">Creates the one-pager and both graphics, and adds the standard files.</p>
     </section>
   );
 }

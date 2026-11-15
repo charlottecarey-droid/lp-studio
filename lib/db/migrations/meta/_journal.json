@@ -1072,6 +1072,13 @@
       "when": 1758030140000,
       "tag": "0152_asset_event_viewer",
       "breakpoints": false
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1758030150000,
+      "tag": "0153_room_standard_assets",
+      "breakpoints": false
     }
   ]
 }

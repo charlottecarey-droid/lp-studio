@@ -590,3 +590,9 @@ export function setRoomKitAsset(blocks: unknown, asset: RoomKitAssetInput): unkn
       : [...assets, { key: asset.key, kind: asset.kind, title: asset.title, ...(asset.description ? { description: asset.description } : {}), fileUrl: asset.fileUrl }];
   return blocks.map((b) => (b === block ? { ...(b as object), props: { ...props, assets: next } } : b));
 }
+
+/** The launch-kit files that are the same for every customer. Uploaded once per workspace. */
+export const ROOM_STANDARD_ASSETS: { key: string; title: string; description: string }[] = [
+  { key: "practice-welcome-guide", title: "Practice Welcome Guide", description: "What a practice can expect: training, first cases and who to call" },
+  { key: "success-guide", title: "Success Guide", description: "The 90-day plan: how the partnership runs and what it delivers" },
+];
