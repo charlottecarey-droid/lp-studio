@@ -1737,7 +1737,7 @@ function AssetRow({ asset, isEditor, onTrack, onOpen, onRequest, canRequest }: {
                 href={isEditor ? undefined : viewHref}
                 target="_blank"
                 rel="noreferrer"
-                data-room-view
+                data-room-open
                 onClick={(e) => {
                   // The viewer takes PDFs, images and videos; anything else follows the link in a new tab.
                   if (onOpen(asset)) e.preventDefault();

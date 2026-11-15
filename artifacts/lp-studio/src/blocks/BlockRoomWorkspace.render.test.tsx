@@ -290,7 +290,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(roomAssetToHub({ kind: "file", title: "Roster template", fileUrl: "/files/template.xlsx" }).kind).toBe("link");
     const html = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing"], assets: [{ key: "tour", kind: "video", title: "Lab tour", videoUrl: "https://www.youtube.com/watch?v=abc12345678" }] });
     expect(html).toContain('aria-label="Play Lab tour"');
-    expect(html).toContain("data-room-view");
+    expect(html).toContain("data-room-open");
   });
   it("text is click-to-edit in the builder only, and never inside a link or button", () => {
     const live = render();
