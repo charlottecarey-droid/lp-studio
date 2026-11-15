@@ -78,6 +78,7 @@ function toPageBlock(item: FixtureItem): PageBlock {
 export default function GenericCatalogFixture() {
   const [seed, setSeed] = useState<GenericSeedRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewPageId, setPreviewPageId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     // Dev-only: `?seed=<site path>.json` loads `{ seed, brand? }` (or a bare
@@ -87,9 +88,15 @@ export default function GenericCatalogFixture() {
     if (import.meta.env.DEV && seedPath && seedPath.startsWith("/") && !seedPath.startsWith("//")) {
       fetch(seedPath)
         .then((r) => r.json())
-        .then((data: GenericSeedRow[] | { seed: GenericSeedRow[]; brand?: Record<string, unknown> }) => {
+        .then((data: GenericSeedRow[] | { seed: GenericSeedRow[]; brand?: Record<string, unknown>; pageId?: number }) => {
           const rows = Array.isArray(data) ? data : data.seed;
           if (!Array.isArray(data) && data.brand) (window as unknown as { __GENERIC_BRAND__?: unknown }).__GENERIC_BRAND__ = data.brand;
+          // A `pageId` gives the blocks a page context and switches on the
+          // partner-room controls (against whatever /api the dev server proxies to).
+          if (!Array.isArray(data) && typeof data.pageId === "number") {
+            (window as unknown as { __ROOM_PREVIEW__?: boolean }).__ROOM_PREVIEW__ = true;
+            setPreviewPageId(data.pageId);
+          }
           setSeed(rows);
         })
         .catch((e) => setError(`Could not load seed ${seedPath}: ${String(e)}`));
@@ -144,7 +151,7 @@ export default function GenericCatalogFixture() {
             data-has-registry-def={item.hasRegistryDef ? "1" : "0"}
           >
             <BlockErrorBoundary blockType={item.type}>
-              <BlockRenderer block={toPageBlock(item)} brand={brand} onBlockChange={editorMode ? () => {} : undefined} isBuilder={editorMode} />
+              <BlockRenderer block={toPageBlock(item)} brand={brand} pageId={previewPageId} onBlockChange={editorMode ? () => {} : undefined} isBuilder={editorMode} />
             </BlockErrorBoundary>
           </section>
         ))}

@@ -21,7 +21,7 @@ import type { HubFeaturedBlockProps } from "@/blocks/BlockHubFeatured";
 import type { HubLibraryBlockProps, HubSection } from "@/blocks/BlockHubLibrary";
 import type { HubSupportBlockProps } from "@/blocks/BlockHubSupport";
 import type { HubPathsBlockProps, HubPath } from "@/blocks/BlockHubPaths";
-import { HUB_TASK_STATUS_LABEL, resolveTaskStatus, type HubPhaseStatus, type HubPlanBlockProps, type HubPlanLane, type HubPlanPhase, type HubPlanTask, type HubTaskStatus } from "@/blocks/BlockHubPlan";
+import { HUB_TASK_STATUS_LABEL, planTaskKey, resolveTaskStatus, type HubPhaseStatus, type HubPlanBlockProps, type HubPlanLane, type HubPlanPhase, type HubPlanTask, type HubTaskStatus } from "@/blocks/BlockHubPlan";
 import type { HubTeamBlockProps, HubTeamGroup, HubTeamMember } from "@/blocks/BlockHubTeam";
 import type { HubAsset, HubAssetKind } from "@/blocks/hub/hub-assets";
 import { HUB_THEMES, HUB_THEME_LABELS, resolveHubTheme, type HubStyleProps, type HubSurface, type HubTheme } from "@/lib/hub-theme";
@@ -662,6 +662,9 @@ export function HubPlanPanel({ props, onChange, onApplyStyleToAll }: { props: Hu
         )}
       </PanelSection>
       <PanelSection title="Shared action plan" hint="Tasks by side, with owner, due date and status" defaultOpen>
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          A task can let visitors mark it done or upload a file. Uploads are private: they show as received on the page and download from the page's analytics, under Room. Set who is allowed there too.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Title"><Input value={props.planTitle ?? ""} onChange={(e) => update({ planTitle: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label="Note"><Input value={props.planNote ?? ""} onChange={(e) => update({ planNote: e.target.value })} className="h-8 text-xs" /></Field>
@@ -685,6 +688,24 @@ export function HubPlanPanel({ props, onChange, onApplyStyleToAll }: { props: Hu
                       {TASK_STATUS_ORDER.map((s) => <SelectItem key={s} value={s} className="text-xs">{HUB_TASK_STATUS_LABEL[s]}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  <Select
+                    value={r.customerAction ?? "none"}
+                    onValueChange={(v) =>
+                      setTask(li, ri, v === "none" ? { customerAction: undefined, key: undefined } : { customerAction: v as "check" | "upload", key: r.key || planTaskKey(r) })
+                    }
+                  >
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-xs">Visitors: view only</SelectItem>
+                      <SelectItem value="check" className="text-xs">Visitors can mark it done</SelectItem>
+                      <SelectItem value="upload" className="text-xs">Visitors upload a file</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {r.customerAction === "upload" && (
+                    <Input value={r.uploadLabel ?? ""} onChange={(e) => setTask(li, ri, { uploadLabel: e.target.value })} className="h-7 text-xs" placeholder="Button label (Upload file)" />
+                  )}
                 </div>
               </div>
             ))}

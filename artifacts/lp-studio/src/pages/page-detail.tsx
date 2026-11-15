@@ -55,6 +55,7 @@ import { PageSpeedPanel } from "@/components/analytics/PageSpeedPanel";
 import { PageTrafficSources } from "@/components/analytics/PageTrafficSources";
 import { PageProgrammaticVars } from "@/components/analytics/PageProgrammaticVars";
 import { PageAssetEngagement } from "@/components/analytics/PageAssetEngagement";
+import { PageRoomPanel } from "@/components/analytics/PageRoomPanel";
 
 const HeatmapOverlay = lazy(() =>
   import("@/components/heatmap/HeatmapOverlay").then(m => ({ default: m.HeatmapOverlay })),
@@ -1102,6 +1103,11 @@ export default function PageDetail() {
         {/* Content Hub resource engagement — renders only when the page has
             recorded asset events (hub-library / hub-featured blocks). */}
         <PageAssetEngagement pageId={pageId} days={days} />
+
+        {/* Partner room — who may act on the page's customer tasks, what they
+            completed, and the files they uploaded. Renders only for a page
+            whose plan has tasks visitors can complete. */}
+        <PageRoomPanel pageId={pageId} />
 
         {/* Two-column analytics grid.
             Date-range scope: the `days` window applies to the time-series surfaces

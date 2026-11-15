@@ -1,0 +1,213 @@
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Download, DoorOpen, RotateCcw, UserCheck, UserX, X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+
+/**
+ * Partner room — the team's side of a room page (a page whose plan has tasks
+ * visitors can complete): who is allowed to act, what the customer has done,
+ * and the files they uploaded. Uploaded files are downloadable ONLY here.
+ * Reads GET /api/lp/partner-rooms/:pageId and renders nothing for a page
+ * that is not a room.
+ */
+interface RoomDetail {
+  isRoom: boolean;
+  settings: { allowedDomains: string[]; slackChannelId: string | null };
+  tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
+  members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
+  uploads: { id: number; taskKey: string; taskTitle: string; fileName: string; sizeBytes: number; uploadedBy: string; uploadedByEmail: string; createdAt: string }[];
+}
+
+const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
+const fmtSize = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / (1024 * 1024)).toFixed(1)} MB`);
+
+async function send(url: string, method: string, body?: unknown): Promise<string | null> {
+  const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (r.ok) return null;
+  try {
+    const j = (await r.json()) as { error?: string };
+    return j.error ?? "Something went wrong";
+  } catch {
+    return "Something went wrong";
+  }
+}
+
+export function PageRoomPanel({ pageId }: { pageId: number }) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["page-room", pageId],
+    queryFn: async () => {
+      const r = await fetch(`/api/lp/partner-rooms/${pageId}`);
+      if (!r.ok) return null;
+      return (await r.json()) as RoomDetail;
+    },
+  });
+  const [domains, setDomains] = useState("");
+  const [channel, setChannel] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!data) return;
+    setDomains(data.settings.allowedDomains.join(", "));
+    setChannel(data.settings.slackChannelId ?? "");
+  }, [data]);
+
+  if (isLoading) return <Skeleton className="h-24 w-full" />;
+  if (!data || !data.isRoom) return null;
+
+  const base = `/api/lp/partner-rooms/${pageId}`;
+  const refresh = () => qc.invalidateQueries({ queryKey: ["page-room", pageId] });
+  const run = async (p: Promise<string | null>) => {
+    setSaved(false);
+    const err = await p;
+    setError(err ?? "");
+    if (!err) await refresh();
+    return !err;
+  };
+
+  const saveSettings = async () => {
+    const list = domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean);
+    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim() }))) setSaved(true);
+  };
+  const setMember = (email: string, status: "allowed" | "denied" | null) => run(send(`${base}/members`, "POST", { email, status }));
+
+  const requests = data.members.filter((m) => m.status === "requested");
+  const others = data.members.filter((m) => m.status !== "requested");
+  const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
+
+  return (
+    <Card data-testid="page-room-panel">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-base flex items-center gap-2">
+          <DoorOpen className="w-4 h-4 text-muted-foreground" />
+          Room
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Who can upload files and mark tasks done on this page, and what they have sent. Anyone with the link can view the page.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
+        {requests.length > 0 && (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Waiting for approval</h4>
+            {requests.map((m) => (
+              <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+                <span className="text-sm">{m.email} <span className="text-muted-foreground">· asked {fmtDate(m.updatedAt)}</span></span>
+                <span className="flex gap-2">
+                  <Button size="sm" variant="brand" className="h-8 gap-1" onClick={() => setMember(m.email, "allowed")}><UserCheck className="h-3.5 w-3.5" /> Allow</Button>
+                  <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => setMember(m.email, "denied")}><UserX className="h-3.5 w-3.5" /> Decline</Button>
+                </span>
+              </div>
+            ))}
+          </section>
+        )}
+
+        <section className="space-y-2">
+          <h4 className="text-sm font-semibold">Files received</h4>
+          {data.uploads.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing uploaded yet.</p>
+          ) : (
+            <div className="divide-y rounded-md border">
+              {data.uploads.map((u) => (
+                <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{u.fileName}</p>
+                    <p className="text-xs text-muted-foreground">{u.taskTitle} · {u.uploadedBy} · {fmtDate(u.createdAt)} · {fmtSize(u.sizeBytes)}</p>
+                  </div>
+                  <Button asChild size="sm" variant="outline" className="h-8 gap-1">
+                    <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-sm font-semibold">Customer tasks</h4>
+          <div className="divide-y rounded-md border">
+            {data.tasks.map((t) => (
+              <div key={t.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{t.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t.action === "upload" ? "Upload a file" : "Mark done"}
+                    {t.done ? ` · ${t.completedBy} · ${fmtDate(t.completedAt)}` : ""}
+                  </p>
+                </div>
+                {t.done ? (
+                  <span className="flex items-center gap-2">
+                    <Badge variant="secondary" className="gap-1"><Check className="h-3 w-3" /> Done</Badge>
+                    <Button size="sm" variant="ghost" className="h-8 gap-1 text-muted-foreground" onClick={() => run(send(`${base}/tasks/${encodeURIComponent(t.key)}`, "DELETE"))}><RotateCcw className="h-3.5 w-3.5" /> Reopen</Button>
+                  </span>
+                ) : (
+                  <Badge variant="outline">Open</Badge>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold">Who can act</h4>
+          {noAccessYet && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              No one is allowed yet. Add the customer's email domain, or people one by one. Personal links from the Sales console always work.
+            </p>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-sm">
+              <span className="font-medium">Allowed email domains</span>
+              <Input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="customer.com, customer-group.com" />
+              <span className="block text-xs text-muted-foreground">Anyone with an address at these domains gets a link by email without approval.</span>
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="font-medium">Slack channel ID</span>
+              <Input value={channel} onChange={(e) => setChannel(e.target.value)} placeholder="C0123ABCDEF" />
+              <span className="block text-xs text-muted-foreground">Uploads, completed tasks and access requests post here. Blank uses your default channel.</span>
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button size="sm" variant="brand" onClick={saveSettings}>Save</Button>
+            {saved && <span className="text-sm text-muted-foreground">Saved</span>}
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <span className="text-sm font-medium">People</span>
+            <form
+              className="flex gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (newEmail.trim() && (await setMember(newEmail.trim(), "allowed"))) setNewEmail("");
+              }}
+            >
+              <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="person@anywhere.com" className="max-w-xs" />
+              <Button type="submit" size="sm" variant="outline">Allow this person</Button>
+            </form>
+            {others.length > 0 && (
+              <div className="divide-y rounded-md border">
+                {others.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="text-sm">{m.email}</span>
+                    <span className="flex items-center gap-2">
+                      <Badge variant={m.status === "allowed" ? "secondary" : "outline"}>{m.status === "allowed" ? "Allowed" : "Declined"}</Badge>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${m.email}`} onClick={() => setMember(m.email, null)}><X className="h-4 w-4" /></Button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </CardContent>
+    </Card>
+  );
+}

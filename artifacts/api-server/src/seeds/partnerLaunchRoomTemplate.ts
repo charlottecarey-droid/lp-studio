@@ -31,10 +31,15 @@ export interface LaunchRoomPerson {
 }
 
 export interface LaunchRoomTask {
+  /** Stable key for the task's saved state on the page. */
+  key?: string;
   task: string;
   owner?: string;
   due?: string;
   status?: "done" | "on-track" | "at-risk" | "not-started";
+  /** Let the partner complete it from the room: tick it, or upload a file (private, one-way). */
+  customerAction?: "check" | "upload";
+  uploadLabel?: string;
 }
 
 export interface PartnerLaunchRoomInput {
@@ -74,10 +79,12 @@ const DEFAULT_OUR_TASKS: LaunchRoomTask[] = [
   { task: "Enterprise Hub walkthrough booked", owner: "Dandy CS", due: "Week 6", status: "not-started" },
 ];
 
-const DEFAULT_PARTNER_TASKS: LaunchRoomTask[] = [
-  { task: "Internal partnership announcement", owner: "Communications", due: "Week 2", status: "not-started" },
-  { task: "Regional leader kickoff booked", owner: "Operations", due: "Week 3", status: "not-started" },
-  { task: "Clinical champion identified", owner: "Clinical leadership", due: "Week 4", status: "not-started" },
+export const DEFAULT_PARTNER_TASKS: LaunchRoomTask[] = [
+  { key: "practice-roster", task: "Send your practice and regional manager roster", owner: "Operations", due: "Week 1", status: "not-started", customerAction: "upload", uploadLabel: "Upload your roster" },
+  { key: "brand-guidelines", task: "Share your brand guidelines and logos", owner: "Marketing", due: "Week 1", status: "not-started", customerAction: "upload", uploadLabel: "Upload brand files" },
+  { key: "internal-announcement", task: "Internal partnership announcement", owner: "Communications", due: "Week 2", status: "not-started", customerAction: "check" },
+  { key: "regional-kickoff", task: "Regional leader kickoff booked", owner: "Operations", due: "Week 3", status: "not-started", customerAction: "check" },
+  { key: "clinical-champion", task: "Clinical champion identified", owner: "Clinical leadership", due: "Week 4", status: "not-started", customerAction: "check" },
 ];
 
 const DEFAULT_OUR_TEAM: LaunchRoomPerson[] = [
@@ -299,7 +306,7 @@ export function buildPartnerLaunchRoomBlocks(input: PartnerLaunchRoomInput): Blo
           },
         ],
         planTitle: "Mutual Action Plan",
-        planNote: "One plan, two swimlanes. Reviewed at every check-in.",
+        planNote: "One plan, two swimlanes. Reviewed at every check-in. Files you upload go straight to your Dandy team and are not shown here.",
         lanes: [
           { title: "Dandy deliverables", rows: input.ourTasks ?? DEFAULT_OUR_TASKS },
           { title: `${short} deliverables`, rows: input.partnerTasks ?? DEFAULT_PARTNER_TASKS },
@@ -385,7 +392,7 @@ export const PARTNER_LAUNCH_ROOM_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     title: "Partner Launch Room",
     templateLabel: "Partner Launch Room",
     templateDescription:
-      "The customer-facing room for a new DSO partnership, in place of a Word media kit: the announcement email and social captions with a Copy button, co-branded social graphics, Dandy brand assets, guides for practices, the 90-day plan with a two-swimlane Mutual Action Plan, the named team on both sides, welcome event options and co-marketing. Replace [Partner name], attach the files, publish, and send one link. Opens and downloads are tracked per asset.",
+      "The customer-facing room for a new DSO partnership, in place of a Word media kit: the announcement email and social captions with a Copy button, co-branded social graphics, Dandy brand assets, guides for practices, the 90-day plan with a two-swimlane Mutual Action Plan the partner can act on (mark tasks done, upload a roster or brand files privately), the named team on both sides, welcome event options and co-marketing. Replace [Partner name], attach the files, publish, and send one link. Opens and downloads are tracked per asset.",
     ogImage: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1200&h=630&fit=crop",
     industry: "dental",
     premiumRank: 15,

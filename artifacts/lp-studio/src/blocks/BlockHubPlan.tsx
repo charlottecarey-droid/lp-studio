@@ -5,6 +5,9 @@ import { useAnimInitial } from "@/lib/reveal-fallback";
 import { InlineText } from "@/components/InlineText";
 import { HUB_BODY, HUB_CSS, HubKicker, hubDisplayStyle, resolveHubPalette, type HubPalette, type HubStyleProps } from "@/lib/hub-theme";
 import { cn } from "@/lib/utils";
+import { usePageContext } from "@/lib/page-context";
+import { RoomTaskControls } from "./hub/HubRoomControls";
+import { useRoom } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
  * Content Hub Plan — type "hub-plan"
@@ -17,7 +20,12 @@ import { cn } from "@/lib/utils";
  * statuses current in the builder, the customer reads one page instead of a
  * spreadsheet.
  *
- * Read-only for visitors. Same presets / palette as the rest of the family.
+ * A task can be the customer's to act on (`customerAction`): "check" gives
+ * it a Mark done button, "upload" an Upload file button. The file goes one
+ * way — the page only shows that it was received; the team downloads it in
+ * LP Studio. Acting needs a known visitor (a personal link, or a link emailed
+ * to an allowed address); see blocks/hub/room-client.ts. Everything else is
+ * read-only for visitors. Same presets / palette as the rest of the family.
  * -------------------------------------------------------------------------- */
 
 export type HubPhaseStatus = "done" | "current" | "upcoming";
@@ -31,11 +39,26 @@ export interface HubPlanPhase {
   status?: HubPhaseStatus;
 }
 
+export type HubTaskCustomerAction = "check" | "upload";
+
 export interface HubPlanTask {
+  /** Stable key for the task's saved state (optional — a slug of the task text when blank). */
+  key?: string;
   task: string;
   owner?: string;
   due?: string;
   status?: HubTaskStatus;
+  /** Let the customer complete this task from the page: tick it, or hand over a file. */
+  customerAction?: HubTaskCustomerAction;
+  /** Button label for an upload task ("Upload your roster"). Blank = "Upload file". */
+  uploadLabel?: string;
+}
+
+/** The key a task's saved state lives under. Must match the server (lib/partnerRoom.ts `planTaskKey`). */
+export function planTaskKey(row: { key?: string; task?: string }): string {
+  const explicit = (row.key ?? "").trim();
+  if (explicit) return explicit.slice(0, 80);
+  return (row.task ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
 export interface HubPlanLane {
@@ -147,6 +170,9 @@ export function BlockHubPlan({ props, brand, onFieldChange }: Props) {
   const pal = resolveHubPalette(props, brand, "library");
   const t = pal.t;
   const isEditor = !!onFieldChange;
+  const { pageId } = usePageContext();
+  const hasCustomerTasks = (props.lanes ?? []).some((l) => (l.rows ?? []).some((r) => r.customerAction === "check" || r.customerAction === "upload"));
+  const room = useRoom(pageId, hasCustomerTasks && !isEditor);
   const phases = (props.phases ?? []).slice(0, 6);
   const lanes = (props.lanes ?? []).filter((l) => isEditor || (l.rows ?? []).length > 0);
   const cols = phases.length >= 4 ? "lg:grid-cols-4" : phases.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3";
@@ -276,6 +302,11 @@ export function BlockHubPlan({ props, brand, onFieldChange }: Props) {
                     <InlineText as="span" value={props.planNote ?? ""} onUpdate={field("planNote")} />
                   </p>
                 )}
+                {room.snapshot.viewer && (
+                  <p className="basis-full text-[13px]" style={{ color: pal.muted }} data-hub-room-viewer>
+                    You’re acting as {room.snapshot.viewer.name || room.snapshot.viewer.email}
+                  </p>
+                )}
               </div>
             )}
             {(props.lanes ?? []).map((lane, li) =>
@@ -286,17 +317,25 @@ export function BlockHubPlan({ props, brand, onFieldChange }: Props) {
                   </p>
                   <ul className="list-none p-0">
                     {(lane.rows ?? []).map((r, ri) => {
-                      const status = resolveTaskStatus(r.status);
+                      const action = r.customerAction === "check" || r.customerAction === "upload" ? r.customerAction : null;
+                      const taskKey = action ? planTaskKey(r) : "";
+                      // What the customer did on the page wins over the status typed in the builder.
+                      const status = action && room.snapshot.tasks[taskKey]?.done ? "done" : resolveTaskStatus(r.status);
                       return (
                         <li
                           key={ri}
-                          className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-3.5 sm:grid-cols-[minmax(0,1fr)_170px_110px_140px]"
+                          className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1 py-3.5 sm:grid-cols-[minmax(0,1fr)_170px_110px_140px]"
                           style={{ borderTop: `1px solid ${pal.hairline}` }}
                           data-hub-task={status}
                         >
-                          <span className="text-[15px] font-medium" style={{ color: pal.text }}>
-                            <InlineText as="span" value={r.task} onUpdate={updateTask ? (v) => updateTask(li, ri, { task: v }) : undefined} />
-                          </span>
+                          <div className="min-w-0">
+                            <span className="text-[15px] font-medium" style={{ color: pal.text }}>
+                              <InlineText as="span" value={r.task} onUpdate={updateTask ? (v) => updateTask(li, ri, { task: v }) : undefined} />
+                            </span>
+                            {action && taskKey && (
+                              <RoomTaskControls action={action} taskKey={taskKey} taskTitle={r.task} uploadLabel={r.uploadLabel} palette={pal} snapshot={room.snapshot} store={room.store} isEditor={isEditor} />
+                            )}
+                          </div>
                           <span className="order-3 text-[13.5px] sm:order-none" style={{ color: pal.muted }}>
                             <InlineText as="span" value={r.owner ?? ""} onUpdate={updateTask ? (v) => updateTask(li, ri, { owner: v }) : undefined} />
                           </span>

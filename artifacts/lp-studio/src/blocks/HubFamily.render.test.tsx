@@ -26,7 +26,8 @@ import { BlockHubFeatured } from "./BlockHubFeatured";
 import { BlockHubLibrary, filterAssets } from "./BlockHubLibrary";
 import { BlockHubSupport } from "./BlockHubSupport";
 import { BlockHubPaths } from "./BlockHubPaths";
-import { BlockHubPlan, resolveTaskStatus } from "./BlockHubPlan";
+import { BlockHubPlan, planTaskKey, resolveTaskStatus } from "./BlockHubPlan";
+import { roomTaskSummary } from "./hub/HubRoomControls";
 import { BlockHubTeam, memberInitials } from "./BlockHubTeam";
 import { assetKey, buildAssetEventPayload, buildHubInteractionPayload, opensInViewer, resolveAssetHref, resolveDownloadHref, type HubAsset } from "./hub/hub-assets";
 
@@ -466,5 +467,37 @@ describe("hub-team — people on both sides", () => {
     expect(memberInitials("Jordan Lee")).toBe("JL");
     expect(memberInitials("  ")).toBe("");
     expect(memberInitials("[Name]")).toBe("");
+  });
+});
+
+describe("hub-plan — tasks the customer can act on (partner room)", () => {
+  const lanes = [
+    {
+      title: "Theirs",
+      rows: [
+        { key: "roster", task: "Send your roster", customerAction: "upload", uploadLabel: "Upload your roster" },
+        { task: "Announce the partnership", customerAction: "check" },
+        { task: "Read-only task", status: "on-track" },
+      ],
+    },
+  ];
+  it("gives an upload task its button and a check task a Mark done button; read-only tasks get neither, and no file URL is ever rendered", () => {
+    const html = render(BlockHubPlan as never, { ...defaultsFor("hub-plan"), lanes });
+    expect((html.match(/data-hub-task-action="upload"/g) ?? []).length).toBe(1);
+    expect((html.match(/data-hub-task-action="check"/g) ?? []).length).toBe(1);
+    expect(html).toContain("Upload your roster");
+    expect(html).toContain("Mark done");
+    expect(html).not.toContain("/api/storage");
+    expect(html).not.toContain("download");
+  });
+  it("keys a task by its explicit key, else a slug of its text (the server uses the same rule)", () => {
+    expect(planTaskKey({ key: "roster", task: "Send your roster" })).toBe("roster");
+    expect(planTaskKey({ task: "  Regional leader kickoff — booked " })).toBe("regional-leader-kickoff-booked");
+  });
+  it("summarises a completed task: the file received or who marked it, never a link", () => {
+    expect(roomTaskSummary("upload", undefined)).toBe("");
+    expect(roomTaskSummary("upload", { done: true, at: "" })).toBe("File received");
+    expect(roomTaskSummary("upload", { done: true, at: "", fileName: "roster.xlsx", by: "levi@mb2dental.com" })).toBe("Received roster.xlsx · by levi@mb2dental.com");
+    expect(roomTaskSummary("check", { done: true, at: "", by: "Levi" })).toBe("Marked done · by Levi");
   });
 });
