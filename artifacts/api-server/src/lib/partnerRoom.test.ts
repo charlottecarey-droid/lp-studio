@@ -5,8 +5,13 @@ import {
   extractRoomTasks,
   isEmailAllowed,
   normalizeDomain,
+  extractRoomChoices,
   normalizeEmail,
+  onboardingTeamStepKey,
   pageIsRoom,
+  parseRoomComment,
+  parseRoomContact,
+  parseRoomWin,
   parseRoomRequest,
   parseRoomUpload,
   planTaskKey,
@@ -145,5 +150,55 @@ describe("room-workspace pages + requests", () => {
     const long = parseRoomRequest({ subject: "x".repeat(500), details: "y".repeat(9000) });
     expect(long.ok && long.subject.length).toBe(160);
     expect(long.ok && long.details?.length).toBe(4000);
+  });
+});
+
+describe("onboarding, choices, contacts, wins", () => {
+  const blocks = [
+    {
+      type: "room-workspace",
+      props: {
+        onboarding: {
+          steps: [
+            { key: "onboard-logo", title: "Upload your logo", action: "upload" },
+            { key: "onboard-team", title: "Add your team", action: "team" },
+            { key: "onboard-gift", title: "Accept your welcome gift", action: "request" },
+            { key: "bad", title: "Bad", action: "delete" },
+          ],
+        },
+        planGroups: [{ title: "P", rows: [{ key: "onboard-logo", task: "duplicate key", customerAction: "check" }, { key: "next", task: "Next", customerAction: "check" }] }],
+        marketing: {
+          groups: [
+            { title: "Standard", programs: [{ key: "mk-announcement", title: "Announcement" }, { key: "mk-event", title: "Welcome event", options: ["Dinner", "Onsite training", "Not now"] }] },
+            { title: "Optional", programs: [{ key: "mk-press", title: "Press release", options: ["Include", " Not now "] }, { key: "mk-one", title: "One option", options: ["Only"] }] },
+          ],
+        },
+      },
+    },
+  ];
+  it("onboarding steps are tasks (upload stays upload, the rest are ticks) and win a key clash with the plan", () => {
+    const tasks = extractRoomTasks(blocks);
+    expect([...tasks.keys()]).toEqual(["onboard-logo", "onboard-team", "onboard-gift", "next"]);
+    expect(tasks.get("onboard-logo")?.action).toBe("upload");
+    expect(tasks.get("onboard-team")?.action).toBe("check");
+    expect(onboardingTeamStepKey(blocks)).toBe("onboard-team");
+    expect(onboardingTeamStepKey([{ type: "room-workspace", props: {} }])).toBeNull();
+  });
+  it("only programs with two or more options take a choice", () => {
+    const choices = extractRoomChoices(blocks);
+    expect([...choices.keys()]).toEqual(["mk-event", "mk-press"]);
+    expect(choices.get("mk-press")?.options).toEqual(["Include", "Not now"]);
+    expect(extractRoomChoices(null).size).toBe(0);
+  });
+  it("validates contacts, wins and comments", () => {
+    expect(parseRoomContact({ name: " Dana Ruiz ", role: "Operations", email: "Dana@MB2Dental.com" })).toEqual({ ok: true, name: "Dana Ruiz", role: "Operations", email: "dana@mb2dental.com" });
+    expect(parseRoomContact({ name: "Dana" })).toEqual({ ok: true, name: "Dana", role: null, email: null });
+    expect(parseRoomContact({ name: "" }).ok).toBe(false);
+    expect(parseRoomContact({ name: "Dana", email: "nope" })).toEqual({ ok: false, error: "That email doesn't look right" });
+    expect(parseRoomWin({ body: "  First case seated  ", region: "North Texas" })).toEqual({ ok: true, body: "First case seated", headline: null, region: "North Texas" });
+    expect(parseRoomWin({ body: " " }).ok).toBe(false);
+    expect(parseRoomComment("  nice  ")).toBe("nice");
+    expect(parseRoomComment("")).toBeNull();
+    expect(parseRoomComment(5)).toBeNull();
   });
 });

@@ -105,6 +105,84 @@ export const lpRoomRequestsTable = pgTable(
   (t) => [index("lp_room_requests_page_created_idx").on(t.pageId, t.createdAt)],
 );
 
+/** A decision the customer made on the page (a marketing program, an amount, an event format). */
+export const lpRoomChoicesTable = pgTable(
+  "lp_room_choices",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    choiceKey: text("choice_key").notNull(),
+    value: text("value").notNull(),
+    chosenByEmail: text("chosen_by_email").notNull(),
+    chosenByName: text("chosen_by_name"),
+    chosenAt: timestamp("chosen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_choices_page_key_uniq").on(t.pageId, t.choiceKey)],
+);
+
+/** Someone the customer added to their side of the team. */
+export const lpRoomContactsTable = pgTable(
+  "lp_room_contacts",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    name: text("name").notNull(),
+    role: text("role"),
+    email: text("email"),
+    addedByEmail: text("added_by_email").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lp_room_contacts_page_idx").on(t.pageId)],
+);
+
+/** The wins feed: a post by either side ("customer" | "team"). */
+export const lpRoomWinsTable = pgTable(
+  "lp_room_wins",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    body: text("body").notNull(),
+    /** Optional big line above the body ("1,000 cases submitted"). */
+    headline: text("headline"),
+    region: text("region"),
+    authorSide: text("author_side").notNull(),
+    authorEmail: text("author_email").notNull(),
+    authorName: text("author_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lp_room_wins_page_created_idx").on(t.pageId, t.createdAt)],
+);
+
+export const lpRoomWinLikesTable = pgTable(
+  "lp_room_win_likes",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    winId: integer("win_id").notNull(),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_win_likes_win_email_uniq").on(t.winId, t.email)],
+);
+
+export const lpRoomWinCommentsTable = pgTable(
+  "lp_room_win_comments",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    winId: integer("win_id").notNull(),
+    body: text("body").notNull(),
+    authorSide: text("author_side").notNull(),
+    authorEmail: text("author_email").notNull(),
+    authorName: text("author_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lp_room_win_comments_win_idx").on(t.winId, t.createdAt)],
+);
+
 export type LpRoomRequest = typeof lpRoomRequestsTable.$inferSelect;
 export type LpRoomSettings = typeof lpRoomSettingsTable.$inferSelect;
 export type LpRoomMember = typeof lpRoomMembersTable.$inferSelect;

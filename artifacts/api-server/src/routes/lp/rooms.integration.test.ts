@@ -113,7 +113,9 @@ beforeAll(() => {
 
 afterAll(async () => {
   for (const id of tenants) {
-    for (const table of ["lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
+    await pool.query(`DELETE FROM lp_room_win_likes WHERE tenant_id = $1`, [id]).catch(() => {});
+    await pool.query(`DELETE FROM lp_room_win_comments WHERE tenant_id = $1`, [id]).catch(() => {});
+    for (const table of ["lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
       await pool.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [id]).catch(() => {});
     }
     await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
@@ -126,8 +128,8 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const pageId = await seedPage(tenantId);
     const state = await post("state", { pageId });
     expect(state.status).toBe(200);
-    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [] });
-    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [] });
+    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] });
+    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] });
     expect((await post("task", { pageId, taskKey: "announce" })).status).toBe(401);
     expect((await post("upload", { pageId, taskKey: "practice-roster", fileName: "r.xlsx", fileBase64: XLSX.toString("base64") })).status).toBe(401);
     expect((await post("task", { pageId, taskKey: "announce", rt: "forged.token" })).status).toBe(401);
@@ -175,7 +177,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await post("task", { pageId, taskKey: "announce", rt })).status).toBe(200);
 
     const anon = await post("state", { pageId });
-    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [] });
+    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [], choices: {}, wins: [], contacts: [] });
     const known = await post("state", { pageId, rt });
     expect(known.json).toMatchObject({ viewer: { email: "levi@mb2dental.com" }, tasks: { announce: { done: true, by: "levi@mb2dental.com" } } });
 
@@ -279,5 +281,76 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/requests/${id}`, headers: asTenant(tenantId), body: { status: "review", owner: "Partner Marketing", due: "Nov 21" } })).status).toBe(200);
     const after = (await post("state", { pageId, hl })).json as { requests: { status: string; owner: string; due: string }[] };
     expect(after.requests[0]).toMatchObject({ status: "review", owner: "Partner Marketing", due: "Nov 21" });
+  });
+
+  it("workspace modules: onboarding steps, marketing choices, added contacts and the wins feed", async () => {
+    const tenantId = await seedTenant();
+    const decoyTenantId = await seedTenant();
+    const blocks = [
+      {
+        id: "w1",
+        type: "room-workspace",
+        props: {
+          onboarding: { steps: [{ key: "onboard-logo", title: "Logo", action: "upload" }, { key: "onboard-team", title: "Team", action: "team" }, { key: "onboard-gift", title: "Gift", action: "request" }] },
+          marketing: { groups: [{ title: "G", programs: [{ key: "mk-fixed", title: "Fixed" }, { key: "mk-event", title: "Welcome event", options: ["Dinner", "Onsite training", "Not now"] }] }] },
+        },
+      },
+    ];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const other = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS2', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const otherPageId = other.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+
+    // Onboarding: an upload step takes a file; the gift step is a tick.
+    expect((await post("upload", { pageId, taskKey: "onboard-logo", hl, fileName: "logo.png", fileBase64: Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2]).toString("base64") })).status).toBe(200);
+    expect((await post("task", { pageId, taskKey: "onboard-gift", hl })).status).toBe(200);
+
+    // Choices: anonymous refused; only offered options on offered programs.
+    expect((await post("choice", { pageId, key: "mk-event", value: "Dinner" })).status).toBe(401);
+    expect((await post("choice", { pageId, key: "mk-event", value: "Yacht", hl })).status).toBe(400);
+    expect((await post("choice", { pageId, key: "mk-fixed", value: "Dinner", hl })).status).toBe(400);
+    expect((await post("choice", { pageId, key: "mk-event", value: "Dinner", hl })).status).toBe(200);
+    expect((await post("choice", { pageId, key: "mk-event", value: "Onsite training", hl })).status).toBe(200);
+
+    // Contacts: adding one completes the "add your team" step.
+    expect((await post("contact", { pageId, name: "", hl })).status).toBe(400);
+    expect((await post("contact", { pageId, name: "Sam Rivera", role: "Operations lead", email: "Sam@RoomCo.com", hl })).status).toBe(200);
+
+    // Wins: post, like twice (toggle), comment; a win on another page can't be touched from here.
+    expect((await post("win", { pageId, body: "First case seated with no adjustments" })).status).toBe(401);
+    expect((await post("win", { pageId, body: "First case seated with no adjustments", hl })).status).toBe(200);
+    const teamPost = await inject(app, { method: "POST", url: `/lp/partner-rooms/${otherPageId}/wins`, headers: asTenant(tenantId), body: { headline: "Elsewhere", body: "On another page" } });
+    expect(teamPost.status).toBe(400); // the test user has no email: a team post needs a signed-in person
+
+    const s1 = (await post("state", { pageId, hl })).json as { tasks: Record<string, { done: boolean }>; choices: Record<string, { value: string; by?: string }>; contacts: { name: string; email: string }[]; wins: { id: number; likes: number; liked: boolean; by: string; comments: unknown[] }[] };
+    expect(Object.keys(s1.tasks).sort()).toEqual(["onboard-gift", "onboard-logo", "onboard-team"]);
+    expect(s1.choices).toEqual({ "mk-event": { value: "Onsite training", at: expect.any(String), by: "Dana Visitor" } });
+    expect(s1.contacts).toEqual([expect.objectContaining({ name: "Sam Rivera", email: "sam@roomco.com" })]);
+    expect(s1.wins).toEqual([expect.objectContaining({ likes: 0, liked: false, by: "Dana Visitor", comments: [] })]);
+    const winId = s1.wins[0].id;
+
+    expect((await post("win/like", { pageId: otherPageId, winId, hl })).status).toBe(401); // the link is for the first page only
+    expect((await post("win/like", { pageId, winId: 2_000_000_000, hl })).status).toBe(404);
+    expect((await post("win/like", { pageId, winId, hl })).json).toEqual({ ok: true, liked: true });
+    expect((await post("win/comment", { pageId, winId, body: "  ", hl })).status).toBe(400);
+    expect((await post("win/comment", { pageId, winId, body: "Sharing this at the regional call", hl })).status).toBe(200);
+
+    // Anonymous: sees decisions and wins, but no contacts and no "by" on choices.
+    const anon = (await post("state", { pageId })).json as { choices: Record<string, object>; contacts: unknown[]; wins: { likes: number; liked: boolean; comments: { body: string }[] }[] };
+    expect(anon.contacts).toEqual([]);
+    expect(anon.choices["mk-event"]).toEqual({ value: "Onsite training", at: expect.any(String) });
+    expect(anon.wins[0]).toMatchObject({ likes: 1, liked: false, comments: [{ body: "Sharing this at the regional call" }] });
+    expect((await post("win/like", { pageId, winId, hl })).json).toEqual({ ok: true, liked: false });
+
+    // Tenant side: everything listed; the decoy tenant gets nothing and can remove nothing.
+    const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { choices: { key: string; value: string | null }[]; contacts: { id: number }[]; wins: { id: number }[] };
+    expect(detail.choices).toEqual([expect.objectContaining({ key: "mk-event", value: "Onsite training" })]);
+    expect(detail.contacts).toHaveLength(1);
+    expect((await inject(app, { method: "DELETE", url: `/lp/partner-rooms/${pageId}/wins/${winId}`, headers: asTenant(decoyTenantId) })).status).toBe(404);
+    expect((await inject(app, { method: "DELETE", url: `/lp/partner-rooms/${pageId}/wins/${winId}`, headers: asTenant(tenantId) })).status).toBe(200);
+    expect(((await post("state", { pageId })).json as { wins: unknown[] }).wins).toEqual([]);
+    await inject(app, { method: "DELETE", url: `/lp/partner-rooms/${pageId}/contacts/${detail.contacts[0].id}`, headers: asTenant(tenantId) });
+    expect(((await post("state", { pageId, hl })).json as { contacts: unknown[] }).contacts).toEqual([]);
   });
 });

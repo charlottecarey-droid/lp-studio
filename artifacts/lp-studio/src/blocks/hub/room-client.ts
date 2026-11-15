@@ -34,12 +34,44 @@ export interface RoomRequest {
   createdAt: string;
 }
 
+export interface RoomWinComment {
+  id: number;
+  body: string;
+  side: "customer" | "team" | string;
+  by: string;
+  createdAt: string;
+}
+export interface RoomWin {
+  id: number;
+  body: string;
+  headline: string | null;
+  region: string | null;
+  side: "customer" | "team" | string;
+  by: string;
+  createdAt: string;
+  likes: number;
+  liked: boolean;
+  comments: RoomWinComment[];
+}
+export interface RoomContact {
+  id: number;
+  name: string;
+  role: string | null;
+  email: string | null;
+}
+
 export interface RoomSnapshot {
   status: "idle" | "loading" | "ready" | "error";
   viewer: { email: string; name: string | null } | null;
   tasks: Record<string, RoomTaskState>;
   /** The customer's requests to the team. Empty for an anonymous visitor. */
   requests: RoomRequest[];
+  /** Decisions made on the page (marketing programs), by key. */
+  choices: Record<string, { value: string; at: string; by?: string }>;
+  /** The wins feed, newest first. */
+  wins: RoomWin[];
+  /** People the customer added to their team. Empty for an anonymous visitor. */
+  contacts: RoomContact[];
 }
 
 export type RoomActionResult = { ok: true } | { ok: false; error: string; identityRequired?: boolean };
@@ -48,7 +80,7 @@ export type RoomActionResult = { ok: true } | { ok: false; error: string; identi
 export const ROOM_UPLOAD_MAX_BYTES = 7 * 1024 * 1024;
 export const ROOM_UPLOAD_ACCEPT = ".xlsx,.xls,.csv,.pdf,.docx,.doc,.pptx,.png,.jpg,.jpeg,.zip";
 
-const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [] };
+const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] };
 const rtKey = (pageId: number) => `lp_room_rt_${pageId}`;
 
 function readHl(): string | undefined {
@@ -127,6 +159,9 @@ class RoomStore {
         viewer: (json.viewer as RoomSnapshot["viewer"]) ?? null,
         tasks: (json.tasks as RoomSnapshot["tasks"]) ?? {},
         requests: Array.isArray(json.requests) ? (json.requests as RoomRequest[]) : [],
+        choices: json.choices && typeof json.choices === "object" ? (json.choices as RoomSnapshot["choices"]) : {},
+        wins: Array.isArray(json.wins) ? (json.wins as RoomWin[]) : [],
+        contacts: Array.isArray(json.contacts) ? (json.contacts as RoomContact[]) : [],
       });
     } catch {
       this.set({ ...this.snap, status: "error" });
@@ -148,7 +183,7 @@ class RoomStore {
         } catch {
           /* ignore */
         }
-        this.set({ ...this.snap, viewer: null, requests: [] });
+        this.set({ ...this.snap, viewer: null, requests: [], contacts: [] });
         return { ok: false, error, identityRequired: true };
       }
       return { ok: false, error: status === 429 ? "Too many tries. Please wait a minute." : error };
@@ -175,6 +210,22 @@ class RoomStore {
   /** Ask the team for something; it shows up in the snapshot's `requests`. */
   sendRequest(input: { kind: string; subject: string; details: string; assetKey?: string }) {
     return this.act("request", input);
+  }
+
+  setChoice(key: string, value: string) {
+    return this.act("choice", { key, value });
+  }
+  addContact(input: { name: string; role: string; email: string }) {
+    return this.act("contact", input);
+  }
+  postWin(input: { body: string; region?: string }) {
+    return this.act("win", input);
+  }
+  likeWin(winId: number) {
+    return this.act("win/like", { winId });
+  }
+  commentWin(winId: number, body: string) {
+    return this.act("win/comment", { winId, body });
   }
 
   /** "sent" = a link is on its way; "requested" = the team has been asked to approve this address. */

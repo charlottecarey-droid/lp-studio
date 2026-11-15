@@ -17,8 +17,13 @@ import { Readable } from "stream";
 import {
   db,
   lpPagesTable,
+  lpRoomChoicesTable,
+  lpRoomContactsTable,
   lpRoomMembersTable,
   lpRoomRequestsTable,
+  lpRoomWinCommentsTable,
+  lpRoomWinLikesTable,
+  lpRoomWinsTable,
   lpRoomSettingsTable,
   lpRoomTaskStateTable,
   lpRoomUploadsTable,
@@ -26,7 +31,7 @@ import {
   salesHotlinksTable,
   tenantsTable,
 } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { ObjectStorageService } from "../../lib/objectStorage";
@@ -35,7 +40,13 @@ import { getRequestHost, getRequestProto } from "../../lib/requestHost";
 import { sendRoomAccessEmail } from "../../lib/notifications";
 import { slackService } from "../../lib/slack-service";
 import {
+  extractRoomChoices,
   extractRoomTasks,
+  onboardingTeamStepKey,
+  parseRoomComment,
+  parseRoomContact,
+  parseRoomWin,
+  type RoomChoiceSpec,
   pageIsRoom,
   parseRoomRequest,
   ROOM_REQUEST_KIND_LABEL,
@@ -60,7 +71,7 @@ const ROOM_UPLOAD_FOLDER = "room-uploads";
 // Reads are cheap and fire on every room view; writes and access requests
 // are rare for a real person, so their ceilings are low.
 const stateLimiter = rateLimit({ name: "room-state", windowMs: 60_000, max: envLimit("RATE_LIMIT_ROOM_STATE_PER_MIN", 120) });
-const actionLimiter = rateLimit({ name: "room-action", windowMs: 60_000, max: envLimit("RATE_LIMIT_ROOM_ACTION_PER_MIN", 20) });
+const actionLimiter = rateLimit({ name: "room-action", windowMs: 60_000, max: envLimit("RATE_LIMIT_ROOM_ACTION_PER_MIN", 60) });
 const accessLimiter = rateLimit({ name: "room-access", windowMs: 10 * 60_000, max: envLimit("RATE_LIMIT_ROOM_ACCESS_PER_10MIN", 6) });
 
 interface RoomPage {
@@ -71,6 +82,10 @@ interface RoomPage {
   tasks: Map<string, RoomTask>;
   /** The page carries a room-workspace block (it has requests even with no customer tasks). */
   isWorkspace: boolean;
+  /** Decisions the page offers (marketing programs with options). */
+  choices: Map<string, RoomChoiceSpec>;
+  /** The onboarding step that adding a team contact completes. */
+  teamStepKey: string | null;
 }
 
 async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
@@ -82,7 +97,7 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
     .where(eq(lpPagesTable.id, pageId))
     .limit(1);
   if (!page || page.tenantId == null) return null;
-  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks) };
+  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks) };
 }
 
 async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null }> {
@@ -175,6 +190,61 @@ function postToSlack(page: RoomPage, channelId: string | null, headline: string,
 
 const mrk = (s: string) => s.replace(/[<>&*_~`]/g, " ");
 
+/** Wins with like counts and comments for a page. `viewerEmail` marks which the viewer liked; names are shown, addresses only to a known viewer. */
+async function loadWins(pageId: number, viewerEmail: string | null, showEmails: boolean) {
+  const wins = await db.select().from(lpRoomWinsTable).where(eq(lpRoomWinsTable.pageId, pageId)).orderBy(desc(lpRoomWinsTable.createdAt)).limit(100);
+  if (wins.length === 0) return [];
+  const ids = wins.map((w) => w.id);
+  const [likes, comments] = await Promise.all([
+    db.select({ winId: lpRoomWinLikesTable.winId, email: lpRoomWinLikesTable.email }).from(lpRoomWinLikesTable).where(inArray(lpRoomWinLikesTable.winId, ids)),
+    db.select().from(lpRoomWinCommentsTable).where(inArray(lpRoomWinCommentsTable.winId, ids)).orderBy(asc(lpRoomWinCommentsTable.createdAt)),
+  ]);
+  const who = (name: string | null, email: string, side: string) => name || (showEmails ? email : side === "team" ? "The team" : "A team member");
+  return wins.map((w) => ({
+    id: w.id,
+    body: w.body,
+    headline: w.headline,
+    region: w.region,
+    side: w.authorSide,
+    by: who(w.authorName, w.authorEmail, w.authorSide),
+    createdAt: w.createdAt.toISOString(),
+    likes: likes.filter((l) => l.winId === w.id).length,
+    liked: !!viewerEmail && likes.some((l) => l.winId === w.id && l.email === viewerEmail),
+    comments: comments.filter((c) => c.winId === w.id).map((c) => ({ id: c.id, body: c.body, side: c.authorSide, by: who(c.authorName, c.authorEmail, c.authorSide), createdAt: c.createdAt.toISOString() })),
+  }));
+}
+
+/** Workspace state beyond tasks and requests: decisions and wins for everyone, added contacts for known viewers. */
+async function loadWorkspaceState(page: RoomPage, viewer: Viewer | null) {
+  const [choiceRows, wins, contactRows] = await Promise.all([
+    db.select().from(lpRoomChoicesTable).where(eq(lpRoomChoicesTable.pageId, page.id)),
+    loadWins(page.id, viewer?.email ?? null, !!viewer),
+    viewer ? db.select().from(lpRoomContactsTable).where(eq(lpRoomContactsTable.pageId, page.id)).orderBy(asc(lpRoomContactsTable.createdAt)) : Promise.resolve([]),
+  ]);
+  const choices: Record<string, { value: string; at: string; by?: string }> = {};
+  for (const c of choiceRows) {
+    const spec = page.choices.get(c.choiceKey);
+    if (!spec || !spec.options.includes(c.value)) continue; // the page no longer offers it
+    choices[c.choiceKey] = { value: c.value, at: c.chosenAt.toISOString(), ...(viewer ? { by: c.chosenByName || c.chosenByEmail } : {}) };
+  }
+  return { choices, wins, contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email })) };
+}
+
+/** A known visitor on a workspace page, or a 401/404 already sent. */
+async function requireWorkspaceViewer(req: Request, res: Response): Promise<{ page: RoomPage; viewer: Viewer } | null> {
+  const page = await loadRoomPage(req.body?.pageId);
+  if (!page || !page.isWorkspace) {
+    res.status(404).json({ error: "Room not found" });
+    return null;
+  }
+  const viewer = await resolveViewer(page, req.body ?? {});
+  if (!viewer) {
+    res.status(401).json({ error: "Confirm your email to continue", code: "identity_required" });
+    return null;
+  }
+  return { page, viewer };
+}
+
 /* ── PUBLIC ──────────────────────────────────────────────────────────────── */
 
 /**
@@ -186,7 +256,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
   try {
     const page = await loadRoomPage(req.body?.pageId);
     if (!page) {
-      res.json({ viewer: null, tasks: {}, requests: [] });
+      res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] });
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {});
@@ -223,7 +293,8 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
           createdAt: r.createdAt.toISOString(),
         }))
       : [];
-    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks, requests });
+    const extras = page.isWorkspace ? await loadWorkspaceState(page, viewer) : { choices: {}, wins: [], contacts: [] };
+    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks, requests, ...extras });
   } catch (err) {
     req.log.error({ err }, "room state failed");
     res.status(500).json({ error: "Could not load the room" });
@@ -432,6 +503,127 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
   }
 });
 
+/** Record a decision the page offers (a marketing program's option). */
+router.post("/lp/room/choice", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    const spec = page.choices.get(typeof req.body?.key === "string" ? req.body.key : "");
+    const value = typeof req.body?.value === "string" ? req.body.value : "";
+    if (!spec || !spec.options.includes(value)) {
+      res.status(400).json({ error: "That option isn't available" });
+      return;
+    }
+    await db
+      .insert(lpRoomChoicesTable)
+      .values({ tenantId: page.tenantId, pageId: page.id, choiceKey: spec.key, value, chosenByEmail: viewer.email, chosenByName: viewer.name })
+      .onConflictDoUpdate({ target: [lpRoomChoicesTable.pageId, lpRoomChoicesTable.choiceKey], set: { value, chosenByEmail: viewer.email, chosenByName: viewer.name, chosenAt: sql`now()` } });
+    const settings = await loadSettings(page.id);
+    postToSlack(page, settings.slackChannelId, "🗳️ Marketing plan decision", [`*${mrk(viewer.name || viewer.email)}* chose *${mrk(value)}* for *${mrk(spec.title)}*.`], await roomPageUrl(req, page, req.body?.path));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room choice failed");
+    res.status(500).json({ error: "Could not save your choice" });
+  }
+});
+
+/** Add a person to the customer's side of the team; completes the "add your team" onboarding step. */
+router.post("/lp/room/contact", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    const parsed = parseRoomContact(req.body ?? {});
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const [{ n }] = (await db.execute(sql`SELECT COUNT(*)::int AS n FROM lp_room_contacts WHERE page_id = ${page.id}`)).rows as Array<{ n: number }>;
+    if (n >= 100) {
+      res.status(400).json({ error: "That's the most people a room can hold. Ask your team to tidy the list." });
+      return;
+    }
+    await db.insert(lpRoomContactsTable).values({ tenantId: page.tenantId, pageId: page.id, name: parsed.name, role: parsed.role, email: parsed.email, addedByEmail: viewer.email });
+    if (page.teamStepKey) await markDone(page, page.teamStepKey, viewer);
+    const settings = await loadSettings(page.id);
+    postToSlack(page, settings.slackChannelId, "👤 Team contact added", [`*${mrk(viewer.name || viewer.email)}* added *${mrk(parsed.name)}*${parsed.role ? ` (${mrk(parsed.role)})` : ""}${parsed.email ? ` · ${mrk(parsed.email)}` : ""}.`], await roomPageUrl(req, page, req.body?.path));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room contact failed");
+    res.status(500).json({ error: "Could not add that person" });
+  }
+});
+
+/** Post a win to the feed. */
+router.post("/lp/room/win", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    const parsed = parseRoomWin({ body: req.body?.body, region: req.body?.region });
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    await db.insert(lpRoomWinsTable).values({ tenantId: page.tenantId, pageId: page.id, body: parsed.body, region: parsed.region, authorSide: "customer", authorEmail: viewer.email, authorName: viewer.name });
+    const settings = await loadSettings(page.id);
+    postToSlack(page, settings.slackChannelId, "🏆 New win posted", [`*${mrk(viewer.name || viewer.email)}*: ${mrk(parsed.body).slice(0, 500)}`], await roomPageUrl(req, page, req.body?.path));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room win failed");
+    res.status(500).json({ error: "Could not post" });
+  }
+});
+
+/** The win on THIS page, or null. */
+async function winOnPage(page: RoomPage, winIdRaw: unknown): Promise<number | null> {
+  const winId = typeof winIdRaw === "number" ? Math.floor(winIdRaw) : NaN;
+  if (!Number.isFinite(winId)) return null;
+  const [w] = await db.select({ id: lpRoomWinsTable.id }).from(lpRoomWinsTable).where(and(eq(lpRoomWinsTable.id, winId), eq(lpRoomWinsTable.pageId, page.id))).limit(1);
+  return w?.id ?? null;
+}
+
+/** Like or unlike a win (one per person). */
+router.post("/lp/room/win/like", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    const winId = await winOnPage(page, req.body?.winId);
+    if (!winId) {
+      res.status(404).json({ error: "That post is gone" });
+      return;
+    }
+    const removed = await db.delete(lpRoomWinLikesTable).where(and(eq(lpRoomWinLikesTable.winId, winId), eq(lpRoomWinLikesTable.email, viewer.email))).returning({ id: lpRoomWinLikesTable.id });
+    if (removed.length === 0) await db.insert(lpRoomWinLikesTable).values({ tenantId: page.tenantId, winId, email: viewer.email }).onConflictDoNothing();
+    res.json({ ok: true, liked: removed.length === 0 });
+  } catch (err) {
+    req.log.error({ err }, "room like failed");
+    res.status(500).json({ error: "Could not save" });
+  }
+});
+
+/** Comment on a win. */
+router.post("/lp/room/win/comment", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    const winId = await winOnPage(page, req.body?.winId);
+    const body = parseRoomComment(req.body?.body);
+    if (!winId || !body) {
+      res.status(winId ? 400 : 404).json({ error: winId ? "Write a comment first" : "That post is gone" });
+      return;
+    }
+    await db.insert(lpRoomWinCommentsTable).values({ tenantId: page.tenantId, winId, body, authorSide: "customer", authorEmail: viewer.email, authorName: viewer.name });
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room comment failed");
+    res.status(500).json({ error: "Could not post" });
+  }
+});
+
 /* ── TENANT (auth-gated) ─────────────────────────────────────────────────── */
 
 async function ownedRoomPage(req: Request, res: Response): Promise<RoomPage | null> {
@@ -457,7 +649,21 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       db.select().from(lpRoomUploadsTable).where(eq(lpRoomUploadsTable.pageId, page.id)).orderBy(desc(lpRoomUploadsTable.createdAt)),
     ]);
     const stateByKey = new Map(states.map((s) => [s.taskKey, s]));
+    const [choiceRows, contactRows, wins] = page.isWorkspace
+      ? await Promise.all([
+          db.select().from(lpRoomChoicesTable).where(eq(lpRoomChoicesTable.pageId, page.id)),
+          db.select().from(lpRoomContactsTable).where(eq(lpRoomContactsTable.pageId, page.id)).orderBy(asc(lpRoomContactsTable.createdAt)),
+          loadWins(page.id, req.authUser?.email?.toLowerCase() ?? null, true),
+        ])
+      : [[], [], []];
     res.json({
+      isWorkspace: page.isWorkspace,
+      choices: [...page.choices.values()].map((spec) => {
+        const c = choiceRows.find((x) => x.choiceKey === spec.key);
+        return { key: spec.key, title: spec.title, options: spec.options, value: c && spec.options.includes(c.value) ? c.value : null, chosenBy: c ? c.chosenByName || c.chosenByEmail : null, chosenAt: c?.chosenAt.toISOString() ?? null };
+      }),
+      contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email, addedBy: c.addedByEmail, createdAt: c.createdAt.toISOString() })),
+      wins,
       isRoom: page.tasks.size > 0 || page.isWorkspace,
       requests: requests.map((r) => ({
         id: r.id,
@@ -587,6 +793,79 @@ router.patch("/lp/partner-rooms/:pageId/requests/:id", async (req: Request, res:
   } catch (err) {
     req.log.error({ err }, "room request update failed");
     res.status(500).json({ error: "Could not update" });
+  }
+});
+
+/** Post a win from the team's side (shows in the room as the signed-in person). */
+router.post("/lp/partner-rooms/:pageId/wins", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const parsed = parseRoomWin(req.body ?? {});
+    const email = req.authUser?.email?.toLowerCase();
+    if (!parsed.ok || !email) {
+      res.status(400).json({ error: parsed.ok ? "Sign in again to post" : parsed.error });
+      return;
+    }
+    await db.insert(lpRoomWinsTable).values({ tenantId: page.tenantId, pageId: page.id, body: parsed.body, headline: parsed.headline, region: parsed.region, authorSide: "team", authorEmail: email, authorName: req.authUser?.name || null });
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room team win failed");
+    res.status(500).json({ error: "Could not post" });
+  }
+});
+
+/** Reply to a win from the team's side. */
+router.post("/lp/partner-rooms/:pageId/wins/:id/comments", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const winId = await winOnPage(page, Number(req.params.id));
+    const body = parseRoomComment(req.body?.body);
+    const email = req.authUser?.email?.toLowerCase();
+    if (!winId || !body || !email) {
+      res.status(winId ? 400 : 404).json({ error: winId ? "Write a comment first" : "Not found" });
+      return;
+    }
+    await db.insert(lpRoomWinCommentsTable).values({ tenantId: page.tenantId, winId, body, authorSide: "team", authorEmail: email, authorName: req.authUser?.name || null });
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room team comment failed");
+    res.status(500).json({ error: "Could not post" });
+  }
+});
+
+/** Remove a win (and its likes and comments) from the feed. */
+router.delete("/lp/partner-rooms/:pageId/wins/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const winId = await winOnPage(page, Number(req.params.id));
+    if (!winId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    await db.delete(lpRoomWinCommentsTable).where(eq(lpRoomWinCommentsTable.winId, winId));
+    await db.delete(lpRoomWinLikesTable).where(eq(lpRoomWinLikesTable.winId, winId));
+    await db.delete(lpRoomWinsTable).where(eq(lpRoomWinsTable.id, winId));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room win delete failed");
+    res.status(500).json({ error: "Could not remove" });
+  }
+});
+
+/** Remove a contact the customer added. */
+router.delete("/lp/partner-rooms/:pageId/contacts/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const id = Number(req.params.id);
+    if (Number.isFinite(id)) await db.delete(lpRoomContactsTable).where(and(eq(lpRoomContactsTable.id, id), eq(lpRoomContactsTable.pageId, page.id)));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room contact delete failed");
+    res.status(500).json({ error: "Could not remove" });
   }
 });
 

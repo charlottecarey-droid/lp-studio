@@ -147,7 +147,19 @@ export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
   for (const b of blocks) {
     const type = b && typeof b === "object" ? (b as { type?: unknown }).type : null;
     if (type !== "hub-plan" && type !== "room-workspace") continue;
-    const props = (b as { props?: { lanes?: unknown; planGroups?: unknown } }).props;
+    const props = (b as { props?: { lanes?: unknown; planGroups?: unknown; onboarding?: { steps?: unknown } } }).props;
+    // Onboarding steps are tasks too: an upload, a tick, or "add your team"
+    // (ticked by hand, or automatically when the customer adds a contact).
+    const steps = type === "room-workspace" ? props?.onboarding?.steps : null;
+    if (Array.isArray(steps)) {
+      for (const step of steps) {
+        if (!step || typeof step !== "object") continue;
+        const a = (step as { action?: unknown }).action;
+        const key = planTaskKey({ key: (step as { key?: unknown }).key, task: (step as { title?: unknown }).title });
+        if (!key || out.has(key) || !["upload", "check", "team", "link", "request"].includes(String(a))) continue;
+        out.set(key, { key, title: String((step as { title?: unknown }).title ?? key), action: a === "upload" ? "upload" : "check" });
+      }
+    }
     const lanes = (type === "room-workspace" ? props?.planGroups : props?.lanes) ?? [];
     if (!Array.isArray(lanes)) continue;
     for (const lane of lanes) {
@@ -265,4 +277,80 @@ export function parseRoomRequest(body: { kind?: unknown; subject?: unknown; deta
   if (!subject && !details) return { ok: false, error: "Tell us what you need" };
   const assetKey = cleanText(body.assetKey, 80);
   return { ok: true, kind, subject: subject || details.slice(0, 80), details: details || null, assetKey: assetKey || null };
+}
+
+/* ── Onboarding, choices, contacts, wins ─────────────────────────────────── */
+
+/** Key of the onboarding step that "add your team" completes, if the page has one. */
+export function onboardingTeamStepKey(blocks: unknown): string | null {
+  if (!Array.isArray(blocks)) return null;
+  for (const b of blocks) {
+    if (!b || typeof b !== "object" || (b as { type?: unknown }).type !== "room-workspace") continue;
+    const steps = (b as { props?: { onboarding?: { steps?: unknown } } }).props?.onboarding?.steps;
+    if (!Array.isArray(steps)) continue;
+    for (const step of steps) {
+      if (step && typeof step === "object" && (step as { action?: unknown }).action === "team") {
+        return planTaskKey({ key: (step as { key?: unknown }).key, task: (step as { title?: unknown }).title }) || null;
+      }
+    }
+  }
+  return null;
+}
+
+export interface RoomChoiceSpec {
+  key: string;
+  title: string;
+  options: string[];
+}
+
+/**
+ * Decisions the page offers the customer: marketing programs with options
+ * (Include / Not now, an amount, an event format). A program without options
+ * is fixed ("in plan") and takes no choice.
+ */
+export function extractRoomChoices(blocks: unknown): Map<string, RoomChoiceSpec> {
+  const out = new Map<string, RoomChoiceSpec>();
+  if (!Array.isArray(blocks)) return out;
+  for (const b of blocks) {
+    if (!b || typeof b !== "object" || (b as { type?: unknown }).type !== "room-workspace") continue;
+    const groups = (b as { props?: { marketing?: { groups?: unknown } } }).props?.marketing?.groups;
+    if (!Array.isArray(groups)) continue;
+    for (const g of groups) {
+      const programs = (g as { programs?: unknown })?.programs;
+      if (!Array.isArray(programs)) continue;
+      for (const p of programs) {
+        if (!p || typeof p !== "object") continue;
+        const rawOptions = (p as { options?: unknown }).options;
+        const options = Array.isArray(rawOptions) ? rawOptions.filter((o): o is string => typeof o === "string" && !!o.trim()).map((o) => o.trim()) : [];
+        const key = planTaskKey({ key: (p as { key?: unknown }).key, task: (p as { title?: unknown }).title });
+        if (!key || options.length < 2 || out.has(key)) continue;
+        out.set(key, { key, title: String((p as { title?: unknown }).title ?? key), options });
+      }
+    }
+  }
+  return out;
+}
+
+export type ParsedRoomContact = { ok: true; name: string; role: string | null; email: string | null } | { ok: false; error: string };
+
+export function parseRoomContact(body: { name?: unknown; role?: unknown; email?: unknown }): ParsedRoomContact {
+  const name = cleanText(body.name, 120);
+  if (!name) return { ok: false, error: "Add a name" };
+  const emailRaw = cleanText(body.email, 254);
+  const email = emailRaw ? normalizeEmail(emailRaw) : null;
+  if (emailRaw && !email) return { ok: false, error: "That email doesn't look right" };
+  return { ok: true, name, role: cleanText(body.role, 120) || null, email };
+}
+
+export type ParsedRoomWin = { ok: true; body: string; headline: string | null; region: string | null } | { ok: false; error: string };
+
+export function parseRoomWin(input: { body?: unknown; headline?: unknown; region?: unknown }): ParsedRoomWin {
+  const body = cleanText(input.body, 1500);
+  if (!body) return { ok: false, error: "Write a few words about the win" };
+  return { ok: true, body, headline: cleanText(input.headline, 120) || null, region: cleanText(input.region, 80) || null };
+}
+
+/** A comment's text, or null when empty. */
+export function parseRoomComment(raw: unknown): string | null {
+  return cleanText(raw, 1000) || null;
 }
