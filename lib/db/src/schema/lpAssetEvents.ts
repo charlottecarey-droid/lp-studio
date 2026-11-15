@@ -39,6 +39,9 @@ export const lpAssetEventsTable = pgTable(
     value: integer("value"),
     /** Text payload: the search term, the section jumped to, the audience link followed. */
     detail: text("detail"),
+    /** Who it was, when the page knows (a partner room's identified visitor). Null for anonymous visitors. */
+    viewerEmail: text("viewer_email"),
+    viewerName: text("viewer_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarPlus, Check, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
+import { CalendarPlus, Check, Play, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { usePageContext } from "@/lib/page-context";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
-import { trackHubAsset, type HubAsset } from "./hub/hub-assets";
+import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed, opensInViewer, resolveAssetHref, type HubAsset, type HubAssetAction } from "./hub/hub-assets";
+import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
+import { resolveHubPalette } from "@/lib/hub-theme";
+import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
 import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomSyncedEvent, type RoomSyncedMinutes, type RoomWin } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
@@ -102,17 +105,113 @@ export interface RoomPhase {
   endDay?: number;
 }
 
-export type RoomAssetKind = "pdf" | "image" | "text" | "link" | "file";
+export type RoomAssetKind = "pdf" | "video" | "image" | "text" | "link" | "file";
 export interface RoomAsset {
   key?: string;
   kind: RoomAssetKind;
   title: string;
   description?: string;
   fileUrl?: string;
+  /** Kind "video": a video file, or a YouTube / Vimeo / Wistia / Loom link. Plays in the page. */
+  videoUrl?: string;
   externalUrl?: string;
   /** The copy itself (kind "text"). */
   body?: string;
   hidden?: boolean;
+}
+
+/* ── Editing on the page (builder only) ──────────────────────────────────── */
+
+/** Replace one object inside the block's props (found by identity), leaving everything else untouched. */
+function swapDeep(node: unknown, target: object, next: object): unknown {
+  if (node === target) return next;
+  if (Array.isArray(node)) {
+    let changed = false;
+    const out = node.map((n) => {
+      const r = swapDeep(n, target, next);
+      if (r !== n) changed = true;
+      return r;
+    });
+    return changed ? out : node;
+  }
+  if (node && typeof node === "object") {
+    let changed = false;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node)) {
+      const r = swapDeep(v, target, next);
+      if (r !== v) changed = true;
+      out[k] = r;
+    }
+    return changed ? out : node;
+  }
+  return node;
+}
+
+/** Set in the builder: patch any item of the block's props in place. Absent on the live page. */
+const RoomEditContext = createContext<((item: object, patch: Record<string, unknown>) => void) | null>(null);
+
+/**
+ * A piece of the room's text that can be edited by clicking it in the builder.
+ * Plain text only (no formatting), because these values also feed emails,
+ * Slack and task keys. On the live page it renders the text and nothing else.
+ */
+function E<T extends object>({ item, field, multiline, placeholder }: { item: T; field: keyof T & string; multiline?: boolean; placeholder?: string }) {
+  const edit = useContext(RoomEditContext);
+  const value = String((item as Record<string, unknown>)[field] ?? "");
+  if (!edit) return <>{value}</>;
+  return (
+    <span
+      className="prw-edit"
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      aria-label={placeholder || field}
+      data-ph={placeholder || "Add text"}
+      data-room-edit={field}
+      onClick={(e) => e.stopPropagation()}
+      onPaste={(e) => {
+        e.preventDefault();
+        document.execCommand("insertText", false, e.clipboardData.getData("text/plain").replace(multiline ? /\r/g : /[\r\n]+/g, multiline ? "" : " "));
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !(multiline && e.shiftKey)) {
+          e.preventDefault();
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          e.currentTarget.textContent = value;
+          e.currentTarget.blur();
+        }
+      }}
+      onBlur={(e) => {
+        const next = (e.currentTarget.textContent ?? "").replace(/\u00a0/g, " ").trim();
+        if (next !== value) edit(item, { [field]: next });
+      }}
+    >
+      {value}
+    </span>
+  );
+}
+
+const isVideoLink = (url: string) => !!url && (isNativeVideoUrl(url) || getAutoplayEmbedUrl(url) !== url);
+
+/**
+ * A room asset as the content hub understands it, so PDFs, images and videos
+ * open in the same in-page viewer (which records views, time and watch
+ * progress). A link that points at a hosted PDF or a video opens there too.
+ */
+export function roomAssetToHub(a: RoomAsset): HubAsset {
+  const file = (a.fileUrl ?? "").trim();
+  const ext = (a.externalUrl ?? "").trim();
+  const video = (a.videoUrl ?? "").trim();
+  const base = { key: a.key, title: a.title, description: a.description, body: a.body };
+  if (a.kind === "video") return { ...base, kind: "video", videoUrl: video || file || ext };
+  if (a.kind === "pdf") return { ...base, kind: "pdf", fileUrl: file, externalUrl: ext };
+  if (a.kind === "image") return { ...base, kind: "image", fileUrl: file, externalUrl: ext };
+  if (a.kind === "text") return { ...base, kind: "text", externalUrl: ext || file };
+  const url = a.kind === "file" ? file || ext : ext || file;
+  if (isVideoLink(url)) return { ...base, kind: "video", videoUrl: url };
+  if (isPdfUrl(url) && (a.kind === "file" || isHostedFileUrl(url))) return { ...base, kind: "pdf", fileUrl: url };
+  return { ...base, kind: "link", externalUrl: url };
 }
 
 export type RoomStepAction = "upload" | "check" | "team" | "link" | "request";
@@ -517,7 +616,7 @@ const initials = (name: string) => {
   const w = (name ?? "").trim().split(/\s+/).filter((x) => /^[\p{L}\p{N}]/u.test(x));
   return w.length ? ((w[0][0] ?? "") + (w.length > 1 ? (w[w.length - 1][0] ?? "") : "")).toUpperCase() : "";
 };
-const FILE_TAG: Record<RoomAssetKind, string> = { pdf: "PDF", image: "IMG", text: "TXT", link: "URL", file: "FILE" };
+const FILE_TAG: Record<RoomAssetKind, string> = { pdf: "PDF", video: "VID", image: "IMG", text: "TXT", link: "URL", file: "FILE" };
 
 const CSS = `
 .prw{--ink:#0E1A16;--body:#5C6B61;--faint:#9AA69E;--line:#E7E7E0;--paper:#FCFCFA;--page:#F3F4EF;--green:#1AC065;--blue:#224EA0;--amber:#A98600;--red:#B42318;background:var(--page);color:var(--ink);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -528,6 +627,10 @@ const CSS = `
 .prw button{font:inherit;cursor:pointer}
 .prw-wrap{max-width:1280px;margin:0 auto;padding:0 32px}
 .prw-num{font-variant-numeric:tabular-nums}
+.prw-edit{outline:0;border-radius:4px;cursor:text;white-space:pre-wrap;transition:box-shadow .12s}
+.prw-edit:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--dark) 28%,transparent)}
+.prw-edit:focus{box-shadow:0 0 0 2px var(--green);background:#fff}
+.prw-edit:empty::before{content:attr(data-ph);color:var(--faint);font-weight:400}
 .prw-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--green)}
 .prw-cover{background:var(--dark);color:var(--on-dark);position:relative;overflow:hidden}
 .prw-top{display:flex;align-items:center;min-height:68px;gap:20px}
@@ -842,11 +945,37 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
   const reviewRequests = snapshot.requests.filter((q) => q.status === "review");
   const openRequests = snapshot.requests.filter((q) => q.status !== "done");
 
+  /** Builder only: patch one item of the props (a milestone, an asset, a person…) found by identity. */
+  const editItem = useMemo(
+    () =>
+      onFieldChange
+        ? (item: object, patch: Record<string, unknown>) => {
+            const next = swapDeep(props, item, { ...item, ...patch });
+            if (next !== props) onFieldChange(next as RoomWorkspaceBlockProps);
+          }
+        : null,
+    [onFieldChange, props],
+  );
   const field = (key: keyof RoomWorkspaceBlockProps) => (onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined);
-  const track = (asset: RoomAsset, action: "view" | "download" | "open") => {
-    if (isEditor) return;
-    const a: HubAsset = { key: asset.key, kind: asset.kind === "file" ? "pdf" : asset.kind, title: asset.title, fileUrl: asset.fileUrl, externalUrl: asset.externalUrl, body: asset.body };
-    trackHubAsset({ pageId, sessionId, blockId }, a, action);
+  /** Record engagement with an asset. Goes through the room so the event carries who it was when the visitor is known. */
+  const trackHub = (a: HubAsset, action: HubAssetAction, value?: number) => {
+    if (isEditor || !store || isTrackingSuppressed()) return;
+    const payload = buildAssetEventPayload({ pageId, sessionId, blockId }, a, action, value === undefined ? {} : { value });
+    if (payload) store.trackAsset(payload);
+  };
+  const track = (asset: RoomAsset, action: "view" | "download" | "open") => trackHub(roomAssetToHub(asset), action);
+  const [viewing, setViewing] = useState<HubAsset | null>(null);
+  /** Open an asset: PDFs, images and videos in the in-page viewer, everything else in a new tab. Returns true when the viewer took it. */
+  const openAsset = (asset: RoomAsset): boolean => {
+    if (isEditor) return true;
+    const a = roomAssetToHub(asset);
+    if (opensInViewer(a) && a.kind !== "text" && shouldOpenInline(a)) {
+      setViewing(a);
+      trackHub(a, "view");
+      return true;
+    }
+    trackHub(a, "open");
+    return false;
   };
   /** Run something that needs a known visitor; ask for their email first when they are anonymous. */
   const needViewer = (fn: () => void) => {
@@ -872,6 +1001,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
   const pct = day === null ? 0 : Math.min(100, Math.round((day / total) * 100));
 
   return (
+    <RoomEditContext.Provider value={editItem}>
     <section className="prw" style={vars} data-room-workspace>
       <style>{CSS}</style>
       <div className="prw-cover">
@@ -1008,8 +1138,8 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                               </>
                             )}
                           </div>
-                          <h3>{p.title}</h3>
-                          {p.summary && <p>{p.summary}</p>}
+                          <h3><E item={p} field="title" placeholder="Phase" /></h3>
+                          {(p.summary || isEditor) && <p><E item={p} field="summary" multiline placeholder="What happens in this phase" /></p>}
                         </div>
                       ))}
                     </div>
@@ -1131,7 +1261,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   <div>
                     <div className="prw-eyebrow">Calendar</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What’s scheduled</h2>
-                    {props.calendar?.intro && <p>{props.calendar.intro}</p>}
+                    {props.calendar && (props.calendar.intro || isEditor) && <p><E item={props.calendar} field="intro" multiline placeholder="Intro line" /></p>}
                   </div>
                   {pageId && !isEditor && (
                     <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}`} data-room-calendar-feed>
@@ -1159,7 +1289,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   <div>
                     <div className="prw-eyebrow">Meetings</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Minutes and decisions</h2>
-                    {props.meetings?.intro && <p>{props.meetings.intro}</p>}
+                    {props.meetings && (props.meetings.intro || isEditor) && <p><E item={props.meetings} field="intro" multiline placeholder="Intro line" /></p>}
                   </div>
                   {meetings.length > 0 && (
                     <div className="prw-meta">
@@ -1180,7 +1310,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   <div>
                     <div className="prw-eyebrow">Action plan</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>One shared plan, owned on both sides</h2>
-                    {props.planIntro && <p>{props.planIntro}</p>}
+                    {(props.planIntro || isEditor) && <p><E item={props} field="planIntro" multiline placeholder="Intro line" /></p>}
                   </div>
                   <div className="prw-meta">
                     <b>{doneCount}</b> of {rows.length} done{mine.length ? <> · <b>{mine.length}</b> yours to do</> : null}
@@ -1217,7 +1347,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   <div>
                     <div className="prw-eyebrow">Launch kit</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Announce the partnership</h2>
-                    {props.kitIntro && <p>{props.kitIntro}</p>}
+                    {(props.kitIntro || isEditor) && <p><E item={props} field="kitIntro" multiline placeholder="Intro line" /></p>}
                   </div>
                 </div>
                 {links.length > 0 && (
@@ -1227,12 +1357,22 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                       {links.map((l, i) => (
                         <div className="prw-li" key={i} data-room-link>
                           <div>
-                            <div className="t">{l.title}</div>
+                            <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
                             <div className="m">{l.description || l.url}</div>
                           </div>
                           <div className="a">
                             <CopyButton text={l.url} label="Copy link" />
-                            <a className="prw-ib" href={isEditor ? undefined : l.url} target="_blank" rel="noreferrer" title="Open" aria-label={`Open ${l.title}`}>
+                            <a
+                              className="prw-ib"
+                              href={isEditor ? undefined : l.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Open"
+                              aria-label={`Open ${l.title}`}
+                              onClick={(e) => {
+                                if (openAsset({ key: roomMilestoneKey({ task: l.title }), kind: "link", title: l.title, externalUrl: l.url })) e.preventDefault();
+                              }}
+                            >
                               <ExternalLink aria-hidden />
                             </a>
                           </div>
@@ -1244,7 +1384,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                 )}
                 <div className="prw-docs">
                   {assets.map((a, i) => (
-                    <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
+                    <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
                   ))}
                   {assets.length === 0 && <div className="prw-empty">Nothing here yet.</div>}
                 </div>
@@ -1257,7 +1397,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   <div>
                     <div className="prw-eyebrow">Goals</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What success looks like</h2>
-                    {props.goals?.intro && <p>{props.goals.intro}</p>}
+                    {props.goals && (props.goals.intro || isEditor) && <p><E item={props.goals} field="intro" multiline placeholder="Intro line" /></p>}
                   </div>
                 </div>
                 {!!props.goals?.askAgreement && goals.length > 0 && (
@@ -1295,8 +1435,8 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                       return (
                         <tr key={g.key || g.title} data-room-goal={auto ? "auto" : "manual"}>
                           <td>
-                            <div className="t">{g.title}</div>
-                            {g.detail && <div className="m">{g.detail}</div>}
+                            <div className="t"><E item={g} field="title" placeholder="Goal" /></div>
+                            {(g.detail || isEditor) && <div className="m"><E item={g} field="detail" placeholder="Detail" /></div>}
                           </td>
                           <td className="c">{g.target}</td>
                           <td className="c">
@@ -1331,7 +1471,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   <div>
                     <div className="prw-eyebrow">Marketing plan</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>How we bring your teams on board</h2>
-                    {props.marketing?.intro && <p>{props.marketing.intro}</p>}
+                    {props.marketing && (props.marketing.intro || isEditor) && <p><E item={props.marketing} field="intro" multiline placeholder="Intro line" /></p>}
                   </div>
                   {undecided.length > 0 && <div className="prw-meta"><b>{undecided.length}</b> waiting on your decision</div>}
                 </div>
@@ -1419,6 +1559,15 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
         </div>
       </div>
 
+      <HubAssetViewer
+        asset={viewing}
+        onClose={() => setViewing(null)}
+        palette={resolveHubPalette({}, brand, "library")}
+        onDownload={(a) => trackHub(a, "download")}
+        onOpenExternal={(a) => trackHub(a, "open")}
+        onProgress={(a, pct) => trackHub(a, "progress", pct)}
+        onTimeOpen={(a, seconds) => trackHub(a, "time", seconds)}
+      />
       {ask?.kind === "email" && store && <AccessDialog store={store} onClose={() => setAsk(null)} />}
       {ask?.kind === "contact" && store && <ContactDialog store={store} partnerName={props.partnerName} onClose={() => setAsk(null)} onNeedEmail={() => setAsk({ kind: "email" })} />}
       {ask?.kind === "request" && store && (
@@ -1436,6 +1585,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
         />
       )}
     </section>
+    </RoomEditContext.Provider>
   );
 }
 
@@ -1453,13 +1603,13 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail }: { gr
         <tr key={x.key || x.ri} data-room-milestone={x.status}>
           <td className="c">{x.r.target}</td>
           <td>
-            <div className="t">{x.r.task}</div>
+            <div className="t"><E item={x.r} field="task" placeholder="Milestone" /></div>
             {x.saved?.done ? (
               <div className="m" data-room-received>
                 {[x.action === "upload" ? (x.saved.fileName ? `Received ${x.saved.fileName}` : "File received") : "Marked complete", x.saved.by, fmtDate(x.saved.at)].filter(Boolean).join(" · ")}
               </div>
             ) : (
-              x.r.note && <div className="m">{x.r.note}</div>
+              x.r.note && <div className="m"><E item={x.r} field="note" placeholder="Note" /></div>
             )}
           </td>
           <td className="c">{x.r.ourOwner}</td>
@@ -1555,12 +1705,12 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-function AssetRow({ asset, isEditor, onTrack, onRequest, canRequest }: { asset: RoomAsset; isEditor: boolean; onTrack: (a: RoomAsset, action: "view" | "download" | "open") => void; onRequest: () => void; canRequest: boolean }) {
+function AssetRow({ asset, isEditor, onTrack, onOpen, onRequest, canRequest }: { asset: RoomAsset; isEditor: boolean; onTrack: (a: RoomAsset, action: "view" | "download" | "open") => void; onOpen: (a: RoomAsset) => boolean; onRequest: () => void; canRequest: boolean }) {
   const [open, setOpen] = useState(false);
   const file = (asset.fileUrl ?? "").trim();
   const ext = (asset.externalUrl ?? "").trim();
   const body = (asset.body ?? "").trim();
-  const viewHref = asset.kind === "link" ? ext || file : file || ext;
+  const viewHref = resolveAssetHref(roomAssetToHub(asset));
   return (
     <>
       <div className="prw-doc" data-room-asset={asset.kind}>
@@ -1570,8 +1720,8 @@ function AssetRow({ asset, isEditor, onTrack, onRequest, canRequest }: { asset: 
           <span className="prw-ft">{FILE_TAG[asset.kind] ?? "FILE"}</span>
         )}
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 600 }}>{asset.title}</div>
-          {asset.description && <div style={{ fontSize: 12, color: "var(--body)" }}>{asset.description}</div>}
+          <div style={{ fontWeight: 600 }}><E item={asset} field="title" placeholder="Asset name" /></div>
+          {(asset.description || isEditor) && <div style={{ fontSize: 12, color: "var(--body)" }}><E item={asset} field="description" placeholder="One line about it" /></div>}
         </div>
         <div className="a">
           {asset.kind === "text" && body ? (
@@ -1580,8 +1730,20 @@ function AssetRow({ asset, isEditor, onTrack, onRequest, canRequest }: { asset: 
             </button>
           ) : (
             viewHref && (
-              <a className="prw-ib" title="View" aria-label={`View ${asset.title}`} href={isEditor ? undefined : viewHref} target="_blank" rel="noreferrer" onClick={() => onTrack(asset, asset.kind === "link" ? "open" : "view")}>
-                <Eye aria-hidden />
+              <a
+                className="prw-ib"
+                title={asset.kind === "video" ? "Play" : "View"}
+                aria-label={`${asset.kind === "video" ? "Play" : "View"} ${asset.title}`}
+                href={isEditor ? undefined : viewHref}
+                target="_blank"
+                rel="noreferrer"
+                data-room-view
+                onClick={(e) => {
+                  // The viewer takes PDFs, images and videos; anything else follows the link in a new tab.
+                  if (onOpen(asset)) e.preventDefault();
+                }}
+              >
+                {asset.kind === "video" ? <Play aria-hidden /> : <Eye aria-hidden />}
               </a>
             )
           )}
@@ -1803,8 +1965,8 @@ function TeamGroup({ group, isEditor }: { group: RoomTeamGroup; isEditor: boolea
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 {photo ? <img className="prw-av" src={photo} alt="" loading="lazy" /> : <span className="prw-av">{initials(m.name) || "·"}</span>}
                 <div>
-                  <div className="t">{m.name}</div>
-                  {m.role && <div className="m">{m.role}</div>}
+                  <div className="t"><E item={m} field="name" placeholder="Name" /></div>
+                  {(m.role || isEditor) && <div className="m"><E item={m} field="role" placeholder="Role" /></div>}
                 </div>
               </div>
             </td>
@@ -1970,8 +2132,8 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { progr
     <div className="prw-prog" data-room-program={options.length >= 2 ? (chosen ? "chosen" : "open") : "fixed"}>
       {image ? <img className="im" src={image} alt="" loading="lazy" /> : <span className="im" aria-hidden />}
       <div>
-        <h3>{program.title}</h3>
-        {program.description && <p>{program.description}</p>}
+        <h3><E item={program} field="title" placeholder="Program" /></h3>
+        {(program.description || isEditor) && <p><E item={program} field="description" multiline placeholder="What it is" /></p>}
       </div>
       <div className="who">{program.audience}</div>
       <div className="when">{program.when && <b>{program.when}</b>}</div>
@@ -2241,7 +2403,7 @@ function EventRow({ event, calendarName, isEditor }: { event: RoomEvent; calenda
     <div className="prw-li" data-room-event={event.kind ?? "event"}>
       <DateTile date={event.date} />
       <div style={{ minWidth: 0 }}>
-        <div className="t">{event.title}</div>
+        <div className="t">{event.startsAt ? event.title : <E item={event} field="title" placeholder="Event" />}</div>
         <div className="m">
           {[event.time, event.detail].filter(Boolean).join(" · ")}
           {kind && <>{event.time || event.detail ? " · " : ""}<span className={`prw-chip ${kind === "meeting" ? "kind" : kind}`}>{ROOM_EVENT_KIND_LABEL[kind]}</span></>}
@@ -2311,7 +2473,7 @@ function MeetingCard({ meeting, defaultOpen, isEditor }: { meeting: RoomMeeting;
       </div>
       {open && hasBody && (
         <div className="mb">
-          {meeting.summary && <div className="sum">{meeting.summary}</div>}
+          {meeting.summary && <div className="sum"><E item={meeting} field="summary" multiline placeholder="Summary" /></div>}
           {decisions.length > 0 && (
             <div>
               <h5>Decisions</h5>

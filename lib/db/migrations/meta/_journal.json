@@ -1065,6 +1065,13 @@
       "when": 1758030130000,
       "tag": "0151_google_connections",
       "breakpoints": false
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1758030140000,
+      "tag": "0152_asset_event_viewer",
+      "breakpoints": false
     }
   ]
 }

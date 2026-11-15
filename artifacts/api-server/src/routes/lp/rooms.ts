@@ -17,6 +17,9 @@ import { Readable } from "stream";
 import {
   db,
   lpPagesTable,
+  appUsersTable,
+  tenantMembersTable,
+  lpAssetEventsTable,
   lpGoogleConnectionsTable,
   lpRoomEventsTable,
   lpRoomChoicesTable,
@@ -34,7 +37,7 @@ import {
   salesHotlinksTable,
   tenantsTable,
 } from "@workspace/db";
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql, gte } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { ObjectStorageService } from "../../lib/objectStorage";
@@ -43,6 +46,8 @@ import { getRequestHost, getRequestProto } from "../../lib/requestHost";
 import { sendRoomAccessEmail } from "../../lib/notifications";
 import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
+import { parseAssetEventBody } from "../../lib/assetEvents";
+import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { buildRoomDigest, practiceSummary, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
@@ -143,7 +148,38 @@ interface Viewer {
 }
 
 /** A name for an email-verified visitor, when we already know one: a sales contact with that address, else a contact added in this room. */
+/**
+ * The name of a member of the page's own team (an active LP Studio user in
+ * that tenant), or null. The team is always allowed in its own rooms: they
+ * still confirm the address by email, but never need to be on the customer's
+ * allowed list.
+ */
+async function teamMemberName(tenantId: number, email: string): Promise<string | null> {
+  const [user] = await db
+    .select({ id: appUsersTable.id, name: appUsersTable.name, tenantId: appUsersTable.tenantId })
+    .from(appUsersTable)
+    .where(and(sql`lower(${appUsersTable.email}) = ${email}`, eq(appUsersTable.status, "active")))
+    .limit(1);
+  if (!user) return null;
+  if (user.tenantId !== tenantId) {
+    const [member] = await db.select({ id: tenantMembersTable.id }).from(tenantMembersTable).where(and(eq(tenantMembersTable.tenantId, tenantId), eq(tenantMembersTable.userId, user.id))).limit(1);
+    if (!member) return null;
+  }
+  return user.name.trim() || email.split("@")[0];
+}
+
+/** A room member's status, with the page's own team always allowed. */
+async function accessStatus(page: RoomPage, email: string): Promise<RoomMemberStatus | null> {
+  if (await teamMemberName(page.tenantId, email)) return "allowed";
+  return memberStatus(page.id, email);
+}
+
 async function knownNameFor(page: RoomPage, email: string): Promise<string | null> {
+  return (await teamMemberName(page.tenantId, email)) ?? customerNameFor(page, email);
+}
+
+/** A customer's name from the tenant's contacts or the people they added to the room. */
+async function customerNameFor(page: RoomPage, email: string): Promise<string | null> {
   const [contact] = await db
     .select({ firstName: salesContactsTable.firstName, lastName: salesContactsTable.lastName })
     .from(salesContactsTable)
@@ -183,8 +219,11 @@ async function resolveViewer(page: RoomPage, body: { hl?: unknown; rt?: unknown 
   }
   const claims = verifyRoomToken(body.rt, page.id);
   if (claims) {
+    // The page's own team first (one lookup), then the customer's allowed list.
+    const team = await teamMemberName(page.tenantId, claims.email);
+    if (team) return { email: claims.email, name: team, via: "email" };
     const [settings, status] = await Promise.all([loadSettings(page.id), memberStatus(page.id, claims.email)]);
-    if (isEmailAllowed(claims.email, settings.allowedDomains, status)) return { email: claims.email, name: await knownNameFor(page, claims.email), via: "email" };
+    if (isEmailAllowed(claims.email, settings.allowedDomains, status)) return { email: claims.email, name: await customerNameFor(page, claims.email), via: "email" };
   }
   return null;
 }
@@ -349,7 +388,7 @@ router.post("/lp/room/access", accessLimiter, async (req: Request, res: Response
       res.status(400).json({ error: "Enter a valid work email" });
       return;
     }
-    const [settings, status] = await Promise.all([loadSettings(page.id), memberStatus(page.id, email)]);
+    const [settings, status] = await Promise.all([loadSettings(page.id), accessStatus(page, email)]);
     const url = await roomPageUrl(req, page, req.body?.path);
     if (isEmailAllowed(email, settings.allowedDomains, status)) {
       const sent = await sendRoomAccessEmail({
@@ -582,6 +621,38 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
   }
 });
 
+/**
+ * An asset event from a room (viewed, opened, downloaded, video progress, time
+ * in the viewer). Same shape as the hub's beacon, plus who it was when the
+ * visitor is identified. Always answers 204: tracking never blocks the page.
+ */
+router.post("/lp/room/asset", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = parseAssetEventBody(req.body);
+    const page = parsed ? await loadRoomPage(parsed.pageId) : null;
+    if (parsed && page) {
+      const viewer = await resolveViewer(page, req.body ?? {}).catch(() => null);
+      await db.insert(lpAssetEventsTable).values({
+        tenantId: page.tenantId,
+        pageId: page.id,
+        blockId: parsed.blockId,
+        assetKey: parsed.assetKey,
+        assetTitle: parsed.assetTitle,
+        assetKind: parsed.assetKind,
+        action: parsed.action,
+        sessionId: parsed.sessionId,
+        value: parsed.value,
+        detail: parsed.detail,
+        viewerEmail: viewer?.email ?? null,
+        viewerName: viewer?.name ?? null,
+      });
+    }
+  } catch (err) {
+    req.log.warn({ err }, "room asset event failed");
+  }
+  res.status(204).end();
+});
+
 /** The room's calendar as an iCalendar feed a calendar app can subscribe to. Events come from the page itself, which is already open to anyone with the link. */
 router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -761,6 +832,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       digest: { enabled: !!fullSettings?.digestEnabled, recipients: Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients : [], lastSentAt: fullSettings?.lastDigestAt?.toISOString() ?? null },
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
+      engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
@@ -1109,6 +1181,18 @@ router.patch("/lp/partner-rooms/:pageId/events/:id", async (req: Request, res: R
     res.status(500).json({ error: "Could not save" });
   }
 });
+
+/** Who looked at which asset, for the team: one row per asset plus the latest activity. Last 90 days. */
+async function roomAssetEngagement(pageId: number): Promise<{ assets: RoomAssetStat[]; recent: { title: string; action: string; value: number | null; who: string | null; at: string }[] }> {
+  const rows = await db
+    .select()
+    .from(lpAssetEventsTable)
+    .where(and(eq(lpAssetEventsTable.pageId, pageId), gte(lpAssetEventsTable.createdAt, new Date(Date.now() - 90 * 86_400_000))))
+    .orderBy(desc(lpAssetEventsTable.createdAt))
+    .limit(5000);
+  const events = rows.filter((r) => r.assetKind !== "hub" && r.action !== "seen");
+  return { assets: summarizeAssetEvents(events), recent: events.filter((r) => r.action !== "progress").slice(0, 25).map((r) => ({ title: r.assetTitle || r.assetKey, action: r.action, value: r.value, who: r.viewerName || r.viewerEmail, at: r.createdAt.toISOString() })) };
+}
 
 /** Whose Google account a room reads through, for the team's panel (never the token). */
 async function roomCalendarConnection(connectionId: number | null, tenantId: number, userId: number | null): Promise<{ googleEmail: string; status: string; mine: boolean } | null> {

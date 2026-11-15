@@ -40,8 +40,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
-import { Plus, X } from "lucide-react";
-import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
+import { useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { Field, ItemHeader, moveItem } from "./glow/GlowPanelKit";
 import { ThumbButton } from "./HubPanels";
 
 const STATUS_ORDER: RoomMilestoneStatus[] = ["not-started", "on-track", "pending", "blocking", "done"];
@@ -60,6 +61,35 @@ const STEP_ACTION_LABEL: Record<RoomStepAction, string> = {
   link: "Customer opens a link",
 };
 
+/** One module's settings, shown on their own. */
+function SectionBody({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="space-y-2.5">
+      <div>
+        <div className="text-sm font-semibold">{title}</div>
+        {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** A list item that stays closed until opened, so a long list reads as a list of names. */
+function CollapseItem({ header, startOpen, children }: { header: ReactNode; startOpen?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(!!startOpen);
+  return (
+    <div className="rounded-md border">
+      <div className="flex items-center gap-1 px-2 py-1">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={open ? "Close" : "Open"} className="rounded p-1 text-muted-foreground hover:bg-muted">
+          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
+        </button>
+        <div className="min-w-0 flex-1">{header}</div>
+      </div>
+      {open && <div className="space-y-1.5 border-t p-2">{children}</div>}
+    </div>
+  );
+}
+
 /** "Hide from the customer" switch, used on every item that can be hidden. */
 function HideToggle({ hidden, onChange }: { hidden?: boolean; onChange: (hidden: boolean) => void }) {
   return (
@@ -70,10 +100,12 @@ function HideToggle({ hidden, onChange }: { hidden?: boolean; onChange: (hidden:
   );
 }
 
-const KIND_LABEL: Record<RoomAssetKind, string> = { pdf: "PDF", image: "Image", text: "Copy (text)", link: "Link", file: "Other file" };
+const KIND_LABEL: Record<RoomAssetKind, string> = { pdf: "PDF", video: "Video", image: "Image", text: "Copy (text)", link: "Link", file: "Other file" };
 
 export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBlockProps; onChange: (p: RoomWorkspaceBlockProps) => void }) {
   const update = (patch: Partial<RoomWorkspaceBlockProps>) => onChange({ ...props, ...patch });
+  // One screen at a time: the list of modules, or one module's settings.
+  const [active, setActive] = useState<string | null>(null);
   const hidden = new Set(props.hiddenModules ?? []);
   const groups = props.planGroups ?? [];
   const phases = props.phases ?? [];
@@ -120,9 +152,70 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
     update({ hiddenModules: ROOM_MODULES.map((m) => m.key).filter((k) => next.has(k)) });
   };
 
+  const MODULE_HINT: Partial<Record<RoomModuleKey, string>> = {
+    overview: `${steps.length} setup item${steps.length === 1 ? "" : "s"} · ${phases.length} phases`,
+    wins: "Posted from the room and from the page’s Room panel",
+    goals: `${goalItems.length} goal${goalItems.length === 1 ? "" : "s"}`,
+    plan: `${groups.reduce((n, g) => n + (g.rows ?? []).length, 0)} milestones in ${groups.length} phases`,
+    practices: "The list is loaded in the page’s Room panel",
+    marketing: `${mGroups.reduce((n, g) => n + (g.programs ?? []).length, 0)} programs`,
+    kit: `${links.length} link${links.length === 1 ? "" : "s"} · ${assets.length} asset${assets.length === 1 ? "" : "s"}`,
+    calendar: `${events.length} event${events.length === 1 ? "" : "s"}, plus synced meetings`,
+    meetings: `${meetingItems.length} typed in, plus published minutes`,
+    requests: "Managed in the page’s Room panel",
+    team: `${team.reduce((n, g) => n + (g.members ?? []).length, 0)} people`,
+  };
+  const EDITABLE = new Set<string>(["overview", "goals", "plan", "marketing", "kit", "calendar", "meetings", "team"]);
+
+  if (active === null) {
+    return (
+      <div className="space-y-3">
+        <button type="button" onClick={() => setActive("account")} className="flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left hover:bg-muted/50">
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold">{props.partnerName || "Account"}</span>
+            <span className="block truncate text-[11px] text-muted-foreground">Name, logo, kickoff date and cover</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+        <div>
+          <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Modules</div>
+          <div className="divide-y rounded-lg border">
+            {ROOM_MODULES.map((m) => {
+              const shown = !hidden.has(m.key);
+              const body = (
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-sm font-medium ${shown ? "" : "text-muted-foreground line-through"}`}>{m.label}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">{MODULE_HINT[m.key]}</span>
+                </span>
+              );
+              return (
+                <div key={m.key} className="flex items-center gap-2 px-3 py-2.5">
+                  <Switch checked={shown} onCheckedChange={(v) => toggleModule(m.key, v)} aria-label={`Show ${m.label}`} />
+                  {EDITABLE.has(m.key) ? (
+                    <button type="button" onClick={() => setActive(m.key)} className="flex min-w-0 flex-1 items-center gap-2 text-left hover:opacity-80" aria-label={`Edit ${m.label}`}>
+                      {body}
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  ) : (
+                    body
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <p className="px-1 text-[11px] leading-snug text-muted-foreground">Switch a module off to hide it from this customer; its content and data are kept. Most text can also be edited by clicking it on the page.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      <PanelSection title="Account" hint="Who the room is for, the kickoff date and the cover" defaultOpen>
+      <button type="button" onClick={() => setActive(null)} className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+        <ChevronLeft className="h-3.5 w-3.5" /> All modules
+      </button>
+      {active === "account" && (
+      <SectionBody title="Account" hint="Who the room is for, the kickoff date and the cover">
         <Field label="Customer name"><Input value={props.partnerName ?? ""} onChange={(e) => update({ partnerName: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
         <div className="flex items-center gap-2">
           <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo (for the dark cover)" />
@@ -144,19 +237,12 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <Field label="Next milestone (on the photo)"><Input value={props.nextMilestoneLabel ?? ""} onChange={(e) => update({ nextMilestoneLabel: e.target.value })} className="h-8 text-xs" placeholder="Business Review #2" /></Field>
           <Field label="Its date"><Input type="date" value={props.nextMilestoneDate ?? ""} onChange={(e) => update({ nextMilestoneDate: e.target.value })} className="h-8 text-xs" /></Field>
         </div>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title="Modules" hint="Show or hide each one for this customer" defaultOpen>
-        {ROOM_MODULES.map((m) => (
-          <label key={m.key} className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs">
-            <span>{m.label}</span>
-            <Switch checked={!hidden.has(m.key)} onCheckedChange={(v) => toggleModule(m.key, v)} aria-label={`Show ${m.label}`} />
-          </label>
-        ))}
-        <p className="text-[11px] leading-snug text-muted-foreground">A hidden module keeps its content and its data. Hiding Requests also removes “Make a request” and “Request changes”. Single items (a milestone, an asset, a person, a program, an onboarding step) each have their own Shown / Hidden switch below.</p>
-      </PanelSection>
 
-      <PanelSection title={`Onboarding checklist (${steps.length})`} hint="Shows on the overview until every step is done" defaultOpen>
+      {active === "overview" && (
+      <SectionBody title={`Onboarding checklist (${steps.length})`} hint="Shows on the overview until every step is done">
         <label className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs">
           <span>Show the checklist</span>
           <Switch checked={!onboarding.hidden} onCheckedChange={(v) => setOnboarding({ hidden: !v })} aria-label="Show the onboarding checklist" />
@@ -166,8 +252,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <Field label="Intro"><Input value={onboarding.intro ?? ""} onChange={(e) => setOnboarding({ intro: e.target.value })} className="h-8 text-xs" /></Field>
         </div>
         {steps.map((x, i) => (
-          <div key={i} className="space-y-1.5 rounded-md border p-2">
-            <ItemHeader label={x.title || `Step ${i + 1}`} index={i} total={steps.length} onMove={(dir) => setOnboarding({ steps: moveItem(steps, i, dir) })} onRemove={() => setOnboarding({ steps: steps.filter((_, idx) => idx !== i) })} />
+          <CollapseItem key={i} startOpen={String(x.title || `Step ${i + 1}`).startsWith("New ")} header={<ItemHeader label={x.title || `Step ${i + 1}`} index={i} total={steps.length} onMove={(dir) => setOnboarding({ steps: moveItem(steps, i, dir) })} onRemove={() => setOnboarding({ steps: steps.filter((_, idx) => idx !== i) })} />}>
             <Input value={x.title ?? ""} onChange={(e) => setStep(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Upload your logo" />
             <Input value={x.description ?? ""} onChange={(e) => setStep(i, { description: e.target.value })} className="h-7 text-xs" placeholder="Why we need it" />
             <div className="grid grid-cols-2 gap-1">
@@ -187,14 +272,16 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
               </label>
               <HideToggle hidden={x.hidden} onChange={(h) => setStep(i, { hidden: h })} />
             </div>
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setOnboarding({ steps: [...steps, { key: `onboard-${Date.now().toString(36)}`, title: "New step", action: "check" }] })}>
           <Plus className="h-3 w-3" /> Add step
         </Button>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title={`Goals (${goalItems.length})`} hint="What success looks like, and where each goal stands">
+      {active === "goals" && (
+      <SectionBody title={`Goals (${goalItems.length})`} hint="What success looks like, and where each goal stands">
         <Field label="Intro line"><Textarea value={goals.intro ?? ""} onChange={(e) => setGoals({ intro: e.target.value })} rows={2} className="text-xs" /></Field>
         <label className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs">
           <span>Ask the customer to agree to these goals</span>
@@ -202,8 +289,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         </label>
         <Field label="What the customer calls a location"><Input value={props.locationsNoun ?? ""} onChange={(e) => update({ locationsNoun: e.target.value })} className="h-8 text-xs" placeholder="locations" /></Field>
         {goalItems.map((g, i) => (
-          <div key={i} className="space-y-1.5 rounded-md border p-2">
-            <ItemHeader label={g.title || `Goal ${i + 1}`} index={i} total={goalItems.length} onMove={(dir) => setGoals({ items: moveItem(goalItems, i, dir) })} onRemove={() => setGoals({ items: goalItems.filter((_, idx) => idx !== i) })} />
+          <CollapseItem key={i} startOpen={String(g.title || `Goal ${i + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Goal ${i + 1}`} index={i} total={goalItems.length} onMove={(dir) => setGoals({ items: moveItem(goalItems, i, dir) })} onRemove={() => setGoals({ items: goalItems.filter((_, idx) => idx !== i) })} />}>
             <Input value={g.title ?? ""} onChange={(e) => setGoal(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Goal" />
             <Input value={g.detail ?? ""} onChange={(e) => setGoal(i, { detail: e.target.value })} className="h-7 text-xs" placeholder="Detail (optional)" />
             <div className="grid grid-cols-[1fr_90px] gap-1">
@@ -235,19 +321,20 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
               <Input value={g.owner ?? ""} onChange={(e) => setGoal(i, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner" />
               <HideToggle hidden={g.hidden} onChange={(h) => setGoal(i, { hidden: h })} />
             </div>
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setGoals({ items: [...goalItems, { key: `goal-${Date.now().toString(36)}`, title: "New goal", metric: "manual", status: "on-track" }] })}>
           <Plus className="h-3 w-3" /> Add goal
         </Button>
         <p className="text-[11px] leading-snug text-muted-foreground">Counted goals update on their own from the room. The practice list is loaded on this page’s analytics, under Room.</p>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title={`Calendar (${events.length})`} hint="Meetings, trainings and sends. The next three also show on the overview">
+      {active === "calendar" && (
+      <SectionBody title={`Calendar (${events.length})`} hint="Meetings, trainings and sends. The next three also show on the overview">
         <Field label="Intro line"><Input value={calendar.intro ?? ""} onChange={(e) => setCalendar({ intro: e.target.value })} className="h-8 text-xs" /></Field>
         {events.map((ev, i) => (
-          <div key={i} className="space-y-1.5 rounded-md border p-2">
-            <ItemHeader label={ev.title || `Event ${i + 1}`} index={i} total={events.length} onMove={(dir) => setCalendar({ events: moveItem(events, i, dir) })} onRemove={() => setCalendar({ events: events.filter((_, idx) => idx !== i) })} />
+          <CollapseItem key={i} startOpen={String(ev.title || `Event ${i + 1}`).startsWith("New ")} header={<ItemHeader label={ev.title || `Event ${i + 1}`} index={i} total={events.length} onMove={(dir) => setCalendar({ events: moveItem(events, i, dir) })} onRemove={() => setCalendar({ events: events.filter((_, idx) => idx !== i) })} />}>
             <Input value={ev.title ?? ""} onChange={(e) => setEvent(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Event" />
             <div className="grid grid-cols-2 gap-1">
               <Input type="date" value={ev.date ?? ""} onChange={(e) => setEvent(i, { date: e.target.value })} className="h-7 text-xs" aria-label="Date" />
@@ -263,7 +350,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
               </Select>
               <HideToggle hidden={ev.hidden} onChange={(h) => setEvent(i, { hidden: h })} />
             </div>
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setCalendar({ events: [...events, { key: `event-${Date.now().toString(36)}`, title: "New event", date: todayIso, kind: "meeting" }] })}>
           <Plus className="h-3 w-3" /> Add event
@@ -274,13 +361,14 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           </Button>
         )}
         <p className="text-[11px] leading-snug text-muted-foreground">Events without a date stay off the page. Customers can add one event to their calendar or subscribe to all of them.</p>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title={`Meetings (${meetingItems.length})`} hint="Minutes: decisions and action items, newest first">
+      {active === "meetings" && (
+      <SectionBody title={`Meetings (${meetingItems.length})`} hint="Minutes: decisions and action items, newest first">
         <Field label="Intro line"><Input value={minutes.intro ?? ""} onChange={(e) => setMinutes({ intro: e.target.value })} className="h-8 text-xs" /></Field>
         {meetingItems.map((m, i) => (
-          <div key={i} className="space-y-1.5 rounded-md border p-2">
-            <ItemHeader label={m.title || `Meeting ${i + 1}`} index={i} total={meetingItems.length} onMove={(dir) => setMinutes({ items: moveItem(meetingItems, i, dir) })} onRemove={() => setMinutes({ items: meetingItems.filter((_, idx) => idx !== i) })} />
+          <CollapseItem key={i} startOpen={String(m.title || `Meeting ${i + 1}`).startsWith("New ")} header={<ItemHeader label={m.title || `Meeting ${i + 1}`} index={i} total={meetingItems.length} onMove={(dir) => setMinutes({ items: moveItem(meetingItems, i, dir) })} onRemove={() => setMinutes({ items: meetingItems.filter((_, idx) => idx !== i) })} />}>
             <div className="grid grid-cols-[1fr_130px] gap-1">
               <Input value={m.title ?? ""} onChange={(e) => setMeeting(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Meeting" />
               <Input type="date" value={m.date ?? ""} onChange={(e) => setMeeting(i, { date: e.target.value })} className="h-8 text-xs" aria-label="Date" />
@@ -311,19 +399,20 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
               <Input value={m.recordingUrl ?? ""} onChange={(e) => setMeeting(i, { recordingUrl: e.target.value })} className="h-7 text-xs" placeholder="Recording link" />
             </div>
             <HideToggle hidden={m.hidden} onChange={(h) => setMeeting(i, { hidden: h })} />
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMinutes({ items: [{ key: `meeting-${Date.now().toString(36)}`, title: "New meeting", date: todayIso, decisions: [], actions: [] }, ...meetingItems] })}>
           <Plus className="h-3 w-3" /> Add meeting
         </Button>
         <p className="text-[11px] leading-snug text-muted-foreground">Everything here is visible to the customer. Keep internal notes out, and only link notes or recordings they may open.</p>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title="Marketing plan" hint="Programs the customer includes, skips or picks an option for">
+      {active === "marketing" && (
+      <SectionBody title="Marketing plan" hint="Programs the customer includes, skips or picks an option for">
         <Field label="Intro line"><Textarea value={marketing.intro ?? ""} onChange={(e) => setMarketing({ intro: e.target.value })} rows={2} className="text-xs" /></Field>
         {mGroups.map((g, gi) => (
-          <div key={gi} className="space-y-2 rounded-md border p-2">
-            <ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={mGroups.length} onMove={(dir) => setMarketing({ groups: moveItem(mGroups, gi, dir) })} onRemove={() => setMarketing({ groups: mGroups.filter((_, idx) => idx !== gi) })} />
+          <CollapseItem key={gi} startOpen={String(g.title || `Group ${gi + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={mGroups.length} onMove={(dir) => setMarketing({ groups: moveItem(mGroups, gi, dir) })} onRemove={() => setMarketing({ groups: mGroups.filter((_, idx) => idx !== gi) })} />}>
             <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
               <Input value={g.title ?? ""} onChange={(e) => setMGroup(gi, { title: e.target.value })} className="h-7 text-xs font-semibold" placeholder="Standard launch package" />
               <Input value={g.note ?? ""} onChange={(e) => setMGroup(gi, { note: e.target.value })} className="h-7 text-xs" placeholder="Note (Included)" />
@@ -355,38 +444,40 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
             <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMGroup(gi, { programs: [...(g.programs ?? []), { key: `mk-${Date.now().toString(36)}`, title: "New program", options: ["Include", "Not now"] }] })}>
               <Plus className="h-3 w-3" /> Add program
             </Button>
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMarketing({ groups: [...mGroups, { title: "New group", programs: [] }] })}>
           <Plus className="h-3 w-3" /> Add group
         </Button>
         <p className="text-[11px] leading-snug text-muted-foreground">The customer’s choices show on this page’s analytics, under Room, and post to Slack.</p>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title={`Rollout phases (${phases.length})`} hint="The track on the overview">
+      {active === "overview" && (
+      <SectionBody title={`Rollout phases (${phases.length})`} hint="The track on the overview">
         {phases.map((p, i) => (
-          <div key={i} className="space-y-2 rounded-md border p-2">
-            <ItemHeader label={p.title || `Phase ${i + 1}`} index={i} total={phases.length} onMove={(dir) => update({ phases: moveItem(phases, i, dir) })} onRemove={() => update({ phases: phases.filter((_, idx) => idx !== i) })} />
+          <CollapseItem key={i} startOpen={String(p.title || `Phase ${i + 1}`).startsWith("New ")} header={<ItemHeader label={p.title || `Phase ${i + 1}`} index={i} total={phases.length} onMove={(dir) => update({ phases: moveItem(phases, i, dir) })} onRemove={() => update({ phases: phases.filter((_, idx) => idx !== i) })} />}>
             <div className="grid grid-cols-[1fr_90px] gap-2">
               <Field label="Label"><Input value={p.label ?? ""} onChange={(e) => setPhase(i, { label: e.target.value })} className="h-8 text-xs" placeholder="Days 1–30" /></Field>
               <Field label="Ends on day"><Input type="number" min={1} value={p.endDay ?? ""} onChange={(e) => setPhase(i, { endDay: Number(e.target.value) || undefined })} className="h-8 text-xs" /></Field>
             </div>
             <Field label="Title"><Input value={p.title ?? ""} onChange={(e) => setPhase(i, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
             <Field label="One line"><Textarea value={p.summary ?? ""} onChange={(e) => setPhase(i, { summary: e.target.value })} rows={2} className="text-xs" /></Field>
-          </div>
+          </CollapseItem>
         ))}
         {phases.length < 5 && (
           <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ phases: [...phases, { label: "", title: "New phase", summary: "" }] })}>
             <Plus className="h-3 w-3" /> Add phase
           </Button>
         )}
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title="Action plan" hint="Milestones by phase, an owner on each side" defaultOpen>
+      {active === "plan" && (
+      <SectionBody title="Action plan" hint="Milestones by phase, an owner on each side">
         <Field label="Intro line"><Textarea value={props.planIntro ?? ""} onChange={(e) => update({ planIntro: e.target.value })} rows={2} className="text-xs" /></Field>
         {groups.map((g, gi) => (
-          <div key={gi} className="space-y-2 rounded-md border p-2">
-            <ItemHeader label={g.title || `Phase ${gi + 1}`} index={gi} total={groups.length} onMove={(dir) => update({ planGroups: moveItem(groups, gi, dir) })} onRemove={() => update({ planGroups: groups.filter((_, idx) => idx !== gi) })} />
+          <CollapseItem key={gi} startOpen={String(g.title || `Phase ${gi + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Phase ${gi + 1}`} index={gi} total={groups.length} onMove={(dir) => update({ planGroups: moveItem(groups, gi, dir) })} onRemove={() => update({ planGroups: groups.filter((_, idx) => idx !== gi) })} />}>
             <div className="flex items-center gap-2">
               <Input value={g.title ?? ""} onChange={(e) => setGroup(gi, { title: e.target.value })} className="h-8 flex-1 text-xs font-semibold" placeholder="Days 1–30 · Foundation" />
               <HideToggle hidden={g.hidden} onChange={(h) => setGroup(gi, { hidden: h })} />
@@ -432,19 +523,20 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
             <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setGroup(gi, { rows: [...(g.rows ?? []), { task: "New milestone", status: "not-started" }] })}>
               <Plus className="h-3 w-3" /> Add milestone
             </Button>
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ planGroups: [...groups, { title: "New phase", checkpoint: "", rows: [] }] })}>
           <Plus className="h-3 w-3" /> Add phase
         </Button>
         <p className="text-[11px] leading-snug text-muted-foreground">Files a customer uploads are private. They download from this page’s analytics, under Room, where you also set who is allowed to act.</p>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title={`Launch kit (${assets.length})`} hint="Assets with View, Download and Request changes">
+      {active === "kit" && (
+      <SectionBody title={`Launch kit (${assets.length})`} hint="Assets with View, Download and Request changes">
         <Field label="Intro line"><Textarea value={props.kitIntro ?? ""} onChange={(e) => update({ kitIntro: e.target.value })} rows={2} className="text-xs" /></Field>
         {assets.map((a, i) => (
-          <div key={i} className="space-y-2 rounded-md border p-2">
-            <ItemHeader label={a.title || `Asset ${i + 1}`} index={i} total={assets.length} onMove={(dir) => update({ assets: moveItem(assets, i, dir) })} onRemove={() => update({ assets: assets.filter((_, idx) => idx !== i) })} />
+          <CollapseItem key={i} startOpen={String(a.title || `Asset ${i + 1}`).startsWith("New ")} header={<ItemHeader label={a.title || `Asset ${i + 1}`} index={i} total={assets.length} onMove={(dir) => update({ assets: moveItem(assets, i, dir) })} onRemove={() => update({ assets: assets.filter((_, idx) => idx !== i) })} />}>
             <div className="grid grid-cols-[1fr_120px] gap-2">
               <Input value={a.title ?? ""} onChange={(e) => setAsset(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Title" />
               <Select value={a.kind} onValueChange={(v) => setAsset(i, { kind: v as RoomAssetKind })}>
@@ -472,7 +564,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                 {a.kind === "pdf" && <PdfUploadButton onUploaded={(r) => setAsset(i, { fileUrl: r.url, title: a.title || r.title })} />}
               </div>
             )}
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ assets: [...assets, { kind: "pdf", title: "New asset", description: "" }] })}>
           <Plus className="h-3 w-3" /> Add asset
@@ -491,13 +583,14 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
             <Plus className="h-3 w-3" /> Add link
           </Button>
         </div>
-      </PanelSection>
+      </SectionBody>
+      )}
 
-      <PanelSection title="Team" hint="Named people on both sides">
+      {active === "team" && (
+      <SectionBody title="Team" hint="Named people on both sides">
         <Field label="Note beside the heading"><Input value={props.teamNote ?? ""} onChange={(e) => update({ teamNote: e.target.value })} className="h-8 text-xs" /></Field>
         {team.map((g, gi) => (
-          <div key={gi} className="space-y-2 rounded-md border p-2">
-            <ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={() => update({ team: team.filter((_, idx) => idx !== gi) })} />
+          <CollapseItem key={gi} startOpen={String(g.title || `Group ${gi + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={() => update({ team: team.filter((_, idx) => idx !== gi) })} />}>
             <div className="flex items-center gap-2">
               <Input value={g.title ?? ""} onChange={(e) => setTeam(gi, { title: e.target.value })} className="h-8 flex-1 text-xs font-semibold" />
               <HideToggle hidden={g.hidden} onChange={(h) => setTeam(gi, { hidden: h })} />
@@ -523,12 +616,13 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
             <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setTeam(gi, { members: [...(g.members ?? []), { name: "New person", role: "" }] })}>
               <Plus className="h-3 w-3" /> Add person
             </Button>
-          </div>
+          </CollapseItem>
         ))}
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ team: [...team, { title: "New group", members: [] }] })}>
           <Plus className="h-3 w-3" /> Add group
         </Button>
-      </PanelSection>
+      </SectionBody>
+      )}
     </div>
   );
 }

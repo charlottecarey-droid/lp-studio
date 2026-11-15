@@ -254,6 +254,15 @@ class RoomStore {
   }
 
   /** Ask the team for something; it shows up in the snapshot's `requests`. */
+  /** Asset engagement (viewed, downloaded, time in the viewer), with who it was when the visitor is known. Best effort; survives the tab closing. */
+  trackAsset(payload: Record<string, unknown>): void {
+    try {
+      void fetch("/api/lp/room/asset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...this.auth(), ...payload }), keepalive: true }).catch(() => {});
+    } catch {
+      /* tracking never blocks the page */
+    }
+  }
+
   sendRequest(input: { kind: string; subject: string; details: string; assetKey?: string }) {
     return this.act("request", input);
   }

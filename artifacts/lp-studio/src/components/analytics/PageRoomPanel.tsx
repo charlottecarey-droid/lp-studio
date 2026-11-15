@@ -23,6 +23,10 @@ interface RoomDetail {
   revopsSlackMention?: string | null;
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
+  engagement?: {
+    assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
+    recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
+  };
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
   isWorkspace?: boolean;
@@ -309,6 +313,8 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
             </div>
           </section>
         )}
+
+        {data.isWorkspace && <EngagementSection engagement={data.engagement} />}
 
         {data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
 
@@ -848,5 +854,68 @@ function MinutesEditor({ event, onSave, onClose }: { event: RoomEventRow; onSave
         <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
       </div>
     </div>
+  );
+}
+
+const fmtDuration = (seconds: number) => (seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.round(seconds / 60)} min` : `${(seconds / 3600).toFixed(1)} hr`);
+const ACTION_LABEL: Record<string, string> = { view: "viewed", open: "opened", download: "downloaded", time: "spent time on" };
+
+/** Who opened which launch-kit item, for how long, and when. Last 90 days. */
+function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"] }) {
+  const [showAll, setShowAll] = useState(false);
+  const assets = engagement?.assets ?? [];
+  const recent = engagement?.recent ?? [];
+  return (
+    <section className="space-y-2">
+      <h4 className="text-sm font-semibold">Asset engagement</h4>
+      <p className="text-sm text-muted-foreground">Who opened what in the launch kit, for how long, and when. PDFs, images and videos open in a viewer on the page, which is how time and watch progress are measured. Last 90 days.</p>
+      {assets.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing has been opened yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2 font-medium">Asset</th>
+                <th className="px-3 py-2 font-medium">Opened</th>
+                <th className="px-3 py-2 font-medium">Downloads</th>
+                <th className="px-3 py-2 font-medium">Time</th>
+                <th className="px-3 py-2 font-medium">Who</th>
+                <th className="px-3 py-2 font-medium">Last</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(showAll ? assets : assets.slice(0, 8)).map((a) => (
+                <tr key={a.key} className="border-b last:border-0">
+                  <td className="px-3 py-2 font-medium">{a.title}</td>
+                  <td className="px-3 py-2 tabular-nums">{a.views}</td>
+                  <td className="px-3 py-2 tabular-nums">{a.downloads}</td>
+                  <td className="px-3 py-2 tabular-nums">
+                    {a.seconds > 0 ? fmtDuration(a.seconds) : "—"}
+                    {a.maxProgress > 0 ? ` · watched ${a.maxProgress}%` : ""}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">{[...a.people, ...(a.anonymous > 0 ? [`${a.anonymous} not identified`] : [])].join(", ") || "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(a.lastAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {assets.length > 8 && <button type="button" className="text-xs underline" onClick={() => setShowAll((v) => !v)}>{showAll ? "Show fewer" : `Show all ${assets.length}`}</button>}
+      {recent.length > 0 && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-xs text-muted-foreground">Latest activity</summary>
+          <ul className="mt-2 space-y-1 text-muted-foreground">
+            {recent.map((r, i) => (
+              <li key={i}>
+                <span className="text-foreground">{r.who ?? "Someone not identified"}</span> {ACTION_LABEL[r.action] ?? r.action} <span className="text-foreground">{r.title}</span>
+                {r.action === "time" && r.value ? ` (${fmtDuration(r.value)})` : ""} · {fmtDate(r.at)}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
   );
 }

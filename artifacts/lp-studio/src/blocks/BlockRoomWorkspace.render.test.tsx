@@ -17,6 +17,7 @@ import {
   BlockRoomWorkspace,
   ROOM_WORKSPACE_DEFAULT_PROPS,
   phaseStates,
+  roomAssetToHub,
   eventIcs,
   splitEvents,
   standardCheckpoints,
@@ -280,5 +281,23 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(ics).toContain("DTSTART;VALUE=DATE:20271231");
     expect(ics).toContain("DTEND;VALUE=DATE:20280101");
     expect(ics).toContain(String.raw`SUMMARY:Review\, final`);
+  });
+  it("launch-kit files open in the tracked viewer: PDFs, images, videos, and links that point at one", () => {
+    expect(roomAssetToHub({ kind: "pdf", title: "One-pager", fileUrl: "/api/storage/public/uploads/a.pdf" })).toMatchObject({ kind: "pdf", fileUrl: "/api/storage/public/uploads/a.pdf" });
+    expect(roomAssetToHub({ kind: "video", title: "Lab tour", videoUrl: "https://www.youtube.com/watch?v=abc12345678" })).toMatchObject({ kind: "video", videoUrl: "https://www.youtube.com/watch?v=abc12345678" });
+    expect(roomAssetToHub({ kind: "link", title: "Tour", externalUrl: "https://vimeo.com/123456789" }).kind).toBe("video");
+    expect(roomAssetToHub({ kind: "link", title: "Sign-up page", externalUrl: "https://partners.example.com/mb2" })).toMatchObject({ kind: "link", externalUrl: "https://partners.example.com/mb2" });
+    expect(roomAssetToHub({ kind: "file", title: "Roster template", fileUrl: "/files/template.xlsx" }).kind).toBe("link");
+    const html = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing"], assets: [{ key: "tour", kind: "video", title: "Lab tour", videoUrl: "https://www.youtube.com/watch?v=abc12345678" }] });
+    expect(html).toContain('aria-label="Play Lab tour"');
+    expect(html).toContain("data-room-view");
+  });
+  it("text is click-to-edit in the builder only, and never inside a link or button", () => {
+    const live = render();
+    expect(live).not.toContain("data-room-edit");
+    const editing = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: { ...structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS), hiddenModules: ["overview", "wins", "goals"] }, brand: BRAND, onFieldChange: () => {} }));
+    expect(editing).toContain('data-room-edit="task"');
+    expect(editing).toContain('data-room-edit="planIntro"');
+    expect(editing).not.toMatch(/<(a|button)\b[^>]*>(?:(?!<\/\1>).)*data-room-edit/s);
   });
 });

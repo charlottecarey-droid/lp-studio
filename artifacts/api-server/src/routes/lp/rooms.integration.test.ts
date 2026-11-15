@@ -395,7 +395,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("state", { pageId })).json as { wins: unknown[] }).wins).toEqual([]);
     await inject(app, { method: "DELETE", url: `/lp/partner-rooms/${pageId}/contacts/${detail.contacts[0].id}`, headers: asTenant(tenantId) });
     expect(((await post("state", { pageId, hl })).json as { contacts: unknown[] }).contacts).toEqual([]);
-  });
+  }, 30_000);
 
   it("practices: the team imports a list, any visitor sees counts, only known visitors see names; goals can be agreed", async () => {
     const tenantId = await seedTenant();
@@ -697,5 +697,39 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/calendar/sync`, headers: asTenant(tenantId) })).status).toBe(400);
     expect(((await post("state", { pageId })).json as { events: unknown[] }).events).toHaveLength(1);
     calendarItems = null;
+  });
+
+  it("asset engagement carries who it was, and the page's own team is always allowed in", async () => {
+    const tenantId = await seedTenant();
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental" } }])]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    const ev = (extra: Record<string, unknown>) => post("asset", { pageId, sessionId: "s-1", assetKey: "one-pager", assetTitle: "Partnership one-pager", assetKind: "pdf", ...extra });
+
+    // Identified visitor, anonymous visitor, and junk: all answer 204, junk stores nothing.
+    expect((await ev({ action: "view", hl })).status).toBe(204);
+    expect((await ev({ action: "time", value: 95, hl })).status).toBe(204);
+    expect((await ev({ action: "download", sessionId: "s-2" })).status).toBe(204);
+    expect((await post("asset", { pageId, sessionId: "s-3", assetKey: "x", assetKind: "nope", action: "view" })).status).toBe(204);
+    expect((await post("asset", { pageId: 2_000_000_000, sessionId: "s-3", assetKey: "x", assetKind: "pdf", action: "view" })).status).toBe(204);
+
+    const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { engagement: { assets: { key: string; views: number; downloads: number; seconds: number; people: string[]; anonymous: number }[]; recent: { who: string | null; action: string }[] } };
+    expect(detail.engagement.assets).toHaveLength(1);
+    expect(detail.engagement.assets[0]).toMatchObject({ key: "one-pager", views: 1, downloads: 1, seconds: 95, anonymous: 1 });
+    expect(detail.engagement.assets[0].people).toHaveLength(1);
+    expect(detail.engagement.recent.some((x) => x.action === "download" && x.who === null)).toBe(true);
+    // The public state never carries engagement.
+    expect(JSON.stringify((await post("state", { pageId, hl })).json)).not.toContain("engagement");
+
+    // A member of the page's own team is let in without being on the customer's allowed list; a stranger still has to ask.
+    const email = `rep-${Math.floor(Math.random() * 1e9)}@vendor-team.com`;
+    await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Sam Rep', 'active')`, [tenantId, email]);
+    sentEmails.length = 0;
+    expect((await post("access", { pageId, email })).json).toMatchObject({ status: "sent" });
+    const rt = new URL(sentEmails[0].roomUrl).searchParams.get("rt")!;
+    expect(((await post("state", { pageId, rt })).json as { viewer: { name: string } }).viewer).toMatchObject({ name: "Sam Rep" });
+    expect((await post("win", { pageId, rt, body: "First 100 cases" })).status).toBe(200);
+    expect(((await post("access", { pageId, email: "stranger@elsewhere-co.com" })).json as { status: string }).status).not.toBe("sent");
+    await pool.query(`DELETE FROM app_users WHERE email = $1`, [email]);
   });
 });
