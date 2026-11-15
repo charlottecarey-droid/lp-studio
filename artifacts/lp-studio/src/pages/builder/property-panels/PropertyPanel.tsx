@@ -293,6 +293,7 @@ import { ChallengerInsightPanel } from "./ChallengerInsightPanel";
 import { DealRoomPanel } from "./DealRoomPanel";
 import { AccountMicrositePanel } from "./AccountMicrositePanel";
 import { OnboardingHubPanel } from "./OnboardingHubPanel";
+import { RoomWorkspacePanel } from "./RoomWorkspacePanel";
 import { ValueRenewalReviewPanel } from "./ValueRenewalReviewPanel";
 import { EventAgendaPanel } from "./EventAgendaPanel";
 import { EventActivationsPanel } from "./EventActivationsPanel";
@@ -7978,6 +7979,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <DealRoomPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} onApplyCtaToAll={onApplyCtaToAll} />;
       case "account-microsite":
         return <AccountMicrositePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} onApplyCtaToAll={onApplyCtaToAll} />;
+      case "room-workspace":
+        return <RoomWorkspacePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "onboarding-hub":
         return <OnboardingHubPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "value-renewal-review":

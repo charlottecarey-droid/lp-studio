@@ -175,6 +175,7 @@ import { BlockHubSupport } from "./BlockHubSupport";
 import { BlockHubPaths } from "./BlockHubPaths";
 import { BlockHubPlan } from "./BlockHubPlan";
 import { BlockHubTeam } from "./BlockHubTeam";
+import { BlockRoomWorkspace } from "./BlockRoomWorkspace";
 import { BlockKitContents } from "./BlockKitContents";
 import { BlockKitSteps } from "./BlockKitSteps";
 import { BlockKitSupport } from "./BlockKitSupport";
@@ -561,6 +562,8 @@ export const NO_REVEAL = new Set<string>([
   "business-case-split", "business-case-centered", "business-case-premium",
   "storybrand-journey", "exec-decision-brief", "challenger-insight",
   "deal-room", "account-microsite", "onboarding-hub", "value-renewal-review", "event-agenda", "event-activations",
+  // Partner Room workspace: an app surface with its own views, never scroll-revealed.
+  "room-workspace",
   "content-series", "blog-series", "storefront", "webinar-hub",
   "event-noir", "event-luminous", "event-split",
   "case-metrics", "case-editorial", "case-modular",
@@ -1413,6 +1416,17 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             pageId={pageId}
             variantId={variantId}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "#") : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "room-workspace":
+        return (
+          <BlockRoomWorkspace
+            props={block.props}
+            brand={brand}
+            blockId={block.id}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

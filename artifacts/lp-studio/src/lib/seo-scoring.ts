@@ -128,6 +128,8 @@ export const HERO_TYPES = new Set([
   "mint-hero",
   // Content Hub family self-nav hero (Oct 2026).
   "hub-hero",
+  // Partner Room workspace: a full-page block that carries the page's h1.
+  "room-workspace",
   // ABM account-page family self-nav hero (Oct 2026).
   "abm-split-hero",
 ]);

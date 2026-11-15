@@ -384,6 +384,178 @@ export function buildPartnerLaunchRoomBlocks(input: PartnerLaunchRoomInput): Blo
   ];
 }
 
+/* ── The workspace (Nov 2026): one full-page `room-workspace` block ──────── */
+
+export interface WorkspaceMilestone {
+  key?: string;
+  target?: string;
+  task: string;
+  note?: string;
+  ourOwner?: string;
+  partnerOwner?: string;
+  status?: "done" | "on-track" | "pending" | "blocking" | "not-started";
+  customerAction?: "check" | "upload";
+  uploadLabel?: string;
+}
+type WorkspaceGroup = { title: string; checkpoint?: string; rows: WorkspaceMilestone[] };
+
+const M = (key: string, task: string, ourOwner: string, partnerOwner: string, extra: Partial<WorkspaceMilestone> = {}): WorkspaceMilestone => ({ key, task, ourOwner, partnerOwner, status: "not-started", ...extra });
+
+/**
+ * The post-signature Mutual Action Plan from the Partnership Success Workbook:
+ * every milestone with a Dandy owner and a partner owner, a checkpoint per
+ * phase. The partner's own deliverables can be completed from the room.
+ */
+export const DEFAULT_WORKSPACE_PLAN: WorkspaceGroup[] = [
+  {
+    title: "Days 0–5 · Setup & welcome",
+    checkpoint: "Team named on both sides · roster received · billing verified",
+    rows: [
+      M("team-assigned", "Your dedicated team assigned and introduced", "AE", "—"),
+      M("practice-roster", "Practice roster and regional manager list shared", "—", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload roster" }),
+      M("accounts-confirmed", "Accounts, hierarchy and mailing addresses confirmed", "Implementation", "Operations Lead"),
+      M("pricing-verified", "Contracted pricing verified against your first invoice", "Dandy Billing", "Procurement"),
+      M("welcome-email", "Welcome email and partnership one-pager to your leadership", "Dandy Marketing", "—"),
+    ],
+  },
+  {
+    title: "Days 5–15 · Launch",
+    checkpoint: "Plan signed off · partnership announced · kits shipped and tracked",
+    rows: [
+      M("exec-kickoff", "Executive kickoff: walk this plan together, finalize owners and dates", "AE", "Executive Sponsor"),
+      M("brand-guidelines", "Your brand guidelines and logos shared", "Dandy Marketing", "Communications", { customerAction: "upload", uploadLabel: "Upload brand files" }),
+      M("internal-announcement", "Internal announcement via the co-branded launch kit", "Dandy Marketing", "Communications", { customerAction: "check" }),
+      M("welcome-kits", "Welcome kits shipped to practices; leadership gifts to regional managers", "Dandy Marketing", "—"),
+      M("welcome-event", "Welcome event chosen and scoped", "AE", "Executive Sponsor", { customerAction: "check" }),
+    ],
+  },
+  {
+    title: "Days 15–30 · Alignment",
+    checkpoint: "Regional 1:1s booked · first wave on the calendar · Lunch & Learns underway",
+    rows: [
+      M("regional-kickoff", "Regional managers kickoff, then 1:1s scheduled", "AE", "Regional Managers", { customerAction: "check" }),
+      M("marketing-kickoff", "Marketing kickoff with your marketing leadership", "Dandy Marketing", "Communications"),
+      M("lunch-and-learns", "Lunch & Learn program begins across practices", "Practice-Level AE", "Regional Managers"),
+      M("first-wave-scheduled", "First-wave practices scheduled: scanner delivery, setup and training", "Implementation", "Operations Lead"),
+      M("first-case-watch", "First-case quality watch on: enhanced double-review of every practice's first cases", "Dandy Lab", "—"),
+    ],
+  },
+  {
+    title: "Days 31–60 · Momentum & optimization",
+    checkpoint: "Early wins documented · Hub reviewed · next wave scheduled · events booked",
+    rows: [
+      M("regional-1-1s", "1:1 meetings completed with every regional manager", "AE", "Regional Managers"),
+      M("first-live", "First practices live and submitting cases; early clinical wins reviewed", "Implementation", "Clinical Champion"),
+      M("education-events", "Education events booked for your regions", "Dandy Training", "Regional Managers"),
+      M("hub-walkthrough", "Enterprise Hub walkthrough: utilization, quality and ROI by location", "Account Manager", "Executive Sponsor"),
+      M("feedback-loop", "Structured feedback loop running with leadership and practice teams", "Account Manager", "Operations Lead"),
+      M("next-wave", "Next wave of practices identified and planned", "AE + AM", "Regional Managers", { customerAction: "check" }),
+    ],
+  },
+  {
+    title: "Days 61–90 · Scaling & ROI",
+    checkpoint: "ROI reviewed · case study in hand · expansion plan agreed · standing executive cadence",
+    rows: [
+      M("roi-review", "Initial ROI and performance review from the Enterprise Hub", "Account Manager", "Executive Sponsor"),
+      M("case-study", "Your own case study from your first practices", "Dandy Marketing", "Clinical Champion"),
+      M("regional-events", "Regional events to accelerate adoption", "Dandy Events", "Regional Managers"),
+      M("first-ebr", "First Executive Business Review: outcomes vs. goals, expansion plan", "AE + Exec Sponsor", "Executive Sponsor"),
+      M("transition", "Transition from onboarding to long-term optimization and growth planning", "Account Manager", "Operations Lead"),
+    ],
+  },
+];
+
+export interface PartnerWorkspaceInput extends Pick<PartnerLaunchRoomInput, "slug" | "partner" | "partnerShort" | "locationsNoun" | "signupUrl" | "onePagerUrl" | "practiceWelcomeGuideUrl" | "successGuideUrl" | "brandGuidelinesUrl" | "logosUrl" | "socialImages"> {
+  partnerLogoUrl?: string;
+  /** YYYY-MM-DD. Drives "Day N of 90" and which phase is in progress. */
+  kickoffDate?: string;
+  heroImageUrl?: string;
+  nextMilestoneLabel?: string;
+  nextMilestoneDate?: string;
+  planGroups?: WorkspaceGroup[];
+  ourTeam?: (LaunchRoomPerson & { when?: string })[];
+  partnerTeam?: (LaunchRoomPerson & { when?: string })[];
+  hiddenModules?: string[];
+}
+
+const WORKSPACE_OUR_TEAM: (LaunchRoomPerson & { when?: string })[] = [
+  { name: "[Name]", role: "DSO Partnerships (Account Executive)", owns: "Partnership strategy and your executive relationship", when: "Evaluation to launch" },
+  { name: "[Name]", role: "Account Manager", owns: "Your day-to-day partner: business reviews, adoption, expansion planning", when: "From kickoff" },
+  { name: "[Name]", role: "Practice-Level Account Executive", owns: "Lunch & Learns, practice questions, scheduling", when: "Launch to rollout" },
+  { name: "[Name]", role: "Implementation Specialist", owns: "Scanner delivery, portal setup, training scheduling", when: "First wave onward" },
+  { name: "[Name]", role: "Clinical Support & Training", owns: "Onsite and virtual training, CE courses, live chairside support", when: "First training onward" },
+  { name: "[Name]", role: "Partner Marketing", owns: "Your launch kit, welcome kits, events and co-marketing", when: "Launch window" },
+  { name: "[Name]", role: "Executive Sponsor", owns: "Personally accountable for this partnership; your escalation path", when: "Kickoff, reviews, escalations" },
+];
+const WORKSPACE_PARTNER_TEAM: (LaunchRoomPerson & { when?: string })[] = [
+  { name: "[Name]", role: "Executive Sponsor", owns: "Champions the partnership internally; decision-maker", when: "Kickoff, checkpoints, reviews" },
+  { name: "[Name]", role: "Operations Lead", owns: "Owns your side of the action plan; coordinates logistics", when: "Weekly during rollout" },
+  { name: "[Name]", role: "Clinical Champion", owns: "Clinical voice of the partnership; peer reference for doctors", when: "Launch and advocacy" },
+  { name: "[Name]", role: "Regional Managers", owns: "Territory-level rollout partners", when: "From regional kickoff" },
+  { name: "[Name]", role: "Communications / Marketing", owns: "Internal announcement and co-branded communications", when: "Launch window" },
+  { name: "[Name]", role: "Procurement / Billing", owns: "Monthly alignment on billing and vendor setup", when: "Monthly" },
+  { name: "[Name]", role: "Education Lead", owns: "Your CE calendar and event sponsorships", when: "Day 30 onward" },
+];
+
+/** The whole room as one `room-workspace` block. Reuses the launch-kit copy from the hub builder above. */
+export function buildPartnerWorkspaceBlocks(input: PartnerWorkspaceInput): Block[] {
+  const short = input.partnerShort || input.partner;
+  const noun = input.locationsNoun || "practices";
+  // The announcement copy lives in ONE place: read it back from the hub builder's library block.
+  const hub = buildPartnerLaunchRoomBlocks({ ...input });
+  const library = hub.find((b) => b.type === "hub-library")?.props as { sections: { items: { key?: string; kind: string; title: string; description?: string; body?: string }[] }[] };
+  const copy = library.sections[0].items.filter((i) => i.kind === "text").map((i) => ({ key: i.key, kind: "text", title: i.title, description: i.description, body: i.body }));
+  const assets: Props[] = [
+    { key: "partnership-one-pager", kind: "pdf", title: "Partnership one-pager", description: `For regional leaders and ${noun}`, fileUrl: input.onePagerUrl ?? "" },
+    ...copy,
+    ...(input.socialImages ?? []).map((img, i) => ({ key: `social-image-${i + 1}`, kind: "image", title: img.title, description: `Co-branded social graphic${img.meta ? ` · ${img.meta}` : ""}`, fileUrl: img.url })),
+    { key: "practice-welcome-guide", kind: "pdf", title: "Practice Welcome Guide", description: "What a practice can expect: training, first cases, who to call", fileUrl: input.practiceWelcomeGuideUrl ?? "" },
+    { key: "dandy-description", kind: "text", title: "Approved Dandy description", description: "The short description to use wherever you introduce Dandy", body: DANDY_DESCRIPTION },
+    { key: "dandy-logos", kind: "link", title: "Dandy logos", description: "Primary and reversed logos in every format", externalUrl: input.logosUrl ?? "" },
+    { key: "dandy-brand-guidelines", kind: "link", title: "Dandy brand guidelines", description: "Colours, type and logo usage", externalUrl: input.brandGuidelinesUrl ?? "" },
+  ];
+  const links = [
+    ...(input.signupUrl ? [{ title: `${short} practice sign-up page`, description: input.signupUrl.replace(/^https?:\/\//, ""), url: input.signupUrl }] : []),
+    ...(input.successGuideUrl ? [{ title: "Success Plan", description: "The 90-day plan your leadership reviewed", url: input.successGuideUrl }] : []),
+  ];
+  return [
+    {
+      id: `seed-${input.slug}-room-workspace-1`,
+      type: "room-workspace",
+      props: {
+        partnerName: input.partner,
+        partnerLogoUrl: input.partnerLogoUrl ?? "",
+        eyebrow: "Partnership workspace",
+        title: "launch plan",
+        lede: `The plan we run together, everything your team needs to announce it, and the people accountable on both sides.`,
+        heroImageUrl: input.heroImageUrl ?? "",
+        heroImageAlt: "",
+        kickoffDate: input.kickoffDate ?? "",
+        rolloutDays: 90,
+        nextMilestoneLabel: input.nextMilestoneLabel ?? "",
+        nextMilestoneDate: input.nextMilestoneDate ?? "",
+        hiddenModules: input.hiddenModules ?? [],
+        phases: [
+          { label: "Days 1–30", title: "Foundation & launch", summary: "Plan signed off, partnership announced, first practices trained and submitting cases.", endDay: 30 },
+          { label: "Days 31–60", title: "Momentum & optimization", summary: "Early wins reviewed, Enterprise Hub walkthrough, next wave of practices scheduled.", endDay: 60 },
+          { label: "Days 61–90", title: "Scaling & ROI", summary: "ROI review from your own data, your first case study, expansion plan agreed.", endDay: 90 },
+        ],
+        planIntro: `Every milestone has an owner at Dandy and at ${short}. Anything blocked for more than a week goes to both executive sponsors. Files you upload go to your Dandy team only.`,
+        planGroups: input.planGroups ?? DEFAULT_WORKSPACE_PLAN,
+        kitIntro: "Approved and ready to use. Need an edit? Request a change on any item and follow it under Requests.",
+        assets,
+        links,
+        teamNote: "Replies within one business day",
+        team: [
+          { title: "Dandy", members: input.ourTeam ?? WORKSPACE_OUR_TEAM },
+          { title: input.partner, members: input.partnerTeam ?? WORKSPACE_PARTNER_TEAM },
+        ],
+        accentColor: "",
+      },
+    },
+  ];
+}
+
 const TEMPLATE_SLUG = "global-partner-launch-room";
 
 export const PARTNER_LAUNCH_ROOM_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
@@ -392,11 +564,11 @@ export const PARTNER_LAUNCH_ROOM_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     title: "Partner Launch Room",
     templateLabel: "Partner Launch Room",
     templateDescription:
-      "The customer-facing room for a new DSO partnership, in place of a Word media kit: the announcement email and social captions with a Copy button, co-branded social graphics, Dandy brand assets, guides for practices, the 90-day plan with a two-swimlane Mutual Action Plan the partner can act on (mark tasks done, upload a roster or brand files privately), the named team on both sides, welcome event options and co-marketing. Replace [Partner name], attach the files, publish, and send one link. Opens and downloads are tracked per asset.",
+      "The customer workspace for a new DSO partnership, in place of the shared tracker spreadsheet and the Word media kit. A branded cover over a module list: an overview of where the rollout stands, the Mutual Action Plan by phase with an owner on each side (the partner can mark items complete or upload a roster and brand files privately), the launch kit with View / Download / Request changes, a request tracker, and the named team on both sides. Hide any module per account. Set the customer name and kickoff date, attach the files, publish, and send one link.",
     ogImage: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1200&h=630&fit=crop",
     industry: "dental",
     premiumRank: 15,
     funnelStage: "onboarding",
-    blocks: buildPartnerLaunchRoomBlocks({ slug: TEMPLATE_SLUG, partner: "[Partner name]", partnerShort: "[Partner]" }),
+    blocks: buildPartnerWorkspaceBlocks({ slug: TEMPLATE_SLUG, partner: "[Partner name]", partnerShort: "[Partner]" }),
   },
 ];

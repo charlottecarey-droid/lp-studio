@@ -214,7 +214,7 @@ import type {
   HubHeroBlockProps,
   HubFeaturedBlockProps,
   HubLibraryBlockProps,
-  HubSupportBlockProps, HubPathsBlockProps, HubPlanBlockProps, HubTeamBlockProps,
+  HubSupportBlockProps, HubPathsBlockProps, HubPlanBlockProps, HubTeamBlockProps, RoomWorkspaceBlockProps,
   AbmSplitHeroBlockProps,
   AbmPhoneShowcaseBlockProps,
   AbmSolutionTabsBlockProps,
@@ -297,6 +297,7 @@ import { HUB_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockHubSupport";
 import { HUB_PATHS_DEFAULT_PROPS } from "@/blocks/BlockHubPaths";
 import { HUB_PLAN_DEFAULT_PROPS } from "@/blocks/BlockHubPlan";
 import { HUB_TEAM_DEFAULT_PROPS } from "@/blocks/BlockHubTeam";
+import { ROOM_WORKSPACE_DEFAULT_PROPS } from "@/blocks/BlockRoomWorkspace";
 import { KIT_CONTENTS_DEFAULT_PROPS } from "@/blocks/BlockKitContents";
 import { KIT_STEPS_DEFAULT_PROPS } from "@/blocks/BlockKitSteps";
 import { KIT_SUPPORT_DEFAULT_PROPS } from "@/blocks/BlockKitSupport";
@@ -10197,6 +10198,15 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "room-workspace",
+    label: "Partner Room — Workspace",
+    category: "Full Page Templates",
+    defaultProps: (): RoomWorkspaceBlockProps => structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full"><rect width="120" height="70" fill="#F3F4EF" rx="4" /><rect width="120" height="30" fill="#0f172a" rx="4" /><rect x="10" y="9" width="34" height="5" rx="2" fill="#ffffff" /><rect x="10" y="18" width="22" height="2.5" rx="1" fill="#ffffff" opacity="0.5" /><rect x="84" y="7" width="26" height="16" rx="3" fill="#ffffff" opacity="0.25" /><rect x="8" y="24" width="104" height="42" rx="4" fill="#ffffff" stroke="#E7E7E0" /><rect x="13" y="30" width="16" height="2.5" rx="1" fill="#0f172a" opacity="0.8" /><rect x="13" y="36" width="16" height="2.5" rx="1" fill="#0f172a" opacity="0.3" /><rect x="13" y="42" width="16" height="2.5" rx="1" fill="#0f172a" opacity="0.3" /><rect x="36" y="30" width="70" height="5" rx="1.5" fill="#0f172a" /><rect x="36" y="38" width="70" height="4" rx="1" fill="#0f172a" opacity="0.08" /><rect x="36" y="45" width="70" height="4" rx="1" fill="#0f172a" opacity="0.08" /><rect x="36" y="52" width="70" height="4" rx="1" fill="#0f172a" opacity="0.08" /><rect x="94" y="45.500" width="10" height="3" rx="1.500" fill="#1AC065" /></svg>
+    ),
+  },
+  {
     type: "onboarding-hub",
     label: "Onboarding Hub — Full Page",
     category: "Full Page Templates",
@@ -10413,6 +10423,7 @@ export function createBlock(type: "challenger-insight"): Extract<PageBlock, { ty
 export function createBlock(type: "deal-room"): Extract<PageBlock, { type: "deal-room" }>;
 export function createBlock(type: "account-microsite"): Extract<PageBlock, { type: "account-microsite" }>;
 export function createBlock(type: "onboarding-hub"): Extract<PageBlock, { type: "onboarding-hub" }>;
+export function createBlock(type: "room-workspace"): Extract<PageBlock, { type: "room-workspace" }>;
 export function createBlock(type: "value-renewal-review"): Extract<PageBlock, { type: "value-renewal-review" }>;
 export function createBlock(type: "event-agenda"): Extract<PageBlock, { type: "event-agenda" }>;
 export function createBlock(type: "event-activations"): Extract<PageBlock, { type: "event-activations" }>;
@@ -10847,6 +10858,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "deal-room": return { id, type: "deal-room", props: props as DealRoomBlockProps };
     case "account-microsite": return { id, type: "account-microsite", props: props as AccountMicrositeBlockProps };
     case "onboarding-hub": return { id, type: "onboarding-hub", props: props as OnboardingHubBlockProps };
+    case "room-workspace": return { id, type: "room-workspace", props: props as RoomWorkspaceBlockProps };
     case "value-renewal-review": return { id, type: "value-renewal-review", props: props as ValueRenewalReviewBlockProps };
     case "event-agenda": return { id, type: "event-agenda", props: props as EventAgendaBlockProps };
     case "event-activations": return { id, type: "event-activations", props: props as EventActivationsBlockProps };
@@ -10957,6 +10969,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "deal-room": ["deal-room"],
     "account-microsite": ["account-microsite"],
     "onboarding-hub": ["onboarding-hub"],
+    "room-workspace": ["room-workspace"],
     "value-renewal-review": ["value-renewal-review"],
     "event-agenda": ["event-agenda"],
     "event-activations": ["event-activations"],

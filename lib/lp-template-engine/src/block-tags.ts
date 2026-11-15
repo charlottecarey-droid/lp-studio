@@ -304,6 +304,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "deal-room": ["content"],
   "account-microsite": ["content"],
   "onboarding-hub": ["content"],
+  "room-workspace": ["content"],
   "value-renewal-review": ["content"],
   "event-agenda": ["content"],
   // Full-page sponsored-event presence template (own nav + hero + booking CTA).
@@ -504,6 +505,7 @@ export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "deal-room",
   "account-microsite",
   "onboarding-hub",
+  "room-workspace",
   "value-renewal-review",
   "event-agenda",
   "event-activations",

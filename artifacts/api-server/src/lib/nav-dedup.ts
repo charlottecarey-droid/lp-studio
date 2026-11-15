@@ -24,6 +24,7 @@ export const NAV_TYPES = new Set([
 // business-case-* full-page blocks bake their own nav (but no footer, so they
 // are NOT in SELF_CONTAINED_FULL_PAGE_TYPES — a footer is still appended below).
 export const SELF_NAV_TYPES = new Set([
+  "room-workspace",
   "full-bleed-hero",
   "dso-heartland-hero",
   "invite-demo-hero",

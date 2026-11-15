@@ -278,6 +278,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "deal-room": SELF_STYLED,
   "account-microsite": SELF_STYLED,
   "onboarding-hub": SELF_STYLED,
+  "room-workspace": SELF_STYLED,
   "value-renewal-review": SELF_STYLED,
 
   // Self-styled content directory (owns its bg / surface) ------------------

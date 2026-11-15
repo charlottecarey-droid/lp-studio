@@ -5099,6 +5099,7 @@ export type { HubSupportBlockProps } from "@/blocks/BlockHubSupport";
 export type { HubPathsBlockProps, HubPath } from "@/blocks/BlockHubPaths";
 export type { HubPlanBlockProps, HubPlanPhase, HubPlanLane, HubPlanTask } from "@/blocks/BlockHubPlan";
 export type { HubTeamBlockProps, HubTeamGroup, HubTeamMember } from "@/blocks/BlockHubTeam";
+export type { RoomWorkspaceBlockProps } from "@/blocks/BlockRoomWorkspace";
 export type { HubAsset, HubAssetKind } from "@/blocks/hub/hub-assets";
 
 /* ── ABM account-page family (Oct 2026): brand-aware replica of the enterprise 1:1 account page idiom. */
