@@ -72,6 +72,26 @@ export interface RoomSnapshot {
   wins: RoomWin[];
   /** People the customer added to their team. Empty for an anonymous visitor. */
   contacts: RoomContact[];
+  /** Practice counts by stage and the regions present (no names: safe for any visitor). */
+  practices: { total: number; byStage: Record<string, number>; regions: string[] };
+}
+
+export interface RoomPractice {
+  id: number;
+  name: string;
+  region: string | null;
+  city: string | null;
+  state: string | null;
+  wave: string | null;
+  stage: string;
+  trainingDate: string | null;
+  liveDate: string | null;
+}
+export interface RoomPracticePage {
+  total: number;
+  page: number;
+  pageSize: number;
+  rows: RoomPractice[];
 }
 
 export type RoomActionResult = { ok: true } | { ok: false; error: string; identityRequired?: boolean };
@@ -80,7 +100,8 @@ export type RoomActionResult = { ok: true } | { ok: false; error: string; identi
 export const ROOM_UPLOAD_MAX_BYTES = 7 * 1024 * 1024;
 export const ROOM_UPLOAD_ACCEPT = ".xlsx,.xls,.csv,.pdf,.docx,.doc,.pptx,.png,.jpg,.jpeg,.zip";
 
-const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] };
+const NO_PRACTICES = { total: 0, byStage: {}, regions: [] };
+const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: NO_PRACTICES };
 const rtKey = (pageId: number) => `lp_room_rt_${pageId}`;
 
 function readHl(): string | undefined {
@@ -162,6 +183,7 @@ class RoomStore {
         choices: json.choices && typeof json.choices === "object" ? (json.choices as RoomSnapshot["choices"]) : {},
         wins: Array.isArray(json.wins) ? (json.wins as RoomWin[]) : [],
         contacts: Array.isArray(json.contacts) ? (json.contacts as RoomContact[]) : [],
+        practices: json.practices && typeof json.practices === "object" ? (json.practices as RoomSnapshot["practices"]) : NO_PRACTICES,
       });
     } catch {
       this.set({ ...this.snap, status: "error" });
@@ -210,6 +232,17 @@ class RoomStore {
   /** Ask the team for something; it shows up in the snapshot's `requests`. */
   sendRequest(input: { kind: string; subject: string; details: string; assetKey?: string }) {
     return this.act("request", input);
+  }
+
+  /** One page of the practice list (known visitors only). Null when it could not be loaded. */
+  async loadPractices(filter: { region?: string; q?: string; page?: number }): Promise<RoomPracticePage | "identity" | null> {
+    try {
+      const { status, json } = await this.post("practices", filter);
+      if (status === 200) return json as unknown as RoomPracticePage;
+      return status === 401 ? "identity" : null;
+    } catch {
+      return null;
+    }
   }
 
   setChoice(key: string, value: string) {

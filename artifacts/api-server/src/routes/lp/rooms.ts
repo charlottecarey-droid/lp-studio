@@ -20,6 +20,7 @@ import {
   lpRoomChoicesTable,
   lpRoomContactsTable,
   lpRoomMembersTable,
+  lpRoomPracticesTable,
   lpRoomRequestsTable,
   lpRoomWinCommentsTable,
   lpRoomWinLikesTable,
@@ -31,7 +32,7 @@ import {
   salesHotlinksTable,
   tenantsTable,
 } from "@workspace/db";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { ObjectStorageService } from "../../lib/objectStorage";
@@ -39,7 +40,16 @@ import { getActiveHostsForTenant } from "../../lib/tenantHosts";
 import { getRequestHost, getRequestProto } from "../../lib/requestHost";
 import { sendRoomAccessEmail } from "../../lib/notifications";
 import { slackService } from "../../lib/slack-service";
+import { createIntakeTask } from "../../lib/asana";
+import { sfdcService } from "../../lib/sfdc-service";
 import {
+  ASANA_REQUEST_KINDS,
+  asanaRequestTaskName,
+  normalizePracticeStage,
+  parsePracticeCsv,
+  ROOM_PRACTICE_STAGES,
+  roomPartnerName,
+  type RoomPracticeInput,
   extractRoomChoices,
   extractRoomTasks,
   onboardingTeamStepKey,
@@ -86,6 +96,8 @@ interface RoomPage {
   choices: Map<string, RoomChoiceSpec>;
   /** The onboarding step that adding a team contact completes. */
   teamStepKey: string | null;
+  /** The customer's name from the workspace block. */
+  partnerName: string;
 }
 
 async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
@@ -97,16 +109,66 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
     .where(eq(lpPagesTable.id, pageId))
     .limit(1);
   if (!page || page.tenantId == null) return null;
-  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks) };
+  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks) };
 }
 
-async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null }> {
+async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null; asanaProjectGid: string | null }> {
   const [row] = await db
-    .select({ allowedDomains: lpRoomSettingsTable.allowedDomains, slackChannelId: lpRoomSettingsTable.slackChannelId })
+    .select({ allowedDomains: lpRoomSettingsTable.allowedDomains, slackChannelId: lpRoomSettingsTable.slackChannelId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId, asanaProjectGid: lpRoomSettingsTable.asanaProjectGid })
     .from(lpRoomSettingsTable)
     .where(eq(lpRoomSettingsTable.pageId, pageId))
     .limit(1);
-  return { allowedDomains: Array.isArray(row?.allowedDomains) ? row.allowedDomains : [], slackChannelId: row?.slackChannelId ?? null };
+  return { allowedDomains: Array.isArray(row?.allowedDomains) ? row.allowedDomains : [], slackChannelId: row?.slackChannelId ?? null, sfdcAccountId: row?.sfdcAccountId ?? null, asanaProjectGid: row?.asanaProjectGid ?? null };
+}
+
+/** Practice counts by stage and the list of regions: safe for any visitor (no practice names). */
+async function practiceSummary(pageId: number): Promise<{ total: number; byStage: Record<string, number>; regions: string[] }> {
+  const rows = (await db.execute(sql`SELECT stage, region, COUNT(*)::int AS n FROM lp_room_practices WHERE page_id = ${pageId} GROUP BY stage, region`)).rows as Array<{ stage: string; region: string | null; n: number }>;
+  const byStage: Record<string, number> = {};
+  const regions = new Set<string>();
+  let total = 0;
+  for (const r of rows) {
+    byStage[r.stage] = (byStage[r.stage] ?? 0) + r.n;
+    total += r.n;
+    if (r.region) regions.add(r.region);
+  }
+  return { total, byStage, regions: [...regions].sort() };
+}
+
+/** Add or update practices: matched by Salesforce id when given, else by name. A row that says nothing about the stage keeps the saved one. */
+async function upsertPractices(page: RoomPage, rows: RoomPracticeInput[]): Promise<{ added: number; updated: number }> {
+  const existing = await db.select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
+  const byExt = new Map(existing.filter((e) => e.externalId).map((e) => [e.externalId as string, e.id]));
+  const byName = new Map(existing.map((e) => [e.name.trim().toLowerCase(), e.id]));
+  const inserts: (typeof lpRoomPracticesTable.$inferInsert)[] = [];
+  let updated = 0;
+  for (const r of rows) {
+    const id = (r.externalId && byExt.get(r.externalId)) || byName.get(r.name.trim().toLowerCase());
+    if (id) {
+      await db
+        .update(lpRoomPracticesTable)
+        .set({
+          name: r.name,
+          ...(r.externalId ? { externalId: r.externalId } : {}),
+          ...(r.region ? { region: r.region } : {}),
+          ...(r.city ? { city: r.city } : {}),
+          ...(r.state ? { state: r.state } : {}),
+          ...(r.wave ? { wave: r.wave } : {}),
+          ...(r.stageGiven ? { stage: r.stage } : {}),
+          ...(r.trainingDate ? { trainingDate: r.trainingDate } : {}),
+          ...(r.liveDate ? { liveDate: r.liveDate } : {}),
+          updatedAt: sql`now()`,
+        })
+        .where(eq(lpRoomPracticesTable.id, id));
+      updated++;
+    } else {
+      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate });
+      byName.set(r.name.trim().toLowerCase(), -1);
+      if (r.externalId) byExt.set(r.externalId, -1);
+    }
+  }
+  for (let i = 0; i < inserts.length; i += 200) await db.insert(lpRoomPracticesTable).values(inserts.slice(i, i + 200));
+  return { added: inserts.length, updated };
 }
 
 async function memberStatus(pageId: number, email: string): Promise<RoomMemberStatus | null> {
@@ -256,7 +318,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
   try {
     const page = await loadRoomPage(req.body?.pageId);
     if (!page) {
-      res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] });
+      res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {});
@@ -293,7 +355,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
           createdAt: r.createdAt.toISOString(),
         }))
       : [];
-    const extras = page.isWorkspace ? await loadWorkspaceState(page, viewer) : { choices: {}, wins: [], contacts: [] };
+    const extras = page.isWorkspace ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id) } : { choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } };
     res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks, requests, ...extras });
   } catch (err) {
     req.log.error({ err }, "room state failed");
@@ -497,9 +559,54 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
       await roomPageUrl(req, page, req.body?.path),
     );
     res.json({ ok: true, id: row.id });
+    // Marketing work also goes to the marketing intake in Asana (after the response; never blocks the request).
+    if (ASANA_REQUEST_KINDS.includes(parsed.kind)) {
+      void createIntakeTask({
+        tenantId: page.tenantId,
+        pageId: page.id,
+        name: asanaRequestTaskName(page.partnerName || page.title, parsed.subject),
+        notes: [`Requested by ${viewer.name ? `${viewer.name} (${viewer.email})` : viewer.email} in the ${page.partnerName || page.title} partner room.`, `Type: ${ROOM_REQUEST_KIND_LABEL[parsed.kind as RoomRequestKind]}`, "", parsed.details ?? "", "", `Room: ${await roomPageUrl(req, page, req.body?.path)}`].join("\n"),
+        projectGid: settings.asanaProjectGid,
+      })
+        .then(async (result) => {
+          if (result.taskId) await db.update(lpRoomRequestsTable).set({ asanaTaskGid: result.taskId }).where(eq(lpRoomRequestsTable.id, row.id));
+          if (result.warning) req.log.warn({ pageId: page.id, warning: result.warning }, "room request asana warning");
+        })
+        .catch((err) => req.log.error({ err }, "room request asana failed"));
+    }
   } catch (err) {
     req.log.error({ err }, "room request failed");
     res.status(500).json({ error: "Could not send the request. Please try again." });
+  }
+});
+
+/** The practice list, for a known visitor: filter by region and name, 50 a page. */
+router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page } = ctx;
+    const region = typeof req.body?.region === "string" ? req.body.region.trim().slice(0, 80) : "";
+    const q = typeof req.body?.q === "string" ? req.body.q.trim().slice(0, 80) : "";
+    const pageNo = Math.max(0, Math.min(1000, Math.floor(Number(req.body?.page) || 0)));
+    const where = and(
+      eq(lpRoomPracticesTable.pageId, page.id),
+      region ? eq(lpRoomPracticesTable.region, region) : undefined,
+      q ? or(ilike(lpRoomPracticesTable.name, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.city, `%${q.replace(/[%_\\]/g, "")}%`)) : undefined,
+    );
+    const [rows, [{ n }]] = await Promise.all([
+      db.select().from(lpRoomPracticesTable).where(where).orderBy(asc(lpRoomPracticesTable.region), asc(lpRoomPracticesTable.name)).limit(50).offset(pageNo * 50),
+      db.select({ n: sql<number>`COUNT(*)::int` }).from(lpRoomPracticesTable).where(where),
+    ]);
+    res.json({
+      total: n,
+      page: pageNo,
+      pageSize: 50,
+      rows: rows.map((p) => ({ id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "room practices failed");
+    res.status(500).json({ error: "Could not load practices" });
   }
 });
 
@@ -658,6 +765,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       : [[], [], []];
     res.json({
       isWorkspace: page.isWorkspace,
+      practices: await practiceSummary(page.id),
       choices: [...page.choices.values()].map((spec) => {
         const c = choiceRows.find((x) => x.choiceKey === spec.key);
         return { key: spec.key, title: spec.title, options: spec.options, value: c && spec.options.includes(c.value) ? c.value : null, chosenBy: c ? c.chosenByName || c.chosenByEmail : null, chosenAt: c?.chosenAt.toISOString() ?? null };
@@ -676,6 +784,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
         due: r.due,
         requestedBy: r.requestedByName || r.requestedByEmail,
         requestedByEmail: r.requestedByEmail,
+        asanaTaskGid: r.asanaTaskGid,
         createdAt: r.createdAt.toISOString(),
       })),
       settings,
@@ -724,11 +833,22 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
       res.status(400).json({ error: "That doesn't look like a Slack channel ID (for example C0123ABCDEF)" });
       return;
     }
+    const sfdcRaw = typeof req.body?.sfdcAccountId === "string" ? req.body.sfdcAccountId.trim() : "";
+    if (sfdcRaw && !/^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(sfdcRaw)) {
+      res.status(400).json({ error: "That doesn't look like a Salesforce account ID (15 or 18 characters, for example 0015d000041HyXrAAK)" });
+      return;
+    }
+    const asanaRaw = typeof req.body?.asanaProjectGid === "string" ? req.body.asanaProjectGid.trim() : "";
+    if (asanaRaw && !/^\d{6,24}$/.test(asanaRaw)) {
+      res.status(400).json({ error: "That doesn't look like an Asana project ID (the long number in the project's URL)" });
+      return;
+    }
+    const values = { allowedDomains: domains, slackChannelId: channelRaw || null, sfdcAccountId: sfdcRaw || null, asanaProjectGid: asanaRaw || null };
     await db
       .insert(lpRoomSettingsTable)
-      .values({ pageId: page.id, tenantId: page.tenantId, allowedDomains: domains, slackChannelId: channelRaw || null })
-      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { allowedDomains: domains, slackChannelId: channelRaw || null, updatedAt: sql`now()` } });
-    res.json({ allowedDomains: domains, slackChannelId: channelRaw || null });
+      .values({ pageId: page.id, tenantId: page.tenantId, ...values })
+      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { ...values, updatedAt: sql`now()` } });
+    res.json(values);
   } catch (err) {
     req.log.error({ err }, "room settings failed");
     res.status(500).json({ error: "Could not save" });
@@ -793,6 +913,114 @@ router.patch("/lp/partner-rooms/:pageId/requests/:id", async (req: Request, res:
   } catch (err) {
     req.log.error({ err }, "room request update failed");
     res.status(500).json({ error: "Could not update" });
+  }
+});
+
+/** Add or update practices from a pasted list (CSV or tab-separated; first line = column names). */
+router.post("/lp/partner-rooms/:pageId/practices/import", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const rows = parsePracticeCsv(req.body?.csv);
+    if (rows.length === 0) {
+      res.status(400).json({ error: "Nothing to import. The first line needs column names, including “name”." });
+      return;
+    }
+    res.json({ ok: true, ...(await upsertPractices(page, rows)) });
+  } catch (err) {
+    req.log.error({ err }, "room practices import failed");
+    res.status(500).json({ error: "Import failed" });
+  }
+});
+
+/** Pull the customer's practices from Salesforce: the child accounts of the room's parent account. Names and locations only; stages are kept. */
+router.post("/lp/partner-rooms/:pageId/practices/sync-salesforce", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const settings = await loadSettings(page.id);
+    if (!settings.sfdcAccountId || !/^[a-zA-Z0-9]{15,18}$/.test(settings.sfdcAccountId)) {
+      res.status(400).json({ error: "Save the customer's Salesforce account ID first." });
+      return;
+    }
+    const conn = await sfdcService.getActiveConnection(page.tenantId);
+    if (!conn) {
+      res.status(400).json({ error: "Salesforce isn't connected for this workspace." });
+      return;
+    }
+    const result = await sfdcService.querySalesforce(conn.id, `SELECT Id, Name, BillingCity, BillingState FROM Account WHERE ParentId = '${settings.sfdcAccountId}' ORDER BY Name LIMIT 2000`);
+    const rows: RoomPracticeInput[] = (result.records as Array<{ Id?: string; Name?: string; BillingCity?: string | null; BillingState?: string | null }>)
+      .filter((a) => a.Id && a.Name)
+      .map((a) => ({ externalId: String(a.Id), name: String(a.Name).slice(0, 160), region: a.BillingState ?? null, city: a.BillingCity ?? null, state: a.BillingState ?? null, wave: null, stage: "not_started", stageGiven: false, trainingDate: null, liveDate: null }));
+    if (rows.length === 0) {
+      res.json({ ok: true, added: 0, updated: 0, note: "Salesforce returned no child accounts for that account." });
+      return;
+    }
+    res.json({ ok: true, ...(await upsertPractices(page, rows)) });
+  } catch (err) {
+    req.log.error({ err }, "room practices sfdc sync failed");
+    res.status(502).json({ error: "Could not read from Salesforce. Check the connection and try again." });
+  }
+});
+
+/** The practice list for the team (same filters as the customer's view). */
+router.get("/lp/partner-rooms/:pageId/practices", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80).replace(/[%_\\]/g, "") : "";
+    const where = and(eq(lpRoomPracticesTable.pageId, page.id), q ? ilike(lpRoomPracticesTable.name, `%${q}%`) : undefined);
+    const rows = await db.select().from(lpRoomPracticesTable).where(where).orderBy(asc(lpRoomPracticesTable.name)).limit(100);
+    res.json({ rows: rows.map((p) => ({ id: p.id, name: p.name, region: p.region, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate })) });
+  } catch (err) {
+    req.log.error({ err }, "room practices list failed");
+    res.status(500).json({ error: "Could not load practices" });
+  }
+});
+
+/** Change one practice: stage, wave, region, dates. */
+router.patch("/lp/partner-rooms/:pageId/practices/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const id = Number(req.params.id);
+    const str = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 80) || null : undefined);
+    const set: Partial<typeof lpRoomPracticesTable.$inferInsert> = {};
+    if (req.body?.stage !== undefined) {
+      if (!(ROOM_PRACTICE_STAGES as readonly string[]).includes(String(req.body.stage))) {
+        res.status(400).json({ error: "Invalid stage" });
+        return;
+      }
+      set.stage = normalizePracticeStage(req.body.stage);
+    }
+    for (const k of ["wave", "region", "trainingDate", "liveDate"] as const) {
+      const v = str(req.body?.[k]);
+      if (v !== undefined) set[k] = v;
+    }
+    const updated = Number.isFinite(id)
+      ? await db.update(lpRoomPracticesTable).set({ ...set, updatedAt: sql`now()` }).where(and(eq(lpRoomPracticesTable.id, id), eq(lpRoomPracticesTable.pageId, page.id))).returning({ id: lpRoomPracticesTable.id })
+      : [];
+    if (updated.length === 0) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room practice update failed");
+    res.status(500).json({ error: "Could not update" });
+  }
+});
+
+/** Remove every practice from the room (to start the list over). */
+router.delete("/lp/partner-rooms/:pageId/practices", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    await db.delete(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room practices clear failed");
+    res.status(500).json({ error: "Could not clear" });
   }
 });
 

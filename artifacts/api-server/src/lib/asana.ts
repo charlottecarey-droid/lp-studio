@@ -197,3 +197,67 @@ export async function commentAndCompleteTask(input: CommentAndCompleteInput): Pr
     return { ok: false, warning: "Could not update the Asana task." };
   }
 }
+
+
+/* ── Partner-room marketing requests → the marketing intake project ──────── */
+
+export interface CreateIntakeTaskInput {
+  tenantId: number;
+  pageId: number;
+  name: string;
+  notes: string;
+  /** Project to file under. Blank = the tenant's configured project. */
+  projectGid?: string | null;
+  /** Custom field to set on the task, matched by NAME on the project (case-insensitive). */
+  statusFieldName?: string;
+  statusOptionName?: string;
+}
+
+/**
+ * Create a task for a marketing request and set its "Intake status" custom
+ * field to "Submitted", so the marketing intake picks it up. The field and
+ * option are looked up by name on the project, so nothing here hard-codes a
+ * workspace's ids; when the field or option is missing the task is still
+ * created and the warning says what was not set. Best-effort, never throws.
+ */
+export async function createIntakeTask(input: CreateIntakeTaskInput): Promise<AsanaResult> {
+  const config = await getAsanaConfig(input.tenantId);
+  if (!config) return { ok: false, warning: "Asana is not connected for this workspace." };
+  const project = (input.projectGid ?? "").trim() || config.projectId;
+  const fieldName = (input.statusFieldName ?? "Intake status").toLowerCase();
+  const optionName = (input.statusOptionName ?? "Submitted").toLowerCase();
+  const payload: Record<string, unknown> = { name: input.name, notes: input.notes, projects: [project] };
+  if (config.workspaceId) payload.workspace = config.workspaceId;
+
+  if (isFakeMode()) {
+    const taskId = `fake-${++fakeTaskCounter}`;
+    recordedCalls.push({ kind: "create", tenantId: input.tenantId, pageId: input.pageId, taskId, payload: { ...payload, intakeStatus: optionName }, ts: Date.now() });
+    return { ok: true, taskId };
+  }
+
+  const headers = { Authorization: `Bearer ${config.pat}`, "Content-Type": "application/json" };
+  let warning: string | undefined;
+  try {
+    const fieldsRes = await fetch(`https://app.asana.com/api/1.0/projects/${encodeURIComponent(project)}/custom_field_settings?opt_fields=custom_field.name,custom_field.enum_options.name,custom_field.enum_options.enabled`, { headers });
+    if (fieldsRes.ok) {
+      const json = (await fieldsRes.json()) as { data?: { custom_field?: { gid?: string; name?: string; enum_options?: { gid?: string; name?: string; enabled?: boolean }[] } }[] };
+      const field = (json.data ?? []).map((d) => d.custom_field).find((f) => (f?.name ?? "").trim().toLowerCase() === fieldName);
+      const option = field?.enum_options?.find((o) => (o.name ?? "").trim().toLowerCase() === optionName && o.enabled !== false);
+      if (field?.gid && option?.gid) payload.custom_fields = { [field.gid]: option.gid };
+      else warning = `The Asana project has no "${input.statusFieldName ?? "Intake status"}" field with a "${input.statusOptionName ?? "Submitted"}" option, so the status was not set.`;
+    } else {
+      warning = `Could not read the Asana project's fields (HTTP ${fieldsRes.status}), so the intake status was not set.`;
+    }
+    const res = await fetch("https://app.asana.com/api/1.0/tasks", { method: "POST", headers, body: JSON.stringify({ data: payload }) });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("[asana] intake task failed", res.status, body.slice(0, 500));
+      return { ok: false, warning: `Asana task creation failed (HTTP ${res.status}).` };
+    }
+    const json = (await res.json()) as { data?: { gid?: string } };
+    return { ok: true, taskId: json.data?.gid, warning };
+  } catch (err) {
+    console.error("[asana] intake task error", err);
+    return { ok: false, warning: "Could not reach Asana." };
+  }
+}

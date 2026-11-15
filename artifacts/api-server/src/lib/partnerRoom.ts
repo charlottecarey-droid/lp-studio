@@ -150,6 +150,9 @@ export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
     const props = (b as { props?: { lanes?: unknown; planGroups?: unknown; onboarding?: { steps?: unknown } } }).props;
     // Onboarding steps are tasks too: an upload, a tick, or "add your team"
     // (ticked by hand, or automatically when the customer adds a contact).
+    if (type === "room-workspace" && roomAsksGoalAgreement([b]) && !out.has(ROOM_GOALS_AGREED_KEY)) {
+      out.set(ROOM_GOALS_AGREED_KEY, { key: ROOM_GOALS_AGREED_KEY, title: "Goals agreed", action: "check" });
+    }
     const steps = type === "room-workspace" ? props?.onboarding?.steps : null;
     if (Array.isArray(steps)) {
       for (const step of steps) {
@@ -354,3 +357,126 @@ export function parseRoomWin(input: { body?: unknown; headline?: unknown; region
 export function parseRoomComment(raw: unknown): string | null {
   return cleanText(raw, 1000) || null;
 }
+
+/* ── Practices ───────────────────────────────────────────────────────────── */
+
+export const ROOM_PRACTICE_STAGES = ["not_started", "scheduling", "training_booked", "trained", "live"] as const;
+export type RoomPracticeStage = (typeof ROOM_PRACTICE_STAGES)[number];
+
+/** "Live", "training booked", "TRAINED" … → a stage; anything unknown is not_started. */
+export function normalizePracticeStage(raw: unknown): RoomPracticeStage {
+  const v = typeof raw === "string" ? raw.trim().toLowerCase().replace(/[\s-]+/g, "_") : "";
+  if ((ROOM_PRACTICE_STAGES as readonly string[]).includes(v)) return v as RoomPracticeStage;
+  if (v === "active" || v === "activated" || v === "ordering") return "live";
+  if (v === "booked" || v === "training_scheduled" || v === "scheduled") return "training_booked";
+  if (v === "training_complete" || v === "training_completed" || v === "complete") return "trained";
+  return "not_started";
+}
+
+export interface RoomPracticeInput {
+  externalId: string | null;
+  name: string;
+  region: string | null;
+  city: string | null;
+  state: string | null;
+  wave: string | null;
+  stage: RoomPracticeStage;
+  /** False when the source row said nothing about the stage (an update then keeps the saved one). */
+  stageGiven: boolean;
+  trainingDate: string | null;
+  liveDate: string | null;
+}
+
+/** One practice row from a pasted list or an API body; null when it has no name. */
+export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInput | null {
+  const get = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = cleanText(row[k], 160);
+      if (v) return v;
+    }
+    return null;
+  };
+  const name = get("name", "practice", "practice_name", "practice name", "account");
+  if (!name) return null;
+  return {
+    externalId: get("externalId", "external_id", "sfdc_id", "sfdc id", "salesforce_id", "id"),
+    name,
+    region: get("region", "market", "region / regional manager"),
+    city: get("city"),
+    state: get("state"),
+    wave: get("wave"),
+    stage: normalizePracticeStage(get("stage", "status")),
+    stageGiven: !!get("stage", "status"),
+    trainingDate: get("trainingDate", "training_date", "training date", "training"),
+    liveDate: get("liveDate", "live_date", "live date", "activated date", "activated"),
+  };
+}
+
+/** Split one CSV line, honouring quotes. */
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === "," || ch === "\t") {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out.map((c) => c.trim());
+}
+
+/** A pasted practice list (CSV or tab-separated, first line = headers) → rows. Capped at 5,000. */
+export function parsePracticeCsv(text: unknown): RoomPracticeInput[] {
+  if (typeof text !== "string") return [];
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const headers = splitCsvLine(lines[0]).map((h) => h.toLowerCase());
+  const out: RoomPracticeInput[] = [];
+  for (const line of lines.slice(1, 5001)) {
+    const cells = splitCsvLine(line);
+    const row: Record<string, unknown> = {};
+    headers.forEach((h, i) => (row[h] = cells[i] ?? ""));
+    const parsed = parsePracticeRow(row);
+    if (parsed) out.push(parsed);
+  }
+  return out;
+}
+
+/* ── Asana ───────────────────────────────────────────────────────────────── */
+
+/** Request kinds that are marketing work and go to the marketing intake in Asana. */
+export const ASANA_REQUEST_KINDS: readonly string[] = ["asset_change", "marketing", "event"];
+
+/** "Expansion Support - MB2 Dental - Change to: one-pager" */
+export function asanaRequestTaskName(partnerName: string, subject: string): string {
+  const clean = (v: string) => v.replace(/\s+/g, " ").trim();
+  return `Expansion Support - ${clean(partnerName) || "Customer"} - ${clean(subject) || "Request"}`.slice(0, 250);
+}
+
+/** The partner's name from the page's workspace block. */
+export function roomPartnerName(blocks: unknown): string {
+  if (!Array.isArray(blocks)) return "";
+  for (const b of blocks) {
+    if (b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace") {
+      const n = (b as { props?: { partnerName?: unknown } }).props?.partnerName;
+      if (typeof n === "string" && n.trim()) return n.trim();
+    }
+  }
+  return "";
+}
+
+/** True when the page shows a goals module that asks the customer to agree to the goals. */
+export function roomAsksGoalAgreement(blocks: unknown): boolean {
+  return Array.isArray(blocks) && blocks.some((b) => !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace" && Array.isArray((b as { props?: { goals?: { items?: unknown } } }).props?.goals?.items));
+}
+export const ROOM_GOALS_AGREED_KEY = "goals-agreed";

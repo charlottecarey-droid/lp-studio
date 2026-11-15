@@ -46,6 +46,7 @@ vi.mock("../../lib/slack-service", () => ({ slackService: { postMessage: vi.fn(a
 
 import { pool } from "@workspace/db";
 import { inject } from "../../test-utils/injectRequest";
+import { __clearRecordedAsanaCalls, __getRecordedAsanaCalls } from "../../lib/asana";
 import roomsRouter from "./rooms";
 
 let app: Express;
@@ -115,7 +116,8 @@ afterAll(async () => {
   for (const id of tenants) {
     await pool.query(`DELETE FROM lp_room_win_likes WHERE tenant_id = $1`, [id]).catch(() => {});
     await pool.query(`DELETE FROM lp_room_win_comments WHERE tenant_id = $1`, [id]).catch(() => {});
-    for (const table of ["lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
+    await pool.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [id]).catch(() => {});
+    for (const table of ["lp_room_practices", "lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
       await pool.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [id]).catch(() => {});
     }
     await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
@@ -128,8 +130,8 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const pageId = await seedPage(tenantId);
     const state = await post("state", { pageId });
     expect(state.status).toBe(200);
-    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] });
-    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [] });
+    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
+    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
     expect((await post("task", { pageId, taskKey: "announce" })).status).toBe(401);
     expect((await post("upload", { pageId, taskKey: "practice-roster", fileName: "r.xlsx", fileBase64: XLSX.toString("base64") })).status).toBe(401);
     expect((await post("task", { pageId, taskKey: "announce", rt: "forged.token" })).status).toBe(401);
@@ -177,7 +179,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await post("task", { pageId, taskKey: "announce", rt })).status).toBe(200);
 
     const anon = await post("state", { pageId });
-    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [], choices: {}, wins: [], contacts: [] });
+    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] } });
     const known = await post("state", { pageId, rt });
     expect(known.json).toMatchObject({ viewer: { email: "levi@mb2dental.com" }, tasks: { announce: { done: true, by: "levi@mb2dental.com" } } });
 
@@ -352,5 +354,79 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("state", { pageId })).json as { wins: unknown[] }).wins).toEqual([]);
     await inject(app, { method: "DELETE", url: `/lp/partner-rooms/${pageId}/contacts/${detail.contacts[0].id}`, headers: asTenant(tenantId) });
     expect(((await post("state", { pageId, hl })).json as { contacts: unknown[] }).contacts).toEqual([]);
+  });
+
+  it("practices: the team imports a list, any visitor sees counts, only known visitors see names; goals can be agreed", async () => {
+    const tenantId = await seedTenant();
+    const decoyTenantId = await seedTenant();
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [
+      tenantId,
+      `ws-${Math.floor(Math.random() * 1e9)}`,
+      JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental", goals: { askAgreement: true, items: [{ key: "g1", title: "Live", metric: "practices_live" }] } } }]),
+    ]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    const csv = ["name,region,wave,stage,training date,live date", "Main Street Dental,North Texas,1,live,Nov 4,Nov 12", "Lakeside Family,North Texas,1,trained,Nov 5,", "Summit Dental,Colorado,2,,,"].join("\n");
+
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(decoyTenantId), body: { csv } })).status).toBe(404);
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: "nothing" } })).status).toBe(400);
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv } })).json).toEqual({ ok: true, added: 3, updated: 0 });
+    // Pasting again updates by name; a blank stage keeps the saved one.
+    const again = ["name,stage,wave", "Summit Dental,scheduling,2", "Lakeside Family,,1", "Brand New Dental,not started,3"].join("\n");
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: again } })).json).toEqual({ ok: true, added: 1, updated: 2 });
+
+    const anon = (await post("state", { pageId })).json as { practices: { total: number; byStage: Record<string, number>; regions: string[] } };
+    expect(anon.practices).toEqual({ total: 4, byStage: { live: 1, trained: 1, scheduling: 1, not_started: 1 }, regions: ["Colorado", "North Texas"] });
+    expect((await post("practices", { pageId })).status).toBe(401);
+    const all = (await post("practices", { pageId, hl })).json as { total: number; rows: { name: string; stage: string }[] };
+    expect(all.total).toBe(4);
+    const tx = (await post("practices", { pageId, hl, region: "North Texas" })).json as { total: number; rows: { name: string; stage: string }[] };
+    expect(tx.rows.map((p) => `${p.name}:${p.stage}`)).toEqual(["Lakeside Family:trained", "Main Street Dental:live"]);
+    expect(((await post("practices", { pageId, hl, q: "summit" })).json as { total: number }).total).toBe(1);
+
+    // The team edits one practice; another tenant cannot.
+    const list = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/practices?q=Summit`, headers: asTenant(tenantId) })).json as { rows: { id: number }[] };
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/practices/${list.rows[0].id}`, headers: asTenant(decoyTenantId), body: { stage: "live" } })).status).toBe(404);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/practices/${list.rows[0].id}`, headers: asTenant(tenantId), body: { stage: "nope" } })).status).toBe(400);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/practices/${list.rows[0].id}`, headers: asTenant(tenantId), body: { stage: "live", liveDate: "Nov 20" } })).status).toBe(200);
+    expect(((await post("state", { pageId })).json as { practices: { byStage: Record<string, number> } }).practices.byStage.live).toBe(2);
+
+    // Goals: agreeing is a task on the workspace.
+    expect((await post("task", { pageId, taskKey: "goals-agreed" })).status).toBe(401);
+    expect((await post("task", { pageId, taskKey: "goals-agreed", hl })).status).toBe(200);
+    expect(((await post("state", { pageId, hl })).json as { tasks: Record<string, { by?: string }> }).tasks["goals-agreed"]).toMatchObject({ done: true, by: "Dana Visitor" });
+
+    // Settings: Salesforce and Asana ids are validated.
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], sfdcAccountId: "not an id" } })).status).toBe(400);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], asanaProjectGid: "abc" } })).status).toBe(400);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], sfdcAccountId: "0015d000041HyXrAAK", asanaProjectGid: "1212539527149031" } })).json).toMatchObject({ sfdcAccountId: "0015d000041HyXrAAK", asanaProjectGid: "1212539527149031" });
+  });
+
+  it("marketing requests are filed in Asana as Expansion Support - customer - request, with intake status submitted; other kinds are not", async () => {
+    const tenantId = await seedTenant();
+    await pool.query(`INSERT INTO lp_integrations (tenant_id, provider, enabled, config) VALUES ($1, 'asana', true, $2::jsonb)`, [tenantId, JSON.stringify({ pat: "test-pat", projectId: "111111111" })]);
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental" } }])]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], asanaProjectGid: "222222222" } });
+    __clearRecordedAsanaCalls();
+
+    expect((await post("request", { pageId, hl, kind: "training", subject: "Saturday training slot" })).status).toBe(200);
+    expect((await post("request", { pageId, hl, kind: "asset_change", subject: "Change to: Partnership one-pager", details: "Add our CEO quote" })).status).toBe(200);
+    expect((await post("request", { pageId, hl, kind: "marketing", subject: "Extra welcome kits" })).status).toBe(200);
+    // The Asana call runs after the response.
+    for (let i = 0; i < 40 && __getRecordedAsanaCalls().length < 2; i++) await new Promise((res) => setTimeout(res, 50));
+    const calls = __getRecordedAsanaCalls().filter((c) => c.tenantId === tenantId);
+    expect(calls.map((c) => c.payload.name).sort()).toEqual(["Expansion Support - MB2 Dental - Change to: Partnership one-pager", "Expansion Support - MB2 Dental - Extra welcome kits"]);
+    expect(calls.every((c) => (c.payload.projects as string[])[0] === "222222222" && c.payload.intakeStatus === "submitted")).toBe(true);
+    expect(String(calls[0].payload.notes)).toContain("Dana Visitor (dana@roomco.com)");
+    for (let i = 0; i < 40; i++) {
+      const rows = await pool.query<{ n: number }>(`SELECT COUNT(*)::int AS n FROM lp_room_requests WHERE page_id = $1 AND asana_task_gid IS NOT NULL`, [pageId]);
+      if (rows.rows[0].n === 2) break;
+      await new Promise((res) => setTimeout(res, 50));
+    }
+    const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { requests: { kind: string; asanaTaskGid: string | null }[] };
+    expect(detail.requests.filter((q) => q.asanaTaskGid).map((q) => q.kind).sort()).toEqual(["asset_change", "marketing"]);
+    expect(detail.requests.find((q) => q.kind === "training")?.asanaTaskGid).toBeNull();
   });
 });

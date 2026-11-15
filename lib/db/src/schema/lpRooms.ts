@@ -1,4 +1,5 @@
 import { pgTable, text, serial, timestamp, integer, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /**
  * Partner rooms (Nov 2026) — the working state behind a customer-facing room
@@ -23,6 +24,10 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   allowedDomains: jsonb("allowed_domains").$type<string[]>().notNull().default([]),
   /** Slack channel for this room's activity. Null = the tenant's default channel. */
   slackChannelId: text("slack_channel_id"),
+  /** Salesforce Account id of the customer's parent account (practices are its child accounts). */
+  sfdcAccountId: text("sfdc_account_id"),
+  /** Asana project for this room's marketing requests. Null = the tenant's Asana project. */
+  asanaProjectGid: text("asana_project_gid"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -99,10 +104,34 @@ export const lpRoomRequestsTable = pgTable(
     due: text("due"),
     requestedByEmail: text("requested_by_email").notNull(),
     requestedByName: text("requested_by_name"),
+    /** The Asana task created for a marketing request. */
+    asanaTaskGid: text("asana_task_gid"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_requests_page_created_idx").on(t.pageId, t.createdAt)],
+);
+
+/** A practice (location) in a room's rollout. `stage`: not_started | scheduling | training_booked | trained | live. */
+export const lpRoomPracticesTable = pgTable(
+  "lp_room_practices",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    /** Salesforce Account id when it came from Salesforce; lets a re-sync update in place. */
+    externalId: text("external_id"),
+    name: text("name").notNull(),
+    region: text("region"),
+    city: text("city"),
+    state: text("state"),
+    wave: text("wave"),
+    stage: text("stage").notNull().default("not_started"),
+    trainingDate: text("training_date"),
+    liveDate: text("live_date"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lp_room_practices_page_idx").on(t.pageId, t.region), uniqueIndex("lp_room_practices_page_ext_uniq").on(t.pageId, t.externalId).where(sql`${t.externalId} IS NOT NULL`)],
 );
 
 /** A decision the customer made on the page (a marketing program, an amount, an event format). */

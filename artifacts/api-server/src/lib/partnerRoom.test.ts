@@ -5,7 +5,13 @@ import {
   extractRoomTasks,
   isEmailAllowed,
   normalizeDomain,
+  asanaRequestTaskName,
+  ASANA_REQUEST_KINDS,
   extractRoomChoices,
+  normalizePracticeStage,
+  parsePracticeCsv,
+  roomPartnerName,
+  ROOM_GOALS_AGREED_KEY,
   normalizeEmail,
   onboardingTeamStepKey,
   pageIsRoom,
@@ -200,5 +206,36 @@ describe("onboarding, choices, contacts, wins", () => {
     expect(parseRoomComment("  nice  ")).toBe("nice");
     expect(parseRoomComment("")).toBeNull();
     expect(parseRoomComment(5)).toBeNull();
+  });
+});
+
+describe("practices, goals agreement, Asana naming", () => {
+  it("reads a pasted practice list: quoted commas, tabs, loose headers and stage words", () => {
+    const rows = parsePracticeCsv(['Practice Name,Region,Wave,Status,Training Date,Activated', '"Smile, Inc.",North Texas,1,LIVE,Nov 4,Nov 12', "Lakeside Family,Colorado,2,Training Booked,Dec 2,", ",Nowhere,1,live,,", "Cedar Park,,,,,"].join("\n"));
+    expect(rows.map((r) => r.name)).toEqual(["Smile, Inc.", "Lakeside Family", "Cedar Park"]);
+    expect(rows[0]).toMatchObject({ region: "North Texas", wave: "1", stage: "live", stageGiven: true, trainingDate: "Nov 4", liveDate: "Nov 12" });
+    expect(rows[1]).toMatchObject({ stage: "training_booked", liveDate: null });
+    expect(rows[2]).toMatchObject({ stage: "not_started", stageGiven: false, region: null });
+    expect(parsePracticeCsv("name\tregion\nA Dental\tWest")).toEqual([expect.objectContaining({ name: "A Dental", region: "West" })]);
+    expect(parsePracticeCsv("just one line")).toEqual([]);
+    expect(parsePracticeCsv(42)).toEqual([]);
+  });
+  it("maps stage words, defaulting to not started", () => {
+    expect(normalizePracticeStage("Activated")).toBe("live");
+    expect(normalizePracticeStage("training-booked")).toBe("training_booked");
+    expect(normalizePracticeStage("Training Complete")).toBe("trained");
+    expect(normalizePracticeStage("???")).toBe("not_started");
+  });
+  it("a workspace with goals offers the goals-agreed task; the partner name comes from the block", () => {
+    const blocks = [{ type: "room-workspace", props: { partnerName: " MB2 Dental ", goals: { items: [{ key: "g", title: "Live" }] } } }];
+    expect(extractRoomTasks(blocks).get(ROOM_GOALS_AGREED_KEY)?.action).toBe("check");
+    expect(extractRoomTasks([{ type: "room-workspace", props: {} }]).has(ROOM_GOALS_AGREED_KEY)).toBe(false);
+    expect(roomPartnerName(blocks)).toBe("MB2 Dental");
+    expect(roomPartnerName([])).toBe("");
+  });
+  it("names the Asana task Expansion Support - customer - request, and only marketing kinds go to Asana", () => {
+    expect(asanaRequestTaskName("MB2 Dental", "Change to:  Partnership one-pager")).toBe("Expansion Support - MB2 Dental - Change to: Partnership one-pager");
+    expect(asanaRequestTaskName("", "")).toBe("Expansion Support - Customer - Request");
+    expect(ASANA_REQUEST_KINDS).toEqual(["asset_change", "marketing", "event"]);
   });
 });
