@@ -506,7 +506,7 @@ export const DEFAULT_WORKSPACE_ONBOARDING = {
     { key: "onboard-practices", title: "Upload your practice list", description: "Practice names, addresses, regional managers and an office contact for each.", action: "upload", buttonLabel: "Upload list" },
     { key: "onboard-doctors", title: "Upload your doctor roster", description: "Doctors by practice, so training and support reach the right people.", action: "upload", buttonLabel: "Upload roster" },
     { key: "onboard-team", title: "Add your team", description: "Your executive sponsor, operations lead, clinical champion and marketing contact.", action: "team", buttonLabel: "Add people" },
-    { key: "onboard-gift", title: "Accept your welcome gift", description: "Tell us where to send it and who it's for.", action: "request", buttonLabel: "Accept gift" },
+    { key: "onboard-gift", title: "Accept your welcome gift", description: "Tell us where to send it and who it's for.", action: "request", buttonLabel: "Accept gift", requestKind: "marketing" },
   ],
 };
 
@@ -540,6 +540,22 @@ export const DEFAULT_WORKSPACE_MARKETING = {
         P("mk-swag", "Co-branded swag", "Custom kits and swag carrying both brands.", "Practices", "Flexible", ["Include", "Not now"]),
       ],
     },
+  ],
+};
+
+/**
+ * Goals. Lab spend is the north star: share of the partner's total lab spend
+ * with Dandy. Counted goals come from the room's practice list; the rest are
+ * typed in by the account team until the warehouse feed is connected.
+ */
+export const DEFAULT_WORKSPACE_GOALS = {
+  intro: "Agreed at kickoff and reviewed at every business review, so we always start from the same numbers.",
+  askAgreement: true,
+  items: [
+    { key: "goal-lab-spend", title: "Share of lab spend with Dandy", detail: "Across practices live more than 30 days", target: "", metric: "manual", current: "", source: "", owner: "Executive sponsors", status: "on-track" },
+    { key: "goal-live", title: "Practices live and submitting cases", target: "", metric: "practices_live", owner: "Operations", status: "on-track" },
+    { key: "goal-trained", title: "Practices trained", target: "", metric: "practices_trained", owner: "Implementation", status: "on-track" },
+    { key: "goal-doctors", title: "Active doctors at key practices", detail: "Your highest lab-spend practices", target: "", metric: "manual", current: "", source: "", owner: "Clinical leadership", status: "on-track" },
   ],
 };
 
@@ -588,6 +604,8 @@ export function buildPartnerWorkspaceBlocks(input: PartnerWorkspaceInput): Block
         ],
         onboarding: structuredClone(DEFAULT_WORKSPACE_ONBOARDING),
         marketing: structuredClone(DEFAULT_WORKSPACE_MARKETING),
+        goals: structuredClone(DEFAULT_WORKSPACE_GOALS),
+        locationsNoun: noun,
         planIntro: `Every milestone has an owner at Dandy and at ${short}. Anything blocked for more than a week goes to both executive sponsors. Files you upload go to your Dandy team only.`,
         planGroups: input.planGroups ?? DEFAULT_WORKSPACE_PLAN,
         kitIntro: "Approved and ready to use. Need an edit? Request a change on any item and follow it under Requests.",

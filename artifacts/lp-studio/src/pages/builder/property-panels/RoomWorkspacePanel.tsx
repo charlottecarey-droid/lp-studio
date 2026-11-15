@@ -13,6 +13,8 @@ import {
   roomMilestoneKey,
   type RoomAsset,
   type RoomAssetKind,
+  type RoomGoal,
+  type RoomGoalMetric,
   type RoomMilestone,
   type RoomMilestoneStatus,
   type RoomModuleKey,
@@ -37,6 +39,13 @@ import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
 import { ThumbButton } from "./HubPanels";
 
 const STATUS_ORDER: RoomMilestoneStatus[] = ["not-started", "on-track", "pending", "blocking", "done"];
+const GOAL_METRIC_LABEL: Record<RoomGoalMetric, string> = {
+  manual: "Typed in by you",
+  practices_live: "Counted: locations live",
+  practices_trained: "Counted: locations trained",
+  plan_complete: "Counted: plan items done",
+};
+
 const STEP_ACTION_LABEL: Record<RoomStepAction, string> = {
   upload: "Customer uploads a file",
   check: "Customer marks it done",
@@ -82,6 +91,11 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
   const setMarketing = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["marketing"]>>) => update({ marketing: { ...marketing, groups: mGroups, ...patch } });
   const setMGroup = (i: number, patch: Partial<RoomProgramGroup>) => setMarketing({ groups: mGroups.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
   const setProgram = (gi: number, pi: number, patch: Partial<RoomProgram>) => setMGroup(gi, { programs: mGroups[gi].programs.map((x, idx) => (idx === pi ? { ...x, ...patch } : x)) });
+
+  const goals = props.goals ?? { items: [] };
+  const goalItems = goals.items ?? [];
+  const setGoals = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["goals"]>>) => update({ goals: { ...goals, items: goalItems, ...patch } });
+  const setGoal = (i: number, patch: Partial<RoomGoal>) => setGoals({ items: goalItems.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
 
   const toggleModule = (key: RoomModuleKey, show: boolean) => {
     const next = new Set(hidden);
@@ -162,6 +176,55 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setOnboarding({ steps: [...steps, { key: `onboard-${Date.now().toString(36)}`, title: "New step", action: "check" }] })}>
           <Plus className="h-3 w-3" /> Add step
         </Button>
+      </PanelSection>
+
+      <PanelSection title={`Goals (${goalItems.length})`} hint="What success looks like, and where each goal stands">
+        <Field label="Intro line"><Textarea value={goals.intro ?? ""} onChange={(e) => setGoals({ intro: e.target.value })} rows={2} className="text-xs" /></Field>
+        <label className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs">
+          <span>Ask the customer to agree to these goals</span>
+          <Switch checked={!!goals.askAgreement} onCheckedChange={(v) => setGoals({ askAgreement: v })} aria-label="Ask the customer to agree" />
+        </label>
+        <Field label="What the customer calls a location"><Input value={props.locationsNoun ?? ""} onChange={(e) => update({ locationsNoun: e.target.value })} className="h-8 text-xs" placeholder="locations" /></Field>
+        {goalItems.map((g, i) => (
+          <div key={i} className="space-y-1.5 rounded-md border p-2">
+            <ItemHeader label={g.title || `Goal ${i + 1}`} index={i} total={goalItems.length} onMove={(dir) => setGoals({ items: moveItem(goalItems, i, dir) })} onRemove={() => setGoals({ items: goalItems.filter((_, idx) => idx !== i) })} />
+            <Input value={g.title ?? ""} onChange={(e) => setGoal(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Goal" />
+            <Input value={g.detail ?? ""} onChange={(e) => setGoal(i, { detail: e.target.value })} className="h-7 text-xs" placeholder="Detail (optional)" />
+            <div className="grid grid-cols-[1fr_90px] gap-1">
+              <Input value={g.target ?? ""} onChange={(e) => setGoal(i, { target: e.target.value })} className="h-7 text-xs" placeholder="Target as it reads (40 by Day 90)" />
+              <Input type="number" value={g.targetValue ?? ""} onChange={(e) => setGoal(i, { targetValue: e.target.value === "" ? undefined : Number(e.target.value) })} className="h-7 text-xs" placeholder="As a number" />
+            </div>
+            <Select value={g.metric ?? "manual"} onValueChange={(v) => setGoal(i, { metric: v as RoomGoalMetric })}>
+              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(GOAL_METRIC_LABEL) as RoomGoalMetric[]).map((m) => <SelectItem key={m} value={m} className="text-xs">{GOAL_METRIC_LABEL[m]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {(g.metric ?? "manual") === "manual" && (
+              <div className="grid grid-cols-[1fr_90px] gap-1">
+                <Input value={g.current ?? ""} onChange={(e) => setGoal(i, { current: e.target.value })} className="h-7 text-xs" placeholder="Today as it reads (22%)" />
+                <Input type="number" value={g.currentValue ?? ""} onChange={(e) => setGoal(i, { currentValue: e.target.value === "" ? undefined : Number(e.target.value) })} className="h-7 text-xs" placeholder="As a number" />
+                <Input value={g.source ?? ""} onChange={(e) => setGoal(i, { source: e.target.value })} className="col-span-2 h-7 text-xs" placeholder="Where the number came from, and when" />
+              </div>
+            )}
+            <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
+              <Select value={g.status ?? "on-track"} onValueChange={(v) => setGoal(i, { status: v as RoomGoal["status"] })}>
+                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="on-track" className="text-xs">On track</SelectItem>
+                  <SelectItem value="pending" className="text-xs">Needs attention</SelectItem>
+                  <SelectItem value="done" className="text-xs">Achieved</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input value={g.owner ?? ""} onChange={(e) => setGoal(i, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner" />
+              <HideToggle hidden={g.hidden} onChange={(h) => setGoal(i, { hidden: h })} />
+            </div>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setGoals({ items: [...goalItems, { key: `goal-${Date.now().toString(36)}`, title: "New goal", metric: "manual", status: "on-track" }] })}>
+          <Plus className="h-3 w-3" /> Add goal
+        </Button>
+        <p className="text-[11px] leading-snug text-muted-foreground">Counted goals update on their own from the room. The practice list is loaded on this page’s analytics, under Room.</p>
       </PanelSection>
 
       <PanelSection title="Marketing plan" hint="Programs the customer includes, skips or picks an option for">

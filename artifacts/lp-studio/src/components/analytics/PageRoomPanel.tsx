@@ -16,14 +16,15 @@ import { Badge } from "@/components/ui/badge";
  */
 interface RoomDetail {
   isRoom: boolean;
-  settings: { allowedDomains: string[]; slackChannelId: string | null };
+  settings: { allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId?: string | null; asanaProjectGid?: string | null };
+  practices?: { total: number; byStage: Record<string, number>; regions: string[] };
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
   isWorkspace?: boolean;
   choices?: { key: string; title: string; options: string[]; value: string | null; chosenBy: string | null; chosenAt: string | null }[];
   contacts?: { id: number; name: string; role: string | null; email: string | null; addedBy: string; createdAt: string }[];
   wins?: { id: number; body: string; headline: string | null; side: string; by: string; createdAt: string; likes: number; comments: { id: number; body: string; by: string }[] }[];
-  requests: { id: number; kind: string; subject: string; details: string | null; status: string; owner: string | null; due: string | null; requestedBy: string; createdAt: string }[];
+  requests: { id: number; kind: string; subject: string; details: string | null; status: string; owner: string | null; due: string | null; requestedBy: string; createdAt: string; asanaTaskGid?: string | null }[];
   uploads: { id: number; taskKey: string; taskTitle: string; fileName: string; sizeBytes: number; uploadedBy: string; uploadedByEmail: string; createdAt: string }[];
 }
 
@@ -53,6 +54,10 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
   });
   const [domains, setDomains] = useState("");
   const [channel, setChannel] = useState("");
+  const [sfdcId, setSfdcId] = useState("");
+  const [asanaProject, setAsanaProject] = useState("");
+  const [csv, setCsv] = useState("");
+  const [note, setNote] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -61,6 +66,8 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
     if (!data) return;
     setDomains(data.settings.allowedDomains.join(", "));
     setChannel(data.settings.slackChannelId ?? "");
+    setSfdcId(data.settings.sfdcAccountId ?? "");
+    setAsanaProject(data.settings.asanaProjectGid ?? "");
   }, [data]);
 
   if (isLoading) return <Skeleton className="h-24 w-full" />;
@@ -78,7 +85,7 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
 
   const saveSettings = async () => {
     const list = domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean);
-    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim() }))) setSaved(true);
+    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim() }))) setSaved(true);
   };
   const setMember = (email: string, status: "allowed" | "denied" | null) => run(send(`${base}/members`, "POST", { email, status }));
 
@@ -141,6 +148,67 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
                   )}
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {data.isWorkspace && (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Practices</h4>
+            <p className="text-sm text-muted-foreground">
+              {data.practices?.total
+                ? `${data.practices.total} in the room · ${data.practices.byStage.live ?? 0} live · ${(data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0)} trained · ${data.practices.regions.length} regions`
+                : "No practices loaded yet."}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  setNote("");
+                  const r = await fetch(`${base}/practices/sync-salesforce`, { method: "POST", headers: { "Content-Type": "application/json" } });
+                  const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number; note?: string };
+                  setError(r.ok ? "" : j.error ?? "Sync failed");
+                  if (r.ok) {
+                    setNote(j.note ?? `${j.added ?? 0} added, ${j.updated ?? 0} updated from Salesforce.`);
+                    await refresh();
+                  }
+                }}
+              >
+                Pull practices from Salesforce
+              </Button>
+              {!!data.practices?.total && (
+                <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => window.confirm("Remove every practice from this room?") && run(send(`${base}/practices`, "DELETE"))}>Clear list</Button>
+              )}
+              {note && <span className="text-sm text-muted-foreground">{note}</span>}
+            </div>
+            <textarea
+              className="min-h-[88px] w-full rounded-md border bg-background p-2 font-mono text-xs"
+              value={csv}
+              onChange={(e) => setCsv(e.target.value)}
+              placeholder={"Or paste a list (first line = column names):\nname,region,wave,stage,training date,live date\nMain Street Dental,North Texas,1,live,Nov 4,Nov 12"}
+              aria-label="Paste a practice list"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="brand"
+                disabled={!csv.trim()}
+                onClick={async () => {
+                  setNote("");
+                  const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) });
+                  const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number };
+                  setError(r.ok ? "" : j.error ?? "Import failed");
+                  if (r.ok) {
+                    setNote(`${j.added ?? 0} added, ${j.updated ?? 0} updated.`);
+                    setCsv("");
+                    await refresh();
+                  }
+                }}
+              >
+                Import list
+              </Button>
+              <span className="text-xs text-muted-foreground">Stages: not started, scheduling, training booked, trained, live. Pasting again updates practices by name.</span>
             </div>
           </section>
         )}
@@ -225,6 +293,20 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
               <Input value={channel} onChange={(e) => setChannel(e.target.value)} placeholder="C0123ABCDEF" />
               <span className="block text-xs text-muted-foreground">Uploads, completed tasks and access requests post here. Blank uses your default channel.</span>
             </label>
+            {data.isWorkspace && (
+              <>
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium">Salesforce account ID</span>
+                  <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} placeholder="0015d000041HyXrAAK" />
+                  <span className="block text-xs text-muted-foreground">The customer’s parent account. Its child accounts become the practice list.</span>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium">Asana project ID</span>
+                  <Input value={asanaProject} onChange={(e) => setAsanaProject(e.target.value)} placeholder="Blank uses your connected Asana project" />
+                  <span className="block text-xs text-muted-foreground">Marketing requests are filed here as “Expansion Support - customer - request”, with Intake status set to Submitted.</span>
+                </label>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Button size="sm" variant="brand" onClick={saveSettings}>Save</Button>
@@ -274,7 +356,15 @@ function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: 
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-medium">{q.subject}</p>
-          <p className="text-xs text-muted-foreground">{REQUEST_KIND[q.kind] ?? "Other"} · {q.requestedBy} · {fmtDate(q.createdAt)}</p>
+          <p className="text-xs text-muted-foreground">
+            {REQUEST_KIND[q.kind] ?? "Other"} · {q.requestedBy} · {fmtDate(q.createdAt)}
+            {q.asanaTaskGid && (
+              <>
+                {" · "}
+                <a className="underline" href={`https://app.asana.com/0/0/${q.asanaTaskGid}`} target="_blank" rel="noreferrer">In Asana</a>
+              </>
+            )}
+          </p>
           {q.details && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{q.details}</p>}
         </div>
         <select

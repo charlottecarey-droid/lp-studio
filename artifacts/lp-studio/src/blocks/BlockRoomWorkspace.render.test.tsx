@@ -17,6 +17,7 @@ import {
   BlockRoomWorkspace,
   ROOM_WORKSPACE_DEFAULT_PROPS,
   phaseStates,
+  goalValue,
   resolveRoomStatus,
   rolloutDay,
   roomMilestoneKey,
@@ -39,7 +40,7 @@ describe("room-workspace — registry + default render", () => {
     expect(html).toContain("Acme Group × Northwind");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
     expect(html).toContain("data-room-request-button");
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(7);
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(9);
     expect(html).toContain('data-room-view="overview"');
     expect(html).toContain("Where things stand");
     expect(html).not.toContain("One shared plan"); // other modules are separate views
@@ -56,17 +57,17 @@ describe("room-workspace — registry + default render", () => {
 describe("room-workspace — modules can be hidden per account", () => {
   it("drops hidden modules from the nav; hiding Requests removes Make a request", () => {
     const html = render({ hiddenModules: ["requests", "team"] });
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(5);
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(7);
     expect(html).not.toContain('data-room-nav="requests"');
     expect(html).not.toContain("data-room-request-button");
   });
   it("lands on the first visible module, and never hides everything", () => {
-    expect(render({ hiddenModules: ["overview", "wins"] })).toContain('data-room-view="plan"');
-    expect(visibleModules(["overview", "wins", "plan", "marketing", "kit", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
-    expect(visibleModules(undefined)).toHaveLength(7);
+    expect(render({ hiddenModules: ["overview", "wins", "goals"] })).toContain('data-room-view="plan"');
+    expect(visibleModules(["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
+    expect(visibleModules(undefined)).toHaveLength(9);
   });
   it("the action plan shows both owners, a checkpoint, and customer actions with no file link", () => {
-    const html = render({ hiddenModules: ["overview", "wins"] });
+    const html = render({ hiddenModules: ["overview", "wins", "goals"] });
     expect(html).toContain("Executive sponsor");
     expect(html).toContain("Account lead");
     expect(html).toContain("Checkpoint");
@@ -100,7 +101,7 @@ describe("room-workspace — helpers", () => {
 });
 
 const only = (key: string, extra: Partial<RoomWorkspaceBlockProps> = {}) =>
-  render({ hiddenModules: (["overview", "wins", "plan", "marketing", "kit", "requests", "team"] as const).filter((k) => k !== key && k !== "requests") as never, ...extra });
+  render({ hiddenModules: (["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "requests", "team"] as const).filter((k) => k !== key && k !== "requests") as never, ...extra });
 
 describe("room-workspace — onboarding checklist", () => {
   it("shows on the overview with one row per step and the right control for each kind", () => {
@@ -161,5 +162,43 @@ describe("room-workspace — marketing plan, launch kit, hide anything", () => {
     const html = only("wins");
     expect(html).toContain("data-room-win-compose");
     expect(html).toContain("No wins yet");
+  });
+});
+
+describe("room-workspace — goals and practices", () => {
+  it("goals: counted goals read live from the room, typed goals show their source, and the customer is asked to agree", () => {
+    const html = only("goals", {
+      goals: {
+        askAgreement: true,
+        items: [
+          { key: "g1", title: "Locations live", target: "40 by Day 90", targetValue: 40, metric: "practices_live" },
+          { key: "g2", title: "Share of spend", target: "35%", targetValue: 35, metric: "manual", current: "22%", currentValue: 22, source: "Insights, Nov 14", status: "pending" },
+          { key: "g3", title: "Hidden goal", hidden: true },
+        ],
+      },
+    });
+    expect(html).toContain('data-room-goals-agreement="open"');
+    expect((html.match(/data-room-goal="auto"/g) ?? []).length).toBe(1);
+    expect((html.match(/data-room-goal="manual"/g) ?? []).length).toBe(1);
+    expect(html).toContain("Live from this room");
+    expect(html).toContain("Insights, Nov 14");
+    expect(html).toContain("Needs attention");
+    expect(html).not.toContain("Hidden goal");
+    expect(html).toContain("to agree");
+  });
+  it("goalValue counts from the room for automatic metrics and uses the typed number otherwise", () => {
+    const ctx = { byStage: { live: 18, trained: 6, scheduling: 4 }, planDone: 11 };
+    expect(goalValue({ key: "a", title: "", metric: "practices_live" }, ctx)).toBe(18);
+    expect(goalValue({ key: "a", title: "", metric: "practices_trained" }, ctx)).toBe(24);
+    expect(goalValue({ key: "a", title: "", metric: "plan_complete" }, ctx)).toBe(11);
+    expect(goalValue({ key: "a", title: "", metric: "manual", currentValue: 22 }, ctx)).toBe(22);
+    expect(goalValue({ key: "a", title: "" }, ctx)).toBeNull();
+  });
+  it("practices: uses the customer's word for a location and shows an empty state before the list is loaded", () => {
+    const html = only("practices", { locationsNoun: "practices" });
+    expect(html).toContain('data-room-nav="practices"');
+    expect(html).toContain(">Practices<");
+    expect(html).toContain("data-room-practice-summary");
+    expect(html).toContain("will appear here once the list is loaded");
   });
 });

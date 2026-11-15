@@ -8,7 +8,7 @@ import { usePageContext } from "@/lib/page-context";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { trackHubAsset, type HubAsset } from "./hub/hub-assets";
-import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomWin } from "./hub/room-client";
+import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomWin } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
  * Partner Room — Workspace — type "room-workspace"
@@ -21,6 +21,9 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  *   overview   onboarding checklist (until it is done), rollout track, what
  *              needs the customer's attention, counts
  *   wins       a feed either side can post to, like and comment on
+ *   goals      what success looks like (agreed with the customer), tracked
+ *              from the room's own data where it can be, typed in where not
+ *   practices  the rollout by location: region filter, search, stage
  *   marketing  the marketing plan: programs the customer includes or skips
  *   plan       the mutual action plan: milestones by phase, an owner on each
  *              side, target date, status, a checkpoint per phase. Milestones
@@ -42,11 +45,13 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  * scroll-animated page.
  * -------------------------------------------------------------------------- */
 
-export type RoomModuleKey = "overview" | "wins" | "plan" | "marketing" | "kit" | "requests" | "team";
+export type RoomModuleKey = "overview" | "wins" | "goals" | "plan" | "practices" | "marketing" | "kit" | "requests" | "team";
 export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "wins", label: "Wins" },
+  { key: "goals", label: "Goals" },
   { key: "plan", label: "Action plan" },
+  { key: "practices", label: "Practices" },
   { key: "marketing", label: "Marketing plan" },
   { key: "kit", label: "Launch kit" },
   { key: "requests", label: "Requests" },
@@ -120,6 +125,29 @@ export interface RoomOnboardingStep {
   /** Checked off by the team in the builder. */
   done?: boolean;
   hidden?: boolean;
+  /** For a "request" step: what kind of request it sends ("marketing" also goes to the marketing intake). */
+  requestKind?: string;
+}
+
+/** Where a goal's current value comes from: typed by the team, or counted from the room. */
+export type RoomGoalMetric = "manual" | "practices_live" | "practices_trained" | "plan_complete";
+export interface RoomGoal {
+  key: string;
+  title: string;
+  detail?: string;
+  /** How the target reads ("40 by Day 90"). */
+  target?: string;
+  /** The target as a number, for the progress bar. */
+  targetValue?: number;
+  metric?: RoomGoalMetric;
+  /** Manual goals: how today's value reads ("22%") and its number. */
+  current?: string;
+  currentValue?: number;
+  /** Where a manual value came from ("Dandy Insights, Nov 14"). */
+  source?: string;
+  status?: "on-track" | "pending" | "done";
+  owner?: string;
+  hidden?: boolean;
 }
 
 /** A marketing program the customer can include, skip, or pick an option for. */
@@ -181,6 +209,10 @@ export interface RoomWorkspaceBlockProps {
   /** The getting-started checklist on the overview, shown until every step is done. */
   onboarding?: { hidden?: boolean; title?: string; intro?: string; steps: RoomOnboardingStep[] };
   marketing?: { intro?: string; groups: RoomProgramGroup[] };
+  /** Goals agreed with the customer. `askAgreement` shows an "Agree to these goals" control until someone agrees. */
+  goals?: { intro?: string; askAgreement?: boolean; items: RoomGoal[] };
+  /** What the customer calls a location ("practices", "locations", "stores"). */
+  locationsNoun?: string;
   teamNote?: string;
   team?: RoomTeamGroup[];
   /** Accent on the dark cover (stats, "make a request"). Blank = the brand accent. */
@@ -262,6 +294,15 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
       },
     ],
   },
+  goals: {
+    intro: "Agreed at kickoff, so every review starts from the same numbers.",
+    askAgreement: true,
+    items: [
+      { key: "goal-live", title: "Locations live", target: "40 by Day 90", targetValue: 40, metric: "practices_live", owner: "Operations", status: "on-track" },
+      { key: "goal-plan", title: "Launch plan complete", target: "All milestones by Day 90", targetValue: 5, metric: "plan_complete", owner: "Both teams", status: "on-track" },
+    ],
+  },
+  locationsNoun: "locations",
   kitIntro: "Approved and ready to use. Need an edit? Request a change on any item and follow it under Requests.",
   assets: [
     { key: "one-pager", kind: "pdf", title: "Partnership one-pager", description: "For regional leaders and locations", fileUrl: "" },
@@ -333,6 +374,17 @@ export function visibleModules(hidden: readonly string[] | undefined): typeof RO
   // Overview is the landing view: it can be hidden only when something else remains.
   const rest = ROOM_MODULES.filter((m) => !h.has(m.key));
   return rest.length ? rest : ROOM_MODULES.filter((m) => m.key === "overview");
+}
+
+export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
+export const ROOM_PRACTICE_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
+
+/** A goal's value today: counted from the room for automatic metrics, the typed value otherwise. */
+export function goalValue(goal: RoomGoal, ctx: { byStage: Record<string, number>; planDone: number }): number | null {
+  if (goal.metric === "practices_live") return ctx.byStage.live ?? 0;
+  if (goal.metric === "practices_trained") return (ctx.byStage.trained ?? 0) + (ctx.byStage.live ?? 0);
+  if (goal.metric === "plan_complete") return ctx.planDone;
+  return typeof goal.currentValue === "number" && Number.isFinite(goal.currentValue) ? goal.currentValue : null;
 }
 
 export const ROOM_REQUEST_STATUS_LABEL: Record<string, string> = { new: "Received", in_progress: "In progress", review: "Ready for your review", done: "Done" };
@@ -474,6 +526,16 @@ const CSS = `
 .prw-seg button:first-child{border-left:0}
 .prw-seg button.on{background:var(--dark);color:var(--on-dark)}
 .prw-fixed{font-size:12.5px;font-weight:600;color:var(--green)}
+.prw-bar{height:5px;border-radius:3px;background:#E6E9E3;position:relative;min-width:90px}
+.prw-bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--green)}
+.prw-bar.warn i{background:#D9A300}
+.prw-tools{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.prw-tools select,.prw-tools input{height:32px;border:1px solid #D4D8D0;border-radius:7px;padding:0 10px;font:inherit;font-size:13px;color:var(--ink);background:#fff}
+.prw-tools input{flex:1;min-width:160px}
+.prw-pager{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12.5px;color:var(--body)}
+.prw-chip.not_started{background:#F1F2EE;color:var(--body)}.prw-chip.scheduling{background:#FBF3D9;color:#7A6100}.prw-chip.training_booked,.prw-chip.trained{background:#E8EEF9;color:var(--blue)}
+.prw-agree{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--body)}
+.prw-agree b{color:var(--dark)}
 .prw-compose{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 14px}
 .prw-compose textarea,.prw-cbox input{flex:1;border:0;outline:0;font:inherit;background:transparent;color:var(--ink);resize:none;min-width:0}
 .prw-win{border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:10px;overflow:hidden}
@@ -600,6 +662,12 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
   // Onboarding: a step is done when the team ticked it in the builder or the customer completed it.
   const steps = props.onboarding?.hidden ? [] : (props.onboarding?.steps ?? []).filter((x) => !x.hidden).map((x) => ({ step: x, key: roomMilestoneKey({ key: x.key, task: x.title }) })).map((x) => ({ ...x, saved: snapshot.tasks[x.key], done: !!x.step.done || !!snapshot.tasks[x.key]?.done }));
   const stepsOpen = steps.filter((x) => !x.done);
+  const goals = (props.goals?.items ?? []).filter((g) => !g.hidden);
+  const goalsAgreed = snapshot.tasks[ROOM_GOALS_AGREED_KEY];
+  const needsAgreement = !!props.goals?.askAgreement && goals.length > 0 && !goalsAgreed?.done;
+  const pr = snapshot.practices;
+  const noun = (props.locationsNoun ?? "").trim() || "locations";
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
   // Milestones with the customer's saved state laid over the builder's status.
   const rows = useMemo(
@@ -636,6 +704,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
 
   const badge: Partial<Record<RoomModuleKey, string>> = {
     overview: stepsOpen.length ? `${stepsOpen.length} to set up` : "",
+    goals: needsAgreement ? "to agree" : "",
     marketing: undecided.length ? `${undecided.length} to decide` : "",
     plan: mine.length ? `${mine.length} to do` : "",
     requests: reviewRequests.length ? `${reviewRequests.length} to review` : "",
@@ -725,7 +794,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
               {modules.map((m, i) => (
                 <button key={m.key} type="button" className={m.key === active ? "on" : ""} onClick={() => setView(m.key)} data-room-nav={m.key}>
                   <span className="n prw-num">{String(i + 1).padStart(2, "0")}</span>
-                  {m.label}
+                  {m.key === "practices" ? Noun : m.label}
                   {badge[m.key] && <em>{badge[m.key]}</em>}
                 </button>
               ))}
@@ -764,7 +833,7 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                         isEditor={isEditor}
                         onNeedEmail={() => setAsk({ kind: "email" })}
                         onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
-                        onRequest={() => openRequest({ subject: x.step.title, kind: "other", stepKey: x.key })}
+                        onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key })}
                       />
                     ))}
                   </div>
@@ -811,14 +880,29 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                   </>
                 )}
                 <div className="prw-kpis">
-                  <div className="prw-kpi">
-                    <div className="k">Plan items complete</div>
-                    <div className="v prw-num">{doneCount} <small>of {rows.length}</small></div>
-                  </div>
-                  <div className="prw-kpi">
-                    <div className="k">Yours to do</div>
-                    <div className="v prw-num">{mine.length}</div>
-                  </div>
+                  {pr.total > 0 ? (
+                    <>
+                      <div className="prw-kpi" data-room-kpi="live">
+                        <div className="k">{Noun} live</div>
+                        <div className="v prw-num">{pr.byStage.live ?? 0} <small>of {pr.total}</small></div>
+                      </div>
+                      <div className="prw-kpi">
+                        <div className="k">{Noun} trained</div>
+                        <div className="v prw-num">{(pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0)} <small>of {pr.total}</small></div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="prw-kpi">
+                        <div className="k">Plan items complete</div>
+                        <div className="v prw-num">{doneCount} <small>of {rows.length}</small></div>
+                      </div>
+                      <div className="prw-kpi">
+                        <div className="k">Yours to do</div>
+                        <div className="v prw-num">{mine.length}</div>
+                      </div>
+                    </>
+                  )}
                   <div className="prw-kpi">
                     <div className="k">Blocking</div>
                     <div className="v prw-num">{rows.filter((x) => x.status === "blocking").length}</div>
@@ -955,6 +1039,78 @@ export function BlockRoomWorkspace({ props, brand, blockId, onFieldChange }: Pro
                 </div>
               </>
             )}
+
+            {active === "goals" && (
+              <>
+                <div className="prw-hd">
+                  <div>
+                    <div className="prw-eyebrow">Goals</div>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What success looks like</h2>
+                    {props.goals?.intro && <p>{props.goals.intro}</p>}
+                  </div>
+                </div>
+                {!!props.goals?.askAgreement && goals.length > 0 && (
+                  <div className="prw-agree" data-room-goals-agreement={goalsAgreed?.done ? "agreed" : "open"}>
+                    {goalsAgreed?.done ? (
+                      <span><b>Agreed</b>{goalsAgreed.by ? ` by ${goalsAgreed.by}` : ""}{goalsAgreed.at ? ` · ${fmtDate(goalsAgreed.at)}` : ""}</span>
+                    ) : (
+                      <>
+                        <span><b>Do these goals look right?</b> Agree to them, or ask for a change.</span>
+                        <span style={{ display: "flex", gap: 8 }}>
+                          {canRequest && <button type="button" className="prw-btn" onClick={() => openRequest({ subject: "Change a goal", kind: "other" })}>Suggest a change</button>}
+                          <button type="button" className="prw-btn pri" onClick={() => needViewer(() => void store?.setTaskDone(ROOM_GOALS_AGREED_KEY, true))}><Check aria-hidden /> Agree</button>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: "34%" }}>Goal</th>
+                      <th>Target</th>
+                      <th>Today</th>
+                      <th style={{ width: 150 }}>Progress</th>
+                      <th>Status</th>
+                      <th>Owner</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {goals.map((g) => {
+                      const value = goalValue(g, { byStage: pr.byStage, planDone: doneCount });
+                      const auto = g.metric && g.metric !== "manual";
+                      const pctDone = value !== null && g.targetValue ? Math.max(0, Math.min(100, Math.round((value / g.targetValue) * 100))) : null;
+                      const status = pctDone !== null && pctDone >= 100 ? "done" : g.status ?? "on-track";
+                      return (
+                        <tr key={g.key || g.title} data-room-goal={auto ? "auto" : "manual"}>
+                          <td>
+                            <div className="t">{g.title}</div>
+                            {g.detail && <div className="m">{g.detail}</div>}
+                          </td>
+                          <td className="c">{g.target}</td>
+                          <td className="c">
+                            <b style={{ color: "var(--ink)" }}>{auto ? value : g.current || (value ?? "—")}</b>
+                            <div className="m">{auto ? "Live from this room" : g.source}</div>
+                          </td>
+                          <td>{pctDone !== null && <div className={`prw-bar${status === "pending" ? " warn" : ""}`}><i style={{ width: `${pctDone}%` }} /></div>}</td>
+                          <td><span className={`prw-st ${status}`}>{status === "done" ? "Achieved" : status === "pending" ? "Needs attention" : "On track"}</span></td>
+                          <td className="c">{g.owner}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="prw-eyebrow" style={{ margin: "26px 0 10px" }}>Rollout health</div>
+                <div className="prw-kpis" style={{ marginTop: 0 }}>
+                  <div className="prw-kpi"><div className="k">{Noun} live</div><div className="v prw-num">{pr.byStage.live ?? 0} <small>of {pr.total}</small></div></div>
+                  <div className="prw-kpi"><div className="k">{Noun} trained</div><div className="v prw-num">{(pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0)} <small>of {pr.total}</small></div></div>
+                  <div className="prw-kpi"><div className="k">Plan items complete</div><div className="v prw-num">{doneCount} <small>of {rows.length}</small></div></div>
+                  <div className="prw-kpi"><div className="k">Blocking</div><div className="v prw-num">{rows.filter((x) => x.status === "blocking").length}</div></div>
+                </div>
+              </>
+            )}
+
+            {active === "practices" && <PracticesView snapshot={snapshot} store={store} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} onNeedEmail={() => setAsk({ kind: "email" })} />}
 
             {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
 
@@ -1722,5 +1878,120 @@ function WinCard({ win, snapshot, store, isEditor, onNeedEmail }: { win: RoomWin
         </form>
       )}
     </div>
+  );
+}
+
+/* ── Practices ───────────────────────────────────────────────────────────── */
+
+function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; noun: string; display: string; onNeedEmail: () => void }) {
+  const pr = snapshot.practices;
+  const [region, setRegion] = useState("");
+  const [q, setQ] = useState("");
+  const [pageNo, setPageNo] = useState(0);
+  const [data, setData] = useState<{ total: number; rows: RoomPractice[]; pageSize: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const viewerKey = snapshot.viewer?.email ?? "";
+  useEffect(() => {
+    if (!store || !viewerKey) return;
+    let cancelled = false;
+    setLoading(true);
+    const t = window.setTimeout(() => {
+      void store.loadPractices({ region, q, page: pageNo }).then((r) => {
+        if (cancelled) return;
+        setLoading(false);
+        if (r && r !== "identity") setData(r);
+      });
+    }, q ? 250 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [store, viewerKey, region, q, pageNo, pr.total]);
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
+  const stat = (label: string, n: number) => (
+    <div><b className="prw-num">{n}</b>{label}</div>
+  );
+  return (
+    <>
+      <div className="prw-hd">
+        <div>
+          <div className="prw-eyebrow">{Noun}</div>
+          <h2 style={{ fontFamily: display }}>Rollout by {noun.replace(/s$/, "")}</h2>
+          <p>Where each one stands, kept current by our team. No spreadsheet to maintain.</p>
+        </div>
+        {pr.regions.length > 0 && <div className="prw-meta"><b>{pr.total}</b> {noun} · <b>{pr.regions.length}</b> regions</div>}
+      </div>
+      <div className="prw-sum" data-room-practice-summary>
+        {stat("in the rollout", pr.total)}
+        {stat("training booked", pr.byStage.training_booked ?? 0)}
+        {stat("trained", (pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0))}
+        {stat("live", pr.byStage.live ?? 0)}
+      </div>
+      {pr.total === 0 ? (
+        <div className="prw-card"><div className="prw-empty">Your {noun} will appear here once the list is loaded.</div></div>
+      ) : !snapshot.viewer && !isEditor ? (
+        <div className="prw-card">
+          <div className="prw-li">
+            <div>
+              <div className="t">Confirm your email to see each {noun.replace(/s$/, "")}</div>
+              <div className="m">The list is shared with your team only.</div>
+            </div>
+            <div className="a"><button type="button" className="prw-btn pri" onClick={onNeedEmail}><Mail aria-hidden /> Confirm email</button></div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="prw-tools">
+            <select value={region} onChange={(e) => { setRegion(e.target.value); setPageNo(0); }} aria-label="Region">
+              <option value="">All regions</option>
+              {pr.regions.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} placeholder={`Search ${noun}`} aria-label={`Search ${noun}`} />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: "34%" }}>{Noun.replace(/s$/, "")}</th>
+                <th>Region</th>
+                <th>Wave</th>
+                <th>Training</th>
+                <th>Live</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.rows ?? []).map((p) => (
+                <tr key={p.id} data-room-practice={p.stage}>
+                  <td>
+                    <div className="t">{p.name}</div>
+                    {(p.city || p.state) && <div className="m">{[p.city, p.state].filter(Boolean).join(", ")}</div>}
+                  </td>
+                  <td className="c">{p.region}</td>
+                  <td className="c">{p.wave}</td>
+                  <td className="c">{p.trainingDate}</td>
+                  <td className="c">{p.liveDate}</td>
+                  <td><span className={`prw-chip ${p.stage}`}>{ROOM_PRACTICE_STAGE_LABEL[p.stage] ?? p.stage}</span></td>
+                </tr>
+              ))}
+              {data && data.rows.length === 0 && (
+                <tr><td colSpan={6} className="c">Nothing matches.</td></tr>
+              )}
+              {!data && (
+                <tr><td colSpan={6} className="c">{loading ? "Loading…" : ""}</td></tr>
+              )}
+            </tbody>
+          </table>
+          {data && data.total > data.pageSize && (
+            <div className="prw-pager">
+              <span className="prw-num">{pageNo * data.pageSize + 1}–{Math.min(data.total, (pageNo + 1) * data.pageSize)} of {data.total}</span>
+              <span style={{ display: "flex", gap: 6 }}>
+                <button type="button" className="prw-btn" disabled={pageNo === 0} onClick={() => setPageNo((n) => n - 1)}>Previous</button>
+                <button type="button" className="prw-btn" disabled={(pageNo + 1) * data.pageSize >= data.total} onClick={() => setPageNo((n) => n + 1)}>Next</button>
+              </span>
+            </div>
+          )}
+        </>
+      )}
+    </>
   );
 }
