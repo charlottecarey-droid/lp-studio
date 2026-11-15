@@ -22,10 +22,24 @@ export interface RoomTaskState {
   fileName?: string;
 }
 
+export interface RoomRequest {
+  id: number;
+  kind: string;
+  subject: string;
+  status: "new" | "in_progress" | "review" | "done" | string;
+  owner: string | null;
+  due: string | null;
+  assetKey: string | null;
+  by: string;
+  createdAt: string;
+}
+
 export interface RoomSnapshot {
   status: "idle" | "loading" | "ready" | "error";
   viewer: { email: string; name: string | null } | null;
   tasks: Record<string, RoomTaskState>;
+  /** The customer's requests to the team. Empty for an anonymous visitor. */
+  requests: RoomRequest[];
 }
 
 export type RoomActionResult = { ok: true } | { ok: false; error: string; identityRequired?: boolean };
@@ -34,7 +48,7 @@ export type RoomActionResult = { ok: true } | { ok: false; error: string; identi
 export const ROOM_UPLOAD_MAX_BYTES = 7 * 1024 * 1024;
 export const ROOM_UPLOAD_ACCEPT = ".xlsx,.xls,.csv,.pdf,.docx,.doc,.pptx,.png,.jpg,.jpeg,.zip";
 
-const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {} };
+const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [] };
 const rtKey = (pageId: number) => `lp_room_rt_${pageId}`;
 
 function readHl(): string | undefined {
@@ -108,7 +122,12 @@ class RoomStore {
     try {
       const { status, json } = await this.post("state", {});
       if (status !== 200) throw new Error("state");
-      this.set({ status: "ready", viewer: (json.viewer as RoomSnapshot["viewer"]) ?? null, tasks: (json.tasks as RoomSnapshot["tasks"]) ?? {} });
+      this.set({
+        status: "ready",
+        viewer: (json.viewer as RoomSnapshot["viewer"]) ?? null,
+        tasks: (json.tasks as RoomSnapshot["tasks"]) ?? {},
+        requests: Array.isArray(json.requests) ? (json.requests as RoomRequest[]) : [],
+      });
     } catch {
       this.set({ ...this.snap, status: "error" });
     }
@@ -129,7 +148,7 @@ class RoomStore {
         } catch {
           /* ignore */
         }
-        this.set({ ...this.snap, viewer: null });
+        this.set({ ...this.snap, viewer: null, requests: [] });
         return { ok: false, error, identityRequired: true };
       }
       return { ok: false, error: status === 429 ? "Too many tries. Please wait a minute." : error };
@@ -151,6 +170,11 @@ class RoomStore {
       return { ok: false, error: "Couldn't read that file. Please try again." };
     }
     return this.act("upload", { taskKey, fileName: file.name, fileBase64 });
+  }
+
+  /** Ask the team for something; it shows up in the snapshot's `requests`. */
+  sendRequest(input: { kind: string; subject: string; details: string; assetKey?: string }) {
+    return this.act("request", input);
   }
 
   /** "sent" = a link is on its way; "requested" = the team has been asked to approve this address. */
@@ -194,6 +218,8 @@ const emptySnapshot = () => EMPTY;
  * Room state + actions for a page. Inactive (static snapshot, no requests)
  * without a page id, in the builder, and on preview surfaces.
  */
+export type RoomStoreHandle = RoomStore;
+
 export function useRoom(pageId: number | undefined, enabled: boolean): { snapshot: RoomSnapshot; store: RoomStore | null } {
   // Dev only: the block fixture page sets `window.__ROOM_PREVIEW__` to exercise the room against a mock API.
   const devPreview = import.meta.env.DEV && typeof window !== "undefined" && !!(window as unknown as { __ROOM_PREVIEW__?: boolean }).__ROOM_PREVIEW__;

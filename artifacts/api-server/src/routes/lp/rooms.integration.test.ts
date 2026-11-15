@@ -113,7 +113,7 @@ beforeAll(() => {
 
 afterAll(async () => {
   for (const id of tenants) {
-    for (const table of ["lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
+    for (const table of ["lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
       await pool.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [id]).catch(() => {});
     }
     await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
@@ -126,8 +126,8 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const pageId = await seedPage(tenantId);
     const state = await post("state", { pageId });
     expect(state.status).toBe(200);
-    expect(state.json).toEqual({ viewer: null, tasks: {} });
-    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {} });
+    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [] });
+    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [] });
     expect((await post("task", { pageId, taskKey: "announce" })).status).toBe(401);
     expect((await post("upload", { pageId, taskKey: "practice-roster", fileName: "r.xlsx", fileBase64: XLSX.toString("base64") })).status).toBe(401);
     expect((await post("task", { pageId, taskKey: "announce", rt: "forged.token" })).status).toBe(401);
@@ -175,7 +175,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await post("task", { pageId, taskKey: "announce", rt })).status).toBe(200);
 
     const anon = await post("state", { pageId });
-    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } } });
+    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [] });
     const known = await post("state", { pageId, rt });
     expect(known.json).toMatchObject({ viewer: { email: "levi@mb2dental.com" }, tasks: { announce: { done: true, by: "levi@mb2dental.com" } } });
 
@@ -244,5 +244,40 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("state", { pageId })).json as { tasks: object }).tasks).toEqual({});
     const after = await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) });
     expect((after.json as { uploads: unknown[] }).uploads).toHaveLength(1);
+  });
+
+  it("a request needs a known visitor, shows only to known visitors, and the tenant moves it along", async () => {
+    const tenantId = await seedTenant();
+    const decoyTenantId = await seedTenant();
+    const r = await pool.query<{ id: number }>(
+      `INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'MB2 Workspace', $2, 'published', $3::jsonb) RETURNING id`,
+      [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { planGroups: [{ title: "P1", rows: [{ key: "practice-roster", task: "Roster", customerAction: "upload" }] }] } }])],
+    );
+    const pageId = r.rows[0].id;
+    const hubOnlyPageId = await seedPage(tenantId); // a hub-plan page is not a workspace: no requests
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+
+    expect((await post("request", { pageId, subject: "Change the one-pager" })).status).toBe(401);
+    expect((await post("request", { pageId: hubOnlyPageId, subject: "x", hl })).status).toBe(404);
+    expect((await post("request", { pageId, hl, subject: "", details: "" })).status).toBe(400);
+    const made = await post("request", { pageId, hl, kind: "asset_change", subject: "Change to: Partnership one-pager", details: "Add our CEO quote", assetKey: "partnership-one-pager" });
+    expect(made.status).toBe(200);
+
+    // The workspace's plan drives the same task API.
+    expect((await post("upload", { pageId, taskKey: "practice-roster", hl, fileName: "r.xlsx", fileBase64: XLSX.toString("base64") })).status).toBe(200);
+
+    expect(((await post("state", { pageId })).json as { requests: unknown[] }).requests).toEqual([]);
+    const known = (await post("state", { pageId, hl })).json as { requests: { id: number; status: string; subject: string; by: string; owner: string | null }[] };
+    expect(known.requests).toEqual([expect.objectContaining({ status: "new", subject: "Change to: Partnership one-pager", by: "Dana Visitor", owner: null })]);
+    const id = known.requests[0].id;
+
+    const detail = await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) });
+    expect(detail.json).toMatchObject({ isRoom: true, requests: [expect.objectContaining({ id, details: "Add our CEO quote", requestedByEmail: "dana@roomco.com" })] });
+
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/requests/${id}`, headers: asTenant(decoyTenantId), body: { status: "done" } })).status).toBe(404);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/requests/${id}`, headers: asTenant(tenantId), body: { status: "bogus" } })).status).toBe(400);
+    expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/requests/${id}`, headers: asTenant(tenantId), body: { status: "review", owner: "Partner Marketing", due: "Nov 21" } })).status).toBe(200);
+    const after = (await post("state", { pageId, hl })).json as { requests: { status: string; owner: string; due: string }[] };
+    expect(after.requests[0]).toMatchObject({ status: "review", owner: "Partner Marketing", due: "Nov 21" });
   });
 });

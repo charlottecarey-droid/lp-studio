@@ -78,6 +78,34 @@ export const lpRoomUploadsTable = pgTable(
   (t) => [index("lp_room_uploads_page_created_idx").on(t.pageId, t.createdAt)],
 );
 
+/** Something the customer asked for from the room, and where it stands. */
+export const lpRoomRequestsTable = pgTable(
+  "lp_room_requests",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    /** "asset_change" | "marketing" | "training" | "event" | "reporting" | "other" */
+    kind: text("kind").notNull(),
+    subject: text("subject").notNull(),
+    details: text("details"),
+    /** The launch-kit asset the request is about, when it came from "Request changes". */
+    assetKey: text("asset_key"),
+    /** "new" | "in_progress" | "review" | "done" */
+    status: text("status").notNull().default("new"),
+    /** Who at the tenant is handling it (free text: a name or a team). */
+    owner: text("owner"),
+    /** Target date as the team wrote it ("Nov 21"). */
+    due: text("due"),
+    requestedByEmail: text("requested_by_email").notNull(),
+    requestedByName: text("requested_by_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lp_room_requests_page_created_idx").on(t.pageId, t.createdAt)],
+);
+
+export type LpRoomRequest = typeof lpRoomRequestsTable.$inferSelect;
 export type LpRoomSettings = typeof lpRoomSettingsTable.$inferSelect;
 export type LpRoomMember = typeof lpRoomMembersTable.$inferSelect;
 export type LpRoomTaskState = typeof lpRoomTaskStateTable.$inferSelect;

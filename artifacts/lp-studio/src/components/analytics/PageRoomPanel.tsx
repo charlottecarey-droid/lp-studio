@@ -19,6 +19,7 @@ interface RoomDetail {
   settings: { allowedDomains: string[]; slackChannelId: string | null };
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
+  requests: { id: number; kind: string; subject: string; details: string | null; status: string; owner: string | null; due: string | null; requestedBy: string; createdAt: string }[];
   uploads: { id: number; taskKey: string; taskTitle: string; fileName: string; sizeBytes: number; uploadedBy: string; uploadedByEmail: string; createdAt: string }[];
 }
 
@@ -107,6 +108,18 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
                 </span>
               </div>
             ))}
+          </section>
+        )}
+
+        {(data.requests ?? []).length > 0 && (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Requests</h4>
+            <div className="divide-y rounded-md border">
+              {data.requests.map((q) => (
+                <RequestRow key={q.id} q={q} onSave={(patch) => run(send(`${base}/requests/${q.id}`, "PATCH", patch))} />
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">The customer sees the status, owner and due date in the room’s Requests module.</p>
           </section>
         )}
 
@@ -209,5 +222,36 @@ export function PageRoomPanel({ pageId }: { pageId: number }) {
         </section>
       </CardContent>
     </Card>
+  );
+}
+
+const REQUEST_STATUS: [string, string][] = [["new", "Received"], ["in_progress", "In progress"], ["review", "Ready for their review"], ["done", "Done"]];
+const REQUEST_KIND: Record<string, string> = { asset_change: "Asset change", marketing: "Marketing", training: "Training", event: "Event", reporting: "Reporting", other: "Other" };
+
+function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: (patch: { status?: string; owner?: string; due?: string }) => void }) {
+  const [owner, setOwner] = useState(q.owner ?? "");
+  const [due, setDue] = useState(q.due ?? "");
+  return (
+    <div className="space-y-2 px-3 py-2.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{q.subject}</p>
+          <p className="text-xs text-muted-foreground">{REQUEST_KIND[q.kind] ?? "Other"} · {q.requestedBy} · {fmtDate(q.createdAt)}</p>
+          {q.details && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{q.details}</p>}
+        </div>
+        <select
+          className="h-8 rounded-md border bg-background px-2 text-sm"
+          value={q.status}
+          onChange={(e) => onSave({ status: e.target.value })}
+          aria-label={`Status of ${q.subject}`}
+        >
+          {REQUEST_STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Input value={owner} onChange={(e) => setOwner(e.target.value)} onBlur={() => owner !== (q.owner ?? "") && onSave({ owner })} placeholder="Owner (name or team)" className="h-8 max-w-[220px] text-sm" />
+        <Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} placeholder="Due (Nov 21)" className="h-8 max-w-[140px] text-sm" />
+      </div>
+    </div>
   );
 }

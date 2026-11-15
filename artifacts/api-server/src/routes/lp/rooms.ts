@@ -18,6 +18,7 @@ import {
   db,
   lpPagesTable,
   lpRoomMembersTable,
+  lpRoomRequestsTable,
   lpRoomSettingsTable,
   lpRoomTaskStateTable,
   lpRoomUploadsTable,
@@ -35,6 +36,11 @@ import { sendRoomAccessEmail } from "../../lib/notifications";
 import { slackService } from "../../lib/slack-service";
 import {
   extractRoomTasks,
+  pageIsRoom,
+  parseRoomRequest,
+  ROOM_REQUEST_KIND_LABEL,
+  ROOM_REQUEST_STATUSES,
+  type RoomRequestKind,
   isEmailAllowed,
   normalizeDomain,
   normalizeEmail,
@@ -63,6 +69,8 @@ interface RoomPage {
   title: string;
   slug: string;
   tasks: Map<string, RoomTask>;
+  /** The page carries a room-workspace block (it has requests even with no customer tasks). */
+  isWorkspace: boolean;
 }
 
 async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
@@ -74,7 +82,7 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
     .where(eq(lpPagesTable.id, pageId))
     .limit(1);
   if (!page || page.tenantId == null) return null;
-  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks) };
+  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks) };
 }
 
 async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null }> {
@@ -178,7 +186,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
   try {
     const page = await loadRoomPage(req.body?.pageId);
     if (!page) {
-      res.json({ viewer: null, tasks: {} });
+      res.json({ viewer: null, tasks: {}, requests: [] });
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {});
@@ -201,7 +209,21 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
         if (t && !t.fileName) t.fileName = u.fileName; // newest first
       }
     }
-    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks });
+    // Requests are the customer's own conversation with the team: known viewers only.
+    const requests = viewer
+      ? (await db.select().from(lpRoomRequestsTable).where(eq(lpRoomRequestsTable.pageId, page.id)).orderBy(desc(lpRoomRequestsTable.createdAt)).limit(200)).map((r) => ({
+          id: r.id,
+          kind: r.kind,
+          subject: r.subject,
+          status: r.status,
+          owner: r.owner,
+          due: r.due,
+          assetKey: r.assetKey,
+          by: r.requestedByName || r.requestedByEmail,
+          createdAt: r.createdAt.toISOString(),
+        }))
+      : [];
+    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks, requests });
   } catch (err) {
     req.log.error({ err }, "room state failed");
     res.status(500).json({ error: "Could not load the room" });
@@ -360,6 +382,56 @@ router.post("/lp/room/upload", actionLimiter, async (req: Request, res: Response
   }
 });
 
+/**
+ * Ask the team for something: a change to a launch-kit asset, new material,
+ * training, anything else. Needs a known visitor so the request has a name
+ * on it; lands in the room's Requests module and in Slack.
+ */
+router.post("/lp/room/request", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await loadRoomPage(req.body?.pageId);
+    if (!page || !page.isWorkspace) {
+      res.status(404).json({ error: "Room not found" });
+      return;
+    }
+    const viewer = await resolveViewer(page, req.body ?? {});
+    if (!viewer) {
+      res.status(401).json({ error: "Confirm your email to continue", code: "identity_required" });
+      return;
+    }
+    const parsed = parseRoomRequest(req.body ?? {});
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const [row] = await db
+      .insert(lpRoomRequestsTable)
+      .values({
+        tenantId: page.tenantId,
+        pageId: page.id,
+        kind: parsed.kind,
+        subject: parsed.subject,
+        details: parsed.details,
+        assetKey: parsed.assetKey,
+        requestedByEmail: viewer.email,
+        requestedByName: viewer.name,
+      })
+      .returning({ id: lpRoomRequestsTable.id });
+    const settings = await loadSettings(page.id);
+    postToSlack(
+      page,
+      settings.slackChannelId,
+      "📝 New request",
+      [`*${mrk(viewer.name || viewer.email)}* asked: *${mrk(parsed.subject)}* (${ROOM_REQUEST_KIND_LABEL[parsed.kind as RoomRequestKind]})`, ...(parsed.details ? [mrk(parsed.details).slice(0, 500)] : []), "Set an owner and status from the page's Room panel in LP Studio."],
+      await roomPageUrl(req, page, req.body?.path),
+    );
+    res.json({ ok: true, id: row.id });
+  } catch (err) {
+    req.log.error({ err }, "room request failed");
+    res.status(500).json({ error: "Could not send the request. Please try again." });
+  }
+});
+
 /* ── TENANT (auth-gated) ─────────────────────────────────────────────────── */
 
 async function ownedRoomPage(req: Request, res: Response): Promise<RoomPage | null> {
@@ -377,7 +449,8 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
   try {
     const page = await ownedRoomPage(req, res);
     if (!page) return;
-    const [settings, members, states, uploads] = await Promise.all([
+    const [requests, settings, members, states, uploads] = await Promise.all([
+      db.select().from(lpRoomRequestsTable).where(eq(lpRoomRequestsTable.pageId, page.id)).orderBy(desc(lpRoomRequestsTable.createdAt)),
       loadSettings(page.id),
       db.select().from(lpRoomMembersTable).where(eq(lpRoomMembersTable.pageId, page.id)).orderBy(desc(lpRoomMembersTable.updatedAt)),
       db.select().from(lpRoomTaskStateTable).where(eq(lpRoomTaskStateTable.pageId, page.id)),
@@ -385,7 +458,20 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
     ]);
     const stateByKey = new Map(states.map((s) => [s.taskKey, s]));
     res.json({
-      isRoom: page.tasks.size > 0,
+      isRoom: page.tasks.size > 0 || page.isWorkspace,
+      requests: requests.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        subject: r.subject,
+        details: r.details,
+        assetKey: r.assetKey,
+        status: r.status,
+        owner: r.owner,
+        due: r.due,
+        requestedBy: r.requestedByName || r.requestedByEmail,
+        requestedByEmail: r.requestedByEmail,
+        createdAt: r.createdAt.toISOString(),
+      })),
       settings,
       tasks: [...page.tasks.values()].map((t) => {
         const s = stateByKey.get(t.key);
@@ -471,6 +557,36 @@ router.post("/lp/partner-rooms/:pageId/members", async (req: Request, res: Respo
   } catch (err) {
     req.log.error({ err }, "room member failed");
     res.status(500).json({ error: "Could not save" });
+  }
+});
+
+/** Move a request along: status, who is handling it, and the target date the customer sees. */
+router.patch("/lp/partner-rooms/:pageId/requests/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const id = Number(req.params.id);
+    const set: { status?: string; owner?: string | null; due?: string | null; updatedAt: ReturnType<typeof sql> } = { updatedAt: sql`now()` };
+    if (req.body?.status !== undefined) {
+      if (!(ROOM_REQUEST_STATUSES as readonly string[]).includes(String(req.body.status))) {
+        res.status(400).json({ error: "Invalid status" });
+        return;
+      }
+      set.status = String(req.body.status);
+    }
+    if (req.body?.owner !== undefined) set.owner = String(req.body.owner ?? "").trim().slice(0, 120) || null;
+    if (req.body?.due !== undefined) set.due = String(req.body.due ?? "").trim().slice(0, 40) || null;
+    const updated = Number.isFinite(id)
+      ? await db.update(lpRoomRequestsTable).set(set).where(and(eq(lpRoomRequestsTable.id, id), eq(lpRoomRequestsTable.pageId, page.id), eq(lpRoomRequestsTable.tenantId, page.tenantId))).returning({ id: lpRoomRequestsTable.id })
+      : [];
+    if (updated.length === 0) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room request update failed");
+    res.status(500).json({ error: "Could not update" });
   }
 });
 

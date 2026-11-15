@@ -132,13 +132,23 @@ export function planTaskKey(row: { key?: unknown; task?: unknown }): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
+/** Block types that make a page a room. `room-workspace` keeps its plan in `planGroups`, `hub-plan` in `lanes`. */
+export const ROOM_BLOCK_TYPES = ["room-workspace", "hub-plan"] as const;
+
+/** True when the page carries a room block (so it has room state even with no customer tasks). */
+export function pageIsRoom(blocks: unknown): boolean {
+  return Array.isArray(blocks) && blocks.some((b) => !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace");
+}
+
 /** Every task on the page a customer may act on, keyed. Later duplicates of a key are ignored. */
 export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
   const out = new Map<string, RoomTask>();
   if (!Array.isArray(blocks)) return out;
   for (const b of blocks) {
-    if (!b || typeof b !== "object" || (b as { type?: unknown }).type !== "hub-plan") continue;
-    const lanes = ((b as { props?: { lanes?: unknown } }).props?.lanes ?? []) as unknown;
+    const type = b && typeof b === "object" ? (b as { type?: unknown }).type : null;
+    if (type !== "hub-plan" && type !== "room-workspace") continue;
+    const props = (b as { props?: { lanes?: unknown; planGroups?: unknown } }).props;
+    const lanes = (type === "room-workspace" ? props?.planGroups : props?.lanes) ?? [];
     if (!Array.isArray(lanes)) continue;
     for (const lane of lanes) {
       const rows = (lane as { rows?: unknown })?.rows;
@@ -222,4 +232,37 @@ export function parseRoomUpload(fileNameRaw: unknown, fileBase64Raw: unknown): P
 export function safeRoomPath(raw: unknown): string | null {
   if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\") || raw.length > 300) return null;
   return raw.split(/[?#]/)[0];
+}
+
+/* ── Requests ────────────────────────────────────────────────────────────── */
+
+export const ROOM_REQUEST_KINDS = ["asset_change", "marketing", "training", "event", "reporting", "other"] as const;
+export type RoomRequestKind = (typeof ROOM_REQUEST_KINDS)[number];
+export const ROOM_REQUEST_STATUSES = ["new", "in_progress", "review", "done"] as const;
+export type RoomRequestStatus = (typeof ROOM_REQUEST_STATUSES)[number];
+
+export const ROOM_REQUEST_KIND_LABEL: Record<RoomRequestKind, string> = {
+  asset_change: "Asset change",
+  marketing: "Marketing",
+  training: "Training",
+  event: "Event",
+  reporting: "Reporting",
+  other: "Other",
+};
+
+const cleanText = (raw: unknown, max: number): string =>
+  typeof raw === "string" ? raw.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, max) : "";
+
+export type ParsedRoomRequest =
+  | { ok: true; kind: RoomRequestKind; subject: string; details: string | null; assetKey: string | null }
+  | { ok: false; error: string };
+
+/** Validate a visitor's request. Unknown kinds fall back to "other"; a subject is required. */
+export function parseRoomRequest(body: { kind?: unknown; subject?: unknown; details?: unknown; assetKey?: unknown }): ParsedRoomRequest {
+  const kind = (ROOM_REQUEST_KINDS as readonly string[]).includes(String(body.kind)) ? (body.kind as RoomRequestKind) : "other";
+  const subject = cleanText(body.subject, 160);
+  const details = cleanText(body.details, 4000);
+  if (!subject && !details) return { ok: false, error: "Tell us what you need" };
+  const assetKey = cleanText(body.assetKey, 80);
+  return { ok: true, kind, subject: subject || details.slice(0, 80), details: details || null, assetKey: assetKey || null };
 }

@@ -6,6 +6,8 @@ import {
   isEmailAllowed,
   normalizeDomain,
   normalizeEmail,
+  pageIsRoom,
+  parseRoomRequest,
   parseRoomUpload,
   planTaskKey,
   safeRoomPath,
@@ -109,5 +111,39 @@ describe("uploads", () => {
     expect(sanitizeFileName("")).toBe("upload");
     expect(safeRoomPath("/mb2-launch?rt=old#plan")).toBe("/mb2-launch");
     for (const bad of ["//evil.com/x", "https://evil.com", "mb2", "/a\\b", 5]) expect(safeRoomPath(bad)).toBeNull();
+  });
+});
+
+describe("room-workspace pages + requests", () => {
+  const blocks = [
+    {
+      type: "room-workspace",
+      props: {
+        planGroups: [
+          { title: "Days 0–5", rows: [{ key: "practice-roster", task: "Roster shared", customerAction: "upload" }, { key: "team", task: "Team assigned" }] },
+          { title: "Days 5–15", rows: [{ task: "Internal announcement", customerAction: "check" }] },
+        ],
+      },
+    },
+  ];
+  it("reads customer tasks from a workspace block's plan and recognises the page as a room", () => {
+    expect([...extractRoomTasks(blocks).keys()]).toEqual(["practice-roster", "internal-announcement"]);
+    expect(pageIsRoom(blocks)).toBe(true);
+    expect(pageIsRoom([{ type: "hub-plan", props: {} }])).toBe(false);
+    expect(pageIsRoom(null)).toBe(false);
+  });
+  it("validates a request: needs a subject or details, unknown kinds become other, text is bounded", () => {
+    expect(parseRoomRequest({ kind: "asset_change", subject: " Change to: one-pager ", details: "Add our CEO quote", assetKey: "one-pager" })).toEqual({
+      ok: true,
+      kind: "asset_change",
+      subject: "Change to: one-pager",
+      details: "Add our CEO quote",
+      assetKey: "one-pager",
+    });
+    expect(parseRoomRequest({ kind: "drop tables", details: "Spanish version of the guide please" })).toMatchObject({ ok: true, kind: "other", subject: "Spanish version of the guide please", assetKey: null });
+    expect(parseRoomRequest({ kind: "other", subject: "  ", details: "" })).toEqual({ ok: false, error: "Tell us what you need" });
+    const long = parseRoomRequest({ subject: "x".repeat(500), details: "y".repeat(9000) });
+    expect(long.ok && long.subject.length).toBe(160);
+    expect(long.ok && long.details?.length).toBe(4000);
   });
 });
