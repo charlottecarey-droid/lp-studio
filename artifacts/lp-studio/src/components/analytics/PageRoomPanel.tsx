@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
+import { RoomInviteSection } from "./RoomInvite";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -622,6 +623,8 @@ export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: 
             <Button size="sm" variant="brand" onClick={saveSettings}>Save</Button>
             {saved && <span className="text-sm text-muted-foreground">Saved</span>}
           </div>
+
+          {data.isWorkspace && <RoomInviteSection pageId={pageId} onInvited={refresh} />}
 
           <div className="space-y-2 pt-2">
             <span className="text-sm font-medium">People</span>
@@ -1286,7 +1289,7 @@ export function AutomaticRoomsSection() {
     try {
       const made = step("Create the draft room");
       const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: testName.trim() }) });
-      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
+      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; teamFilled?: number; contacts?: number; domain?: string | null; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
       if (!r.ok || !j.pageId) {
         made("failed", j.error ?? "Could not create the room");
         return;
@@ -1294,7 +1297,9 @@ export function AutomaticRoomsSection() {
       made("done", `“${j.name} Partner Room (test)”, a draft`);
       setTestPage(j.pageId);
       steps.push({ label: "Attach the standard files", state: j.standardFiles ? "done" : "failed", detail: j.standardFiles ? `${j.standardFiles} attached` : "None uploaded yet (see Standard launch files below)" });
-      steps.push({ label: "Tell the team in Slack", state: "done", detail: "Sent to your workspace channel, marked as a test" });
+      steps.push({ label: "Fill the customer's team from the account", state: j.teamFilled ? "done" : "failed", detail: j.teamFilled ? `${j.teamFilled} people added to the Team module; ${j.contacts ?? 0} contacts can be invited` : "No account with that name (or Salesforce ID) and contacts was found under Accounts" });
+      steps.push({ label: "Set the customer's email domain", state: j.domain ? "done" : "failed", detail: j.domain ?? "Couldn't work it out; add it under the room's Settings" });
+      steps.push({ label: "Tell the team in Slack", state: "done", detail: "Sent to your workspace channel with the setup checklist, marked as a test" });
       const f = j.followUps;
       if (f?.alerts) steps.push({ label: "Email alerts", state: f.alerts.sent.length ? "done" : "failed", detail: f.alerts.sent.length ? `Sent to ${f.alerts.sent.join(", ")}` : "Nobody to send to (a test has no account owner; add an email above)" });
       if (f?.sheet) steps.push({ label: "Add a row to the spreadsheet", state: f.sheet.ok ? "done" : "failed", detail: f.sheet.note });

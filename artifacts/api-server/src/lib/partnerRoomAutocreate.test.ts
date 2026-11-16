@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@workspace/db", () => ({ db: {}, appUsersTable: {}, tenantMembersTable: {}, tenantsTable: {}, lpPagesTable: {}, lpRoomAutocreateAccountsTable: {}, lpRoomAutocreateTable: {}, lpRoomStandardAssetsTable: {}, lpRoomSettingsTable: {}, lpRoomUploadsTable: {} }));
+vi.mock("@workspace/db", () => ({ db: {}, salesAccountsTable: {}, salesContactsTable: {}, appUsersTable: {}, tenantMembersTable: {}, tenantsTable: {}, lpPagesTable: {}, lpRoomAutocreateAccountsTable: {}, lpRoomAutocreateTable: {}, lpRoomStandardAssetsTable: {}, lpRoomSettingsTable: {}, lpRoomUploadsTable: {} }));
 vi.mock("./notifications", () => ({ sendRoomDigestEmail: vi.fn(async () => true) }));
 vi.mock("./sfdc-service", () => ({ sfdcService: {} }));
 vi.mock("./tenantHosts", () => ({ WILDCARD_BASE_HOSTS: ["app.example.com", "example.com"] }));
@@ -57,6 +57,8 @@ describe("the room made for an account", () => {
     const blocks = roomBlocksForAccount("Southeast Dental Partners", "southeast-dental-partners-room", [{ assetKey: "practice-welcome-guide", fileUrl: "/api/storage/objects/uploads/welcome" }]);
     const room = (blocks as { type: string; props: Record<string, unknown> }[]).find((b) => b.type === "room-workspace")!;
     expect(room.props.partnerName).toBe("Southeast Dental Partners");
+    expect(room.props.heroImageUrl).toBe("/room/default-cover.jpg");
+    expect(room.props.nextMilestoneLabel).toBe(""); // blank: the cover shows the next open plan item
     // The stored page keeps the variables; what anyone reads has the name.
     const shown = JSON.stringify(resolveRoomBlocks(blocks));
     expect(shown).not.toMatch(/\[Partner( name)?\]/);
@@ -84,6 +86,8 @@ describe("after a room is created", () => {
     expect(mail.html).not.toContain("<Dental>");
     expect(mail.html).toContain('href="https://app.example.com/builder/42"');
     expect(mail.html).toContain("Account owner: Molly Reilly");
+    expect(mail.html).toContain("Connect your calendar");
+    expect(roomCreatedEmail(account, links, { facts: { standardFiles: 2, teamFilled: 3, contacts: 9, domain: "mb2dental.com", practicesLinked: true, ownerNamed: false } }).html).toContain("Customer email domain set to mb2dental.com");
     expect(roomCreatedEmail(account, links, { test: true }).subject.startsWith("[Test] ")).toBe(true);
   });
   it("accepts only a Salesforce field API name", () => {

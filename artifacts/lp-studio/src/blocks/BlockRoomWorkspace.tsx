@@ -678,6 +678,19 @@ export function goalValue(goal: RoomGoal, ctx: { byStage: Record<string, number>
 export const ROOM_REQUEST_STATUS_LABEL: Record<string, string> = { new: "Received", in_progress: "In progress", review: "Ready for your review", done: "Done" };
 export const ROOM_REQUEST_KIND_LABEL: Record<string, string> = { asset_change: "Asset change", marketing: "Marketing", training: "Training", event: "Event", reporting: "Reporting", other: "Other" };
 
+/**
+ * The "Next up" line on the cover: what the builder typed when there is
+ * something, otherwise the first milestone in the plan that is not done yet
+ * (so it moves on by itself as the plan is worked through). Null when the
+ * plan is finished and nothing is typed.
+ */
+export function roomNextUp(label: string | undefined, date: string | undefined, milestones: { task: string; target?: string; done: boolean }[]): { label: string; date: string } | null {
+  const typed = (label ?? "").trim();
+  if (typed) return { label: typed, date: (date ?? "").trim() };
+  const open = milestones.find((m) => !m.done && (m.task ?? "").trim());
+  return open ? { label: open.task.trim(), date: (open.target ?? "").trim() } : null;
+}
+
 const fmtDate = (iso: string | undefined) => {
   if (!iso) return "";
   const d = new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
@@ -1096,6 +1109,8 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
     [groups, snapshot.tasks],
   );
   const doneCount = rows.filter((x) => x.status === "done").length;
+  // The line on the cover photo: what the builder typed, else the first milestone still open in the plan.
+  const next = roomNextUp(props.nextMilestoneLabel, props.nextMilestoneDate, rows.filter((x) => !x.r.hidden && !groups[x.gi]?.hidden).map((x) => ({ task: x.r.task, target: x.r.target, done: x.status === "done" })));
   const mine = rows.filter((x) => x.action && x.status !== "done");
   const reviewRequests = snapshot.requests.filter((q) => q.status === "review");
   const openRequests = snapshot.requests.filter((q) => q.status !== "done");
@@ -1217,20 +1232,20 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                   </div>
                 )}
               </div>
-              {cover === "fullbleed" && (props.nextMilestoneLabel ?? "").trim() && (
-                <div className="prw-next">
-                  {(props.nextMilestoneDate ?? "").trim() && <b>{fmtDate(props.nextMilestoneDate)}</b>}
-                  <span>Next: {props.nextMilestoneLabel}</span>
+              {cover === "fullbleed" && next && (
+                <div className="prw-next" data-room-next>
+                  {next.date && <b>{fmtDate(next.date)}</b>}
+                  <span>Next up: {next.label}</span>
                 </div>
               )}
             </div>
             {heroImage && cover !== "fullbleed" && (
               <div className="prw-photo">
                 <img src={heroImage} alt={props.heroImageAlt ?? ""} />
-                {(props.nextMilestoneLabel ?? "").trim() && (
-                  <div className="cap">
-                    {(props.nextMilestoneDate ?? "").trim() && <b>{fmtDate(props.nextMilestoneDate)}</b>}
-                    <span>Next: {props.nextMilestoneLabel}</span>
+                {next && (
+                  <div className="cap" data-room-next>
+                    {next.date && <b>{fmtDate(next.date)}</b>}
+                    <span>Next up: {next.label}</span>
                   </div>
                 )}
               </div>

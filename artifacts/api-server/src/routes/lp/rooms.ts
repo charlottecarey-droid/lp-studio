@@ -46,12 +46,12 @@ import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { getActiveHostsForTenant } from "../../lib/tenantHosts";
 import { getRequestHost, getRequestProto } from "../../lib/requestHost";
-import { sendRoomAccessEmail, sendRoomDigestEmail } from "../../lib/notifications";
+import { sendRoomAccessEmail, sendRoomDigestEmail, sendRoomInviteEmail } from "../../lib/notifications";
 import { buildRoomPeople, countReactions, feedAlertEmail, feedAlertsFor, parseReaction, parseWinImages, resolveMentions, teamPeopleFromBlocks, type FeedAlert, type RoomPerson } from "../../lib/partnerRoomFeed";
 import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
-import { createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { accountPeople, createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -1178,6 +1178,80 @@ router.post("/lp/partner-rooms/:pageId/members", async (req: Request, res: Respo
   } catch (err) {
     req.log.error({ err }, "room member failed");
     res.status(500).json({ error: "Could not save" });
+  }
+});
+
+/** The account behind a room: its Salesforce id from the room's settings, else the account the room was made for, else the name on the page. */
+async function roomAccountPeople(page: RoomPage) {
+  const [[settings], [auto]] = await Promise.all([
+    db.select({ sfdcAccountId: lpRoomSettingsTable.sfdcAccountId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1),
+    db.select({ name: lpRoomAutocreateAccountsTable.accountName, sfdcId: lpRoomAutocreateAccountsTable.sfdcAccountId }).from(lpRoomAutocreateAccountsTable).where(eq(lpRoomAutocreateAccountsTable.pageId, page.id)).limit(1),
+  ]);
+  return accountPeople(page.tenantId, { sfdcId: settings?.sfdcAccountId ?? auto?.sfdcId ?? null, name: auto?.name ?? page.partnerName });
+}
+
+/** The account's contacts for this room (from the workspace's Accounts), each with whether they already have access. */
+router.get("/lp/partner-rooms/:pageId/account-contacts", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const [people, members] = await Promise.all([roomAccountPeople(page), db.select({ email: lpRoomMembersTable.email, status: lpRoomMembersTable.status }).from(lpRoomMembersTable).where(eq(lpRoomMembersTable.pageId, page.id))]);
+    const status = new Map(members.map((m) => [m.email, m.status]));
+    res.json({ found: !!people, domain: people?.domain ?? null, contacts: (people?.contacts ?? []).slice(0, 500).map((c) => ({ ...c, invited: status.get(c.email) === "allowed" })) });
+  } catch (err) {
+    req.log.error({ err }, "room account contacts failed");
+    res.status(500).json({ error: "Could not load the account's contacts" });
+  }
+});
+
+const INVITE_MAX = 25;
+
+/**
+ * Invite the customer's people: each address is let into the room and emailed
+ * a personal link that opens it as them. Only for a published room (a draft's
+ * link shows nothing).
+ */
+router.post("/lp/partner-rooms/:pageId/invite", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const raw: unknown[] = Array.isArray(req.body?.people) ? req.body.people : [];
+    const people = new Map<string, string>();
+    for (const p of raw.slice(0, 200)) {
+      const email = normalizeEmail((p as { email?: unknown })?.email);
+      const name = typeof (p as { name?: unknown })?.name === "string" ? (p as { name: string }).name.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+      if (email && !people.has(email)) people.set(email, name);
+    }
+    if (people.size === 0) {
+      res.status(400).json({ error: "Choose at least one person with a valid email address." });
+      return;
+    }
+    if (people.size > INVITE_MAX) {
+      res.status(400).json({ error: `Invite up to ${INVITE_MAX} people at a time.` });
+      return;
+    }
+    const [row] = await db.select({ status: lpPagesTable.status }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1);
+    if (row?.status !== "published") {
+      res.status(400).json({ error: "Publish the room first. An invitation to a draft would open an empty page." });
+      return;
+    }
+    const invitedBy = req.authUser?.name?.trim() || req.authUser?.email || "Your partner team";
+    const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 600) : "";
+    const url = await roomPageUrl(req, page, undefined);
+    const sent: string[] = [];
+    const failed: string[] = [];
+    for (const [email, name] of people) {
+      await db
+        .insert(lpRoomMembersTable)
+        .values({ tenantId: page.tenantId, pageId: page.id, email, status: "allowed" })
+        .onConflictDoUpdate({ target: [lpRoomMembersTable.pageId, lpRoomMembersTable.email], set: { status: "allowed", updatedAt: sql`now()` } });
+      const ok = await sendRoomInviteEmail({ recipientEmail: email, recipientName: name, invitedBy, note, roomUrl: `${url}?rt=${encodeURIComponent(signRoomToken(page.id, email))}`, roomTitle: page.title, tenantId: page.tenantId }).catch(() => false);
+      (ok ? sent : failed).push(email);
+    }
+    res.json({ ok: failed.length === 0, sent, failed });
+  } catch (err) {
+    req.log.error({ err }, "room invite failed");
+    res.status(500).json({ error: "Could not send the invitations" });
   }
 });
 

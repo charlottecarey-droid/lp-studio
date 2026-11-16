@@ -21,6 +21,7 @@ import { dbAvailable } from "../../test-utils/dbAvailable";
 
 const stored = new Map<string, Buffer>();
 const sentEmails: { recipientEmail: string; roomUrl: string }[] = [];
+const inviteEmails: { recipientEmail: string; roomUrl: string; invitedBy: string; note?: string }[] = [];
 
 vi.mock("../../lib/objectStorage", () => ({
   ObjectStorageService: class {
@@ -65,6 +66,10 @@ vi.mock("../../lib/notifications", () => ({
   sendRoomAccessEmail: vi.fn(async (p: { recipientEmail: string; roomUrl: string }) => {
     sentEmails.push(p);
     return true;
+  }),
+  sendRoomInviteEmail: vi.fn(async (p: { recipientEmail: string; roomUrl: string; invitedBy: string; note?: string }) => {
+    inviteEmails.push(p);
+    return p.recipientEmail !== "bounce@cedardental.com";
   }),
   sendRoomDigestEmail: vi.fn(async (p: { recipientEmail: string; subject: string; html: string }) => {
     digestEmails.push(p);
@@ -956,6 +961,66 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const backfilled = await pool.query<{ sfdc_account_id: string }>(`SELECT sfdc_account_id FROM lp_room_settings WHERE page_id = $1`, [second.created[0].pageId]);
     expect(backfilled.rows[0]?.sfdc_account_id).toBe("0015d00000BBBBBAAA");
     sheetValues = null;
+  }, 60_000);
+
+  it("a new room is filled from the account's contacts, the team gets a setup checklist, and contacts can be invited once it is published", async () => {
+    const tenantId = await seedTenant();
+    const otherTenantId = await seedTenant();
+    const acct = await pool.query<{ id: number }>(`INSERT INTO sales_accounts (tenant_id, name, status, domain, salesforce_id) VALUES ($1, 'Cedar Dental-HQ', 'active', 'https://www.cedardental.com/', '0015d00000CEDARAAA') RETURNING id`, [tenantId]);
+    const contact = (first: string, last: string, title: string, level: string, email: string) =>
+      pool.query(`INSERT INTO sales_contacts (tenant_id, account_id, first_name, last_name, title, title_level, email, status) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')`, [tenantId, acct.rows[0].id, first, last, title, level, email]);
+    await contact("Mia", "Manager", "Regional Manager", "Manager", "mia@cedardental.com");
+    await contact("Cal", "Chief", "Chief Operating Officer", "C Suite", "cal@cedardental.com");
+    await contact("Out", "Sider", "Consultant", "C Suite", "out@elsewhere.com");
+    await contact("Bo", "Bounce", "Director of Ops", "Director", "bounce@cedardental.com");
+
+    const { slackService } = await import("../../lib/slack-service");
+    vi.mocked(slackService.postMessage).mockClear();
+    const test = (await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "Cedar Dental", owner: "Sam Owner" } })).json as { pageId: number; teamFilled: number; contacts: number; domain: string };
+    expect(test).toMatchObject({ teamFilled: 3, contacts: 3, domain: "cedardental.com" });
+
+    // The page: the model cover photo, the customer's people (most senior first, only at their domain), the owner leading our side.
+    const page = await pool.query<{ blocks: { type: string; props: { heroImageUrl: string; team: { members: { name: string; role?: string; email?: string }[] }[] } }[] }>(`SELECT blocks FROM lp_pages WHERE id = $1`, [test.pageId]);
+    const room = page.rows[0].blocks.find((b) => b.type === "room-workspace")!;
+    expect(room.props.heroImageUrl).toBe("/room/default-cover.jpg");
+    expect(room.props.team[1].members).toEqual([
+      { name: "Cal Chief", role: "Chief Operating Officer", email: "cal@cedardental.com" },
+      { name: "Bo Bounce", role: "Director of Ops", email: "bounce@cedardental.com" },
+      { name: "Mia Manager", role: "Regional Manager", email: "mia@cedardental.com" },
+    ]);
+    expect(room.props.team[0].members[0]).toEqual({ name: "Sam Owner", role: "Account owner" });
+    const settings = await pool.query<{ allowed_domains: string[] }>(`SELECT allowed_domains FROM lp_room_settings WHERE page_id = $1`, [test.pageId]);
+    expect(settings.rows[0].allowed_domains).toEqual(["cedardental.com"]);
+
+    // Slack: one message with the link, what was done, and the checklist.
+    const slack = JSON.stringify(vi.mocked(slackService.postMessage).mock.calls);
+    expect(slack).toContain("Customer team filled in from the account (3 people)");
+    expect(slack).toContain("Customer email domain set to cedardental.com");
+    expect(slack).toContain("Connect your calendar");
+    expect(slack).toContain("3 contacts on the account");
+
+    // The contacts to invite: this tenant only.
+    const contactsOf = (as: number) => inject(app, { method: "GET", url: `/lp/partner-rooms/${test.pageId}/account-contacts`, headers: asTenant(as) });
+    expect((await contactsOf(otherTenantId)).status).toBe(404);
+    const list = (await contactsOf(tenantId)).json as { found: boolean; contacts: { name: string; email: string; invited: boolean }[] };
+    expect(list.contacts.map((c) => c.email)).toEqual(["cal@cedardental.com", "bounce@cedardental.com", "mia@cedardental.com"]);
+    expect(list.contacts.every((c) => !c.invited)).toBe(true);
+
+    // Inviting: refused while the room is a draft, and for another workspace.
+    const invite = (people: unknown, as = tenantId) => inject(app, { method: "POST", url: `/lp/partner-rooms/${test.pageId}/invite`, headers: { ...asTenant(as), "x-test-email": "rep@vendor.com" }, body: { people, note: "See you at kickoff" } });
+    expect((await invite([{ email: "cal@cedardental.com", name: "Cal Chief" }])).status).toBe(400);
+    expect(inviteEmails).toHaveLength(0);
+    await pool.query(`UPDATE lp_pages SET status = 'published' WHERE id = $1`, [test.pageId]);
+    expect((await invite([{ email: "cal@cedardental.com" }], otherTenantId)).status).toBe(404);
+    expect((await invite([{ email: "nope" }])).status).toBe(400);
+    const sent = (await invite([{ email: "Cal@CedarDental.com", name: "Cal Chief" }, { email: "cal@cedardental.com" }, { email: "friend@gmail.com", name: "A Friend" }, { email: "bounce@cedardental.com" }])).json as { ok: boolean; sent: string[]; failed: string[] };
+    expect(sent).toEqual({ ok: false, sent: ["cal@cedardental.com", "friend@gmail.com"], failed: ["bounce@cedardental.com"] });
+    expect(inviteEmails.find((e) => e.recipientEmail === "cal@cedardental.com")).toMatchObject({ invitedBy: "rep@vendor.com", note: "See you at kickoff" });
+    // The emailed link opens the room as that person, even at a free-mail address the domain rule would never allow.
+    const friend = inviteEmails.find((e) => e.recipientEmail === "friend@gmail.com")!;
+    const state = (await post("state", { pageId: test.pageId, rt: tokenFrom(friend.roomUrl) })).json as { viewer: { email: string } | null };
+    expect(state.viewer?.email).toBe("friend@gmail.com");
+    expect(((await contactsOf(tenantId)).json as { contacts: { email: string; invited: boolean }[] }).contacts.find((c) => c.email === "cal@cedardental.com")?.invited).toBe(true);
   }, 60_000);
 
   it("practices: a scanner export fills counts without changing stages, and the list sorts by any column", async () => {

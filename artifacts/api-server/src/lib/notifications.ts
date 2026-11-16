@@ -482,6 +482,43 @@ export async function sendRoomAccessEmail(payload: {
   });
 }
 
+/**
+ * Partner room invitation: a team member invites one of the customer's people.
+ * The link carries the same signed room token as an access link, so the person
+ * arrives already recognised (no email check on the page).
+ */
+export async function sendRoomInviteEmail(payload: {
+  recipientEmail: string;
+  recipientName?: string | null;
+  invitedBy: string;
+  note?: string | null;
+  roomUrl: string;
+  roomTitle: string;
+  tenantId: number;
+}): Promise<boolean> {
+  const { recipientEmail, roomUrl, roomTitle, tenantId } = payload;
+  const first = (payload.recipientName ?? "").trim().split(/\s+/)[0];
+  const note = (payload.note ?? "").trim();
+  const html = buildAuthActionEmailHtml({
+    headline: `You're invited to ${roomTitle}`,
+    bodyHtml: `${first ? `Hi ${escapeHtml(first)}, ` : ""}${escapeHtml(payload.invitedBy)} invited you to <strong>${escapeHtml(roomTitle)}</strong>: the shared workspace for our partnership, with the plan, the launch kit, upcoming dates and the team on both sides.${note ? `<br><br>${escapeHtml(note).replace(/\n/g, "<br>")}` : ""}`,
+    ctaLabel: "Open the workspace",
+    ctaUrl: roomUrl,
+    expiryNote: "This link is yours and works for 90 days. Please don't forward it: anyone who opens it acts as you.",
+    footerNote: "You're receiving this because a member of your partner's team invited you to a shared workspace.",
+  });
+  const sender = await resolveTenantSenderSafe(tenantId, "notifications");
+  return sendAuthActionEmail({
+    to: recipientEmail,
+    subject: `${payload.invitedBy} invited you to ${roomTitle}`,
+    html,
+    fromEmail: sender.from,
+    replyTo: sender.replyTo,
+    logContext: { tenantId, room: roomTitle },
+    logMessage: "room invite email",
+  });
+}
+
 /** Partner room weekly digest to one customer address, from the workspace's own sending identity. */
 export async function sendRoomDigestEmail(payload: { recipientEmail: string; subject: string; html: string; tenantId: number }): Promise<boolean> {
   const sender = await resolveTenantSenderSafe(payload.tenantId, "notifications");

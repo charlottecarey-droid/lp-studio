@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@workspace/db", () => ({ db: {}, pool: {} }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
-import { parentIdFilter, practicesFromSheetValues, revopsSlackLines, sheetFilterIndex, slackMention } from "./partnerRoomService";
+import { parentIdFilter, parentNameFilter, practicesFromSheetValues, revopsSlackLines, sheetFilterIndex, slackMention } from "./partnerRoomService";
 import { extractRoomTasks, fillAccountName, normalizePracticeStage, parsePracticeRow, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
 
 const MB2 = "0015d000041HyXrAAK";
@@ -24,6 +24,16 @@ describe("a shared Salesforce sheet narrowed to one customer", () => {
     expect(rows.map((r) => r.name)).toEqual(["Smile Dallas", "Lakeside Family"]);
     expect(rows[0]).toMatchObject({ state: "TX", stage: "live" });
     expect(rows[1]).toMatchObject({ stage: "training_booked" });
+  });
+
+  it("falls back to the parent account NAME when there is no ID, however the name is decorated", () => {
+    const sheet = [...SHEET, ["E", "Uptown Smiles", "TX", "New", "", "MB2 Dental-HQ"], ["F", "Not Ours", "TX", "New", "", "MB2 Dental Partners West"]];
+    const filter = parentNameFilter(sheet, "MB2 Dental -HQ");
+    expect(filter).toMatchObject({ column: "Parent Account Name", mode: "account", value: "MB2 Dental" });
+    // The whole name must match: "MB2 Dental Partners West" is another account.
+    expect(practicesFromSheetValues(sheet, filter).map((r) => r.name)).toEqual(["Smile Dallas", "Lakeside Family", "Uptown Smiles"]);
+    expect(parentNameFilter([["Account Name"], ["X"]], "MB2 Dental")).toBeNull();
+    expect(parentNameFilter(sheet, "")).toBeNull();
   });
 
   it("has no automatic filter without the column or without an account ID", () => {

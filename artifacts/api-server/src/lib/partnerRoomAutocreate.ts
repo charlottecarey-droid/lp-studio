@@ -15,40 +15,21 @@
  */
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
-import { appUsersTable, db, lpPagesTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
+import { appUsersTable, db, lpPagesTable, salesAccountsTable, salesContactsTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
 import { sendRoomDigestEmail } from "./notifications";
 import { sfdcService } from "./sfdc-service";
 import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 import { logger } from "./logger";
 import { ROOM_STANDARD_ASSETS, setRoomKitAsset } from "./partnerRoom";
+import { accountKey, cleanAccountName } from "./partnerRoomNames";
+import { addTeamPeople, cleanDomain, EMPTY_SETUP_FACTS, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist, type AccountContact, type RoomSetupFacts } from "./partnerRoomTeam";
 import { SHEET_ID_RE, SHEET_TAB_RE, syncPracticesFromSheet } from "./partnerRoomService";
 import { slackService } from "./slack-service";
 import { buildPartnerWorkspaceBlocks } from "../seeds/partnerLaunchRoomTemplate";
 
 /* ── Pure helpers ────────────────────────────────────────────────────────── */
 
-const DECORATION = /\s*(?:[-–—]\s*)?\(?\b(?:enterprise|national|dso|parent|hq)\b\)?\s*$/i;
-
-/**
- * A Salesforce account name as a customer would write it: the trailing
- * bookkeeping words are dropped ("Heartland Dental-HQ", "Smile Brands DSO
- * Enterprise Parent", "PepperPointe Partnerships - National DSO").
- */
-export function cleanAccountName(raw: unknown): string {
-  let name = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim() : "";
-  for (let i = 0; i < 6; i++) {
-    const next = name.replace(DECORATION, "").replace(/[\s\-–—]+$/, "").trim();
-    // Never strip a name down to nothing or to a single short word.
-    if (next === name || next.length < 3) break;
-    name = next;
-  }
-  return name.slice(0, 120);
-}
-
-/** One account, however it is decorated or capitalised. */
-export function accountKey(name: string): string {
-  return cleanAccountName(name).toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, "-").slice(0, 120);
-}
+export { accountKey, cleanAccountName };
 
 export interface SignedAccount {
   key: string;
@@ -90,8 +71,11 @@ export const roomSlugFor = (name: string) => `${accountKey(name).slice(0, 60).re
 /* ── Creating a room ─────────────────────────────────────────────────────── */
 
 /** The blocks of a new room for an account: the template with the name set (its text follows the name), plus the workspace's standard guides. */
+export const DEFAULT_ROOM_COVER = "/room/default-cover.jpg";
+
 export function roomBlocksForAccount(name: string, slug: string, standard: { assetKey: string; fileUrl: string }[]): unknown[] {
-  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]" }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "" } } : b));
+  // The cover photo is the one on the model room; the "Next up" line on it follows the plan (the first milestone still open).
+  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "" } } : b));
   for (const spec of ROOM_STANDARD_ASSETS) {
     const file = standard.find((s) => s.assetKey === spec.key);
     const next = file ? setRoomKitAsset(blocks, { key: spec.key, kind: "pdf", title: spec.title, description: spec.description, fileUrl: file.fileUrl }) : null;
@@ -116,14 +100,15 @@ async function freeSlug(tenantId: number, base: string): Promise<string> {
  * on the room stays. Returns true when the room is now linked.
  */
 export async function linkRoomPractices(tenantId: number, pageId: number, sfdcId: string | null, sheetId: string | null, practicesTab: string | null): Promise<boolean> {
-  if (!sfdcId || !sheetId || !practicesTab) return false;
+  // With no Salesforce id the sheet is still linked: the read then matches the account by name ("Parent Account Name").
+  if (!sheetId || !practicesTab) return false;
   await db
     .insert(lpRoomSettingsTable)
     .values({ pageId, tenantId, sfdcAccountId: sfdcId, practicesSheetId: sheetId, practicesSheetTab: practicesTab })
     .onConflictDoUpdate({
       target: lpRoomSettingsTable.pageId,
       set: {
-        sfdcAccountId: sql`COALESCE(${lpRoomSettingsTable.sfdcAccountId}, ${sfdcId})`,
+        sfdcAccountId: sql`COALESCE(${lpRoomSettingsTable.sfdcAccountId}, ${sfdcId}::text)`,
         practicesSheetId: sql`COALESCE(${lpRoomSettingsTable.practicesSheetId}, ${sheetId})`,
         practicesSheetTab: sql`CASE WHEN ${lpRoomSettingsTable.practicesSheetId} IS NULL THEN ${practicesTab} ELSE ${lpRoomSettingsTable.practicesSheetTab} END`,
       },
@@ -131,8 +116,88 @@ export async function linkRoomPractices(tenantId: number, pageId: number, sfdcId
   return true;
 }
 
+const sameSfdcId = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && a.length >= 15 && b.length >= 15 && a.slice(0, 15) === b.slice(0, 15);
+
+export interface AccountPeople {
+  /** The account's Salesforce id as LP Studio has it. */
+  sfdcId: string | null;
+  domain: string | null;
+  contacts: AccountContact[];
+}
+
+/**
+ * The account as LP Studio already knows it (Accounts and Contacts in the
+ * sales workspace): matched by Salesforce id, else by name. Gives the
+ * customer's email domain and its contacts, most senior first.
+ */
+export async function accountPeople(tenantId: number, account: { sfdcId: string | null; name: string }): Promise<AccountPeople | null> {
+  const accounts = await db.select({ id: salesAccountsTable.id, name: salesAccountsTable.name, displayName: salesAccountsTable.displayName, salesforceId: salesAccountsTable.salesforceId, domain: salesAccountsTable.domain }).from(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId));
+  const key = accountKey(account.name);
+  const hit = accounts.find((a) => sameSfdcId(a.salesforceId, account.sfdcId)) ?? (key ? accounts.find((a) => accountKey(a.name) === key || (a.displayName ? accountKey(a.displayName) === key : false)) : undefined);
+  if (!hit) return null;
+  const rows = await db
+    .select({ firstName: salesContactsTable.firstName, lastName: salesContactsTable.lastName, title: salesContactsTable.title, email: salesContactsTable.email, titleLevel: salesContactsTable.titleLevel, status: salesContactsTable.status })
+    .from(salesContactsTable)
+    .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, hit.id)))
+    .limit(2000);
+  const domain = cleanDomain(hit.domain) ?? mainEmailDomain(rows.map((r) => r.email));
+  return { sfdcId: hit.salesforceId ?? null, domain, contacts: rankAccountContacts(rows, domain) };
+}
+
+/** How many of the account's contacts go on the room's Team module to start with. The rest can still be invited. */
+export const TEAM_FROM_CONTACTS = 8;
+
+/**
+ * Fill a new room from what LP Studio knows about the account: the customer's
+ * side of the Team module, the email domain the room accepts, and the account
+ * owner on our side. Best effort; the room exists either way.
+ */
+async function fillRoomFromAccount(tenantId: number, pageId: number, account: SignedAccount, blocks: unknown[], people: AccountPeople | null): Promise<Pick<RoomSetupFacts, "teamFilled" | "contacts" | "domain" | "ownerNamed">> {
+  const out = { teamFilled: 0, contacts: people?.contacts.length ?? 0, domain: people?.domain ?? null, ownerNamed: false };
+  let next = blocks;
+  const team = (people?.contacts ?? []).slice(0, TEAM_FROM_CONTACTS).map((c) => ({ name: c.name, role: c.title, email: c.email }));
+  const withTeam = addTeamPeople(next, "partner", team);
+  if (withTeam) {
+    next = withTeam;
+    out.teamFilled = team.length;
+  }
+  if (account.owner) {
+    const owner = await ownerUser(tenantId, account.owner);
+    const withOwner = addTeamPeople(next, "ours", [{ name: account.owner.trim(), role: "Account owner", email: owner?.email }], { first: true, keepPlaceholders: true });
+    if (withOwner) {
+      next = withOwner;
+      out.ownerNamed = true;
+    }
+  }
+  if (next !== blocks) await db.update(lpPagesTable).set({ blocks: next as never }).where(eq(lpPagesTable.id, pageId));
+  if (out.domain) {
+    await db
+      .insert(lpRoomSettingsTable)
+      .values({ pageId, tenantId, allowedDomains: [out.domain] })
+      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { allowedDomains: [out.domain] }, setWhere: sql`COALESCE(jsonb_array_length(${lpRoomSettingsTable.allowedDomains}), 0) = 0` });
+  }
+  return out;
+}
+
+/** The active team member whose name is exactly the account owner's (the sheet gives a name, not an address). */
+async function ownerUser(tenantId: number, ownerName: string): Promise<{ email: string } | null> {
+  const users = await db.select({ id: appUsersTable.id, email: appUsersTable.email, tenantId: appUsersTable.tenantId }).from(appUsersTable).where(and(sql`lower(${appUsersTable.name}) = ${ownerName.trim().toLowerCase()}`, eq(appUsersTable.status, "active")));
+  const own = users.find((u) => u.tenantId === tenantId);
+  if (own) return own;
+  for (const u of users) {
+    const [m] = await db.select({ id: tenantMembersTable.id }).from(tenantMembersTable).where(and(eq(tenantMembersTable.tenantId, tenantId), eq(tenantMembersTable.userId, u.id))).limit(1);
+    if (m) return u;
+  }
+  return null;
+}
+
 /** Make the draft room for an account that has none yet. Returns the page id, or null when another reader already made it. */
 export async function createRoomForAccount(tenantId: number, account: SignedAccount, opts: { claimed?: boolean; test?: boolean } = {}): Promise<number | null> {
+  return (await createRoom(tenantId, account, opts))?.pageId ?? null;
+}
+
+/** Make the draft room for an account that has none yet. Returns the page id, or null when another reader already made it. */
+export async function createRoom(tenantId: number, account: SignedAccount, opts: { claimed?: boolean; test?: boolean } = {}): Promise<{ pageId: number; facts: RoomSetupFacts } | null> {
   if (!opts.claimed) {
     // Claim the account first: only the one that updates a still-empty row goes on to create the page.
     const claim = await db
@@ -145,18 +210,30 @@ export async function createRoomForAccount(tenantId: number, account: SignedAcco
   try {
     const slug = await freeSlug(tenantId, opts.test ? roomSlugFor(account.name).replace(/-room$/, "-test-room") : roomSlugFor(account.name));
     const standard = await db.select({ assetKey: lpRoomStandardAssetsTable.assetKey, fileUrl: lpRoomStandardAssetsTable.fileUrl }).from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, tenantId));
+    const blocks = roomBlocksForAccount(account.name, slug, standard);
     const [page] = await db
       .insert(lpPagesTable)
-      .values({ tenantId, title: `${account.name} Partner Room${opts.test ? " (test)" : ""}`, slug, blocks: roomBlocksForAccount(account.name, slug, standard) as never, status: "draft", createdBy: "automatic rooms" })
+      .values({ tenantId, title: `${account.name} Partner Room${opts.test ? " (test)" : ""}`, slug, blocks: blocks as never, status: "draft", createdBy: "automatic rooms" })
       .returning({ id: lpPagesTable.id });
     await db.update(lpRoomAutocreateAccountsTable).set({ pageId: page.id }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, account.key)));
     // Its practices come from the workbook's locations tab, by the account's Salesforce id. Best effort: the room exists either way.
     const [cfg] = await db.select({ sheetId: lpRoomAutocreateTable.sheetId, practicesTab: lpRoomAutocreateTable.practicesTab }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
-    const linked = await linkRoomPractices(tenantId, page.id, account.sfdcId, cfg?.sheetId ?? null, cfg?.practicesTab ?? null).catch(() => false);
-    if (linked) await syncPracticesFromSheet(page.id).catch((err) => logger.warn({ err, pageId: page.id }, "first practices read for an automatic room failed"));
+    // What LP Studio already knows about the account: its contacts, its email domain, and its Salesforce id when the sheet has none.
+    const people = await accountPeople(tenantId, account).catch((err) => {
+      logger.warn({ err, pageId: page.id }, "account lookup for an automatic room failed");
+      return null;
+    });
+    const sfdcId = account.sfdcId ?? people?.sfdcId ?? null;
+    const filled = await fillRoomFromAccount(tenantId, page.id, account, blocks, people).catch((err) => {
+      logger.warn({ err, pageId: page.id }, "filling an automatic room from the account failed");
+      return { teamFilled: 0, contacts: 0, domain: null, ownerNamed: false };
+    });
+    const linked = await linkRoomPractices(tenantId, page.id, sfdcId, cfg?.sheetId ?? null, cfg?.practicesTab ?? null).catch(() => false);
+    const read = linked ? await syncPracticesFromSheet(page.id).catch((err) => (logger.warn({ err, pageId: page.id }, "first practices read for an automatic room failed"), { ok: false })) : { ok: false };
+    const facts: RoomSetupFacts = { ...EMPTY_SETUP_FACTS, ...filled, standardFiles: standard.length, practicesLinked: linked && read.ok };
     // Alerts, the sheet log and the Salesforce field. A test run does these itself so it can report each one.
-    if (!opts.test) await afterRoomCreated(tenantId, account, page.id).catch((err) => logger.warn({ err, pageId: page.id }, "follow-ups for an automatic room failed"));
-    return page.id;
+    if (!opts.test) await afterRoomCreated(tenantId, { ...account, sfdcId }, page.id, { facts }).catch((err) => logger.warn({ err, pageId: page.id }, "follow-ups for an automatic room failed"));
+    return { pageId: page.id, facts };
   } catch (err) {
     // Release the claim so the next read tries again.
     await db.update(lpRoomAutocreateAccountsTable).set({ pageId: null }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, account.key), eq(lpRoomAutocreateAccountsTable.pageId, -1)));
@@ -178,13 +255,17 @@ export function roomLogRow(account: SignedAccount, links: { room: string; edit: 
 
 const escHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export function roomCreatedEmail(account: SignedAccount, links: { room: string; edit: string }, opts: { test?: boolean } = {}): { subject: string; html: string } {
+export function roomCreatedEmail(account: SignedAccount, links: { room: string; edit: string }, opts: { test?: boolean; facts?: RoomSetupFacts } = {}): { subject: string; html: string } {
   const name = escHtml(account.name);
+  const list = roomSetupChecklist(opts.facts ?? EMPTY_SETUP_FACTS)
+    .map((i) => `<tr><td style="padding:3px 8px 3px 0;vertical-align:top">${i.done ? "✅" : "◻️"}</td><td style="padding:3px 0;${i.done ? "color:#68726c" : ""}">${escHtml(i.text)}</td></tr>`)
+    .join("");
   return {
     subject: `${opts.test ? "[Test] " : ""}New partner room: ${account.name}`,
     html: `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:#18201c;max-width:560px">
 <p style="margin:0 0 12px"><strong>A partner room was created for ${name}.</strong>${opts.test ? " This is a test run." : ""}</p>
-<p style="margin:0 0 12px">It is a draft: nobody outside your team can see it yet. Add the logo, kickoff date and team, check the launch kit, then publish.</p>
+<p style="margin:0 0 12px">It is a draft: nobody outside your team can see it yet. Here is what was done for you and what is left:</p>
+<table style="margin:0 0 16px;border-collapse:collapse;font-size:14px">${list}</table>
 <p style="margin:0 0 16px"><a href="${escHtml(links.edit)}" style="display:inline-block;background:#18201c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">Open the room</a></p>
 <p style="margin:0;color:#68726c;font-size:13px">${[account.owner ? `Account owner: ${escHtml(account.owner)}` : "", account.signedDate ? `Contract signed: ${escHtml(account.signedDate)}` : "", `Customer link once published: ${escHtml(links.room)}`].filter(Boolean).join("<br>")}</p>
 </div>`,
@@ -219,18 +300,22 @@ async function appendRoomLog(sheetId: string, tab: string, row: string[]): Promi
  * write the room's link to a Salesforce field. Each is best effort and
  * reports how it went; none can undo the room.
  */
-export async function afterRoomCreated(tenantId: number, account: SignedAccount, pageId: number, opts: { test?: boolean } = {}): Promise<RoomFollowUps> {
-  const [[cfg], [page], [tenant]] = await Promise.all([
-    db.select().from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1),
+/** Where a room is edited (the builder) and where the customer opens it once it is published. */
+export async function roomLinks(tenantId: number, pageId: number): Promise<{ edit: string; room: string }> {
+  const [[page], [tenant]] = await Promise.all([
     db.select({ slug: lpPagesTable.slug }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1),
     db.select({ slug: tenantsTable.slug, domain: tenantsTable.domain, micrositeDomain: tenantsTable.micrositeDomain }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1),
   ]);
   const baseHost = WILDCARD_BASE_HOSTS.find((h) => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
   const workspace = tenant?.domain ? `https://${tenant.domain.toLowerCase()}` : baseHost && tenant?.slug ? `https://${tenant.slug.toLowerCase()}.${baseHost}` : "";
-  const links = {
+  return {
     edit: `${workspace}/builder/${pageId}`,
     room: tenant?.micrositeDomain ? `https://${tenant.micrositeDomain}/${page?.slug ?? ""}` : `${workspace}/lp/${page?.slug ?? ""}`,
   };
+}
+
+export async function afterRoomCreated(tenantId: number, account: SignedAccount, pageId: number, opts: { test?: boolean; facts?: RoomSetupFacts } = {}): Promise<RoomFollowUps> {
+  const [[cfg], links] = await Promise.all([db.select().from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1), roomLinks(tenantId, pageId)]);
   const out: RoomFollowUps = { alerts: null, sheet: null, sfdc: null };
 
   // 1. Alerts
@@ -240,13 +325,7 @@ export async function afterRoomCreated(tenantId: number, account: SignedAccount,
     let ownerMatched: boolean | null = null;
     if (cfg?.alertOwner && account.owner) {
       // The sheet gives the owner's name; their address is the team member with that name.
-      const users = await db.select({ id: appUsersTable.id, email: appUsersTable.email, tenantId: appUsersTable.tenantId }).from(appUsersTable).where(and(sql`lower(${appUsersTable.name}) = ${account.owner.trim().toLowerCase()}`, eq(appUsersTable.status, "active")));
-      let match = users.find((u) => u.tenantId === tenantId);
-      for (const u of users) {
-        if (match) break;
-        const [m] = await db.select({ id: tenantMembersTable.id }).from(tenantMembersTable).where(and(eq(tenantMembersTable.tenantId, tenantId), eq(tenantMembersTable.userId, u.id))).limit(1);
-        if (m) match = u;
-      }
+      const match = await ownerUser(tenantId, account.owner);
       ownerMatched = !!match;
       if (match) to.add(match.email.toLowerCase());
     }
@@ -338,17 +417,15 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
 
     const created: { name: string; pageId: number }[] = [];
     for (const a of fresh.slice(0, MAX_ROOMS_PER_READ)) {
-      const pageId = await createRoomForAccount(tenantId, a).catch((err) => {
+      const room = await createRoom(tenantId, a).catch((err) => {
         logger.error({ err, tenantId, account: a.name }, "automatic room creation failed");
         return null;
       });
-      if (pageId) created.push({ name: a.name, pageId });
-    }
-    if (created.length) {
-      const safe = (s: string) => s.replace(/[<>&*_~`]/g, " ");
-      await slackService
-        .postMessage(tenantId, { text: `Partner room created: ${created.map((c) => c.name).join(", ")}`, blocks: [{ type: "section", text: { type: "mrkdwn", text: `🚪 *Partner room${created.length === 1 ? "" : "s"} created as a draft:* ${created.map((c) => safe(c.name)).join(", ")}\nNew on the signed-accounts sheet. Open the page in LP Studio to add the logo, kickoff date and team, create the launch kit, then publish.` } }] })
-        .catch(() => false);
+      if (!room) continue;
+      created.push({ name: a.name, pageId: room.pageId });
+      // One message per room: where to open it, what was done, and what the team still has to set up.
+      const links = await roomLinks(tenantId, room.pageId).catch(() => ({ edit: "", room: "" }));
+      await slackService.postMessage(tenantId, { text: `Partner room created: ${a.name}`, blocks: roomCreatedSlackBlocks(a.name, links, room.facts) }).catch(() => false);
     }
     const waiting = fresh.length - created.length;
     return finish(true, `${accounts.length} accounts on the list${created.length ? ` · created ${created.length} room${created.length === 1 ? "" : "s"}: ${created.map((c) => c.name).join(", ")}` : " · nothing new"}${waiting > 0 ? ` · ${waiting} more will be created on the next reads` : ""}.`, created);
@@ -370,20 +447,15 @@ export async function autocreateDue(now: number = Date.now()): Promise<number[]>
  * files and Slack note, marked as a test. The sheet and the list of accounts
  * seen are not touched.
  */
-export async function testRoomAutocreate(tenantId: number, rawName: string, sfdcId: string | null, owner: string | null = null): Promise<{ pageId: number; name: string; standardFiles: number; practicesLinked: boolean; followUps: RoomFollowUps } | null> {
+export async function testRoomAutocreate(tenantId: number, rawName: string, sfdcId: string | null, owner: string | null = null): Promise<{ pageId: number; name: string; standardFiles: number; practicesLinked: boolean; teamFilled: number; contacts: number; domain: string | null; followUps: RoomFollowUps } | null> {
   const name = cleanAccountName(rawName);
   if (!name) return null;
   const account: SignedAccount = { key: `test-${accountKey(name)}-${Date.now().toString(36)}`, name, signedDate: null, owner: owner?.trim().slice(0, 80) || null, sfdcId: sfdcId && /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(sfdcId) ? sfdcId : null };
-  const pageId = await createRoomForAccount(tenantId, account, { claimed: true, test: true });
-  if (!pageId) return null;
-  const [standard, [cfg]] = await Promise.all([
-    db.select({ k: lpRoomStandardAssetsTable.assetKey }).from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, tenantId)),
-    db.select({ sheetId: lpRoomAutocreateTable.sheetId, practicesTab: lpRoomAutocreateTable.practicesTab }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1),
-  ]);
-  const safe = name.replace(/[<>&*_~`]/g, " ");
-  await slackService
-    .postMessage(tenantId, { text: `Test: partner room created for ${safe}`, blocks: [{ type: "section", text: { type: "mrkdwn", text: `🧪 *Test run:* a partner room was created as a draft for *${safe}*, the way it would be when an account is added to the signed-accounts sheet. Nothing was published.` } }] })
-    .catch(() => false);
-  const followUps = await afterRoomCreated(tenantId, account, pageId, { test: true }).catch((): RoomFollowUps => ({ alerts: null, sheet: null, sfdc: null }));
-  return { pageId, name, standardFiles: standard.length, practicesLinked: !!(account.sfdcId && cfg?.sheetId && cfg?.practicesTab), followUps };
+  const room = await createRoom(tenantId, account, { claimed: true, test: true });
+  if (!room) return null;
+  const { pageId, facts } = room;
+  const links = await roomLinks(tenantId, pageId).catch(() => ({ edit: "", room: "" }));
+  await slackService.postMessage(tenantId, { text: `Test: partner room created for ${name}`, blocks: roomCreatedSlackBlocks(name, links, facts, { test: true }) }).catch(() => false);
+  const followUps = await afterRoomCreated(tenantId, account, pageId, { test: true, facts }).catch((): RoomFollowUps => ({ alerts: null, sheet: null, sfdc: null }));
+  return { pageId, name, standardFiles: facts.standardFiles, practicesLinked: facts.practicesLinked, teamFilled: facts.teamFilled, contacts: facts.contacts, domain: facts.domain, followUps };
 }

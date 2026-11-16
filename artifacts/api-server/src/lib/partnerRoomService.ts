@@ -22,7 +22,8 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { ObjectStorageService } from "./objectStorage";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "./partnerRoomReconcile";
-import { lpRoomUploadsTable } from "@workspace/db";
+import { lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomUploadsTable } from "@workspace/db";
+import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { desc } from "drizzle-orm";
 import { parsePracticeRow, resolveRoomBlocks, type RoomPracticeInput } from "./partnerRoom";
 import { collectDigest, digestIsEmpty, renderDigestEmail, renderDigestSlack, type DigestData } from "./partnerRoomDigest";
@@ -111,8 +112,8 @@ export function sheetIdFrom(raw: unknown): string | null {
 export interface SheetFilter {
   column: string;
   value: string;
-  /** "sfid" compares Salesforce ids (15- and 18-character forms of one id match); default is "contains". */
-  mode?: "contains" | "sfid";
+  /** "sfid" compares Salesforce ids (15- and 18-character forms of one id match); "account" compares account names however they are decorated ("MB2 Dental-HQ" is "MB2 Dental"); default is "contains". */
+  mode?: "contains" | "sfid" | "account";
 }
 
 const PARENT_ID_HEADERS = ["parent account id", "parent account id (18)", "parent account 18 digit id", "parent id", "parent account: account id", "parent account: 18 digit id", "parent 18 digit id"];
@@ -123,6 +124,16 @@ export function parentIdFilter(values: unknown, sfdcAccountId: string | null | u
   if (!/^[a-zA-Z0-9]{15,18}$/.test(id) || !Array.isArray(values) || !Array.isArray(values[0])) return null;
   const header = (values[0] as unknown[]).map((h) => String(h ?? "").trim()).find((h) => PARENT_ID_HEADERS.includes(h.toLowerCase()));
   return header ? { column: header, value: id, mode: "sfid" } : null;
+}
+
+const PARENT_NAME_HEADERS = ["parent account name", "parent account", "parent account: account name", "parent name", "dso", "dso name"];
+
+/** When the sheet has a parent-account-name column and the room knows the customer's account name, filter on the name. */
+export function parentNameFilter(values: unknown, accountName: string | null | undefined): SheetFilter | null {
+  const key = accountKey(accountName ?? "");
+  if (!key || !Array.isArray(values) || !Array.isArray(values[0])) return null;
+  const header = (values[0] as unknown[]).map((h) => String(h ?? "").trim()).find((h) => PARENT_NAME_HEADERS.includes(h.toLowerCase()));
+  return header ? { column: header, value: cleanAccountName(accountName), mode: "account" } : null;
 }
 
 /** The header's position for a filter column (case-insensitive), or -1. */
@@ -138,13 +149,14 @@ export function practicesFromSheetValues(values: unknown, filter: SheetFilter | 
   const headers = (values[0] as unknown[]).map((h) => String(h ?? "").trim().toLowerCase());
   const filterAt = sheetFilterIndex(values, filter);
   const needle = filter ? filter.value.trim().toLowerCase() : "";
+  const nameKey = filter?.mode === "account" ? accountKey(filter.value) : "";
   const out: RoomPracticeInput[] = [];
   const seen = new Set<string>();
   for (const raw of values.slice(1, 20_001)) {
     if (!Array.isArray(raw)) continue;
     if (filter) {
       const cell = String(raw[filterAt] ?? "").trim();
-      const hit = filterAt >= 0 && (filter.mode === "sfid" ? cell.length >= 15 && cell.slice(0, 15) === filter.value.trim().slice(0, 15) : cell.toLowerCase().includes(needle));
+      const hit = filterAt >= 0 && (filter.mode === "sfid" ? cell.length >= 15 && cell.slice(0, 15) === filter.value.trim().slice(0, 15) : filter.mode === "account" ? accountKey(cell) === nameKey : cell.toLowerCase().includes(needle));
       if (!hit) continue;
     }
     const row: Record<string, unknown> = {};
@@ -160,6 +172,17 @@ export function practicesFromSheetValues(values: unknown, filter: SheetFilter | 
 }
 
 let connectors: ReplitConnectors | null = null;
+
+async function isSharedWorkbook(tenantId: number, sheetId: string): Promise<boolean> {
+  const [cfg] = await db.select({ sheetId: lpRoomAutocreateTable.sheetId }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
+  return !!cfg?.sheetId && cfg.sheetId === sheetId;
+}
+
+/** The account an automatic room was made for (rooms made by hand have none). */
+async function roomAccountName(pageId: number): Promise<string | null> {
+  const [row] = await db.select({ name: lpRoomAutocreateAccountsTable.accountName }).from(lpRoomAutocreateAccountsTable).where(eq(lpRoomAutocreateAccountsTable.pageId, pageId)).limit(1);
+  return row?.name ?? null;
+}
 
 /**
  * Read the room's connected sheet and make the practice list match it.
@@ -187,10 +210,12 @@ export async function syncPracticesFromSheet(pageId: number): Promise<{ ok: bool
     }
     const values = ((await resp.json()) as { values?: unknown }).values;
     // An explicit filter wins; otherwise filter by the customer's Salesforce account id when the sheet has a parent-id column.
-    const filter: SheetFilter | null = settings.practicesSheetFilterColumn?.trim() && settings.practicesSheetFilterValue?.trim() ? { column: settings.practicesSheetFilterColumn, value: settings.practicesSheetFilterValue } : parentIdFilter(values, settings.sfdcAccountId);
+    const filter: SheetFilter | null = settings.practicesSheetFilterColumn?.trim() && settings.practicesSheetFilterValue?.trim() ? { column: settings.practicesSheetFilterColumn, value: settings.practicesSheetFilterValue } : (parentIdFilter(values, settings.sfdcAccountId) ?? parentNameFilter(values, await roomAccountName(pageId)));
+    // The workbook automatic rooms are made from lists every customer's locations: never load it into one room unfiltered.
+    if (!filter && (await isSharedWorkbook(settings.tenantId, sheetId))) return finish(false, "This sheet lists every customer's locations. It needs a “Parent Account ID” or “Parent Account Name” column to pick out this customer's practices.");
     if (filter && sheetFilterIndex(values, filter) < 0) return finish(false, `The sheet has no “${filter.column}” column to filter on. Add it to the report, or change the filter.`);
     const rows = practicesFromSheetValues(values, filter);
-    if (rows.length === 0) return finish(false, filter ? `No rows where “${filter.column}” ${filter.mode === "sfid" ? "is" : "contains"} “${filter.value}”.` : "The sheet has no rows with a practice name. The first row needs column names, including “name” or “Account Name”.");
+    if (rows.length === 0) return finish(false, filter ? `No rows where “${filter.column}” ${filter.mode === "contains" || !filter.mode ? "contains" : "is"} “${filter.value}”.` : "The sheet has no rows with a practice name. The first row needs column names, including “name” or “Account Name”.");
     // A sheet this large is a report across customers: without a filter it would load everyone's practices into one room.
     if (!filter && rows.length > 2000) return finish(false, `This sheet lists ${rows.length} practices, which looks like every customer's. Save the customer's Salesforce account ID (the sheet needs a “Parent Account ID” column), or set a filter such as Parent Account Name contains the customer's name.`);
     const r = await upsertPractices({ id: pageId, tenantId: settings.tenantId }, rows, { mirror: true });

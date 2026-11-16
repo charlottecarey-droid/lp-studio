@@ -29,6 +29,7 @@ import {
   resolveRoomStatus,
   rolloutDay,
   roomMilestoneKey,
+  roomNextUp,
   visibleModules,
   type RoomWorkspaceBlockProps,
 } from "./BlockRoomWorkspace";
@@ -339,7 +340,14 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(fb).toContain('data-room-cover="fullbleed"');
     expect(fb).toContain("background-image:url(/api/storage/objects/uploads/cover)");
     expect(fb).not.toContain('class="prw-photo"');
-    expect(fb).toContain("Next: Business review");
+    expect(fb).toContain("Next up: Business review");
+    // Nothing typed: the cover shows the first plan item still open, and moves on once it is done.
+    const plan = [{ title: "Phase", rows: [{ task: "Kickoff held", status: "done" as const }, { task: "Announce the partnership", target: "2026-12-03" }, { task: "Later thing" }] }];
+    const auto = render({ heroImageUrl: img, planGroups: plan });
+    expect(auto).toContain("Next up: Announce the partnership");
+    expect(auto).not.toContain("Next up: Kickoff held");
+    expect(roomNextUp("", "", [{ task: "A", done: true }])).toBeNull();
+    expect(roomNextUp(" Typed ", "2026-01-02", [{ task: "A", done: false }])).toEqual({ label: "Typed", date: "2026-01-02" });
     const lt = render({ heroImageUrl: img, coverStyle: "light", partnerLogoUrl: "/logo-white.png" });
     expect(lt).toContain('data-room-cover="light"');
     expect(lt).not.toContain("/logo-white.png"); // a white logo would vanish on the pale cover

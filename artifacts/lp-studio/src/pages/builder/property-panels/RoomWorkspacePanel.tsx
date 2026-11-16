@@ -49,6 +49,7 @@ import { ChevronLeft, ChevronRight, DoorOpen, Plus, X } from "lucide-react";
 // The team's Room panel (uploads, practices, launch kit, calendar, settings). Loaded only when opened.
 const PageRoomPanel = lazy(() => import("@/components/analytics/PageRoomPanel").then((m) => ({ default: m.PageRoomPanel })));
 import { Field, ItemHeader, moveItem } from "./glow/GlowPanelKit";
+import { mergeTeamMembers, parseTeamList, TEAM_IMPORT_COLUMNS, type ImportedPerson } from "@/lib/room-team-import";
 import { ThumbButton } from "./HubPanels";
 
 const STATUS_ORDER: RoomMilestoneStatus[] = ["not-started", "on-track", "pending", "blocking", "done"];
@@ -68,6 +69,77 @@ const STEP_ACTION_LABEL: Record<RoomStepAction, string> = {
 };
 
 /** One module's settings, shown on their own. */
+/** Add many people to the Team module at once: a pasted list, a CSV file, or the account's contacts. */
+function TeamImport({ groups, pageId, onAdd }: { groups: string[]; pageId: number | null; onAdd: (people: ImportedPerson[], groupIndex: number) => number }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [group, setGroup] = useState(Math.min(1, Math.max(0, groups.length - 1)));
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const parsed = parseTeamList(text);
+  const say = (added: number, of: number) => setNote(added ? `Added ${added} ${added === 1 ? "person" : "people"}${of > added ? ` (${of - added} already there)` : ""}.` : of ? "Everyone on the list is already there." : "No people found in that list.");
+  if (!open) {
+    return (
+      <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setOpen(true)} data-room-team-import>
+        <Plus className="h-3 w-3" /> Add many people (paste, CSV, or from the account)
+      </Button>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded border p-2" data-room-team-import-open>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold">Add many people</span>
+        <Button type="button" variant="ghost" size="sm" className="h-6 px-1" aria-label="Close" onClick={() => setOpen(false)}><X className="h-3 w-3" /></Button>
+      </div>
+      <Field label="Add to">
+        <Select value={String(group)} onValueChange={(v) => setGroup(Number(v))}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>{groups.map((g, i) => <SelectItem key={i} value={String(i)}>{g}</SelectItem>)}</SelectContent>
+        </Select>
+      </Field>
+      <Textarea value={text} onChange={(e) => { setText(e.target.value); setNote(""); }} rows={5} className="font-mono text-[11px]" placeholder={`${TEAM_IMPORT_COLUMNS}\nDana Ruiz, Chief Operating Officer, dana@customer.com, Customer\nSam Rep, Account Manager, sam@yourcompany.com, Us`} />
+      <p className="text-[11px] text-muted-foreground">
+        Paste from a sheet or type one person per line. With a first row of column names ({TEAM_IMPORT_COLUMNS}; also first name, last name, title, owns, when) the columns can be in any order, and a <b>team</b> column sorts people onto each side. Without one, each line is read as Name, Role, Email.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" className="h-7 text-[11px]" disabled={parsed.people.length === 0} onClick={() => { say(onAdd(parsed.people, group), parsed.people.length); setText(""); }}>
+          Add {parsed.people.length || ""} {parsed.people.length === 1 ? "person" : "people"}
+        </Button>
+        <label className="cursor-pointer rounded border px-2 py-1 text-[11px]">
+          Choose a CSV file
+          <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { setText((await f.text()).slice(0, 200_000)); setNote(""); } }} />
+        </label>
+        {pageId !== null && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 text-[11px]"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const r = await fetch(`/api/lp/partner-rooms/${pageId}/account-contacts`);
+                const j = (await r.json().catch(() => ({}))) as { found?: boolean; contacts?: { name: string; title: string; email: string }[] };
+                const top = (j.contacts ?? []).slice(0, 8).map((c) => ({ name: c.name, role: c.title, email: c.email }));
+                if (!r.ok || top.length === 0) setNote(j.found ? "The account has no contacts with a work email." : "No matching account was found under Accounts.");
+                else say(onAdd(top, group), top.length);
+              } catch {
+                setNote("Couldn't load the account's contacts.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? "Loading…" : "Add the account's top contacts"}
+          </Button>
+        )}
+      </div>
+      {note && <p role="status" className="text-[11px] text-muted-foreground">{note}</p>}
+    </div>
+  );
+}
+
 function SectionBody({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <div className="space-y-2.5">
@@ -323,7 +395,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <span className="text-[11px] text-muted-foreground">Cover photo. Blank gives a text-only cover.</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Next milestone (on the photo)"><Input value={props.nextMilestoneLabel ?? ""} onChange={(e) => update({ nextMilestoneLabel: e.target.value })} className="h-8 text-xs" placeholder="Business Review #2" /></Field>
+          <Field label="“Next up” on the photo"><Input value={props.nextMilestoneLabel ?? ""} onChange={(e) => update({ nextMilestoneLabel: e.target.value })} className="h-8 text-xs" placeholder="Blank = the next open item in the plan" /></Field>
           <Field label="Its date"><Input type="date" value={props.nextMilestoneDate ?? ""} onChange={(e) => update({ nextMilestoneDate: e.target.value })} className="h-8 text-xs" /></Field>
         </div>
       </SectionBody>
@@ -678,6 +750,23 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
       {active === "team" && (
       <SectionBody title="Team" hint="Named people on both sides">
         <Field label="Note beside the heading"><Input value={props.teamNote ?? ""} onChange={(e) => update({ teamNote: e.target.value })} className="h-8 text-xs" /></Field>
+        <TeamImport
+          groups={team.map((g) => g.title || "Group")}
+          pageId={Number.isFinite(pageId) && pageId > 0 ? pageId : null}
+          onAdd={(people, fallback) => {
+            // A "team" column in the list decides the side (first group = ours, second = the customer's); otherwise the chosen group.
+            let added = 0;
+            const next = team.map((g, gi) => {
+              const mine = people.filter((p) => (p.side ? (p.side === "ours" ? 0 : Math.min(1, team.length - 1)) : fallback) === gi);
+              if (mine.length === 0) return g;
+              const r = mergeTeamMembers(g.members ?? [], mine);
+              added += r.added;
+              return r.added ? { ...g, members: r.members as RoomTeamMember[] } : g;
+            });
+            if (added) update({ team: next });
+            return added;
+          }}
+        />
         {team.map((g, gi) => (
           <CollapseItem key={gi} startOpen={String(g.title || `Group ${gi + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={() => update({ team: team.filter((_, idx) => idx !== gi) })} />}>
             <div className="flex items-center gap-2">
