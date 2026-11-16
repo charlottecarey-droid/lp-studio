@@ -50,7 +50,7 @@ import { sendRoomAccessEmail } from "../../lib/notifications";
 import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
-import { createRoomForAccount, syncRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { createRoomForAccount, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -867,7 +867,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
-      kit: page.isWorkspace ? roomKitInfo(resolveRoomBlocks((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks)) : null,
+      kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
@@ -1247,6 +1247,28 @@ router.post("/lp/room-autocreate/sync", async (req: Request, res: Response): Pro
   }
 });
 
+/** Try the whole thing for a typed-in account name: the same draft room, standard files and Slack note a new signed account gets, marked as a test. */
+router.post("/lp/room-autocreate/test", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 120) : "";
+    if (name.length < 2) {
+      res.status(400).json({ error: "Type an account name to test with." });
+      return;
+    }
+    const result = await testRoomAutocreate(tenantId, name, typeof req.body?.sfdcId === "string" ? req.body.sfdcId.trim() : null);
+    if (!result) {
+      res.status(400).json({ error: "That name can't be used." });
+      return;
+    }
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    req.log.error({ err }, "room autocreate test failed");
+    res.status(500).json({ error: "The test run failed" });
+  }
+});
+
 /** Make the room now for one account that is on the list without one (an account that was already there when the sheet was connected). */
 router.post("/lp/room-autocreate/create", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1440,6 +1462,13 @@ async function roomAssetEngagement(pageId: number): Promise<{ assets: RoomAssetS
     .limit(5000);
   const events = rows.filter((r) => r.assetKind !== "hub" && r.action !== "seen");
   return { assets: summarizeAssetEvents(events), recent: events.filter((r) => r.action !== "progress").slice(0, 25).map((r) => ({ title: r.assetTitle || r.assetKey, action: r.action, value: r.value, who: r.viewerName || r.viewerEmail, at: r.createdAt.toISOString() })) };
+}
+
+/** What the launch-asset generator needs, plus whether the room was created automatically (its kit is then made on first open). */
+async function roomKitFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks, createdBy: lpPagesTable.createdBy }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  const kit = row ? roomKitInfo(resolveRoomBlocks(row.blocks)) : null;
+  return kit ? { ...kit, automatic: row?.createdBy === "automatic rooms" } : null;
 }
 
 /** Whose Google account a room reads through, for the team's panel (never the token). */

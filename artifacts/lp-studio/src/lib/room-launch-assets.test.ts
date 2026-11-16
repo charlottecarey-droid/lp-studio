@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LAUNCH_ASSETS, containBox, graphicSurface, shade, socialLayout } from "./room-launch-assets";
+import { LAUNCH_ASSETS, containBox, graphicSurface, layoutKitCopy, shade, socialLayout } from "./room-launch-assets";
 
 describe("launch asset graphics: layout and colour", () => {
   it("fits a logo inside its box, centred, without stretching", () => {
@@ -35,4 +35,42 @@ describe("launch asset graphics: layout and colour", () => {
   it("names the generated assets with the keys the room's launch kit uses", () => {
     expect(LAUNCH_ASSETS.map((a) => a.key)).toEqual(["partnership-one-pager", "social-image-1", "social-image-2", "media-kit"]);
   });
+
+describe("media kit copy layout", () => {
+  // A stand-in for the PDF's text wrapper: break every 40 characters at a space.
+  const wrap = (text: string, width: number) => {
+    const max = Math.round(width / 10);
+    const out: string[] = [];
+    let cur = "";
+    for (const w of text.split(" ")) {
+      if (cur && (cur + " " + w).length > max) {
+        out.push(cur);
+        cur = w;
+      } else cur = cur ? `${cur} ${w}` : w;
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  it("turns a subject line, paragraphs and bullets into set lines", () => {
+    const body = ["Subject: Introducing our new partner", "", "Dear Partners,", "", "Practices gain access to:", "", "• Digital Workflows: End-to-end systems designed to reduce friction and increase predictability.", "• A plain bullet", "", "Sincerely,", "[Leadership Team]"].join("\n");
+    const lines = layoutKitCopy(body, 400, wrap);
+    expect(lines[0]).toEqual({ kind: "subject", text: "Introducing our new partner" });
+    expect(lines[1]).toMatchObject({ kind: "text", text: "Dear Partners,", gap: 12 });
+    const bullets = lines.filter((l) => l.kind === "bullet") as { label: string; text: string; first: boolean }[];
+    // The label is bold on the bullet's first line only; continuation lines carry no dot and no label.
+    expect(bullets[0]).toMatchObject({ label: "Digital Workflows: ", first: true });
+    expect(bullets[0].text.startsWith("End-to-end")).toBe(true);
+    expect(bullets[1]).toMatchObject({ label: "", first: false });
+    expect(bullets.filter((b) => b.first)).toHaveLength(2);
+    expect(bullets[bullets.length - 1]).toMatchObject({ label: "", text: "A plain bullet", first: true });
+    // A line break inside a paragraph (the sign-off) keeps its lines together, with no gap between them.
+    const last = lines.slice(-2);
+    expect(last.map((l) => (l as { text: string }).text)).toEqual(["Sincerely,", "[Leadership Team]"]);
+    expect((last[1] as { gap?: number }).gap).toBe(0);
+  });
+  it("only treats Subject as a header when it is the first line", () => {
+    const lines = layoutKitCopy("Hello\nSubject: not a header", 400, wrap);
+    expect(lines.every((l) => l.kind === "text")).toBe(true);
+  });
+});
 });

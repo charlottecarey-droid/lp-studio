@@ -793,6 +793,17 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await pool.query(`SELECT id FROM lp_pages WHERE tenant_id = $1`, [tenantId])).rows).toHaveLength(1);
     expect(((await auto(otherTenantId)).json as { accounts: unknown[]; enabled: boolean })).toMatchObject({ accounts: [], enabled: false });
 
+    // A test run makes the same draft room for a typed-in name, marked as a test, without touching the list.
+    expect((await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "x" } })).status).toBe(400);
+    const listBefore = ((await auto()).json as { accounts: unknown[] }).accounts.length;
+    const test = (await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "Riverbend Dental Group - HQ" } })).json as { pageId: number; name: string; standardFiles: number };
+    expect(test).toMatchObject({ name: "Riverbend Dental Group", standardFiles: 1 });
+    const testPage = await pool.query<{ title: string; slug: string; status: string }>(`SELECT title, slug, status FROM lp_pages WHERE id = $1 AND tenant_id = $2`, [test.pageId, tenantId]);
+    expect(testPage.rows[0]).toMatchObject({ title: "Riverbend Dental Group Partner Room (test)", slug: "riverbend-dental-group-test-room", status: "draft" });
+    expect(((await auto()).json as { accounts: unknown[] }).accounts).toHaveLength(listBefore);
+    const kitOfTest = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${test.pageId}`, headers: asTenant(tenantId) })).json as { kit: { automatic: boolean; partnerName: string } };
+    expect(kitOfTest.kit).toMatchObject({ automatic: true, partnerName: "Riverbend Dental Group" });
+
     // An account that was already on the list can be given a room on request, once.
     const create = (key: string, as = tenantId) => inject(app, { method: "POST", url: `/lp/room-autocreate/create`, headers: asTenant(as), body: { key } });
     expect((await create("mb2-dental", otherTenantId)).status).toBe(404);

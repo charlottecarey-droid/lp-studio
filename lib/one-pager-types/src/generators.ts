@@ -93,6 +93,19 @@ function registerBrandFonts(doc: jsPDF, brand?: BrandContext): void {
   }
 }
 
+/**
+ * The headline face for a document built outside these generators (the
+ * partner room's media kit): the tenant's embedded display font when it has
+ * one, the bundled Bagoss for Dandy, else the built-in helvetica. Returns the
+ * jsPDF font name to select, and whether it must be set with style "normal"
+ * (an embedded face has one weight) or may use "bold".
+ */
+export function headlineFontFor(doc: jsPDF, brand?: BrandContext): { font: string; style: "normal" | "bold" } {
+  registerBrandFonts(doc, brand);
+  const has = !!(doc.getFontList?.() ?? {})["Bagoss"] || (brand?.isDandy === true && ensureBagoss(doc));
+  return has ? { font: "Bagoss", style: "normal" } : { font: "helvetica", style: "bold" };
+}
+
 function drawSep(doc: jsPDF, x: number, y: number, len: number, color: [number, number, number]) {
   doc.setDrawColor(...color);
   doc.setLineWidth(0.5);

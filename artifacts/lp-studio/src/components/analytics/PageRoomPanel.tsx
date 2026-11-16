@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Download, DoorOpen, RotateCcw, UserCheck, UserX, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ interface RoomDetail {
   revopsSlackMention?: string | null;
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
-  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[] } | null;
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -1052,6 +1052,24 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets }: { pageId: nu
     }
   };
 
+  // A room created automatically from the signed-accounts sheet gets its kit made the first time someone on the
+  // team opens this tab (the files are built in the browser, so the hourly check can't make them itself).
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (autoRan.current || !kit.automatic || !kit.partnerName || busy) return;
+    if (SPECS.some((a) => has(a.key))) return;
+    const flag = `lp-room-kit-auto-${pageId}`;
+    try {
+      if (sessionStorage.getItem(flag)) return;
+      sessionStorage.setItem(flag, "1");
+    } catch {
+      /* no storage: run once per mount */
+    }
+    autoRan.current = true;
+    void create(SPECS.map((a) => a.key));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kit.automatic, kit.partnerName, pageId]);
+
   const missing = [!kit.partnerName && "the customer’s name", !kit.partnerLogoUrl && "the customer’s logo (their name is used instead)", !kit.heroImageUrl && "a cover photo (the link-preview graphic is made without one)"].filter(Boolean) as string[];
   return (
     <section className="space-y-2">
@@ -1195,6 +1213,54 @@ export function AutomaticRoomsSection() {
     await refetch();
   };
 
+  // A test run: the same room a new signed account gets, for a name typed here, then its launch kit.
+  const [testName, setTestName] = useState("Test Dental Group");
+  const [testSteps, setTestSteps] = useState<{ label: string; state: "working" | "done" | "failed"; detail?: string }[]>([]);
+  const [testPage, setTestPage] = useState<number | null>(null);
+  const runTest = async () => {
+    setBusy(true);
+    setErr("");
+    setTestPage(null);
+    const steps: { label: string; state: "working" | "done" | "failed"; detail?: string }[] = [];
+    const step = (label: string) => {
+      steps.push({ label, state: "working" });
+      setTestSteps([...steps]);
+      return (state: "done" | "failed", detail?: string) => {
+        steps[steps.findIndex((x) => x.label === label)] = { label, state, detail };
+        setTestSteps([...steps]);
+      };
+    };
+    try {
+      const made = step("Create the draft room");
+      const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: testName.trim() }) });
+      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; error?: string };
+      if (!r.ok || !j.pageId) {
+        made("failed", j.error ?? "Could not create the room");
+        return;
+      }
+      made("done", `“${j.name} Partner Room (test)”, a draft`);
+      setTestPage(j.pageId);
+      steps.push({ label: "Attach the standard files", state: j.standardFiles ? "done" : "failed", detail: j.standardFiles ? `${j.standardFiles} attached` : "None uploaded yet (see Standard launch files below)" });
+      steps.push({ label: "Tell the team in Slack", state: "done", detail: "Sent to your workspace channel, marked as a test" });
+      setTestSteps([...steps]);
+      const [{ createLaunchAsset, LAUNCH_ASSETS }, { fetchBrandConfig }] = await Promise.all([import("@/lib/room-launch-assets"), import("@/lib/brand-config")]);
+      const [brand, detail] = await Promise.all([fetchBrandConfig(), fetch(`/api/lp/partner-rooms/${j.pageId}`).then((x) => x.json() as Promise<RoomDetail>)]);
+      const kit = detail.kit;
+      if (!kit) return;
+      for (const a of LAUNCH_ASSETS) {
+        const done = step(`Create: ${a.title}`);
+        try {
+          await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => x.title), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => x.title)] });
+          done("done");
+        } catch (e) {
+          done("failed", e instanceof Error ? e.message : "Could not create it");
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const accounts = data?.accounts ?? [];
   const withRoom = accounts.filter((a) => a.pageId);
   return (
@@ -1220,6 +1286,27 @@ export function AutomaticRoomsSection() {
       </div>
       {note && <p className="text-sm text-muted-foreground">{note}</p>}
       {err && <p className="text-sm text-destructive">{err}</p>}
+      <div className="space-y-2 rounded-md border p-3" data-room-autotest>
+        <p className="text-sm font-medium">Run a test</p>
+        <p className="text-xs text-muted-foreground">
+          See exactly what a newly signed account gets, without touching the sheet: a draft room for the name below, the standard files, the Slack note, then the one-pager, both graphics and the media kit. It is marked as a test and never published. A real new room has no logo yet either, so the graphics show the account’s name until one is added.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} placeholder="Account name" aria-label="Test account name" />
+          <Button size="sm" variant="brand" disabled={busy || testName.trim().length < 2} onClick={runTest}>{busy && testSteps.length ? "Running…" : "Run a test"}</Button>
+          {testPage && <a className="text-sm underline" href={`/builder/${testPage}`}>Open the test room</a>}
+        </div>
+        {testSteps.length > 0 && (
+          <ul className="space-y-1 text-sm">
+            {testSteps.map((s) => (
+              <li key={s.label} className={s.state === "failed" ? "text-destructive" : s.state === "working" ? "text-muted-foreground" : ""}>
+                {s.state === "done" ? "✓" : s.state === "failed" ? "✕" : "…"} {s.label}
+                {s.detail ? <span className="text-xs text-muted-foreground"> · {s.detail}</span> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {accounts.length > 0 && (
         <details className="text-sm" open={showAll} onToggle={(e) => setShowAll((e.currentTarget as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer text-xs text-muted-foreground">{accounts.length} accounts on the list · {withRoom.length} with a room made here</summary>

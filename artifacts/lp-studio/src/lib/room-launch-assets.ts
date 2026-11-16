@@ -278,128 +278,287 @@ export async function buildPartnerOnePager(input: LaunchAssetInput): Promise<Blo
 
 /* ── Media kit document ──────────────────────────────────────────────────── */
 
+type KitLine =
+  | { kind: "text"; text: string; bold?: boolean; indent?: number; gap?: number }
+  | { kind: "bullet"; label: string; text: string; first: boolean; gap?: number }
+  | { kind: "subject"; text: string };
+
 /**
- * The room's written launch pieces in one document: a cover with both names,
- * then each piece (announcement email, social posts, approved description)
- * ready to copy, the files in the kit, and the links. Built from the kit
- * itself, so it always says what the room says.
+ * Break a written piece into lines the document can set: a "Subject:" line
+ * becomes a labelled header, "•" / "-" lines become bullets with a hanging
+ * indent (a "Label: rest" bullet gets a bold label), blank lines become space.
+ * `wrap` splits one paragraph to a width; it is passed in so this stays pure.
+ */
+export function layoutKitCopy(body: string, width: number, wrap: (text: string, width: number, bold?: boolean) => string[]): KitLine[] {
+  const out: KitLine[] = [];
+  let gap = 0;
+  for (const raw of body.replace(/\r/g, "").split("\n")) {
+    const line = raw.trim();
+    if (!line) {
+      gap = Math.max(gap, 9);
+      continue;
+    }
+    const subject = /^subject:\s*(.+)$/i.exec(line);
+    if (subject && out.length === 0) {
+      out.push({ kind: "subject", text: subject[1] });
+      gap = 12;
+      continue;
+    }
+    const bullet = /^[•\-–*]\s+(.+)$/.exec(line);
+    if (bullet) {
+      const m = /^([^:]{2,60}):\s+(.+)$/.exec(bullet[1]);
+      const label = m ? `${m[1]}: ` : "";
+      const rest = m ? m[2] : bullet[1];
+      // The label sits on the first line in bold; the rest wraps under the text, not under the dot.
+      const lines = wrap(`${label}${rest}`, width - 14);
+      lines.forEach((text, i) => out.push({ kind: "bullet", label: i === 0 ? label : "", text: i === 0 ? text.slice(label.length) : text, first: i === 0, gap: i === 0 ? Math.max(gap, 5) : 0 }));
+      gap = 0;
+      continue;
+    }
+    wrap(line, width).forEach((text, i) => out.push({ kind: "text", text, gap: i === 0 ? gap : 0 }));
+    gap = 0;
+  }
+  return out;
+}
+
+/**
+ * The room's written launch pieces in one document: a cover with both logos
+ * and names, each piece (announcement email, social posts, approved
+ * description) set as a clean block ready to copy, the logos, the files in the
+ * kit and the links. Built from the kit itself, so it says what the room says.
  */
 export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
-  const { jsPDF } = await import("jspdf");
+  const [{ jsPDF }, { headlineFontFor }, { resolveBrandPdfFonts }] = await Promise.all([import("jspdf"), import("@workspace/one-pager-types/generators"), import("@/lib/brand-config")]);
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  const { brand } = input;
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const M = 54;
-  const surface = graphicSurface(input.brand);
-  const [sr, sg, sb] = [1, 3, 5].map((i) => parseInt(surface.slice(i, i + 2), 16));
-  const brandName = (input.brand.brandName || "").trim();
+  const M = 56;
+  const CW = W - M * 2;
+  const surface = graphicSurface(brand);
+  const tone = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
+  const DARK = tone(surface);
+  const accentHex = /^#[0-9a-f]{6}$/i.test((brand.accentColor ?? "").trim()) ? brand.accentColor!.trim() : "#C7E738";
+  const ACCENT = tone(accentHex);
+  const INK: [number, number, number] = [24, 32, 28];
+  const MUTE: [number, number, number] = [104, 114, 108];
+  const brandName = (brand.brandName || "").trim();
   const pair = brandName ? `${brandName} × ${input.partnerName}` : input.partnerName;
-
-  // Cover band
-  doc.setFillColor(sr, sg, sb);
-  doc.rect(0, 0, W, 250, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("PARTNERSHIP MEDIA KIT", M, 78, { charSpace: 1.5 });
-  doc.setFontSize(30);
-  doc.text(doc.splitTextToSize(pair, W - M * 2) as string[], M, 122);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11.5);
-  doc.text(doc.splitTextToSize("Approved copy, graphics and links for announcing the partnership. Everything here is ready to use as written.", W - M * 2) as string[], M, 196);
-
-  let y = 292;
-  const footer = () => {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.setTextColor(140, 148, 143);
-    doc.text(pair, M, H - 30);
-    doc.text(String(doc.getNumberOfPages()), W - M, H - 30, { align: "right" });
+  // Headlines in the brand's display face (Bagoss for Dandy); body in the built-in face.
+  const head = headlineFontFor(doc, brand.isDandy === true ? ({ isDandy: true } as never) : ({ fonts: await resolveBrandPdfFonts(brand) } as never));
+  const setHead = (size: number, color: [number, number, number]) => {
+    doc.setFont(head.font, head.style);
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
   };
-  const room = (needed: number) => {
-    if (y + needed <= H - 56) return;
+  const setBody = (size: number, color: [number, number, number], bold = false) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+  };
+  const [brandLight, brandDark, partnerLogo] = await Promise.all([imageAsDataUrl((brand.logoUrlDark ?? "").trim() || ""), imageAsDataUrl((brand.logoUrl ?? "").trim() || ""), imageAsDataUrl(input.partnerLogoUrl)]);
+  /** Draw an image fitted inside a box, left-aligned (or centred), and return the width used. */
+  const place = (img: { data: string; w: number; h: number }, x: number, y: number, maxW: number, maxH: number, centre = false): number => {
+    const b = containBox(img.w, img.h, { x, y, w: maxW, h: maxH });
+    const w = b.w;
+    doc.addImage(img.data, "PNG", centre ? b.x : x, b.y, w, b.h);
+    return w;
+  };
+
+  /* Cover */
+  const COVER_H = 318;
+  doc.setFillColor(...DARK);
+  doc.rect(0, 0, W, COVER_H, "F");
+  // Both logos, as on the social graphics; a name stands in for a logo that isn't uploaded.
+  let x = M;
+  const logoY = 50;
+  const brandMark = brandLight ?? null;
+  if (brandMark) x += place(brandMark, x, logoY, 120, 26);
+  else {
+    setHead(18, [255, 255, 255]);
+    doc.text(brandName || " ", x, logoY + 20);
+    x += doc.getTextWidth(brandName || " ");
+  }
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(1);
+  doc.line(x + 14, logoY + 8, x + 24, logoY + 18);
+  doc.line(x + 24, logoY + 8, x + 14, logoY + 18);
+  x += 38;
+  if (partnerLogo) place(partnerLogo, x, logoY - 1, 170, 28);
+  else {
+    setHead(18, [255, 255, 255]);
+    doc.text(input.partnerName, x, logoY + 20);
+  }
+  setBody(9, ACCENT, true);
+  doc.text("PARTNERSHIP MEDIA KIT", M, 150, { charSpace: 1.6 });
+  setHead(36, [255, 255, 255]);
+  const title = doc.splitTextToSize(pair, CW) as string[];
+  doc.text(title, M, 192, { lineHeightFactor: 1.12 });
+  const afterTitle = 192 + (title.length - 1) * 40;
+  setBody(12, [226, 234, 229]);
+  doc.text(doc.splitTextToSize("Approved copy, logos, graphics and links for announcing the partnership. Everything here is ready to use as written.", CW * 0.78) as string[], M, afterTitle + 34, { lineHeightFactor: 1.4 });
+
+  let y = COVER_H + 44;
+  const footer = () => {
+    setBody(8.5, [146, 154, 149]);
+    doc.text(pair, M, H - 32);
+    doc.text(String(doc.getNumberOfPages()), W - M, H - 32, { align: "right" });
+  };
+  const newPage = () => {
     footer();
     doc.addPage();
-    y = 64;
+    y = 68;
   };
-  const heading = (text: string) => {
-    room(44);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(sr, sg, sb);
-    doc.text(text.toUpperCase(), M, y, { charSpace: 1.2 });
-    doc.setDrawColor(222, 226, 220);
-    doc.line(M, y + 8, W - M, y + 8);
-    y += 30;
+  const room = (needed: number) => {
+    if (y + needed > H - 62) newPage();
   };
 
-  for (const t of input.texts ?? []) {
-    room(90);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.setTextColor(sr, sg, sb);
-    doc.text(t.title, M, y);
-    y += 16;
-    if (t.description) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(110, 120, 114);
-      doc.text(doc.splitTextToSize(t.description, W - M * 2) as string[], M, y);
-      y += 16;
+  /* In this kit */
+  const contents = [...(input.texts ?? []).map((t) => t.title), ...(brandLight || brandDark || partnerLogo ? ["Logos"] : []), ...((input.files ?? []).length ? ["Files"] : []), ...((input.links ?? []).length ? ["Links"] : [])];
+  if (contents.length) {
+    setBody(9, DARK, true);
+    doc.text("IN THIS KIT", M, y, { charSpace: 1.4 });
+    y += 20;
+    contents.forEach((c, i) => {
+      const col = i % 2;
+      setBody(11, INK);
+      doc.text(c, M + col * (CW / 2), y);
+      if (col === 1 || i === contents.length - 1) y += 19;
+    });
+    y += 18;
+  }
+
+  const sectionTitle = (text: string, sub?: string) => {
+    room(96);
+    setHead(20, DARK);
+    doc.text(text, M, y);
+    y += 8;
+    if (sub) {
+      setBody(10, MUTE);
+      const lines = doc.splitTextToSize(sub, CW) as string[];
+      doc.text(lines, M, y + 9);
+      y += lines.length * 13;
     }
-    y += 6;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10.5);
-    doc.setTextColor(28, 36, 32);
-    // The copy itself, on a rule so it reads as a block to lift out.
-    for (const para of t.body.split(/\n/)) {
-      const lines = para.trim() ? (doc.splitTextToSize(para, W - M * 2 - 16) as string[]) : [""];
-      for (const line of lines) {
-        room(15);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10.5);
-        doc.setTextColor(28, 36, 32);
-        doc.setDrawColor(sr, sg, sb);
-        doc.setLineWidth(1.5);
-        doc.line(M, y - 9, M, y + 5);
-        doc.setLineWidth(0.5);
-        doc.text(line, M + 16, y);
-        y += 15;
+    y += 14;
+  };
+
+  /* Written pieces: each in a pale block, with real paragraphs and bullets */
+  const PAD = 20;
+  const LEAD = 15.5;
+  const wrap = (text: string, width: number) => {
+    setBody(10.5, INK);
+    return doc.splitTextToSize(text, width) as string[];
+  };
+  const heightOf = (l: KitLine) => (l.kind === "subject" ? 34 : LEAD + (l.gap ?? 0));
+  for (const piece of input.texts ?? []) {
+    sectionTitle(piece.title, piece.description);
+    const lines = layoutKitCopy(piece.body, CW - PAD * 2, wrap);
+    let i = 0;
+    while (i < lines.length) {
+      // Take as many lines as fit on this page, and draw the block behind them first.
+      const avail = H - 62 - y - PAD * 2;
+      let used = 0;
+      let j = i;
+      while (j < lines.length && used + heightOf(lines[j]) <= avail) used += heightOf(lines[j++]);
+      // Never leave one or two lines of a piece stranded at the foot of a page.
+      if (j === i || (j < lines.length && j - i < 3)) {
+        newPage();
+        continue;
       }
+      doc.setFillColor(246, 247, 243);
+      doc.roundedRect(M, y, CW, used + PAD * 2 - 4, 8, 8, "F");
+      let ty = y + PAD + 9;
+      for (const l of lines.slice(i, j)) {
+        if (l.kind === "subject") {
+          setBody(8, MUTE, true);
+          doc.text("SUBJECT", M + PAD, ty - 2, { charSpace: 1.2 });
+          setBody(11, INK, true);
+          doc.text((doc.splitTextToSize(l.text, CW - PAD * 2) as string[])[0], M + PAD, ty + 12);
+          doc.setDrawColor(224, 228, 221);
+          doc.setLineWidth(0.6);
+          doc.line(M + PAD, ty + 22, M + CW - PAD, ty + 22);
+          ty += 34;
+          continue;
+        }
+        ty += l.gap ?? 0;
+        if (l.kind === "bullet") {
+          if (l.first) {
+            doc.setFillColor(...DARK);
+            doc.circle(M + PAD + 3, ty - 3.4, 1.7, "F");
+          }
+          let bx = M + PAD + 14;
+          if (l.label) {
+            setBody(10.5, INK, true);
+            doc.text(l.label.trimEnd(), bx, ty);
+            bx += doc.getTextWidth(l.label.trimEnd()) + 3;
+          }
+          setBody(10.5, INK);
+          doc.text(l.text, bx, ty);
+        } else {
+          setBody(10.5, INK, l.bold);
+          doc.text(l.text, M + PAD, ty);
+        }
+        ty += LEAD;
+      }
+      y += used + PAD * 2 - 4;
+      i = j;
+      if (i < lines.length) newPage();
     }
-    y += 22;
+    y += 34;
   }
 
-  if ((input.files ?? []).length) {
-    heading("Files in this kit");
-    for (const f of input.files ?? []) {
-      room(16);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10.5);
-      doc.setTextColor(28, 36, 32);
-      doc.text(`•  ${f}`, M, y);
+  /* Logos: on the surface each is made for */
+  if (brandLight || brandDark || partnerLogo) {
+    sectionTitle("Logos", "Use the logos as supplied: do not recolour, stretch or crop them.");
+    const tileH = 104;
+    const gap = 16;
+    const tiles: { img: { data: string; w: number; h: number }; dark: boolean; label: string }[] = [
+      ...(brandLight ? [{ img: brandLight, dark: true, label: `${brandName || "Our"} logo, for dark backgrounds` }] : []),
+      ...(brandDark && brandDark.data !== brandLight?.data ? [{ img: brandDark, dark: false, label: `${brandName || "Our"} logo, for light backgrounds` }] : []),
+      ...(partnerLogo ? [{ img: partnerLogo, dark: true, label: `${input.partnerName} logo` }] : []),
+    ];
+    const tw = (CW - gap) / 2;
+    tiles.forEach((t, i) => {
+      const col = i % 2;
+      if (col === 0) room(tileH + 34);
+      const tx = M + col * (tw + gap);
+      if (t.dark) doc.setFillColor(...DARK);
+      else doc.setFillColor(246, 247, 243);
+      doc.roundedRect(tx, y, tw, tileH, 8, 8, "F");
+      place(t.img, tx + 34, y + 30, tw - 68, tileH - 60, true);
+      setBody(9.5, MUTE);
+      doc.text(t.label, tx, y + tileH + 15);
+      if (col === 1 || i === tiles.length - 1) y += tileH + 34;
+    });
+    y += 10;
+  }
+
+  const rows = (items: { title: string; sub?: string; url?: string }[]) => {
+    for (const it of items) {
+      room(it.sub ? 40 : 28);
+      setBody(11, INK, true);
+      doc.text(it.title, M, y);
+      if (it.sub) {
+        setBody(9.5, [34, 78, 160]);
+        const shown = (doc.splitTextToSize(it.sub, CW) as string[])[0];
+        if (it.url) doc.textWithLink(shown, M, y + 14, { url: it.url });
+        else doc.text(shown, M, y + 14);
+      }
+      y += it.sub ? 26 : 14;
+      doc.setDrawColor(228, 231, 224);
+      doc.setLineWidth(0.6);
+      doc.line(M, y, W - M, y);
       y += 16;
     }
-    doc.setFontSize(9.5);
-    doc.setTextColor(110, 120, 114);
-    room(18);
-    doc.text("Download each file from the launch kit in your partner room.", M, y + 2);
-    y += 28;
+  };
+  if ((input.files ?? []).length) {
+    sectionTitle("Files", "Download each one from the launch kit in your partner room.");
+    rows((input.files ?? []).map((f) => ({ title: f })));
+    y += 16;
   }
-
   if ((input.links ?? []).length) {
-    heading("Links");
-    for (const l of input.links ?? []) {
-      room(32);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10.5);
-      doc.setTextColor(28, 36, 32);
-      doc.text(l.title, M, y);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(34, 78, 160);
-      doc.textWithLink((doc.splitTextToSize(l.url, W - M * 2) as string[])[0], M, y + 14, { url: l.url });
-      y += 34;
-    }
+    sectionTitle("Links");
+    rows((input.links ?? []).map((l) => ({ title: l.title, sub: l.url, url: l.url })));
   }
   footer();
   return doc.output("blob");

@@ -129,7 +129,7 @@ export async function linkRoomPractices(tenantId: number, pageId: number, sfdcId
 }
 
 /** Make the draft room for an account that has none yet. Returns the page id, or null when another reader already made it. */
-export async function createRoomForAccount(tenantId: number, account: SignedAccount, opts: { claimed?: boolean } = {}): Promise<number | null> {
+export async function createRoomForAccount(tenantId: number, account: SignedAccount, opts: { claimed?: boolean; test?: boolean } = {}): Promise<number | null> {
   if (!opts.claimed) {
     // Claim the account first: only the one that updates a still-empty row goes on to create the page.
     const claim = await db
@@ -140,11 +140,11 @@ export async function createRoomForAccount(tenantId: number, account: SignedAcco
     if (claim.length === 0) return null;
   }
   try {
-    const slug = await freeSlug(tenantId, roomSlugFor(account.name));
+    const slug = await freeSlug(tenantId, opts.test ? roomSlugFor(account.name).replace(/-room$/, "-test-room") : roomSlugFor(account.name));
     const standard = await db.select({ assetKey: lpRoomStandardAssetsTable.assetKey, fileUrl: lpRoomStandardAssetsTable.fileUrl }).from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, tenantId));
     const [page] = await db
       .insert(lpPagesTable)
-      .values({ tenantId, title: `${account.name} Partner Room`, slug, blocks: roomBlocksForAccount(account.name, slug, standard) as never, status: "draft", createdBy: "automatic rooms" })
+      .values({ tenantId, title: `${account.name} Partner Room${opts.test ? " (test)" : ""}`, slug, blocks: roomBlocksForAccount(account.name, slug, standard) as never, status: "draft", createdBy: "automatic rooms" })
       .returning({ id: lpPagesTable.id });
     await db.update(lpRoomAutocreateAccountsTable).set({ pageId: page.id }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, account.key)));
     // Its practices come from the workbook's locations tab, by the account's Salesforce id. Best effort: the room exists either way.
@@ -228,4 +228,27 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
 export async function autocreateDue(now: number = Date.now()): Promise<number[]> {
   const rows = await db.select({ tenantId: lpRoomAutocreateTable.tenantId, syncedAt: lpRoomAutocreateTable.syncedAt }).from(lpRoomAutocreateTable).where(and(eq(lpRoomAutocreateTable.enabled, true), isNotNull(lpRoomAutocreateTable.sheetId)));
   return rows.filter((r) => !r.syncedAt || now - r.syncedAt.getTime() > 55 * 60_000).map((r) => r.tenantId);
+}
+
+/**
+ * A dry run of what happens when an account is added to the signed-accounts
+ * sheet, for an account name typed in by hand: the same draft room, standard
+ * files and Slack note, marked as a test. The sheet and the list of accounts
+ * seen are not touched.
+ */
+export async function testRoomAutocreate(tenantId: number, rawName: string, sfdcId: string | null): Promise<{ pageId: number; name: string; standardFiles: number; practicesLinked: boolean } | null> {
+  const name = cleanAccountName(rawName);
+  if (!name) return null;
+  const account: SignedAccount = { key: `test-${accountKey(name)}-${Date.now().toString(36)}`, name, signedDate: null, owner: null, sfdcId: sfdcId && /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(sfdcId) ? sfdcId : null };
+  const pageId = await createRoomForAccount(tenantId, account, { claimed: true, test: true });
+  if (!pageId) return null;
+  const [standard, [cfg]] = await Promise.all([
+    db.select({ k: lpRoomStandardAssetsTable.assetKey }).from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, tenantId)),
+    db.select({ sheetId: lpRoomAutocreateTable.sheetId, practicesTab: lpRoomAutocreateTable.practicesTab }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1),
+  ]);
+  const safe = name.replace(/[<>&*_~`]/g, " ");
+  await slackService
+    .postMessage(tenantId, { text: `Test: partner room created for ${safe}`, blocks: [{ type: "section", text: { type: "mrkdwn", text: `🧪 *Test run:* a partner room was created as a draft for *${safe}*, the way it would be when an account is added to the signed-accounts sheet. Nothing was published.` } }] })
+    .catch(() => false);
+  return { pageId, name, standardFiles: standard.length, practicesLinked: !!(account.sfdcId && cfg?.sheetId && cfg?.practicesTab) };
 }
