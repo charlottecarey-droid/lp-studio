@@ -140,7 +140,7 @@ export interface SetupItem {
 export function roomSetupChecklist(f: RoomSetupFacts): SetupItem[] {
   const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
   return [
-    { done: true, text: `Draft room created${f.standardFiles ? ` with ${n(f.standardFiles, "standard guide", "standard guides")}` : ""}` },
+    { done: true, text: `Draft Partner Hub created${f.standardFiles ? ` with ${n(f.standardFiles, "standard guide", "standard guides")}` : ""}` },
     f.teamFilled
       ? { done: true, text: `Customer team filled in from the account (${n(f.teamFilled, "person", "people")}). Check it is the right group` }
       : { done: false, text: "Add the customer's team (Team module: add people, paste a list, or pull from the account)" },
@@ -162,7 +162,7 @@ export function roomCreatedSlackBlocks(name: string, links: { edit: string; room
   const items = roomSetupChecklist(facts);
   const line = (i: SetupItem) => `${i.done ? "✅" : "◻️"} ${slackSafe(i.text)}`;
   return [
-    { type: "section", text: { type: "mrkdwn", text: `${opts.test ? "🧪 *Test run:*" : "🚪"} *Partner room created as a draft for ${slackSafe(name)}*${opts.test ? ", the way it would be when an account is added to the signed-accounts sheet" : ""}. Nobody outside the team can see it until it is published.${links.edit.startsWith("http") ? `\n<${links.edit}|Open the room in LP Studio>` : ""}` } },
+    { type: "section", text: { type: "mrkdwn", text: `${opts.test ? "🧪 *Test run:*" : "🚪"} *Partner Hub created as a draft for ${slackSafe(name)}*${opts.test ? ", the way it would be when an account is added to the signed-accounts sheet" : ""}. Nobody outside the team can see it until it is published.${links.edit.startsWith("http") ? `\n<${links.edit}|Open it in LP Studio>` : ""}` } },
     { type: "section", text: { type: "mrkdwn", text: `*Done for you*\n${items.filter((i) => i.done).map(line).join("\n")}` } },
     { type: "section", text: { type: "mrkdwn", text: `*Your setup checklist*\n${items.filter((i) => !i.done).map(line).join("\n")}` } },
   ];

@@ -64,7 +64,7 @@ describe("the setup checklist for a new room", () => {
     expect(bare.map((i) => i.text).join("\n")).toMatch(/Connect your calendar[\s\S]*Slack channel[\s\S]*invite the customer's team/);
     const full = roomSetupChecklist({ standardFiles: 2, teamFilled: 8, contacts: 79, domain: "mb2dental.com", practicesLinked: true, ownerNamed: true });
     expect(full.filter((i) => i.done).map((i) => i.text)).toEqual([
-      "Draft room created with 2 standard guides",
+      "Draft Partner Hub created with 2 standard guides",
       "Customer team filled in from the account (8 people). Check it is the right group",
       "Customer email domain set to mb2dental.com",
       "Practice list linked to the locations sheet",
@@ -75,7 +75,7 @@ describe("the setup checklist for a new room", () => {
   it("writes a Slack message with the link and both lists, and can't be broken by a name", () => {
     const text = JSON.stringify(roomCreatedSlackBlocks("Smile <!channel> *Brands*", { edit: "https://ws.example.com/builder/9", room: "https://rooms.example.com/smile-room" }, EMPTY_SETUP_FACTS));
     expect(text).not.toContain("<!channel>");
-    expect(text).toContain("<https://ws.example.com/builder/9|Open the room in LP Studio>");
+    expect(text).toContain("<https://ws.example.com/builder/9|Open it in LP Studio>");
     expect(text).toContain("*Your setup checklist*");
     expect(text).toContain("◻️ Connect your calendar");
     expect(JSON.stringify(roomCreatedSlackBlocks("X", { edit: "", room: "" }, EMPTY_SETUP_FACTS, { test: true }))).toContain("Test run");

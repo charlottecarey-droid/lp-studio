@@ -881,7 +881,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const second = (await sync()).json as { created: { name: string; pageId: number }[] };
     expect(second.created.map((c) => c.name)).toEqual(["Southeast Dental Partners"]);
     const made = await pool.query<{ title: string; slug: string; status: string; blocks: { type: string; props: { partnerName: string; assets: { key: string; fileUrl?: string }[] } }[] }>(`SELECT title, slug, status, blocks FROM lp_pages WHERE id = $1 AND tenant_id = $2`, [second.created[0].pageId, tenantId]);
-    expect(made.rows[0]).toMatchObject({ title: "Southeast Dental Partners Partner Room", slug: "southeast-dental-partners-room", status: "draft" });
+    expect(made.rows[0]).toMatchObject({ title: "Southeast Dental Partners Partner Hub", slug: "southeast-dental-partners-hub", status: "draft" });
     const room = made.rows[0].blocks.find((b) => b.type === "room-workspace")!;
     expect(room.props.partnerName).toBe("Southeast Dental Partners");
     expect(room.props.assets.find((a) => a.key === "practice-welcome-guide")?.fileUrl).toBe("/api/storage/objects/uploads/std-welcome");
@@ -896,7 +896,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const test = (await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "Riverbend Dental Group - HQ" } })).json as { pageId: number; name: string; standardFiles: number };
     expect(test).toMatchObject({ name: "Riverbend Dental Group", standardFiles: 1 });
     const testPage = await pool.query<{ title: string; slug: string; status: string }>(`SELECT title, slug, status FROM lp_pages WHERE id = $1 AND tenant_id = $2`, [test.pageId, tenantId]);
-    expect(testPage.rows[0]).toMatchObject({ title: "Riverbend Dental Group Partner Room (test)", slug: "riverbend-dental-group-test-room", status: "draft" });
+    expect(testPage.rows[0]).toMatchObject({ title: "Riverbend Dental Group Partner Hub (test)", slug: "riverbend-dental-group-test-hub", status: "draft" });
     expect(((await auto()).json as { accounts: unknown[] }).accounts).toHaveLength(listBefore);
     const kitOfTest = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${test.pageId}`, headers: asTenant(tenantId) })).json as { kit: { automatic: boolean; partnerName: string } };
     expect(kitOfTest.kit).toMatchObject({ automatic: true, partnerName: "Riverbend Dental Group" });
@@ -912,7 +912,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     connectorCalls.length = 0;
     const withFollowUps = (await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "Follow Up Dental" } })).json as { followUps: { alerts: { sent: string[] }; sheet: { ok: boolean; note: string }; sfdc: { ok: boolean; note: string } } };
     expect(withFollowUps.followUps.alerts.sent).toEqual(["ops@vendor-team.com"]);
-    expect(digestEmails[0]).toMatchObject({ recipientEmail: "ops@vendor-team.com", subject: "[Test] New partner room: Follow Up Dental" });
+    expect(digestEmails[0]).toMatchObject({ recipientEmail: "ops@vendor-team.com", subject: "[Test] New Partner Hub: Follow Up Dental" });
     expect(withFollowUps.followUps.sheet).toEqual({ ok: true, note: "Added to “Digital Sales Rooms”" });
     const writes = connectorCalls.filter((c) => c.connector === "google-sheet" && c.method !== "GET");
     expect(writes.some((c) => c.path.endsWith(":batchUpdate") && c.body.includes("Digital Sales Rooms"))).toBe(true); // the tab is created

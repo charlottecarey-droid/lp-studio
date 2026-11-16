@@ -187,7 +187,7 @@ export function renderDigestSlack(d: DigestData, roomUrl: string, extraSections:
     blocks: [
       { type: "header", text: { type: "plain_text", text: `📬 Weekly digest · ${d.partnerName}`.slice(0, 150), emoji: true } },
       { type: "section", text: { type: "mrkdwn", text: lines.join("\n\n").slice(0, 2900) } },
-      { type: "context", elements: [{ type: "mrkdwn", text: `<${roomUrl}|Open the room>` }] },
+      { type: "context", elements: [{ type: "mrkdwn", text: `<${roomUrl}|Open the Partner Hub>` }] },
     ],
   };
 }

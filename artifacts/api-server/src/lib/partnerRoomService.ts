@@ -206,7 +206,7 @@ export async function syncPracticesFromSheet(pageId: number): Promise<{ ok: bool
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
       logger.warn({ pageId, status: resp.status, body: body.slice(0, 300) }, "room practices sheet read failed");
-      return finish(false, resp.status === 403 || resp.status === 404 ? "Couldn't open the sheet. Share it with the Google account connected to LP Studio, and check the tab name." : `Google Sheets returned an error (${resp.status}).`);
+      return finish(false, resp.status === 400 && tab ? `The workbook has no tab named “${tab}”. Check the spelling and spaces.` : resp.status === 403 || resp.status === 404 ? "Couldn't open the sheet. Share it with the Google account connected to LP Studio, and check the tab name." : `Google Sheets returned an error (${resp.status}).`);
     }
     const values = ((await resp.json()) as { values?: unknown }).values;
     // An explicit filter wins; otherwise filter by the customer's Salesforce account id when the sheet has a parent-id column.

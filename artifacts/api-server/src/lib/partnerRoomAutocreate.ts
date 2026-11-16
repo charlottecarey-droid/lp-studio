@@ -66,7 +66,7 @@ export function signedAccountsFromSheet(values: unknown): SignedAccount[] | null
   return out;
 }
 
-export const roomSlugFor = (name: string) => `${accountKey(name).slice(0, 60).replace(/-+$/, "") || "partner"}-room`;
+export const roomSlugFor = (name: string) => `${accountKey(name).slice(0, 60).replace(/-+$/, "") || "partner"}-hub`;
 
 /* ── Creating a room ─────────────────────────────────────────────────────── */
 
@@ -75,7 +75,7 @@ export const DEFAULT_ROOM_COVER = "/room/default-cover.jpg";
 
 export function roomBlocksForAccount(name: string, slug: string, standard: { assetKey: string; fileUrl: string }[]): unknown[] {
   // The cover photo is the one on the model room; the "Next up" line on it follows the plan (the first milestone still open).
-  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "" } } : b));
+  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "", eyebrow: "Partner Hub" } } : b));
   for (const spec of ROOM_STANDARD_ASSETS) {
     const file = standard.find((s) => s.assetKey === spec.key);
     const next = file ? setRoomKitAsset(blocks, { key: spec.key, kind: "pdf", title: spec.title, description: spec.description, fileUrl: file.fileUrl }) : null;
@@ -208,12 +208,12 @@ export async function createRoom(tenantId: number, account: SignedAccount, opts:
     if (claim.length === 0) return null;
   }
   try {
-    const slug = await freeSlug(tenantId, opts.test ? roomSlugFor(account.name).replace(/-room$/, "-test-room") : roomSlugFor(account.name));
+    const slug = await freeSlug(tenantId, opts.test ? roomSlugFor(account.name).replace(/-hub$/, "-test-hub") : roomSlugFor(account.name));
     const standard = await db.select({ assetKey: lpRoomStandardAssetsTable.assetKey, fileUrl: lpRoomStandardAssetsTable.fileUrl }).from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, tenantId));
     const blocks = roomBlocksForAccount(account.name, slug, standard);
     const [page] = await db
       .insert(lpPagesTable)
-      .values({ tenantId, title: `${account.name} Partner Room${opts.test ? " (test)" : ""}`, slug, blocks: blocks as never, status: "draft", createdBy: "automatic rooms" })
+      .values({ tenantId, title: `${account.name} Partner Hub${opts.test ? " (test)" : ""}`, slug, blocks: blocks as never, status: "draft", createdBy: "automatic rooms" })
       .returning({ id: lpPagesTable.id });
     await db.update(lpRoomAutocreateAccountsTable).set({ pageId: page.id }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, account.key)));
     // Its practices come from the workbook's locations tab, by the account's Salesforce id. Best effort: the room exists either way.
@@ -261,9 +261,9 @@ export function roomCreatedEmail(account: SignedAccount, links: { room: string; 
     .map((i) => `<tr><td style="padding:3px 8px 3px 0;vertical-align:top">${i.done ? "✅" : "◻️"}</td><td style="padding:3px 0;${i.done ? "color:#68726c" : ""}">${escHtml(i.text)}</td></tr>`)
     .join("");
   return {
-    subject: `${opts.test ? "[Test] " : ""}New partner room: ${account.name}`,
+    subject: `${opts.test ? "[Test] " : ""}New Partner Hub: ${account.name}`,
     html: `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:#18201c;max-width:560px">
-<p style="margin:0 0 12px"><strong>A partner room was created for ${name}.</strong>${opts.test ? " This is a test run." : ""}</p>
+<p style="margin:0 0 12px"><strong>A Partner Hub was created for ${name}.</strong>${opts.test ? " This is a test run." : ""}</p>
 <p style="margin:0 0 12px">It is a draft: nobody outside your team can see it yet. Here is what was done for you and what is left:</p>
 <table style="margin:0 0 16px;border-collapse:collapse;font-size:14px">${list}</table>
 <p style="margin:0 0 16px"><a href="${escHtml(links.edit)}" style="display:inline-block;background:#18201c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">Open the room</a></p>
@@ -392,7 +392,7 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
     const resp = await connectors.proxy("google-sheet", `/v4/spreadsheets/${cfg.sheetId}/values/${range}`, { method: "GET" });
     if (!resp.ok) {
       logger.warn({ tenantId, status: resp.status }, "room autocreate sheet read failed");
-      return finish(false, resp.status === 403 || resp.status === 404 ? "Couldn't open the sheet. Share it with the Google account connected to LP Studio, and check the tab name." : `Google Sheets returned an error (${resp.status}).`);
+      return finish(false, resp.status === 400 && tab ? `The workbook has no tab named “${tab}”. Check the spelling and spaces.` : resp.status === 403 || resp.status === 404 ? "Couldn't open the sheet. Share it with the Google account connected to LP Studio, and check the tab name." : `Google Sheets returned an error (${resp.status}).`);
     }
     const accounts = signedAccountsFromSheet(((await resp.json()) as { values?: unknown }).values);
     if (!accounts) return finish(false, "The tab needs an “Account Name” column in its first row.");
@@ -425,7 +425,7 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
       created.push({ name: a.name, pageId: room.pageId });
       // One message per room: where to open it, what was done, and what the team still has to set up.
       const links = await roomLinks(tenantId, room.pageId).catch(() => ({ edit: "", room: "" }));
-      await slackService.postMessage(tenantId, { text: `Partner room created: ${a.name}`, blocks: roomCreatedSlackBlocks(a.name, links, room.facts) }).catch(() => false);
+      await slackService.postMessage(tenantId, { text: `Partner Hub created: ${a.name}`, blocks: roomCreatedSlackBlocks(a.name, links, room.facts) }).catch(() => false);
     }
     const waiting = fresh.length - created.length;
     return finish(true, `${accounts.length} accounts on the list${created.length ? ` · created ${created.length} room${created.length === 1 ? "" : "s"}: ${created.map((c) => c.name).join(", ")}` : " · nothing new"}${waiting > 0 ? ` · ${waiting} more will be created on the next reads` : ""}.`, created);
@@ -455,7 +455,7 @@ export async function testRoomAutocreate(tenantId: number, rawName: string, sfdc
   if (!room) return null;
   const { pageId, facts } = room;
   const links = await roomLinks(tenantId, pageId).catch(() => ({ edit: "", room: "" }));
-  await slackService.postMessage(tenantId, { text: `Test: partner room created for ${name}`, blocks: roomCreatedSlackBlocks(name, links, facts, { test: true }) }).catch(() => false);
+  await slackService.postMessage(tenantId, { text: `Test: Partner Hub created for ${name}`, blocks: roomCreatedSlackBlocks(name, links, facts, { test: true }) }).catch(() => false);
   const followUps = await afterRoomCreated(tenantId, account, pageId, { test: true, facts }).catch((): RoomFollowUps => ({ alerts: null, sheet: null, sfdc: null }));
   return { pageId, name, standardFiles: facts.standardFiles, practicesLinked: facts.practicesLinked, teamFilled: facts.teamFilled, contacts: facts.contacts, domain: facts.domain, followUps };
 }

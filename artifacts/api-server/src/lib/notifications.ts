@@ -462,12 +462,12 @@ export async function sendRoomAccessEmail(payload: {
 }): Promise<boolean> {
   const { recipientEmail, roomUrl, roomTitle, tenantId } = payload;
   const html = buildAuthActionEmailHtml({
-    headline: "Your link to the room",
+    headline: "Your link to the Partner Hub",
     bodyHtml: `Use the button below to open <strong>${escapeHtml(roomTitle)}</strong> as yourself. From there you can upload files and mark tasks done.`,
-    ctaLabel: "Open the room",
+    ctaLabel: "Open the Partner Hub",
     ctaUrl: roomUrl,
     expiryNote: "This link works on this address for 90 days. If you didn't ask for it, you can safely ignore this email.",
-    footerNote: "You're receiving this because someone entered this email address to get access to a shared room.",
+    footerNote: "You're receiving this because someone entered this email address to get access to a shared Partner Hub.",
   });
   // From the workspace that owns the room (its sending identity), not the platform.
   const sender = await resolveTenantSenderSafe(tenantId, "notifications");
@@ -501,11 +501,11 @@ export async function sendRoomInviteEmail(payload: {
   const note = (payload.note ?? "").trim();
   const html = buildAuthActionEmailHtml({
     headline: `You're invited to ${roomTitle}`,
-    bodyHtml: `${first ? `Hi ${escapeHtml(first)}, ` : ""}${escapeHtml(payload.invitedBy)} invited you to <strong>${escapeHtml(roomTitle)}</strong>: the shared workspace for our partnership, with the plan, the launch kit, upcoming dates and the team on both sides.${note ? `<br><br>${escapeHtml(note).replace(/\n/g, "<br>")}` : ""}`,
-    ctaLabel: "Open the workspace",
+    bodyHtml: `${first ? `Hi ${escapeHtml(first)}, ` : ""}${escapeHtml(payload.invitedBy)} invited you to <strong>${escapeHtml(roomTitle)}</strong>: the shared Partner Hub for our partnership, with the plan, the launch kit, upcoming dates and the team on both sides.${note ? `<br><br>${escapeHtml(note).replace(/\n/g, "<br>")}` : ""}`,
+    ctaLabel: "Open the Partner Hub",
     ctaUrl: roomUrl,
     expiryNote: "This link is yours and works for 90 days. Please don't forward it: anyone who opens it acts as you.",
-    footerNote: "You're receiving this because a member of your partner's team invited you to a shared workspace.",
+    footerNote: "You're receiving this because a member of your partner's team invited you to a shared Partner Hub.",
   });
   const sender = await resolveTenantSenderSafe(tenantId, "notifications");
   return sendAuthActionEmail({

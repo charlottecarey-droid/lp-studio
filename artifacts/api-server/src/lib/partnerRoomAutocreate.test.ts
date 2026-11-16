@@ -30,7 +30,7 @@ describe("signed accounts from the sheet", () => {
   it("treats one account as one, however it is written", () => {
     expect(accountKey("Heartland Dental-HQ")).toBe(accountKey("heartland  dental"));
     expect(accountKey("Smith & Jones Dental - Parent")).toBe("smith-and-jones-dental");
-    expect(roomSlugFor("MB2 Dental -HQ")).toBe("mb2-dental-room");
+    expect(roomSlugFor("MB2 Dental -HQ")).toBe("mb2-dental-hub");
   });
   it("reads the report's columns, skips blanks and repeats, and needs an Account Name column", () => {
     const values = [
@@ -54,7 +54,7 @@ describe("signed accounts from the sheet", () => {
 
 describe("the room made for an account", () => {
   it("is the template with the account's name everywhere and the workspace's standard guides attached", () => {
-    const blocks = roomBlocksForAccount("Southeast Dental Partners", "southeast-dental-partners-room", [{ assetKey: "practice-welcome-guide", fileUrl: "/api/storage/objects/uploads/welcome" }]);
+    const blocks = roomBlocksForAccount("Southeast Dental Partners", "southeast-dental-partners-hub", [{ assetKey: "practice-welcome-guide", fileUrl: "/api/storage/objects/uploads/welcome" }]);
     const room = (blocks as { type: string; props: Record<string, unknown> }[]).find((b) => b.type === "room-workspace")!;
     expect(room.props.partnerName).toBe("Southeast Dental Partners");
     expect(room.props.heroImageUrl).toBe("/room/default-cover.jpg");
@@ -72,7 +72,7 @@ describe("the room made for an account", () => {
 
 describe("after a room is created", () => {
   const account = { key: "mb2-dental", name: "MB2 <Dental>", signedDate: "2/2/2026", owner: "Molly Reilly", sfdcId: "0015d000041HyXrAAK" };
-  const links = { room: "https://partners.example.com/mb2-dental-room", edit: "https://app.example.com/builder/42" };
+  const links = { room: "https://partners.example.com/mb2-dental-hub", edit: "https://app.example.com/builder/42" };
   it("writes one log row per room, matching the tab's columns", () => {
     const row = roomLogRow(account, links, { now: new Date("2026-11-16T15:00:00Z") });
     expect(row).toHaveLength(ROOM_LOG_HEADERS.length);
@@ -81,7 +81,7 @@ describe("after a room is created", () => {
   });
   it("writes the alert email with the edit link, escaped, and marks a test", () => {
     const mail = roomCreatedEmail(account, links);
-    expect(mail.subject).toBe("New partner room: MB2 <Dental>");
+    expect(mail.subject).toBe("New Partner Hub: MB2 <Dental>");
     expect(mail.html).toContain("MB2 &lt;Dental&gt;");
     expect(mail.html).not.toContain("<Dental>");
     expect(mail.html).toContain('href="https://app.example.com/builder/42"');
@@ -89,6 +89,13 @@ describe("after a room is created", () => {
     expect(mail.html).toContain("Connect your calendar");
     expect(roomCreatedEmail(account, links, { facts: { standardFiles: 2, teamFilled: 3, contacts: 9, domain: "mb2dental.com", practicesLinked: true, ownerNamed: false } }).html).toContain("Customer email domain set to mb2dental.com");
     expect(roomCreatedEmail(account, links, { test: true }).subject.startsWith("[Test] ")).toBe(true);
+  });
+  it("reads the real signed-accounts tab: the id column is called “18 digit ID”", () => {
+    const tab = [
+      ["18 digit ID", "Account Owner", "Account Name", "ABM Org Tier", "ABM Org Stage", "Number of Practice Locations", "Number of Locations on Contract", "Enterprise MSA Signed", "Enterprise Pilot", "Contract Signed Date", "Practice Profile Segment", "ABM Tier", "Last Activity"],
+      ["0015d00003OioNlAAJ", "Samantha Mackinnon", "Southeast Dental Partners", "Tier 3", "Closed - Won", 52, 25, 1, 0, "1/13/2026", "Large Enterprise", "Tier 3", "10/26/2026"],
+    ];
+    expect(signedAccountsFromSheet(tab)).toEqual([{ key: "southeast-dental-partners", name: "Southeast Dental Partners", signedDate: "1/13/2026", owner: "Samantha Mackinnon", sfdcId: "0015d00003OioNlAAJ" }]);
   });
   it("accepts only a Salesforce field API name", () => {
     expect(isSfdcFieldName("Digital_Sales_Room__c")).toBe(true);

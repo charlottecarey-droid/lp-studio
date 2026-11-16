@@ -140,8 +140,8 @@ export function feedAlertEmail(input: { kind: FeedAlertKind; byName: string; roo
     html: `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:#18201c;max-width:560px">
 <p style="margin:0 0 12px"><strong>${lead}</strong> in ${esc(input.room)}.</p>
 <p style="margin:0 0 16px;padding:12px 16px;background:#f5f6f3;border-radius:8px;white-space:pre-wrap">${esc(snippet)}</p>
-<p style="margin:0 0 16px"><a href="${esc(input.url)}" style="display:inline-block;background:#18201c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">Open the room</a></p>
-<p style="margin:0;color:#68726c;font-size:13px">You're getting this because you're part of this partner room.</p>
+<p style="margin:0 0 16px"><a href="${esc(input.url)}" style="display:inline-block;background:#18201c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">Open the Partner Hub</a></p>
+<p style="margin:0;color:#68726c;font-size:13px">You're getting this because you're part of this Partner Hub.</p>
 </div>`,
   };
 }

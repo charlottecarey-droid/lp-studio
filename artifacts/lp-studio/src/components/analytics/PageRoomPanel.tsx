@@ -1337,7 +1337,7 @@ export function AutomaticRoomsSection() {
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
         <p className="text-xs text-muted-foreground">
-          Practices: name the tab of the same workbook that lists every account’s locations. Each new room then reads its own practices from it, matched by Salesforce ID. This needs an “Account ID” column on the signed-accounts tab and a “Parent Account ID” column on the locations tab.
+          Practices: name the tab of the same workbook that lists every account’s locations (its exact name, for example Sheet14). Each new room then reads its own practices from it. The signed-accounts tab needs an “Account ID” or “18 digit ID” column, and the locations tab a “Parent Account ID” or “Parent Account” column.
         </p>
         <Input value={practicesTab} onChange={(e) => setPracticesTab(e.target.value)} placeholder="Sheet14" aria-label="Practices tab name" />
       </div>
