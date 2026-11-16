@@ -1100,6 +1100,13 @@
       "when": 1758030180000,
       "tag": "0156_room_autocreate_followups",
       "breakpoints": false
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1758030240000,
+      "tag": "0157_room_wins_photos_mentions_reactions",
+      "breakpoints": false
     }
   ]
 }

@@ -174,8 +174,8 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const pageId = await seedPage(tenantId);
     const state = await post("state", { pageId });
     expect(state.status).toBe(200);
-    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
-    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
+    expect(state.json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
+    expect((await post("state", { pageId: 2_000_000_000 })).json).toEqual({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
     expect((await post("task", { pageId, taskKey: "announce" })).status).toBe(401);
     expect((await post("upload", { pageId, taskKey: "practice-roster", fileName: "r.xlsx", fileBase64: XLSX.toString("base64") })).status).toBe(401);
     expect((await post("task", { pageId, taskKey: "announce", rt: "forged.token" })).status).toBe(401);
@@ -223,7 +223,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await post("task", { pageId, taskKey: "announce", rt })).status).toBe(200);
 
     const anon = await post("state", { pageId });
-    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
+    expect(anon.json).toEqual({ viewer: null, tasks: { announce: { done: true, at: expect.any(String) } }, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
     const known = await post("state", { pageId, rt });
     expect(known.json).toMatchObject({ viewer: { email: "levi@mb2dental.com" }, tasks: { announce: { done: true, by: "levi@mb2dental.com" } } });
 
@@ -761,6 +761,84 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("access", { pageId, email: "stranger@elsewhere-co.com" })).json as { status: string }).status).not.toBe("sent");
     await pool.query(`DELETE FROM app_users WHERE email = $1`, [email]);
   });
+
+  it("wins feed: photos, tagging people with an email alert, emoji reactions, and a note to the author on a comment", async () => {
+    const tenantId = await seedTenant();
+    const blocks = [{ id: "w1", type: "room-workspace", props: { team: [{ title: "Your team", members: [{ name: "Riley Owner", email: "riley@vendor-team.com" }, { name: "No Email" }] }] } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'Feed Room', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `feed-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    const hl2 = await seedHotlink(tenantId, pageId, "kai@roomco.com");
+    await pool.query(`UPDATE sales_contacts SET first_name = 'Kai', last_name = 'Second' WHERE tenant_id = $1 AND email = 'kai@roomco.com'`, [tenantId]);
+    type Win = { id: number; body: string; images: string[]; mentions: string[]; reactions: { emoji: string; count: number; mine: boolean }[]; likes: number; liked: boolean; comments: { body: string; mentions: string[] }[] };
+    type State = { people: { key: string; name: string; email?: string }[]; wins: Win[] };
+
+    // Who can be tagged: names and opaque keys for a known visitor, nothing for a stranger.
+    expect(((await post("state", { pageId })).json as State).people).toEqual([]);
+    const people = ((await post("state", { pageId, hl })).json as State).people;
+    expect(people.map((p) => p.name)).toEqual(["Dana Visitor", "Kai Second", "Riley Owner"]);
+    expect(JSON.stringify(people)).not.toContain("@");
+    const riley = people.find((p) => p.name === "Riley Owner")!;
+    const dana = people.find((p) => p.name === "Dana Visitor")!;
+
+    // Photos: identity needed, images only, and the post keeps only files we host.
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2]).toString("base64");
+    expect((await post("win-image", { pageId, fileName: "team.png", fileBase64: png })).status).toBe(401);
+    expect((await post("win-image", { pageId, hl, fileName: "notes.csv", fileBase64: Buffer.from("a,b").toString("base64") })).status).toBe(400);
+    const up = await post("win-image", { pageId, hl, fileName: "team.png", fileBase64: png });
+    expect(up.json).toEqual({ ok: true, url: expect.stringMatching(/^\/api\/storage\/objects\/uploads\//) });
+    const hosted = "/api/storage/objects/uploads/11111111-2222-3333-4444-555555555555";
+
+    // A post that tags Riley (and tries to tag someone who isn't in the room, and the writer).
+    digestEmails.length = 0;
+    expect((await post("win", { pageId, hl, body: "Huge week, thank you @Riley Owner and @Dana Visitor 🎉", images: [hosted, "https://elsewhere.example/x.png"], mentions: [riley.key, dana.key, "feedfacefeedface"] })).status).toBe(200);
+    await new Promise((res) => setTimeout(res, 20));
+    expect(digestEmails.map((e) => e.recipientEmail)).toEqual(["riley@vendor-team.com"]);
+    expect(digestEmails[0].subject).toBe("Dana Visitor mentioned you in a win · Feed Room");
+    expect(digestEmails[0].html).toContain("Huge week, thank you @Riley Owner");
+    let win = ((await post("state", { pageId, hl })).json as State).wins[0];
+    expect(win).toMatchObject({ images: [hosted], mentions: ["Riley Owner", "Dana Visitor"], reactions: [], likes: 0 });
+    // A key sent without the name in the text tags nobody; a photo can be posted on its own.
+    digestEmails.length = 0;
+    expect((await post("win", { pageId, hl, body: "No names here", mentions: [riley.key] })).status).toBe(200);
+    expect((await post("win", { pageId, hl, body: "", images: [hosted] })).status).toBe(200);
+    expect((await post("win", { pageId, hl, body: "" })).status).toBe(400);
+    await new Promise((res) => setTimeout(res, 20));
+    expect(digestEmails).toEqual([]);
+    const all = ((await post("state", { pageId, hl })).json as State).wins;
+    expect(all.find((w) => w.body === "No names here")!.mentions).toEqual([]);
+    expect(all.find((w) => w.body === "")!.images).toEqual([hosted]);
+
+    // Reactions: each emoji toggles on its own; an emoji we don't offer is refused.
+    expect((await post("win/like", { pageId, hl, winId: win.id, emoji: "🎉" })).json).toEqual({ ok: true, liked: true });
+    expect((await post("win/like", { pageId, hl, winId: win.id })).json).toEqual({ ok: true, liked: true });
+    expect((await post("win/like", { pageId, hl: hl2, winId: win.id, emoji: "🎉" })).json).toEqual({ ok: true, liked: true });
+    expect((await post("win/like", { pageId, hl, winId: win.id, emoji: "💩" })).status).toBe(400);
+    win = ((await post("state", { pageId, hl })).json as State).wins.find((w) => w.id === win.id)!;
+    expect(win.reactions).toEqual([{ emoji: "❤️", count: 1, mine: true }, { emoji: "🎉", count: 2, mine: true }]);
+    expect(win).toMatchObject({ likes: 3, liked: true });
+    expect((await post("win/like", { pageId, hl, winId: win.id, emoji: "🎉" })).json).toEqual({ ok: true, liked: false });
+    const anonWin = ((await post("state", { pageId })).json as State).wins.find((w) => w.id === win.id)!;
+    expect(anonWin.reactions).toEqual([{ emoji: "❤️", count: 1, mine: false }, { emoji: "🎉", count: 1, mine: false }]);
+
+    // A comment from someone else tells the author; tagging in a comment emails the person tagged; your own comment emails nobody.
+    digestEmails.length = 0;
+    expect((await post("win/comment", { pageId, hl: hl2, winId: win.id, body: "Well deserved. @Riley Owner can we share this?", mentions: [riley.key] })).status).toBe(200);
+    expect((await post("win/comment", { pageId, hl, winId: win.id, body: "Thanks all" })).status).toBe(200);
+    await new Promise((res) => setTimeout(res, 20));
+    expect(digestEmails.map((e) => [e.recipientEmail, e.subject]).sort()).toEqual([
+      ["dana@roomco.com", "Kai Second commented on your win · Feed Room"],
+      ["riley@vendor-team.com", "Kai Second mentioned you in a comment · Feed Room"],
+    ]);
+    win = ((await post("state", { pageId })).json as State).wins.find((w) => w.id === win.id)!;
+    expect(win.comments.map((c) => c.mentions)).toEqual([["Riley Owner"], []]);
+
+    // The team's side can tag too.
+    digestEmails.length = 0;
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/wins`, headers: { ...asTenant(tenantId), "x-test-email": "rep@vendor-team.com" }, body: { body: "Welcome aboard @Dana Visitor", mentions: [dana.key], images: [hosted] } })).status).toBe(200);
+    await new Promise((res) => setTimeout(res, 20));
+    expect(digestEmails.map((e) => e.recipientEmail)).toEqual(["dana@roomco.com"]);
+  }, 30_000);
 
   it("automatic rooms: accounts already on the sheet are recorded, a new one gets a draft room once", async () => {
     const tenantId = await seedTenant();

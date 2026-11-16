@@ -34,9 +34,22 @@ export interface RoomRequest {
   createdAt: string;
 }
 
+export interface RoomReaction {
+  emoji: string;
+  count: number;
+  /** The viewer added this one. */
+  mine: boolean;
+}
+/** Someone who can be tagged in the feed. The key stands in for their address, which the page never sees. */
+export interface RoomPersonRef {
+  key: string;
+  name: string;
+}
 export interface RoomWinComment {
   id: number;
   body: string;
+  /** Names tagged in the comment ("Dana Lee" for "@Dana Lee"). */
+  mentions?: string[];
   side: "customer" | "team" | string;
   by: string;
   createdAt: string;
@@ -51,6 +64,12 @@ export interface RoomWin {
   createdAt: string;
   likes: number;
   liked: boolean;
+  /** Photos on the post. */
+  images?: string[];
+  /** Names tagged in the post. */
+  mentions?: string[];
+  /** Emoji reactions with counts. */
+  reactions?: RoomReaction[];
   comments: RoomWinComment[];
 }
 export interface RoomContact {
@@ -70,6 +89,8 @@ export interface RoomSnapshot {
   choices: Record<string, { value: string; at: string; by?: string }>;
   /** The wins feed, newest first. */
   wins: RoomWin[];
+  /** People who can be tagged (known visitors only). */
+  people: RoomPersonRef[];
   /** People the customer added to their team. Empty for an anonymous visitor. */
   contacts: RoomContact[];
   /** Practice counts by stage and the regions present (no names: safe for any visitor). */
@@ -131,7 +152,7 @@ export const ROOM_UPLOAD_MAX_BYTES = 7 * 1024 * 1024;
 export const ROOM_UPLOAD_ACCEPT = ".xlsx,.xls,.csv,.pdf,.docx,.doc,.pptx,.png,.jpg,.jpeg,.zip";
 
 const NO_PRACTICES = { total: 0, byStage: {}, regions: [] };
-const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: NO_PRACTICES, events: [], minutes: [] };
+const EMPTY: RoomSnapshot = { status: "idle", viewer: null, tasks: {}, requests: [], choices: {}, wins: [], people: [], contacts: [], practices: NO_PRACTICES, events: [], minutes: [] };
 const rtKey = (pageId: number) => `lp_room_rt_${pageId}`;
 
 function readHl(): string | undefined {
@@ -212,6 +233,7 @@ class RoomStore {
         requests: Array.isArray(json.requests) ? (json.requests as RoomRequest[]) : [],
         choices: json.choices && typeof json.choices === "object" ? (json.choices as RoomSnapshot["choices"]) : {},
         wins: Array.isArray(json.wins) ? (json.wins as RoomWin[]) : [],
+        people: Array.isArray(json.people) ? (json.people as RoomPersonRef[]) : [],
         contacts: Array.isArray(json.contacts) ? (json.contacts as RoomContact[]) : [],
         practices: json.practices && typeof json.practices === "object" ? (json.practices as RoomSnapshot["practices"]) : NO_PRACTICES,
         events: Array.isArray(json.events) ? (json.events as RoomSyncedEvent[]) : [],
@@ -237,7 +259,7 @@ class RoomStore {
         } catch {
           /* ignore */
         }
-        this.set({ ...this.snap, viewer: null, requests: [], contacts: [] });
+        this.set({ ...this.snap, viewer: null, requests: [], contacts: [], people: [] });
         return { ok: false, error, identityRequired: true };
       }
       return { ok: false, error: status === 429 ? "Too many tries. Please wait a minute." : error };
@@ -292,14 +314,26 @@ class RoomStore {
   addContact(input: { name: string; role: string; email: string }) {
     return this.act("contact", input);
   }
-  postWin(input: { body: string; region?: string }) {
+  postWin(input: { body: string; region?: string; images?: string[]; mentions?: string[] }) {
     return this.act("win", input);
   }
-  likeWin(winId: number) {
-    return this.act("win/like", { winId });
+  /** Add or take back a reaction (the heart when no emoji is named). */
+  likeWin(winId: number, emoji?: string) {
+    return this.act("win/like", emoji ? { winId, emoji } : { winId });
   }
-  commentWin(winId: number, body: string) {
-    return this.act("win/comment", { winId, body });
+  commentWin(winId: number, body: string, mentions?: string[]) {
+    return this.act("win/comment", { winId, body, mentions: mentions ?? [] });
+  }
+  /** Upload one photo for a win (already sized down by the page). Resolves to where it is hosted. */
+  async uploadWinImage(fileName: string, dataUrl: string): Promise<{ ok: true; url: string } | { ok: false; error: string; identityRequired?: boolean }> {
+    try {
+      const { status, json } = await this.post("win-image", { fileName, fileBase64: dataUrl });
+      if (status === 200 && typeof json.url === "string") return { ok: true, url: json.url };
+      const error = typeof json.error === "string" ? json.error : "Couldn't add that photo. Please try again.";
+      return status === 401 ? { ok: false, error, identityRequired: true } : { ok: false, error: status === 429 ? "Too many tries. Please wait a minute." : error };
+    } catch {
+      return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+    }
   }
 
   /** "sent" = a link is on its way; "requested" = the team has been asked to approve this address. */

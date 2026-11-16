@@ -326,6 +326,10 @@ export const lpRoomWinsTable = pgTable(
     /** Optional big line above the body ("1,000 cases submitted"). */
     headline: text("headline"),
     region: text("region"),
+    /** Photos on the post: hosted paths under /api/storage/objects/uploads/. */
+    images: jsonb("images").$type<string[]>().notNull().default([]),
+    /** People tagged in the post, by the name shown ("@Dana Lee"). Addresses are never stored here. */
+    mentions: jsonb("mentions").$type<string[]>().notNull().default([]),
     authorSide: text("author_side").notNull(),
     authorEmail: text("author_email").notNull(),
     authorName: text("author_name"),
@@ -341,9 +345,11 @@ export const lpRoomWinLikesTable = pgTable(
     tenantId: integer("tenant_id").notNull(),
     winId: integer("win_id").notNull(),
     email: text("email").notNull(),
+    /** The reaction. One row per person per emoji per win. */
+    emoji: text("emoji").notNull().default("❤️"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("lp_room_win_likes_win_email_uniq").on(t.winId, t.email)],
+  (t) => [uniqueIndex("lp_room_win_likes_win_email_emoji_uniq").on(t.winId, t.email, t.emoji)],
 );
 
 export const lpRoomWinCommentsTable = pgTable(
@@ -353,6 +359,7 @@ export const lpRoomWinCommentsTable = pgTable(
     tenantId: integer("tenant_id").notNull(),
     winId: integer("win_id").notNull(),
     body: text("body").notNull(),
+    mentions: jsonb("mentions").$type<string[]>().notNull().default([]),
     authorSide: text("author_side").notNull(),
     authorEmail: text("author_email").notNull(),
     authorName: text("author_name"),

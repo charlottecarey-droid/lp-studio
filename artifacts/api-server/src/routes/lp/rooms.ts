@@ -46,7 +46,8 @@ import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { getActiveHostsForTenant } from "../../lib/tenantHosts";
 import { getRequestHost, getRequestProto } from "../../lib/requestHost";
-import { sendRoomAccessEmail } from "../../lib/notifications";
+import { sendRoomAccessEmail, sendRoomDigestEmail } from "../../lib/notifications";
+import { buildRoomPeople, countReactions, feedAlertEmail, feedAlertsFor, parseReaction, parseWinImages, resolveMentions, teamPeopleFromBlocks, type FeedAlert, type RoomPerson } from "../../lib/partnerRoomFeed";
 import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
@@ -119,6 +120,8 @@ interface RoomPage {
   teamStepKey: string | null;
   /** The customer's name from the workspace block. */
   partnerName: string;
+  /** Named people with an address on the Team module (they can be tagged in the feed). */
+  teamPeople: { name: string; email: string }[];
 }
 
 async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
@@ -132,7 +135,7 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
   if (!page || page.tenantId == null) return null;
   // Everything read from the page uses the account name filled in, as the page itself shows it.
   page.blocks = resolveRoomBlocks(page.blocks);
-  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks) };
+  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks) };
 }
 
 async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null; asanaProjectGid: string | null }> {
@@ -157,6 +160,8 @@ interface Viewer {
   email: string;
   name: string | null;
   via: "link" | "email";
+  /** A member of the page's own team (their posts show as the team's). */
+  team?: boolean;
 }
 
 /** A name for an email-verified visitor, when we already know one: a sales contact with that address, else a contact added in this room. */
@@ -233,7 +238,7 @@ async function resolveViewer(page: RoomPage, body: { hl?: unknown; rt?: unknown 
   if (claims) {
     // The page's own team first (one lookup), then the customer's allowed list.
     const team = await teamMemberName(page.tenantId, claims.email);
-    if (team) return { email: claims.email, name: team, via: "email" };
+    if (team) return { email: claims.email, name: team, via: "email", team: true };
     const [settings, status] = await Promise.all([loadSettings(page.id), memberStatus(page.id, claims.email)]);
     if (isEmailAllowed(claims.email, settings.allowedDomains, status)) return { email: claims.email, name: await customerNameFor(page, claims.email), via: "email" };
   }
@@ -278,10 +283,11 @@ async function loadWins(pageId: number, viewerEmail: string | null, showEmails: 
   if (wins.length === 0) return [];
   const ids = wins.map((w) => w.id);
   const [likes, comments] = await Promise.all([
-    db.select({ winId: lpRoomWinLikesTable.winId, email: lpRoomWinLikesTable.email }).from(lpRoomWinLikesTable).where(inArray(lpRoomWinLikesTable.winId, ids)),
+    db.select({ winId: lpRoomWinLikesTable.winId, email: lpRoomWinLikesTable.email, emoji: lpRoomWinLikesTable.emoji }).from(lpRoomWinLikesTable).where(inArray(lpRoomWinLikesTable.winId, ids)),
     db.select().from(lpRoomWinCommentsTable).where(inArray(lpRoomWinCommentsTable.winId, ids)).orderBy(asc(lpRoomWinCommentsTable.createdAt)),
   ]);
   const who = (name: string | null, email: string, side: string) => name || (showEmails ? email : side === "team" ? "The team" : "A team member");
+  const names = (v: unknown): string[] => (Array.isArray(v) ? v.filter((n): n is string => typeof n === "string") : []);
   return wins.map((w) => ({
     id: w.id,
     body: w.body,
@@ -290,18 +296,63 @@ async function loadWins(pageId: number, viewerEmail: string | null, showEmails: 
     side: w.authorSide,
     by: who(w.authorName, w.authorEmail, w.authorSide),
     createdAt: w.createdAt.toISOString(),
+    images: parseWinImages(w.images),
+    mentions: names(w.mentions),
     likes: likes.filter((l) => l.winId === w.id).length,
     liked: !!viewerEmail && likes.some((l) => l.winId === w.id && l.email === viewerEmail),
-    comments: comments.filter((c) => c.winId === w.id).map((c) => ({ id: c.id, body: c.body, side: c.authorSide, by: who(c.authorName, c.authorEmail, c.authorSide), createdAt: c.createdAt.toISOString() })),
+    reactions: countReactions(likes.filter((l) => l.winId === w.id), viewerEmail),
+    comments: comments
+      .filter((c) => c.winId === w.id)
+      .map((c) => ({ id: c.id, body: c.body, mentions: names(c.mentions), side: c.authorSide, by: who(c.authorName, c.authorEmail, c.authorSide), createdAt: c.createdAt.toISOString() })),
   }));
+}
+
+/**
+ * Everyone who can be tagged in this room's feed: the Team module, contacts
+ * the customer added, people with a personal link, and anyone who has posted
+ * or commented. Each needs a name and an address.
+ */
+async function roomPeople(page: RoomPage): Promise<RoomPerson[]> {
+  const [contacts, linked, posters, commenters] = await Promise.all([
+    db.select({ name: lpRoomContactsTable.name, email: lpRoomContactsTable.email }).from(lpRoomContactsTable).where(eq(lpRoomContactsTable.pageId, page.id)),
+    db
+      .select({ firstName: salesContactsTable.firstName, lastName: salesContactsTable.lastName, email: salesContactsTable.email })
+      .from(salesHotlinksTable)
+      .innerJoin(salesContactsTable, eq(salesContactsTable.id, salesHotlinksTable.contactId))
+      .where(and(eq(salesHotlinksTable.pageId, page.id), eq(salesHotlinksTable.tenantId, page.tenantId), eq(salesHotlinksTable.isActive, true)))
+      .limit(200),
+    db.select({ name: lpRoomWinsTable.authorName, email: lpRoomWinsTable.authorEmail }).from(lpRoomWinsTable).where(eq(lpRoomWinsTable.pageId, page.id)).limit(200),
+    db
+      .select({ name: lpRoomWinCommentsTable.authorName, email: lpRoomWinCommentsTable.authorEmail })
+      .from(lpRoomWinCommentsTable)
+      .innerJoin(lpRoomWinsTable, eq(lpRoomWinsTable.id, lpRoomWinCommentsTable.winId))
+      .where(eq(lpRoomWinsTable.pageId, page.id))
+      .limit(400),
+  ]);
+  return buildRoomPeople(page.id, [
+    ...page.teamPeople,
+    ...contacts,
+    ...linked.map((c) => ({ name: [c.firstName, c.lastName].filter(Boolean).join(" "), email: c.email })),
+    ...posters,
+    ...commenters,
+  ]);
+}
+
+/** Email the people a post or comment concerns. Never blocks or fails the action. */
+function sendFeedAlerts(page: RoomPage, alerts: FeedAlert[], byName: string, text: string, url: string): void {
+  for (const a of alerts) {
+    const mail = feedAlertEmail({ kind: a.kind, byName, room: page.title, text, url });
+    void sendRoomDigestEmail({ recipientEmail: a.email, subject: mail.subject, html: mail.html, tenantId: page.tenantId }).catch(() => {});
+  }
 }
 
 /** Workspace state beyond tasks and requests: decisions and wins for everyone, added contacts for known viewers. */
 async function loadWorkspaceState(page: RoomPage, viewer: Viewer | null) {
-  const [choiceRows, wins, contactRows] = await Promise.all([
+  const [choiceRows, wins, contactRows, people] = await Promise.all([
     db.select().from(lpRoomChoicesTable).where(eq(lpRoomChoicesTable.pageId, page.id)),
     loadWins(page.id, viewer?.email ?? null, !!viewer),
     viewer ? db.select().from(lpRoomContactsTable).where(eq(lpRoomContactsTable.pageId, page.id)).orderBy(asc(lpRoomContactsTable.createdAt)) : Promise.resolve([]),
+    viewer ? roomPeople(page) : Promise.resolve([] as RoomPerson[]),
   ]);
   const choices: Record<string, { value: string; at: string; by?: string }> = {};
   for (const c of choiceRows) {
@@ -309,7 +360,8 @@ async function loadWorkspaceState(page: RoomPage, viewer: Viewer | null) {
     if (!spec || !spec.options.includes(c.value)) continue; // the page no longer offers it
     choices[c.choiceKey] = { value: c.value, at: c.chosenAt.toISOString(), ...(viewer ? { by: c.chosenByName || c.chosenByEmail } : {}) };
   }
-  return { choices, wins, contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email })) };
+  // Names and opaque keys only: the page never learns an address it wasn't already shown.
+  return { choices, wins, contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email })), people: people.map((p) => ({ key: p.key, name: p.name })) };
 }
 
 /** A known visitor on a workspace page, or a 401/404 already sent. */
@@ -338,7 +390,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
   try {
     const page = await loadRoomPage(req.body?.pageId);
     if (!page) {
-      res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
+      res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {});
@@ -378,7 +430,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
     // Synced meetings and published minutes read the same for every visitor, like the page's own calendar. Drafts never leave the server.
     const extras = page.isWorkspace
       ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id), ...(await loadPublicRoomCalendar(page.id)) }
-      : { choices: {}, wins: [], contacts: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] };
+      : { choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] };
     res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks, requests, ...extras });
   } catch (err) {
     req.log.error({ err }, "room state failed");
@@ -765,14 +817,30 @@ router.post("/lp/room/win", actionLimiter, async (req: Request, res: Response): 
     const ctx = await requireWorkspaceViewer(req, res);
     if (!ctx) return;
     const { page, viewer } = ctx;
-    const parsed = parseRoomWin({ body: req.body?.body, region: req.body?.region });
+    const images = parseWinImages(req.body?.images);
+    // A photo can stand on its own; otherwise a few words are needed.
+    const parsed = parseRoomWin({ body: req.body?.body || (images.length > 0 ? "(photo)" : ""), region: req.body?.region });
     if (!parsed.ok) {
       res.status(400).json({ error: parsed.error });
       return;
     }
-    await db.insert(lpRoomWinsTable).values({ tenantId: page.tenantId, pageId: page.id, body: parsed.body, region: parsed.region, authorSide: "customer", authorEmail: viewer.email, authorName: viewer.name });
-    const settings = await loadSettings(page.id);
-    postToSlack(page, settings.slackChannelId, "🏆 New win posted", [`*${mrk(viewer.name || viewer.email)}*: ${mrk(parsed.body).slice(0, 500)}`], await roomPageUrl(req, page, req.body?.path));
+    const body = req.body?.body ? parsed.body : "";
+    const mentioned = resolveMentions(body, req.body?.mentions, await roomPeople(page));
+    await db.insert(lpRoomWinsTable).values({
+      tenantId: page.tenantId,
+      pageId: page.id,
+      body,
+      region: parsed.region,
+      images,
+      mentions: mentioned.map((m) => m.name),
+      authorSide: viewer.team ? "team" : "customer",
+      authorEmail: viewer.email,
+      authorName: viewer.name,
+    });
+    const [settings, url] = await Promise.all([loadSettings(page.id), roomPageUrl(req, page, req.body?.path)]);
+    const photos = images.length > 0 ? ` _(${images.length} ${images.length === 1 ? "photo" : "photos"})_` : "";
+    postToSlack(page, settings.slackChannelId, "🏆 New win posted", [`*${mrk(viewer.name || viewer.email)}*: ${mrk(body).slice(0, 500)}${photos}`], url);
+    sendFeedAlerts(page, feedAlertsFor({ authorEmail: viewer.email, mentioned, comment: false }), viewer.name || "Someone", body, url);
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "room win failed");
@@ -780,13 +848,38 @@ router.post("/lp/room/win", actionLimiter, async (req: Request, res: Response): 
   }
 });
 
-/** The win on THIS page, or null. */
-async function winOnPage(page: RoomPage, winIdRaw: unknown): Promise<number | null> {
+/** The win on THIS page (with who shared it), or null. */
+async function winRowOnPage(page: RoomPage, winIdRaw: unknown): Promise<{ id: number; authorEmail: string } | null> {
   const winId = typeof winIdRaw === "number" ? Math.floor(winIdRaw) : NaN;
   if (!Number.isFinite(winId)) return null;
-  const [w] = await db.select({ id: lpRoomWinsTable.id }).from(lpRoomWinsTable).where(and(eq(lpRoomWinsTable.id, winId), eq(lpRoomWinsTable.pageId, page.id))).limit(1);
-  return w?.id ?? null;
+  const [w] = await db.select({ id: lpRoomWinsTable.id, authorEmail: lpRoomWinsTable.authorEmail }).from(lpRoomWinsTable).where(and(eq(lpRoomWinsTable.id, winId), eq(lpRoomWinsTable.pageId, page.id))).limit(1);
+  return w ?? null;
 }
+async function winOnPage(page: RoomPage, winIdRaw: unknown): Promise<number | null> {
+  return (await winRowOnPage(page, winIdRaw))?.id ?? null;
+}
+
+/**
+ * A photo for a win. Sent as base64 like the task uploads, but it lands where
+ * the page can show it: the feed is readable by anyone who can open the room,
+ * and so are its photos. PNG or JPEG only, checked by content.
+ */
+router.post("/lp/room/win-image", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const parsed = parseRoomUpload(req.body?.fileName, req.body?.fileBase64);
+    if (!parsed.ok || !parsed.contentType.startsWith("image/")) {
+      res.status(400).json({ error: parsed.ok ? "Photos need to be PNG or JPEG images." : parsed.error });
+      return;
+    }
+    const objectPath = await objectStorage.uploadObjectEntity(parsed.buffer, parsed.contentType, { tenantId: ctx.page.tenantId });
+    res.json({ ok: true, url: `/api/storage${objectPath}` });
+  } catch (err) {
+    req.log.error({ err }, "room win image failed");
+    res.status(500).json({ error: "Couldn't add that photo. Please try again." });
+  }
+});
 
 /** Like or unlike a win (one per person). */
 router.post("/lp/room/win/like", actionLimiter, async (req: Request, res: Response): Promise<void> => {
@@ -799,8 +892,16 @@ router.post("/lp/room/win/like", actionLimiter, async (req: Request, res: Respon
       res.status(404).json({ error: "That post is gone" });
       return;
     }
-    const removed = await db.delete(lpRoomWinLikesTable).where(and(eq(lpRoomWinLikesTable.winId, winId), eq(lpRoomWinLikesTable.email, viewer.email))).returning({ id: lpRoomWinLikesTable.id });
-    if (removed.length === 0) await db.insert(lpRoomWinLikesTable).values({ tenantId: page.tenantId, winId, email: viewer.email }).onConflictDoNothing();
+    const emoji = parseReaction(req.body?.emoji);
+    if (!emoji) {
+      res.status(400).json({ error: "That reaction isn't available" });
+      return;
+    }
+    const removed = await db
+      .delete(lpRoomWinLikesTable)
+      .where(and(eq(lpRoomWinLikesTable.winId, winId), eq(lpRoomWinLikesTable.email, viewer.email), eq(lpRoomWinLikesTable.emoji, emoji)))
+      .returning({ id: lpRoomWinLikesTable.id });
+    if (removed.length === 0) await db.insert(lpRoomWinLikesTable).values({ tenantId: page.tenantId, winId, email: viewer.email, emoji }).onConflictDoNothing();
     res.json({ ok: true, liked: removed.length === 0 });
   } catch (err) {
     req.log.error({ err }, "room like failed");
@@ -814,13 +915,15 @@ router.post("/lp/room/win/comment", actionLimiter, async (req: Request, res: Res
     const ctx = await requireWorkspaceViewer(req, res);
     if (!ctx) return;
     const { page, viewer } = ctx;
-    const winId = await winOnPage(page, req.body?.winId);
+    const win = await winRowOnPage(page, req.body?.winId);
     const body = parseRoomComment(req.body?.body);
-    if (!winId || !body) {
-      res.status(winId ? 400 : 404).json({ error: winId ? "Write a comment first" : "That post is gone" });
+    if (!win || !body) {
+      res.status(win ? 400 : 404).json({ error: win ? "Write a comment first" : "That post is gone" });
       return;
     }
-    await db.insert(lpRoomWinCommentsTable).values({ tenantId: page.tenantId, winId, body, authorSide: "customer", authorEmail: viewer.email, authorName: viewer.name });
+    const mentioned = resolveMentions(body, req.body?.mentions, await roomPeople(page));
+    await db.insert(lpRoomWinCommentsTable).values({ tenantId: page.tenantId, winId: win.id, body, mentions: mentioned.map((m) => m.name), authorSide: viewer.team ? "team" : "customer", authorEmail: viewer.email, authorName: viewer.name });
+    sendFeedAlerts(page, feedAlertsFor({ authorEmail: viewer.email, mentioned, comment: true, winAuthorEmail: win.authorEmail }), viewer.name || "Someone", body, await roomPageUrl(req, page, req.body?.path));
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "room comment failed");
@@ -1694,7 +1797,20 @@ router.post("/lp/partner-rooms/:pageId/wins", async (req: Request, res: Response
       res.status(400).json({ error: parsed.ok ? "Sign in again to post" : parsed.error });
       return;
     }
-    await db.insert(lpRoomWinsTable).values({ tenantId: page.tenantId, pageId: page.id, body: parsed.body, headline: parsed.headline, region: parsed.region, authorSide: "team", authorEmail: email, authorName: req.authUser?.name || null });
+    const mentioned = resolveMentions(parsed.body, req.body?.mentions, await roomPeople(page));
+    await db.insert(lpRoomWinsTable).values({
+      tenantId: page.tenantId,
+      pageId: page.id,
+      body: parsed.body,
+      headline: parsed.headline,
+      region: parsed.region,
+      images: parseWinImages(req.body?.images),
+      mentions: mentioned.map((m) => m.name),
+      authorSide: "team",
+      authorEmail: email,
+      authorName: req.authUser?.name || null,
+    });
+    sendFeedAlerts(page, feedAlertsFor({ authorEmail: email, mentioned, comment: false }), req.authUser?.name || "The team", parsed.body, await roomPageUrl(req, page, null));
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "room team win failed");
@@ -1707,14 +1823,16 @@ router.post("/lp/partner-rooms/:pageId/wins/:id/comments", async (req: Request, 
   try {
     const page = await ownedRoomPage(req, res);
     if (!page) return;
-    const winId = await winOnPage(page, Number(req.params.id));
+    const win = await winRowOnPage(page, Number(req.params.id));
     const body = parseRoomComment(req.body?.body);
     const email = req.authUser?.email?.toLowerCase();
-    if (!winId || !body || !email) {
-      res.status(winId ? 400 : 404).json({ error: winId ? "Write a comment first" : "Not found" });
+    if (!win || !body || !email) {
+      res.status(win ? 400 : 404).json({ error: win ? "Write a comment first" : "Not found" });
       return;
     }
-    await db.insert(lpRoomWinCommentsTable).values({ tenantId: page.tenantId, winId, body, authorSide: "team", authorEmail: email, authorName: req.authUser?.name || null });
+    const mentioned = resolveMentions(body, req.body?.mentions, await roomPeople(page));
+    await db.insert(lpRoomWinCommentsTable).values({ tenantId: page.tenantId, winId: win.id, body, mentions: mentioned.map((m) => m.name), authorSide: "team", authorEmail: email, authorName: req.authUser?.name || null });
+    sendFeedAlerts(page, feedAlertsFor({ authorEmail: email, mentioned, comment: true, winAuthorEmail: win.authorEmail }), req.authUser?.name || "The team", body, await roomPageUrl(req, page, null));
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "room team comment failed");

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Heart, Loader2, Mail, MessageSquare, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, Mail, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -9,9 +9,10 @@ import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed, opensInViewer, resolveAssetHref, type HubAsset, type HubAssetAction } from "./hub/hub-assets";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
+import { WinsView } from "./hub/RoomFeed";
 import { resolveHubPalette } from "@/lib/hub-theme";
 import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
-import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomPracticePage, type RoomPracticeSort, type RoomSyncedEvent, type RoomSyncedMinutes, type RoomWin } from "./hub/room-client";
+import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomPracticePage, type RoomPracticeSort, type RoomSyncedEvent, type RoomSyncedMinutes } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
  * Partner Room — Workspace — type "room-workspace"
@@ -888,9 +889,47 @@ const CSS = `
 .prw-min .mb ul{margin:0;padding-left:16px}
 .prw-min .mb li{margin:3px 0}
 .prw-min .mb .sum{grid-column:1/-1;color:var(--body)}
-.prw-compose{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;background:#fff;padding:18px 20px}
-.prw-compose textarea,.prw-cbox input{flex:1;border:0;outline:0;font:inherit;background:transparent;color:var(--ink);resize:none;min-width:0}
-.prw-win{border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:16px;overflow:hidden}
+.prw-compose{border:1px solid var(--line);border-radius:12px;background:#fff;padding:18px 20px 14px}
+.prw-field{position:relative;display:block;flex:1;min-width:0}
+.prw-field textarea,.prw-field input{display:block;width:100%;border:0;outline:0;font:inherit;background:transparent;color:var(--ink);resize:none;min-width:0;padding:0}
+.prw-field textarea{min-height:64px;line-height:1.5}
+.prw-tools{display:flex;align-items:center;gap:4px;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.prw-tools .sp{flex:1}
+.prw .tool{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 9px;border-radius:8px;border:0;background:none;color:var(--body);font-size:12.5px;font-weight:600}
+.prw .tool:hover:not(:disabled){background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark)}
+.prw .tool:disabled{opacity:.45}
+.prw .tool svg{width:17px;height:17px}
+.prw-pop{position:relative;display:inline-flex}
+.prw-emoji{position:absolute;z-index:30;left:0;top:calc(100% + 6px);display:grid;grid-template-columns:repeat(8,32px);gap:2px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(15,25,20,.14)}
+.prw-emoji.react{grid-template-columns:repeat(6,36px);top:auto;bottom:calc(100% + 6px)}
+.prw .prw-emoji button{width:auto;height:32px;padding:0;border:0;border-radius:8px;background:none;font-size:18px;line-height:1;display:grid;place-items:center}
+.prw .prw-emoji.react button{height:36px;font-size:20px}
+.prw .prw-emoji button:hover{background:color-mix(in srgb,var(--dark) 8%,#fff)}
+.prw-people{position:absolute;z-index:30;left:0;top:calc(100% + 6px);min-width:220px;max-width:320px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(15,25,20,.14);display:grid;gap:2px}
+.prw .prw-people button{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border:0;border-radius:8px;background:none;text-align:left;font-size:13px;font-weight:600;color:var(--ink)}
+.prw .prw-people button.on{background:color-mix(in srgb,var(--dark) 8%,#fff)}
+.prw-people i{width:24px;height:24px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:10px;font-weight:700;font-style:normal;flex:none}
+.prw-at{color:var(--dark);font-weight:600;background:color-mix(in srgb,var(--accent) 34%,#fff);border-radius:4px;padding:0 3px}
+.prw-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.prw-thumbs span{position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;background:#F1F3EE;display:grid;place-items:center}
+.prw-thumbs img{width:100%;height:100%;object-fit:cover}
+.prw .prw-thumbs button{position:absolute;top:4px;right:4px;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:rgba(15,25,20,.72);color:#fff;display:grid;place-items:center}
+.prw-thumbs button svg{width:12px;height:12px}
+.prw-thumbs .wait svg{width:18px;height:18px;color:var(--body);animation:prw-spin 1s linear infinite}
+@keyframes prw-spin{to{transform:rotate(360deg)}}
+.prw-photos{display:grid;gap:4px;margin:0 24px 18px 72px;border-radius:10px;overflow:hidden}
+.prw-photos.n2,.prw-photos.n3,.prw-photos.n4{grid-template-columns:1fr 1fr}
+.prw .prw-photos button{display:block;padding:0;border:0;background:#F1F3EE;cursor:zoom-in;overflow:hidden}
+.prw-photos img{display:block;width:100%;height:100%;object-fit:cover}
+.prw-photos.n1 img{max-height:440px}
+.prw-photos.n2 button,.prw-photos.n4 button{aspect-ratio:4/3}
+.prw-photos.n3 button{aspect-ratio:4/3}
+.prw-photos.n3 button:first-child{grid-column:1/-1;aspect-ratio:16/9}
+.prw-light{position:fixed;inset:0;z-index:200;background:rgba(10,16,13,.86);display:grid;place-items:center;padding:32px;cursor:zoom-out}
+.prw-light img{max-width:100%;max-height:100%;border-radius:8px;cursor:default}
+.prw .prw-light button{position:absolute;top:16px;right:16px;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center}
+.prw-light button svg{width:18px;height:18px}
+.prw-win{border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:16px}
 .prw-win .wt{display:flex;gap:14px;align-items:center;padding:20px 24px 0}
 .prw-win .wa{width:34px;height:34px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
 .prw-win .wa.team{background:var(--dark);color:var(--accent)}
@@ -899,11 +938,16 @@ const CSS = `
 .prw-win .ww span{color:var(--body);font-size:12px;display:block}
 .prw-win .wb{padding:12px 24px 18px 72px;font-size:14px;color:var(--ink);white-space:pre-wrap}
 .prw-win .wb .big{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--dark);display:block;margin-bottom:2px}
-.prw-win .wx{display:flex;gap:6px;padding:10px 24px 12px 66px;border-top:1px solid var(--line);align-items:center}
+.prw-win .wx{display:flex;flex-wrap:wrap;gap:6px;padding:10px 24px 12px 66px;border-top:1px solid var(--line);align-items:center}
 .prw-win .wx button{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--body);background:none;border:0}
 .prw-win .wx button.on{background:color-mix(in srgb,var(--dark) 8%,#fff);color:var(--dark)}
+.prw-win .wx button.rx{border:1px solid var(--line);padding:4px 10px;color:var(--ink)}
+.prw-win .wx button.rx.on{border-color:color-mix(in srgb,var(--dark) 40%,#fff)}
+.prw-win .wx button.rx span{font-size:15px;line-height:1}
+.prw-win .wx .prw-emoji button{justify-content:center}
 .prw-win .wx svg{width:14px;height:14px}
-.prw-win .wc{padding:12px 24px 12px 72px;background:#FAFBF8;border-top:1px solid var(--line);font-size:13px;color:var(--body)}
+.prw-win .wc{padding:12px 24px 12px 72px;background:#FAFBF8;border-top:1px solid var(--line);font-size:13px;color:var(--body);white-space:pre-wrap}
+.prw-win>:last-child{border-radius:0 0 12px 12px}
 .prw-win .wc b{color:var(--ink)}
 .prw-cbox{display:flex;gap:8px;align-items:center;padding:12px 24px 14px 72px;background:#FAFBF8;border-top:1px solid var(--line)}
 .prw-link{background:none;border:0;padding:0;font-size:12.5px;font-weight:600;color:var(--dark);text-decoration:underline;text-underline-offset:2px}
@@ -979,6 +1023,9 @@ const CSS = `
 .prw-step{flex-wrap:wrap}
 .prw-min .mb{grid-template-columns:1fr;padding-left:16px}
 .prw-win .wb,.prw-win .wx,.prw-win .wc,.prw-cbox{padding-left:16px}
+.prw-photos{margin-left:16px;margin-right:16px}
+.prw-emoji{grid-template-columns:repeat(6,32px)}
+.prw-tools .tool span{display:none}
 .prw-ob .bar{display:none}
 .prw-body{padding-left:16px}
 .prw-team thead{display:none}
@@ -2297,105 +2344,6 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { progr
           <span className="prw-fixed">{program.fixedLabel || "In plan"}</span>
         )}
       </div>
-    </div>
-  );
-}
-
-/* ── Wins ────────────────────────────────────────────────────────────────── */
-
-function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; display: string }) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const post = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isEditor || busy || !text.trim()) return;
-    if (!store || !snapshot.viewer) return onNeedEmail();
-    setBusy(true);
-    setError("");
-    const r = await store.postWin({ body: text.trim() });
-    setBusy(false);
-    if (r.ok) setText("");
-    else if (r.identityRequired) onNeedEmail();
-    else setError(r.error);
-  };
-  return (
-    <>
-      <div className="prw-hd">
-        <div>
-          <div className="prw-eyebrow">Wins</div>
-          <h2 style={{ fontFamily: display }}>What’s going well</h2>
-          <p>Anyone on either team can share a win, like one, or comment.</p>
-        </div>
-        {snapshot.wins.length > 0 && <div className="prw-meta"><b>{snapshot.wins.length}</b> {snapshot.wins.length === 1 ? "win" : "wins"} so far</div>}
-      </div>
-      <form className="prw-compose" onSubmit={post} data-room-win-compose>
-        <textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Share a win: a great case, a happy doctor, a milestone" maxLength={1500} aria-label="Share a win" />
-        <button type="submit" className="prw-btn pri" disabled={busy || !text.trim()}>{busy ? "Posting…" : "Post"}</button>
-      </form>
-      {error && <div className="prw-err" role="alert">{error}</div>}
-      {snapshot.wins.length === 0 && <div className="prw-card" style={{ marginTop: 10 }}><div className="prw-empty">No wins yet. Be the first to share one.</div></div>}
-      {snapshot.wins.map((w) => (
-        <WinCard key={w.id} win={w} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={onNeedEmail} />
-      ))}
-    </>
-  );
-}
-
-function WinCard({ win, snapshot, store, isEditor, onNeedEmail }: { win: RoomWin; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void }) {
-  const [commenting, setCommenting] = useState(false);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const act = (fn: (s: RoomStoreHandle) => Promise<{ ok: true } | { ok: false; error: string; identityRequired?: boolean }>) => async () => {
-    if (isEditor || busy) return;
-    if (!store || !snapshot.viewer) return onNeedEmail();
-    setBusy(true);
-    const r = await fn(store);
-    setBusy(false);
-    if (!r.ok && r.identityRequired) onNeedEmail();
-    return r.ok;
-  };
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!text.trim()) return;
-    const ok = await act((s) => s.commentWin(win.id, text.trim()))();
-    if (ok) setText("");
-  };
-  return (
-    <div className="prw-win" data-room-win={win.side}>
-      <div className="wt">
-        <span className={`wa ${win.side === "team" ? "team" : ""}`}>{initials(win.by) || "·"}</span>
-        <div className="ww">
-          <b>{win.by}</b>
-          <span>
-            {fmtDate(win.createdAt)}
-            {win.region ? ` · ${win.region}` : ""}
-          </span>
-        </div>
-      </div>
-      <div className="wb">
-        {win.headline && <span className="big">{win.headline}</span>}
-        {win.body}
-      </div>
-      <div className="wx">
-        <button type="button" className={win.liked ? "on" : ""} aria-pressed={win.liked} aria-label={win.liked ? "Unlike" : "Like"} onClick={() => void act((s) => s.likeWin(win.id))()}>
-          <Heart aria-hidden fill={win.liked ? "currentColor" : "none"} /> {win.likes}
-        </button>
-        <button type="button" onClick={() => setCommenting((v) => !v)} aria-label="Comment">
-          <MessageSquare aria-hidden /> {win.comments.length}
-        </button>
-      </div>
-      {win.comments.map((c) => (
-        <div className="wc" key={c.id}>
-          <b>{c.by}</b> · {c.body}
-        </div>
-      ))}
-      {commenting && (
-        <form className="prw-cbox" onSubmit={send}>
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a comment" maxLength={1000} aria-label="Write a comment" autoFocus />
-          <button type="submit" className="prw-btn" disabled={busy || !text.trim()}>Send</button>
-        </form>
-      )}
     </div>
   );
 }
