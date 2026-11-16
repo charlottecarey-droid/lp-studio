@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FEED_REACTIONS, matchPeople, mentionKeys, mentionQuery, reactionsOf, splitMentions, WinsView } from "./RoomFeed";
@@ -96,5 +98,18 @@ describe("room feed: rendering", () => {
     const only = renderToStaticMarkup(createElement(WinsView, { snapshot: { ...snapshot, wins: [{ ...win, body: "", mentions: [], comments: [] }] } as RoomSnapshot, store: null, isEditor: false, onNeedEmail: () => {}, display: "serif" }));
     expect(only).not.toContain('class="wb"');
     expect(only).toContain('data-room-photos="2"');
+  });
+});
+
+describe("room feed: styles don't collide with the rest of the room", () => {
+  // The feed's styles live in the room block's stylesheet. A class the feed introduces must not
+  // also be a class the room uses for something else (that restyled the marketing thumbs once).
+  it("uses no class name the room block already uses elsewhere", () => {
+    const shared = new Set(["prw-hd", "prw-eyebrow", "prw-meta", "prw-compose", "prw-btn", "prw-err", "prw-card", "prw-empty", "prw-win", "prw-cbox"]);
+    const classesIn = (src: string) => new Set([...src.matchAll(/className=(?:"([^"]+)"|\{`([^`]+)`\})/g)].flatMap((m) => (m[1] ?? m[2]).split(/[\s${}?:"']+/)).filter((c) => /^prw-[a-z0-9-]+$/.test(c)));
+    const feed = classesIn(readFileSync(resolve(__dirname, "RoomFeed.tsx"), "utf8"));
+    const room = classesIn(readFileSync(resolve(__dirname, "../BlockRoomWorkspace.tsx"), "utf8"));
+    expect(feed.size).toBeGreaterThan(8);
+    expect([...feed].filter((c) => room.has(c) && !shared.has(c))).toEqual([]);
   });
 });

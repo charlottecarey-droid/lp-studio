@@ -893,8 +893,8 @@ const CSS = `
 .prw-field{position:relative;display:block;flex:1;min-width:0}
 .prw-field textarea,.prw-field input{display:block;width:100%;border:0;outline:0;font:inherit;background:transparent;color:var(--ink);resize:none;min-width:0;padding:0}
 .prw-field textarea{min-height:64px;line-height:1.5}
-.prw-tools{display:flex;align-items:center;gap:4px;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
-.prw-tools .sp{flex:1}
+.prw-ctools{display:flex;align-items:center;gap:4px;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.prw-ctools .sp{flex:1}
 .prw .tool{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 9px;border-radius:8px;border:0;background:none;color:var(--body);font-size:12.5px;font-weight:600}
 .prw .tool:hover:not(:disabled){background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark)}
 .prw .tool:disabled{opacity:.45}
@@ -910,12 +910,12 @@ const CSS = `
 .prw .prw-people button.on{background:color-mix(in srgb,var(--dark) 8%,#fff)}
 .prw-people i{width:24px;height:24px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:10px;font-weight:700;font-style:normal;flex:none}
 .prw-at{color:var(--dark);font-weight:600;background:color-mix(in srgb,var(--accent) 34%,#fff);border-radius:4px;padding:0 3px}
-.prw-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.prw-thumbs span{position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;background:#F1F3EE;display:grid;place-items:center}
-.prw-thumbs img{width:100%;height:100%;object-fit:cover}
-.prw .prw-thumbs button{position:absolute;top:4px;right:4px;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:rgba(15,25,20,.72);color:#fff;display:grid;place-items:center}
-.prw-thumbs button svg{width:12px;height:12px}
-.prw-thumbs .wait svg{width:18px;height:18px;color:var(--body);animation:prw-spin 1s linear infinite}
+.prw-pics{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.prw-pics span{position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;background:#F1F3EE;display:grid;place-items:center}
+.prw-pics img{width:100%;height:100%;object-fit:cover}
+.prw .prw-pics button{position:absolute;top:4px;right:4px;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:rgba(15,25,20,.72);color:#fff;display:grid;place-items:center}
+.prw-pics button svg{width:12px;height:12px}
+.prw-pics .wait svg{width:18px;height:18px;color:var(--body);animation:prw-spin 1s linear infinite}
 @keyframes prw-spin{to{transform:rotate(360deg)}}
 .prw-photos{display:grid;gap:4px;margin:0 24px 18px 72px;border-radius:10px;overflow:hidden}
 .prw-photos.n2,.prw-photos.n3,.prw-photos.n4{grid-template-columns:1fr 1fr}
@@ -1025,7 +1025,7 @@ const CSS = `
 .prw-win .wb,.prw-win .wx,.prw-win .wc,.prw-cbox{padding-left:16px}
 .prw-photos{margin-left:16px;margin-right:16px}
 .prw-emoji{grid-template-columns:repeat(6,32px)}
-.prw-tools .tool span{display:none}
+.prw-ctools .tool span{display:none}
 .prw-ob .bar{display:none}
 .prw-body{padding-left:16px}
 .prw-team thead{display:none}

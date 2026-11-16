@@ -383,7 +383,7 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
       >
         <FeedField ref={field} multiline value={text} onChange={setText} people={snapshot.people ?? []} onPick={(p) => setPicked((cur) => [...cur, p])} placeholder="Share a win: a great case, a happy doctor, a milestone" label="Share a win" max={1500} onSubmit={() => void post()} />
         {(images.length > 0 || adding) && (
-          <div className="prw-thumbs" data-room-thumbs>
+          <div className="prw-pics" data-room-thumbs>
             {images.map((src) => (
               <span key={src}>
                 <img src={src} alt="" />
@@ -399,7 +399,7 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
             )}
           </div>
         )}
-        <div className="prw-tools">
+        <div className="prw-ctools">
           <input ref={file} type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/*" multiple hidden onChange={(e) => { void addPhotos(e.target.files); e.target.value = ""; }} />
           <button type="button" className="tool" aria-label="Add photos" title="Add photos" disabled={adding || images.length >= WIN_IMAGE_MAX} onClick={guard(() => file.current?.click())} data-room-add-photo>
             <ImagePlus aria-hidden />
