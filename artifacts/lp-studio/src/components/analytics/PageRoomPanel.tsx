@@ -743,6 +743,9 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [domain, setDomain] = useState("");
+  /** The "add the domain first" message is already shown once, as a form; don't repeat it. */
+  const domainFirst = (m: string | null | undefined) => !hasDomain && !!m && /email domain/i.test(m);
   useEffect(() => setCalId(calendar?.id ?? ""), [calendar?.id]);
 
   const { data: google, refetch: refetchGoogle } = useQuery({
@@ -826,7 +829,32 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
       <p className="text-sm text-muted-foreground">
         Connect a Google Calendar and the room shows its meetings that have a guest at this customer’s email domain. Internal meetings never show. When a finished meeting has Gemini notes attached, minutes are drafted here for you to review; the customer sees them only after you publish.
       </p>
-      {!hasDomain && <p className="text-sm text-amber-700">Add the customer’s email domain under Settings first: that is how the room knows which meetings are theirs.</p>}
+      {!hasDomain && (
+        <form
+          className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3"
+          data-room-calendar-domain
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const list = domain.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean);
+            if (list.length === 0) return;
+            setBusy(true);
+            const error = await send(`${base}/settings`, "PATCH", { allowedDomains: list });
+            setErr(error ?? "");
+            setNote(error ? "" : "Saved. Now read the calendar.");
+            setBusy(false);
+            if (!error) {
+              setDomain("");
+              await refresh();
+            }
+          }}
+        >
+          <p className="text-sm text-amber-900">First, what is the customer’s email domain? The room shows your meetings that have a guest at that domain.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="customer.com" className="h-8 max-w-xs bg-white text-sm" aria-label="Customer email domain" />
+            <Button type="submit" size="sm" variant="brand" disabled={busy || !domain.trim()}>Save domain</Button>
+          </div>
+        </form>
+      )}
       <div className="space-y-2 rounded-md border p-3">
         {google?.connection ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -861,7 +889,7 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
         {calendar?.connection && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>
-              This room reads {calendar.connection.mine ? "your" : `${calendar.connection.googleEmail}’s`} calendar{calendar.id && calendar.id !== "primary" ? ` (${calendar.id})` : ""}. Last read {fmtDate(calendar.syncedAt) || "never"}{calendar.note ? ` · ${calendar.note}` : ""}
+              This room reads {calendar.connection.mine ? "your" : `${calendar.connection.googleEmail}’s`} calendar{calendar.id && calendar.id !== "primary" ? ` (${calendar.id})` : ""}. Last read {fmtDate(calendar.syncedAt) || "never"}{calendar.note && !domainFirst(calendar.note) ? ` · ${calendar.note}` : ""}
             </span>
             <button type="button" className="underline" disabled={busy} onClick={() => connect(null)}>Stop reading</button>
           </div>
@@ -874,8 +902,8 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
           </div>
         </details>
       </div>
-      {note && <p className="text-sm text-muted-foreground">{note}</p>}
-      {err && <p className="text-sm text-destructive">{err}</p>}
+      {note && !domainFirst(note) && <p className="text-sm text-muted-foreground">{note}</p>}
+      {err && !domainFirst(err) && <p className="text-sm text-destructive">{err}</p>}
 
       {events.length > 0 && (
         <div className="divide-y rounded-md border">

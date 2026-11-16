@@ -144,6 +144,9 @@ const XLSX = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from("
 const tokenFrom = (url: string) => decodeURIComponent(url.split("?rt=")[1]);
 
 beforeAll(() => {
+  // "Connect Google" refuses to start with a client ID that isn't shaped like one.
+  process.env.GOOGLE_CLIENT_ID ??= "123456789012-testclient.apps.googleusercontent.com";
+  process.env.GOOGLE_CLIENT_SECRET ??= "GOCSPX-test";
   app = express();
   app.use(express.json({ limit: "10mb" }));
   app.use((req: Request, _res: Response, next: NextFunction) => {
@@ -439,6 +442,15 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await post("task", { pageId, taskKey: "goals-agreed" })).status).toBe(401);
     expect((await post("task", { pageId, taskKey: "goals-agreed", hl })).status).toBe(200);
     expect(((await post("state", { pageId, hl })).json as { tasks: Record<string, { by?: string }> }).tasks["goals-agreed"]).toMatchObject({ done: true, by: "Dana Visitor" });
+
+    // Settings: a save that doesn't mention a setting leaves it alone (saving the calendar once wiped the domain).
+    const patchSettings = (body: object) => inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body });
+    expect((await patchSettings({ allowedDomains: ["keepme.com"], slackChannelId: "C0123ABCDEF", sfdcAccountId: "0015d000041HyXrAAK" })).status).toBe(200);
+    expect((await patchSettings({ calendarId: "primary" })).json).toMatchObject({ allowedDomains: ["keepme.com"], slackChannelId: "C0123ABCDEF", sfdcAccountId: "0015d000041HyXrAAK", calendarId: "primary" });
+    expect((await patchSettings({ digestEnabled: true })).status).toBe(200);
+    const kept = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { settings: { allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null } };
+    expect(kept.settings).toMatchObject({ allowedDomains: ["keepme.com"], slackChannelId: "C0123ABCDEF", sfdcAccountId: "0015d000041HyXrAAK" });
+    expect((await patchSettings({ allowedDomains: [], slackChannelId: "", sfdcAccountId: "" })).json).toMatchObject({ allowedDomains: [], slackChannelId: null, sfdcAccountId: null });
 
     // Settings: Salesforce and Asana ids are validated.
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], sfdcAccountId: "not an id" } })).status).toBe(400);

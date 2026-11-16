@@ -1130,12 +1130,20 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
       extra.practicesSheetId = sheetId;
       extra.practicesSheetTab = tab || null;
     }
-    const values = { allowedDomains: domains, slackChannelId: channelRaw || null, sfdcAccountId: sfdcRaw || null, asanaProjectGid: asanaRaw || null, ...extra };
-    await db
+    // Every key is optional: a save that doesn't mention a setting leaves it alone. (Saving the
+    // calendar used to send only the calendar and wipe the customer's domain, Slack channel and IDs.)
+    const base: { allowedDomains?: string[]; slackChannelId?: string | null; sfdcAccountId?: string | null; asanaProjectGid?: string | null } = {};
+    if (req.body?.allowedDomains !== undefined) base.allowedDomains = domains;
+    if (req.body?.slackChannelId !== undefined) base.slackChannelId = channelRaw || null;
+    if (req.body?.sfdcAccountId !== undefined) base.sfdcAccountId = sfdcRaw || null;
+    if (req.body?.asanaProjectGid !== undefined) base.asanaProjectGid = asanaRaw || null;
+    const values = { ...base, ...extra };
+    const [saved] = await db
       .insert(lpRoomSettingsTable)
-      .values({ pageId: page.id, tenantId: page.tenantId, ...values })
-      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { ...values, updatedAt: sql`now()` } });
-    res.json(values);
+      .values({ pageId: page.id, tenantId: page.tenantId, allowedDomains: [], ...values })
+      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { ...values, updatedAt: sql`now()` } })
+      .returning({ allowedDomains: lpRoomSettingsTable.allowedDomains, slackChannelId: lpRoomSettingsTable.slackChannelId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId, asanaProjectGid: lpRoomSettingsTable.asanaProjectGid });
+    res.json({ ...saved, ...extra });
   } catch (err) {
     req.log.error({ err }, "room settings failed");
     res.status(500).json({ error: "Could not save" });

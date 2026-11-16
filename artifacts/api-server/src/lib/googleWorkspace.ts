@@ -41,7 +41,8 @@ export function cleanSecretValue(raw: string | undefined): string {
   return (raw ?? "").trim().replace(/^["'`]+|["'`]+$/g, "").trim();
 }
 
-const CLIENT_ID_RE = /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/;
+// Deliberately loose: only the shape Google always uses, so a real ID is never refused.
+const CLIENT_ID_RE = /^[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
 
 /** What is wrong with a client ID, in words a person setting it up can act on; null when it looks right. */
 export function clientIdProblem(id: string, name: string): string | null {
