@@ -8,6 +8,7 @@ import {
   type ForestCtaProps, type ForestPalette, type ForestStyleProps,
 } from "./forest/forest-theme";
 import { useForestForm, type ForestFormKey, type ForestFormStatus } from "./forest/use-forest-form";
+import { ForestEmbeddedForm, hasEmbeddedForm, type ForestFormEmbedProps } from "./forest/ForestEmbeddedForm";
 import type { ForestLeadValues } from "./forest/global-form-map";
 import { cn } from "@/lib/utils";
 
@@ -20,12 +21,12 @@ import { cn } from "@/lib/utils";
  * up to four promises led by 22px translucent-accent check discs. Right, by
  * `mode`:
  *   "form"   — a glass card with a header strip ("Working session request ·
- *              30 min · routed by group size") over the artifact's fields
- *              (name, work email, organization, role, locations, lab
- *              strategy, what prompted this), posted label-keyed to
- *              /api/lp/leads with the page's attribution and, when a global
- *              form is linked, filed under that form's labels so its routing
- *              and redirect apply.
+ *              30 min · routed by group size"). With a global (or Marketo)
+ *              form linked, the card renders that form with its own fields
+ *              via <BlockForm>, like every other form block. With none
+ *              linked it falls back to the built-in fields (name, work
+ *              email, organization, role, locations, lab strategy, what
+ *              prompted this), posted label-keyed to /api/lp/leads.
  *   "button" — the same card with a headline, a line and the CTA suite, so
  *              the close can open a global-form modal or Chili Piper.
  * In the builder the form never submits; every visible string edits in place.
@@ -38,7 +39,7 @@ export interface ForestPromise {
 
 export type ForestCloseMode = "form" | "button";
 
-export interface ForestCloseBlockProps extends ForestStyleProps, ForestCtaProps {
+export interface ForestCloseBlockProps extends ForestStyleProps, ForestCtaProps, ForestFormEmbedProps {
   eyebrow?: string;
   headline?: string;
   lede?: string;
@@ -68,8 +69,6 @@ export interface ForestCloseBlockProps extends ForestStyleProps, ForestCtaProps 
   fineprint?: string;
   successHeadline?: string;
   successBody?: string;
-  /** Route leads through this global form (lp_forms id): its notifications, CRM sync, Sheets, webhook, follow-up and redirect apply; the card keeps its own design. */
-  formId?: number;
   /** Lead source label saved with the lead. */
   source?: string;
   buttonHeadline?: string;
@@ -250,6 +249,7 @@ export function BlockForestClose({ props, brand, pageId, variantId, onCtaClick, 
   const opts = (list: string[] | undefined) => (list ?? []).map((s) => s.trim()).filter(Boolean);
   const v = (k: keyof ForestLeadValues) => values[k] ?? "";
   const showStrip = !!p.formTitle || !!p.formMeta || isEditor;
+  const embedded = hasEmbeddedForm(p);
 
   const cardStyle: React.CSSProperties = {
     background: cardBg,
@@ -274,7 +274,9 @@ export function BlockForestClose({ props, brand, pageId, variantId, onCtaClick, 
     <div className="relative overflow-hidden rounded-[20px]" style={cardStyle}>
       {strip}
       <div className="p-[22px] sm:p-6">
-        {status === "success" ? (
+        {embedded ? (
+          <ForestEmbeddedForm embed={p} brand={brand} pageId={pageId} variantId={variantId} dark={dark} submitText={p.submitText} successMessage={[p.successHeadline, p.successBody].filter(Boolean).join(" ")} buttonBg={primary.bg} buttonText={primary.text} />
+        ) : status === "success" ? (
           <div className="px-2.5 py-[30px] text-center" role="status" data-forest-success="true">
             <b className="mb-2.5 block" style={{ fontFamily: FOREST_DISPLAY, fontSize: "1.6rem", fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: cream }}>
               {p.successHeadline}

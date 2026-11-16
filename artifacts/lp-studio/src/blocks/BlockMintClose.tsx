@@ -9,6 +9,7 @@ import {
 } from "./mint/mint-theme";
 import type { ForestCloseBlockProps, ForestCloseMode, ForestPromise } from "@/blocks/BlockForestClose";
 import { useForestForm, type ForestFormKey, type ForestFormStatus } from "./forest/use-forest-form";
+import { ForestEmbeddedForm, hasEmbeddedForm } from "./forest/ForestEmbeddedForm";
 import type { ForestLeadValues } from "./forest/global-form-map";
 import { cn } from "@/lib/utils";
 
@@ -25,9 +26,9 @@ import { cn } from "@/lib/utils";
  *              locations, lab strategy, and an optional fourth "what
  *              prompted this" select), a full-width lime pill with an
  *              arrow, centred fine print and a "Thank you." done state.
- *              Submission reuses the forest close's hook and global-form
- *              mapper unchanged: label-keyed fields + attribution POSTed to
- *              /api/lp/leads, filed under a linked global form's labels.
+ *              With a global (or Marketo) form linked, the card renders that
+ *              form with its own fields via <BlockForm> instead; with none,
+ *              the built-in fields POST label-keyed to /api/lp/leads.
  *   "button" — a single reading column: the copy, then the CTA suite as
  *              lime pills (form modal, Chili Piper, URL, video), then the
  *              promises.
@@ -306,7 +307,11 @@ export function BlockMintClose({ props, brand, pageId, variantId, onCtaClick, on
           )}
         </div>
       )}
-      {status === "success" ? (
+      {hasEmbeddedForm(p) ? (
+        <div style={{ padding: 22 }}>
+          <ForestEmbeddedForm embed={p} brand={brand} pageId={pageId} variantId={variantId} dark={false} submitText={p.submitText} successMessage={[p.successHeadline, p.successBody].filter(Boolean).join(" ")} buttonBg={primary.bg} buttonText={primary.text} />
+        </div>
+      ) : status === "success" ? (
         <div className="text-center" role="status" data-mint-success="true" style={{ padding: "30px 22px" }}>
           <b className="mb-2 block" style={{ fontFamily: MINT_DISPLAY, fontWeight: 400, fontSize: "1.5rem", letterSpacing: "-0.02em", lineHeight: 1.15, color: CARD_INK }}>
             {p.successHeadline}

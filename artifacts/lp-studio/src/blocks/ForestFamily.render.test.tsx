@@ -138,6 +138,19 @@ describe("forest-close — form and button modes", () => {
     expect(html.match(/<select/g)?.length ?? 0).toBe(2);
   });
 
+  it("embeds the linked global form (its own fields) instead of the built-in fields", () => {
+    const html = render(BlockForestClose as never, { ...defaultsFor("forest-close"), formId: 4160 });
+    expect(html).toContain('data-forest-form="embedded"');
+    expect(html).not.toContain('autocomplete="organization"');
+    expect(html).not.toContain("<select");
+  });
+
+  it("embeds a Marketo form when one is configured", () => {
+    const html = render(BlockForestClose as never, { ...defaultsFor("forest-close"), formMode: "marketo", marketoBaseUrl: "//app-x.marketo.com", marketoMunchkinId: "123-ABC-456", marketoFormId: 99 });
+    expect(html).toContain('data-forest-form="embedded"');
+    expect(html).not.toContain("<select");
+  });
+
   it("renders CTA buttons instead of the form in button mode", () => {
     const html = render(BlockForestClose as never, { ...defaultsFor("forest-close"), mode: "button", ctaText: "Book a call", ctaSecondaryText: "Call us" });
     expect(html).not.toContain("<form");

@@ -5,11 +5,10 @@ import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, GlobalFormPicker, ItemHeader, ListField, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
+import { AddButton, AnchorField, Field, ForestCloseFormSection, ForestCtaSection, ForestStyleSection, ItemHeader, ListField, PanelSection, TextField, moveItem } from "../forest/ForestPanelKit";
 
 const MAX_PROMISES = 4;
 
@@ -31,6 +30,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 export function MintClosePanel({ props, onChange, ctaSource }: Props) {
   const update = (patch: Partial<MintCloseBlockProps>) => onChange({ ...props, ...patch });
   const mode: ForestCloseMode = props.mode === "button" ? "button" : "form";
+  const builtin = mode === "form" && props.formMode !== "marketo" && !props.formId;
   const clean = (list: string[]) => list.map((s) => s.replace(/\s+$/g, ""));
   const promises = props.promises ?? [];
   const setPromises = (next: ForestPromise[]) => update({ promises: next });
@@ -45,7 +45,7 @@ export function MintClosePanel({ props, onChange, ctaSource }: Props) {
         onApply={(u) => update(u)}
       />
 
-      <PanelSection title="Copy" defaultOpen hint="Eyebrow, headline and supporting line sit left; the form card sits right from 1000px">
+      <PanelSection title="Copy" defaultOpen>
         <TextField label="Eyebrow" value={props.eyebrow} onChange={(v) => update({ eyebrow: v })} placeholder="Talk to the enterprise team" />
         <Field label="Headline (one line per row)">
           <AiTextField value={props.headline ?? ""} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" fieldLabel="Headline"
@@ -59,7 +59,7 @@ export function MintClosePanel({ props, onChange, ctaSource }: Props) {
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="talk" />
       </PanelSection>
 
-      <PanelSection title={`Promises (${promises.length} of ${MAX_PROMISES})`} defaultOpen hint="Check-marked rows under the supporting line: a bold lead-in and a muted rest">
+      <PanelSection title={`Promises (${promises.length} of ${MAX_PROMISES})`} defaultOpen>
         {promises.map((x, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={x.title || `Promise ${i + 1}`} index={i} total={promises.length} onMove={(d) => setPromises(moveItem(promises, i, d))} onRemove={() => setPromises(promises.filter((_, idx) => idx !== i))} />
@@ -74,28 +74,15 @@ export function MintClosePanel({ props, onChange, ctaSource }: Props) {
         <AddButton label="Add promise" disabled={promises.length >= MAX_PROMISES} onClick={() => setPromises([...promises, { title: "New promise", body: "" }])} />
       </PanelSection>
 
-      <PanelSection title="Lead routing" defaultOpen>
-        <Field label="Under the headline">
-          <Select value={mode} onValueChange={(v) => update({ mode: v === "button" ? "button" : "form" })}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="form" className="text-xs">Inline form (the white card)</SelectItem>
-              <SelectItem value="button" className="text-xs">Buttons (open a form modal or Chili Piper)</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <GlobalFormPicker value={props.formId} onChange={(id) => update({ formId: id })} />
-        <TextField label="Lead source label" value={props.source} onChange={(v) => update({ source: v })} placeholder="dso-page" />
-        <p className="text-[10px] leading-relaxed text-muted-foreground">
-          Inline-form leads land on this page's Leads tab with name, email, organization and the qualifying answers, plus the page's UTM attribution. With a global form linked, the submission is filed under that form's field names (a Message field gets the locations / lab strategy lines) and its redirect applies.
-        </p>
-      </PanelSection>
+      <ForestCloseFormSection value={props} onChange={update} />
 
-      <PanelSection title="Form fields (form mode)" defaultOpen={mode === "form"}>
-        <div className="grid grid-cols-2 gap-2">
-          <TextField label="Card header (left)" value={props.formTitle} onChange={(v) => update({ formTitle: v })} placeholder="Working session request" />
-          <TextField label="Card header (right, muted)" value={props.formMeta} onChange={(v) => update({ formMeta: v })} placeholder="30 min · routed by group size" />
-        </div>
+      {mode === "form" && <PanelSection title="Card header" hint="Clear both to hide it">
+        <TextField label="Title" value={props.formTitle} onChange={(v) => update({ formTitle: v })} placeholder="Working session request" />
+        <TextField label="Meta" value={props.formMeta} onChange={(v) => update({ formMeta: v })} placeholder="30 min · routed by group size" />
+      </PanelSection>}
+
+      {builtin && <PanelSection title="Built-in fields" defaultOpen>
+        <TextField label="Lead source label" value={props.source} onChange={(v) => update({ source: v })} placeholder="dso-page" />
         <div className="grid grid-cols-2 gap-2">
           <TextField label="Name label" value={props.nameLabel} onChange={(v) => update({ nameLabel: v })} placeholder="Name" />
           <TextField label="Email label" value={props.emailLabel} onChange={(v) => update({ emailLabel: v })} placeholder="Work email" />
@@ -137,13 +124,11 @@ export function MintClosePanel({ props, onChange, ctaSource }: Props) {
         </Field>
         <TextField label="Success headline" value={props.successHeadline} onChange={(v) => update({ successHeadline: v })} placeholder="Thank you." />
         <TextField label="Success line" value={props.successBody} onChange={(v) => update({ successBody: v })} placeholder="A specialist will reply within one business day." />
-      </PanelSection>
+      </PanelSection>}
 
-      <ForestCtaSection value={props} onChange={onChange} ctaSource={ctaSource} title="Buttons (button mode)" defaultOpen={mode === "button"} primaryPlaceholder="Book the working session" secondaryPlaceholder="See how it works">
-        <p className="text-[10px] leading-relaxed text-muted-foreground">Used when the block is set to Buttons: lime pills under the supporting line, with the promises beneath them. The primary button's colour also paints the inline form's submit button.</p>
-      </ForestCtaSection>
+      <ForestCtaSection value={props} onChange={onChange} ctaSource={ctaSource} title={mode === "button" ? "Buttons" : "Button colors"} defaultOpen={mode === "button"} primaryPlaceholder="Book the working session" secondaryPlaceholder="See how it works" />
 
-      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#003A30" hint="The brand green band by default; any other preset or custom colour paints that instead" />
+      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#003A30" />
     </div>
   );
 }

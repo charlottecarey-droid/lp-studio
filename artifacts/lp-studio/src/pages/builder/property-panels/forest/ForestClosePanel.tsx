@@ -4,11 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { AddButton, AnchorField, Field, ForestCtaSection, ForestStyleSection, GlobalFormPicker, ItemHeader, ListField, PanelSection, TextField, moveItem } from "./ForestPanelKit";
+import { AddButton, AnchorField, Field, ForestCloseFormSection, ForestCtaSection, ForestStyleSection, ItemHeader, ListField, PanelSection, TextField, moveItem } from "./ForestPanelKit";
 
 interface Props {
   props: ForestCloseBlockProps;
@@ -33,6 +32,7 @@ export function ForestClosePanel({ props, onChange, ctaSource }: Props) {
   const setPromises = (next: ForestPromise[]) => update({ promises: next });
   const mode: ForestCloseMode = props.mode === "button" ? "button" : "form";
   const clean = (list: string[]) => list.map((s) => s.replace(/\s+$/g, ""));
+  const builtin = mode === "form" && props.formMode !== "marketo" && !props.formId;
 
   return (
     <div className="space-y-3">
@@ -56,7 +56,7 @@ export function ForestClosePanel({ props, onChange, ctaSource }: Props) {
         <AnchorField value={props.anchorId} onChange={(v) => update({ anchorId: v })} placeholder="talk" />
       </PanelSection>
 
-      <PanelSection title={`Promises (${promises.length} of ${MAX_PROMISES})`} hint="Check-marked rows under the lede: a bold lead-in, then the rest of the line">
+      <PanelSection title={`Promises (${promises.length} of ${MAX_PROMISES})`}>
         {promises.map((x, i) => (
           <div key={i} className="rounded-md border bg-slate-50 p-2 space-y-1.5">
             <ItemHeader label={x.title || `Promise ${i + 1}`} index={i} total={promises.length} onMove={(d) => setPromises(moveItem(promises, i, d))} onRemove={() => setPromises(promises.filter((_, idx) => idx !== i))} />
@@ -67,29 +67,15 @@ export function ForestClosePanel({ props, onChange, ctaSource }: Props) {
         <AddButton label="Add promise" disabled={promises.length >= MAX_PROMISES} onClick={() => setPromises([...promises, { title: "", body: "" }])} />
       </PanelSection>
 
-      <PanelSection title="Lead routing" defaultOpen>
-        <Field label="Right column">
-          <Select value={mode} onValueChange={(v) => update({ mode: v === "button" ? "button" : "form" })}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="form" className="text-xs">Inline form (the glass card)</SelectItem>
-              <SelectItem value="button" className="text-xs">Buttons (open a form modal or Chili Piper)</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <GlobalFormPicker value={props.formId} onChange={(id) => update({ formId: id })} />
-        <TextField label="Lead source label" value={props.source} onChange={(v) => update({ source: v })} placeholder="dso-page" />
-        <p className="text-[10px] leading-relaxed text-muted-foreground">
-          Inline-form leads land on this page's Leads tab with name, email, organization and the qualifying answers, plus the page's UTM attribution. With a global form linked, the submission is filed under that form's field names (a Message field gets the locations / lab strategy / prompt lines) and its redirect applies.
-        </p>
-      </PanelSection>
+      <ForestCloseFormSection value={props} onChange={update} />
 
-      <PanelSection title="Card header strip" hint="The strip across the top of the card: an uppercase title left, a muted meta right. Clear both to drop it.">
+      <PanelSection title="Card header" hint="Clear both to hide it">
         <TextField label="Title" value={props.formTitle} onChange={(v) => update({ formTitle: v })} placeholder="Working session request" />
         <TextField label="Meta" value={props.formMeta} onChange={(v) => update({ formMeta: v })} placeholder="30 min · routed by group size" />
       </PanelSection>
 
-      <PanelSection title="Form fields (form mode)" defaultOpen={mode === "form"}>
+      {builtin && <PanelSection title="Built-in fields" defaultOpen>
+        <TextField label="Lead source label" value={props.source} onChange={(v) => update({ source: v })} placeholder="dso-page" />
         <div className="grid grid-cols-2 gap-2">
           <TextField label="Name label" value={props.nameLabel} onChange={(v) => update({ nameLabel: v })} placeholder="Name" />
           <TextField label="Email label" value={props.emailLabel} onChange={(v) => update({ emailLabel: v })} placeholder="Work email" />
@@ -133,21 +119,19 @@ export function ForestClosePanel({ props, onChange, ctaSource }: Props) {
           <Textarea value={props.successHeadline ?? ""} onChange={(e) => update({ successHeadline: e.target.value })} rows={2} className="text-xs" />
         </Field>
         <TextField label="Success line" value={props.successBody} onChange={(v) => update({ successBody: v })} placeholder="Check your inbox for a calendar link." />
-      </PanelSection>
+      </PanelSection>}
 
-      <PanelSection title="Button card (button mode)" defaultOpen={mode === "button"}>
+      {mode === "button" && <PanelSection title="Button card" defaultOpen>
         <Field label="Card headline">
           <AiTextField value={props.buttonHeadline ?? ""} onChange={(v) => update({ buttonHeadline: v })} rows={2} className="text-xs" fieldLabel="Card headline"
             onSuggest={() => suggestCopy("forest-close", "buttonHeadline", props.buttonHeadline ?? "", { headline: props.headline ?? "" })} />
         </Field>
         <TextField label="Card line" value={props.buttonBody} onChange={(v) => update({ buttonBody: v })} rows={2} />
-      </PanelSection>
+      </PanelSection>}
 
-      <ForestCtaSection value={props} onChange={onChange} ctaSource={ctaSource} title="Buttons (button mode)" defaultOpen={mode === "button"} primaryPlaceholder="Book the working session" secondaryPlaceholder="See how it works">
-        <p className="text-[10px] leading-relaxed text-muted-foreground">Used when the right column is set to Buttons. The primary button's colour also paints the inline form's submit button.</p>
-      </ForestCtaSection>
+      <ForestCtaSection value={props} onChange={onChange} ctaSource={ctaSource} title={mode === "button" ? "Buttons" : "Button colors"} defaultOpen={mode === "button"} primaryPlaceholder="Book the working session" secondaryPlaceholder="See how it works" />
 
-      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#003A30" hint="Dark presets paint the deep forest band with the drifting orbs" />
+      <ForestStyleSection value={props} onChange={(p) => update(p)} defaultBg="#003A30" />
     </div>
   );
 }

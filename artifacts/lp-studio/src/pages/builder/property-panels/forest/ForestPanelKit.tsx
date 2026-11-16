@@ -4,7 +4,7 @@
  * overrides, the CTA suite (all five actions, secondary, button colours),
  * anchor ids and list editors look and behave identically across blocks.
  */
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { ForestCtaProps, ForestStyleProps } from "@/blocks/forest/forest-theme";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,78 @@ import { AbmCtaFields, AbmStyleFields } from "../abm/AbmSharedFields";
 
 export { Field, ItemHeader, PanelSection, moveItem } from "../glow/GlowPanelKit";
 export { GlobalFormPicker } from "../GiftPanels";
+
+type ForestCloseFormValue = {
+  mode?: "form" | "button";
+  formId?: number;
+  formMode?: "native" | "marketo";
+  marketoBaseUrl?: string;
+  marketoMunchkinId?: string;
+  marketoFormId?: number;
+};
+
+/**
+ * The close blocks' "Form" section: show a form or buttons, and which form —
+ * a global form (its own fields), a Marketo embed, or the block's built-in
+ * fields. Same choice every other form block offers.
+ */
+export function ForestCloseFormSection<T extends ForestCloseFormValue>({ value, onChange }: { value: T; onChange: (patch: Partial<T>) => void }) {
+  const [forms, setForms] = useState<Array<{ id: number; name: string }>>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/lp/forms")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Array<{ id: number; name: string }>) => { if (alive) setForms(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (alive) setForms([]); })
+      .finally(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
+  }, []);
+
+  const mode = value.mode === "button" ? "button" : "form";
+  const source = value.formMode === "marketo" ? "marketo" : value.formId ? String(value.formId) : "builtin";
+  const setSource = (v: string) => {
+    if (v === "marketo") onChange({ formMode: "marketo" } as Partial<T>);
+    else if (v === "builtin") onChange({ formMode: "native", formId: undefined } as Partial<T>);
+    else onChange({ formMode: "native", formId: Number(v) } as Partial<T>);
+  };
+
+  return (
+    <PanelSection title="Form" defaultOpen>
+      <Field label="Show">
+        <Select value={mode} onValueChange={(v) => onChange({ mode: v === "button" ? "button" : "form" } as Partial<T>)}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="form" className="text-xs">A form</SelectItem>
+            <SelectItem value="button" className="text-xs">Buttons</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      {mode === "form" && (
+        <Field label="Form">
+          <Select value={source} onValueChange={setSource}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={loaded ? "Choose…" : "Loading forms…"} /></SelectTrigger>
+            <SelectContent>
+              {forms.map((f) => <SelectItem key={f.id} value={String(f.id)} className="text-xs">{f.name}</SelectItem>)}
+              {source !== "builtin" && source !== "marketo" && !forms.some((f) => String(f.id) === source) && (
+                <SelectItem value={source} className="text-xs">Form #{source}</SelectItem>
+              )}
+              <SelectItem value="marketo" className="text-xs">Marketo embed</SelectItem>
+              <SelectItem value="builtin" className="text-xs">Built-in fields</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+      {mode === "form" && source === "marketo" && (
+        <div className="space-y-1.5">
+          <Input value={value.marketoBaseUrl ?? ""} onChange={(e) => onChange({ marketoBaseUrl: e.target.value } as Partial<T>)} placeholder="//app-xxx.marketo.com" className="h-8 text-xs" />
+          <Input value={value.marketoMunchkinId ?? ""} onChange={(e) => onChange({ marketoMunchkinId: e.target.value } as Partial<T>)} placeholder="Munchkin ID" className="h-8 text-xs" />
+          <Input type="number" value={value.marketoFormId ?? ""} onChange={(e) => onChange({ marketoFormId: e.target.value ? Number(e.target.value) : undefined } as Partial<T>)} placeholder="Marketo form id" className="h-8 text-xs" />
+        </div>
+      )}
+    </PanelSection>
+  );
+}
 
 /** Background preset + custom colour + heading/text/accent ink overrides. */
 export function ForestStyleSection({ value, onChange, defaultBg, title = "Background & colors", hint }: { value: ForestStyleProps; onChange: (patch: Partial<ForestStyleProps>) => void; defaultBg?: string; title?: string; hint?: string }) {
