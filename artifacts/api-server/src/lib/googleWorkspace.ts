@@ -29,11 +29,47 @@ export const REQUIRED_SCOPES = GOOGLE_WORKSPACE_SCOPES.slice(2);
  * permissions, which Google treats as sensitive, live on a separate consent
  * screen and can never affect sign-in); otherwise the sign-in client.
  */
-function client(): { id: string; secret: string } {
-  const id = process.env.GOOGLE_WORKSPACE_CLIENT_ID;
-  const secret = process.env.GOOGLE_WORKSPACE_CLIENT_SECRET;
-  if (id && secret) return { id, secret };
-  return { id: process.env.GOOGLE_CLIENT_ID ?? "", secret: process.env.GOOGLE_CLIENT_SECRET ?? "" };
+function client(): { id: string; secret: string; source: "workspace" | "signin" } {
+  const id = cleanSecretValue(process.env.GOOGLE_WORKSPACE_CLIENT_ID);
+  const secret = cleanSecretValue(process.env.GOOGLE_WORKSPACE_CLIENT_SECRET);
+  if (id && secret) return { id, secret, source: "workspace" };
+  return { id: process.env.GOOGLE_CLIENT_ID ?? "", secret: process.env.GOOGLE_CLIENT_SECRET ?? "", source: "signin" };
+}
+
+/** A pasted secret with the stray space, line break or quote marks around it removed. */
+export function cleanSecretValue(raw: string | undefined): string {
+  return (raw ?? "").trim().replace(/^["'`]+|["'`]+$/g, "").trim();
+}
+
+const CLIENT_ID_RE = /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/;
+
+/** What is wrong with a client ID, in words a person setting it up can act on; null when it looks right. */
+export function clientIdProblem(id: string, name: string): string | null {
+  if (CLIENT_ID_RE.test(id)) return null;
+  if (!id) return `${name} is empty.`;
+  if (/^GOCSPX-/i.test(id)) return `${name} holds a client SECRET (it starts with GOCSPX-). Put the Client ID there instead: it ends in .apps.googleusercontent.com.`;
+  if (/^AIza/.test(id)) return `${name} holds an API key. It needs the OAuth Client ID, which ends in .apps.googleusercontent.com.`;
+  if (/^\d+$/.test(id)) return `${name} holds a project number. It needs the OAuth Client ID, which ends in .apps.googleusercontent.com.`;
+  if (/\s/.test(id)) return `${name} has a space or line break in the middle of it. Copy the Client ID again with Google's copy button.`;
+  if (!id.endsWith(".apps.googleusercontent.com")) return `${name} doesn't look like a Google Client ID. It should end in .apps.googleusercontent.com (copy it from Google Cloud → APIs & Services → Credentials).`;
+  return `${name} doesn't look like a Google Client ID. Copy it again with Google's copy button.`;
+}
+
+/**
+ * How "Connect Google" is set up, for the person setting it up: which client
+ * it will use, the redirect address that client must allow, the tail of the
+ * client ID (to tell two clients apart; an ID is not a secret), and anything
+ * visibly wrong before Google gets a chance to say "client not found".
+ */
+export function googleWorkspaceSetup(): { source: "workspace" | "signin"; redirectUri: string; clientIdTail: string; problem: string | null } {
+  const c = client();
+  const wsId = cleanSecretValue(process.env.GOOGLE_WORKSPACE_CLIENT_ID);
+  const wsSecret = cleanSecretValue(process.env.GOOGLE_WORKSPACE_CLIENT_SECRET);
+  let problem = clientIdProblem(c.id, c.source === "workspace" ? "GOOGLE_WORKSPACE_CLIENT_ID" : "GOOGLE_CLIENT_ID");
+  if (!problem && c.source === "workspace" && !/^GOCSPX-/.test(c.secret) && CLIENT_ID_RE.test(c.secret)) problem = "GOOGLE_WORKSPACE_CLIENT_SECRET holds a Client ID. Put the Client secret there (it starts with GOCSPX-).";
+  if (c.source === "signin" && (wsId || wsSecret)) problem = `Only ${wsId ? "GOOGLE_WORKSPACE_CLIENT_ID" : "GOOGLE_WORKSPACE_CLIENT_SECRET"} is set, so the sign-in client is being used. Add ${wsId ? "GOOGLE_WORKSPACE_CLIENT_SECRET" : "GOOGLE_WORKSPACE_CLIENT_ID"} too, then publish again.`;
+  const head = c.id.split(".apps.googleusercontent.com")[0];
+  return { source: c.source, redirectUri: googleWorkspaceRedirectUri(), clientIdTail: CLIENT_ID_RE.test(c.id) ? `…${head.slice(-6)}.apps.googleusercontent.com` : "", problem };
 }
 
 export function googleWorkspaceConfigured(): boolean {

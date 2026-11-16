@@ -750,7 +750,11 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
     queryFn: async () => {
       const r = await fetch("/api/lp/google/status");
       if (!r.ok) throw new Error("status");
-      return (await r.json()) as { configured: boolean; connection: { googleEmail: string; status: string; lastError: string | null } | null };
+      return (await r.json()) as {
+        configured: boolean;
+        setup?: { source: "workspace" | "signin"; redirectUri: string; clientIdTail: string; problem: string | null } | null;
+        connection: { googleEmail: string; status: string; lastError: string | null } | null;
+      };
     },
   });
   // Back from Google's consent screen: say how it went, then tidy the address bar.
@@ -843,6 +847,15 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
             <span className="text-xs text-muted-foreground">
               {google?.configured === false ? "Google isn’t set up on this server yet." : "Read-only access to your calendar events and Google Docs. Connect the account that runs this customer’s meetings."}
             </span>
+          </div>
+        )}
+        {google?.setup && (google.setup.problem || !google.connection) && (
+          <div className="mt-2 space-y-1 text-xs text-muted-foreground" data-room-google-setup>
+            {google.setup.problem && <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-amber-900">Setup problem: {google.setup.problem}</p>}
+            <p>
+              Using {google.setup.source === "workspace" ? "the separate Google client" : "the sign-in Google client"}
+              {google.setup.clientIdTail ? ` (${google.setup.clientIdTail})` : ""}. It must allow this redirect address: <code className="break-all">{google.setup.redirectUri}</code>
+            </p>
           </div>
         )}
         {calendar?.connection && (

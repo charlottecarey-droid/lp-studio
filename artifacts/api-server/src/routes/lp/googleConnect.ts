@@ -19,6 +19,7 @@ import {
   forgetGoogleAccessToken,
   googleConsentUrl,
   googleWorkspaceConfigured,
+  googleWorkspaceSetup,
   revokeGoogleToken,
   safeReturnPath,
   signConnectState,
@@ -35,7 +36,7 @@ router.get("/lp/google/status", async (req: Request, res: Response): Promise<voi
     if (tenantId == null) return;
     const userId = req.authUser?.userId;
     const [row] = userId ? await db.select().from(lpGoogleConnectionsTable).where(mine(tenantId, userId)).limit(1) : [];
-    res.json({ configured: googleWorkspaceConfigured(), connection: row ? { id: row.id, googleEmail: row.googleEmail, status: row.status, lastError: row.lastError } : null });
+    res.json({ configured: googleWorkspaceConfigured(), setup: googleWorkspaceConfigured() ? googleWorkspaceSetup() : null, connection: row ? { id: row.id, googleEmail: row.googleEmail, status: row.status, lastError: row.lastError } : null });
   } catch (err) {
     req.log.error({ err }, "google status failed");
     res.status(500).json({ error: "Could not check the Google connection" });
@@ -52,6 +53,12 @@ router.get("/lp/google/auth-url", (req: Request, res: Response): void => {
   }
   if (!googleWorkspaceConfigured()) {
     res.status(503).json({ error: "Google isn't set up on this server." });
+    return;
+  }
+  // Catch a mis-pasted client ID here, with the reason, rather than on Google's "client not found" page.
+  const problem = googleWorkspaceSetup().problem;
+  if (problem && !problem.startsWith("Only ")) {
+    res.status(503).json({ error: problem });
     return;
   }
   const host = getRequestHost(req);
