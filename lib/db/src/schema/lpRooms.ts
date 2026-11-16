@@ -212,6 +212,15 @@ export const lpRoomAutocreateTable = pgTable("lp_room_autocreate", {
   sheetTab: text("sheet_tab"),
   /** The tab of the same workbook that lists every account's locations; a new room reads its practices from it. */
   practicesTab: text("practices_tab"),
+  /** On a new room: email the account's owner (matched by name to a team member) and these addresses. */
+  alertOwner: boolean("alert_owner").notNull().default(false),
+  alertEmails: jsonb("alert_emails").$type<string[]>().notNull().default([]),
+  /** On a new room: add a row to a sheet tab. Null sheet = the watched workbook; null tab = "Digital Sales Rooms". */
+  logEnabled: boolean("log_enabled").notNull().default(true),
+  logSheetId: text("log_sheet_id"),
+  logTab: text("log_tab"),
+  /** On a new room: write its link to this field on the Salesforce Account (API name), when Salesforce is connected. */
+  sfdcField: text("sfdc_field"),
   syncedAt: timestamp("synced_at", { withTimezone: true }),
   syncNote: text("sync_note"),
   updatedBy: text("updated_by"),

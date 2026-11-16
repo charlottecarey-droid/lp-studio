@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@workspace/db", () => ({ db: {}, lpPagesTable: {}, lpRoomAutocreateAccountsTable: {}, lpRoomAutocreateTable: {}, lpRoomStandardAssetsTable: {}, lpRoomSettingsTable: {}, lpRoomUploadsTable: {} }));
+vi.mock("@workspace/db", () => ({ db: {}, appUsersTable: {}, tenantMembersTable: {}, tenantsTable: {}, lpPagesTable: {}, lpRoomAutocreateAccountsTable: {}, lpRoomAutocreateTable: {}, lpRoomStandardAssetsTable: {}, lpRoomSettingsTable: {}, lpRoomUploadsTable: {} }));
+vi.mock("./notifications", () => ({ sendRoomDigestEmail: vi.fn(async () => true) }));
+vi.mock("./sfdc-service", () => ({ sfdcService: {} }));
+vi.mock("./tenantHosts", () => ({ WILDCARD_BASE_HOSTS: ["app.example.com", "example.com"] }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 vi.mock("./partnerRoomService", () => ({ SHEET_ID_RE: /^[A-Za-z0-9_-]{20,}$/, SHEET_TAB_RE: /^[A-Za-z0-9 _&().,'-]{1,80}$/, syncPracticesFromSheet: vi.fn(async () => ({ ok: true, note: "" })) }));
 
-import { accountKey, cleanAccountName, roomBlocksForAccount, roomSlugFor, signedAccountsFromSheet } from "./partnerRoomAutocreate";
+import { ROOM_LOG_HEADERS, accountKey, cleanAccountName, isSfdcFieldName, roomBlocksForAccount, roomCreatedEmail, roomLogRow, roomSlugFor, signedAccountsFromSheet } from "./partnerRoomAutocreate";
 import { resolveRoomBlocks, roomKitInfo } from "./partnerRoom";
 
 describe("signed accounts from the sheet", () => {
@@ -62,5 +65,32 @@ describe("the room made for an account", () => {
     expect(kit.assets.find((a) => a.key === "practice-welcome-guide")).toMatchObject({ hasFile: true, hidden: false });
     expect(kit.texts.length).toBeGreaterThan(0);
     expect(kit.texts.every((t) => !/\[Partner/.test(t.body))).toBe(true);
+  });
+});
+
+describe("after a room is created", () => {
+  const account = { key: "mb2-dental", name: "MB2 <Dental>", signedDate: "2/2/2026", owner: "Molly Reilly", sfdcId: "0015d000041HyXrAAK" };
+  const links = { room: "https://partners.example.com/mb2-dental-room", edit: "https://app.example.com/builder/42" };
+  it("writes one log row per room, matching the tab's columns", () => {
+    const row = roomLogRow(account, links, { now: new Date("2026-11-16T15:00:00Z") });
+    expect(row).toHaveLength(ROOM_LOG_HEADERS.length);
+    expect(row).toEqual(["2026-11-16", "MB2 <Dental>", "Draft", links.room, links.edit, "Molly Reilly", "2/2/2026", "0015d000041HyXrAAK", ""]);
+    expect(roomLogRow({ ...account, owner: null, signedDate: null, sfdcId: null }, links, { test: true }).slice(5)).toEqual(["", "", "", "Test run"]);
+  });
+  it("writes the alert email with the edit link, escaped, and marks a test", () => {
+    const mail = roomCreatedEmail(account, links);
+    expect(mail.subject).toBe("New partner room: MB2 <Dental>");
+    expect(mail.html).toContain("MB2 &lt;Dental&gt;");
+    expect(mail.html).not.toContain("<Dental>");
+    expect(mail.html).toContain('href="https://app.example.com/builder/42"');
+    expect(mail.html).toContain("Account owner: Molly Reilly");
+    expect(roomCreatedEmail(account, links, { test: true }).subject.startsWith("[Test] ")).toBe(true);
+  });
+  it("accepts only a Salesforce field API name", () => {
+    expect(isSfdcFieldName("Digital_Sales_Room__c")).toBe(true);
+    expect(isSfdcFieldName("Website")).toBe(true);
+    expect(isSfdcFieldName("Name; DROP")).toBe(false);
+    expect(isSfdcFieldName("1Field")).toBe(false);
+    expect(isSfdcFieldName("")).toBe(false);
   });
 });

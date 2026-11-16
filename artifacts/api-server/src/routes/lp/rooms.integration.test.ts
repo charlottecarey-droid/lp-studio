@@ -38,6 +38,7 @@ vi.mock("../../lib/objectStorage", () => ({
 }));
 const digestEmails: { recipientEmail: string; subject: string; html: string }[] = [];
 let sheetValues: unknown[][] | null = null;
+const connectorCalls: { connector: string; path: string; method: string; body: string }[] = [];
 let calendarItems: unknown[] | null = null;
 let notesDoc: unknown = null;
 let modelReply = "";
@@ -72,7 +73,8 @@ vi.mock("../../lib/notifications", () => ({
 }));
 vi.mock("@replit/connectors-sdk", () => ({
   ReplitConnectors: class {
-    async proxy(connector: string) {
+    async proxy(connector: string, path: string, opts?: { method?: string; body?: string }) {
+      connectorCalls.push({ connector, path, method: opts?.method ?? "GET", body: opts?.body ?? "" });
       if (connector === "google-calendar") return calendarItems ? { ok: true, json: async () => ({ items: calendarItems }) } : { ok: false, status: 404, text: async () => "not found" };
       if (connector === "google-docs") return notesDoc ? { ok: true, json: async () => notesDoc } : { ok: false, status: 403, text: async () => "forbidden" };
       if (connector === "google-drive") return { ok: false, status: 403, text: async () => "forbidden" };
@@ -803,6 +805,35 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await auto()).json as { accounts: unknown[] }).accounts).toHaveLength(listBefore);
     const kitOfTest = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${test.pageId}`, headers: asTenant(tenantId) })).json as { kit: { automatic: boolean; partnerName: string } };
     expect(kitOfTest.kit).toMatchObject({ automatic: true, partnerName: "Riverbend Dental Group" });
+
+    // Follow-ups on a new room: an alert email, a row in the "Digital Sales Rooms" tab, and (only when configured) Salesforce.
+    const cfgBody = { enabled: true, sheet: "1VhE7TbaJD_WTLiVhpZ96qMeH_bhBXKPNpVY7uEhOhRM", tab: "Accounts with MSAs Signed" };
+    const putCfg = (extra: Record<string, unknown>) => inject(app, { method: "PUT", url: `/lp/room-autocreate`, headers: asTenant(tenantId), body: { ...cfgBody, ...extra } });
+    expect((await putCfg({ alertEmails: ["not-an-email"] })).status).toBe(400);
+    expect((await putCfg({ sfdcField: "Bad Field!" })).status).toBe(400);
+    expect((await putCfg({ alertEmails: ["Ops@Vendor-Team.com"], alertOwner: true, sfdcField: "Digital_Sales_Room__c" })).status).toBe(200);
+    expect((await auto()).json).toMatchObject({ alertOwner: true, alertEmails: ["ops@vendor-team.com"], logEnabled: true, logTab: null, sfdcField: "Digital_Sales_Room__c" });
+    digestEmails.length = 0;
+    connectorCalls.length = 0;
+    const withFollowUps = (await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "Follow Up Dental" } })).json as { followUps: { alerts: { sent: string[] }; sheet: { ok: boolean; note: string }; sfdc: { ok: boolean; note: string } } };
+    expect(withFollowUps.followUps.alerts.sent).toEqual(["ops@vendor-team.com"]);
+    expect(digestEmails[0]).toMatchObject({ recipientEmail: "ops@vendor-team.com", subject: "[Test] New partner room: Follow Up Dental" });
+    expect(withFollowUps.followUps.sheet).toEqual({ ok: true, note: "Added to “Digital Sales Rooms”" });
+    const writes = connectorCalls.filter((c) => c.connector === "google-sheet" && c.method !== "GET");
+    expect(writes.some((c) => c.path.endsWith(":batchUpdate") && c.body.includes("Digital Sales Rooms"))).toBe(true); // the tab is created
+    const appended = writes.find((c) => c.path.includes(":append"))!;
+    expect(appended.path).toContain("valueInputOption=RAW");
+    expect(appended.body).toContain("Follow Up Dental");
+    expect(appended.body).toContain("Test run");
+    // A test never writes to Salesforce.
+    expect(withFollowUps.followUps.sfdc.ok).toBe(true);
+    expect(withFollowUps.followUps.sfdc.note).toContain("Skipped on a test");
+    // Switched off, nothing is logged or sent.
+    expect((await putCfg({ logEnabled: false })).status).toBe(200);
+    connectorCalls.length = 0;
+    const quiet = (await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "Quiet Dental" } })).json as { followUps: { alerts: unknown; sheet: unknown; sfdc: unknown } };
+    expect(quiet.followUps).toEqual({ alerts: null, sheet: null, sfdc: null });
+    expect(connectorCalls.filter((c) => c.method !== "GET")).toHaveLength(0);
 
     // An account that was already on the list can be given a room on request, once.
     const create = (key: string, as = tenantId) => inject(app, { method: "POST", url: `/lp/room-autocreate/create`, headers: asTenant(as), body: { key } });

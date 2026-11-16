@@ -50,7 +50,7 @@ import { sendRoomAccessEmail } from "../../lib/notifications";
 import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
-import { createRoomForAccount, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -1197,6 +1197,12 @@ router.get("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       sheetId: cfg?.sheetId ?? null,
       sheetTab: cfg?.sheetTab ?? null,
       practicesTab: cfg?.practicesTab ?? null,
+      alertOwner: !!cfg?.alertOwner,
+      alertEmails: Array.isArray(cfg?.alertEmails) ? cfg.alertEmails : [],
+      logEnabled: cfg ? cfg.logEnabled : true,
+      logSheetId: cfg?.logSheetId ?? null,
+      logTab: cfg?.logTab ?? null,
+      sfdcField: cfg?.sfdcField ?? null,
       syncedAt: cfg?.syncedAt?.toISOString() ?? null,
       note: cfg?.syncNote ?? null,
       accounts: accounts.map((a) => ({ key: a.accountKey, name: a.accountName, signedDate: a.signedDate, owner: a.owner, sfdcId: a.sfdcAccountId, pageId: a.pageId && a.pageId > 0 ? a.pageId : null })),
@@ -1224,8 +1230,34 @@ router.put("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       res.status(400).json({ error: "That tab name has characters a sheet tab can't be read by." });
       return;
     }
+    // What else happens when a room is created: alerts, the sheet log, the Salesforce field.
+    const alertEmails: string[] = [];
+    for (const raw of (Array.isArray(req.body?.alertEmails) ? (req.body.alertEmails as unknown[]) : []).slice(0, 25)) {
+      const e = normalizeEmail(raw);
+      if (!e) {
+        res.status(400).json({ error: `"${String(raw)}" isn't a valid email address` });
+        return;
+      }
+      if (!alertEmails.includes(e)) alertEmails.push(e);
+    }
+    const rawLogSheet = typeof req.body?.logSheet === "string" ? req.body.logSheet.trim() : "";
+    const logSheetId = rawLogSheet ? sheetIdFrom(rawLogSheet) : null;
+    const logTab = typeof req.body?.logTab === "string" ? req.body.logTab.trim() : "";
+    const sfdcField = typeof req.body?.sfdcField === "string" ? req.body.sfdcField.trim() : "";
+    if (rawLogSheet && !logSheetId) {
+      res.status(400).json({ error: "Paste the log sheet's link (or leave it blank to use the same workbook)." });
+      return;
+    }
+    if (logTab && !SHEET_TAB_RE.test(logTab)) {
+      res.status(400).json({ error: "That log tab name has characters a sheet tab can't be read by." });
+      return;
+    }
+    if (sfdcField && !isSfdcFieldName(sfdcField)) {
+      res.status(400).json({ error: "Use the Salesforce field's API name, for example Digital_Sales_Room__c." });
+      return;
+    }
     const enabled = req.body?.enabled === true && !!sheetId;
-    const values = { enabled, sheetId, sheetTab: tab || null, practicesTab: practicesTab || null, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
+    const values = { enabled, sheetId, sheetTab: tab || null, practicesTab: practicesTab || null, alertOwner: req.body?.alertOwner === true, alertEmails, logEnabled: req.body?.logEnabled !== false, logSheetId, logTab: logTab || null, sfdcField: sfdcField || null, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
     await db.insert(lpRoomAutocreateTable).values({ tenantId, ...values }).onConflictDoUpdate({ target: lpRoomAutocreateTable.tenantId, set: values });
     res.json({ ok: true, enabled });
   } catch (err) {
@@ -1257,7 +1289,7 @@ router.post("/lp/room-autocreate/test", async (req: Request, res: Response): Pro
       res.status(400).json({ error: "Type an account name to test with." });
       return;
     }
-    const result = await testRoomAutocreate(tenantId, name, typeof req.body?.sfdcId === "string" ? req.body.sfdcId.trim() : null);
+    const result = await testRoomAutocreate(tenantId, name, typeof req.body?.sfdcId === "string" ? req.body.sfdcId.trim() : null, typeof req.body?.owner === "string" ? req.body.owner : null);
     if (!result) {
       res.status(400).json({ error: "That name can't be used." });
       return;

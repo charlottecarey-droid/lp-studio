@@ -15,7 +15,10 @@
  */
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
-import { db, lpPagesTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable } from "@workspace/db";
+import { appUsersTable, db, lpPagesTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
+import { sendRoomDigestEmail } from "./notifications";
+import { sfdcService } from "./sfdc-service";
+import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 import { logger } from "./logger";
 import { ROOM_STANDARD_ASSETS, setRoomKitAsset } from "./partnerRoom";
 import { SHEET_ID_RE, SHEET_TAB_RE, syncPracticesFromSheet } from "./partnerRoomService";
@@ -151,12 +154,143 @@ export async function createRoomForAccount(tenantId: number, account: SignedAcco
     const [cfg] = await db.select({ sheetId: lpRoomAutocreateTable.sheetId, practicesTab: lpRoomAutocreateTable.practicesTab }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
     const linked = await linkRoomPractices(tenantId, page.id, account.sfdcId, cfg?.sheetId ?? null, cfg?.practicesTab ?? null).catch(() => false);
     if (linked) await syncPracticesFromSheet(page.id).catch((err) => logger.warn({ err, pageId: page.id }, "first practices read for an automatic room failed"));
+    // Alerts, the sheet log and the Salesforce field. A test run does these itself so it can report each one.
+    if (!opts.test) await afterRoomCreated(tenantId, account, page.id).catch((err) => logger.warn({ err, pageId: page.id }, "follow-ups for an automatic room failed"));
     return page.id;
   } catch (err) {
     // Release the claim so the next read tries again.
     await db.update(lpRoomAutocreateAccountsTable).set({ pageId: null }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, account.key), eq(lpRoomAutocreateAccountsTable.pageId, -1)));
     throw err;
   }
+}
+
+/* ── After a room is created: alerts, the sheet log, Salesforce ──────────── */
+
+export const DEFAULT_ROOM_LOG_TAB = "Digital Sales Rooms";
+export const ROOM_LOG_HEADERS = ["Created", "Account", "Status", "Room link", "Edit link", "Account owner", "Contract signed", "Salesforce ID", "Note"];
+const SFDC_FIELD_RE = /^[A-Za-z][A-Za-z0-9_]{0,78}$/;
+export const isSfdcFieldName = (v: string) => SFDC_FIELD_RE.test(v);
+
+/** The row a new room adds to the log tab. Plain values only (written RAW, so a name can never run as a formula). */
+export function roomLogRow(account: SignedAccount, links: { room: string; edit: string }, opts: { test?: boolean; now?: Date } = {}): string[] {
+  return [(opts.now ?? new Date()).toISOString().slice(0, 10), account.name, "Draft", links.room, links.edit, account.owner ?? "", account.signedDate ?? "", account.sfdcId ?? "", opts.test ? "Test run" : ""];
+}
+
+const escHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+export function roomCreatedEmail(account: SignedAccount, links: { room: string; edit: string }, opts: { test?: boolean } = {}): { subject: string; html: string } {
+  const name = escHtml(account.name);
+  return {
+    subject: `${opts.test ? "[Test] " : ""}New partner room: ${account.name}`,
+    html: `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.55;color:#18201c;max-width:560px">
+<p style="margin:0 0 12px"><strong>A partner room was created for ${name}.</strong>${opts.test ? " This is a test run." : ""}</p>
+<p style="margin:0 0 12px">It is a draft: nobody outside your team can see it yet. Add the logo, kickoff date and team, check the launch kit, then publish.</p>
+<p style="margin:0 0 16px"><a href="${escHtml(links.edit)}" style="display:inline-block;background:#18201c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">Open the room</a></p>
+<p style="margin:0;color:#68726c;font-size:13px">${[account.owner ? `Account owner: ${escHtml(account.owner)}` : "", account.signedDate ? `Contract signed: ${escHtml(account.signedDate)}` : "", `Customer link once published: ${escHtml(links.room)}`].filter(Boolean).join("<br>")}</p>
+</div>`,
+  };
+}
+
+export interface RoomFollowUps {
+  alerts: { sent: string[]; ownerMatched: boolean | null } | null;
+  sheet: { ok: boolean; note: string } | null;
+  sfdc: { ok: boolean; note: string } | null;
+}
+
+async function appendRoomLog(sheetId: string, tab: string, row: string[]): Promise<void> {
+  connectors ??= new ReplitConnectors();
+  const meta = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}?fields=sheets(properties(title))`, { method: "GET" });
+  if (!meta.ok) throw new Error(meta.status === 403 || meta.status === 404 ? "Couldn't open the sheet. It must be shared with edit access with the Google account connected to LP Studio." : `Google Sheets returned ${meta.status}`);
+  const exists = (((await meta.json()) as { sheets?: { properties?: { title?: string } }[] }).sheets ?? []).some((s) => s.properties?.title === tab);
+  const json = { method: "POST", headers: { "Content-Type": "application/json" } };
+  if (!exists) {
+    const add = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}:batchUpdate`, { ...json, body: JSON.stringify({ requests: [{ addSheet: { properties: { title: tab } } }] }) });
+    if (!add.ok) throw new Error(add.status === 403 ? "The connected Google account can view that sheet but not edit it." : `Couldn't add the “${tab}” tab (${add.status})`);
+    const head = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1`)}?valueInputOption=RAW`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: [ROOM_LOG_HEADERS] }) });
+    if (!head.ok) throw new Error(`Couldn't write the column names (${head.status})`);
+  }
+  const append = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { ...json, body: JSON.stringify({ values: [row] }) });
+  if (!append.ok) throw new Error(append.status === 403 ? "The connected Google account can view that sheet but not edit it." : `Couldn't add the row (${append.status})`);
+}
+
+/**
+ * What else happens when a room is created, as the workspace set it up: email
+ * the account owner and any other addresses, add a row to the log tab, and
+ * write the room's link to a Salesforce field. Each is best effort and
+ * reports how it went; none can undo the room.
+ */
+export async function afterRoomCreated(tenantId: number, account: SignedAccount, pageId: number, opts: { test?: boolean } = {}): Promise<RoomFollowUps> {
+  const [[cfg], [page], [tenant]] = await Promise.all([
+    db.select().from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1),
+    db.select({ slug: lpPagesTable.slug }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1),
+    db.select({ slug: tenantsTable.slug, domain: tenantsTable.domain, micrositeDomain: tenantsTable.micrositeDomain }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1),
+  ]);
+  const baseHost = WILDCARD_BASE_HOSTS.find((h) => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
+  const workspace = tenant?.domain ? `https://${tenant.domain.toLowerCase()}` : baseHost && tenant?.slug ? `https://${tenant.slug.toLowerCase()}.${baseHost}` : "";
+  const links = {
+    edit: `${workspace}/builder/${pageId}`,
+    room: tenant?.micrositeDomain ? `https://${tenant.micrositeDomain}/${page?.slug ?? ""}` : `${workspace}/lp/${page?.slug ?? ""}`,
+  };
+  const out: RoomFollowUps = { alerts: null, sheet: null, sfdc: null };
+
+  // 1. Alerts
+  const extra = Array.isArray(cfg?.alertEmails) ? cfg.alertEmails : [];
+  if (cfg?.alertOwner || extra.length) {
+    const to = new Set(extra.map((e) => e.toLowerCase()));
+    let ownerMatched: boolean | null = null;
+    if (cfg?.alertOwner && account.owner) {
+      // The sheet gives the owner's name; their address is the team member with that name.
+      const users = await db.select({ id: appUsersTable.id, email: appUsersTable.email, tenantId: appUsersTable.tenantId }).from(appUsersTable).where(and(sql`lower(${appUsersTable.name}) = ${account.owner.trim().toLowerCase()}`, eq(appUsersTable.status, "active")));
+      let match = users.find((u) => u.tenantId === tenantId);
+      for (const u of users) {
+        if (match) break;
+        const [m] = await db.select({ id: tenantMembersTable.id }).from(tenantMembersTable).where(and(eq(tenantMembersTable.tenantId, tenantId), eq(tenantMembersTable.userId, u.id))).limit(1);
+        if (m) match = u;
+      }
+      ownerMatched = !!match;
+      if (match) to.add(match.email.toLowerCase());
+    }
+    const mail = roomCreatedEmail(account, links, opts);
+    const sent: string[] = [];
+    for (const email of [...to].slice(0, 25)) {
+      const ok = await sendRoomDigestEmail({ recipientEmail: email, subject: mail.subject, html: mail.html, tenantId }).catch(() => false);
+      if (ok) sent.push(email);
+    }
+    out.alerts = { sent, ownerMatched };
+  }
+
+  // 2. The sheet log
+  const logSheet = cfg?.logSheetId || cfg?.sheetId;
+  if (cfg && cfg.logEnabled && logSheet && SHEET_ID_RE.test(logSheet)) {
+    const tab = cfg.logTab && SHEET_TAB_RE.test(cfg.logTab) ? cfg.logTab : DEFAULT_ROOM_LOG_TAB;
+    try {
+      await appendRoomLog(logSheet, tab, roomLogRow(account, links, opts));
+      out.sheet = { ok: true, note: `Added to “${tab}”` };
+    } catch (err) {
+      out.sheet = { ok: false, note: err instanceof Error ? err.message : "Couldn't write to the sheet" };
+      logger.warn({ err, tenantId, pageId }, "room log sheet append failed");
+    }
+  }
+
+  // 3. Salesforce (never on a test run: a test link doesn't belong on a real account)
+  if (cfg?.sfdcField && isSfdcFieldName(cfg.sfdcField)) {
+    if (opts.test) out.sfdc = { ok: true, note: `Skipped on a test. A real room writes its link to Account.${cfg.sfdcField}` };
+    else if (!account.sfdcId) out.sfdc = { ok: false, note: "The account has no Salesforce ID on the sheet" };
+    else {
+      try {
+        const conn = await sfdcService.getActiveConnection(tenantId);
+        if (!conn) out.sfdc = { ok: false, note: "Salesforce isn't connected for this workspace" };
+        else {
+          await sfdcService.updateSObject(conn.id, "Account", account.sfdcId, { [cfg.sfdcField]: links.room });
+          out.sfdc = { ok: true, note: `Wrote the link to Account.${cfg.sfdcField}` };
+        }
+      } catch (err) {
+        out.sfdc = { ok: false, note: "Salesforce refused the update. Check the field's API name and that it is editable." };
+        logger.warn({ err, tenantId, pageId }, "room salesforce field update failed");
+      }
+    }
+  }
+  return out;
 }
 
 /* ── Reading the sheet ───────────────────────────────────────────────────── */
@@ -236,10 +370,10 @@ export async function autocreateDue(now: number = Date.now()): Promise<number[]>
  * files and Slack note, marked as a test. The sheet and the list of accounts
  * seen are not touched.
  */
-export async function testRoomAutocreate(tenantId: number, rawName: string, sfdcId: string | null): Promise<{ pageId: number; name: string; standardFiles: number; practicesLinked: boolean } | null> {
+export async function testRoomAutocreate(tenantId: number, rawName: string, sfdcId: string | null, owner: string | null = null): Promise<{ pageId: number; name: string; standardFiles: number; practicesLinked: boolean; followUps: RoomFollowUps } | null> {
   const name = cleanAccountName(rawName);
   if (!name) return null;
-  const account: SignedAccount = { key: `test-${accountKey(name)}-${Date.now().toString(36)}`, name, signedDate: null, owner: null, sfdcId: sfdcId && /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(sfdcId) ? sfdcId : null };
+  const account: SignedAccount = { key: `test-${accountKey(name)}-${Date.now().toString(36)}`, name, signedDate: null, owner: owner?.trim().slice(0, 80) || null, sfdcId: sfdcId && /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(sfdcId) ? sfdcId : null };
   const pageId = await createRoomForAccount(tenantId, account, { claimed: true, test: true });
   if (!pageId) return null;
   const [standard, [cfg]] = await Promise.all([
@@ -250,5 +384,6 @@ export async function testRoomAutocreate(tenantId: number, rawName: string, sfdc
   await slackService
     .postMessage(tenantId, { text: `Test: partner room created for ${safe}`, blocks: [{ type: "section", text: { type: "mrkdwn", text: `🧪 *Test run:* a partner room was created as a draft for *${safe}*, the way it would be when an account is added to the signed-accounts sheet. Nothing was published.` } }] })
     .catch(() => false);
-  return { pageId, name, standardFiles: standard.length, practicesLinked: !!(account.sfdcId && cfg?.sheetId && cfg?.practicesTab) };
+  const followUps = await afterRoomCreated(tenantId, account, pageId, { test: true }).catch((): RoomFollowUps => ({ alerts: null, sheet: null, sfdc: null }));
+  return { pageId, name, standardFiles: standard.length, practicesLinked: !!(account.sfdcId && cfg?.sheetId && cfg?.practicesTab), followUps };
 }

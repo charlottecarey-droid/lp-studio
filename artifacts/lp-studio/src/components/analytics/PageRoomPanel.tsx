@@ -1173,12 +1173,18 @@ export function AutomaticRoomsSection() {
     queryFn: async () => {
       const r = await fetch("/api/lp/room-autocreate");
       if (!r.ok) throw new Error("autocreate");
-      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; syncedAt: string | null; note: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
+      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; alertOwner?: boolean; alertEmails?: string[]; logEnabled?: boolean; logSheetId?: string | null; logTab?: string | null; sfdcField?: string | null; syncedAt: string | null; note: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
     },
   });
   const [sheet, setSheet] = useState("");
   const [tab, setTab] = useState("");
   const [practicesTab, setPracticesTab] = useState("");
+  const [alertOwner, setAlertOwner] = useState(false);
+  const [alertEmails, setAlertEmails] = useState("");
+  const [logEnabled, setLogEnabled] = useState(true);
+  const [logSheet, setLogSheet] = useState("");
+  const [logTab, setLogTab] = useState("");
+  const [sfdcField, setSfdcField] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1188,12 +1194,18 @@ export function AutomaticRoomsSection() {
     setSheet(data.sheetId ? `https://docs.google.com/spreadsheets/d/${data.sheetId}` : "");
     setTab(data.sheetTab ?? "");
     setPracticesTab(data.practicesTab ?? "");
+    setAlertOwner(!!data.alertOwner);
+    setAlertEmails((data.alertEmails ?? []).join(", "));
+    setLogEnabled(data.logEnabled !== false);
+    setLogSheet(data.logSheetId ? `https://docs.google.com/spreadsheets/d/${data.logSheetId}` : "");
+    setLogTab(data.logTab ?? "");
+    setSfdcField(data.sfdcField ?? "");
   }, [data]);
 
   const save = async (enabled: boolean) => {
     setBusy(true);
     setNote("");
-    let e = await send("/api/lp/room-autocreate", "PUT", { enabled, sheet: sheet.trim(), tab: tab.trim(), practicesTab: practicesTab.trim() });
+    let e = await send("/api/lp/room-autocreate", "PUT", { enabled, sheet: sheet.trim(), tab: tab.trim(), practicesTab: practicesTab.trim(), alertOwner, alertEmails: alertEmails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean), logEnabled, logSheet: logSheet.trim(), logTab: logTab.trim(), sfdcField: sfdcField.trim() });
     if (!e && enabled) {
       const r = await fetch("/api/lp/room-autocreate/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const j = (await r.json().catch(() => ({}))) as { note?: string; error?: string };
@@ -1233,7 +1245,7 @@ export function AutomaticRoomsSection() {
     try {
       const made = step("Create the draft room");
       const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: testName.trim() }) });
-      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; error?: string };
+      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
       if (!r.ok || !j.pageId) {
         made("failed", j.error ?? "Could not create the room");
         return;
@@ -1242,6 +1254,10 @@ export function AutomaticRoomsSection() {
       setTestPage(j.pageId);
       steps.push({ label: "Attach the standard files", state: j.standardFiles ? "done" : "failed", detail: j.standardFiles ? `${j.standardFiles} attached` : "None uploaded yet (see Standard launch files below)" });
       steps.push({ label: "Tell the team in Slack", state: "done", detail: "Sent to your workspace channel, marked as a test" });
+      const f = j.followUps;
+      if (f?.alerts) steps.push({ label: "Email alerts", state: f.alerts.sent.length ? "done" : "failed", detail: f.alerts.sent.length ? `Sent to ${f.alerts.sent.join(", ")}` : "Nobody to send to (a test has no account owner; add an email above)" });
+      if (f?.sheet) steps.push({ label: "Add a row to the spreadsheet", state: f.sheet.ok ? "done" : "failed", detail: f.sheet.note });
+      if (f?.sfdc) steps.push({ label: "Salesforce field", state: f.sfdc.ok ? "done" : "failed", detail: f.sfdc.note });
       setTestSteps([...steps]);
       const [{ createLaunchAsset, LAUNCH_ASSETS }, { fetchBrandConfig }] = await Promise.all([import("@/lib/room-launch-assets"), import("@/lib/brand-config")]);
       const [brand, detail] = await Promise.all([fetchBrandConfig(), fetch(`/api/lp/partner-rooms/${j.pageId}`).then((x) => x.json() as Promise<RoomDetail>)]);
@@ -1278,6 +1294,35 @@ export function AutomaticRoomsSection() {
           Practices: name the tab of the same workbook that lists every account’s locations. Each new room then reads its own practices from it, matched by Salesforce ID. This needs an “Account ID” column on the signed-accounts tab and a “Parent Account ID” column on the locations tab.
         </p>
         <Input value={practicesTab} onChange={(e) => setPracticesTab(e.target.value)} placeholder="Sheet14" aria-label="Practices tab name" />
+      </div>
+      <div className="space-y-3 rounded-md border p-3" data-room-followups>
+        <p className="text-sm font-medium">When a room is created</p>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Email</p>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={alertOwner} onChange={(e) => setAlertOwner(e.target.checked)} />
+            The account owner
+          </label>
+          <p className="text-xs text-muted-foreground">The sheet gives the owner’s name, so this reaches them when a team member in LP Studio has exactly that name.</p>
+          <Input value={alertEmails} onChange={(e) => setAlertEmails(e.target.value)} placeholder="Anyone else: emails, comma-separated" aria-label="Other alert emails" />
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Spreadsheet</p>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={logEnabled} onChange={(e) => setLogEnabled(e.target.checked)} />
+            Add a row for each new room
+          </label>
+          <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
+            <Input value={logSheet} onChange={(e) => setLogSheet(e.target.value)} placeholder="Blank = the workbook above" aria-label="Log sheet" disabled={!logEnabled} />
+            <Input value={logTab} onChange={(e) => setLogTab(e.target.value)} placeholder="Digital Sales Rooms" aria-label="Log tab" disabled={!logEnabled} />
+          </div>
+          <p className="text-xs text-muted-foreground">The tab is created if it isn’t there. Columns: created, account, status, room link, edit link, account owner, contract signed, Salesforce ID. The connected Google account needs edit access to that workbook.</p>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Salesforce</p>
+          <Input className="max-w-sm" value={sfdcField} onChange={(e) => setSfdcField(e.target.value)} placeholder="Account field API name, e.g. Digital_Sales_Room__c" aria-label="Salesforce field" />
+          <p className="text-xs text-muted-foreground">Writes the room’s link to that field on the account. Needs Salesforce connected in LP Studio, an Account ID column on the sheet, and an editable text or URL field. Blank turns it off.</p>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="brand" disabled={busy || !sheet.trim()} onClick={() => save(true)}>{data?.enabled ? "Save and check now" : "Turn on"}</Button>
