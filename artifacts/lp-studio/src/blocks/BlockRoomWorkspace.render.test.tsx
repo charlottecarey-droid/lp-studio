@@ -30,6 +30,7 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomNextUp,
+  isRosterTask,
   logoScale,
   safeHttpUrl,
   roomAssetIconKey,
@@ -435,5 +436,11 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(html).toContain('href="tel:5550102000"');
     expect((html.match(/data-room-member-book/g) ?? []).length).toBe(1);
     expect((html.match(/data-room-member-call/g) ?? []).length).toBe(1);
+  });
+  it("the roster template is offered on the practice list and doctor roster uploads only", () => {
+    expect(isRosterTask("practice-roster")).toBe(true);
+    expect(isRosterTask("doctor-roster")).toBe(true);
+    expect(isRosterTask("onboard-logo")).toBe(false);
+    expect(isRosterTask("brand-guidelines")).toBe(false);
   });
 });

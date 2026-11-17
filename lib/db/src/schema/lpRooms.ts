@@ -99,6 +99,8 @@ export const lpRoomUploadsTable = pgTable(
     objectPath: text("object_path").notNull(),
     uploadedByEmail: text("uploaded_by_email").notNull(),
     uploadedByName: text("uploaded_by_name"),
+    /** When the file was read as a roster: what matched and what didn't (see partnerRoomRoster.ts). */
+    rosterResult: jsonb("roster_result").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_uploads_page_created_idx").on(t.pageId, t.createdAt)],
@@ -161,12 +163,40 @@ export const lpRoomPracticesTable = pgTable(
     scannerBrand: text("scanner_brand"),
     contractSigned: text("contract_signed"),
     sourceStatus: text("source_status"),
+    /** From the customer's roster: the street address, ZIP and office manager (city, state and regional manager have their own columns). */
+    address: text("address"),
+    zip: text("zip"),
+    officeManager: text("office_manager"),
     /** Internal: the account owner and the last sales activity. Shown to the team only. */
     owner: text("owner"),
     lastActivity: text("last_activity"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_practices_page_idx").on(t.pageId, t.region), uniqueIndex("lp_room_practices_page_ext_uniq").on(t.pageId, t.externalId).where(sql`${t.externalId} IS NOT NULL`)],
+);
+
+/**
+ * Doctors from the customer's roster, each tied to the practice they work at
+ * (`practiceId` is null when the roster's practice could not be matched to
+ * one we hold). Replaced as a whole each time a roster with doctors is read.
+ */
+export const lpRoomDoctorsTable = pgTable(
+  "lp_room_doctors",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    practiceId: integer("practice_id"),
+    /** The practice as the roster wrote it. */
+    practiceName: text("practice_name"),
+    name: text("name").notNull(),
+    email: text("email"),
+    npi: text("npi"),
+    role: text("role"),
+    uploadId: integer("upload_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lp_room_doctors_page_idx").on(t.pageId, t.practiceId)],
 );
 
 /**

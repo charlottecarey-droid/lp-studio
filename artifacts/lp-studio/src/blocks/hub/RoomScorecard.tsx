@@ -99,6 +99,34 @@ const COLUMNS: ColumnDef[] = [
   { key: "state", label: "State", sort: "state", on: false, cell: (p) => p.state },
   { key: "manager", label: "Regional manager", sort: "regionalManager", on: true, has: "manager", cell: (p) => p.regionalManager },
   { key: "wave", label: "Wave", sort: "wave", on: true, has: "wave", cell: (p) => p.wave },
+  {
+    key: "address",
+    label: "Address",
+    sort: "state",
+    on: true,
+    has: "address",
+    cell: (p) => (
+      <>
+        {p.address}
+        {(p.address || p.zip) && <div className="m">{[p.city, [p.state, p.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>}
+      </>
+    ),
+  },
+  { key: "office", label: "Office manager", sort: "officeManager", on: true, has: "office", cell: (p) => p.officeManager },
+  {
+    key: "doctors",
+    label: "Doctors",
+    sort: "doctors",
+    on: true,
+    has: "doctors",
+    cell: (p) =>
+      (p.doctors ?? []).length > 0 ? (
+        <details className="prw-sc-docs" data-room-practice-doctors>
+          <summary><span className="prw-num" style={{ color: "var(--ink)", fontWeight: 600, margin: 0, fontSize: "inherit" }}>{p.doctors!.length}</span><span>show</span></summary>
+          <ul>{p.doctors!.map((d, i) => <li key={i}>{d.name}{d.role ? ` · ${d.role}` : ""}</li>)}</ul>
+        </details>
+      ) : null,
+  },
   { key: "contract", label: "Contract signed", sort: "contractSigned", on: false, has: "contract", cell: (p) => <Flag value={p.contractSigned} /> },
   { key: "training", label: "Training", sort: "trainingDate", on: true, cell: (p) => p.trainingDate },
   { key: "live", label: "Live", sort: "liveDate", on: true, cell: (p) => p.liveDate },
@@ -261,11 +289,18 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                 {mismatch
                   ? `${check.matched ?? 0} of the ${check.onRoster ?? 0} ${noun} on “${check.fileName}” are in Salesforce. Fix the account hierarchy so the scorecard counts every ${one}.`
                   : `All ${check.onRoster ?? 0} ${noun} on “${check.fileName}” are in Salesforce.`}
-                {check.doctors ? ` Their doctor roster lists ${check.doctors} doctors.` : ""}
+                {check.doctors ? ` Their roster lists ${check.doctors} doctors${check.doctorsUnmatched ? `, ${check.doctorsUnmatched} of them at a practice that isn't in Salesforce` : ""}.` : ""}
+                {check.enriched ? ` It added regional managers, office managers or addresses to ${check.enriched} ${noun}.` : ""}
               </span>
             </div>
             <em>Only your team sees this</em>
           </div>
+          {((check.likely ?? []).length > 0 || (check.issues ?? []).length > 0) && (
+            <ul className="extra">
+              {(check.likely ?? []).length > 0 && <li><b>{check.likely!.length}</b> matched by a close name, worth a look: {check.likely!.slice(0, 4).map((l) => `“${l.roster}” → “${l.ours}”`).join("; ")}{check.likely!.length > 4 ? "…" : ""}</li>}
+              {(check.issues ?? []).map((i) => <li key={i}>In the file: {i}</li>)}
+            </ul>
+          )}
           {mismatch > 0 && (
             <>
               <div className="rows">
@@ -294,7 +329,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         </div>
       )}
 
-      <div className="prw-sc-tiles" style={{ ["--n" as string]: TILES.length + (pr.scanners ? 1 : 0) }} data-room-practice-summary>
+      <div className="prw-sc-tiles" style={{ ["--n" as string]: TILES.length + (pr.scanners ? 1 : 0) + (pr.doctors ? 1 : 0) }} data-room-practice-summary>
         {TILES.map((t) => {
           const n = tileCount(pr.byStage, pr.total, t.key);
           const delta = trendDelta(trend, t.key);
@@ -311,6 +346,13 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
             </button>
           );
         })}
+        {pr.doctors && (
+          <div className="prw-sc-tile" data-room-tile="doctors">
+            <b className="prw-num">{pr.doctors.total}</b>
+            <span>Doctors</span>
+            <small>{pr.doctors.matched === pr.doctors.total ? "all at a listed practice" : `${pr.doctors.total - pr.doctors.matched} not placed yet`}</small>
+          </div>
+        )}
         {pr.scanners && (
           <button type="button" className={`prw-sc-tile${scanner === "yes" ? " on" : ""}`} aria-pressed={scanner === "yes"} onClick={() => { setPageNo(0); setScanner((s) => (s === "yes" ? "" : "yes")); }} data-room-tile="scanners">
             <b className="prw-num">{pr.scanners.practices}</b>

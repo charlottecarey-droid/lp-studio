@@ -104,6 +104,8 @@ export interface RoomSnapshot {
     waves?: string[];
     /** One point per day the list was refreshed, oldest first. */
     trend?: { day: string; total: number; byStage: Record<string, number> }[];
+    /** Doctors on the customer's roster, and how many sit at a practice we hold. */
+    doctors?: { total: number; matched: number };
   };
   /** Meetings synced from the team's calendar (only ones with a customer guest). */
   events: RoomSyncedEvent[];
@@ -146,11 +148,16 @@ export interface RoomPractice {
   scannerModels?: string | null;
   scannerBrand?: string | null;
   contractSigned?: string | null;
+  /** From the customer's roster. */
+  address?: string | null;
+  zip?: string | null;
+  officeManager?: string | null;
+  doctors?: { name: string; role: string | null }[];
   /** Team viewers only. */
   owner?: string | null;
   lastActivity?: string | null;
 }
-export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity";
+export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity" | "officeManager" | "doctors";
 /** A scorecard tile: one stage, or a group ("trained" includes live; "open" is everything not yet trained). */
 export type RoomPracticeStageFilter = "not_started" | "scheduling" | "training_booked" | "trained" | "live" | "open";
 /** Team only: how the customer's own rosters compare with what Salesforce lists. */
@@ -165,13 +172,21 @@ export interface RoomScorecardCheck {
   notOnRoster?: string[];
   notOnRosterCount?: number;
   doctors?: number | null;
+  /** Doctors on the roster whose practice could not be matched to one we hold. */
+  doctorsUnmatched?: number;
+  /** Matched by a close name, not the ID or the exact name. */
+  likely?: { roster: string; ours: string }[];
+  /** Problems in the file itself (a doctor with no practice, a bad email). */
+  issues?: string[];
+  /** Practices that gained a regional manager, office manager or address from the roster. */
+  enriched?: number;
 }
 export interface RoomPracticePage {
   total: number;
   page: number;
   pageSize: number;
   /** Which optional columns this room has any data for. */
-  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean };
+  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; doctors?: boolean };
   rows: RoomPractice[];
 }
 
@@ -300,6 +315,16 @@ class RoomStore {
 
   setTaskDone(taskKey: string, done: boolean) {
     return this.act("task", { taskKey, done });
+  }
+
+  /** The roster template for this room, as a CSV to download. Null when it could not be made. */
+  async rosterTemplate(): Promise<{ fileName: string; csv: string } | null> {
+    try {
+      const { status, json } = await this.post("roster-template", {});
+      return status === 200 && typeof json.csv === "string" ? { fileName: String(json.fileName || "roster.csv"), csv: json.csv } : null;
+    } catch {
+      return null;
+    }
   }
 
   /** Team only: change a milestone's status, owners or target date. */

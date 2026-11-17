@@ -10,6 +10,7 @@ import {
   lpRoomChoicesTable,
   lpRoomContactsTable,
   lpRoomPracticesTable,
+  lpRoomDoctorsTable,
   lpRoomPracticeSnapshotsTable,
   lpRoomRequestsTable,
   lpRoomSettingsTable,
@@ -25,6 +26,7 @@ import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } fr
 import { lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomUploadsTable } from "@workspace/db";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
+import { matchRoster, parseRoster, rosterTemplateCsv, type RosterResult } from "./partnerRoomRoster";
 import { desc } from "drizzle-orm";
 import { parsePracticeRow, resolveRoomBlocks, type RoomPracticeInput } from "./partnerRoom";
 import { collectDigest, digestIsEmpty, renderDigestEmail, renderDigestSlack, type DigestData } from "./partnerRoomDigest";
@@ -48,6 +50,8 @@ export interface PracticeSummary {
   waves: string[];
   /** One point per day the list was refreshed (oldest first, up to 120 days). */
   trend: PracticeTrendPoint[];
+  /** Doctors on the customer's roster, and how many of them sit at a practice we hold. Absent until a roster with doctors is read. */
+  doctors?: { total: number; matched: number };
 }
 
 export async function practiceSummary(pageId: number): Promise<PracticeSummary> {
@@ -81,7 +85,14 @@ export async function practiceSummary(pageId: number): Promise<PracticeSummary> 
     byRegion: [...regions.values()].sort((a, b) => b.total - a.total || a.region.localeCompare(b.region)).slice(0, 60),
     waves,
     trend: trend.reverse(),
+    ...(await doctorTotals(pageId, total)),
   };
+}
+
+async function doctorTotals(pageId: number, practices: number): Promise<{ doctors?: { total: number; matched: number } }> {
+  if (!practices) return {};
+  const [d] = (await db.execute(sql`SELECT COUNT(*)::int AS total, COUNT(practice_id)::int AS matched FROM lp_room_doctors WHERE page_id = ${pageId}`)).rows as Array<{ total: number; matched: number }>;
+  return d && d.total > 0 ? { doctors: { total: d.total, matched: d.matched } } : {};
 }
 
 /**
@@ -283,6 +294,58 @@ export async function syncPracticesFromSheet(pageId: number): Promise<{ ok: bool
     logger.error({ err, pageId }, "room practices sheet sync failed");
     return finish(false, "Couldn't reach Google Sheets.");
   }
+}
+
+/* ── The customer's roster ───────────────────────────────────────────────── */
+
+/**
+ * Read an uploaded file as a roster and apply it: add the regional manager,
+ * office manager and address it gives to each practice it matches, and
+ * replace the room's doctors with the ones it lists (each tied to its
+ * practice). Practices are never created or removed here: the practice list
+ * stays whatever Salesforce says, and what doesn't line up is reported.
+ * Returns null when the file isn't a roster (no practice column).
+ */
+export async function applyRoster(page: { id: number; tenantId: number }, upload: { id: number; fileName: string }, buf: Buffer): Promise<RosterResult | null> {
+  const parsed = parseRoster(upload.fileName, buf);
+  if (!parsed || parsed.rows.length === 0) return null;
+  const practices = await db.select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
+  const { updates, doctors, result } = matchRoster(parsed.rows, practices);
+  for (const u of updates) {
+    const { id, ...fields } = u;
+    await db.update(lpRoomPracticesTable).set({ ...fields, updatedAt: sql`now()` }).where(and(eq(lpRoomPracticesTable.id, id), eq(lpRoomPracticesTable.pageId, page.id)));
+  }
+  // The doctors are replaced as a whole, but only by a file that has a doctor column (a practices-only list leaves them alone).
+  if (parsed.hasDoctors) {
+    await db.delete(lpRoomDoctorsTable).where(eq(lpRoomDoctorsTable.pageId, page.id));
+    for (let i = 0; i < doctors.length; i += 200) {
+      await db.insert(lpRoomDoctorsTable).values(doctors.slice(i, i + 200).map((d) => ({ tenantId: page.tenantId, pageId: page.id, practiceId: d.practiceId, practiceName: d.practiceName || null, name: d.name, email: d.email, npi: d.npi, role: d.role, uploadId: upload.id })));
+    }
+  }
+  await db.update(lpRoomUploadsTable).set({ rosterResult: { ...result, hasDoctors: parsed.hasDoctors, fileName: upload.fileName } as Record<string, unknown> }).where(eq(lpRoomUploadsTable.id, upload.id));
+  return result;
+}
+
+/** The newest roster the customer uploaded that could be read, with what matched and what didn't. */
+export async function latestRosterResult(pageId: number): Promise<(RosterResult & { fileName: string; hasDoctors: boolean; uploadedAt: string }) | null> {
+  const [row] = await db
+    .select({ result: lpRoomUploadsTable.rosterResult, createdAt: lpRoomUploadsTable.createdAt })
+    .from(lpRoomUploadsTable)
+    .where(and(eq(lpRoomUploadsTable.pageId, pageId), sql`${lpRoomUploadsTable.rosterResult} IS NOT NULL`))
+    .orderBy(desc(lpRoomUploadsTable.createdAt))
+    .limit(1);
+  return row?.result ? ({ ...(row.result as unknown as RosterResult & { fileName: string; hasDoctors: boolean }), uploadedAt: row.createdAt.toISOString() }) : null;
+}
+
+/** The roster template for a room: its practices as we hold them, ready for the customer to add doctors and corrections. */
+export async function roomRosterTemplate(pageId: number): Promise<string> {
+  const practices = await db
+    .select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name, address: lpRoomPracticesTable.address, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, regionalManager: lpRoomPracticesTable.regionalManager, officeManager: lpRoomPracticesTable.officeManager })
+    .from(lpRoomPracticesTable)
+    .where(eq(lpRoomPracticesTable.pageId, pageId))
+    .orderBy(lpRoomPracticesTable.name)
+    .limit(5000);
+  return rosterTemplateCsv(practices);
 }
 
 /* ── What Salesforce is missing ──────────────────────────────────────────── */

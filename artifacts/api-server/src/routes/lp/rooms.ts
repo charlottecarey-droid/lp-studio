@@ -20,6 +20,7 @@ import {
   lpRoomStandardAssetsTable,
   lpRoomAutocreateTable,
   lpRoomAutocreateAccountsTable,
+  lpRoomDoctorsTable,
   appUsersTable,
   tenantMembersTable,
   lpAssetEventsTable,
@@ -56,7 +57,7 @@ import { accountPeople, createRoomForAccount, isSfdcFieldName, syncRoomAutocreat
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
-import { buildRoomDigest, loadSalesforceGap, practiceSummary, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
+import { applyRoster, buildRoomDigest, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices, rowsFromUpload } from "../../lib/partnerRoomReconcile";
 import {
   ASANA_REQUEST_KINDS,
@@ -586,7 +587,7 @@ router.post("/lp/room/upload", actionLimiter, async (req: Request, res: Response
       return;
     }
     const objectPath = await objectStorage.uploadObjectEntity(parsed.buffer, parsed.contentType, { tenantId: page.tenantId, folder: ROOM_UPLOAD_FOLDER });
-    await db.insert(lpRoomUploadsTable).values({
+    const [saved] = await db.insert(lpRoomUploadsTable).values({
       tenantId: page.tenantId,
       pageId: page.id,
       taskKey: task.key,
@@ -596,8 +597,10 @@ router.post("/lp/room/upload", actionLimiter, async (req: Request, res: Response
       objectPath,
       uploadedByEmail: viewer.email,
       uploadedByName: viewer.name,
-    });
+    }).returning({ id: lpRoomUploadsTable.id });
     await markDone(page, task.key, viewer);
+    // A roster (a list with a practice column) is read straight away: doctors are tied to practices, and regionals and addresses fill in.
+    const roster = page.isWorkspace ? await applyRoster(page, { id: saved.id, fileName: parsed.fileName }, parsed.buffer).catch((err) => (req.log.warn({ err }, "room roster read failed"), null)) : null;
     const settings = await loadSettings(page.id);
     postToSlack(
       page,
@@ -606,7 +609,8 @@ router.post("/lp/room/upload", actionLimiter, async (req: Request, res: Response
       [`*${mrk(viewer.name || viewer.email)}* uploaded *${mrk(parsed.fileName)}* for *${mrk(task.title)}*.`, "Download it from the page's Room panel in LP Studio."],
       await roomPageUrl(req, page, req.body?.path),
     );
-    res.json({ ok: true, fileName: parsed.fileName });
+    // The customer hears what to fix in the file; which practices Salesforce is missing is for the team.
+    res.json({ ok: true, fileName: parsed.fileName, ...(roster ? { roster: { practices: roster.practices, doctors: roster.doctors, issues: roster.issues } } : {}) });
   } catch (err) {
     req.log.error({ err }, "room upload failed");
     res.status(500).json({ error: "Upload failed. Please try again." });
@@ -703,6 +707,8 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       scannerSent: lpRoomPracticesTable.scannerSent,
       scannerActivated: lpRoomPracticesTable.scannerActivated,
       regionalManager: lpRoomPracticesTable.regionalManager,
+      officeManager: lpRoomPracticesTable.officeManager,
+      doctors: sql`(SELECT COUNT(*) FROM lp_room_doctors d WHERE d.practice_id = ${lpRoomPracticesTable.id})`,
       scannerCount: lpRoomPracticesTable.scannerCount,
       scannerBrand: lpRoomPracticesTable.scannerBrand,
       contractSigned: lpRoomPracticesTable.contractSigned,
@@ -730,15 +736,27 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
         .from(lpRoomPracticesTable)
         .where(eq(lpRoomPracticesTable.pageId, page.id)),
     ]);
+    // The doctors at the practices on this page of the list.
+    const ids = rows.map((p) => p.id);
+    const docs = ids.length ? await db.select({ practiceId: lpRoomDoctorsTable.practiceId, name: lpRoomDoctorsTable.name, role: lpRoomDoctorsTable.role }).from(lpRoomDoctorsTable).where(and(eq(lpRoomDoctorsTable.pageId, page.id), inArray(lpRoomDoctorsTable.practiceId, ids))).orderBy(asc(lpRoomDoctorsTable.name)).limit(2000) : [];
+    const doctorsByPractice = new Map<number, { name: string; role: string | null }[]>();
+    for (const d of docs) if (d.practiceId) doctorsByPractice.set(d.practiceId, [...(doctorsByPractice.get(d.practiceId) ?? []), { name: d.name, role: d.role }]);
+    const [extra] = await db
+      .select({ address: sql<boolean>`bool_or(${lpRoomPracticesTable.address} IS NOT NULL)`, office: sql<boolean>`bool_or(${lpRoomPracticesTable.officeManager} IS NOT NULL)` })
+      .from(lpRoomPracticesTable)
+      .where(eq(lpRoomPracticesTable.pageId, page.id));
+    const [anyDoctor] = await db.select({ id: lpRoomDoctorsTable.id }).from(lpRoomDoctorsTable).where(eq(lpRoomDoctorsTable.pageId, page.id)).limit(1);
     res.json({
       total: n,
       page: pageNo,
       pageSize: 50,
       // The account owner and last sales activity are ours: only the team's own view gets them.
-      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
+      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
       rows: rows.map((p) => ({
         id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels,
         scannerBrand: p.scannerBrand, contractSigned: p.contractSigned,
+        address: p.address, zip: p.zip, officeManager: p.officeManager,
+        doctors: doctorsByPractice.get(p.id) ?? [],
         ...(viewer.team ? { owner: p.owner, lastActivity: p.lastActivity } : {}),
       })),
     });
@@ -753,6 +771,19 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
  * in the viewer). Same shape as the hub's beacon, plus who it was when the
  * visitor is identified. Always answers 204: tracking never blocks the page.
  */
+/** The roster template for this room (its practices, ready for doctors and corrections), for a known visitor to download. */
+router.post("/lp/room/roster-template", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const slug = ctx.page.partnerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "roster";
+    res.json({ fileName: `${slug}-practice-and-doctor-roster.csv`, csv: await roomRosterTemplate(ctx.page.id) });
+  } catch (err) {
+    req.log.error({ err }, "room roster template failed");
+    res.status(500).json({ error: "Could not make the template" });
+  }
+});
+
 /**
  * Team only, from the live page: change a milestone's status, owners or
  * target date. Writes the page itself, so the builder and the customer see
@@ -850,6 +881,26 @@ router.post("/lp/room/scorecard-check", stateLimiter, async (req: Request, res: 
     if (!ctx) return;
     if (!ctx.viewer.team) {
       res.status(403).json({ error: "Not available" });
+      return;
+    }
+    // A roster read on upload has the fuller answer (matched by ID, doctors tied to practices); older uploads fall back to comparing names.
+    const roster = await latestRosterResult(ctx.page.id);
+    if (roster) {
+      res.json({
+        checked: true,
+        fileName: roster.fileName,
+        onRoster: roster.practices,
+        matched: roster.matched,
+        missingFromSalesforce: roster.unmatched.slice(0, 200),
+        missingCount: roster.unmatched.length,
+        notOnRoster: roster.notOnRoster.slice(0, 200),
+        notOnRosterCount: roster.notOnRoster.length,
+        doctors: roster.hasDoctors ? roster.doctors : null,
+        doctorsUnmatched: roster.doctorsUnmatched,
+        likely: roster.likely.slice(0, 100),
+        issues: roster.issues,
+        enriched: roster.enriched,
+      });
       return;
     }
     const gap = await loadSalesforceGap(ctx.page.id);

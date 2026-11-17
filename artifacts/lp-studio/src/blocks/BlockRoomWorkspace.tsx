@@ -1147,6 +1147,15 @@ const CSS = `
 .prw-sc-regions>button .v{font-size:12px;color:var(--body);text-align:right;white-space:nowrap}
 .prw-sc-regions>button.more{display:block;width:auto;margin:6px 0 4px;padding:4px 0;font-size:12px;font-weight:600;color:var(--dark)}
 .prw-sc-tools input{max-width:280px}
+.prw-tpl{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:0;border:0;background:none;font-size:12px;font-weight:600;color:var(--dark);text-decoration:underline;text-underline-offset:2px}
+.prw-tpl svg{width:12px;height:12px}
+.prw-sc-docs summary{cursor:pointer;list-style:none;font-weight:600;color:var(--ink)}
+.prw-sc-docs summary::-webkit-details-marker{display:none}
+.prw-sc-docs summary span{font-weight:400;color:var(--body);font-size:11.5px;margin-left:5px}
+.prw-sc-docs ul{margin:6px 0 0;padding:0;list-style:none;font-size:12px;color:var(--body);white-space:normal;min-width:150px}
+.prw-sc-docs li{padding:1px 0}
+.prw-sc-check .extra{margin:8px 0 0 30px;font-size:12.5px;color:var(--body)}
+.prw-sc-check .extra li{margin:2px 0}
 .prw-sc-yes{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:color-mix(in srgb,var(--green) 16%,#fff);color:#0B6B3A}
 .prw-sc-yes svg{width:12px;height:12px}
 .prw-sc-cols{position:relative;margin-left:auto}
@@ -2198,10 +2207,33 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row:
           }}
         />
       )}
+      {row.action === "upload" && isRosterTask(row.key) && !isEditor && store && snapshot.viewer && (
+        <button
+          type="button"
+          className="prw-tpl"
+          data-room-roster-template
+          title="A spreadsheet with your practices already filled in. Add a row per doctor, correct anything wrong, then upload it."
+          onClick={async () => {
+            const t = await store.rosterTemplate();
+            if (!t) return setError("Couldn't make the template. Please try again.");
+            const url = URL.createObjectURL(new Blob([t.csv], { type: "text/csv;charset=utf-8" }));
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = t.fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          <Download aria-hidden /> Template
+        </button>
+      )}
       {error && <div className="prw-err" role="alert" style={{ whiteSpace: "normal" }}>{error}</div>}
     </>
   );
 }
+
+/** The upload tasks that take a roster (the practice list, the doctor roster): they offer the template. */
+export const isRosterTask = (key: string) => /roster|practice-list|doctor/.test(key);
 
 /* ── Launch kit ──────────────────────────────────────────────────────────── */
 

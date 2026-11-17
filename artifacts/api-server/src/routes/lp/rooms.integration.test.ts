@@ -175,7 +175,7 @@ afterAll(async () => {
     await pool.query(`DELETE FROM lp_room_win_likes WHERE tenant_id = $1`, [id]).catch(() => {});
     await pool.query(`DELETE FROM lp_room_win_comments WHERE tenant_id = $1`, [id]).catch(() => {});
     await pool.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [id]).catch(() => {});
-    for (const table of ["lp_room_practice_snapshots", "lp_room_practices", "lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
+    for (const table of ["lp_room_doctors", "lp_room_practice_snapshots", "lp_room_practices", "lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
       await pool.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [id]).catch(() => {});
     }
     await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
@@ -558,6 +558,62 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await post("request-update", { pageId, hl, id, status: "done" })).status).toBe(200);
     expect((await reqs())[0].status).toBe("done");
     expect((await asTeam("request-update", { id: 999_999_999, status: "done" })).status).toBe(404);
+  }, 60_000);
+
+  it("a roster upload ties doctors to practices, fills in regionals and addresses, and the template comes prefilled", async () => {
+    const tenantId = await seedTenant();
+    const blocks = [{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental", planGroups: [{ title: "P", rows: [{ key: "practice-roster", task: "Upload your practice list", customerAction: "upload" }] }] } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    const sfdc = ["Account Name,Account ID,Billing State/Province,Status", "Main Street Dental,0015d00000AAAAAAAA,TX,Ramped", "Lakeside Family,0015d00000BBBBBAAA,CO,Onboarding", "Summit Dental,0015d00000CCCCCAAA,CO,New"].join("\n");
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: sfdc } })).json).toMatchObject({ ok: true, added: 3 });
+
+    // The template: known visitors only, one row per practice with its Salesforce ID.
+    expect((await post("roster-template", { pageId })).status).toBe(401);
+    const tpl = (await post("roster-template", { pageId, hl })).json as { fileName: string; csv: string };
+    expect(tpl.fileName).toBe("mb2-dental-practice-and-doctor-roster.csv");
+    const lines = tpl.csv.replace(/^\uFEFF/, "").trim().split("\r\n");
+    expect(lines[0]).toBe("Practice ID,Practice name,Street address,City,State,ZIP,Regional manager,Office manager,Doctor name,Doctor email,Doctor NPI,Doctor role");
+    expect(lines).toHaveLength(4);
+    expect(lines[1]).toBe("0015d00000BBBBBAAA,Lakeside Family,,,CO,,,,,,,");
+
+    // The customer fills it in and uploads it: a renamed practice still lands by its ID, and one practice isn't in Salesforce.
+    const roster = [
+      lines[0],
+      "0015d00000AAAAAAAA,Main St Dental,100 Main St,Dallas,TX,75201,Dana Ruiz,Pat Lee,Dr. Ana Patel,ana@mainst.com,1234567890,General",
+      "0015d00000AAAAAAAA,Main St Dental,,,,,,,Dr. Ben Cho,ben@mainst.com,,Associate",
+      "0015d00000BBBBBAAA,Lakeside Family,22 Lake Rd,Denver,CO,80202,Sam Ortiz,,Dr. Cy Diaz,cy@lakeside.com,,",
+      ",Brand New Smiles,9 New Way,Austin,TX,78701,Dana Ruiz,,Dr. Dee Fox,dee@new.com,,",
+    ].join("\n");
+    const up = await post("upload", { pageId, hl, taskKey: "practice-roster", fileName: "MB2 roster.csv", fileBase64: Buffer.from(roster).toString("base64") });
+    expect(up.json).toMatchObject({ ok: true, roster: { practices: 3, doctors: 4, issues: [] } });
+    expect(JSON.stringify(up.json)).not.toContain("Brand New Smiles"); // what Salesforce is missing is for the team, not the customer
+
+    // The Scorecard: doctors under their practice, regional manager and address filled in, the practice list itself unchanged.
+    const card = (await post("practices", { pageId, hl })).json as { total: number; columns: Record<string, boolean>; rows: { name: string; regionalManager: string | null; address: string | null; zip: string | null; officeManager: string | null; doctors: { name: string; role: string | null }[] }[] };
+    expect(card.total).toBe(3);
+    expect(card.columns).toMatchObject({ address: true, office: true, doctors: true, manager: true });
+    const main = card.rows.find((p) => p.name === "Main Street Dental")!;
+    expect(main).toMatchObject({ regionalManager: "Dana Ruiz", address: "100 Main St", zip: "75201", officeManager: "Pat Lee" });
+    expect(main.doctors).toEqual([{ name: "Dr. Ana Patel", role: "General" }, { name: "Dr. Ben Cho", role: "Associate" }]);
+    expect(card.rows.find((p) => p.name === "Summit Dental")!.doctors).toEqual([]);
+    expect(((await post("state", { pageId })).json as { practices: { doctors: { total: number; matched: number } } }).practices.doctors).toEqual({ total: 4, matched: 3 });
+
+    // The team's check: what Salesforce is missing, what the roster left out, and the doctors with nowhere to go.
+    const teamEmail = `rep-${Date.now()}@vendor-roster.com`;
+    await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Rae Rep', 'active')`, [tenantId, teamEmail]);
+    const check = (await inject(app, { method: "POST", url: `/lp/room/scorecard-check`, headers: { ...asTenant(tenantId), "x-test-email": teamEmail }, body: { pageId } })).json;
+    expect(check).toMatchObject({ checked: true, fileName: "MB2 roster.csv", onRoster: 3, matched: 2, missingFromSalesforce: ["Brand New Smiles"], notOnRoster: ["Summit Dental"], doctors: 4, doctorsUnmatched: 1, enriched: 2 });
+
+    // A later practices-only list updates details but leaves the doctors alone; a file that isn't a roster changes nothing.
+    const again = await post("upload", { pageId, hl, taskKey: "practice-roster", fileName: "locations.csv", fileBase64: Buffer.from("Location Name,RDO\nSummit Dental,Lee Chen").toString("base64") });
+    expect(again.json).toMatchObject({ ok: true, roster: { practices: 1, doctors: 0 } });
+    const after = (await post("practices", { pageId, hl, q: "summit" })).json as { rows: { regionalManager: string | null }[] };
+    expect(after.rows[0].regionalManager).toBe("Lee Chen");
+    expect(((await post("state", { pageId })).json as { practices: { doctors: { total: number } } }).practices.doctors.total).toBe(4);
+    const notes = await post("upload", { pageId, hl, taskKey: "practice-roster", fileName: "notes.csv", fileBase64: Buffer.from("Topic,Owner\nKickoff,Sam").toString("base64") });
+    expect(notes.json).toEqual({ ok: true, fileName: "notes.csv" });
   }, 60_000);
 
   it("marketing requests are filed in Asana as Expansion Support - customer - request, with intake status submitted; other kinds are not", async () => {
