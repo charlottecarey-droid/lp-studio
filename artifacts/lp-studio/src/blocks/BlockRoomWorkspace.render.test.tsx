@@ -30,6 +30,8 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomNextUp,
+  logoScale,
+  safeHttpUrl,
   roomAssetIconKey,
   targetHasPassed,
   visibleModules,
@@ -406,5 +408,32 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     const full = render({ ...content, hiddenModules: ["overview", "wins", "goals", "practices", "kit", "calendar", "team"] as never });
     expect(full).toMatch(/Outstanding<em>3 yours<\/em>/);
     expect(render()).toContain(">Our Team<");
+  });
+  it("top bar: logos can be sized, and a Schedule a meeting button books a rep's calendar", () => {
+    expect(logoScale(undefined)).toBe(1);
+    expect(logoScale(180)).toBe(1.8);
+    expect(logoScale(10)).toBe(0.5);
+    expect(logoScale(9000)).toBe(3);
+    const big = render({ partnerLogoUrl: "/logo.png", partnerLogoScale: 200, brandLogoScale: 150 });
+    expect(big).toMatch(/data-room-partner-logo[^>]*|style="height:44px"/);
+    expect(big).toContain("height:44px");
+    expect(big).toContain("--blogo:1.5");
+    expect(render()).not.toContain("data-room-schedule");
+    const sched = render({ scheduleUrl: "https://calendly.com/rae-rep/30", scheduleLabel: "" });
+    expect(sched).toContain('data-room-schedule');
+    expect(sched).toContain('href="https://calendly.com/rae-rep/30"');
+    expect(sched).toContain("Schedule a meeting");
+    // Only a real web address becomes a link.
+    expect(safeHttpUrl("javascript:alert(1)")).toBe("");
+    expect(safeHttpUrl(" https://x.example/a ")).toBe("https://x.example/a");
+    expect(render({ scheduleUrl: "javascript:alert(1)" })).not.toContain("data-room-schedule");
+  });
+  it("our team: a person with a booking link, an email and a phone gets a button for each", () => {
+    const html = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar", "meetings", "requests"] as never, team: [{ title: "Dandy", members: [{ name: "Rae Rep", role: "AE", email: "rae@vendor.com", phone: "(555) 010-2000", bookingUrl: "https://calendly.com/rae" }, { name: "No Contact", role: "AM", bookingUrl: "not a link", phone: "x" }] }] });
+    expect(html).toContain('href="https://calendly.com/rae"');
+    expect(html).toContain('href="mailto:rae@vendor.com"');
+    expect(html).toContain('href="tel:5550102000"');
+    expect((html.match(/data-room-member-book/g) ?? []).length).toBe(1);
+    expect((html.match(/data-room-member-call/g) ?? []).length).toBe(1);
   });
 });

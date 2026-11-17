@@ -50,6 +50,7 @@ import { ChevronLeft, ChevronRight, DoorOpen, Plus, X } from "lucide-react";
 // The team's Room panel (uploads, practices, launch kit, calendar, settings). Loaded only when opened.
 const PageRoomPanel = lazy(() => import("@/components/analytics/PageRoomPanel").then((m) => ({ default: m.PageRoomPanel })));
 import { Field, ItemHeader, moveItem } from "./glow/GlowPanelKit";
+import { LibraryPicker } from "@/components/LibraryPicker";
 import { mergeTeamMembers, parseTeamList, TEAM_IMPORT_COLUMNS, type ImportedPerson } from "@/lib/room-team-import";
 import { ThumbButton } from "./HubPanels";
 
@@ -232,6 +233,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
   const setRow = (gi: number, ri: number, patch: Partial<RoomMilestone>) => setGroup(gi, { rows: groups[gi].rows.map((r, idx) => (idx === ri ? { ...r, ...patch } : r)) });
   const setPhase = (i: number, patch: Partial<RoomPhase>) => update({ phases: phases.map((p, idx) => (idx === i ? { ...p, ...patch } : p)) });
   const setAsset = (i: number, patch: Partial<RoomAsset>) => update({ assets: assets.map((a, idx) => (idx === i ? { ...a, ...patch } : a)) });
+  const [repsOpen, setRepsOpen] = useState(false);
   const setTeam = (i: number, patch: Partial<RoomTeamGroup>) => update({ team: team.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
   const setMember = (gi: number, mi: number, patch: Partial<RoomTeamMember>) => setTeam(gi, { members: team[gi].members.map((m, idx) => (idx === mi ? { ...m, ...patch } : m)) });
 
@@ -351,6 +353,8 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
     );
   }
 
+  // People on our side who have a booking link: the calendars the "Schedule a meeting" button can use.
+  const bookable = (team[0]?.members ?? []).filter((m) => /^https?:\/\//i.test((m.bookingUrl ?? "").trim()) && (m.name ?? "").trim()).map((m) => ({ name: m.name.trim(), role: m.role, bookingUrl: (m.bookingUrl ?? "").trim() }));
   // The people on the Team module, offered wherever an owner is typed (first group = ours, the rest = the customer's).
   const named = (g: RoomTeamGroup | undefined) => (g?.members ?? []).map((m) => (m.name ?? "").trim()).filter((n) => n && !/^\[.*\]$/.test(n) && n !== "New person");
   const oursList = named(team[0]);
@@ -371,6 +375,41 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         <div className="flex items-center gap-2">
           <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo (for the dark cover)" />
           <span className="text-[11px] text-muted-foreground">Customer logo, light version. Blank shows their name.</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={`Customer logo size · ${Math.round(props.partnerLogoScale ?? 100)}%`}>
+            <input type="range" min={50} max={300} step={5} value={props.partnerLogoScale ?? 100} onChange={(e) => update({ partnerLogoScale: Number(e.target.value) })} className="w-full" aria-label="Customer logo size" data-room-logo-size="partner" />
+          </Field>
+          <Field label={`Your logo size · ${Math.round(props.brandLogoScale ?? 100)}%`}>
+            <input type="range" min={50} max={300} step={5} value={props.brandLogoScale ?? 100} onChange={(e) => update({ brandLogoScale: Number(e.target.value) })} className="w-full" aria-label="Your logo size" data-room-logo-size="brand" />
+          </Field>
+        </div>
+        <div className="space-y-1.5 rounded border p-2" data-room-schedule-settings>
+          <span className="text-xs font-semibold">“Schedule a meeting” button (top bar)</span>
+          <Field label="Whose calendar it books">
+            <Select
+              value={!props.scheduleUrl ? "off" : bookable.find((m) => m.bookingUrl === props.scheduleUrl)?.name ?? "custom"}
+              onValueChange={(v) => {
+                if (v === "off") update({ scheduleUrl: "", scheduleRep: "" });
+                else if (v === "custom") update({ scheduleUrl: props.scheduleUrl || "https://", scheduleRep: "" });
+                else update({ scheduleUrl: bookable.find((m) => m.name === v)?.bookingUrl ?? "", scheduleRep: v });
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="off" className="text-xs">No button</SelectItem>
+                {bookable.map((m) => <SelectItem key={m.name} value={m.name} className="text-xs">{m.name}{m.role ? ` · ${m.role}` : ""}</SelectItem>)}
+                <SelectItem value="custom" className="text-xs">Another booking link…</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          {bookable.length === 0 && <p className="text-[11px] text-muted-foreground">Nobody on your side of the team has a booking link yet. Add people from the Sales Reps library under Team (their links come with them), or paste a link here.</p>}
+          {!!props.scheduleUrl && (
+            <>
+              <Input value={props.scheduleUrl} onChange={(e) => update({ scheduleUrl: e.target.value.trim(), scheduleRep: "" })} className="h-7 text-xs" placeholder="https://calendly.com/…" aria-label="Booking link" />
+              <Input value={props.scheduleLabel ?? ""} onChange={(e) => update({ scheduleLabel: e.target.value })} className="h-7 text-xs" placeholder="Schedule a meeting" aria-label="Button text" />
+            </>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Kickoff date"><Input type="date" value={props.kickoffDate ?? ""} onChange={(e) => update({ kickoffDate: e.target.value })} className="h-8 text-xs" /></Field>
@@ -770,6 +809,33 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
       {active === "team" && (
       <SectionBody title="Team" hint="Named people on both sides">
         <Field label="Note beside the heading"><Input value={props.teamNote ?? ""} onChange={(e) => update({ teamNote: e.target.value })} className="h-8 text-xs" /></Field>
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setRepsOpen(true)} data-room-team-library>
+          <Plus className="h-3 w-3" /> Add from the Sales Reps library
+        </Button>
+        <LibraryPicker
+          open={repsOpen}
+          onClose={() => setRepsOpen(false)}
+          type="team_member"
+          title="Sales Reps library"
+          onSelect={(items) => {
+            // Reps go on our side (the first group), with their photo, email, phone and booking link.
+            const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+            const reps = items.map((c) => ({ name: str(c.name), role: str(c.role), email: str(c.email) || undefined, phone: str(c.phone) || undefined, bookingUrl: str(c.chilipiperUrl) || str(c.calendlyUrl) || undefined, photoUrl: str(c.photo) || undefined })).filter((r) => r.name);
+            if (reps.length === 0 || team.length === 0) return;
+            const current = team[0].members ?? [];
+            const fresh = reps.filter((r) => !current.some((m) => (r.email && (m.email ?? "").trim().toLowerCase() === r.email.toLowerCase()) || (m.name ?? "").trim().toLowerCase() === r.name.toLowerCase()));
+            // Someone already there gets their missing contact details filled in rather than a second entry.
+            const merged = current.map((m) => {
+              const r = reps.find((x) => (x.email && (m.email ?? "").trim().toLowerCase() === x.email.toLowerCase()) || (m.name ?? "").trim().toLowerCase() === x.name.toLowerCase());
+              return r ? { ...m, email: m.email || r.email, phone: m.phone || r.phone, bookingUrl: m.bookingUrl || r.bookingUrl, photoUrl: m.photoUrl || r.photoUrl } : m;
+            });
+            update({ team: team.map((g, i) => (i === 0 ? { ...g, members: [...merged.filter((m) => !/^\[.*\]$/.test((m.name ?? "").trim())), ...fresh] } : g)) });
+          }}
+          renderPreview={(item) => {
+            const c = item.content as { role?: string; email?: string };
+            return <div className="text-xs text-muted-foreground">{[c.role, c.email].filter(Boolean).join(" · ")}</div>;
+          }}
+        />
         <TeamImport
           groups={team.map((g) => g.title || "Group")}
           pageId={Number.isFinite(pageId) && pageId > 0 ? pageId : null}
@@ -803,6 +869,10 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                 <div className="grid grid-cols-2 gap-1">
                   <Input value={m.role ?? ""} onChange={(e) => setMember(gi, mi, { role: e.target.value })} className="h-7 text-xs" placeholder="Role" />
                   <Input value={m.email ?? ""} onChange={(e) => setMember(gi, mi, { email: e.target.value })} className="h-7 text-xs" placeholder="Email" />
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  <Input value={m.phone ?? ""} onChange={(e) => setMember(gi, mi, { phone: e.target.value })} className="h-7 text-xs" placeholder="Phone (optional)" />
+                  <Input value={m.bookingUrl ?? ""} onChange={(e) => setMember(gi, mi, { bookingUrl: e.target.value.trim() })} className="h-7 text-xs" placeholder="Booking link (optional)" />
                 </div>
                 <div className="grid grid-cols-2 gap-1">
                   <Input value={m.owns ?? ""} onChange={(e) => setMember(gi, mi, { owns: e.target.value })} className="h-7 text-xs" placeholder="What they own" />

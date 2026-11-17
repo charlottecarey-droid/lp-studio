@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -375,6 +375,9 @@ export interface RoomTeamMember {
   owns?: string;
   when?: string;
   email?: string;
+  phone?: string;
+  /** Their booking page (Chili Piper, Calendly, a calendar link). */
+  bookingUrl?: string;
   photoUrl?: string;
   hidden?: boolean;
 }
@@ -387,6 +390,14 @@ export interface RoomTeamGroup {
 export interface RoomWorkspaceBlockProps {
   partnerName: string;
   partnerLogoUrl?: string;
+  /** Size of each logo in the top bar, as a percentage of the standard height (50–300). Blank = 100. */
+  partnerLogoScale?: number;
+  brandLogoScale?: number;
+  /** "Schedule a meeting" in the top bar: where it books (a rep's booking page). Blank = no button. */
+  scheduleUrl?: string;
+  scheduleLabel?: string;
+  /** The name of the rep whose calendar it books, for the builder to show. */
+  scheduleRep?: string;
   eyebrow?: string;
   title?: string;
   lede?: string;
@@ -569,6 +580,18 @@ export function targetHasPassed(target: string | undefined, now: Date): boolean 
   const y = now.getFullYear();
   const nearest = [y - 1, y, y + 1].map((yr) => new Date(yr, month, +m[2]).getTime()).sort((a, b) => Math.abs(a - today) - Math.abs(b - today))[0];
   return nearest < today;
+}
+
+/** A logo's size in the top bar: the chosen percentage, kept between half and three times the standard height. */
+export function logoScale(value: number | undefined): number {
+  const n = typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 100;
+  return Math.min(300, Math.max(50, n)) / 100;
+}
+
+/** A web address a visitor can safely be sent to (http or https), or "". */
+export function safeHttpUrl(raw: string | undefined): string {
+  const v = (raw ?? "").trim();
+  return /^https?:\/\/[^\s<>"']+$/i.test(v) ? v : "";
 }
 
 export function rolloutDay(kickoffDate: string | undefined, now: Date): number | null {
@@ -852,8 +875,12 @@ const CSS = `
 .prw-cover{background:var(--dark);color:var(--on-dark);position:relative;overflow:hidden}
 .prw-top{display:flex;align-items:center;min-height:68px;gap:20px}
 .prw-lock{display:flex;align-items:center;gap:12px;font-weight:600;font-size:15px}
-.prw-lock img{height:22px;width:auto;display:block}
+.prw-lock img{height:calc(22px * var(--blogo,1));width:auto;max-width:min(46vw,420px);object-fit:contain;display:block}
 .prw-lock .x{opacity:.45;font-weight:400}
+.prw-sched{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:8px;border:1px solid color-mix(in srgb,currentColor 34%,transparent);color:inherit;font-size:13px;font-weight:700;white-space:nowrap;text-decoration:none;background:transparent}
+.prw-sched:hover{border-color:currentColor}
+.prw-team td.r{white-space:nowrap}
+.prw-team td.r .prw-ib+.prw-ib{margin-left:6px}
 .prw-req{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:8px;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:700;border:0;white-space:nowrap}
 .prw-me{font-size:13px;opacity:.75}
 .prw-hero{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:56px;align-items:center;padding:26px 0 100px}
@@ -1441,12 +1468,17 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
       <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
         <div className="prw-wrap">
           <div className="prw-top">
-            <div className="prw-lock">
+            <div className="prw-lock" style={{ ["--blogo" as string]: logoScale(props.brandLogoScale) }}>
               {brandHasLogo(brand) ? <BrandLogo brand={brand} tone={cover === "light" ? "onLight" : "onDark"} alt={brand.brandName || "Logo"} /> : <span>{brand.brandName}</span>}
               <span className="x">×</span>
-              {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} /> : <span>{props.partnerName}</span>}
+              {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} style={{ height: Math.round(22 * logoScale(props.partnerLogoScale)) }} data-room-partner-logo /> : <span>{props.partnerName}</span>}
             </div>
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+              {safeHttpUrl(props.scheduleUrl) && (
+                <a className="prw-sched" href={isEditor ? undefined : safeHttpUrl(props.scheduleUrl)} target="_blank" rel="noopener noreferrer" data-room-schedule>
+                  <CalendarPlus style={{ width: 14, height: 14 }} aria-hidden /> {(props.scheduleLabel ?? "").trim() || "Schedule a meeting"}
+                </a>
+              )}
               {!new Set(props.hiddenModules ?? []).has("requests") && (
                 <button type="button" className="prw-req" onClick={() => openRequest()} data-room-request-button>
                   <Plus style={{ width: 14, height: 14 }} aria-hidden /> Make a request
@@ -2479,9 +2511,19 @@ function TeamGroup({ group, isEditor }: { group: RoomTeamGroup; isEditor: boolea
             <td className="c" style={{ whiteSpace: "normal" }}>{m.owns}</td>
             <td className="c">{m.when}</td>
             <td className="r">
+              {safeHttpUrl(m.bookingUrl) && (
+                <a className="prw-ib" title={`Book time with ${m.name}`} aria-label={`Book time with ${m.name}`} href={isEditor ? undefined : safeHttpUrl(m.bookingUrl)} target="_blank" rel="noopener noreferrer" data-room-member-book>
+                  <CalendarPlus aria-hidden />
+                </a>
+              )}
               {email && (
                 <a className="prw-ib" title={`Email ${m.name}`} aria-label={`Email ${m.name}`} href={isEditor ? undefined : `mailto:${email}`}>
                   <Mail aria-hidden />
+                </a>
+              )}
+              {(m.phone ?? "").replace(/[^\d+]/g, "").length >= 7 && (
+                <a className="prw-ib" title={`Call ${m.name}: ${m.phone}`} aria-label={`Call ${m.name}`} href={isEditor ? undefined : `tel:${(m.phone ?? "").replace(/[^\d+]/g, "")}`} data-room-member-call>
+                  <Phone aria-hidden />
                 </a>
               )}
             </td>
