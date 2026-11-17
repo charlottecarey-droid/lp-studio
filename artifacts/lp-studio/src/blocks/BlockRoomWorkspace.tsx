@@ -622,7 +622,8 @@ export function phaseStates(phases: RoomPhase[], day: number | null): RoomPhaseS
 export function visibleModules(hidden: readonly string[] | undefined): typeof ROOM_MODULES {
   const h = new Set(hidden ?? []);
   // Overview is the landing view: it can be hidden only when something else remains.
-  const rest = ROOM_MODULES.filter((m) => !h.has(m.key));
+  // The launch kit lives inside the marketing module: one entry, shown while either has not been hidden.
+  const rest = ROOM_MODULES.filter((m) => (m.key === "kit" ? false : m.key === "marketing" ? !(h.has("marketing") && h.has("kit")) : !h.has(m.key)));
   return rest.length ? rest : ROOM_MODULES.filter((m) => m.key === "overview");
 }
 
@@ -711,6 +712,34 @@ export function programDeclined(p: RoomProgram, choices: Record<string, { value:
 /** Programs in their own order, with the declined ones moved to the end. */
 export function sortProgramsByDecision(programs: RoomProgram[], choices: Record<string, { value: string }>): RoomProgram[] {
   return [...programs.filter((p) => !programDeclined(p, choices)), ...programs.filter((p) => programDeclined(p, choices))];
+}
+
+/** Does a launch-kit item have its content yet (a file, a video, the copy itself)? One without is still being prepared. */
+export function assetReady(a: RoomAsset): boolean {
+  const has = (v: string | undefined) => !!(v ?? "").trim();
+  if (a.kind === "text") return has(a.body);
+  if (a.kind === "video") return has(a.videoUrl) || has(a.fileUrl);
+  if (a.kind === "link") return has(a.externalUrl);
+  return has(a.fileUrl);
+}
+
+/**
+ * The launch kit and the marketing programs sorted into the sections of the
+ * combined module: links; programs waiting on a yes or no; assets that are
+ * ready to use; programs that are in the plan (fixed, or said yes to) and
+ * assets still being prepared; programs said no to, saved for later.
+ */
+export function groupLaunch(assets: RoomAsset[], programs: RoomProgram[], choices: Record<string, { value: string }>) {
+  const choice = (p: RoomProgram) => choices[roomMilestoneKey({ key: p.key, task: p.title })];
+  const hasChoice = (p: RoomProgram) => (p.options ?? []).filter((o) => o.trim()).length >= 2;
+  return {
+    linkAssets: assets.filter((a) => a.kind === "link"),
+    ready: assets.filter((a) => a.kind !== "link" && assetReady(a)),
+    preparing: assets.filter((a) => a.kind !== "link" && !assetReady(a)),
+    toDecide: programs.filter((p) => hasChoice(p) && !choice(p)),
+    inProgress: programs.filter((p) => !hasChoice(p) || (!!choice(p) && !programDeclined(p, choices))),
+    later: programs.filter((p) => hasChoice(p) && programDeclined(p, choices)),
+  };
 }
 
 export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
@@ -1196,6 +1225,14 @@ const CSS = `
 .prw-pick{height:30px;max-width:100%;border:1px solid #D4D8D0;border-radius:7px;padding:0 6px;font:inherit;font-size:12.5px;color:var(--ink);background:#fff}
 select.prw-pick.prw-st{font-weight:600}
 input.prw-pick{display:block;width:100%;margin-top:5px}
+.prw-lk{margin-bottom:28px}
+.prw-lk-link{gap:16px}
+.prw-lk-link>div:first-of-type{min-width:0}
+.prw-lk h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:15px;font-weight:700;color:var(--dark)}
+.prw-lk h3 .prw-num{font-size:11.5px;font-weight:600;color:var(--body);background:#F1F2EE;border-radius:999px;padding:1px 8px}
+.prw-lk>p{margin:0 0 10px;font-size:12.5px;color:var(--body);max-width:70ch}
+.prw-lk h3+.prw-card,.prw-lk h3+.prw-progs,.prw-lk h3+.prw-docs{margin-top:10px}
+.prw-lk .prw-progs>div:first-child .prw-prog{border-top:0}
 .prw-o section{margin-bottom:24px}
 .prw-o h3{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:13px;font-weight:700;color:var(--dark)}
 .prw-o h3 .prw-num{font-size:11.5px;font-weight:600;color:var(--body);background:#F1F2EE;border-radius:999px;padding:1px 8px}
@@ -1344,6 +1381,11 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   // Onboarding: a step is done when the team ticked it in the builder or the customer completed it.
   const steps = props.onboarding?.hidden ? [] : (props.onboarding?.steps ?? []).filter((x) => !x.hidden).map((x) => ({ step: x, key: roomMilestoneKey({ key: x.key, task: x.title }) })).map((x) => ({ ...x, saved: snapshot.tasks[x.key], done: !!x.step.done || !!snapshot.tasks[x.key]?.done }));
   const stepsOpen = steps.filter((x) => !x.done);
+  // The launch kit and the marketing plan are one module: links first, then what needs a decision, what is ready, what is under way, and what is saved for later.
+  const hiddenSet = new Set(props.hiddenModules ?? []);
+  const showKit = !hiddenSet.has("kit");
+  const showMarketing = !hiddenSet.has("marketing");
+  const launch = groupLaunch(showKit ? assets : [], showMarketing ? programGroups.flatMap((g) => g.programs) : [], snapshot.choices);
   const goals = (props.goals?.items ?? []).filter((g) => !g.hidden);
   const goalsAgreed = snapshot.tasks[ROOM_GOALS_AGREED_KEY];
   const needsAgreement = !!props.goals?.askAgreement && goals.length > 0 && !goalsAgreed?.done;
@@ -1604,7 +1646,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               {modules.map((m, i) => (
                 <button key={m.key} type="button" className={m.key === active ? "on" : ""} onClick={() => setView(m.key)} data-room-nav={m.key}>
                   <span className="n prw-num">{String(i + 1).padStart(2, "0")}</span>
-                  {m.label}
+                  {m.key === "marketing" ? "Launch & marketing" : m.label}
                   {badge[m.key] && <em>{badge[m.key]}</em>}
                 </button>
               ))}
@@ -1863,56 +1905,6 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               </>
             )}
 
-            {active === "kit" && (
-              <>
-                <div className="prw-hd">
-                  <div>
-                    <div className="prw-eyebrow">Launch kit</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Announce the partnership</h2>
-                    {(props.kitIntro || isEditor) && <p><E item={props} field="kitIntro" multiline placeholder="Intro line" /></p>}
-                  </div>
-                </div>
-                {links.length > 0 && (
-                  <>
-                    <div className="prw-eyebrow" style={{ margin: "4px 0 10px" }}>Links</div>
-                    <div className="prw-card" style={{ marginBottom: 24 }}>
-                      {links.map((l, i) => (
-                        <div className="prw-li" key={i} data-room-link>
-                          <div>
-                            <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
-                            <div className="m">{l.description || l.url}</div>
-                          </div>
-                          <div className="a">
-                            <CopyButton text={l.url} label="Copy link" />
-                            <a
-                              className="prw-ib"
-                              href={isEditor ? undefined : l.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Open"
-                              aria-label={`Open ${l.title}`}
-                              onClick={(e) => {
-                                if (openAsset({ key: roomMilestoneKey({ task: l.title }), kind: "link", title: l.title, externalUrl: l.url })) e.preventDefault();
-                              }}
-                            >
-                              <ExternalLink aria-hidden />
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="prw-eyebrow" style={{ margin: "0 0 10px" }}>Assets</div>
-                  </>
-                )}
-                <div className="prw-docs">
-                  {assets.map((a, i) => (
-                    <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
-                  ))}
-                  {assets.length === 0 && <div className="prw-empty">Nothing here yet.</div>}
-                </div>
-              </>
-            )}
-
             {active === "goals" && (
               <>
                 <div className="prw-hd">
@@ -1991,32 +1983,105 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Marketing plan</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>How we bring your teams on board</h2>
-                    {props.marketing && (props.marketing.intro || isEditor) && <p><E item={props.marketing} field="intro" multiline placeholder="Intro line" /></p>}
+                    <div className="prw-eyebrow">Launch &amp; marketing</div>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Everything to launch the partnership</h2>
+                    {showMarketing && props.marketing && (props.marketing.intro || isEditor) && <p><E item={props.marketing} field="intro" multiline placeholder="Intro line" /></p>}
+                    {!showMarketing && (props.kitIntro || isEditor) && <p><E item={props} field="kitIntro" multiline placeholder="Intro line" /></p>}
                   </div>
-                  {undecided.length > 0 && <div className="prw-meta"><b>{undecided.length}</b> waiting on your decision</div>}
+                  {undecided.length > 0 && showMarketing && <div className="prw-meta"><b>{undecided.length}</b> waiting on your decision</div>}
                 </div>
-                <div className="prw-progs">
-                  {programGroups.map((g, gi) => (
-                    <div key={gi}>
-                      <div className="prw-gh" style={gi === 0 ? { borderTop: 0 } : undefined}>
-                        {g.title}
-                        {g.note && <span>{g.note}</span>}
-                      </div>
-                      {/* Declined programs drop to the bottom, greyed, so what is in the plan reads first. */}
-                      {sortProgramsByDecision(g.programs, snapshot.choices).map((x, i, all) => {
-                        const off = programDeclined(x, snapshot.choices);
-                        return (
-                          <div key={x.key || x.title}>
-                            {off && (i === 0 || !programDeclined(all[i - 1], snapshot.choices)) && <div className="prw-later">Not now</div>}
-                            <ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} />
+
+                {showKit && (links.length > 0 || launch.linkAssets.length > 0) && (
+                  <section className="prw-lk" data-room-launch="links">
+                    <h3>Important links</h3>
+                    <div className="prw-card">
+                      {links.map((l, i) => (
+                        <div className="prw-li prw-lk-link" key={i} data-room-link>
+                          <span className="prw-ft ic" aria-hidden><Link2 /></span>
+                          <div>
+                            <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
+                            <div className="m">{l.description || l.url}</div>
                           </div>
-                        );
-                      })}
+                          <div className="a">
+                            <CopyButton text={l.url} label="Copy link" />
+                            <a
+                              className="prw-ib"
+                              href={isEditor ? undefined : l.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Open"
+                              aria-label={`Open ${l.title}`}
+                              onClick={(e) => {
+                                if (openAsset({ key: roomMilestoneKey({ task: l.title }), kind: "link", title: l.title, externalUrl: l.url })) e.preventDefault();
+                              }}
+                            >
+                              <ExternalLink aria-hidden />
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                      {launch.linkAssets.map((a, i) => (
+                        <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </section>
+                )}
+
+                {showMarketing && launch.toDecide.length > 0 && (
+                  <section className="prw-lk" data-room-launch="decide">
+                    <h3>To decide<span className="prw-num">{launch.toDecide.length}</span></h3>
+                    <p>Tell us which of these you want. A thumbs-up moves it to In progress; a thumbs-down saves it for later.</p>
+                    <div className="prw-progs">
+                      {launch.toDecide.map((x) => (
+                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} /></div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {showKit && launch.ready.length > 0 && (
+                  <section className="prw-lk" data-room-launch="ready">
+                    <h3>Ready for launch<span className="prw-num">{launch.ready.length}</span></h3>
+                    <p>{(props.kitIntro ?? "").trim() || "Approved and ready to use."}</p>
+                    <div className="prw-docs">
+                      {launch.ready.map((a, i) => (
+                        <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {(launch.inProgress.length > 0 || launch.preparing.length > 0) && (
+                  <section className="prw-lk" data-room-launch="progress">
+                    <h3>In progress<span className="prw-num">{launch.inProgress.length + launch.preparing.length}</span></h3>
+                    <p>In the plan and under way, with when each one happens.</p>
+                    <div className="prw-progs">
+                      {launch.inProgress.map((x) => (
+                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} /></div>
+                      ))}
+                    </div>
+                    {launch.preparing.length > 0 && (
+                      <div className="prw-docs" style={{ marginTop: launch.inProgress.length ? 12 : 0 }}>
+                        {launch.preparing.map((a, i) => (
+                          <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {showMarketing && launch.later.length > 0 && (
+                  <section className="prw-lk" data-room-launch="later">
+                    <h3>Saved for later<span className="prw-num">{launch.later.length}</span></h3>
+                    <p>Not in the plan for now. Give one a thumbs-up to bring it in.</p>
+                    <div className="prw-progs">
+                      {launch.later.map((x) => (
+                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} /></div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {canRequest && (
                   <div className="prw-li" style={{ border: "1px dashed #CBD1C8", borderRadius: 10, marginTop: 12, background: "#fff" }}>
                     <div>

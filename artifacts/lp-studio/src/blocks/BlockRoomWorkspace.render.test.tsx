@@ -30,6 +30,8 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomNextUp,
+  groupLaunch,
+  assetReady,
   isRosterTask,
   logoScale,
   safeHttpUrl,
@@ -54,7 +56,7 @@ describe("room-workspace — registry + default render", () => {
     expect(html).toContain("Acme Group × Northwind");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
     expect(html).toContain("data-room-request-button");
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(11);
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(10); // the launch kit lives inside Launch & marketing
     expect(html).toContain('data-room-view="overview"');
     expect(html).toContain("Here is where the rollout stands.");
     expect(html).not.toContain("One shared plan"); // other modules are separate views
@@ -71,14 +73,18 @@ describe("room-workspace — registry + default render", () => {
 describe("room-workspace — modules can be hidden per account", () => {
   it("drops hidden modules from the nav; hiding Requests removes Make a request", () => {
     const html = render({ hiddenModules: ["requests", "team"] });
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(9);
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(8);
     expect(html).not.toContain('data-room-nav="requests"');
     expect(html).not.toContain("data-room-request-button");
   });
   it("lands on the first visible module, and never hides everything", () => {
     expect(render({ hiddenModules: ["overview", "wins", "goals"] })).toContain('data-room-view="plan"');
     expect(visibleModules(["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar", "meetings", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
-    expect(visibleModules(undefined)).toHaveLength(11);
+    expect(visibleModules(undefined)).toHaveLength(10);
+    // One entry for the launch kit and the marketing plan together: it stays while either is shown.
+    expect(visibleModules(undefined).map((m) => m.key)).not.toContain("kit");
+    expect(visibleModules(["marketing"]).map((m) => m.key)).toContain("marketing");
+    expect(visibleModules(["marketing", "kit"]).map((m) => m.key)).not.toContain("marketing");
   });
   it("the action plan shows both owners, a checkpoint, and customer actions with no file link", () => {
     const html = render({ hiddenModules: ["overview", "wins", "goals"] });
@@ -450,5 +456,42 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(html).not.toContain("data-room-edit-row"); // the pencil is for the account team on the live page
     expect(html).not.toContain("data-room-row-editor");
     expect(html).toContain("Operations Lead");
+  });
+  it("launch & marketing: one module with links, decisions, what is ready, what is in progress and what is saved for later", () => {
+    const assets = [
+      { kind: "pdf" as const, title: "One-pager", fileUrl: "/api/storage/objects/uploads/x" },
+      { kind: "pdf" as const, title: "Welcome guide" }, // no file yet
+      { kind: "text" as const, title: "Announcement email", body: "Hi" },
+      { kind: "link" as const, title: "Brand guidelines", externalUrl: "https://x.example/brand" },
+    ];
+    const programs = [
+      { key: "ann", title: "Partnership announcement" },
+      { key: "ll", title: "Lunch & Learn", options: ["Include", "Not now"] },
+      { key: "tour", title: "Lab tour", options: ["Include", "Not now"] },
+      { key: "pr", title: "Press release", options: ["Include", "Not now"] },
+    ];
+    expect(assetReady(assets[0])).toBe(true);
+    expect(assetReady(assets[1])).toBe(false);
+    const g = groupLaunch(assets, programs, { ll: { value: "Include" }, tour: { value: "Not now" } });
+    expect(g.linkAssets.map((a) => a.title)).toEqual(["Brand guidelines"]);
+    expect(g.ready.map((a) => a.title)).toEqual(["One-pager", "Announcement email"]);
+    expect(g.preparing.map((a) => a.title)).toEqual(["Welcome guide"]);
+    expect(g.toDecide.map((p) => p.title)).toEqual(["Press release"]);
+    expect(g.inProgress.map((p) => p.title)).toEqual(["Partnership announcement", "Lunch & Learn"]);
+    expect(g.later.map((p) => p.title)).toEqual(["Lab tour"]);
+    // On the page (nothing decided yet): the sections appear in that order, under one tab.
+    const html = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "calendar", "meetings", "requests", "team"] as never, assets, links: [{ title: "Sign-up page", url: "https://x.example/signup" }], marketing: { groups: [{ title: "G", programs }] } });
+    expect(html).toContain(">Launch &amp; marketing<");
+    expect(html).not.toContain('data-room-nav="kit"');
+    const order = ["links", "decide", "ready", "progress"].map((k) => html.indexOf(`data-room-launch="${k}"`));
+    expect(order.every((at) => at > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html).not.toContain('data-room-launch="later"'); // nothing has been declined
+    expect(html).toContain("Important links");
+    expect(html).toContain("Ready for launch");
+    // With the marketing plan hidden for an account, the same tab still carries the kit.
+    const kitOnly = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing", "calendar", "meetings", "requests", "team"] as never, assets });
+    expect(kitOnly).toContain('data-room-launch="ready"');
+    expect(kitOnly).not.toContain('data-room-launch="decide"');
   });
 });
