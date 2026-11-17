@@ -1096,6 +1096,15 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const settings = await pool.query<{ allowed_domains: string[] }>(`SELECT allowed_domains FROM lp_room_settings WHERE page_id = $1`, [test.pageId]);
     expect(settings.rows[0].allowed_domains).toEqual(["cedardental.com"]);
 
+    // The same test run from just the Salesforce ID: the account's real name is used, and an ID nobody knows is refused.
+    const byId = await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { sfdcId: "0015d00000CEDAR" } });
+    expect(byId.json).toMatchObject({ ok: true, name: "Cedar Dental", teamFilled: 3, domain: "cedardental.com", practices: 0 });
+    const idPage = await pool.query<{ title: string }>(`SELECT title FROM lp_pages WHERE id = $1`, [(byId.json as { pageId: number }).pageId]);
+    expect(idPage.rows[0].title).toBe("Cedar Dental Partner Hub (test)");
+    expect((await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { sfdcId: "0015d00000NOBODY" } })).status).toBe(400);
+    expect((await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { sfdcId: "not-an-id" } })).status).toBe(400);
+    expect((await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(otherTenantId), body: { sfdcId: "0015d00000CEDAR" } })).status).toBe(400); // another workspace doesn't know this account
+
     // Slack: one message with the link, what was done, and the checklist.
     const slack = JSON.stringify(vi.mocked(slackService.postMessage).mock.calls);
     expect(slack).toContain("Customer team filled in from the account (3 people)");

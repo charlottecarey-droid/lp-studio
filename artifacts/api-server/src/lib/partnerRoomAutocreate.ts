@@ -14,7 +14,7 @@
  * instances reading at the same moment cannot both create it).
  */
 import { and, eq, isNotNull, sql } from "drizzle-orm";
-import { appUsersTable, db, lpPagesTable, salesAccountsTable, salesContactsTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
+import { appUsersTable, db, lpPagesTable, lpRoomPracticesTable, salesAccountsTable, salesContactsTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
 import { sendRoomDigestEmail } from "./notifications";
 import { sfdcService } from "./sfdc-service";
 import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
@@ -439,21 +439,69 @@ export async function autocreateDue(now: number = Date.now()): Promise<number[]>
   return rows.filter((r) => !r.syncedAt || now - r.syncedAt.getTime() > 55 * 60_000).map((r) => r.tenantId);
 }
 
+export interface TestRoomResult {
+  pageId: number;
+  name: string;
+  standardFiles: number;
+  practicesLinked: boolean;
+  /** How many practices the new room read from the locations sheet. */
+  practices: number;
+  practicesNote: string | null;
+  teamFilled: number;
+  contacts: number;
+  domain: string | null;
+  followUps: RoomFollowUps;
+}
+
+const SFDC_ID_RE = /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/;
+
+/**
+ * The real account behind a Salesforce id, for a test run: from the
+ * workspace's Accounts first, else its row on the signed-accounts sheet.
+ * Null when neither knows the id.
+ */
+export async function accountForTest(tenantId: number, sfdcId: string): Promise<{ name: string; owner: string | null; signedDate: string | null } | null> {
+  const accounts = await db.select({ name: salesAccountsTable.name, displayName: salesAccountsTable.displayName, salesforceId: salesAccountsTable.salesforceId, owner: salesAccountsTable.owner }).from(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId));
+  const hit = accounts.find((a) => sameSfdcId(a.salesforceId, sfdcId));
+  const fromSheet = await signedAccountOnSheet(tenantId, sfdcId).catch(() => null);
+  if (hit) return { name: cleanAccountName(hit.displayName || hit.name), owner: fromSheet?.owner ?? hit.owner ?? null, signedDate: fromSheet?.signedDate ?? null };
+  return fromSheet ? { name: fromSheet.name, owner: fromSheet.owner, signedDate: fromSheet.signedDate } : null;
+}
+
+async function signedAccountOnSheet(tenantId: number, sfdcId: string): Promise<SignedAccount | null> {
+  const [cfg] = await db.select().from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
+  if (!cfg?.sheetId || !SHEET_ID_RE.test(cfg.sheetId)) return null;
+  const tab = cfg.sheetTab && SHEET_TAB_RE.test(cfg.sheetTab) ? cfg.sheetTab : "";
+  const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:Z5001` : "A1:Z5001");
+  const resp = await roomSheetsRequest(tenantId, `/v4/spreadsheets/${cfg.sheetId}/values/${range}`);
+  if (!resp.ok) return null;
+  return (signedAccountsFromSheet(((await resp.json()) as { values?: unknown }).values) ?? []).find((a) => sameSfdcId(a.sfdcId, sfdcId)) ?? null;
+}
+
 /**
  * A dry run of what happens when an account is added to the signed-accounts
- * sheet, for an account name typed in by hand: the same draft room, standard
- * files and Slack note, marked as a test. The sheet and the list of accounts
- * seen are not touched.
+ * sheet: the same draft room, standard files and Slack note, marked as a
+ * test. Give a Salesforce account id to run it on a real account (its real
+ * name, owner, contacts and practices), or just a name to see the shape. The
+ * sheet and the list of accounts seen are not touched, and nothing is
+ * written to Salesforce.
  */
-export async function testRoomAutocreate(tenantId: number, rawName: string, sfdcId: string | null, owner: string | null = null): Promise<{ pageId: number; name: string; standardFiles: number; practicesLinked: boolean; teamFilled: number; contacts: number; domain: string | null; followUps: RoomFollowUps } | null> {
-  const name = cleanAccountName(rawName);
+export async function testRoomAutocreate(tenantId: number, rawName: string, sfdcIdRaw: string | null, owner: string | null = null): Promise<TestRoomResult | { error: string } | null> {
+  const sfdcId = sfdcIdRaw && SFDC_ID_RE.test(sfdcIdRaw.trim()) ? sfdcIdRaw.trim() : null;
+  const real = sfdcId ? await accountForTest(tenantId, sfdcId) : null;
+  if (sfdcId && !real && !cleanAccountName(rawName)) return { error: "No account with that Salesforce ID was found under Accounts or on the signed-accounts sheet. Check the ID, or type the account's name as well." };
+  const name = cleanAccountName(rawName) || real?.name || "";
   if (!name) return null;
-  const account: SignedAccount = { key: `test-${accountKey(name)}-${Date.now().toString(36)}`, name, signedDate: null, owner: owner?.trim().slice(0, 80) || null, sfdcId: sfdcId && /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(sfdcId) ? sfdcId : null };
+  const account: SignedAccount = { key: `test-${accountKey(name)}-${Date.now().toString(36)}`, name, signedDate: real?.signedDate ?? null, owner: owner?.trim().slice(0, 80) || real?.owner || null, sfdcId };
   const room = await createRoom(tenantId, account, { claimed: true, test: true });
   if (!room) return null;
   const { pageId, facts } = room;
   const links = await roomLinks(tenantId, pageId).catch(() => ({ edit: "", room: "" }));
   await slackService.postMessage(tenantId, { text: `Test: Partner Hub created for ${name}`, blocks: roomCreatedSlackBlocks(name, links, facts, { test: true }) }).catch(() => false);
   const followUps = await afterRoomCreated(tenantId, account, pageId, { test: true, facts }).catch((): RoomFollowUps => ({ alerts: null, sheet: null, sfdc: null }));
-  return { pageId, name, standardFiles: facts.standardFiles, practicesLinked: facts.practicesLinked, teamFilled: facts.teamFilled, contacts: facts.contacts, domain: facts.domain, followUps };
+  const [[count], [settings]] = await Promise.all([
+    db.select({ n: sql<number>`COUNT(*)::int` }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, pageId)),
+    db.select({ note: lpRoomSettingsTable.practicesSyncNote }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, pageId)).limit(1),
+  ]);
+  return { pageId, name, standardFiles: facts.standardFiles, practicesLinked: facts.practicesLinked, practices: count?.n ?? 0, practicesNote: settings?.note ?? null, teamFilled: facts.teamFilled, contacts: facts.contacts, domain: facts.domain, followUps };
 }

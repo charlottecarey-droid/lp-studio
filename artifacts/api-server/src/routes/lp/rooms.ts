@@ -1660,13 +1660,18 @@ router.post("/lp/room-autocreate/test", async (req: Request, res: Response): Pro
     const tenantId = getTenantId(req, res);
     if (tenantId == null) return;
     const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 120) : "";
-    if (name.length < 2) {
-      res.status(400).json({ error: "Type an account name to test with." });
+    const sfdcId = typeof req.body?.sfdcId === "string" ? req.body.sfdcId.trim() : "";
+    if (sfdcId && !/^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(sfdcId)) {
+      res.status(400).json({ error: "A Salesforce account ID is 15 or 18 letters and numbers, for example 0015d000041HyXrAAK." });
       return;
     }
-    const result = await testRoomAutocreate(tenantId, name, typeof req.body?.sfdcId === "string" ? req.body.sfdcId.trim() : null, typeof req.body?.owner === "string" ? req.body.owner : null);
-    if (!result) {
-      res.status(400).json({ error: "That name can't be used." });
+    if (name.length < 2 && !sfdcId) {
+      res.status(400).json({ error: "Type an account name or a Salesforce account ID to test with." });
+      return;
+    }
+    const result = await testRoomAutocreate(tenantId, name, sfdcId || null, typeof req.body?.owner === "string" ? req.body.owner : null);
+    if (!result || "error" in result) {
+      res.status(400).json({ error: result && "error" in result ? result.error : "That name can't be used." });
       return;
     }
     res.json({ ok: true, ...result });

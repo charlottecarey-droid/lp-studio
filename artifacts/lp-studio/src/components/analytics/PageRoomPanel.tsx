@@ -1309,15 +1309,16 @@ export function AutomaticRoomsSection() {
     };
     try {
       const made = step("Create the draft room");
-      const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: testName.trim() }) });
-      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; teamFilled?: number; contacts?: number; domain?: string | null; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
+      const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(/^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(testName.trim()) && /\d/.test(testName) ? { sfdcId: testName.trim() } : { name: testName.trim() }) });
+      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; practices?: number; practicesNote?: string | null; teamFilled?: number; contacts?: number; domain?: string | null; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
       if (!r.ok || !j.pageId) {
         made("failed", j.error ?? "Could not create the room");
         return;
       }
-      made("done", `“${j.name} Partner Room (test)”, a draft`);
+      made("done", `“${j.name} Partner Hub (test)”, a draft`);
       setTestPage(j.pageId);
       steps.push({ label: "Attach the standard files", state: j.standardFiles ? "done" : "failed", detail: j.standardFiles ? `${j.standardFiles} attached` : "None uploaded yet (see Standard launch files below)" });
+      steps.push({ label: "Read the account's practices from the locations sheet", state: j.practices ? "done" : "failed", detail: j.practices ? `${j.practices} practices loaded into the Scorecard` : j.practicesNote || "No locations tab is set above, or no Salesforce ID was given to match on" });
       steps.push({ label: "Fill the customer's team from the account", state: j.teamFilled ? "done" : "failed", detail: j.teamFilled ? `${j.teamFilled} people added to the Team module; ${j.contacts ?? 0} contacts can be invited` : "No account with that name (or Salesforce ID) and contacts was found under Accounts" });
       steps.push({ label: "Set the customer's email domain", state: j.domain ? "done" : "failed", detail: j.domain ?? "Couldn't work it out; add it under the room's Settings" });
       steps.push({ label: "Tell the team in Slack", state: "done", detail: "Sent to your workspace channel with the setup checklist, marked as a test" });
@@ -1408,10 +1409,10 @@ export function AutomaticRoomsSection() {
       <div className="space-y-2 rounded-md border p-3" data-room-autotest>
         <p className="text-sm font-medium">Run a test</p>
         <p className="text-xs text-muted-foreground">
-          See exactly what a newly signed account gets, without touching the sheet: a draft room for the name below, the standard files, the Slack note, then the one-pager, both graphics and the media kit. It is marked as a test and never published. A real new room has no logo yet either, so the graphics show the account’s name until one is added.
+          See exactly what a newly signed account gets, without touching the sheet. Paste a <b>Salesforce account ID</b> (for example 0015d000041HyXrAAK) to run it on a real account: its real name and owner, its practices from the locations tab, and its contacts for the team. Or type any name to see the shape with no data. Either way you get a draft hub, the standard files, the Slack note and checklist, then the one-pager, both graphics and the media kit. It is marked as a test, never published, and nothing is written to Salesforce.
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          <Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} placeholder="Account name" aria-label="Test account name" />
+          <Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} placeholder="Salesforce account ID, or a name" aria-label="Salesforce account ID or account name" />
           <Button size="sm" variant="brand" disabled={busy || testName.trim().length < 2} onClick={runTest}>{busy && testSteps.length ? "Running…" : "Run a test"}</Button>
           {testPage && <a className="text-sm underline" href={`/builder/${testPage}`}>Open the test room</a>}
         </div>
