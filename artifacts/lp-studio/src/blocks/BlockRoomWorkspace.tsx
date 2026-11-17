@@ -1150,8 +1150,9 @@ const CSS = `
 .prw-act{display:inline-flex;flex-direction:column;align-items:center;gap:5px;vertical-align:middle}
 .prw-rowact{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
 .prw-ib.on{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
-.prw-plan tr.on>td{background:#FAFBF8}
-.prw-plan tr.prw-edit>td{background:#FAFBF8;border-top:0;padding-top:0;padding-bottom:16px}
+.prw-plan tr.on>td,.prw-reqs tr.on>td{background:#FAFBF8}
+.prw-plan tr.prw-edit>td,.prw-reqs tr.prw-edit>td{background:#FAFBF8;border-top:0;padding-top:0;padding-bottom:16px}
+.prw-reqs td.r{text-align:right}
 .prw-edit .f{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .prw-edit label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;font-weight:600;color:var(--body)}
 .prw-edit .prw-pick{height:34px;min-width:150px;font-size:13px}
@@ -2238,6 +2239,55 @@ function PlanRowEditor({ row, edit, onClose }: { row: PlanRow; edit: PlanEdit; o
   );
 }
 
+/** One request's editable fields, in a strip under its row: status, owner and due date, saved together. */
+function RequestRowEditor({ request, store, people, onClose }: { request: RoomRequest; store: RoomStoreHandle; people: string[]; onClose: () => void }) {
+  const [status, setStatus] = useState(request.status);
+  const [owner, setOwner] = useState(request.owner ?? "");
+  const [due, setDue] = useState(request.due ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const save = async () => {
+    const patch: { status?: string; owner?: string; due?: string } = {};
+    if (status !== request.status) patch.status = status;
+    if (owner !== (request.owner ?? "")) patch.owner = owner;
+    if (due.trim() !== (request.due ?? "")) patch.due = due.trim();
+    if (Object.keys(patch).length === 0) return onClose();
+    setBusy(true);
+    setError("");
+    const r = await store.updateRequest(request.id, patch);
+    setBusy(false);
+    if (r.ok) onClose();
+    else setError(r.error);
+  };
+  return (
+    <tr className="prw-edit" data-room-request-editor>
+      <td colSpan={7}>
+        <div className="f">
+          <label>
+            <span>Status</span>
+            <select className="prw-pick" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" data-room-request-status>
+              {Object.entries(ROOM_REQUEST_STATUS_LABEL).map(([k, label]) => <option key={k} value={k}>{k === "review" ? "Ready for their review" : label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Owner</span>
+            <OwnerPick value={owner} people={people} onPick={setOwner} label="Owner" />
+          </label>
+          <label>
+            <span>Due</span>
+            <input className="prw-pick" value={due} onChange={(e) => setDue(e.target.value)} placeholder="Nov 21" aria-label="Due" />
+          </label>
+          <span className="b">
+            <button type="button" className="prw-btn pri" disabled={busy} onClick={save} data-room-request-save>{busy ? "Saving" : "Save"}</button>
+            <button type="button" className="prw-btn" disabled={busy} onClick={onClose}>Cancel</button>
+          </span>
+        </div>
+        {error && <div className="prw-err" role="alert">{error}</div>}
+      </td>
+    </tr>
+  );
+}
+
 /**
  * "Download the template", shown with the description of a roster upload (the
  * practice list, the doctor roster): a spreadsheet with the customer's
@@ -2417,6 +2467,8 @@ function AssetRow({ asset, isEditor, onTrack, onOpen, onRequest, canRequest }: {
 /* ── Requests ────────────────────────────────────────────────────────────── */
 
 function RequestsTable({ snapshot, isEditor, onSignIn, store, customerStore, people }: { snapshot: RoomSnapshot; isEditor: boolean; onSignIn: () => void; /** Set for the account team on the live page: they can move a request along. */ store: RoomStoreHandle | null; /** Set for a known customer: they can approve a request that is ready. */ customerStore: RoomStoreHandle | null; people: string[] }) {
+  // The account team edits one request at a time: the table stays plain text, and a pencil opens that row's fields.
+  const [editing, setEditing] = useState<number | null>(null);
   if (!snapshot.viewer && !isEditor) {
     return (
       <div className="prw-card">
@@ -2455,37 +2507,37 @@ function RequestsTable({ snapshot, isEditor, onSignIn, store, customerStore, peo
               <th style={{ width: 76 }}>Asked</th>
               <th style={{ width: 136 }}>Owner</th>
               <th style={{ width: 168 }}>Status</th>
+              {store && <th style={{ width: 64 }} />}
             </tr>
           </thead>
           <tbody>
             {list.map((q) => (
-              <tr key={q.id} data-room-request={q.status}>
-                <td><div className="t">{q.subject}</div></td>
-                <td className="c">{ROOM_REQUEST_KIND_LABEL[q.kind] ?? "Other"}</td>
-                <td className="c">{q.by}</td>
-                <td className="c">{fmtDate(q.createdAt)}</td>
-                <td className="c">{store ? <OwnerPick value={q.owner ?? ""} people={people} onPick={(v) => void store.updateRequest(q.id, { owner: v })} label="Owner" /> : q.owner || "Being assigned"}</td>
-                <td>
-                  {store ? (
-                    <>
-                      <select className="prw-pick" value={q.status} onChange={(e) => void store.updateRequest(q.id, { status: e.target.value })} aria-label="Status" data-room-request-status>
-                        {Object.entries(ROOM_REQUEST_STATUS_LABEL).map(([k, label]) => <option key={k} value={k}>{k === "review" ? "Ready for their review" : label}</option>)}
-                      </select>
-                      <input className="prw-pick" defaultValue={q.due ?? ""} placeholder="Due (e.g. Nov 21)" aria-label="Due" onBlur={(e) => e.target.value.trim() !== (q.due ?? "") && void store.updateRequest(q.id, { due: e.target.value.trim() })} />
-                    </>
-                  ) : (
-                    <>
-                      <span className={`prw-chip ${q.status}`}>
-                        {ROOM_REQUEST_STATUS_LABEL[q.status] ?? q.status}
-                        {q.due && q.status !== "done" ? ` · due ${q.due}` : ""}
-                      </span>
-                      {q.status === "review" && customerStore && (
-                        <button type="button" className="prw-btn pri" style={{ marginTop: 6 }} onClick={() => void customerStore.updateRequest(q.id, { status: "done" })} data-room-request-approve><Check aria-hidden /> Approve</button>
-                      )}
-                    </>
+              <Fragment key={q.id}>
+                <tr data-room-request={q.status} className={editing === q.id ? "on" : undefined}>
+                  <td><div className="t">{q.subject}</div></td>
+                  <td className="c">{ROOM_REQUEST_KIND_LABEL[q.kind] ?? "Other"}</td>
+                  <td className="c">{q.by}</td>
+                  <td className="c">{fmtDate(q.createdAt)}</td>
+                  <td className="c">{q.owner || "Being assigned"}</td>
+                  <td>
+                    <span className={`prw-chip ${q.status}`}>
+                      {(store && q.status === "review" ? "Ready for their review" : ROOM_REQUEST_STATUS_LABEL[q.status]) ?? q.status}
+                      {q.due && q.status !== "done" ? ` · due ${q.due}` : ""}
+                    </span>
+                    {q.status === "review" && customerStore && (
+                      <button type="button" className="prw-btn pri" style={{ marginTop: 6 }} onClick={() => void customerStore.updateRequest(q.id, { status: "done" })} data-room-request-approve><Check aria-hidden /> Approve</button>
+                    )}
+                  </td>
+                  {store && (
+                    <td className="r">
+                      <button type="button" className={`prw-ib${editing === q.id ? " on" : ""}`} title="Edit this request" aria-label={`Edit: ${q.subject}`} aria-expanded={editing === q.id} onClick={() => setEditing((k) => (k === q.id ? null : q.id))} data-room-edit-request>
+                        <PencilLine aria-hidden />
+                      </button>
+                    </td>
                   )}
-                </td>
-              </tr>
+                </tr>
+                {store && editing === q.id && <RequestRowEditor request={q} store={store} people={people} onClose={() => setEditing(null)} />}
+              </Fragment>
             ))}
           </tbody>
         </table>
