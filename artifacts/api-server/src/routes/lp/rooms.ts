@@ -78,7 +78,9 @@ import {
   onboardingTeamStepKey,
   parseRoomComment,
   parseRoomContact,
+  parseMilestonePatch,
   parseRoomWin,
+  setRoomMilestone,
   type RoomChoiceSpec,
   pageIsRoom,
   parseRoomRequest,
@@ -497,6 +499,17 @@ router.post("/lp/room/access", accessLimiter, async (req: Request, res: Response
   }
 });
 
+/** An action item from published minutes of a synced meeting ("ev-<event id>-<what>"): a task that can be ticked off. */
+async function syncedMinutesTask(pageId: number, key: string): Promise<RoomTask | null> {
+  const m = /^ev-(\d{1,10})-([a-z0-9-]{1,60})$/.exec(key);
+  if (!m) return null;
+  const [ev] = await db.select({ minutes: lpRoomEventsTable.minutes, status: lpRoomEventsTable.minutesStatus }).from(lpRoomEventsTable).where(and(eq(lpRoomEventsTable.id, Number(m[1])), eq(lpRoomEventsTable.pageId, pageId))).limit(1);
+  if (!ev || ev.status !== "published") return null;
+  const slug = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48).replace(/-+$/, "");
+  const action = cleanMinutes(ev.minutes).actions.find((a) => slug(a.text) === m[2]);
+  return action ? { key, title: action.text, action: "check" } : null;
+}
+
 async function requireActor(req: Request, res: Response): Promise<{ page: RoomPage; viewer: Viewer; task: RoomTask } | null> {
   const page = await loadRoomPage(req.body?.pageId);
   if (!page) {
@@ -509,7 +522,7 @@ async function requireActor(req: Request, res: Response): Promise<{ page: RoomPa
     return null;
   }
   const key = typeof req.body?.taskKey === "string" ? req.body.taskKey : "";
-  const task = page.tasks.get(key);
+  const task = page.tasks.get(key) ?? (await syncedMinutesTask(page.id, key));
   if (!task) {
     res.status(404).json({ error: "That task isn't on this page any more" });
     return null;
@@ -740,6 +753,91 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
  * in the viewer). Same shape as the hub's beacon, plus who it was when the
  * visitor is identified. Always answers 204: tracking never blocks the page.
  */
+/**
+ * Team only, from the live page: change a milestone's status, owners or
+ * target date. Writes the page itself, so the builder and the customer see
+ * the same plan. Setting a status other than "done" also clears a customer's
+ * own "marked complete", or the row would keep showing as done.
+ */
+router.post("/lp/room/plan-edit", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    if (!ctx.viewer.team) {
+      res.status(403).json({ error: "Only the account team can change the plan" });
+      return;
+    }
+    const key = typeof req.body?.key === "string" ? req.body.key.trim().slice(0, 120) : "";
+    const patch = parseMilestonePatch(req.body);
+    if (!key || !patch) {
+      res.status(400).json({ error: "Nothing to change" });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, ctx.page.id), eq(lpPagesTable.tenantId, ctx.page.tenantId))).limit(1);
+    const next = row ? setRoomMilestone(row.blocks, key, patch) : null;
+    if (!next) {
+      res.status(404).json({ error: "That milestone isn't on this page any more" });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date() }).where(eq(lpPagesTable.id, ctx.page.id));
+    if (patch.status && patch.status !== "done") await db.delete(lpRoomTaskStateTable).where(and(eq(lpRoomTaskStateTable.pageId, ctx.page.id), eq(lpRoomTaskStateTable.taskKey, key)));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room plan edit failed");
+    res.status(500).json({ error: "Could not save the change" });
+  }
+});
+
+/**
+ * Move a request along from the live page. The account team can set its
+ * status, owner and target date. The customer can do one thing: approve a
+ * request that is ready for their review, which closes it.
+ */
+router.post("/lp/room/request-update", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const id = Number(req.body?.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Which request?" });
+      return;
+    }
+    const mine = and(eq(lpRoomRequestsTable.id, id), eq(lpRoomRequestsTable.pageId, ctx.page.id), eq(lpRoomRequestsTable.tenantId, ctx.page.tenantId));
+    if (!ctx.viewer.team) {
+      if (req.body?.status !== "done" || req.body?.owner !== undefined || req.body?.due !== undefined) {
+        res.status(403).json({ error: "Only the account team can change a request" });
+        return;
+      }
+      const approved = await db.update(lpRoomRequestsTable).set({ status: "done", updatedAt: sql`now()` }).where(and(mine, eq(lpRoomRequestsTable.status, "review"))).returning({ id: lpRoomRequestsTable.id });
+      if (approved.length === 0) {
+        res.status(400).json({ error: "This request isn't waiting for your review" });
+        return;
+      }
+      res.json({ ok: true });
+      return;
+    }
+    const set: { status?: string; owner?: string | null; due?: string | null; updatedAt: ReturnType<typeof sql> } = { updatedAt: sql`now()` };
+    if (req.body?.status !== undefined) {
+      if (!(ROOM_REQUEST_STATUSES as readonly string[]).includes(String(req.body.status))) {
+        res.status(400).json({ error: "Invalid status" });
+        return;
+      }
+      set.status = String(req.body.status);
+    }
+    if (req.body?.owner !== undefined) set.owner = String(req.body.owner ?? "").replace(/\s+/g, " ").trim().slice(0, 120) || null;
+    if (req.body?.due !== undefined) set.due = String(req.body.due ?? "").trim().slice(0, 40) || null;
+    const updated = await db.update(lpRoomRequestsTable).set(set).where(mine).returning({ id: lpRoomRequestsTable.id });
+    if (updated.length === 0) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room request update failed");
+    res.status(500).json({ error: "Could not update the request" });
+  }
+});
+
 /**
  * Team only: does what Salesforce lists match the customer's own rosters?
  * Compares the practice list (from Salesforce) with the newest roster the

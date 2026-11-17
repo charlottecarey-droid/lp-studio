@@ -17,7 +17,7 @@
  * Styles live in the room block's CSS string (`.prw-sc-*`).
  */
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Columns3, Mail, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Mail, X } from "lucide-react";
 import type { RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
 
 export const SCORECARD_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
@@ -78,12 +78,28 @@ interface ColumnDef {
   cell: (p: RoomPractice) => React.ReactNode;
 }
 
+/**
+ * A cell that may be a yes/no flag (Salesforce reports write true/false or
+ * 1/0 for "scanner delivered"): a tick for yes, nothing for no, and any other
+ * value (a date, a name) as written.
+ */
+export function flagOrText(value: string | null | undefined): { tick: boolean; text: string } {
+  const v = (value ?? "").trim();
+  if (/^(true|yes|y|1)$/i.test(v)) return { tick: true, text: "" };
+  if (/^(false|no|n|0)$/i.test(v)) return { tick: false, text: "" };
+  return { tick: false, text: v };
+}
+const Flag = ({ value }: { value: string | null | undefined }) => {
+  const f = flagOrText(value);
+  return f.tick ? <span className="prw-sc-yes" role="img" aria-label="Yes"><Check aria-hidden /></span> : <>{f.text}</>;
+};
+
 const COLUMNS: ColumnDef[] = [
   { key: "region", label: "Region", sort: "region", on: true, cell: (p) => p.region },
   { key: "state", label: "State", sort: "state", on: false, cell: (p) => p.state },
   { key: "manager", label: "Regional manager", sort: "regionalManager", on: true, has: "manager", cell: (p) => p.regionalManager },
   { key: "wave", label: "Wave", sort: "wave", on: true, has: "wave", cell: (p) => p.wave },
-  { key: "contract", label: "Contract signed", sort: "contractSigned", on: false, has: "contract", cell: (p) => p.contractSigned },
+  { key: "contract", label: "Contract signed", sort: "contractSigned", on: false, has: "contract", cell: (p) => <Flag value={p.contractSigned} /> },
   { key: "training", label: "Training", sort: "trainingDate", on: true, cell: (p) => p.trainingDate },
   { key: "live", label: "Live", sort: "liveDate", on: true, cell: (p) => p.liveDate },
   {
@@ -100,8 +116,8 @@ const COLUMNS: ColumnDef[] = [
     ),
   },
   { key: "brand", label: "Scanner brand", sort: "scannerBrand", on: false, has: "brand", cell: (p) => p.scannerBrand },
-  { key: "sent", label: "Scanner sent", sort: "scannerSent", on: true, has: "scanner", cell: (p) => p.scannerSent },
-  { key: "activated", label: "Activated", sort: "scannerActivated", on: true, has: "scanner", cell: (p) => p.scannerActivated },
+  { key: "sent", label: "Scanner sent", sort: "scannerSent", on: true, has: "scanner", cell: (p) => <Flag value={p.scannerSent} /> },
+  { key: "activated", label: "Activated", sort: "scannerActivated", on: true, has: "scanner", cell: (p) => <Flag value={p.scannerActivated} /> },
   { key: "owner", label: "Account owner", sort: "owner", on: false, has: "owner", teamOnly: true, cell: (p) => p.owner },
   { key: "activity", label: "Last activity", sort: "lastActivity", on: false, has: "activity", teamOnly: true, cell: (p) => p.lastActivity },
 ];

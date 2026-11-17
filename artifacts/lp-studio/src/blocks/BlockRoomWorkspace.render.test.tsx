@@ -386,4 +386,25 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(html).toContain('data-room-asset-icon="email"');
     expect(html).toContain(">PDF<");
   });
+  it("outstanding: one list of everything open, with open meeting actions in it; Our Team is the team tab", () => {
+    const content = {
+      partnerName: "MB2 Dental",
+      meetings: { items: [{ key: "m1", date: "2026-11-10", title: "Weekly sync", actions: [{ text: "Approve the venue", owner: "MB2 Operations" }, { text: "Already handled", done: true }] }] },
+      marketing: { groups: [{ title: "G", programs: [{ key: "ll", title: "Lunch & Learn", options: ["Include", "Not now"] }] }] },
+      planGroups: [{ title: "P", rows: [{ task: "Upload your practice list", customerAction: "upload" as const }, { task: "Kits shipped", status: "blocking" as const, ourOwner: "Marketing", partnerOwner: "—" }, { task: "Quiet item", status: "on-track" as const }] }],
+    };
+    // With only this module shown, the list is on screen: open meeting actions are in it, finished ones are not.
+    const html = render({ ...content, hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar", "meetings", "team"] as never });
+    expect(html).toContain('data-room-view="requests"');
+    expect(html).toContain(">Outstanding<");
+    expect(html).toContain("Approve the venue");
+    expect(html).toContain('data-room-outstanding-item="Meeting"');
+    expect(html).not.toContain("Already handled");
+    expect(html).not.toContain("Upload your practice list"); // the plan is hidden for this account, so its items have nowhere to be done
+    // With the other modules shown, the tab counts what is the customer's across all of them: the upload, the decision, the meeting action
+    // (the overdue item is ours, the on-track one isn't outstanding).
+    const full = render({ ...content, hiddenModules: ["overview", "wins", "goals", "practices", "kit", "calendar", "team"] as never });
+    expect(full).toMatch(/Outstanding<em>3 yours<\/em>/);
+    expect(render()).toContain(">Our Team<");
+  });
 });

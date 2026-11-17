@@ -351,8 +351,15 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
     );
   }
 
+  // The people on the Team module, offered wherever an owner is typed (first group = ours, the rest = the customer's).
+  const named = (g: RoomTeamGroup | undefined) => (g?.members ?? []).map((m) => (m.name ?? "").trim()).filter((n) => n && !/^\[.*\]$/.test(n) && n !== "New person");
+  const oursList = named(team[0]);
+  const theirsList = team.slice(1).flatMap(named);
   return (
     <div className="space-y-3">
+      <datalist id="room-people-ours">{oursList.map((n) => <option key={n} value={n} />)}</datalist>
+      <datalist id="room-people-theirs">{theirsList.map((n) => <option key={n} value={n} />)}</datalist>
+      <datalist id="room-people-all">{[...new Set([...oursList, ...theirsList])].map((n) => <option key={n} value={n} />)}</datalist>
       <button type="button" onClick={() => setActive(null)} className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-3.5 w-3.5" /> All modules
       </button>
@@ -480,7 +487,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                   <SelectItem value="done" className="text-xs">Achieved</SelectItem>
                 </SelectContent>
               </Select>
-              <Input value={g.owner ?? ""} onChange={(e) => setGoal(i, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner" />
+              <Input value={g.owner ?? ""} onChange={(e) => setGoal(i, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner" list="room-people-all" />
               <HideToggle hidden={g.hidden} onChange={(h) => setGoal(i, { hidden: h })} />
             </div>
           </CollapseItem>
@@ -545,7 +552,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                 {(m.actions ?? []).map((a, ai) => (
                   <div key={ai} className="grid grid-cols-[1fr_70px_70px_auto_auto] items-center gap-1">
                     <Input value={a.text ?? ""} onChange={(e) => setAction(i, ai, { text: e.target.value })} className="h-7 text-xs" placeholder="Action" />
-                    <Input value={a.owner ?? ""} onChange={(e) => setAction(i, ai, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner" />
+                    <Input value={a.owner ?? ""} onChange={(e) => setAction(i, ai, { owner: e.target.value })} className="h-7 text-xs" placeholder="Owner (pick from Our Team)" list="room-people-all" />
                     <Input value={a.due ?? ""} onChange={(e) => setAction(i, ai, { due: e.target.value })} className="h-7 text-xs" placeholder="Due" />
                     <Switch checked={!!a.done} onCheckedChange={(v) => setAction(i, ai, { done: v })} aria-label="Done" title="Done" />
                     <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Remove action" onClick={() => setMeeting(i, { actions: (m.actions ?? []).filter((_, idx) => idx !== ai) })}><X className="h-3.5 w-3.5" /></button>
@@ -653,8 +660,8 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   <Input value={r.target ?? ""} onChange={(e) => setRow(gi, ri, { target: e.target.value })} className="h-7 text-xs" placeholder="Target (Oct 22)" />
-                  <Input value={r.ourOwner ?? ""} onChange={(e) => setRow(gi, ri, { ourOwner: e.target.value })} className="h-7 text-xs" placeholder="Your owner" />
-                  <Input value={r.partnerOwner ?? ""} onChange={(e) => setRow(gi, ri, { partnerOwner: e.target.value })} className="h-7 text-xs" placeholder="Their owner" />
+                  <Input value={r.ourOwner ?? ""} onChange={(e) => setRow(gi, ri, { ourOwner: e.target.value })} className="h-7 text-xs" placeholder="Your owner (pick from Our Team)" list="room-people-ours" />
+                  <Input value={r.partnerOwner ?? ""} onChange={(e) => setRow(gi, ri, { partnerOwner: e.target.value })} className="h-7 text-xs" placeholder="Their owner (pick from Our Team)" list="room-people-theirs" />
                 </div>
                 <div className="grid grid-cols-2 gap-1">
                   <Select value={resolveRoomStatus(r.status)} onValueChange={(v) => setRow(gi, ri, { status: v as RoomMilestoneStatus })}>

@@ -11,6 +11,7 @@ import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
 import { ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
+import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
 import { resolveHubPalette } from "@/lib/hub-theme";
 import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
 import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomPracticePage, type RoomPracticeSort, type RoomSyncedEvent, type RoomSyncedMinutes } from "./hub/room-client";
@@ -63,8 +64,8 @@ export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "kit", label: "Launch kit" },
   { key: "calendar", label: "Calendar" },
   { key: "meetings", label: "Meetings" },
-  { key: "requests", label: "Requests" },
-  { key: "team", label: "Your team" },
+  { key: "requests", label: "Outstanding" },
+  { key: "team", label: "Our Team" },
 ];
 
 export type RoomMilestoneStatus = "done" | "on-track" | "pending" | "blocking" | "not-started";
@@ -1119,6 +1120,8 @@ const CSS = `
 .prw-sc-regions>button .v{font-size:12px;color:var(--body);text-align:right;white-space:nowrap}
 .prw-sc-regions>button.more{display:block;width:auto;margin:6px 0 4px;padding:4px 0;font-size:12px;font-weight:600;color:var(--dark)}
 .prw-sc-tools input{max-width:280px}
+.prw-sc-yes{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:color-mix(in srgb,var(--green) 16%,#fff);color:#0B6B3A}
+.prw-sc-yes svg{width:12px;height:12px}
 .prw-sc-cols{position:relative;margin-left:auto}
 .prw-sc-cols .menu{position:absolute;right:0;top:38px;z-index:20;min-width:210px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 12px 28px -14px rgba(0,0,0,.3)}
 .prw-sc-cols .menu label{display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:13px;color:var(--ink);border-radius:6px;cursor:pointer}
@@ -1140,6 +1143,20 @@ const CSS = `
 .prw-sc-check .names h5{font-size:11.5px;font-weight:700;color:var(--body);margin:0 0 4px}
 .prw-sc-check .names ul{margin:0;padding:0;list-style:none;max-height:220px;overflow:auto;font-size:12.5px}
 .prw-sc-check .names li{padding:2px 0}
+.prw-pick{height:30px;max-width:100%;border:1px solid #D4D8D0;border-radius:7px;padding:0 6px;font:inherit;font-size:12.5px;color:var(--ink);background:#fff}
+select.prw-pick.prw-st{font-weight:600}
+input.prw-pick{display:block;width:100%;margin-top:5px}
+.prw-out-sum .late b{color:var(--red)}
+.prw-out-bar{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.prw-out .prw-li .src{font-weight:600;color:var(--dark)}
+.prw-out .prw-li .late{color:var(--red);font-weight:600}
+.prw-out .prw-li .a{display:flex;gap:10px;align-items:center}
+.prw-out .who{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;background:#F1F2EE;color:var(--body)}
+.prw-out .who.you{background:#FBF3D9;color:#7A6100}
+.prw-out .who.us{background:#E8EEF9;color:var(--blue)}
+.prw-out-h{margin:32px 0 12px}
+.prw-out-h h3{margin:0 0 2px;font-size:16px;font-weight:700;color:var(--dark)}
+.prw-out-h p{margin:0;font-size:13px;color:var(--body);max-width:68ch}
 .prw-sum{display:flex;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:20px}
 .prw-sum div{padding:18px 24px;border-left:1px solid var(--line);font-size:12.5px;color:var(--body)}
 .prw-sum div:first-child{border-left:0}
@@ -1267,17 +1284,20 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
   // Milestones with the customer's saved state laid over the builder's status.
+  // Changes the account team made on this page since it loaded (status, owners): saved to the page, and laid over what was loaded.
+  const [planEdits, setPlanEdits] = useState<Record<string, Partial<RoomMilestone>>>({});
   const rows = useMemo(
     () =>
       groups.flatMap((g, gi) =>
-        (g.rows ?? []).map((r, ri) => {
+        (g.rows ?? []).map((row, ri) => {
+          const key = roomMilestoneKey(row);
+          const r = planEdits[key] ? { ...row, ...planEdits[key] } : row;
           const action = r.customerAction === "check" || r.customerAction === "upload" ? r.customerAction : null;
-          const key = roomMilestoneKey(r);
           const saved = action ? snapshot.tasks[key] : undefined;
           return { gi, ri, r, action, key, saved, status: saved?.done ? ("done" as RoomMilestoneStatus) : resolveRoomStatus(r.status) };
         }),
       ),
-    [groups, snapshot.tasks],
+    [groups, snapshot.tasks, planEdits],
   );
   const doneCount = rows.filter((x) => x.status === "done").length;
   // The line on the cover photo: what the builder typed, else the first milestone still open in the plan.
@@ -1285,6 +1305,22 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   const mine = rows.filter((x) => x.action && x.status !== "done");
   const reviewRequests = snapshot.requests.filter((q) => q.status === "review");
   const openRequests = snapshot.requests.filter((q) => q.status !== "done");
+  // The people on each side (the Team module's first group is ours, the rest are the customer's), for assigning owners.
+  const realName = (n: string | undefined) => !!n?.trim() && !/^\[.*\]$/.test(n.trim());
+  const ourPeople = (team[0]?.members ?? []).map((m) => m.name).filter(realName);
+  const theirPeople = [...team.slice(1).flatMap((g) => g.members ?? []).map((m) => m.name), ...snapshot.contacts.map((c) => c.name)].filter(realName);
+  // The account team, on the live page, can change the plan and move requests along right here.
+  const isTeam = !!snapshot.viewer?.team;
+  const canEditLive = isTeam && !!store && !isEditor;
+  const editPlan = async (key: string, patch: Partial<RoomMilestone>): Promise<string | null> => {
+    if (!store) return null;
+    const before = planEdits[key];
+    setPlanEdits((p) => ({ ...p, [key]: { ...p[key], ...patch } }));
+    const r = await store.editPlan(key, patch as { status?: string; ourOwner?: string; partnerOwner?: string; target?: string });
+    if (r.ok) return null;
+    setPlanEdits((p) => ({ ...p, [key]: before ?? {} }));
+    return r.error;
+  };
 
   /** Builder only: patch one item of the props (a milestone, an asset, a person…) found by identity. */
   const editItem = useMemo(
@@ -1333,12 +1369,64 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   const blocked = rows.filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && (x.status === "blocking" || (x.status !== "done" && !!now && targetHasPassed(x.r.target, now))));
   // Everything the customer has to act on, as one number and one list.
   const attention = [...stepsOpen, ...mine, ...reviewRequests];
+  // Outstanding: every open item from every module, with whose move it is.
+  const brandLabel = brand.brandName || "Us";
+  const partnerLabel = (props.partnerShort ?? "").trim() || props.partnerName || "You";
+  const actionDone = (m: RoomMeeting, a: RoomMeetingAction) => !!a.done || !!snapshot.tasks[roomMeetingActionKey(m.key, a.text)]?.done;
+  const outstandingAll: OutstandingItem[] = [
+    ...stepsOpen.map((x): OutstandingItem => ({ id: `step-${x.key}`, title: x.step.title, source: "Setup", side: "you", module: "overview" })),
+    ...(needsAgreement ? [{ id: "goals", title: "Agree the goals for the partnership", source: "Goals", side: "you", module: "goals" } satisfies OutstandingItem] : []),
+    ...rows
+      .filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && x.status !== "done" && (x.action || blocked.includes(x)))
+      .map((x): OutstandingItem => ({
+        id: `plan-${x.key}`,
+        title: x.r.task,
+        source: "Action plan",
+        owner: x.action ? x.r.partnerOwner : [x.r.ourOwner, x.r.partnerOwner].filter((o) => o && o !== "—").join(" / "),
+        due: x.r.target ? fmtDate(x.r.target) : undefined,
+        side: x.action ? "you" : ownerSide(x.r.partnerOwner && x.r.partnerOwner !== "—" && (!x.r.ourOwner || x.r.ourOwner === "—") ? partnerLabel : x.r.ourOwner && x.r.ourOwner !== "—" && (!x.r.partnerOwner || x.r.partnerOwner === "—") ? brandLabel : "", [brandLabel], [partnerLabel]),
+        overdue: blocked.includes(x),
+        module: "plan",
+      })),
+    ...undecided.map((x): OutstandingItem => ({ id: `mk-${x.key}`, title: `Decide: ${x.title}`, source: "Marketing plan", from: x.when, side: "you", module: "marketing" })),
+    ...snapshot.requests
+      .filter((q) => q.status !== "done")
+      .map((q): OutstandingItem => ({
+        id: `req-${q.id}`,
+        title: q.subject,
+        source: "Request",
+        from: q.status === "review" ? "Ready for your review" : ROOM_REQUEST_STATUS_LABEL[q.status] ?? q.status,
+        owner: q.owner ?? undefined,
+        due: q.due ?? undefined,
+        side: q.status === "review" ? "you" : "us",
+        module: "requests",
+        ...(q.status === "review" ? { approveRequestId: q.id } : {}),
+      })),
+    ...meetings.flatMap((m) =>
+      (m.actions ?? [])
+        .filter((a) => (a.text ?? "").trim() && !actionDone(m, a))
+        .map((a): OutstandingItem => ({
+          id: `ma-${roomMeetingActionKey(m.key, a.text)}`,
+          title: a.text,
+          source: "Meeting",
+          from: [m.title, m.date ? fmtDate(m.date) : ""].filter(Boolean).join(" · "),
+          owner: a.owner,
+          due: a.due,
+          side: ownerSide(a.owner, [brandLabel, ...ourPeople], [partnerLabel, props.partnerName, ...theirPeople]),
+          module: "meetings",
+          taskKey: roomMeetingActionKey(m.key, a.text),
+        })),
+    ),
+  ];
+  // An item whose module is hidden for this account has nowhere to be done, so it is left out (meeting actions are ticked right in the list).
+  const outstanding = outstandingAll.filter((i) => i.source === "Meeting" || modules.some((m) => m.key === i.module));
+  const outstandingYours = outstanding.filter((i) => i.side !== "us").length;
   const badge: Partial<Record<RoomModuleKey, string>> = {
     overview: stepsOpen.length ? `${stepsOpen.length} to set up` : "",
     goals: needsAgreement ? "to agree" : "",
     marketing: undecided.length ? `${undecided.length} to decide` : "",
     plan: mine.length ? `${mine.length} to do` : "",
-    requests: reviewRequests.length ? `${reviewRequests.length} to review` : "",
+    requests: outstandingYours ? `${outstandingYours} yours` : "",
   };
   const heroImage = (props.heroImageUrl ?? "").trim();
   const cover = props.coverStyle === "fullbleed" || props.coverStyle === "light" ? props.coverStyle : "split";
@@ -1644,13 +1732,13 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                   </div>
                   {meetings.length > 0 && (
                     <div className="prw-meta">
-                      <b>{meetings.length}</b> {meetings.length === 1 ? "meeting" : "meetings"} · <b>{meetings.reduce((n, m) => n + (m.actions ?? []).filter((a) => !a.done).length, 0)}</b> open actions
+                      <b>{meetings.length}</b> {meetings.length === 1 ? "meeting" : "meetings"} · <b>{meetings.reduce((n, m) => n + (m.actions ?? []).filter((a) => !actionDone(m, a)).length, 0)}</b> open actions
                     </div>
                   )}
                 </div>
                 {meetings.length === 0 && <div className="prw-card"><div className="prw-empty">Minutes will appear here after each meeting.</div></div>}
                 {meetings.map((m, i) => (
-                  <MeetingCard key={m.key || m.title + m.date} meeting={m} defaultOpen={i === 0} isEditor={isEditor} />
+                  <MeetingCard key={m.key || m.title + m.date} meeting={{ ...m, actions: (m.actions ?? []).map((a) => ({ ...a, done: actionDone(m, a) })) }} defaultOpen={i === 0} isEditor={isEditor} />
                 ))}
               </>
             )}
@@ -1680,7 +1768,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                   </thead>
                   <tbody>
                     {groups.map((g, gi) => (
-                      <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
+                      <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
                     ))}
                   </tbody>
                 </table>
@@ -1864,15 +1952,37 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Requests</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Everything you’ve asked for</h2>
-                    <p>One place to ask and to see where it stands. Each request goes to the right person with a target date.</p>
+                    <div className="prw-eyebrow">Outstanding</div>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What’s open, and who has it</h2>
+                    <p>Every open item from the plan, meetings, marketing and your requests, in one list. Finish it here or open it where it lives.</p>
                   </div>
                   <button type="button" className="prw-btn pri" onClick={() => openRequest()}>
                     <Plus aria-hidden /> Make a request
                   </button>
                 </div>
-                <RequestsTable snapshot={snapshot} isEditor={isEditor} onSignIn={() => setAsk({ kind: "email" })} />
+                <OutstandingView
+                  items={outstanding}
+                  ourName={brandLabel}
+                  theirName={partnerLabel}
+                  isTeam={isTeam}
+                  canAct={!!store && !!snapshot.viewer}
+                  onOpen={(m) => (!modules.some((x) => x.key === m) ? undefined : m === "requests" ? document.querySelector("[data-room-requests]")?.scrollIntoView({ behavior: "smooth", block: "start" }) : setView(m as RoomModuleKey))}
+                  onTick={async (key) => {
+                    if (!store) return null;
+                    const r = await store.setTaskDone(key, true);
+                    return r.ok ? null : r.error;
+                  }}
+                  onApprove={async (id) => {
+                    if (!store) return null;
+                    const r = await store.updateRequest(id, { status: "done" });
+                    return r.ok ? null : r.error;
+                  }}
+                />
+                <div className="prw-out-h" data-room-requests>
+                  <h3>Requests</h3>
+                  <p>Ask us for anything: a change to an asset, an event, a report. It goes to the right person with a target date, and you approve it here when it’s ready.</p>
+                </div>
+                <RequestsTable snapshot={snapshot} isEditor={isEditor} onSignIn={() => setAsk({ kind: "email" })} store={canEditLive ? store : null} customerStore={!isTeam && snapshot.viewer ? store : null} people={ourPeople} />
               </>
             )}
 
@@ -1880,7 +1990,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Your team</div>
+                    <div className="prw-eyebrow">Our Team</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Named people on both sides</h2>
                   </div>
                   {props.teamNote && <div className="prw-meta">{props.teamNote}</div>}
@@ -1951,7 +2061,21 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
 
 type PlanRow = { gi: number; ri: number; r: RoomMilestone; action: "check" | "upload" | null; key: string; saved: RoomSnapshot["tasks"][string] | undefined; status: RoomMilestoneStatus };
 
-function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail }: { group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void }) {
+type PlanEdit = { save: (key: string, patch: Partial<RoomMilestone>) => Promise<string | null>; ours: string[]; theirs: string[] };
+
+/** A small menu of people for an owner: the team's names, whatever is there now, and "nobody". */
+function OwnerPick({ value, people, onPick, label }: { value: string | undefined; people: string[]; onPick: (v: string) => void; label: string }) {
+  const current = (value ?? "").trim();
+  const options = [...new Set([...(current && current !== "—" ? [current] : []), ...people])];
+  return (
+    <select className="prw-pick" value={current && current !== "—" ? current : ""} onChange={(e) => onPick(e.target.value)} aria-label={label}>
+      <option value="">—</option>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
+function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit }: { group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null }) {
   return (
     <>
       <tr className="grp">
@@ -1970,10 +2094,16 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail }: { gr
               x.r.note && <div className="m"><E item={x.r} field="note" placeholder="Note" /></div>
             )}
           </td>
-          <td className="c">{x.r.ourOwner}</td>
-          <td className="c">{x.r.partnerOwner}</td>
+          <td className="c">{edit ? <OwnerPick value={x.r.ourOwner} people={edit.ours} onPick={(v) => void edit.save(x.key, { ourOwner: v || "—" })} label="Our owner" /> : x.r.ourOwner}</td>
+          <td className="c">{edit ? <OwnerPick value={x.r.partnerOwner} people={edit.theirs} onPick={(v) => void edit.save(x.key, { partnerOwner: v || "—" })} label="Their owner" /> : x.r.partnerOwner}</td>
           <td>
-            <span className={`prw-st ${x.status}`}>{ROOM_STATUS_LABEL[x.status]}</span>
+            {edit ? (
+              <select className={`prw-pick prw-st ${x.status}`} value={x.status} onChange={(e) => void edit.save(x.key, { status: e.target.value as RoomMilestoneStatus })} aria-label="Status" data-room-status-pick>
+                {STATUSES.map((st) => <option key={st} value={st}>{ROOM_STATUS_LABEL[st]}</option>)}
+              </select>
+            ) : (
+              <span className={`prw-st ${x.status}`}>{ROOM_STATUS_LABEL[x.status]}</span>
+            )}
           </td>
           <td className="r">{x.action && <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={onNeedEmail} />}</td>
         </tr>
@@ -2130,7 +2260,7 @@ function AssetRow({ asset, isEditor, onTrack, onOpen, onRequest, canRequest }: {
 
 /* ── Requests ────────────────────────────────────────────────────────────── */
 
-function RequestsTable({ snapshot, isEditor, onSignIn }: { snapshot: RoomSnapshot; isEditor: boolean; onSignIn: () => void }) {
+function RequestsTable({ snapshot, isEditor, onSignIn, store, customerStore, people }: { snapshot: RoomSnapshot; isEditor: boolean; onSignIn: () => void; /** Set for the account team on the live page: they can move a request along. */ store: RoomStoreHandle | null; /** Set for a known customer: they can approve a request that is ready. */ customerStore: RoomStoreHandle | null; people: string[] }) {
   if (!snapshot.viewer && !isEditor) {
     return (
       <div className="prw-card">
@@ -2178,12 +2308,26 @@ function RequestsTable({ snapshot, isEditor, onSignIn }: { snapshot: RoomSnapsho
                 <td className="c">{ROOM_REQUEST_KIND_LABEL[q.kind] ?? "Other"}</td>
                 <td className="c">{q.by}</td>
                 <td className="c">{fmtDate(q.createdAt)}</td>
-                <td className="c">{q.owner || "Being assigned"}</td>
+                <td className="c">{store ? <OwnerPick value={q.owner ?? ""} people={people} onPick={(v) => void store.updateRequest(q.id, { owner: v })} label="Owner" /> : q.owner || "Being assigned"}</td>
                 <td>
-                  <span className={`prw-chip ${q.status}`}>
-                    {ROOM_REQUEST_STATUS_LABEL[q.status] ?? q.status}
-                    {q.due && q.status !== "done" ? ` · due ${q.due}` : ""}
-                  </span>
+                  {store ? (
+                    <>
+                      <select className="prw-pick" value={q.status} onChange={(e) => void store.updateRequest(q.id, { status: e.target.value })} aria-label="Status" data-room-request-status>
+                        {Object.entries(ROOM_REQUEST_STATUS_LABEL).map(([k, label]) => <option key={k} value={k}>{k === "review" ? "Ready for their review" : label}</option>)}
+                      </select>
+                      <input className="prw-pick" defaultValue={q.due ?? ""} placeholder="Due (e.g. Nov 21)" aria-label="Due" onBlur={(e) => e.target.value.trim() !== (q.due ?? "") && void store.updateRequest(q.id, { due: e.target.value.trim() })} />
+                    </>
+                  ) : (
+                    <>
+                      <span className={`prw-chip ${q.status}`}>
+                        {ROOM_REQUEST_STATUS_LABEL[q.status] ?? q.status}
+                        {q.due && q.status !== "done" ? ` · due ${q.due}` : ""}
+                      </span>
+                      {q.status === "review" && customerStore && (
+                        <button type="button" className="prw-btn pri" style={{ marginTop: 6 }} onClick={() => void customerStore.updateRequest(q.id, { status: "done" })} data-room-request-approve><Check aria-hidden /> Approve</button>
+                      )}
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

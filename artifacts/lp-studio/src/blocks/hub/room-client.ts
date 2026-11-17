@@ -302,6 +302,16 @@ class RoomStore {
     return this.act("task", { taskKey, done });
   }
 
+  /** Team only: change a milestone's status, owners or target date. */
+  editPlan(key: string, patch: { status?: string; ourOwner?: string; partnerOwner?: string; target?: string }) {
+    return this.act("plan-edit", { key, ...patch });
+  }
+
+  /** The team moves a request along (status, owner, due); the customer can approve one that is ready for review. */
+  updateRequest(id: number, patch: { status?: string; owner?: string; due?: string }) {
+    return this.act("request-update", { id, ...patch });
+  }
+
   async upload(taskKey: string, file: File): Promise<RoomActionResult> {
     if (file.size > ROOM_UPLOAD_MAX_BYTES) return { ok: false, error: "That file is over 7 MB. Send a smaller file, or ask your contact for another way to share it." };
     let fileBase64: string;

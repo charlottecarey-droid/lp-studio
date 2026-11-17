@@ -15,6 +15,12 @@
  *   - another tenant can read nothing (decoy tenant on every tenant route).
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+
+// The whole suite runs as one visitor address within a minute: the per-minute action and state limits are for real traffic, not for this.
+vi.hoisted(() => {
+  process.env.RATE_LIMIT_ROOM_ACTION_PER_MIN = "100000";
+  process.env.RATE_LIMIT_ROOM_STATE_PER_MIN = "100000";
+});
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { dbAvailable } from "../../test-utils/dbAvailable";
@@ -501,6 +507,57 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], sfdcAccountId: "not an id" } })).status).toBe(400);
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], asanaProjectGid: "abc" } })).status).toBe(400);
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], sfdcAccountId: "0015d000041HyXrAAK", asanaProjectGid: "1212539527149031" } })).json).toMatchObject({ sfdcAccountId: "0015d000041HyXrAAK", asanaProjectGid: "1212539527149031" });
+  }, 60_000);
+
+  it("on the live page the team edits the plan and moves requests along; a customer approves a request and ticks a meeting action", async () => {
+    const tenantId = await seedTenant();
+    const blocks = [{ id: "w1", type: "room-workspace", props: {
+      partnerName: "MB2 Dental",
+      planGroups: [{ title: "P", rows: [{ key: "kits", task: "Welcome kits shipped", status: "not-started", ourOwner: "Marketing", partnerOwner: "—" }, { key: "announce", task: "Announce it", customerAction: "check" }] }],
+      meetings: { items: [{ key: "m1", date: "2026-11-10", title: "Weekly sync", actions: [{ text: "Approve the venue", owner: "MB2 Operations" }] }] },
+    } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    const teamEmail = `rep-${Date.now()}@vendor-live.com`;
+    await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Rae Rep', 'active')`, [tenantId, teamEmail]);
+    const asTeam = (path: string, body: object) => inject(app, { method: "POST", url: `/lp/room/${path}`, headers: { ...asTenant(tenantId), "x-test-email": teamEmail }, body: { pageId, ...body } });
+    const row = async (key: string) => {
+      const p = await pool.query<{ blocks: { props: { planGroups: { rows: Record<string, string>[] }[] } }[] }>(`SELECT blocks FROM lp_pages WHERE id = $1`, [pageId]);
+      return p.rows[0].blocks[0].props.planGroups[0].rows.find((x) => x.key === key)!;
+    };
+
+    // The plan: the customer can't change it, a stranger can't, the team can (status, owners, target), and only valid values.
+    expect((await post("plan-edit", { pageId, hl, key: "kits", status: "done" })).status).toBe(403);
+    expect((await post("plan-edit", { pageId, key: "kits", status: "done" })).status).toBe(401);
+    expect((await asTeam("plan-edit", { key: "kits", status: "finished" })).status).toBe(400);
+    expect((await asTeam("plan-edit", { key: "nope", status: "done" })).status).toBe(404);
+    expect((await asTeam("plan-edit", { key: "kits", status: "on-track", ourOwner: "  Rae   Rep ", target: "Nov 21" })).status).toBe(200);
+    expect(await row("kits")).toMatchObject({ task: "Welcome kits shipped", status: "on-track", ourOwner: "Rae Rep", partnerOwner: "—", target: "Nov 21" });
+    // Reopening an item the customer had ticked clears their tick, so it stops showing as done.
+    expect((await post("task", { pageId, hl, taskKey: "announce" })).status).toBe(200);
+    expect((await asTeam("plan-edit", { key: "announce", status: "pending" })).status).toBe(200);
+    expect(((await post("state", { pageId, hl })).json as { tasks: Record<string, unknown> }).tasks.announce).toBeUndefined();
+
+    // A meeting action item is a task anyone known can tick off.
+    expect((await post("task", { pageId, taskKey: "ma-m1-approve-the-venue" })).status).toBe(401);
+    expect((await post("task", { pageId, hl, taskKey: "ma-m1-approve-the-venue" })).status).toBe(200);
+    expect(((await post("state", { pageId, hl })).json as { tasks: Record<string, { done: boolean; by: string }> }).tasks["ma-m1-approve-the-venue"]).toMatchObject({ done: true, by: "Dana Visitor" });
+    expect((await post("task", { pageId, hl, taskKey: "ma-m1-something-else" })).status).toBe(404);
+
+    // Requests: the team assigns and moves it along from the page; the customer can only approve one that is ready for review.
+    expect((await post("request", { pageId, hl, kind: "reporting", subject: "Monthly usage report", details: "By practice" })).status).toBe(200);
+    const reqs = async () => ((await post("state", { pageId, hl })).json as { requests: { id: number; status: string; owner: string | null; due: string | null }[] }).requests;
+    const id = (await reqs())[0].id;
+    expect((await post("request-update", { pageId, hl, id, status: "done" })).status).toBe(400); // not in review yet
+    expect((await post("request-update", { pageId, hl, id, status: "in_progress" })).status).toBe(403);
+    expect((await post("request-update", { pageId, hl, id, status: "done", owner: "Me" })).status).toBe(403);
+    expect((await asTeam("request-update", { id, status: "bogus" })).status).toBe(400);
+    expect((await asTeam("request-update", { id, status: "review", owner: "Rae Rep", due: "Nov 21" })).status).toBe(200);
+    expect((await reqs())[0]).toMatchObject({ status: "review", owner: "Rae Rep", due: "Nov 21" });
+    expect((await post("request-update", { pageId, hl, id, status: "done" })).status).toBe(200);
+    expect((await reqs())[0].status).toBe("done");
+    expect((await asTeam("request-update", { id: 999_999_999, status: "done" })).status).toBe(404);
   }, 60_000);
 
   it("marketing requests are filed in Asana as Expansion Support - customer - request, with intake status submitted; other kinds are not", async () => {

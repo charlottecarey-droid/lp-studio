@@ -132,6 +132,62 @@ export function planTaskKey(row: { key?: unknown; task?: unknown }): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
+/** The key of one meeting action item ("ma-<meeting>-<what>"). Must match `roomMeetingActionKey` in the room block. */
+export function meetingActionKey(meetingKey: string, text: string): string {
+  const slug = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `ma-${slug(meetingKey).slice(0, 24)}-${slug(text).slice(0, 48)}`.replace(/-+$/, "");
+}
+
+export const ROOM_MILESTONE_STATUSES = ["done", "on-track", "pending", "blocking", "not-started"] as const;
+
+export interface MilestonePatch {
+  status?: (typeof ROOM_MILESTONE_STATUSES)[number];
+  ourOwner?: string;
+  partnerOwner?: string;
+  target?: string;
+}
+
+/** A milestone edit from the request body: only the fields named, cleaned. Null when nothing valid is being changed. */
+export function parseMilestonePatch(body: unknown): MilestonePatch | null {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const out: MilestonePatch = {};
+  if (b.status !== undefined) {
+    if (!(ROOM_MILESTONE_STATUSES as readonly string[]).includes(String(b.status))) return null;
+    out.status = String(b.status) as MilestonePatch["status"];
+  }
+  for (const f of ["ourOwner", "partnerOwner", "target"] as const) {
+    if (b[f] === undefined) continue;
+    if (typeof b[f] !== "string") return null;
+    out[f] = (b[f] as string).replace(/\s+/g, " ").trim().slice(0, f === "target" ? 40 : 80);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * Change one milestone of the room's action plan (found by its key). Returns
+ * the new blocks, or null when the page has no such milestone.
+ */
+export function setRoomMilestone(blocks: unknown, key: string, patch: MilestonePatch): unknown[] | null {
+  if (!Array.isArray(blocks) || !key) return null;
+  let done = false;
+  const next = blocks.map((b) => {
+    if (done || !b || typeof b !== "object" || (b as { type?: unknown }).type !== "room-workspace") return b;
+    const props = (b as { props?: Record<string, unknown> }).props ?? {};
+    const groups = Array.isArray(props.planGroups) ? (props.planGroups as { rows?: unknown }[]) : [];
+    const planGroups = groups.map((g) => {
+      if (done || !g || !Array.isArray(g.rows)) return g;
+      const rows = g.rows.map((r) => {
+        if (done || !r || typeof r !== "object" || planTaskKey(r as { key?: unknown; task?: unknown }) !== key) return r;
+        done = true;
+        return { ...(r as object), ...patch };
+      });
+      return done ? { ...g, rows } : g;
+    });
+    return done ? { ...(b as object), props: { ...props, planGroups } } : b;
+  });
+  return done ? next : null;
+}
+
 /** Block types that make a page a room. `room-workspace` keeps its plan in `planGroups`, `hub-plan` in `lanes`. */
 export const ROOM_BLOCK_TYPES = ["room-workspace", "hub-plan"] as const;
 
@@ -161,6 +217,19 @@ export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
         const key = planTaskKey({ key: (step as { key?: unknown }).key, task: (step as { title?: unknown }).title });
         if (!key || out.has(key) || !["upload", "check", "team", "link", "request"].includes(String(a))) continue;
         out.set(key, { key, title: String((step as { title?: unknown }).title ?? key), action: a === "upload" ? "upload" : "check" });
+      }
+    }
+    // Action items from the meetings typed into the page can be ticked off too.
+    const meetings = type === "room-workspace" ? (b as { props?: { meetings?: { items?: unknown } } }).props?.meetings?.items : null;
+    if (Array.isArray(meetings)) {
+      for (const m of meetings) {
+        const actions = (m as { actions?: unknown })?.actions;
+        if (!m || typeof m !== "object" || (m as { hidden?: unknown }).hidden === true || !Array.isArray(actions)) continue;
+        for (const a of actions) {
+          const text = typeof (a as { text?: unknown })?.text === "string" ? (a as { text: string }).text.trim() : "";
+          const key = text ? meetingActionKey(String((m as { key?: unknown }).key ?? ""), text) : "";
+          if (key && !out.has(key)) out.set(key, { key, title: text, action: "check" });
+        }
       }
     }
     const lanes = (type === "room-workspace" ? props?.planGroups : props?.lanes) ?? [];
