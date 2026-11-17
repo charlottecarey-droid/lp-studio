@@ -1,6 +1,6 @@
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, LogIn, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -1661,6 +1661,20 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 <span className="x">×</span>
                 {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} style={{ height: Math.round(22 * logoScale(props.partnerLogoScale)), filter: partnerLogoFilter }} data-room-partner-logo /> : <span>{props.partnerName}</span>}
               </div>
+              <div style={{ marginLeft: "auto" }}>
+                <button
+                  type="button"
+                  className="prw-req"
+                  onClick={(e) => {
+                    const field = e.currentTarget.closest("[data-room-gate]")?.querySelector<HTMLInputElement>("[data-room-gate-email]");
+                    field?.scrollIntoView({ block: "center", behavior: "smooth" });
+                    field?.focus({ preventScroll: true });
+                  }}
+                  data-room-signin-button
+                >
+                  <LogIn style={{ width: 14, height: 14 }} aria-hidden /> Sign in
+                </button>
+              </div>
             </div>
             <div className={`prw-hero${heroImage && cover !== "fullbleed" ? "" : " solo"}`}>
               <div>
@@ -1708,7 +1722,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <CalendarPlus style={{ width: 14, height: 14 }} aria-hidden /> {(props.scheduleLabel ?? "").trim() || "Schedule a meeting"}
                 </a>
               )}
-              {!new Set(props.hiddenModules ?? []).has("requests") && (
+              {!isEditor && store && snapshot.status === "ready" && !snapshot.viewer ? (
+                // Nobody is signed in yet: the first thing to do is say who you are, not make a request.
+                <button type="button" className="prw-req" onClick={() => setAsk({ kind: "email" })} data-room-signin-button>
+                  <LogIn style={{ width: 14, height: 14 }} aria-hidden /> Sign in
+                </button>
+              ) : !new Set(props.hiddenModules ?? []).has("requests") && (
                 <button type="button" className="prw-req" onClick={() => openRequest()} data-room-request-button>
                   <Plus style={{ width: 14, height: 14 }} aria-hidden /> Make a request
                 </button>

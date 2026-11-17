@@ -514,6 +514,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(html).toContain("data-room-gate-card");
     expect(html).not.toContain("data-room-nav="); // no tabs
     expect(html).not.toContain("data-room-request-button"); // no Make a request
+    expect(html).toContain("data-room-signin-button"); // the corner button signs you in
     expect(html).not.toContain("plan items complete"); // no progress
     // Even if the whole hub reached the page (an unrecognised reviewer's preview), nothing under the cover is rendered.
     const full = render({ requireEmail: true, planGroups: [{ title: "P", rows: [{ task: "Secret milestone" }] }], team: [{ title: "Us", members: [{ name: "Rae Rep", email: "rae@vendor.com" }] }] });
