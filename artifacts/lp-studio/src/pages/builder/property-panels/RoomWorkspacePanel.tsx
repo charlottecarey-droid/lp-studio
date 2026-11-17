@@ -660,6 +660,17 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                   <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => setMGroup(gi, { programs: g.programs.filter((_, idx) => idx !== pi) })}>Remove</Button>
                 </div>
                 <Input value={x.description ?? ""} onChange={(e) => setProgram(gi, pi, { description: e.target.value })} className="h-7 text-xs" placeholder="What it is" />
+                <Textarea value={x.details ?? ""} onChange={(e) => setProgram(gi, pi, { details: e.target.value })} rows={3} className="text-xs" placeholder="More about it, shown when the row is opened: what it involves, what the customer needs to do" />
+                {(x.links ?? []).map((l, li) => (
+                  <div key={li} className="grid grid-cols-[1fr_1.4fr_auto] gap-1">
+                    <Input value={l.label ?? ""} onChange={(e) => setProgram(gi, pi, { links: (x.links ?? []).map((y, yi) => (yi === li ? { ...y, label: e.target.value } : y)) })} className="h-7 text-xs" placeholder="Link text (See an example)" />
+                    <Input value={l.url ?? ""} onChange={(e) => setProgram(gi, pi, { links: (x.links ?? []).map((y, yi) => (yi === li ? { ...y, url: e.target.value.trim() } : y)) })} className="h-7 text-xs" placeholder="https://…" />
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-1.5" aria-label="Remove link" onClick={() => setProgram(gi, pi, { links: (x.links ?? []).filter((_, yi) => yi !== li) })}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" className="h-6 gap-1 px-2 text-[11px]" onClick={() => setProgram(gi, pi, { links: [...(x.links ?? []), { label: "", url: "" }] })}>
+                  <Plus className="h-3 w-3" /> Add a link to more info
+                </Button>
                 <div className="grid grid-cols-2 gap-1">
                   <Input value={x.audience ?? ""} onChange={(e) => setProgram(gi, pi, { audience: e.target.value })} className="h-7 text-xs" placeholder="Who it reaches" />
                   <Input value={x.when ?? ""} onChange={(e) => setProgram(gi, pi, { when: e.target.value })} className="h-7 text-xs" placeholder="When (Day 15)" />

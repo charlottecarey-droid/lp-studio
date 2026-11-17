@@ -360,6 +360,10 @@ export interface RoomProgram {
   options?: string[];
   /** Label when the program is fixed ("In plan"). */
   fixedLabel?: string;
+  /** More about the program, shown when its row is opened: what it involves, what the customer needs to do. */
+  details?: string;
+  /** Where to read or see more (a guide, an example, a video). */
+  links?: { label: string; url: string }[];
   hidden?: boolean;
 }
 export interface RoomProgramGroup {
@@ -844,9 +848,9 @@ const STACK_RULES = `.prw-plan thead,.prw-reqs thead{display:none}
 .prw-plan td:first-child{padding-top:12px}
 .prw-plan td:last-child{padding-bottom:12px;border-bottom:1px solid var(--line)}
 .prw-plan tr.grp td,.prw-plan tr.chk td{padding:8px 14px}
-.prw-prog{flex-wrap:wrap;gap:10px 14px}
-.prw-prog .tx{flex-basis:calc(100% - 80px)}
-.prw-prog .dec{margin-left:0;width:100%;text-align:left}`;
+.prw-prog .hd{gap:10px;padding:14px 16px}
+.prw-prog .more{padding:2px 16px 16px}
+.prw-prog .im{width:44px;height:44px}`;
 const TEAM_STACK_RULES = `.prw-team thead{display:none}
 .prw-team td{display:block;border-top:0;padding:2px 14px;white-space:normal!important}
 .prw-team td:first-child{padding-top:12px;border-top:1px solid var(--line)}
@@ -898,8 +902,7 @@ const CSS = `
 .prw-thumb.down:hover,.prw-thumb.down.on{border-color:#DC2626;color:#DC2626}
 .prw-thumb.down.on{background:#DC2626;color:#fff}
 .prw-thumb:disabled{opacity:.6;cursor:default}
-.prw-prog.off{background:#FAFAF8}
-.prw-prog.off>*:not(.dec){opacity:.45;filter:grayscale(1)}
+
 .prw-later{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:10px 20px;border-top:1px solid var(--line);background:#FAFAF8}
 .prw-scroll{overflow-x:auto;border-radius:12px}
 .prw-th{display:inline-flex;align-items:center;gap:5px;background:none;border:0;padding:0;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;white-space:nowrap}
@@ -1027,7 +1030,32 @@ const CSS = `
 .prw-gh{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
 .prw-gh:first-child{border-top:0}
 .prw-gh span{color:var(--body);font-weight:600;letter-spacing:0;text-transform:none;font-size:12px}
-.prw-prog{display:flex;gap:16px;align-items:center;padding:16px 20px;border-top:1px solid var(--line)}
+.prw-prog{padding:0;border-top:1px solid var(--line)}
+.prw-prog .hd{display:flex;gap:14px;align-items:center;padding:14px 20px}
+.prw-prog.open{background:#FCFCFA}
+.prw .prw-more{display:inline-grid;place-items:center;width:30px;height:30px;border:0;border-radius:8px;background:none;color:#9AA69E;padding:0;flex:none}
+.prw .prw-more:hover{background:#F1F2EE;color:var(--dark)}
+.prw-more svg{width:16px;height:16px;transition:transform .15s}
+.prw-prog.open .prw-more svg{transform:rotate(180deg)}
+.prw .prw-tick{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;border:1.5px solid #BFC5B9;background:#fff;color:#A3AB9C;padding:0;flex:none;transition:background .12s,color .12s,border-color .12s}
+.prw .prw-tick svg{width:17px;height:17px}
+.prw .prw-tick:not(:disabled):hover{border-color:#16A34A;color:#16A34A}
+.prw .prw-tick.on{background:#16A34A;border-color:#16A34A;color:#fff}
+.prw .prw-tick.on:not(:disabled):hover{background:#12813B;border-color:#12813B;color:#fff}
+.prw .prw-tick:disabled{cursor:default}
+.prw-prog .more{padding:2px 20px 18px;margin-left:0;font-size:13px;color:var(--ink)}
+.prw-prog .more p{margin:0 0 10px;max-width:70ch;color:var(--ink)}
+.prw-prog .more p.hint{color:var(--faint)}
+.prw-prog .more dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:0 0 12px;font-size:12.5px}
+.prw-prog .more dt{color:var(--body)}
+.prw-prog .more dd{margin:0;color:var(--ink)}
+.prw-prog .more .links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:12px}
+.prw-prog .more .links a{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--dark);text-decoration:underline;text-underline-offset:2px}
+.prw-prog .more .links svg{width:12px;height:12px}
+.prw-prog .more .opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;font-size:12.5px;color:var(--body)}
+.prw-prog .more .acts{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.prw .prw-linkbtn{border:0;background:none;padding:0;font-size:12.5px;color:var(--body);text-decoration:underline;text-underline-offset:2px}
+.prw .prw-linkbtn:hover{color:var(--dark)}
 .prw-prog .im{width:56px;height:56px;border-radius:10px;object-fit:cover;display:block;flex:none}
 .prw-prog .im.ph{display:grid;place-items:center;background:color-mix(in srgb,var(--dark) 6%,#fff);color:color-mix(in srgb,var(--dark) 45%,#fff)}
 .prw-prog .im.ph svg{width:18px;height:18px}
@@ -2140,10 +2168,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {showMarketing && launch.toDecide.length > 0 && (
                   <section className="prw-lk" data-room-launch="decide">
                     <h3>To decide<span className="prw-num">{launch.toDecide.length}</span></h3>
-                    <p>Tell us which of these you want. A thumbs-up moves it to In progress; a thumbs-down saves it for later.</p>
+                    <p>Tick the ones you want and they move to In progress. Open any of them for details.</p>
                     <div className="prw-progs">
                       {launch.toDecide.map((x) => (
-                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} /></div>
+                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
                       ))}
                     </div>
                   </section>
@@ -2167,7 +2195,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <p>In the plan and under way, with when each one happens.</p>
                     <div className="prw-progs">
                       {launch.inProgress.map((x) => (
-                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} /></div>
+                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
                       ))}
                     </div>
                     {launch.preparing.length > 0 && (
@@ -2183,10 +2211,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {showMarketing && launch.later.length > 0 && (
                   <section className="prw-lk" data-room-launch="later">
                     <h3>Saved for later<span className="prw-num">{launch.later.length}</span></h3>
-                    <p>Not in the plan for now. Give one a thumbs-up to bring it in.</p>
+                    <p>Not in the plan for now. Tick one to bring it in.</p>
                     <div className="prw-progs">
                       {launch.later.map((x) => (
-                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} /></div>
+                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
                       ))}
                     </div>
                   </section>
@@ -3158,12 +3186,19 @@ function ContactDialog({ store, partnerName, existing, confirmKey, onClose, onNe
 
 /* ── Marketing plan ──────────────────────────────────────────────────────── */
 
-function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot }: { program: RoomProgram; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; /** Some program on the page has a picture: ones without get a quiet placeholder so the text lines up. */ slot: boolean }) {
+/**
+ * One marketing program: a line that opens for more, and one tick to put it
+ * in the plan. Grey until chosen, green once it is in; ticking it again
+ * takes it back out (it moves to Saved for later). A program with several
+ * ways to say yes (dinner or onsite training) opens to show them.
+ */
+function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot, onAsk }: { program: RoomProgram; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; /** Some program on the page has a picture: ones without get a quiet placeholder so the text lines up. */ slot: boolean; /** Ask the team about this program (opens a request). */ onAsk?: () => void }) {
   const key = roomMilestoneKey({ key: program.key, task: program.title });
   const options = (program.options ?? []).filter((o) => o.trim());
   const chosen = snapshot.choices[key];
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
   const pick = async (value: string) => {
     if (isEditor || busy) return;
     if (!store || !snapshot.viewer) return onNeedEmail();
@@ -3179,45 +3214,80 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot }: {
   const image = (program.imageUrl ?? "").trim();
   const no = options.find(isDeclineOption);
   const yes = options.filter((o) => o !== no);
+  const canChoose = options.length >= 2;
   const declined = !!chosen && !!no && chosen.value === no;
+  const included = !canChoose || (!!chosen && !declined);
+  const details = (program.details ?? "").trim();
+  const links = (program.links ?? []).filter((l) => safeHttpUrl(l.url) && (l.label ?? "").trim());
+  // The tick: in → out again; out → in (or, with several ways to say yes, open the row to pick one).
+  const toggle = () => {
+    if (!canChoose) return;
+    if (included) return no ? void pick(no) : undefined;
+    if (yes.length === 1) return void pick(yes[0]);
+    setOpen(true);
+  };
+  const state = !canChoose ? "fixed" : declined ? "declined" : chosen ? "chosen" : "open";
   return (
-    <div className={`prw-prog${declined ? " off" : ""}`} data-room-program={options.length >= 2 ? (declined ? "declined" : chosen ? "chosen" : "open") : "fixed"}>
-      {image ? <img className="im" src={image} alt="" loading="lazy" /> : slot ? <span className="im ph" aria-hidden><Megaphone /></span> : null}
-      <div className="tx">
-        <h3><E item={program} field="title" placeholder="Program" /></h3>
-        {(program.description || isEditor) && <p><E item={program} field="description" multiline placeholder="What it is" /></p>}
-        {(program.audience || program.when) && <div className="meta">{[program.audience, program.when].filter(Boolean).join(" · ")}</div>}
+    <div className={`prw-prog${included ? " in" : ""}${open ? " open" : ""}`} data-room-program={state}>
+      <div className="hd">
+        {image ? <img className="im" src={image} alt="" loading="lazy" /> : slot ? <span className="im ph" aria-hidden><Megaphone /></span> : null}
+        <div className="tx" onClick={isEditor ? undefined : () => setOpen((o) => !o)} style={isEditor ? undefined : { cursor: "pointer" }}>
+          <h3><E item={program} field="title" placeholder="Program" /></h3>
+          {(program.description || isEditor) && <p><E item={program} field="description" multiline placeholder="What it is" /></p>}
+          {(program.audience || program.when) && <div className="meta">{[program.audience, program.when].filter(Boolean).join(" · ")}{chosen && !declined && yes.length > 1 ? ` · ${chosen.value}` : ""}</div>}
+        </div>
+        <button type="button" className="prw-more" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} details: ${program.title}`} onClick={() => setOpen((o) => !o)} data-room-program-more>
+          <ChevronDown aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={`prw-tick${included ? " on" : ""}`}
+          aria-pressed={included}
+          aria-label={!canChoose ? `Included: ${program.title}` : included ? `In the plan. Click to take out: ${program.title}` : `Add to the plan: ${program.title}`}
+          title={!canChoose ? program.fixedLabel || "Included in every partnership" : included ? `In the plan${chosen?.by ? ` · ${chosen.by} · ${fmtDate(chosen.at)}` : ""}. Click to take it out.` : "Add to the plan"}
+          disabled={!canChoose || !!busy}
+          onClick={toggle}
+          data-room-tick={included ? "on" : "off"}
+        >
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Check aria-hidden />}
+        </button>
       </div>
-      <div className="dec">
-        {options.length >= 2 ? (
-          <>
-            <span className="prw-thumbs" role="group" aria-label={program.title} title={chosen?.by ? `${chosen.value} · ${chosen.by} · ${fmtDate(chosen.at)}` : "Waiting on a decision"}>
-              {/* Several ways to say yes (Dinner / Onsite training) stay as named choices; one way is a thumbs-up. */}
-              {no && yes.length === 1 ? (
-                <button type="button" className={`prw-thumb up${chosen?.value === yes[0] ? " on" : ""}`} aria-pressed={chosen?.value === yes[0]} aria-label={`${yes[0]}: ${program.title}`} title={yes[0]} disabled={!!busy} onClick={() => void pick(yes[0])} data-room-thumb="up">
-                  {busy === yes[0] ? <Loader2 className="animate-spin" aria-hidden /> : <ThumbsUp aria-hidden />}
-                </button>
-              ) : (
-                <span className="prw-seg">
-                  {yes.map((o) => (
-                    <button key={o} type="button" className={chosen?.value === o ? "on" : ""} aria-pressed={chosen?.value === o} disabled={!!busy} onClick={() => void pick(o)}>
-                      {busy === o ? "Saving" : o}
-                    </button>
-                  ))}
-                </span>
-              )}
-              {no && (
-                <button type="button" className={`prw-thumb down${declined ? " on" : ""}`} aria-pressed={declined} aria-label={`${no}: ${program.title}`} title={no} disabled={!!busy} onClick={() => void pick(no)} data-room-thumb="down">
-                  {busy === no ? <Loader2 className="animate-spin" aria-hidden /> : <ThumbsDown aria-hidden />}
-                </button>
-              )}
-            </span>
-            {error && <span className="prw-err" role="alert">{error}</span>}
-          </>
-        ) : (
-          <span className="prw-fixed">{program.fixedLabel || "Included"}</span>
-        )}
-      </div>
+      {open && (
+        <div className="more" data-room-program-details>
+          {details ? details.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>) : isEditor ? <p className="hint">Add more about this program in the builder panel: what it involves and what the customer needs to do.</p> : null}
+          <dl>
+            {program.audience && (<><dt>Who it’s for</dt><dd>{program.audience}</dd></>)}
+            {program.when && (<><dt>When</dt><dd>{program.when}</dd></>)}
+            {!canChoose && (<><dt>Status</dt><dd>{program.fixedLabel || "Included in every partnership"}</dd></>)}
+            {chosen?.by && (<><dt>{declined ? "Saved for later by" : "Added by"}</dt><dd>{chosen.by} · {fmtDate(chosen.at)}</dd></>)}
+          </dl>
+          {links.length > 0 && (
+            <div className="links">
+              {links.map((l, i) => (
+                <a key={i} href={isEditor ? undefined : safeHttpUrl(l.url)} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden /> {l.label}</a>
+              ))}
+            </div>
+          )}
+          {canChoose && yes.length > 1 && (
+            <div className="opts">
+              <span>Choose one:</span>
+              <span className="prw-seg">
+                {yes.map((o) => (
+                  <button key={o} type="button" className={chosen?.value === o ? "on" : ""} aria-pressed={chosen?.value === o} disabled={!!busy} onClick={() => void pick(o)}>
+                    {busy === o ? "Saving" : o}
+                  </button>
+                ))}
+              </span>
+            </div>
+          )}
+          <div className="acts">
+            {onAsk && <button type="button" className="prw-btn" onClick={onAsk}>Ask about this</button>}
+            {canChoose && no && !declined && !included && <button type="button" className="prw-linkbtn" disabled={!!busy} onClick={() => void pick(no)} data-room-program-later>Not for us right now</button>}
+          </div>
+          {error && <span className="prw-err" role="alert">{error}</span>}
+        </div>
+      )}
+      {!open && error && <span className="prw-err" role="alert">{error}</span>}
     </div>
   );
 }

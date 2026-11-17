@@ -160,9 +160,9 @@ describe("room-workspace — marketing plan, launch kit, hide anything", () => {
     expect(html).toContain('data-room-view="marketing"');
     expect((html.match(/data-room-program="fixed"/g) ?? []).length).toBe(2);
     expect((html.match(/data-room-program="open"/g) ?? []).length).toBe(2);
-    expect(html).toContain(">Included<");
-    expect(html).toContain('title="Include"');
-    expect(html).toContain('title="Not now"');
+    expect(html).toContain('aria-label="Included: '); // a standard program is ticked green and can't be un-ticked
+    expect(html).toContain('title="Add to the plan"'); // an optional one has a grey tick to add it
+    expect(html).not.toContain('title="Not now"'); // saying no lives inside the opened row
   });
   it("launch kit: links come first, and actions are icon buttons with accessible names", () => {
     const html = only("kit", { links: [{ title: "Sign-up page", url: "https://example.com/signup" }], assets: [{ key: "a", kind: "pdf", title: "One-pager", fileUrl: "/files/one.pdf" }] });
@@ -344,10 +344,15 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(sortProgramsByDecision(programs, choices).map((p) => p.key)).toEqual(["b", "c", "a"]);
     expect(sortProgramsByDecision(programs, {}).map((p) => p.key)).toEqual(["a", "b", "c"]);
     const html = only("marketing", { marketing: { groups: [{ title: "G", programs: [{ key: "a", title: "Lunch & Learn", options: ["Include", "Not now"] }, { key: "e", title: "Welcome event", options: ["Dinner", "Onsite training", "Not now"] }] }] } });
-    expect((html.match(/data-room-thumb="up"/g) ?? []).length).toBe(1); // one way to say yes
-    expect((html.match(/data-room-thumb="down"/g) ?? []).length).toBe(2);
-    expect(html).toContain(">Dinner</button>"); // several ways to say yes stay named
-    expect(html).not.toContain(">Not now</button>");
+    // One tick per program, grey until it is in the plan; a row opens for details, and choices with several ways to say yes sit inside.
+    expect((html.match(/data-room-tick="off"/g) ?? []).length).toBe(2);
+    expect(html).not.toContain("data-room-thumb");
+    expect((html.match(/data-room-program-more/g) ?? []).length).toBe(2);
+    expect(html).not.toContain("data-room-program-details"); // closed until opened
+    // A standard program is ticked and can't be un-ticked.
+    const fixed = only("marketing", { marketing: { groups: [{ title: "G", programs: [{ key: "ann", title: "Partnership announcement" }] }] } });
+    expect(fixed).toContain('data-room-tick="on"');
+    expect(fixed).toMatch(/data-room-tick="on"|disabled=""/);
   });
   it("cover styles: photo card by default, full-bleed puts the photo behind the cover, light is pale", () => {
     const img = "/api/storage/objects/uploads/cover";
