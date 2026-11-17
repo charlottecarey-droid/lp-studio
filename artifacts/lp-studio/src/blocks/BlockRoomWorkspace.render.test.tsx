@@ -31,6 +31,7 @@ import {
   roomMilestoneKey,
   roomNextUp,
   requestFormFor,
+  isGiftStep,
   requestDetails,
   groupLaunch,
   assetReady,
@@ -528,14 +529,19 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     // A hub that doesn't ask is unchanged.
     expect(render()).not.toContain("data-room-gate");
   });
-  it("requests ask the right questions: a shipping address for a gift or kit, specifics for each kind", () => {
-    const gift = requestFormFor("marketing", "Accept your welcome kit");
+  it("requests: one general form for everything, and a shipping address only for the welcome gift", () => {
+    const gift = requestFormFor("shipping");
     expect(gift.title).toBe("Where should we send it?");
     expect(gift.fields.filter((f) => f.required).map((f) => f.key)).toEqual(["recipient", "street", "city", "state", "zip"]);
-    expect(requestFormFor("other", "Welcome gift for our leadership").title).toBe("Where should we send it?");
-    expect(requestFormFor("event", "Regional dinner").fields.map((f) => f.key)).toContain("people");
-    expect(requestFormFor("asset_change", "Change to: One-pager").title).toBe("Request a change");
-    expect(requestFormFor("other", "A question").fields.map((f) => f.key)).toEqual(["details"]);
+    const general = requestFormFor();
+    expect(general.fields.map((f) => f.key)).toEqual(["details", "by"]);
+    expect(requestDetails(general, { details: " New postcard for Texas ", by: "Dec 1" })).toBe("New postcard for Texas\nNeeded by: Dec 1");
+    expect(requestDetails(general, { details: "A question" })).toBe("A question");
+    // Only the welcome-gift setup step asks for an address: a question about a mailer or a kit does not.
+    expect(isGiftStep({ key: "onboard-gift", title: "Accept your welcome kit" })).toBe(true);
+    expect(isGiftStep({ title: "Accept your welcome gift" })).toBe(true);
+    expect(isGiftStep({ title: "Question about: Video mailer and lab-credit offer" })).toBe(false);
+    expect(isGiftStep({ title: "Add your team" })).toBe(false);
     // The answers become the request's details, one line each, blanks left out.
     expect(requestDetails(gift, { recipient: "Dana Ruiz", street: "100 Main St", suite: " ", city: "Dallas", state: "TX", zip: "75201" })).toBe("Recipient name: Dana Ruiz\nStreet address: 100 Main St\nCity: Dallas\nState: TX\nZIP code: 75201");
   });

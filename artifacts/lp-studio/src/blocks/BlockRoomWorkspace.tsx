@@ -1292,7 +1292,6 @@ input.prw-pick{display:block;width:100%;margin-top:5px}
 .prw-rf{flex:1 1 100%;min-width:0}
 .prw-rf.half{flex:1 1 calc(50% - 6px)}
 .prw-rf label span{font-weight:400;color:#9AA69E}
-.prw-rf-about{margin:2px 0 4px;padding:8px 12px;border-radius:8px;background:#F4F5F1;font-size:13px;font-weight:600;color:#0E1A16}
 .prw-have{margin:0 0 12px;padding:10px 14px;list-style:none;max-height:168px;overflow:auto;border:1px solid #E7E7E0;border-radius:9px;background:#FAFBF8;font-size:13px;color:#0E1A16}
 .prw-have li{padding:3px 0}
 .prw-have span{color:#5C6B61}
@@ -1425,7 +1424,7 @@ ${TEAM_STACK_RULES}
 }
 `;
 
-type RequestPreset = { subject: string; assetKey?: string; kind?: string; stepKey?: string; details?: string };
+type RequestPreset = { subject: string; assetKey?: string; kind?: string; stepKey?: string; details?: string; form?: "shipping" };
 type Ask = { kind: "request"; preset?: RequestPreset } | { kind: "email" } | { kind: "contact" } | null;
 
 export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldChange }: Props) {
@@ -1922,7 +1921,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         teamCount={theirPeople.length}
                         onNeedEmail={() => setAsk({ kind: "email" })}
                         onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
-                        onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key })}
+                        onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key, form: isGiftStep(x.step) ? "shipping" : undefined })}
                       />
                     ))}
                     {[...mine].sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).slice(0, Math.max(2, 5 - Math.min(3, stepsOpen.length))).map((x) => (
@@ -2751,68 +2750,31 @@ const SHIPPING_FORM: RequestForm = {
   ],
 };
 
-const KIND_FORMS: Record<string, RequestForm> = {
-  asset_change: {
-    title: "Request a change",
-    intro: "Tell us what to change and we’ll send back an updated version for your approval.",
-    submit: "Send request",
-    fields: [
-      { key: "what", label: "What should change", required: true, size: "long", placeholder: "The wording, a logo, a date, a size…" },
-      { key: "by", label: "Needed by", placeholder: "Nov 21" },
-    ],
-  },
-  event: {
-    title: "Event support",
-    intro: "A few details so we can scope it.",
-    submit: "Send request",
-    fields: [
-      { key: "what", label: "What kind of event", required: true, placeholder: "Regional dinner, lunch and learn, booth…" },
-      { key: "when", label: "Preferred date", size: "half", placeholder: "Dec 10" },
-      { key: "people", label: "How many people", size: "half" },
-      { key: "where", label: "Location" },
-      { key: "notes", label: "Anything else", size: "long" },
-    ],
-  },
-  training: {
-    title: "Training or scheduling",
-    intro: "Tell us who needs it and when works.",
-    submit: "Send request",
-    fields: [
-      { key: "who", label: "Who it’s for", required: true, placeholder: "Which practices or people" },
-      { key: "when", label: "Preferred dates", placeholder: "Weeks of Dec 1 and Dec 8" },
-      { key: "notes", label: "Anything else", size: "long" },
-    ],
-  },
-  reporting: {
-    title: "Reporting or data",
-    intro: "Tell us what you’d like to see.",
-    submit: "Send request",
-    fields: [
-      { key: "what", label: "What you want to see", required: true, size: "long", placeholder: "Usage by practice, turnaround times, spend…" },
-      { key: "often", label: "How often", placeholder: "Once, monthly, quarterly" },
-    ],
-  },
-};
-
-const GENERIC_FORM: RequestForm = {
+/** Every other request: the same four questions whatever it is about, so requests line up in one table. */
+const GENERAL_FORM: RequestForm = {
   title: "Make a request",
   intro: "It goes to the right person and shows up under Outstanding with a target date.",
   submit: "Send request",
-  fields: [{ key: "details", label: "Details", required: true, size: "long", placeholder: "Tell us what you need and by when" }],
+  fields: [
+    { key: "details", label: "Details", required: true, size: "long", placeholder: "Tell us what you need" },
+    { key: "by", label: "Needed by", placeholder: "Nov 21" },
+  ],
 };
 
-/**
- * The questions to ask for a request: a shipping address when something is
- * being sent (a welcome gift, a kit, swag), otherwise the ones that fit the
- * kind of request.
- */
-export function requestFormFor(kind: string, subject: string): RequestForm {
-  if (/\b(gift|welcome kit|kits?|swag|ship(ping|ment)?|mailer)\b/i.test(subject)) return SHIPPING_FORM;
-  return KIND_FORMS[kind] ?? GENERIC_FORM;
+/** The setup step that accepts the welcome gift: the one request that asks where to ship something. */
+export function isGiftStep(step: { key?: string; title?: string }): boolean {
+  return step.key === "onboard-gift" || /\bwelcome (gift|kit)s?\b|\bgift\b/i.test(step.title ?? "");
+}
+
+/** The questions a request asks: a shipping address for the welcome gift, the general form for everything else. */
+export function requestFormFor(form?: "shipping"): RequestForm {
+  return form === "shipping" ? SHIPPING_FORM : GENERAL_FORM;
 }
 
 /** The answers as the request's details: one "Label: answer" line each, blanks left out. */
 export function requestDetails(form: RequestForm, values: Record<string, string>): string {
+  // The general form's details are the customer's own words, with the date they need it by on a line of its own.
+  if (form === GENERAL_FORM) return [(values.details ?? "").trim(), (values.by ?? "").trim() ? `Needed by: ${values.by.trim()}` : ""].filter(Boolean).join("\n");
   return form.fields
     .map((f) => [f.label, (values[f.key] ?? "").trim()] as const)
     .filter(([, v]) => v)
@@ -2827,9 +2789,8 @@ function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEscape(onClose);
-  // A request that starts from a specific thing (a setup step, a kit item) keeps its subject and asks only what it needs.
-  const fixed = !!(preset?.stepKey || preset?.assetKey);
-  const form = requestFormFor(kind, subject);
+  const form = requestFormFor(preset?.form);
+  const shipping = form === SHIPPING_FORM;
   const missing = form.fields.some((f) => f.required && !(values[f.key] ?? "").trim());
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2853,11 +2814,11 @@ function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store:
   };
   return createPortal(
     <div className="prw prw-modal" style={{ background: "rgba(0,20,16,.5)" }} onClick={onClose} data-room-request-dialog>
-      <form className="box" onSubmit={submit} onClick={(e) => e.stopPropagation()} style={{ fontFamily: BRAND_BODY_STACK }} data-room-request-form={form === SHIPPING_FORM ? "shipping" : kind}>
+      <form className="box" onSubmit={submit} onClick={(e) => e.stopPropagation()} style={{ fontFamily: BRAND_BODY_STACK }} data-room-request-form={shipping ? "shipping" : "general"}>
         <button type="button" className="x" onClick={onClose} aria-label="Close"><X style={{ width: 16, height: 16 }} /></button>
-        <h3>{fixed && form === SHIPPING_FORM ? subject || form.title : form.title}</h3>
+        <h3>{shipping ? subject || form.title : form.title}</h3>
         <p>{form.intro}</p>
-        {!fixed && (
+        {!shipping && (
           <>
             <label htmlFor="prw-kind">What do you need?</label>
             <select id="prw-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -2872,7 +2833,6 @@ function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store:
             <input id="prw-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Which item or topic" maxLength={160} />
           </>
         )}
-        {fixed && form !== SHIPPING_FORM && subject && <div className="prw-rf-about">{subject}</div>}
         <div className="prw-rfs">{form.fields.map(input)}</div>
         {error && <div className="prw-err" role="alert">{error}</div>}
         <div className="row">
