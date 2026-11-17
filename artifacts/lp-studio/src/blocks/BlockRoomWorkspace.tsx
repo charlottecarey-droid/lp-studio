@@ -1201,6 +1201,7 @@ const CSS = `
 .prw-sc-docs li{padding:1px 0}
 .prw-sc-check .extra{margin:8px 0 0 30px;font-size:12.5px;color:var(--body)}
 .prw-sc-check .extra li{margin:2px 0}
+.prw-sc-sync{display:block;margin-top:3px;font-size:11.5px;color:var(--faint)}
 .prw-sc-yes{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:color-mix(in srgb,var(--green) 16%,#fff);color:#0B6B3A}
 .prw-sc-yes svg{width:12px;height:12px}
 .prw-sc-cols{position:relative;margin-left:auto}

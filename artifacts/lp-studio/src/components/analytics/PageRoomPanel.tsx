@@ -25,7 +25,7 @@ interface RoomDetail {
   revopsSlackMention?: string | null;
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
-  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -1123,10 +1123,13 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
       const siteUrl = keys.length > 1 ? await ensureSite() : "";
       const [{ createLaunchAsset }, { fetchBrandConfig }] = await Promise.all([import("@/lib/room-launch-assets"), import("@/lib/brand-config")]);
       const brand = await fetchBrandConfig();
+      // Files made in this run (the one-pager, the graphics) so the media kit, made last, can link to them.
+      const made: Record<string, string> = {};
       for (const key of keys) {
         setState((s) => ({ ...s, [key]: "working" }));
         try {
-          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: siteUrl || site?.url || kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => x.title) });
+          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: siteUrl || site?.url || kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => ({ title: x.title, url: made[x.key] ?? x.url ?? "" })) });
+          made[key] = url;
           setPreviews((p) => ({ ...p, [key]: url }));
           const spec = (await import("@/lib/room-launch-assets")).LAUNCH_ASSETS.find((x) => x.key === key);
           if (spec) onKitAssets?.([{ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl: url }]);
@@ -1371,10 +1374,12 @@ export function AutomaticRoomsSection() {
       const [brand, detail] = await Promise.all([fetchBrandConfig(), fetch(`/api/lp/partner-rooms/${j.pageId}`).then((x) => x.json() as Promise<RoomDetail>)]);
       const kit = detail.kit;
       if (!kit) return;
+      // Files made in this run, so the media kit (made last) can link to them.
+      const madeUrls: Record<string, string> = {};
       for (const a of LAUNCH_ASSETS) {
         const done = step(`Create: ${a.title}`);
         try {
-          await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => x.title), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => x.title)] });
+          madeUrls[a.key] = await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => ({ title: x.title, url: madeUrls[x.key] ?? "" })), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => ({ title: x.title, url: x.url ?? "" }))] });
           done("done");
         } catch (e) {
           done("failed", e instanceof Error ? e.message : "Could not create it");

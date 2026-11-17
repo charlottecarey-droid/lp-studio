@@ -106,6 +106,8 @@ export interface RoomSnapshot {
     trend?: { day: string; total: number; byStage: Record<string, number> }[];
     /** Doctors on the customer's roster, and how many sit at a practice we hold. */
     doctors?: { total: number; matched: number };
+    /** When the list was last refreshed from its source (about hourly). */
+    syncedAt?: string;
   };
   /** Meetings synced from the team's calendar (only ones with a customer guest). */
   events: RoomSyncedEvent[];

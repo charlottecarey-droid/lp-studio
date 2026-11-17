@@ -50,6 +50,15 @@ export function trendDelta(trend: Trend, tile: RoomPracticeStageFilter | "all", 
   return tileCount(now.byStage, now.total, tile) - tileCount(then.byStage, then.total, tile);
 }
 
+/** "today, 9:14 PM" for the same day, otherwise "Nov 16, 9:14 PM", in the reader's own time. */
+export function updatedLabel(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? `today, ${time}` : `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${time}`;
+}
+
 /** Points for a small line chart: x across the days, y from 0 to the largest value. */
 export function sparkPoints(values: number[], width: number, height: number, top?: number): string {
   if (values.length === 0) return "";
@@ -276,7 +285,12 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
           <h2 style={{ fontFamily: display }}>Rollout scorecard</h2>
           <p>Where every {one} stands, kept current by our team. Click a number to see only those {noun}.</p>
         </div>
-        {pr.regions.length > 0 && <div className="prw-meta"><b>{pr.total}</b> {noun} · <b>{pr.regions.length}</b> regions</div>}
+        {(pr.regions.length > 0 || pr.syncedAt) && (
+          <div className="prw-meta">
+            {pr.regions.length > 0 && <><b>{pr.total}</b> {noun} · <b>{pr.regions.length}</b> regions</>}
+            {pr.syncedAt && <span className="prw-sc-sync" data-room-scorecard-synced title="The list refreshes from Salesforce about every hour">Updated {updatedLabel(pr.syncedAt)}</span>}
+          </div>
+        )}
       </div>
 
       {isTeam && check?.checked && (

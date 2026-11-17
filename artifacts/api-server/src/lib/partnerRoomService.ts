@@ -52,6 +52,8 @@ export interface PracticeSummary {
   trend: PracticeTrendPoint[];
   /** Doctors on the customer's roster, and how many of them sit at a practice we hold. Absent until a roster with doctors is read. */
   doctors?: { total: number; matched: number };
+  /** When the list was last refreshed from its connected sheet (it is re-read about every hour). Absent when no sheet is connected. */
+  syncedAt?: string;
 }
 
 export async function practiceSummary(pageId: number): Promise<PracticeSummary> {
@@ -86,7 +88,13 @@ export async function practiceSummary(pageId: number): Promise<PracticeSummary> 
     waves,
     trend: trend.reverse(),
     ...(await doctorTotals(pageId, total)),
+    ...(await lastSheetRead(pageId)),
   };
+}
+
+async function lastSheetRead(pageId: number): Promise<{ syncedAt?: string }> {
+  const [s] = await db.select({ sheetId: lpRoomSettingsTable.practicesSheetId, at: lpRoomSettingsTable.practicesSyncedAt }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, pageId)).limit(1);
+  return s?.sheetId && s.at ? { syncedAt: s.at.toISOString() } : {};
 }
 
 async function doctorTotals(pageId: number, practices: number): Promise<{ doctors?: { total: number; matched: number } }> {

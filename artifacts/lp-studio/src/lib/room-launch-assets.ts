@@ -23,8 +23,8 @@ export interface LaunchAssetInput {
   /** The kit's written pieces and links, for the media kit document. */
   texts?: { title: string; description: string; body: string }[];
   links?: { title: string; url: string }[];
-  /** Names of the files in the kit, listed in the media kit document. */
-  files?: string[];
+  /** The files in the kit, listed in the media kit document; with a URL each one is a download link. */
+  files?: (string | { title: string; url?: string })[];
 }
 
 export type LaunchAssetKey = "partnership-one-pager" | "social-image-1" | "social-image-2" | "media-kit";
@@ -324,8 +324,9 @@ export function layoutKitCopy(body: string, width: number, wrap: (text: string, 
 /**
  * The room's written launch pieces in one document: a cover with both logos
  * and names, each piece (announcement email, social posts, approved
- * description) set as a clean block ready to copy, the logos, the files in the
- * kit and the links. Built from the kit itself, so it says what the room says.
+ * description) set as a clean block ready to copy, then the files in the kit
+ * (each a download link) and the links. Built from the kit itself, so it says
+ * what the room says. One spacing rhythm throughout.
  */
 export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
   const [{ jsPDF }, { headlineFontFor }, { resolveBrandPdfFonts }] = await Promise.all([import("jspdf"), import("@workspace/one-pager-types/generators"), import("@/lib/brand-config")]);
@@ -356,7 +357,8 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
     doc.setFontSize(size);
     doc.setTextColor(...color);
   };
-  const [brandLight, brandDark, partnerLogo] = await Promise.all([imageAsDataUrl((brand.logoUrlDark ?? "").trim() || ""), imageAsDataUrl((brand.logoUrl ?? "").trim() || ""), imageAsDataUrl(input.partnerLogoUrl)]);
+  // Logos appear once, on the cover. The kit does not reprint anyone's logo as a picture: the links section points to the logo files.
+  const [brandLight, partnerLogo] = await Promise.all([imageAsDataUrl((brand.logoUrlDark ?? "").trim() || ""), imageAsDataUrl(input.partnerLogoUrl)]);
   /** Draw an image fitted inside a box, left-aligned (or centred), and return the width used. */
   const place = (img: { data: string; w: number; h: number }, x: number, y: number, maxW: number, maxH: number, centre = false): number => {
     const b = containBox(img.w, img.h, { x, y, w: maxW, h: maxH });
@@ -366,9 +368,9 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
   };
 
   /* Cover */
-  const COVER_H = 318;
+  // The cover is the whole first page: logos at the top, the title in the middle, what is inside at the foot.
   doc.setFillColor(...DARK);
-  doc.rect(0, 0, W, COVER_H, "F");
+  doc.rect(0, 0, W, H, "F");
   // Both logos, as on the social graphics; a name stands in for a logo that isn't uploaded.
   let x = M;
   const logoY = 50;
@@ -390,15 +392,16 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
     doc.text(input.partnerName, x, logoY + 20);
   }
   setBody(9, ACCENT, true);
-  doc.text("PARTNERSHIP MEDIA KIT", M, 150, { charSpace: 1.6 });
-  setHead(36, [255, 255, 255]);
+  const TITLE_Y = 330;
+  doc.text("PARTNERSHIP MEDIA KIT", M, TITLE_Y - 42, { charSpace: 1.6 });
+  setHead(40, [255, 255, 255]);
   const title = doc.splitTextToSize(pair, CW) as string[];
-  doc.text(title, M, 192, { lineHeightFactor: 1.12 });
-  const afterTitle = 192 + (title.length - 1) * 40;
+  doc.text(title, M, TITLE_Y, { lineHeightFactor: 1.12 });
+  const afterTitle = TITLE_Y + (title.length - 1) * 45;
   setBody(12, [226, 234, 229]);
-  doc.text(doc.splitTextToSize("Approved copy, logos, graphics and links for announcing the partnership. Everything here is ready to use as written.", CW * 0.78) as string[], M, afterTitle + 34, { lineHeightFactor: 1.4 });
+  doc.text(doc.splitTextToSize("Approved copy, files and links for announcing the partnership. Everything here is ready to use as written.", CW * 0.78) as string[], M, afterTitle + 34, { lineHeightFactor: 1.4 });
 
-  let y = COVER_H + 44;
+  let y = 68;
   const footer = () => {
     setBody(8.5, [146, 154, 149]);
     doc.text(pair, M, H - 32);
@@ -413,33 +416,43 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
     if (y + needed > H - 62) newPage();
   };
 
-  /* In this kit */
-  const contents = [...(input.texts ?? []).map((t) => t.title), ...(brandLight || brandDark || partnerLogo ? ["Logos"] : []), ...((input.files ?? []).length ? ["Files"] : []), ...((input.links ?? []).length ? ["Links"] : [])];
+  // One rhythm for the whole document: the same space above every section, under every title, and between rows.
+  const SECTION_GAP = 34;
+  const files = (input.files ?? []).map((f) => (typeof f === "string" ? { title: f, url: "" } : { title: f.title, url: (f.url ?? "").trim() })).filter((f) => f.title);
+  /** A hosted file's address as a link that works outside the app. */
+  const absolute = (url: string) => (/^https?:\/\//i.test(url) ? url : url.startsWith("/") && typeof window !== "undefined" ? `${window.location.origin}${url}` : "");
+
+  /* In this kit: at the foot of the cover, in reading order */
+  const contents = [...(input.texts ?? []).map((t) => t.title), ...(files.length ? ["Files"] : []), ...((input.links ?? []).length ? ["Links"] : [])];
   if (contents.length) {
-    setBody(9, DARK, true);
-    doc.text("IN THIS KIT", M, y, { charSpace: 1.4 });
-    y += 20;
-    contents.forEach((c, i) => {
-      const col = i % 2;
-      setBody(11, INK);
-      doc.text(c, M + col * (CW / 2), y);
-      if (col === 1 || i === contents.length - 1) y += 19;
-    });
-    y += 18;
+    setBody(11, [226, 234, 229]);
+    const toc = doc.splitTextToSize(contents.join("   ·   "), CW) as string[];
+    const top = H - 64 - toc.length * 16.5;
+    // A hairline a quarter of the way from the cover colour to white.
+    doc.setDrawColor(...(DARK.map((c) => Math.round(c + (255 - c) * 0.25)) as [number, number, number]));
+    doc.setLineWidth(0.6);
+    doc.line(M, top - 34, W - M, top - 34);
+    setBody(9, ACCENT, true);
+    doc.text("IN THIS KIT", M, top - 12, { charSpace: 1.4 });
+    setBody(11, [226, 234, 229]);
+    doc.text(toc, M, top + 8, { lineHeightFactor: 1.5 });
   }
+  // The pieces start on their own page, under the same top margin as every page after.
+  doc.addPage();
 
   const sectionTitle = (text: string, sub?: string) => {
-    room(96);
+    // A title is never left alone at the foot of a page: it needs room for itself and a few lines under it.
+    room(118);
     setHead(20, DARK);
-    doc.text(text, M, y);
-    y += 8;
+    doc.text(text, M, y + 16);
+    y += 16;
     if (sub) {
       setBody(10, MUTE);
       const lines = doc.splitTextToSize(sub, CW) as string[];
-      doc.text(lines, M, y + 9);
-      y += lines.length * 13;
+      doc.text(lines, M, y + 17, { lineHeightFactor: 1.35 });
+      y += 4 + lines.length * 13.5;
     }
-    y += 14;
+    y += 16;
   };
 
   /* Written pieces: each in a pale block, with real paragraphs and bullets */
@@ -451,8 +464,12 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
   };
   const heightOf = (l: KitLine) => (l.kind === "subject" ? 34 : LEAD + (l.gap ?? 0));
   for (const piece of input.texts ?? []) {
-    sectionTitle(piece.title, piece.description);
     const lines = layoutKitCopy(piece.body, CW - PAD * 2, wrap);
+    const whole = lines.reduce((n, l) => n + heightOf(l), 0) + PAD * 2 - 4;
+    // A piece that fits on one page is kept in one block: it starts a new page rather than being cut in two.
+    const fitsAPage = whole <= H - 62 - 68 - 60;
+    if (fitsAPage && y + 60 + whole > H - 62) newPage();
+    sectionTitle(piece.title, piece.description);
     let i = 0;
     while (i < lines.length) {
       // Take as many lines as fit on this page, and draw the block behind them first.
@@ -504,61 +521,50 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
       i = j;
       if (i < lines.length) newPage();
     }
-    y += 34;
+    y += SECTION_GAP;
   }
 
-  /* Logos: on the surface each is made for */
-  if (brandLight || brandDark || partnerLogo) {
-    sectionTitle("Logos", "Use the logos as supplied: do not recolour, stretch or crop them.");
-    const tileH = 104;
-    const gap = 16;
-    const tiles: { img: { data: string; w: number; h: number }; dark: boolean; label: string }[] = [
-      ...(brandLight ? [{ img: brandLight, dark: true, label: `${brandName || "Our"} logo, for dark backgrounds` }] : []),
-      ...(brandDark && brandDark.data !== brandLight?.data ? [{ img: brandDark, dark: false, label: `${brandName || "Our"} logo, for light backgrounds` }] : []),
-      ...(partnerLogo ? [{ img: partnerLogo, dark: true, label: `${input.partnerName} logo` }] : []),
-    ];
-    const tw = (CW - gap) / 2;
-    tiles.forEach((t, i) => {
-      const col = i % 2;
-      if (col === 0) room(tileH + 34);
-      const tx = M + col * (tw + gap);
-      if (t.dark) doc.setFillColor(...DARK);
-      else doc.setFillColor(246, 247, 243);
-      doc.roundedRect(tx, y, tw, tileH, 8, 8, "F");
-      place(t.img, tx + 34, y + 30, tw - 68, tileH - 60, true);
-      setBody(9.5, MUTE);
-      doc.text(t.label, tx, y + tileH + 15);
-      if (col === 1 || i === tiles.length - 1) y += tileH + 34;
-    });
-    y += 10;
-  }
-
-  const rows = (items: { title: string; sub?: string; url?: string }[]) => {
+  /* Files and links: one row each, the name on the left and a link on the right. The whole row is the link. */
+  const ROW = 34;
+  const BLUE: [number, number, number] = [34, 78, 160];
+  const rows = (items: { title: string; sub?: string; url?: string; action: string }[]) => {
+    doc.setDrawColor(228, 231, 224);
+    doc.setLineWidth(0.6);
+    doc.line(M, y, W - M, y);
     for (const it of items) {
-      room(it.sub ? 40 : 28);
-      setBody(11, INK, true);
-      doc.text(it.title, M, y);
-      if (it.sub) {
-        setBody(9.5, [34, 78, 160]);
-        const shown = (doc.splitTextToSize(it.sub, CW) as string[])[0];
-        if (it.url) doc.textWithLink(shown, M, y + 14, { url: it.url });
-        else doc.text(shown, M, y + 14);
+      const h = it.sub ? ROW + 12 : ROW;
+      if (y + h > H - 62) {
+        newPage();
+        doc.setDrawColor(228, 231, 224);
+        doc.setLineWidth(0.6);
+        doc.line(M, y, W - M, y);
       }
-      y += it.sub ? 26 : 14;
+      setBody(11, INK, true);
+      doc.text((doc.splitTextToSize(it.title, CW - 110) as string[])[0], M, y + (it.sub ? 19 : 21));
+      if (it.sub) {
+        setBody(9, MUTE);
+        doc.text((doc.splitTextToSize(it.sub, CW - 110) as string[])[0], M, y + 33);
+      }
+      if (it.url) {
+        setBody(10, BLUE, true);
+        doc.text(it.action, W - M, y + h / 2 + 3.5, { align: "right" });
+        doc.link(M, y + 2, CW, h - 4, { url: it.url });
+      }
+      y += h;
       doc.setDrawColor(228, 231, 224);
       doc.setLineWidth(0.6);
       doc.line(M, y, W - M, y);
-      y += 16;
     }
   };
-  if ((input.files ?? []).length) {
-    sectionTitle("Files", "Download each one from the launch kit in your partner room.");
-    rows((input.files ?? []).map((f) => ({ title: f })));
-    y += 16;
+  if (files.length) {
+    const linked = files.some((f) => absolute(f.url));
+    sectionTitle("Files", linked ? "Click a file to download it." : "Download each one from the launch kit in your Partner Hub.");
+    rows(files.map((f) => ({ title: f.title, url: absolute(f.url) || undefined, action: "Download" })));
+    y += SECTION_GAP;
   }
   if ((input.links ?? []).length) {
     sectionTitle("Links");
-    rows((input.links ?? []).map((l) => ({ title: l.title, sub: l.url, url: l.url })));
+    rows((input.links ?? []).map((l) => ({ title: l.title, sub: l.url.replace(/^https?:\/\//, ""), url: l.url, action: "Open" })));
   }
   footer();
   return doc.output("blob");

@@ -633,7 +633,7 @@ export interface RoomKitInfo {
   heroImageUrl: string;
   /** The first launch-kit link (the sign-up page), for the one-pager's QR code. */
   signupUrl: string;
-  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean }[];
+  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; /** Where the item's file is (a hosted path or an address), when it has one. */ url: string }[];
   /** The kit's written pieces (announcement email, social posts, approved description), for the media kit document. */
   texts: { title: string; description: string; body: string }[];
   /** The kit's links, for the media kit document. */
@@ -655,7 +655,7 @@ export function roomKitInfo(blocks: unknown): RoomKitInfo | null {
     partnerLogoUrl: str(props.partnerLogoUrl),
     heroImageUrl: str(props.heroImageUrl),
     signupUrl: str(links.find((l) => l && !l.hidden && /^https?:\/\//.test(str(l.url)))?.url),
-    assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true })),
+    assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true, url: str(a.fileUrl) || str(a.videoUrl) })),
     texts: assets.filter((a) => a && !a.hidden && a.kind === "text" && str(a.body)).map((a) => ({ title: str(a.title), description: str(a.description), body: typeof a.body === "string" ? a.body.trim().slice(0, 8000) : "" })).slice(0, 20),
     links: [
       ...links.filter((l) => l && !l.hidden && /^https?:\/\//.test(str(l.url))).map((l) => ({ title: str(l.title), url: str(l.url) })),

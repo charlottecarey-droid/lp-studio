@@ -101,7 +101,7 @@ describe("launch kit: generated assets", () => {
   ];
   it("reads what the generator needs from the page", () => {
     expect(roomKitInfo(blocks)).toMatchObject({ partnerName: "MB2 Dental", partnerLogoUrl: "/api/storage/objects/uploads/logo", heroImageUrl: "", signupUrl: "https://partners.example.com/mb2" });
-    expect(roomKitInfo(blocks)!.assets).toEqual([{ key: "partnership-one-pager", title: "Partnership one-pager", kind: "pdf", hasFile: false, hidden: true }, { key: "announcement-email", title: "Announcement email", kind: "text", hasFile: true, hidden: false }]);
+    expect(roomKitInfo(blocks)!.assets).toEqual([{ key: "partnership-one-pager", title: "Partnership one-pager", kind: "pdf", hasFile: false, hidden: true, url: "" }, { key: "announcement-email", title: "Announcement email", kind: "text", hasFile: true, hidden: false, url: "" }]);
     expect(roomKitInfo([{ type: "hero" }])).toBeNull();
   });
   it("only accepts a file in this app's own storage", () => {

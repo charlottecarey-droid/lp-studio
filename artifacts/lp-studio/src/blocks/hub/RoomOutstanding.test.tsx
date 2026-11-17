@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ownerSide, roomMeetingActionKey, sortOutstanding, type OutstandingItem } from "./RoomOutstanding";
-import { flagOrText } from "./RoomScorecard";
+import { flagOrText, updatedLabel } from "./RoomScorecard";
 
 describe("outstanding items", () => {
   it("keys a meeting action the way the server does, for typed and synced meetings", () => {
@@ -33,5 +33,14 @@ describe("scorecard yes/no cells", () => {
     for (const v of ["false", "0", "No"]) expect(flagOrText(v)).toEqual({ tick: false, text: "" });
     expect(flagOrText("11/2/2026")).toEqual({ tick: false, text: "11/2/2026" });
     expect(flagOrText(null)).toEqual({ tick: false, text: "" });
+  });
+});
+
+describe("scorecard freshness", () => {
+  it("says when the list was last refreshed, in plain words", () => {
+    const now = new Date(2026, 10, 17, 9, 30);
+    expect(updatedLabel(new Date(2026, 10, 17, 8, 5).toISOString(), now)).toMatch(/^today, 8:05/);
+    expect(updatedLabel(new Date(2026, 10, 16, 21, 14).toISOString(), now)).toMatch(/^Nov 16, 9:14/);
+    expect(updatedLabel("not a date", now)).toBe("");
   });
 });
