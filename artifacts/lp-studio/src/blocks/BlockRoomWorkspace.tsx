@@ -1147,8 +1147,10 @@ const CSS = `
 .prw-sc-regions>button .v{font-size:12px;color:var(--body);text-align:right;white-space:nowrap}
 .prw-sc-regions>button.more{display:block;width:auto;margin:6px 0 4px;padding:4px 0;font-size:12px;font-weight:600;color:var(--dark)}
 .prw-sc-tools input{max-width:280px}
-.prw-tpl{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:0;border:0;background:none;font-size:12px;font-weight:600;color:var(--dark);text-decoration:underline;text-underline-offset:2px}
-.prw-tpl svg{width:12px;height:12px}
+.prw-act{display:inline-flex;flex-direction:column;align-items:center;gap:5px;vertical-align:middle}
+.prw .prw-act .prw-tpl{display:inline-flex;align-items:center;gap:4px;padding:0;border:0;background:none;font-size:11px;font-weight:500;line-height:1.2;color:var(--body);text-decoration:underline;text-underline-offset:2px}
+.prw .prw-act .prw-tpl:hover{color:var(--dark)}
+.prw .prw-act .prw-tpl svg{width:10px;height:10px}
 .prw-sc-docs summary{cursor:pointer;list-style:none;font-weight:600;color:var(--ink)}
 .prw-sc-docs summary::-webkit-details-marker{display:none}
 .prw-sc-docs summary span{font-weight:400;color:var(--body);font-size:11.5px;margin-left:5px}
@@ -2188,7 +2190,7 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row:
   const label = row.action === "upload" ? (done ? "Replace" : "Upload") : done ? "Undo" : "Complete";
   const hint = row.action === "upload" ? (done ? "Replace the file" : (row.r.uploadLabel ?? "").trim() || "Upload a file") : done ? "Mark as not done" : "Mark complete";
   return (
-    <>
+    <span className="prw-act">
       <button type="button" className={`prw-btn${done ? "" : " pri"}`} onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
         {busy ? <Loader2 className="animate-spin" aria-hidden /> : row.action === "upload" ? <Upload aria-hidden /> : <Check aria-hidden />}
         {busy ? "Saving" : label}
@@ -2228,7 +2230,7 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row:
         </button>
       )}
       {error && <div className="prw-err" role="alert" style={{ whiteSpace: "normal" }}>{error}</div>}
-    </>
+    </span>
   );
 }
 
