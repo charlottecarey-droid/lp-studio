@@ -393,6 +393,8 @@ export interface RoomWorkspaceBlockProps {
   /** Size of each logo in the top bar, as a percentage of the standard height (50–300). Blank = 100. */
   partnerLogoScale?: number;
   brandLogoScale?: number;
+  /** Show the customer's logo in its own colours. By default it is recoloured to suit the cover (white on a dark cover), so any logo reads cleanly without a separate white version. */
+  partnerLogoOriginal?: boolean;
   /** "Schedule a meeting" in the top bar: where it books (a rep's booking page). Blank = no button. */
   scheduleUrl?: string;
   scheduleLabel?: string;
@@ -1549,8 +1551,10 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   };
   const heroImage = (props.heroImageUrl ?? "").trim();
   const cover = props.coverStyle === "fullbleed" || props.coverStyle === "light" ? props.coverStyle : "split";
-  // The customer's logo is a light version made for dark covers; on the pale cover their name is set in type instead.
-  const partnerLogo = cover === "light" ? "" : (props.partnerLogoUrl ?? "").trim();
+  // The customer's logo is recoloured for the cover: white on the dark covers, dark on the pale one. Kept in its own colours,
+  // a logo made for dark covers would vanish on the pale cover, so there the name is set in type instead.
+  const partnerLogo = cover === "light" && props.partnerLogoOriginal ? "" : (props.partnerLogoUrl ?? "").trim();
+  const partnerLogoFilter = props.partnerLogoOriginal ? undefined : cover === "light" ? "brightness(0)" : "brightness(0) invert(1)";
   const pct = day === null ? 0 : Math.min(100, Math.round((day / total) * 100));
 
   return (
@@ -1563,7 +1567,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
             <div className="prw-lock" style={{ ["--blogo" as string]: logoScale(props.brandLogoScale) }}>
               {brandHasLogo(brand) ? <BrandLogo brand={brand} tone={cover === "light" ? "onLight" : "onDark"} alt={brand.brandName || "Logo"} /> : <span>{brand.brandName}</span>}
               <span className="x">×</span>
-              {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} style={{ height: Math.round(22 * logoScale(props.partnerLogoScale)) }} data-room-partner-logo /> : <span>{props.partnerName}</span>}
+              {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} style={{ height: Math.round(22 * logoScale(props.partnerLogoScale)), filter: partnerLogoFilter }} data-room-partner-logo /> : <span>{props.partnerName}</span>}
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
               {safeHttpUrl(props.scheduleUrl) && (

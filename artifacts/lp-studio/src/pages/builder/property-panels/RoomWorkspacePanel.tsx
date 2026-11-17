@@ -387,8 +387,12 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         <p className="text-[11px] leading-snug text-muted-foreground">The name fills in everywhere automatically. In any text, <code>{"{{account}}"}</code> is the customer name and <code>{"{{account_short}}"}</code> the short name; the template’s [Partner name] and [Partner] work the same way.</p>
         <div className="flex items-center gap-2">
           <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo (for the dark cover)" />
-          <span className="text-[11px] text-muted-foreground">Customer logo, light version. Blank shows their name.</span>
+          <span className="text-[11px] text-muted-foreground">Customer logo. Any version works: it is recoloured to white on the dark cover. Blank shows their name.</span>
         </div>
+        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Switch checked={!!props.partnerLogoOriginal} onCheckedChange={(v) => update({ partnerLogoOriginal: v })} aria-label="Keep the logo's own colours" />
+          Keep the logo’s own colours (use this if the logo has a solid background)
+        </label>
         <div className="grid grid-cols-2 gap-2">
           <Field label={`Customer logo size · ${Math.round(props.partnerLogoScale ?? 100)}%`}>
             <input type="range" min={50} max={300} step={5} value={props.partnerLogoScale ?? 100} onChange={(e) => update({ partnerLogoScale: Number(e.target.value) })} className="w-full" aria-label="Customer logo size" data-room-logo-size="partner" />

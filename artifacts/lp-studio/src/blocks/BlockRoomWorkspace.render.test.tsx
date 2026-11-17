@@ -362,9 +362,13 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(auto).not.toContain("Next up: Kickoff held");
     expect(roomNextUp("", "", [{ task: "A", done: true }])).toBeNull();
     expect(roomNextUp(" Typed ", "2026-01-02", [{ task: "A", done: false }])).toEqual({ label: "Typed", date: "2026-01-02" });
-    const lt = render({ heroImageUrl: img, coverStyle: "light", partnerLogoUrl: "/logo-white.png" });
+    const lt = render({ heroImageUrl: img, coverStyle: "light", partnerLogoUrl: "/logo-white.png", partnerLogoOriginal: true });
     expect(lt).toContain('data-room-cover="light"');
-    expect(lt).not.toContain("/logo-white.png"); // a white logo would vanish on the pale cover
+    expect(lt).not.toContain("/logo-white.png"); // kept in its own colours, a white logo would vanish on the pale cover
+    // By default the customer's logo is recoloured for the cover: white on a dark one, dark on the pale one.
+    expect(render({ partnerLogoUrl: "/logo.png" })).toContain("filter:brightness(0) invert(1)");
+    expect(render({ partnerLogoUrl: "/logo.png", coverStyle: "light" })).toMatch(/src="\/logo\.png"[^>]*filter:brightness\(0\)"/);
+    expect(render({ partnerLogoUrl: "/logo.png", partnerLogoOriginal: true })).not.toContain("filter:brightness");
     expect(render({ coverStyle: "nope" as never })).toContain('data-room-cover="split"');
   });
   it("overdue: a target date that has passed, read with or without a year; other wording is never a date", () => {
