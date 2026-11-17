@@ -51,6 +51,7 @@ import { buildRoomPeople, countReactions, feedAlertEmail, feedAlertsFor, parseRe
 import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, syncRoomCalendar } from "../../lib/partnerRoomCalendar";
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
+import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
 import { accountPeople, createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
@@ -1390,6 +1391,8 @@ router.get("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       sfdcField: cfg?.sfdcField ?? null,
       syncedAt: cfg?.syncedAt?.toISOString() ?? null,
       note: cfg?.syncNote ?? null,
+      // The address the workbook must be shared with (the workspace's Google service account), when there is one.
+      shareWith: await roomSheetsAccount(tenantId),
       accounts: accounts.map((a) => ({ key: a.accountKey, name: a.accountName, signedDate: a.signedDate, owner: a.owner, sfdcId: a.sfdcAccountId, pageId: a.pageId && a.pageId > 0 ? a.pageId : null })),
     });
   } catch (err) {

@@ -13,7 +13,6 @@
  * sheet. A room is made once per account (claimed by a unique row, so two app
  * instances reading at the same moment cannot both create it).
  */
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { appUsersTable, db, lpPagesTable, salesAccountsTable, salesContactsTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
 import { sendRoomDigestEmail } from "./notifications";
@@ -22,6 +21,7 @@ import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 import { logger } from "./logger";
 import { ROOM_STANDARD_ASSETS, setRoomKitAsset } from "./partnerRoom";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
+import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
 import { addTeamPeople, cleanDomain, EMPTY_SETUP_FACTS, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist, type AccountContact, type RoomSetupFacts } from "./partnerRoomTeam";
 import { SHEET_ID_RE, SHEET_TAB_RE, syncPracticesFromSheet } from "./partnerRoomService";
 import { slackService } from "./slack-service";
@@ -278,20 +278,20 @@ export interface RoomFollowUps {
   sfdc: { ok: boolean; note: string } | null;
 }
 
-async function appendRoomLog(sheetId: string, tab: string, row: string[]): Promise<void> {
-  connectors ??= new ReplitConnectors();
-  const meta = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}?fields=sheets(properties(title))`, { method: "GET" });
-  if (!meta.ok) throw new Error(meta.status === 403 || meta.status === 404 ? "Couldn't open the sheet. It must be shared with edit access with the Google account connected to LP Studio." : `Google Sheets returned ${meta.status}`);
+async function appendRoomLog(tenantId: number, sheetId: string, tab: string, row: string[]): Promise<void> {
+  const meta = await roomSheetsRequest(tenantId, `/v4/spreadsheets/${sheetId}?fields=sheets(properties(title))`);
+  if (!meta.ok) throw new Error(sheetProblem(meta.status, meta.sharedWith, "", "edit"));
+  const cantEdit = `${meta.sharedWith} can view that sheet but not edit it. Share it as an Editor.`;
   const exists = (((await meta.json()) as { sheets?: { properties?: { title?: string } }[] }).sheets ?? []).some((s) => s.properties?.title === tab);
   const json = { method: "POST", headers: { "Content-Type": "application/json" } };
   if (!exists) {
-    const add = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}:batchUpdate`, { ...json, body: JSON.stringify({ requests: [{ addSheet: { properties: { title: tab } } }] }) });
-    if (!add.ok) throw new Error(add.status === 403 ? "The connected Google account can view that sheet but not edit it." : `Couldn't add the “${tab}” tab (${add.status})`);
-    const head = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1`)}?valueInputOption=RAW`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: [ROOM_LOG_HEADERS] }) });
+    const add = await roomSheetsRequest(tenantId, `/v4/spreadsheets/${sheetId}:batchUpdate`, { ...json, body: JSON.stringify({ requests: [{ addSheet: { properties: { title: tab } } }] }) });
+    if (!add.ok) throw new Error(add.status === 403 ? cantEdit : `Couldn't add the “${tab}” tab (${add.status})`);
+    const head = await roomSheetsRequest(tenantId, `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1`)}?valueInputOption=RAW`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: [ROOM_LOG_HEADERS] }) });
     if (!head.ok) throw new Error(`Couldn't write the column names (${head.status})`);
   }
-  const append = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { ...json, body: JSON.stringify({ values: [row] }) });
-  if (!append.ok) throw new Error(append.status === 403 ? "The connected Google account can view that sheet but not edit it." : `Couldn't add the row (${append.status})`);
+  const append = await roomSheetsRequest(tenantId, `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { ...json, body: JSON.stringify({ values: [row] }) });
+  if (!append.ok) throw new Error(append.status === 403 ? cantEdit : `Couldn't add the row (${append.status})`);
 }
 
 /**
@@ -343,7 +343,7 @@ export async function afterRoomCreated(tenantId: number, account: SignedAccount,
   if (cfg && cfg.logEnabled && logSheet && SHEET_ID_RE.test(logSheet)) {
     const tab = cfg.logTab && SHEET_TAB_RE.test(cfg.logTab) ? cfg.logTab : DEFAULT_ROOM_LOG_TAB;
     try {
-      await appendRoomLog(logSheet, tab, roomLogRow(account, links, opts));
+      await appendRoomLog(tenantId, logSheet, tab, roomLogRow(account, links, opts));
       out.sheet = { ok: true, note: `Added to “${tab}”` };
     } catch (err) {
       out.sheet = { ok: false, note: err instanceof Error ? err.message : "Couldn't write to the sheet" };
@@ -374,7 +374,6 @@ export async function afterRoomCreated(tenantId: number, account: SignedAccount,
 
 /* ── Reading the sheet ───────────────────────────────────────────────────── */
 
-let connectors: ReplitConnectors | null = null;
 /** A reshuffled or renamed sheet could make many accounts look new at once; make a few rooms per read and say so. */
 const MAX_ROOMS_PER_READ = 5;
 
@@ -386,13 +385,12 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
     return { ok, note, created };
   };
   try {
-    connectors ??= new ReplitConnectors();
     const tab = cfg.sheetTab && SHEET_TAB_RE.test(cfg.sheetTab) ? cfg.sheetTab : "";
     const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:Z5001` : "A1:Z5001");
-    const resp = await connectors.proxy("google-sheet", `/v4/spreadsheets/${cfg.sheetId}/values/${range}`, { method: "GET" });
+    const resp = await roomSheetsRequest(tenantId, `/v4/spreadsheets/${cfg.sheetId}/values/${range}`);
     if (!resp.ok) {
       logger.warn({ tenantId, status: resp.status }, "room autocreate sheet read failed");
-      return finish(false, resp.status === 400 && tab ? `The workbook has no tab named “${tab}”. Check the spelling and spaces.` : resp.status === 403 || resp.status === 404 ? "Couldn't open the sheet. Share it with the Google account connected to LP Studio, and check the tab name." : `Google Sheets returned an error (${resp.status}).`);
+      return finish(false, sheetProblem(resp.status, resp.sharedWith, tab));
     }
     const accounts = signedAccountsFromSheet(((await resp.json()) as { values?: unknown }).values);
     if (!accounts) return finish(false, "The tab needs an “Account Name” column in its first row.");

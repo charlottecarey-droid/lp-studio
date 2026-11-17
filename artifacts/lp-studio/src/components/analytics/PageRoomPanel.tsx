@@ -256,7 +256,7 @@ export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: 
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-sm font-medium">Live Google Sheet</p>
               <p className="text-xs text-muted-foreground">
-                The room re-reads this sheet about every hour and matches it exactly: rows removed from the sheet leave the room. First row = column names: name, region, wave, stage, training date, live date. Share the sheet with the Google account connected to LP Studio.
+                The room re-reads this sheet about every hour and matches it exactly: rows removed from the sheet leave the room. First row = column names: name, region, wave, stage, training date, live date. Share the sheet with your workspace’s Google service account, the one lead sync uses (its address is shown under Settings → Integrations → Partner rooms).
               </p>
               <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
                 <Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" />
@@ -1217,7 +1217,7 @@ export function AutomaticRoomsSection() {
     queryFn: async () => {
       const r = await fetch("/api/lp/room-autocreate");
       if (!r.ok) throw new Error("autocreate");
-      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; alertOwner?: boolean; alertEmails?: string[]; logEnabled?: boolean; logSheetId?: string | null; logTab?: string | null; sfdcField?: string | null; syncedAt: string | null; note: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
+      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; alertOwner?: boolean; alertEmails?: string[]; logEnabled?: boolean; logSheetId?: string | null; logTab?: string | null; sfdcField?: string | null; syncedAt: string | null; note: string | null; shareWith?: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
     },
   });
   const [sheet, setSheet] = useState("");
@@ -1335,6 +1335,13 @@ export function AutomaticRoomsSection() {
         <Input value={sheet} onChange={(e) => setSheet(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Signed accounts sheet" />
         <Input value={tab} onChange={(e) => setTab(e.target.value)} placeholder="Accounts with MSAs Signed" aria-label="Tab name" />
       </div>
+      <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs" data-room-share-with>
+        {data?.shareWith ? (
+          <>Share the workbook with <b className="select-all font-mono">{data.shareWith}</b> as an <b>Editor</b> (the same Google service account that sends leads to Sheets). Do the same for the workbook the log row goes to, if it is a different one.</>
+        ) : (
+          <>No Google service account is set up for this workspace yet. Add one under Settings → Integrations → Google Sheets, then share the workbook with its address.</>
+        )}
+      </p>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
         <p className="text-xs text-muted-foreground">
           Practices: name the tab of the same workbook that lists every account’s locations (its exact name, for example Sheet14). Each new room then reads its own practices from it. The signed-accounts tab needs an “Account ID” or “18 digit ID” column, and the locations tab a “Parent Account ID” or “Parent Account” column.
@@ -1362,7 +1369,7 @@ export function AutomaticRoomsSection() {
             <Input value={logSheet} onChange={(e) => setLogSheet(e.target.value)} placeholder="Blank = the workbook above" aria-label="Log sheet" disabled={!logEnabled} />
             <Input value={logTab} onChange={(e) => setLogTab(e.target.value)} placeholder="Digital Sales Rooms" aria-label="Log tab" disabled={!logEnabled} />
           </div>
-          <p className="text-xs text-muted-foreground">The tab is created if it isn’t there. Columns: created, account, status, room link, edit link, account owner, contract signed, Salesforce ID. The connected Google account needs edit access to that workbook.</p>
+          <p className="text-xs text-muted-foreground">The tab is created if it isn’t there. Columns: created, account, status, room link, edit link, account owner, contract signed, Salesforce ID. The address above needs Editor access to that workbook.</p>
         </div>
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Salesforce</p>

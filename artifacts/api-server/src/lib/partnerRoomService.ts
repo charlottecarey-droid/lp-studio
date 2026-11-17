@@ -3,7 +3,6 @@
  * the practice list (upsert, summary, reading a connected Google Sheet) and
  * the weekly digest (collect, render, send).
  */
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import {
   db,
   lpPagesTable,
@@ -24,6 +23,7 @@ import { ObjectStorageService } from "./objectStorage";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "./partnerRoomReconcile";
 import { lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomUploadsTable } from "@workspace/db";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
+import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
 import { desc } from "drizzle-orm";
 import { parsePracticeRow, resolveRoomBlocks, type RoomPracticeInput } from "./partnerRoom";
 import { collectDigest, digestIsEmpty, renderDigestEmail, renderDigestSlack, type DigestData } from "./partnerRoomDigest";
@@ -171,7 +171,6 @@ export function practicesFromSheetValues(values: unknown, filter: SheetFilter | 
   return out;
 }
 
-let connectors: ReplitConnectors | null = null;
 
 async function isSharedWorkbook(tenantId: number, sheetId: string): Promise<boolean> {
   const [cfg] = await db.select({ sheetId: lpRoomAutocreateTable.sheetId }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
@@ -200,13 +199,12 @@ export async function syncPracticesFromSheet(pageId: number): Promise<{ ok: bool
     return { ok, note };
   };
   try {
-    connectors ??= new ReplitConnectors();
     const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:AZ20001` : "A1:AZ20001");
-    const resp = await connectors.proxy("google-sheet", `/v4/spreadsheets/${sheetId}/values/${range}`, { method: "GET" });
+    const resp = await roomSheetsRequest(settings.tenantId, `/v4/spreadsheets/${sheetId}/values/${range}`);
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
       logger.warn({ pageId, status: resp.status, body: body.slice(0, 300) }, "room practices sheet read failed");
-      return finish(false, resp.status === 400 && tab ? `The workbook has no tab named “${tab}”. Check the spelling and spaces.` : resp.status === 403 || resp.status === 404 ? "Couldn't open the sheet. Share it with the Google account connected to LP Studio, and check the tab name." : `Google Sheets returned an error (${resp.status}).`);
+      return finish(false, sheetProblem(resp.status, resp.sharedWith, tab));
     }
     const values = ((await resp.json()) as { values?: unknown }).values;
     // An explicit filter wins; otherwise filter by the customer's Salesforce account id when the sheet has a parent-id column.
