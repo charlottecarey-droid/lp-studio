@@ -83,6 +83,8 @@ export interface RoomSnapshot {
   status: "idle" | "loading" | "ready" | "error";
   /** The hub asks for an email first, and this visitor has not been recognised: the server sent the cover only. */
   gated?: boolean;
+  /** For the account team: the addresses already let into the hub (invited, or allowed by hand). */
+  invited?: string[];
   /** The hub's own contents, handed to a recognised visitor of a hub that asks for an email first. */
   props?: Record<string, unknown>;
   /** `team` is set when the viewer is one of the page owner's own team. */
@@ -281,6 +283,7 @@ class RoomStore {
         status: "ready",
         viewer: (json.viewer as RoomSnapshot["viewer"]) ?? null,
         gated: json.gated === true,
+        ...(Array.isArray(json.invited) ? { invited: json.invited as string[] } : {}),
         ...(json.props && typeof json.props === "object" ? { props: json.props as Record<string, unknown> } : {}),
         tasks: (json.tasks as RoomSnapshot["tasks"]) ?? {},
         requests: Array.isArray(json.requests) ? (json.requests as RoomRequest[]) : [],
@@ -338,6 +341,11 @@ class RoomStore {
     } catch {
       return null;
     }
+  }
+
+  /** Team only: let one of the customer's people into the hub and email them their link. */
+  invite(person: { email: string; name: string }) {
+    return this.act("invite", person);
   }
 
   /** Team only: change a milestone's status, owners or target date. */

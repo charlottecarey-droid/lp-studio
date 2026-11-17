@@ -38,7 +38,7 @@ const router: IRouter = Router();
 // stay in the allowlist as the surface evolves.
 export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "*",    pattern: /^\/lp\/track/ },
-  { method: "POST", pattern: /^\/lp\/room\/(state|access|task|upload|request|choice|contact|practices|win|win\/like|win\/comment|win-image|asset|scorecard-check|plan-edit|request-update|roster-template)$/ }, // POST /lp/room/* — partner-room visitor actions; each proves identity itself (personal link or emailed room token). The tenant-side routes live under /lp/partner-rooms and stay auth-gated
+  { method: "POST", pattern: /^\/lp\/room\/(state|access|task|upload|request|choice|contact|practices|win|win\/like|win\/comment|win-image|asset|scorecard-check|plan-edit|request-update|roster-template|invite)$/ }, // POST /lp/room/* — partner-room visitor actions; each proves identity itself (personal link or emailed room token). The tenant-side routes live under /lp/partner-rooms and stay auth-gated
   { method: "GET",  pattern: /^\/lp\/google\/callback$/ }, // GET /lp/google/callback — Google OAuth redirect for "Connect Google"; self-authenticating via HMAC-signed state (10-min TTL, tenant + user embedded). MUST be public: the redirect can land on a host with no session cookie.
   { method: "GET",  pattern: /^\/lp\/room\/calendar\.ics$/ }, // GET /lp/room/calendar.ics?pageId= — the room's calendar feed for calendar apps (events come from the public page)
   { method: "*",    pattern: /^\/lp\/page\// },           // GET /lp/page/:slug (variant config for public viewer)

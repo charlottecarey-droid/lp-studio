@@ -588,6 +588,9 @@ export function targetHasPassed(target: string | undefined, now: Date): boolean 
   return nearest < today;
 }
 
+/** A real person's name, not one of the template's "[Name]" placeholders. */
+const realTeamName = (n: string | undefined) => !!n?.trim() && !/^\[.*\]$/.test(n.trim());
+
 /** A logo's size in the top bar: the chosen percentage, kept between half and three times the standard height. */
 export function logoScale(value: number | undefined): number {
   const n = typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 100;
@@ -1240,6 +1243,19 @@ input.prw-pick{display:block;width:100%;margin-top:5px}
 .prw-gate .prw-btn{height:44px;padding:0 22px;font-size:14px}
 .prw-gate small{display:block;margin-top:14px;font-size:12px;color:var(--faint)}
 .prw-gate .wait{margin:0;color:var(--faint)}
+.prw .prw-inv{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 11px;margin-right:6px;border-radius:8px;border:1px solid #D4D8D0;background:#fff;font-size:12px;font-weight:600;color:var(--dark);white-space:nowrap;vertical-align:top}
+.prw .prw-inv:hover{border-color:var(--dark)}
+.prw-inv svg{width:13px;height:13px}
+.prw .prw-inv.done{border-color:transparent;background:color-mix(in srgb,var(--green) 12%,#fff);color:#0B6B3A}
+.prw-rfs{display:flex;flex-wrap:wrap;gap:0 12px}
+.prw-rf{flex:1 1 100%;min-width:0}
+.prw-rf.half{flex:1 1 calc(50% - 6px)}
+.prw-rf label span{font-weight:400;color:#9AA69E}
+.prw-rf-about{margin:2px 0 4px;padding:8px 12px;border-radius:8px;background:#F4F5F1;font-size:13px;font-weight:600;color:#0E1A16}
+.prw-have{margin:0 0 12px;padding:10px 14px;list-style:none;max-height:168px;overflow:auto;border:1px solid #E7E7E0;border-radius:9px;background:#FAFBF8;font-size:13px;color:#0E1A16}
+.prw-have li{padding:3px 0}
+.prw-have span{color:#5C6B61}
+.prw-have-h{margin:14px 0 2px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5C6B61}
 .prw-lk{margin-bottom:28px}
 .prw-lk-link{gap:16px}
 .prw-lk-link>div:first-of-type{min-width:0}
@@ -1292,7 +1308,7 @@ button.prw-o-main:hover .t{color:var(--dark);text-decoration:underline;text-unde
 .prw-av{width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none;object-fit:cover}
 .prw-foot{text-align:center;padding:26px 0 48px;font-size:12px;color:var(--faint)}
 .prw-modal{position:fixed;inset:0;background:rgba(0,20,16,.5);z-index:1000;display:grid;place-items:center;padding:16px}
-.prw-modal .box{width:100%;max-width:480px;background:#fff;border-radius:14px;padding:24px;color:#0E1A16;position:relative;font-size:14px;line-height:1.55}
+.prw-modal .box{width:100%;max-width:480px;background:#fff;border-radius:14px;padding:24px;color:#0E1A16;position:relative;font-size:14px;line-height:1.55;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto}
 .prw-modal h3{margin:0 0 4px;font-size:20px;letter-spacing:-.02em;font-weight:700}
 .prw-modal p{margin:0 0 14px;color:#5C6B61;font-size:13px}
 .prw-modal label{display:block;font-size:12px;font-weight:600;color:#5C6B61;margin:12px 0 5px}
@@ -1332,7 +1348,25 @@ ${whenTight(TEAM_STACK_RULES)}
 .prw-toc button.on{background:var(--dark);color:var(--on-dark);border-color:var(--dark)}
 .prw-mod{padding:24px 16px 28px}
 .prw-hd{flex-direction:column;align-items:flex-start}
-.prw-phases,.prw-grid2,.prw-kpis{grid-template-columns:1fr 1fr}
+.prw-phases,.prw-kpis{grid-template-columns:1fr 1fr}
+.prw-grid2{grid-template-columns:1fr}
+.prw .prw-sc-tiles,.prw.tight .prw-sc-tiles{grid-template-columns:1fr 1fr}
+.prw-li{flex-wrap:wrap;padding:14px 16px;gap:10px 12px}
+.prw-li>div:first-child,.prw-li>.prw-ft+div{flex:1 1 55%;min-width:0}
+.prw-li .m,.prw-li .t{overflow-wrap:anywhere}
+.prw-li .a{margin-left:0}
+.prw-agree{flex-direction:column;align-items:flex-start;padding:16px}
+.prw-legend{flex-wrap:wrap;gap:8px 14px}
+.prw-min>div:first-child{flex-wrap:wrap}
+.prw-min .mh{flex:1 1 70%;min-width:0;width:auto;padding:14px 16px;gap:12px}
+.prw-o-row{padding:11px 12px;gap:10px}
+.prw-o-end{margin-left:auto}
+.prw-edit .f{padding:12px}
+.prw-edit .prw-pick,.prw-edit input.prw-pick{min-width:0;width:100%}
+.prw-edit label{flex:1 1 44%}
+.prw-edit .b{margin-left:0;width:100%}
+.prw-lk-link{flex-wrap:nowrap}
+.prw table:not(.prw-plan):not(.prw-team){display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .prw-ph{padding:0 0 14px!important;border:0!important}
 .prw-phases{grid-template-columns:1fr}
 ${STACK_RULES}
@@ -1450,6 +1484,17 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   // The account team, on the live page, can change the plan and move requests along right here.
   const isTeam = !!snapshot.viewer?.team;
   const canEditLive = isTeam && !!store && !isEditor;
+  // The account team can invite the customer's people straight from the team list.
+  const teamInvite: TeamInvite | null =
+    canEditLive && store
+      ? {
+          invited: (snapshot.invited ?? []).map((e) => e.toLowerCase()),
+          send: async (person) => {
+            const r = await store.invite(person);
+            return r.ok ? null : r.error;
+          },
+        }
+      : null;
   const editPlan = async (key: string, patch: Partial<RoomMilestone>): Promise<string | null> => {
     if (!store) return null;
     const before = planEdits[key];
@@ -1814,6 +1859,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         snapshot={snapshot}
                         store={store}
                         isEditor={isEditor}
+                        teamCount={theirPeople.length}
                         onNeedEmail={() => setAsk({ kind: "email" })}
                         onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
                         onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key })}
@@ -2234,10 +2280,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   </thead>
                   <tbody>
                     {team.map((g, gi) => (
-                      <TeamGroup key={gi} group={g} isEditor={isEditor} />
+                      <TeamGroup key={gi} group={g} isEditor={isEditor} invite={gi > 0 ? teamInvite : null} />
                     ))}
                     {snapshot.contacts.length > 0 && (
-                      <TeamGroup group={{ title: `Added by ${props.partnerName}`, members: snapshot.contacts.map((c) => ({ name: c.name, role: c.role ?? undefined, email: c.email ?? undefined })) }} isEditor={isEditor} />
+                      <TeamGroup group={{ title: `Added by ${props.partnerName}`, members: snapshot.contacts.map((c) => ({ name: c.name, role: c.role ?? undefined, email: c.email ?? undefined })) }} isEditor={isEditor} invite={teamInvite} />
                     )}
                   </tbody>
                 </table>
@@ -2265,7 +2311,14 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         onTimeOpen={(a, seconds) => trackHub(a, "time", seconds)}
       />
       {ask?.kind === "email" && store && <AccessDialog store={store} onClose={() => setAsk(null)} />}
-      {ask?.kind === "contact" && store && <ContactDialog store={store} partnerName={props.partnerName} onClose={() => setAsk(null)} onNeedEmail={() => setAsk({ kind: "email" })} />}
+      {ask?.kind === "contact" && store && <ContactDialog
+          store={store}
+          partnerName={props.partnerName}
+          existing={[...team.slice(1).flatMap((g) => g.members ?? []).map((m) => ({ name: m.name, role: m.role, email: m.email })), ...snapshot.contacts.map((c) => ({ name: c.name, role: c.role ?? undefined, email: c.email ?? undefined }))].filter((m) => realName(m.name))}
+          confirmKey={stepsOpen.find((x) => x.step.action === "team")?.key}
+          onClose={() => setAsk(null)}
+          onNeedEmail={() => setAsk({ kind: "email" })}
+        />}
       {ask?.kind === "request" && store && (
         <RequestDialog
           store={store}
@@ -2602,48 +2655,170 @@ function useEscape(onClose: () => void) {
   }, [onClose]);
 }
 
+/* ── Request forms: the right questions for what is being asked ───────────── */
+
+export interface RequestField {
+  key: string;
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  /** "long" = a text area; "half" = shares a row with the next half-width field. */
+  size?: "long" | "half";
+  autoComplete?: string;
+}
+
+export interface RequestForm {
+  title: string;
+  intro: string;
+  fields: RequestField[];
+  submit: string;
+}
+
+const SHIPPING_FORM: RequestForm = {
+  title: "Where should we send it?",
+  intro: "Tell us who it’s for and where it should go. We’ll confirm before it ships.",
+  submit: "Send details",
+  fields: [
+    { key: "recipient", label: "Recipient name", required: true, autoComplete: "name" },
+    { key: "company", label: "Company or office", autoComplete: "organization" },
+    { key: "street", label: "Street address", required: true, autoComplete: "address-line1" },
+    { key: "suite", label: "Suite, floor or unit", autoComplete: "address-line2" },
+    { key: "city", label: "City", required: true, size: "half", autoComplete: "address-level2" },
+    { key: "state", label: "State", required: true, size: "half", autoComplete: "address-level1" },
+    { key: "zip", label: "ZIP code", required: true, size: "half", autoComplete: "postal-code" },
+    { key: "phone", label: "Phone", size: "half", autoComplete: "tel" },
+    { key: "notes", label: "Anything we should know", placeholder: "Delivery hours, who to ask for, how many people it’s for", size: "long" },
+  ],
+};
+
+const KIND_FORMS: Record<string, RequestForm> = {
+  asset_change: {
+    title: "Request a change",
+    intro: "Tell us what to change and we’ll send back an updated version for your approval.",
+    submit: "Send request",
+    fields: [
+      { key: "what", label: "What should change", required: true, size: "long", placeholder: "The wording, a logo, a date, a size…" },
+      { key: "by", label: "Needed by", placeholder: "Nov 21" },
+    ],
+  },
+  event: {
+    title: "Event support",
+    intro: "A few details so we can scope it.",
+    submit: "Send request",
+    fields: [
+      { key: "what", label: "What kind of event", required: true, placeholder: "Regional dinner, lunch and learn, booth…" },
+      { key: "when", label: "Preferred date", size: "half", placeholder: "Dec 10" },
+      { key: "people", label: "How many people", size: "half" },
+      { key: "where", label: "Location" },
+      { key: "notes", label: "Anything else", size: "long" },
+    ],
+  },
+  training: {
+    title: "Training or scheduling",
+    intro: "Tell us who needs it and when works.",
+    submit: "Send request",
+    fields: [
+      { key: "who", label: "Who it’s for", required: true, placeholder: "Which practices or people" },
+      { key: "when", label: "Preferred dates", placeholder: "Weeks of Dec 1 and Dec 8" },
+      { key: "notes", label: "Anything else", size: "long" },
+    ],
+  },
+  reporting: {
+    title: "Reporting or data",
+    intro: "Tell us what you’d like to see.",
+    submit: "Send request",
+    fields: [
+      { key: "what", label: "What you want to see", required: true, size: "long", placeholder: "Usage by practice, turnaround times, spend…" },
+      { key: "often", label: "How often", placeholder: "Once, monthly, quarterly" },
+    ],
+  },
+};
+
+const GENERIC_FORM: RequestForm = {
+  title: "Make a request",
+  intro: "It goes to the right person and shows up under Outstanding with a target date.",
+  submit: "Send request",
+  fields: [{ key: "details", label: "Details", required: true, size: "long", placeholder: "Tell us what you need and by when" }],
+};
+
+/**
+ * The questions to ask for a request: a shipping address when something is
+ * being sent (a welcome gift, a kit, swag), otherwise the ones that fit the
+ * kind of request.
+ */
+export function requestFormFor(kind: string, subject: string): RequestForm {
+  if (/\b(gift|welcome kit|kits?|swag|ship(ping|ment)?|mailer)\b/i.test(subject)) return SHIPPING_FORM;
+  return KIND_FORMS[kind] ?? GENERIC_FORM;
+}
+
+/** The answers as the request's details: one "Label: answer" line each, blanks left out. */
+export function requestDetails(form: RequestForm, values: Record<string, string>): string {
+  return form.fields
+    .map((f) => [f.label, (values[f.key] ?? "").trim()] as const)
+    .filter(([, v]) => v)
+    .map(([label, v]) => `${label}: ${v}`)
+    .join("\n");
+}
+
 function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store: RoomStoreHandle; preset?: RequestPreset; onClose: () => void; onSent: (stepKey?: string) => void; onNeedEmail: () => void }) {
   const [kind, setKind] = useState(preset?.kind ?? (preset?.assetKey ? "asset_change" : "other"));
   const [subject, setSubject] = useState(preset?.subject ?? "");
-  const [details, setDetails] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEscape(onClose);
+  // A request that starts from a specific thing (a setup step, a kit item) keeps its subject and asks only what it needs.
+  const fixed = !!(preset?.stepKey || preset?.assetKey);
+  const form = requestFormFor(kind, subject);
+  const missing = form.fields.some((f) => f.required && !(values[f.key] ?? "").trim());
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
     setError("");
-    const r = await store.sendRequest({ kind, subject: subject.trim(), details: details.trim(), assetKey: preset?.assetKey });
+    const r = await store.sendRequest({ kind, subject: subject.trim() || form.title, details: requestDetails(form, values), assetKey: preset?.assetKey });
     setBusy(false);
     if (r.ok) onSent(preset?.stepKey);
     else if (r.identityRequired) onNeedEmail();
     else setError(r.error);
   };
+  const input = (f: RequestField) => {
+    const common = { id: `prw-rf-${f.key}`, value: values[f.key] ?? "", placeholder: f.placeholder, required: f.required, autoComplete: f.autoComplete, onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setValues((v) => ({ ...v, [f.key]: e.target.value })) };
+    return (
+      <div key={f.key} className={`prw-rf${f.size === "half" ? " half" : ""}`}>
+        <label htmlFor={common.id}>{f.label}{f.required ? "" : <span> (optional)</span>}</label>
+        {f.size === "long" ? <textarea rows={3} maxLength={1500} {...common} /> : <input maxLength={200} {...common} />}
+      </div>
+    );
+  };
   return createPortal(
     <div className="prw prw-modal" style={{ background: "rgba(0,20,16,.5)" }} onClick={onClose} data-room-request-dialog>
-      <form className="box" onSubmit={submit} onClick={(e) => e.stopPropagation()} style={{ fontFamily: BRAND_BODY_STACK }}>
+      <form className="box" onSubmit={submit} onClick={(e) => e.stopPropagation()} style={{ fontFamily: BRAND_BODY_STACK }} data-room-request-form={form === SHIPPING_FORM ? "shipping" : kind}>
         <button type="button" className="x" onClick={onClose} aria-label="Close"><X style={{ width: 16, height: 16 }} /></button>
-        <h3>Make a request</h3>
-        <p>It goes to the right person and shows up under Requests with a target date.</p>
-        <label htmlFor="prw-kind">What do you need?</label>
-        <select id="prw-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="asset_change">A change to an asset</option>
-          <option value="marketing">New marketing material</option>
-          <option value="training">Training or scheduling</option>
-          <option value="event">Event support</option>
-          <option value="reporting">Reporting or data</option>
-          <option value="other">Something else</option>
-        </select>
-        <label htmlFor="prw-subject">About</label>
-        <input id="prw-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Which item or topic" maxLength={160} />
-        <label htmlFor="prw-details">Details</label>
-        <textarea id="prw-details" rows={4} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Tell us what you need and by when" maxLength={4000} />
+        <h3>{fixed && form === SHIPPING_FORM ? subject || form.title : form.title}</h3>
+        <p>{form.intro}</p>
+        {!fixed && (
+          <>
+            <label htmlFor="prw-kind">What do you need?</label>
+            <select id="prw-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
+              <option value="asset_change">A change to an asset</option>
+              <option value="marketing">New marketing material</option>
+              <option value="training">Training or scheduling</option>
+              <option value="event">Event support</option>
+              <option value="reporting">Reporting or data</option>
+              <option value="other">Something else</option>
+            </select>
+            <label htmlFor="prw-subject">About</label>
+            <input id="prw-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Which item or topic" maxLength={160} />
+          </>
+        )}
+        {fixed && form !== SHIPPING_FORM && subject && <div className="prw-rf-about">{subject}</div>}
+        <div className="prw-rfs">{form.fields.map(input)}</div>
         {error && <div className="prw-err" role="alert">{error}</div>}
         <div className="row">
           <button type="button" className="prw-btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="prw-btn pri" disabled={busy || (!subject.trim() && !details.trim())} style={{ background: "#0E1A16", borderColor: "#0E1A16", color: "#fff" }}>
-            {busy ? "Sending…" : "Send request"}
+          <button type="submit" className="prw-btn pri" disabled={busy || missing} style={{ background: "#0E1A16", borderColor: "#0E1A16", color: "#fff" }}>
+            {busy ? "Sending…" : form.submit}
           </button>
         </div>
       </form>
@@ -2761,7 +2936,36 @@ function AccessDialog({ store, onClose }: { store: RoomStoreHandle; onClose: () 
 
 /* ── Team ────────────────────────────────────────────────────────────────── */
 
-function TeamGroup({ group, isEditor }: { group: RoomTeamGroup; isEditor: boolean }) {
+type TeamInvite = { invited: string[]; send: (person: { email: string; name: string }) => Promise<string | null> };
+
+/** "Invite" beside one of the customer's people: emails them their link to the hub. Shows "Invited" once they have been let in. */
+function InviteButton({ person, invite }: { person: { email: string; name: string }; invite: TeamInvite }) {
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  if (sent || invite.invited.includes(person.email.trim().toLowerCase())) return <span className="prw-inv done" data-room-invited><Check aria-hidden /> Invited</span>;
+  return (
+    <button
+      type="button"
+      className="prw-inv"
+      disabled={busy}
+      title={error || `Email ${person.name} a link to this hub`}
+      data-room-invite
+      onClick={async () => {
+        setBusy(true);
+        setError("");
+        const err = await invite.send(person);
+        setBusy(false);
+        if (err) setError(err);
+        else setSent(true);
+      }}
+    >
+      {busy ? <Loader2 className="animate-spin" aria-hidden /> : <UserPlus aria-hidden />} {error ? "Try again" : "Invite"}
+    </button>
+  );
+}
+
+function TeamGroup({ group, isEditor, invite }: { group: RoomTeamGroup; isEditor: boolean; /** Set on the customer's groups when the account team is looking at the live hub. */ invite?: TeamInvite | null }) {
   return (
     <>
       <tr className="grp">
@@ -2784,6 +2988,7 @@ function TeamGroup({ group, isEditor }: { group: RoomTeamGroup; isEditor: boolea
             <td className="c" style={{ whiteSpace: "normal" }}>{m.owns}</td>
             <td className="c">{m.when}</td>
             <td className="r">
+              {invite && email && realTeamName(m.name) && <InviteButton person={{ email, name: m.name }} invite={invite} />}
               {safeHttpUrl(m.bookingUrl) && (
                 <a className="prw-ib" title={`Book time with ${m.name}`} aria-label={`Book time with ${m.name}`} href={isEditor ? undefined : safeHttpUrl(m.bookingUrl)} target="_blank" rel="noopener noreferrer" data-room-member-book>
                   <CalendarPlus aria-hidden />
@@ -2809,7 +3014,7 @@ function TeamGroup({ group, isEditor }: { group: RoomTeamGroup; isEditor: boolea
 
 /* ── Onboarding ──────────────────────────────────────────────────────────── */
 
-function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor, onNeedEmail, onAddTeam, onRequest }: { step: RoomOnboardingStep; stepKey: string; done: boolean; saved: RoomSnapshot["tasks"][string] | undefined; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; onAddTeam: () => void; onRequest: () => void }) {
+function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor, onNeedEmail, onAddTeam, onRequest, teamCount = 0 }: { /** How many of the customer's people are already on the team list. */ teamCount?: number; step: RoomOnboardingStep; stepKey: string; done: boolean; saved: RoomSnapshot["tasks"][string] | undefined; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; onAddTeam: () => void; onRequest: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -2830,7 +3035,9 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
   };
   const tick = guard(() => void run((s) => s.setTaskDone(stepKey, true)));
   const label = (step.buttonLabel ?? "").trim();
-  const summary = saved?.done ? [saved.fileName ? `Received ${saved.fileName}` : "Done", saved.by, fmtDate(saved.at)].filter(Boolean).join(" · ") : step.done ? "Done" : step.description;
+  // People are already listed (from the account, or added earlier): say so, so nobody adds them twice.
+  const already = step.action === "team" && teamCount > 0;
+  const summary = saved?.done ? [saved.fileName ? `Received ${saved.fileName}` : "Done", saved.by, fmtDate(saved.at)].filter(Boolean).join(" · ") : step.done ? "Done" : already ? `${teamCount} ${teamCount === 1 ? "person is" : "people are"} already listed. Check the list and add anyone who is missing.` : step.description;
   return (
     <div className={`prw-step${done ? " done" : ""}`} data-room-step={step.action}>
       <span className="dot">{done ? <Check style={{ width: 12, height: 12 }} aria-hidden /> : null}</span>
@@ -2852,8 +3059,8 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
             </>
           )}
           {step.action === "team" && (
-            <button type="button" className="prw-btn pri" onClick={guard(onAddTeam)} title={label || "Add people"}>
-              <UserPlus aria-hidden /> Add
+            <button type="button" className="prw-btn pri" onClick={guard(onAddTeam)} title={already ? "See who is listed, and add anyone missing" : label || "Add people"} data-room-team-step={already ? "review" : "add"}>
+              <UserPlus aria-hidden /> {already ? "Review" : "Add"}
             </button>
           )}
           {step.action === "request" && (
@@ -2877,7 +3084,7 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
   );
 }
 
-function ContactDialog({ store, partnerName, onClose, onNeedEmail }: { store: RoomStoreHandle; partnerName: string; onClose: () => void; onNeedEmail: () => void }) {
+function ContactDialog({ store, partnerName, existing, confirmKey, onClose, onNeedEmail }: { store: RoomStoreHandle; partnerName: string; /** The customer's people already on the team list. */ existing: { name: string; role?: string; email?: string }[]; /** The "add your team" setup step, when it is still open: "Looks right" ticks it. */ confirmKey?: string; onClose: () => void; onNeedEmail: () => void }) {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
@@ -2904,12 +3111,32 @@ function ContactDialog({ store, partnerName, onClose, onNeedEmail }: { store: Ro
     else setError(r.error);
   };
   const solid = { background: "#0E1A16", borderColor: "#0E1A16", color: "#fff" } as const;
+  // Typing someone who is already listed: say so instead of adding them twice.
+  const same = (a: string | undefined, b: string) => !!a?.trim() && !!b.trim() && a.trim().toLowerCase() === b.trim().toLowerCase();
+  const duplicate = existing.find((p) => same(p.email, email) || same(p.name, name));
   return createPortal(
     <div className="prw prw-modal" style={{ background: "rgba(0,20,16,.5)" }} onClick={onClose} data-room-contact-dialog>
       <form className="box" onSubmit={submit} onClick={(e) => e.stopPropagation()} style={{ fontFamily: BRAND_BODY_STACK }}>
         <button type="button" className="x" onClick={onClose} aria-label="Close"><X style={{ width: 16, height: 16 }} /></button>
-        <h3>Add your team</h3>
-        <p>Who should we work with at {partnerName}? Add as many people as you like.</p>
+        <h3>{existing.length ? "Your team" : "Add your team"}</h3>
+        {existing.length > 0 ? (
+          <>
+            <p>These {existing.length === 1 ? "person is" : `${existing.length} people are`} already listed for {partnerName}, so there’s no need to add them again. Add anyone who is missing.</p>
+            <ul className="prw-have" data-room-team-existing>
+              {existing.map((p, i) => (
+                <li key={i}><b>{p.name}</b>{p.role ? <span> · {p.role}</span> : null}</li>
+              ))}
+            </ul>
+            {confirmKey && added === 0 && (
+              <button type="button" className="prw-btn" style={{ marginBottom: 6 }} disabled={busy} onClick={async () => { const r = await store.setTaskDone(confirmKey, true); if (r.ok) onClose(); else if (r.identityRequired) onNeedEmail(); else setError(r.error); }} data-room-team-confirm>
+                <Check aria-hidden /> Looks right, nobody to add
+              </button>
+            )}
+            <div className="prw-have-h">Add someone else</div>
+          </>
+        ) : (
+          <p>Who should we work with at {partnerName}? Add as many people as you like.</p>
+        )}
         <label htmlFor="prw-cname">Name</label>
         <input id="prw-cname" ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
         <label htmlFor="prw-crole">Role</label>
@@ -2917,10 +3144,11 @@ function ContactDialog({ store, partnerName, onClose, onNeedEmail }: { store: Ro
         <label htmlFor="prw-cemail">Email</label>
         <input id="prw-cemail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         {error && <div className="prw-err" role="alert">{error}</div>}
+        {duplicate && <div style={{ fontSize: 12.5, color: "#7A6100", marginTop: 8 }} data-room-team-duplicate>{duplicate.name} is already on the list.</div>}
         {added > 0 && <div style={{ fontSize: 12.5, color: "#0B6B3A", marginTop: 8 }}>{added} added. Add another, or close.</div>}
         <div className="row">
           <button type="button" className="prw-btn" onClick={onClose}>{added ? "Done" : "Cancel"}</button>
-          <button type="submit" className="prw-btn pri" disabled={busy || !name.trim()} style={solid}>{busy ? "Adding…" : "Add person"}</button>
+          <button type="submit" className="prw-btn pri" disabled={busy || !name.trim() || !!duplicate} style={solid}>{busy ? "Adding…" : "Add person"}</button>
         </div>
       </form>
     </div>,

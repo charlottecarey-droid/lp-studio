@@ -546,6 +546,17 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("state", { pageId, hl })).json as { tasks: Record<string, { done: boolean; by: string }> }).tasks["ma-m1-approve-the-venue"]).toMatchObject({ done: true, by: "Dana Visitor" });
     expect((await post("task", { pageId, hl, taskKey: "ma-m1-something-else" })).status).toBe(404);
 
+    // Inviting from the team list on the live hub: the team can, a customer can't; the person is let in, emailed their link, and then shows as invited.
+    inviteEmails.length = 0;
+    expect((await post("invite", { pageId, hl, email: "kai@mb2dental.com", name: "Kai Lee" })).status).toBe(403);
+    expect((await asTeam("invite", { email: "not-an-address", name: "Kai Lee" })).status).toBe(400);
+    expect((await asTeam("invite", { email: "Kai@MB2Dental.com", name: "Kai Lee" })).json).toEqual({ ok: true });
+    expect(inviteEmails).toHaveLength(1);
+    expect(inviteEmails[0]).toMatchObject({ recipientEmail: "kai@mb2dental.com", invitedBy: "Rae Rep" });
+    expect(((await post("state", { pageId, rt: tokenFrom(inviteEmails[0].roomUrl) })).json as { viewer: { email: string } }).viewer.email).toBe("kai@mb2dental.com");
+    expect(((await asTeam("state", {})).json as { invited: string[] }).invited).toContain("kai@mb2dental.com");
+    expect((await post("state", { pageId, hl })).json).not.toHaveProperty("invited"); // who has been invited is the team's to see
+
     // Requests: the team assigns and moves it along from the page; the customer can only approve one that is ready for review.
     expect((await post("request", { pageId, hl, kind: "reporting", subject: "Monthly usage report", details: "By practice" })).status).toBe(200);
     const reqs = async () => ((await post("state", { pageId, hl })).json as { requests: { id: number; status: string; owner: string | null; due: string | null }[] }).requests;
@@ -1239,6 +1250,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
 
     // Inviting: refused while the room is a draft, and for another workspace.
     const invite = (people: unknown, as = tenantId) => inject(app, { method: "POST", url: `/lp/partner-rooms/${test.pageId}/invite`, headers: { ...asTenant(as), "x-test-email": "rep@vendor.com" }, body: { people, note: "See you at kickoff" } });
+    inviteEmails.length = 0; // other tests send invitations too
     expect((await invite([{ email: "cal@cedardental.com", name: "Cal Chief" }])).status).toBe(400);
     expect(inviteEmails).toHaveLength(0);
     await pool.query(`UPDATE lp_pages SET status = 'published' WHERE id = $1`, [test.pageId]);

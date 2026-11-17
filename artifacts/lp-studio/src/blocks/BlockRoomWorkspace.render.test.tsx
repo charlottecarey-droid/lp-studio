@@ -30,6 +30,8 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomNextUp,
+  requestFormFor,
+  requestDetails,
   groupLaunch,
   assetReady,
   isRosterTask,
@@ -131,7 +133,7 @@ describe("room-workspace — setup items on the home screen", () => {
     expect((attention.match(/data-room-step="upload"/g) ?? []).length).toBe(1);
     expect((attention.match(/data-room-step="team"/g) ?? []).length).toBe(1);
     expect(attention).toMatch(/<\/svg>\s*Upload<\/button>/);
-    expect(attention).toMatch(/<\/svg>\s*Add<\/button>/);
+    expect(attention).toMatch(/<\/svg>\s*(Add|Review)<\/button>/);
     expect(html).toContain('data-room-nav="overview"');
     expect(html).toContain("2 to set up");
     // No visitor is known during SSR: the headline greets the account.
@@ -515,5 +517,27 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(full).not.toContain("rae@vendor.com");
     // A hub that doesn't ask is unchanged.
     expect(render()).not.toContain("data-room-gate");
+  });
+  it("requests ask the right questions: a shipping address for a gift or kit, specifics for each kind", () => {
+    const gift = requestFormFor("marketing", "Accept your welcome kit");
+    expect(gift.title).toBe("Where should we send it?");
+    expect(gift.fields.filter((f) => f.required).map((f) => f.key)).toEqual(["recipient", "street", "city", "state", "zip"]);
+    expect(requestFormFor("other", "Welcome gift for our leadership").title).toBe("Where should we send it?");
+    expect(requestFormFor("event", "Regional dinner").fields.map((f) => f.key)).toContain("people");
+    expect(requestFormFor("asset_change", "Change to: One-pager").title).toBe("Request a change");
+    expect(requestFormFor("other", "A question").fields.map((f) => f.key)).toEqual(["details"]);
+    // The answers become the request's details, one line each, blanks left out.
+    expect(requestDetails(gift, { recipient: "Dana Ruiz", street: "100 Main St", suite: " ", city: "Dallas", state: "TX", zip: "75201" })).toBe("Recipient name: Dana Ruiz\nStreet address: 100 Main St\nCity: Dallas\nState: TX\nZIP code: 75201");
+  });
+  it("add your team: says how many people are already listed instead of asking to add them again", () => {
+    const steps = { onboarding: { steps: [{ key: "onboard-team", title: "Add your team", description: "Who we should work with on your side.", action: "team" as const }] } };
+    const withPeople = only("overview", { ...steps, team: [{ title: "Us", members: [{ name: "Rae Rep" }] }, { title: "Them", members: [{ name: "Dana Ruiz", role: "COO" }, { name: "Kai Lee" }, { name: "[Name]", role: "Sponsor" }] }] });
+    expect(withPeople).toContain("2 people are already listed");
+    expect(withPeople).toContain('data-room-team-step="review"');
+    const empty = only("overview", { ...steps, team: [{ title: "Us", members: [] }, { title: "Them", members: [{ name: "[Name]", role: "Sponsor" }] }] });
+    expect(empty).toContain("Who we should work with on your side.");
+    expect(empty).toContain('data-room-team-step="add"');
+    // The invite button is for the account team on the live hub: a visitor's page has none.
+    expect(render()).not.toContain("data-room-invite");
   });
 });

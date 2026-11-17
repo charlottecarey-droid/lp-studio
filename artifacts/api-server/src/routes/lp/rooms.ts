@@ -455,8 +455,10 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
       ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id), ...(await loadPublicRoomCalendar(page.id)) }
       : { choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] };
     // A recognised visitor to a gated hub is handed the hub itself: the page they loaded carried only the cover.
+    // The account team sees who has already been let in, so the page can say "Invited" instead of offering it again.
+    const invited = viewer?.team ? (await db.select({ email: lpRoomMembersTable.email }).from(lpRoomMembersTable).where(and(eq(lpRoomMembersTable.pageId, page.id), eq(lpRoomMembersTable.status, "allowed"))).limit(2000)).map((m) => m.email) : null;
     const props = page.gated && viewer ? roomWorkspaceProps((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks) : null;
-    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras, ...(props ? { props } : {}) });
+    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras, ...(props ? { props } : {}), ...(invited ? { invited } : {}) });
   } catch (err) {
     req.log.error({ err }, "room state failed");
     res.status(500).json({ error: "Could not load the room" });
@@ -793,6 +795,47 @@ router.post("/lp/room/roster-template", stateLimiter, async (req: Request, res: 
   } catch (err) {
     req.log.error({ err }, "room roster template failed");
     res.status(500).json({ error: "Could not make the template" });
+  }
+});
+
+/**
+ * Team only, from the live page: invite one of the customer's people. They
+ * are let into the hub and emailed a personal link that opens it as them.
+ * Same effect as the invite list in the Room panel, one person at a time.
+ */
+router.post("/lp/room/invite", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    if (!ctx.viewer.team) {
+      res.status(403).json({ error: "Only the account team can send invitations" });
+      return;
+    }
+    const email = normalizeEmail(req.body?.email);
+    const name = typeof req.body?.name === "string" ? req.body.name.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+    if (!email) {
+      res.status(400).json({ error: "That person has no valid email address." });
+      return;
+    }
+    const [row] = await db.select({ status: lpPagesTable.status }).from(lpPagesTable).where(eq(lpPagesTable.id, ctx.page.id)).limit(1);
+    if (row?.status !== "published") {
+      res.status(400).json({ error: "Publish the hub first. An invitation to a draft would open an empty page." });
+      return;
+    }
+    await db
+      .insert(lpRoomMembersTable)
+      .values({ tenantId: ctx.page.tenantId, pageId: ctx.page.id, email, status: "allowed" })
+      .onConflictDoUpdate({ target: [lpRoomMembersTable.pageId, lpRoomMembersTable.email], set: { status: "allowed", updatedAt: sql`now()` } });
+    const url = await roomPageUrl(req, ctx.page, req.body?.path);
+    const sent = await sendRoomInviteEmail({ recipientEmail: email, recipientName: name, invitedBy: ctx.viewer.name || ctx.viewer.email, roomUrl: `${url}?rt=${encodeURIComponent(signRoomToken(ctx.page.id, email))}`, roomTitle: ctx.page.title, tenantId: ctx.page.tenantId }).catch(() => false);
+    if (!sent) {
+      res.status(502).json({ error: "They were added, but the email couldn't be sent. Try again in a minute." });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room invite (live) failed");
+    res.status(500).json({ error: "Could not send the invitation" });
   }
 });
 
