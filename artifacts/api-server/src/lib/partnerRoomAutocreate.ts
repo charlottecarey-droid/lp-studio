@@ -76,7 +76,7 @@ export const DEFAULT_ROOM_COVER = "/room/default-cover.jpg";
 
 export function roomBlocksForAccount(name: string, slug: string, standard: { assetKey: string; fileUrl: string }[], signupUrl = ""): unknown[] {
   // The cover photo is the one on the model room; the "Next up" line on it follows the plan (the first milestone still open).
-  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER, ...(signupUrl ? { signupUrl } : {}) }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "", eyebrow: "Partner Hub" } } : b));
+  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER, ...(signupUrl ? { signupUrl } : {}) }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "", eyebrow: "Partner Hub", requireEmail: true } } : b));
   for (const spec of ROOM_STANDARD_ASSETS) {
     const file = standard.find((s) => s.assetKey === spec.key);
     const next = file ? setRoomKitAsset(blocks, { key: spec.key, kind: "pdf", title: spec.title, description: spec.description, fileUrl: file.fileUrl }) : null;

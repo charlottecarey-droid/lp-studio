@@ -158,6 +158,7 @@ export function roomSetupChecklist(f: RoomSetupFacts): SetupItem[] {
     { done: false, text: "Connect your calendar (Manage → Calendar & minutes) so meetings and minutes appear" },
     { done: false, text: "Connect the account's Slack channel (Manage → Settings)" },
     { done: false, text: "Open the Launch kit tab once to create the one-pager, graphics and media kit" },
+    { done: true, text: "Asks for a work email before showing anything (invited people go straight in)" },
     { done: false, text: `Publish, then invite the customer's team (Manage → Settings → Invite)${f.contacts ? `: ${n(f.contacts, "contact", "contacts")} on the account` : ""}` },
   ];
 }

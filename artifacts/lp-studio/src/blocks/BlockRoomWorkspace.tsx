@@ -395,6 +395,10 @@ export interface RoomWorkspaceBlockProps {
   brandLogoScale?: number;
   /** Show the customer's logo in its own colours. By default it is recoloured to suit the cover (white on a dark cover), so any logo reads cleanly without a separate white version. */
   partnerLogoOriginal?: boolean;
+  /** Ask for a work email before showing anything under the cover. The server then sends a stranger the cover only. */
+  requireEmail?: boolean;
+  /** Set by the server on what it sends a stranger to a hub that asks for an email: this is the cover, the rest is withheld. */
+  gated?: boolean;
   /** "Schedule a meeting" in the top bar: where it books (a rep's booking page). Blank = no button. */
   scheduleUrl?: string;
   scheduleLabel?: string;
@@ -1228,6 +1232,14 @@ const CSS = `
 .prw-pick{height:30px;max-width:100%;border:1px solid #D4D8D0;border-radius:7px;padding:0 6px;font:inherit;font-size:12.5px;color:var(--ink);background:#fff}
 select.prw-pick.prw-st{font-weight:600}
 input.prw-pick{display:block;width:100%;margin-top:5px}
+.prw-gate{margin-top:-64px;position:relative;max-width:640px;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px -32px rgba(0,0,0,.35);padding:36px 40px 34px}
+.prw-gate h2{margin:0 0 8px;font-size:26px;line-height:1.15;letter-spacing:-.02em;color:var(--dark)}
+.prw-gate p{margin:0 0 20px;font-size:14px;color:var(--body);max-width:54ch}
+.prw-gate .row{display:flex;gap:10px;flex-wrap:wrap}
+.prw-gate input{flex:1;min-width:220px;height:44px;border:1px solid #D4D8D0;border-radius:9px;padding:0 14px;font:inherit;font-size:14.5px;color:var(--ink);background:#fff}
+.prw-gate .prw-btn{height:44px;padding:0 22px;font-size:14px}
+.prw-gate small{display:block;margin-top:14px;font-size:12px;color:var(--faint)}
+.prw-gate .wait{margin:0;color:var(--faint)}
 .prw-lk{margin-bottom:28px}
 .prw-lk-link{gap:16px}
 .prw-lk-link>div:first-of-type{min-width:0}
@@ -1293,6 +1305,8 @@ ${whenTight(TEAM_STACK_RULES)}
 .prw.tight .prw-sc-grid{grid-template-columns:1fr}
 @media (max-width:900px){
 .prw-wrap{padding:0 16px}
+.prw-gate{padding:26px 20px 24px}
+.prw-gate h2{font-size:22px}
 .prw-doc{flex-wrap:wrap}
 .prw-doc .a{margin-left:48px;flex-wrap:wrap}
 .prw-hero{grid-template-columns:1fr;gap:24px;padding-bottom:88px}
@@ -1339,13 +1353,16 @@ ${TEAM_STACK_RULES}
 type RequestPreset = { subject: string; assetKey?: string; kind?: string; stepKey?: string; details?: string };
 type Ask = { kind: "request"; preset?: RequestPreset } | { kind: "email" } | { kind: "contact" } | null;
 
-export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldChange }: Props) {
-  // What is shown has the account name filled in; what is saved keeps the variables.
-  const { props, rawOf } = useMemo(() => resolveRoomProps(rawProps), [rawProps]);
+export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldChange }: Props) {
   const isEditor = !!onFieldChange;
   const { pageId, sessionId } = usePageContext();
   // In the builder the page isn't live, but what the customer will see still matters: load the room's data read-only there.
   const room = useRoom(pageId, true, { readOnly: isEditor });
+  // A hub that asks for an email arrives as its cover only; once the visitor is recognised, the room hands over the rest.
+  const handed = room.snapshot.props;
+  const rawProps = useMemo(() => (sentProps.gated && handed ? ({ ...(handed as unknown as RoomWorkspaceBlockProps), requireEmail: true, gated: false }) : sentProps), [sentProps, handed]);
+  // What is shown has the account name filled in; what is saved keeps the variables.
+  const { props, rawOf } = useMemo(() => resolveRoomProps(rawProps), [rawProps]);
   // Is the room itself narrow (the builder's canvas, a small laptop)? Then the wide tables stack instead of squeezing.
   const rootRef = useRef<HTMLElement | null>(null);
   const [tight, setTight] = useState(false);
@@ -1557,6 +1574,48 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   const partnerLogo = cover === "light" && props.partnerLogoOriginal ? "" : (props.partnerLogoUrl ?? "").trim();
   const partnerLogoFilter = props.partnerLogoOriginal ? undefined : cover === "light" ? "brightness(0)" : "brightness(0) invert(1)";
   const pct = day === null ? 0 : Math.min(100, Math.round((day / total) * 100));
+
+  // A hub that asks for an email shows a stranger the cover and one question. Nothing else is on the page to find.
+  if (!isEditor && !!props.requireEmail && !snapshot.viewer) {
+    return (
+      <section className="prw" style={vars} data-room-workspace data-room-gate>
+        <style>{CSS}</style>
+        <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
+          <div className="prw-wrap">
+            <div className="prw-top">
+              <div className="prw-lock" style={{ ["--blogo" as string]: logoScale(props.brandLogoScale) }}>
+                {brandHasLogo(brand) ? <BrandLogo brand={brand} tone={cover === "light" ? "onLight" : "onDark"} alt={brand.brandName || "Logo"} /> : <span>{brand.brandName}</span>}
+                <span className="x">×</span>
+                {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} style={{ height: Math.round(22 * logoScale(props.partnerLogoScale)), filter: partnerLogoFilter }} data-room-partner-logo /> : <span>{props.partnerName}</span>}
+              </div>
+            </div>
+            <div className={`prw-hero${heroImage && cover !== "fullbleed" ? "" : " solo"}`}>
+              <div>
+                {props.eyebrow && <div className="prw-eyebrow">{props.eyebrow}</div>}
+                <h1 style={{ fontFamily: BRAND_DISPLAY_STACK }}>
+                  {props.partnerName} × {brand.brandName || "us"}
+                  <br />
+                  {props.title}
+                </h1>
+                {props.lede && <p className="lede">{props.lede}</p>}
+              </div>
+              {heroImage && cover !== "fullbleed" && (
+                <div className="prw-photo">
+                  <img src={heroImage} alt={props.heroImageAlt ?? ""} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="prw-wrap">
+          <RoomGate store={room.reader} loading={snapshot.status === "idle" || snapshot.status === "loading"} partner={props.partnerName} brandName={brand.brandName || ""} />
+          <div className="prw-foot">
+            {props.partnerName} × {brand.brandName} · {props.eyebrow}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <RoomEditContext.Provider value={editItem}>
@@ -1833,7 +1892,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                     {props.calendar && (props.calendar.intro || isEditor) && <p><E item={props.calendar} field="intro" multiline placeholder="Intro line" /></p>}
                   </div>
                   {pageId && !isEditor && (
-                    <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}`} data-room-calendar-feed>
+                    <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}${props.requireEmail && room.reader?.feedToken() ? `&rt=${encodeURIComponent(room.reader.feedToken())}` : ""}`} data-room-calendar-feed>
                       <CalendarPlus aria-hidden /> Subscribe
                     </a>
                   )}
@@ -2594,6 +2653,57 @@ function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store:
 }
 
 /** "Who are you?" — a work email once, then a link by email (or a request to the team). */
+/**
+ * The door to a hub that asks for an email: one field, and what happens next.
+ * An address the hub knows is emailed a link that opens it; anyone else is
+ * passed to the account team to approve.
+ */
+function RoomGate({ store, loading, partner, brandName }: { store: RoomStoreHandle | null; loading: boolean; partner: string; brandName: string }) {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<"sent" | "requested" | null>(null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !store) return;
+    setBusy(true);
+    setError("");
+    const r = await store.requestAccess(email.trim());
+    setBusy(false);
+    if (r.ok) setResult(r.status);
+    else setError(r.error);
+  };
+  return (
+    <div className="prw-gate" data-room-gate-card>
+      {/* A returning visitor is recognised in a moment: show nothing to fill in until we know they aren't. */}
+      {loading ? (
+        <p className="wait">Opening…</p>
+      ) : result === "sent" ? (
+        <>
+          <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Check your inbox</h2>
+          <p>We sent a link to <b>{email.trim()}</b>. Open it on this device and you’re in. It keeps working here for 90 days.</p>
+        </>
+      ) : result === "requested" ? (
+        <>
+          <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Thanks, we’ve let the team know</h2>
+          <p>We don’t have <b>{email.trim()}</b> on the list yet, so your {brandName || "account"} team has been asked to add you. You’ll get an email with your link once they do.</p>
+        </>
+      ) : (
+        <form onSubmit={submit}>
+          <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Enter your work email to get started</h2>
+          <p>This is the shared workspace for {partner}{brandName ? ` and ${brandName}` : ""}: the plan, the launch kit, upcoming dates and the team on both sides. We’ll email you a link that opens it.</p>
+          <div className="row">
+            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" aria-label="Work email" data-room-gate-email />
+            <button type="submit" className="prw-btn pri" disabled={busy || !store}>{busy ? "Sending…" : "Continue"}</button>
+          </div>
+          {error && <div className="prw-err" role="alert">{error}</div>}
+          <small>Already have a link from your {brandName || "account"} team? Open that instead and you’ll skip this step.</small>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function AccessDialog({ store, onClose }: { store: RoomStoreHandle; onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);

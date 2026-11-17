@@ -4,7 +4,7 @@ vi.mock("@workspace/db", () => ({ db: {}, pool: {} }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
 import { parentIdFilter, parentNameFilter, practicesFromSheetValues, revopsSlackLines, sheetFilterIndex, slackMention } from "./partnerRoomService";
-import { extractRoomTasks, fillAccountName, normalizePracticeStage, parsePracticeRow, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
+import { gateRoomBlocks, roomRequiresEmail, roomWorkspaceProps, extractRoomTasks, fillAccountName, normalizePracticeStage, parsePracticeRow, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
 
 const MB2 = "0015d000041HyXrAAK";
 const SHEET = [
@@ -163,5 +163,31 @@ describe("practice rows with scanner and manager data", () => {
     expect(row.stageGiven).toBe(false);
     expect(parsePracticeRow({ office: "No scanners yet", "current total": "0" })).toMatchObject({ scannerCount: 0, scannerModels: null });
     expect(parsePracticeRow({ office: "Odd", "current total": "lots" })!.scannerCount).toBeNull();
+  });
+});
+
+describe("a hub that asks for an email first", () => {
+  const hub = (extra: object = {}) => [
+    { id: "n", type: "nav-header", props: { logoText: "Dandy" } },
+    { id: "w", type: "room-workspace", props: { partnerName: "MB2 Dental", title: "launch plan", heroImageUrl: "/room/default-cover.jpg", coverStyle: "split", planGroups: [{ title: "P", rows: [{ task: "Secret milestone" }] }], team: [{ title: "Dandy", members: [{ name: "Rae Rep", email: "rae@vendor.com" }] }], assets: [{ kind: "text", title: "Email", body: "Confidential copy" }], scheduleUrl: "https://calendly.com/rae", ...extra } },
+  ];
+
+  it("sends a stranger the cover and nothing under it", () => {
+    const gated = gateRoomBlocks(hub({ requireEmail: true })) as { type: string; props: Record<string, unknown> }[];
+    expect(gated[0]).toEqual(hub()[0]); // other blocks pass through
+    expect(gated[1].props).toEqual({ requireEmail: true, gated: true, partnerName: "MB2 Dental", title: "launch plan", heroImageUrl: "/room/default-cover.jpg", coverStyle: "split" });
+    const sent = JSON.stringify(gated);
+    for (const secret of ["Secret milestone", "rae@vendor.com", "Confidential copy", "calendly.com"]) expect(sent).not.toContain(secret);
+  });
+
+  it("leaves an open hub, and pages with no hub, exactly as they are", () => {
+    const open = hub();
+    expect(gateRoomBlocks(open)).toBe(open);
+    expect(roomRequiresEmail(open)).toBe(false);
+    expect(roomRequiresEmail(hub({ requireEmail: true }))).toBe(true);
+    expect(roomRequiresEmail(hub({ requireEmail: "yes" }))).toBe(false); // only a real true turns it on
+    expect(gateRoomBlocks(null)).toBeNull();
+    expect(roomWorkspaceProps(hub({ requireEmail: true }))).toMatchObject({ partnerName: "MB2 Dental", scheduleUrl: "https://calendly.com/rae" });
+    expect(roomWorkspaceProps([{ type: "hero" }])).toBeNull();
   });
 });

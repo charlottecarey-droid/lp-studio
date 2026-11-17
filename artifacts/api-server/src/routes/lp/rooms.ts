@@ -68,6 +68,8 @@ import {
   parsePracticeRow,
   ROOM_PRACTICE_STAGES,
   roomCalendarIcs,
+  roomRequiresEmail,
+  roomWorkspaceProps,
   roomKitInfo,
   resolveRoomBlocks,
   ROOM_STANDARD_ASSETS,
@@ -130,6 +132,8 @@ interface RoomPage {
   partnerName: string;
   /** Named people with an address on the Team module (they can be tagged in the feed). */
   teamPeople: { name: string; email: string }[];
+  /** The hub asks for an email before showing its contents: a stranger gets the cover and nothing else. */
+  gated: boolean;
 }
 
 async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
@@ -143,7 +147,7 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
   if (!page || page.tenantId == null) return null;
   // Everything read from the page uses the account name filled in, as the page itself shows it.
   page.blocks = resolveRoomBlocks(page.blocks);
-  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks) };
+  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks), gated: roomRequiresEmail(page.blocks) };
 }
 
 async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null; asanaProjectGid: string | null }> {
@@ -408,6 +412,11 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
+    // A gated hub tells a stranger nothing: no progress, no wins, no dates. They get the cover and an email box.
+    if (page.gated && !viewer) {
+      res.json({ viewer: null, gated: true, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
+      return;
+    }
     const [states, uploads] = await Promise.all([
       db.select().from(lpRoomTaskStateTable).where(eq(lpRoomTaskStateTable.pageId, page.id)),
       db
@@ -445,7 +454,9 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
     const extras = page.isWorkspace
       ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id), ...(await loadPublicRoomCalendar(page.id)) }
       : { choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] };
-    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras });
+    // A recognised visitor to a gated hub is handed the hub itself: the page they loaded carried only the cover.
+    const props = page.gated && viewer ? roomWorkspaceProps((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks) : null;
+    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras, ...(props ? { props } : {}) });
   } catch (err) {
     req.log.error({ err }, "room state failed");
     res.status(500).json({ error: "Could not load the room" });
@@ -958,7 +969,11 @@ router.post("/lp/room/asset", stateLimiter, async (req: Request, res: Response):
 router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const pageId = Number(req.query.pageId);
-    const [page] = Number.isFinite(pageId) && pageId > 0 ? await db.select({ title: lpPagesTable.title, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1) : [];
+    const [found] = Number.isFinite(pageId) && pageId > 0 ? await db.select({ title: lpPagesTable.title, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1) : [];
+    // A gated hub's calendar is for its people: the feed address carries the subscriber's own room token.
+    const room = found && roomRequiresEmail(found.blocks) ? await loadRoomPage(pageId) : null;
+    const allowed = !found || !roomRequiresEmail(found.blocks) || (!!room && !!(await resolveViewer(room, { rt: typeof req.query.rt === "string" ? req.query.rt : "" })));
+    const page = allowed ? found : undefined;
     const synced = page ? (await loadPublicRoomCalendar(pageId)).events : [];
     const ics = page ? roomCalendarIcs(resolveRoomBlocks(page.blocks), `${roomPartnerName(page.blocks) || page.title} partnership`, synced) : null;
     if (!ics) {
@@ -966,7 +981,7 @@ router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Resp
       return;
     }
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=900");
+    res.setHeader("Cache-Control", room ? "private, max-age=900" : "public, max-age=900");
     res.send(ics);
   } catch (err) {
     req.log.error({ err }, "room calendar feed failed");

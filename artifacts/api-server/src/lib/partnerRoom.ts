@@ -191,6 +191,42 @@ export function setRoomMilestone(blocks: unknown, key: string, patch: MilestoneP
 /** Block types that make a page a room. `room-workspace` keeps its plan in `planGroups`, `hub-plan` in `lanes`. */
 export const ROOM_BLOCK_TYPES = ["room-workspace", "hub-plan"] as const;
 
+/* ── A hub that asks for an email before showing anything ─────────────────── */
+
+/** What a signed-out visitor to a gated hub is sent: the cover, and nothing under it. */
+export const ROOM_COVER_PROPS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoScale", "brandLogoScale", "partnerLogoOriginal", "eyebrow", "title", "lede", "heroImageUrl", "heroImageAlt", "coverStyle", "accentColor"] as const;
+
+const isGatedRoom = (b: unknown): b is { type: string; props: Record<string, unknown> } =>
+  !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace" && (b as { props?: { requireEmail?: unknown } }).props?.requireEmail === true;
+
+/** True when the page's hub asks for an email before showing its contents. */
+export function roomRequiresEmail(blocks: unknown): boolean {
+  return Array.isArray(blocks) && blocks.some(isGatedRoom);
+}
+
+/**
+ * The page's blocks as they may be sent to anyone: a gated hub keeps only its
+ * cover (names, logos, headline, photo) and is marked `gated`. The plan, the
+ * people, the kit and everything else stay on the server until the visitor
+ * is recognised, when the room's state hands them over. Other blocks, and
+ * hubs that are not gated, pass through untouched.
+ */
+export function gateRoomBlocks(blocks: unknown): unknown {
+  if (!Array.isArray(blocks) || !blocks.some(isGatedRoom)) return blocks;
+  return blocks.map((b) => {
+    if (!isGatedRoom(b)) return b;
+    const cover: Record<string, unknown> = { requireEmail: true, gated: true };
+    for (const k of ROOM_COVER_PROPS) if (b.props[k] !== undefined) cover[k] = b.props[k];
+    return { ...b, props: cover };
+  });
+}
+
+/** The hub block's own props as saved (variables intact), for handing to a recognised visitor of a gated hub. */
+export function roomWorkspaceProps(blocks: unknown): Record<string, unknown> | null {
+  const b = Array.isArray(blocks) ? blocks.find((x) => !!x && typeof x === "object" && (x as { type?: unknown }).type === "room-workspace") : null;
+  return b ? (((b as { props?: Record<string, unknown> }).props ?? {}) as Record<string, unknown>) : null;
+}
+
 /** True when the page carries a room block (so it has room state even with no customer tasks). */
 export function pageIsRoom(blocks: unknown): boolean {
   return Array.isArray(blocks) && blocks.some((b) => !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace");

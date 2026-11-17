@@ -60,7 +60,7 @@ describe("the room's Team module", () => {
 describe("the setup checklist for a new room", () => {
   it("ticks what was done automatically and lists the rest for the team", () => {
     const bare = roomSetupChecklist(EMPTY_SETUP_FACTS);
-    expect(bare.filter((i) => i.done)).toHaveLength(1);
+    expect(bare.filter((i) => i.done)).toHaveLength(2); // the draft exists, and it asks for an email before showing anything
     expect(bare.map((i) => i.text).join("\n")).toMatch(/Connect your calendar[\s\S]*Slack channel[\s\S]*invite the customer's team/);
     const full = roomSetupChecklist({ standardFiles: 2, teamFilled: 8, contacts: 79, domain: "mb2dental.com", practicesLinked: true, ownerNamed: true });
     expect(full.filter((i) => i.done).map((i) => i.text)).toEqual([
@@ -68,6 +68,7 @@ describe("the setup checklist for a new room", () => {
       "Customer team filled in from the account (8 people). Check it is the right group",
       "Customer email domain set to mb2dental.com",
       "Practice list linked to the locations sheet",
+      "Asks for a work email before showing anything (invited people go straight in)",
     ]);
     expect(full[full.length - 1].text).toContain("79 contacts on the account");
   });

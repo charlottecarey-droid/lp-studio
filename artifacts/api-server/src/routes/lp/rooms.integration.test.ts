@@ -20,6 +20,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 vi.hoisted(() => {
   process.env.RATE_LIMIT_ROOM_ACTION_PER_MIN = "100000";
   process.env.RATE_LIMIT_ROOM_STATE_PER_MIN = "100000";
+  process.env.RATE_LIMIT_ROOM_ACCESS_PER_10MIN = "100000";
 });
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { Readable } from "stream";
@@ -614,6 +615,47 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("state", { pageId })).json as { practices: { doctors: { total: number } } }).practices.doctors.total).toBe(4);
     const notes = await post("upload", { pageId, hl, taskKey: "practice-roster", fileName: "notes.csv", fileBase64: Buffer.from("Topic,Owner\nKickoff,Sam").toString("base64") });
     expect(notes.json).toEqual({ ok: true, fileName: "notes.csv" });
+  }, 60_000);
+
+  it("a hub that asks for an email tells a stranger nothing, and hands a recognised visitor the hub", async () => {
+    const tenantId = await seedTenant();
+    const blocks = [{ id: "w1", type: "room-workspace", props: { requireEmail: true, partnerName: "MB2 Dental", planGroups: [{ title: "P", rows: [{ key: "announce", task: "Announce it", customerAction: "check" }] }], calendar: { events: [{ key: "k", date: "2026-12-03", title: "Business review" }] } } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
+    expect((await post("task", { pageId, hl, taskKey: "announce" })).status).toBe(200);
+    expect((await post("win", { pageId, hl, body: "First case seated" })).status).toBe(200);
+
+    // A stranger: no viewer, no progress, no wins, and not the hub's contents.
+    const anon = (await post("state", { pageId })).json as Record<string, unknown>;
+    expect(anon).toMatchObject({ viewer: null, gated: true, tasks: {}, wins: [], events: [], practices: { total: 0 } });
+    expect(anon).not.toHaveProperty("props");
+    expect(JSON.stringify(anon)).not.toContain("First case seated");
+    // Their calendar feed is closed too, unless the address carries a room token for someone the hub knows.
+    expect((await inject(app, { method: "GET", url: `/lp/room/calendar.ics?pageId=${pageId}` })).status).toBe(404);
+
+    // A recognised visitor: the same call hands over the hub.
+    const known = (await post("state", { pageId, hl })).json as { viewer: { email: string }; gated?: boolean; props: { planGroups: { rows: { task: string }[] }[] }; wins: unknown[]; tasks: Record<string, unknown> };
+    expect(known.viewer.email).toBe("dana@roomco.com");
+    expect(known.props.planGroups[0].rows[0].task).toBe("Announce it");
+    expect(known.wins).toHaveLength(1);
+    expect(known.tasks.announce).toMatchObject({ done: true });
+
+    // The email step still works for a stranger: an address at the customer's domain is sent a link, and that link opens the hub and its calendar.
+    await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: ["mb2dental.com"] } });
+    sentEmails.length = 0;
+    expect((await post("access", { pageId, email: "levi@mb2dental.com" })).json).toEqual({ status: "sent" });
+    const rt = tokenFrom(sentEmails[0].roomUrl);
+    expect(((await post("state", { pageId, rt })).json as { props?: unknown }).props).toBeTruthy();
+    const feed = await inject(app, { method: "GET", url: `/lp/room/calendar.ics?pageId=${pageId}&rt=${encodeURIComponent(rt)}` });
+    expect(feed.status).toBe(200);
+
+    // A hub that doesn't ask stays open, and its state carries no copy of the page.
+    const openPage = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'Open', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "MB2 Dental" } }])]);
+    const openState = (await post("state", { pageId: openPage.rows[0].id })).json as Record<string, unknown>;
+    expect(openState).not.toHaveProperty("gated");
+    expect(openState).not.toHaveProperty("props");
+    expect((await inject(app, { method: "GET", url: `/lp/room/calendar.ics?pageId=${openPage.rows[0].id}` })).status).toBe(200);
   }, 60_000);
 
   it("marketing requests are filed in Asana as Expansion Support - customer - request, with intake status submitted; other kinds are not", async () => {

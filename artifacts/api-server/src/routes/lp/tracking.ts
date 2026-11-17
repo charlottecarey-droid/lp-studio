@@ -1,3 +1,4 @@
+import { gateRoomBlocks } from "../../lib/partnerRoom";
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
@@ -850,7 +851,9 @@ router.get("/lp/page/:slug", optionalAuth, async (req, res): Promise<void> => {
         id: builderPage.id,
         title: builderPage.title,
         slug: builderPage.slug,
-        blocks: hydratedBlocks,
+        // A hub that asks for an email is sent as its cover only: this response is shared and cached, so it never
+        // carries the hub's contents. A recognised visitor gets them from the room's own state call.
+        blocks: gateRoomBlocks(hydratedBlocks),
         status: builderPage.status,
         customCss: builderPage.customCss ?? "",
         animationsEnabled: builderPage.animationsEnabled,
@@ -1103,6 +1106,8 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
       if (byTokenPage) page = byTokenPage;
     }
   }
+  // Reached by a review token (a reviewer's link, or the prerender snapshot), not by a signed-in editor.
+  const viaToken = !!page;
 
   // Path 2: session. Page lookup is scoped to user.tenantId; the request
   // host is ignored, so a tenant-A admin can never reach tenant B's pages.
@@ -1153,7 +1158,9 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
     id: page.id,
     title: page.title,
     slug: page.slug,
-    blocks: previewBlocks,
+    // A hub that asks for an email goes out as its cover only on a token link: that is what a visitor sees, and it is
+    // what the prerendered snapshot must hold. A signed-in editor previews the whole hub.
+    blocks: viaToken ? gateRoomBlocks(previewBlocks) : previewBlocks,
     status: page.status,
     customCss: page.customCss ?? "",
     animationsEnabled: page.animationsEnabled,

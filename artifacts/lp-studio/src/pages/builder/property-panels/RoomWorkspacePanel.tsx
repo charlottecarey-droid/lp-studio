@@ -389,6 +389,15 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo (for the dark cover)" />
           <span className="text-[11px] text-muted-foreground">Customer logo. Any version works: it is recoloured to white on the dark cover. Blank shows their name.</span>
         </div>
+        <div className="space-y-1 rounded border p-2" data-room-require-email>
+          <label className="flex items-center gap-2 text-xs font-semibold">
+            <Switch checked={!!props.requireEmail} onCheckedChange={(v) => update({ requireEmail: v })} aria-label="Ask for an email before showing the hub" />
+            Ask for a work email before showing the hub
+          </label>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            On: a visitor who isn’t recognised sees only the cover and “Enter your work email to get started”. People you invite, personal links and your own team go straight in. Off: anyone with the link can read the hub, and only the practice list and requests ask for an email.
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <Switch checked={!!props.partnerLogoOriginal} onCheckedChange={(v) => update({ partnerLogoOriginal: v })} aria-label="Keep the logo's own colours" />
           Keep the logo’s own colours (use this if the logo has a solid background)

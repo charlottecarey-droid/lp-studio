@@ -81,6 +81,10 @@ export interface RoomContact {
 
 export interface RoomSnapshot {
   status: "idle" | "loading" | "ready" | "error";
+  /** The hub asks for an email first, and this visitor has not been recognised: the server sent the cover only. */
+  gated?: boolean;
+  /** The hub's own contents, handed to a recognised visitor of a hub that asks for an email first. */
+  props?: Record<string, unknown>;
   /** `team` is set when the viewer is one of the page owner's own team. */
   viewer: { email: string; name: string | null; team?: boolean } | null;
   tasks: Record<string, RoomTaskState>;
@@ -276,6 +280,8 @@ class RoomStore {
       this.set({
         status: "ready",
         viewer: (json.viewer as RoomSnapshot["viewer"]) ?? null,
+        gated: json.gated === true,
+        ...(json.props && typeof json.props === "object" ? { props: json.props as Record<string, unknown> } : {}),
         tasks: (json.tasks as RoomSnapshot["tasks"]) ?? {},
         requests: Array.isArray(json.requests) ? (json.requests as RoomRequest[]) : [],
         choices: json.choices && typeof json.choices === "object" ? (json.choices as RoomSnapshot["choices"]) : {},
@@ -317,6 +323,11 @@ class RoomStore {
 
   setTaskDone(taskKey: string, done: boolean) {
     return this.act("task", { taskKey, done });
+  }
+
+  /** The token this browser holds for the room, for addresses that can't send one any other way (the calendar feed). */
+  feedToken(): string {
+    return readRt(this.pageId) ?? "";
   }
 
   /** The roster template for this room, as a CSV to download. Null when it could not be made. */

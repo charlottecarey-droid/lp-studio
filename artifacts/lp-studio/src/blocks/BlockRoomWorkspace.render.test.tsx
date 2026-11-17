@@ -498,4 +498,22 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(kitOnly).toContain('data-room-launch="ready"');
     expect(kitOnly).not.toContain('data-room-launch="decide"');
   });
+  it("a hub that asks for an email shows a stranger the cover and one question, and nothing else", () => {
+    // What the server sends a stranger: the cover only, marked as gated.
+    const html = render({ requireEmail: true, gated: true, partnerName: "MB2 Dental", title: "launch plan", lede: "The plan we run together." } as never);
+    expect(html).toContain("data-room-gate");
+    expect(html).toContain("MB2 Dental × Northwind");
+    expect(html).toContain("The plan we run together.");
+    expect(html).toContain("data-room-gate-card");
+    expect(html).not.toContain("data-room-nav="); // no tabs
+    expect(html).not.toContain("data-room-request-button"); // no Make a request
+    expect(html).not.toContain("plan items complete"); // no progress
+    // Even if the whole hub reached the page (an unrecognised reviewer's preview), nothing under the cover is rendered.
+    const full = render({ requireEmail: true, planGroups: [{ title: "P", rows: [{ task: "Secret milestone" }] }], team: [{ title: "Us", members: [{ name: "Rae Rep", email: "rae@vendor.com" }] }] });
+    expect(full).toContain("data-room-gate-card");
+    expect(full).not.toContain("Secret milestone");
+    expect(full).not.toContain("rae@vendor.com");
+    // A hub that doesn't ask is unchanged.
+    expect(render()).not.toContain("data-room-gate");
+  });
 });
