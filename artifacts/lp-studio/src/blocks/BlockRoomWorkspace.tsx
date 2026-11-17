@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -1148,9 +1148,18 @@ const CSS = `
 .prw-sc-regions>button.more{display:block;width:auto;margin:6px 0 4px;padding:4px 0;font-size:12px;font-weight:600;color:var(--dark)}
 .prw-sc-tools input{max-width:280px}
 .prw-act{display:inline-flex;flex-direction:column;align-items:center;gap:5px;vertical-align:middle}
-.prw .prw-act .prw-tpl{display:inline-flex;align-items:center;gap:4px;padding:0;border:0;background:none;font-size:11px;font-weight:500;line-height:1.2;color:var(--body);text-decoration:underline;text-underline-offset:2px}
-.prw .prw-act .prw-tpl:hover{color:var(--dark)}
-.prw .prw-act .prw-tpl svg{width:10px;height:10px}
+.prw-rowact{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.prw-ib.on{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
+.prw-plan tr.on>td{background:#FAFBF8}
+.prw-plan tr.prw-edit>td{background:#FAFBF8;border-top:0;padding-top:0;padding-bottom:16px}
+.prw-edit .f{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.prw-edit label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;font-weight:600;color:var(--body)}
+.prw-edit .prw-pick{height:34px;min-width:150px;font-size:13px}
+.prw-edit input.prw-pick{display:block;width:130px;min-width:0;margin:0}
+.prw-edit .b{display:flex;gap:8px;margin-left:auto}
+.prw-tplrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--body)}
+.prw .prw-tplrow .prw-tpl{display:inline-flex;align-items:center;gap:5px;padding:0;border:0;background:none;font-size:12.5px;font-weight:600;color:var(--dark);text-decoration:underline;text-underline-offset:2px}
+.prw .prw-tplrow .prw-tpl svg{width:12px;height:12px}
 .prw-sc-docs summary{cursor:pointer;list-style:none;font-weight:600;color:var(--ink)}
 .prw-sc-docs summary::-webkit-details-marker{display:none}
 .prw-sc-docs summary span{font-weight:400;color:var(--body);font-size:11.5px;margin-left:5px}
@@ -1679,6 +1688,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                         <div style={{ minWidth: 0 }}>
                           <div className="t">{x.r.task}</div>
                           <div className="m">{x.r.note || `Action plan${x.r.target ? ` · due ${x.r.target}` : ""}`}</div>
+                          {x.action === "upload" && isRosterTask(x.key) && <RosterTemplateLink store={store} show={!isEditor && !!snapshot.viewer} />}
                         </div>
                         <div className="a">
                           <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
@@ -1806,7 +1816,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                       <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>
                       <th style={{ width: 136 }}>{props.partnerName}</th>
                       <th style={{ width: 104 }}>Status</th>
-                      <th style={{ width: 132 }} />
+                      <th style={{ width: canEditLive ? 186 : 132 }} />
                     </tr>
                   </thead>
                   <tbody>
@@ -2119,37 +2129,46 @@ function OwnerPick({ value, people, onPick, label }: { value: string | undefined
 }
 
 function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit }: { group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null }) {
+  // The account team edits one row at a time: the table stays plain text, and a pencil opens that row's fields.
+  const [editing, setEditing] = useState<string | null>(null);
   return (
     <>
       <tr className="grp">
         <td colSpan={6}>{group.title}</td>
       </tr>
       {rows.map((x) => (
-        <tr key={x.key || x.ri} data-room-milestone={x.status}>
-          <td className="c">{x.r.target}</td>
-          <td>
-            <div className="t"><E item={x.r} field="task" placeholder="Milestone" /></div>
-            {x.saved?.done ? (
-              <div className="m" data-room-received>
-                {[x.action === "upload" ? (x.saved.fileName ? `Received ${x.saved.fileName}` : "File received") : "Marked complete", x.saved.by, fmtDate(x.saved.at)].filter(Boolean).join(" · ")}
-              </div>
-            ) : (
-              x.r.note && <div className="m"><E item={x.r} field="note" placeholder="Note" /></div>
-            )}
-          </td>
-          <td className="c">{edit ? <OwnerPick value={x.r.ourOwner} people={edit.ours} onPick={(v) => void edit.save(x.key, { ourOwner: v || "—" })} label="Our owner" /> : x.r.ourOwner}</td>
-          <td className="c">{edit ? <OwnerPick value={x.r.partnerOwner} people={edit.theirs} onPick={(v) => void edit.save(x.key, { partnerOwner: v || "—" })} label="Their owner" /> : x.r.partnerOwner}</td>
-          <td>
-            {edit ? (
-              <select className={`prw-pick prw-st ${x.status}`} value={x.status} onChange={(e) => void edit.save(x.key, { status: e.target.value as RoomMilestoneStatus })} aria-label="Status" data-room-status-pick>
-                {STATUSES.map((st) => <option key={st} value={st}>{ROOM_STATUS_LABEL[st]}</option>)}
-              </select>
-            ) : (
+        <Fragment key={x.key || x.ri}>
+          <tr data-room-milestone={x.status} className={editing === x.key ? "on" : undefined}>
+            <td className="c">{x.r.target}</td>
+            <td>
+              <div className="t"><E item={x.r} field="task" placeholder="Milestone" /></div>
+              {x.saved?.done ? (
+                <div className="m" data-room-received>
+                  {[x.action === "upload" ? (x.saved.fileName ? `Received ${x.saved.fileName}` : "File received") : "Marked complete", x.saved.by, fmtDate(x.saved.at)].filter(Boolean).join(" · ")}
+                </div>
+              ) : (
+                x.r.note && <div className="m"><E item={x.r} field="note" placeholder="Note" /></div>
+              )}
+              {x.action === "upload" && isRosterTask(x.key) && <RosterTemplateLink store={store} show={!isEditor && !!snapshot.viewer} />}
+            </td>
+            <td className="c">{x.r.ourOwner}</td>
+            <td className="c">{x.r.partnerOwner}</td>
+            <td>
               <span className={`prw-st ${x.status}`}>{ROOM_STATUS_LABEL[x.status]}</span>
-            )}
-          </td>
-          <td className="r">{x.action && <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={onNeedEmail} />}</td>
-        </tr>
+            </td>
+            <td className="r">
+              <span className="prw-rowact">
+                {x.action && <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={onNeedEmail} />}
+                {edit && (
+                  <button type="button" className={`prw-ib${editing === x.key ? " on" : ""}`} title="Edit this milestone" aria-label={`Edit: ${x.r.task}`} aria-expanded={editing === x.key} onClick={() => setEditing((k) => (k === x.key ? null : x.key))} data-room-edit-row>
+                    <PencilLine aria-hidden />
+                  </button>
+                )}
+              </span>
+            </td>
+          </tr>
+          {edit && editing === x.key && <PlanRowEditor row={x} edit={edit} onClose={() => setEditing(null)} />}
+        </Fragment>
       ))}
       {group.checkpoint && (
         <tr className="chk">
@@ -2159,6 +2178,97 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit }
         </tr>
       )}
     </>
+  );
+}
+
+/** One milestone's editable fields, in a strip under its row: target date, both owners and status, saved together. */
+function PlanRowEditor({ row, edit, onClose }: { row: PlanRow; edit: PlanEdit; onClose: () => void }) {
+  const clean = (v: string | undefined) => ((v ?? "").trim() === "—" ? "" : (v ?? "").trim());
+  const [target, setTarget] = useState(row.r.target ?? "");
+  const [ours, setOurs] = useState(clean(row.r.ourOwner));
+  const [theirs, setTheirs] = useState(clean(row.r.partnerOwner));
+  // An item the customer ticked reads as done; an overdue one is shown as overdue. The editor starts from the stored status.
+  const [status, setStatus] = useState<RoomMilestoneStatus>(row.saved?.done ? "done" : resolveRoomStatus(row.r.status));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const save = async () => {
+    const patch: Partial<RoomMilestone> = {};
+    if (target.trim() !== (row.r.target ?? "").trim()) patch.target = target.trim();
+    if (ours !== clean(row.r.ourOwner)) patch.ourOwner = ours || "—";
+    if (theirs !== clean(row.r.partnerOwner)) patch.partnerOwner = theirs || "—";
+    if (status !== (row.saved?.done ? "done" : resolveRoomStatus(row.r.status))) patch.status = status;
+    if (Object.keys(patch).length === 0) return onClose();
+    setBusy(true);
+    setError("");
+    const err = await edit.save(row.key, patch);
+    setBusy(false);
+    if (err) setError(err);
+    else onClose();
+  };
+  return (
+    <tr className="prw-edit" data-room-row-editor>
+      <td colSpan={6}>
+        <div className="f">
+          <label>
+            <span>Target date</span>
+            <input className="prw-pick" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Nov 21" />
+          </label>
+          <label>
+            <span>Our owner</span>
+            <OwnerPick value={ours} people={edit.ours} onPick={setOurs} label="Our owner" />
+          </label>
+          <label>
+            <span>Their owner</span>
+            <OwnerPick value={theirs} people={edit.theirs} onPick={setTheirs} label="Their owner" />
+          </label>
+          <label>
+            <span>Status</span>
+            <select className="prw-pick" value={status} onChange={(e) => setStatus(e.target.value as RoomMilestoneStatus)} aria-label="Status" data-room-status-pick>
+              {STATUSES.map((st) => <option key={st} value={st}>{ROOM_STATUS_LABEL[st]}</option>)}
+            </select>
+          </label>
+          <span className="b">
+            <button type="button" className="prw-btn pri" disabled={busy} onClick={save} data-room-row-save>{busy ? "Saving" : "Save"}</button>
+            <button type="button" className="prw-btn" disabled={busy} onClick={onClose}>Cancel</button>
+          </span>
+        </div>
+        {error && <div className="prw-err" role="alert">{error}</div>}
+      </td>
+    </tr>
+  );
+}
+
+/**
+ * "Download the template", shown with the description of a roster upload (the
+ * practice list, the doctor roster): a spreadsheet with the customer's
+ * practices already filled in, to complete and upload.
+ */
+function RosterTemplateLink({ store, show }: { store: RoomStoreHandle | null; show: boolean }) {
+  const [error, setError] = useState("");
+  if (!show || !store) return null;
+  return (
+    <div className="prw-tplrow">
+      <button
+        type="button"
+        className="prw-tpl"
+        data-room-roster-template
+        onClick={async () => {
+          setError("");
+          const t = await store.rosterTemplate();
+          if (!t) return setError("Couldn't make the template. Please try again.");
+          const url = URL.createObjectURL(new Blob([t.csv], { type: "text/csv;charset=utf-8" }));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = t.fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+      >
+        <Download aria-hidden /> Download the template
+      </button>
+      <span>your practices are already filled in</span>
+      {error && <span className="prw-err" role="alert">{error}</span>}
+    </div>
   );
 }
 
@@ -2208,26 +2318,6 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row:
             if (file) void run((s) => s.upload(row.key, file));
           }}
         />
-      )}
-      {row.action === "upload" && isRosterTask(row.key) && !isEditor && store && snapshot.viewer && (
-        <button
-          type="button"
-          className="prw-tpl"
-          data-room-roster-template
-          title="A spreadsheet with your practices already filled in. Add a row per doctor, correct anything wrong, then upload it."
-          onClick={async () => {
-            const t = await store.rosterTemplate();
-            if (!t) return setError("Couldn't make the template. Please try again.");
-            const url = URL.createObjectURL(new Blob([t.csv], { type: "text/csv;charset=utf-8" }));
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = t.fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-        >
-          <Download aria-hidden /> Template
-        </button>
       )}
       {error && <div className="prw-err" role="alert" style={{ whiteSpace: "normal" }}>{error}</div>}
     </span>

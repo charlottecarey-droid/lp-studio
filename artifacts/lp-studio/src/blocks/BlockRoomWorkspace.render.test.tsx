@@ -443,4 +443,12 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(isRosterTask("onboard-logo")).toBe(false);
     expect(isRosterTask("brand-guidelines")).toBe(false);
   });
+  it("the action plan is plain text for everyone: no menus in the rows, and no edit buttons for a customer", () => {
+    const html = render({ hiddenModules: ["overview", "wins", "goals", "practices", "marketing", "kit", "calendar", "meetings", "requests", "team"] as never, planGroups: [{ title: "P", rows: [{ task: "Upload your practice list", key: "practice-roster", customerAction: "upload", ourOwner: "AE", partnerOwner: "Operations Lead" }] }] });
+    expect(html).toContain('data-room-view="plan"');
+    expect(html).not.toContain("<select");
+    expect(html).not.toContain("data-room-edit-row"); // the pencil is for the account team on the live page
+    expect(html).not.toContain("data-room-row-editor");
+    expect(html).toContain("Operations Lead");
+  });
 });
