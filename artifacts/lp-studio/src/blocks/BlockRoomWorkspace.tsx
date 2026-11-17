@@ -806,9 +806,9 @@ const STACK_RULES = `.prw-plan thead,.prw-reqs thead{display:none}
 .prw-plan td:first-child{padding-top:12px}
 .prw-plan td:last-child{padding-bottom:12px;border-bottom:1px solid var(--line)}
 .prw-plan tr.grp td,.prw-plan tr.chk td{padding:8px 14px}
-.prw-prog{grid-template-columns:64px minmax(0,1fr);gap:8px 12px}
-.prw-prog .im{width:64px;height:48px}
-.prw-prog .who,.prw-prog .when,.prw-prog .dec{grid-column:2;justify-self:start;text-align:left}`;
+.prw-prog{flex-wrap:wrap;gap:10px 14px}
+.prw-prog .tx{flex-basis:calc(100% - 80px)}
+.prw-prog .dec{margin-left:0;width:100%;text-align:left}`;
 const TEAM_STACK_RULES = `.prw-team thead{display:none}
 .prw-team td{display:block;border-top:0;padding:2px 14px;white-space:normal!important}
 .prw-team td:first-child{padding-top:12px;border-top:1px solid var(--line)}
@@ -989,20 +989,22 @@ const CSS = `
 .prw-gh{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
 .prw-gh:first-child{border-top:0}
 .prw-gh span{color:var(--body);font-weight:600;letter-spacing:0;text-transform:none;font-size:12px}
-.prw-prog{display:grid;grid-template-columns:92px minmax(0,1fr) 132px 96px 236px;gap:20px;align-items:center;padding:16px 20px;border-top:1px solid var(--line)}
-.prw-prog .im{width:92px;height:60px;border-radius:7px;object-fit:cover;display:block;background:var(--dark)}
+.prw-prog{display:flex;gap:16px;align-items:center;padding:16px 20px;border-top:1px solid var(--line)}
+.prw-prog .im{width:56px;height:56px;border-radius:10px;object-fit:cover;display:block;flex:none}
+.prw-prog .im.ph{display:grid;place-items:center;background:color-mix(in srgb,var(--dark) 6%,#fff);color:color-mix(in srgb,var(--dark) 45%,#fff)}
+.prw-prog .im.ph svg{width:18px;height:18px}
+.prw-prog .tx{flex:1;min-width:0}
 .prw-prog h3{margin:0 0 2px;font-size:14px;font-weight:700;color:var(--dark)}
-.prw-prog p{margin:0;font-size:12.5px;color:var(--body)}
-.prw-prog .who,.prw-prog .when{font-size:12.5px;color:var(--body)}
-.prw-prog .when b{display:block;color:var(--ink);font-weight:600}
-.prw-prog .dec{justify-self:end;text-align:right}
+.prw-prog p{margin:0;font-size:12.5px;color:var(--body);max-width:62ch}
+.prw-prog .meta{margin-top:5px;font-size:12px;color:var(--faint)}
+.prw-prog .dec{margin-left:auto;flex:none;text-align:right}
 .prw-prog .need{display:block;font-size:11.5px;font-weight:700;color:var(--amber);margin-bottom:4px}
 .prw-prog .by{display:block;font-size:11.5px;color:var(--body);margin-top:4px}
 .prw-seg{display:inline-flex;border:1px solid #D4D8D0;border-radius:8px;overflow:hidden;background:#fff}
 .prw-seg button{padding:6px 11px;font-size:12px;font-weight:600;color:var(--body);border:0;border-left:1px solid #D4D8D0;background:#fff;white-space:nowrap}
 .prw-seg button:first-child{border-left:0}
 .prw-seg button.on{background:var(--dark);color:var(--on-dark)}
-.prw-fixed{font-size:12.5px;font-weight:600;color:var(--green)}
+.prw-fixed{font-size:11.5px;font-weight:600;color:var(--body);background:#F1F2EE;padding:3px 9px;border-radius:999px}
 .prw-bar{height:5px;border-radius:3px;background:#E6E9E3;position:relative;min-width:90px}
 .prw-bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--green)}
 .prw-bar.warn i{background:#D9A300}
@@ -1194,6 +1196,32 @@ const CSS = `
 .prw-pick{height:30px;max-width:100%;border:1px solid #D4D8D0;border-radius:7px;padding:0 6px;font:inherit;font-size:12.5px;color:var(--ink);background:#fff}
 select.prw-pick.prw-st{font-weight:600}
 input.prw-pick{display:block;width:100%;margin-top:5px}
+.prw-o section{margin-bottom:24px}
+.prw-o h3{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:13px;font-weight:700;color:var(--dark)}
+.prw-o h3 .prw-num{font-size:11.5px;font-weight:600;color:var(--body);background:#F1F2EE;border-radius:999px;padding:1px 8px}
+.prw-o-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--line)}
+.prw-o-row:first-child{border-top:0}
+.prw-o-dot{width:7px;height:7px;border-radius:50%;background:#D4D8D0;flex:none;margin:0 6px}
+.prw-o-row.late .prw-o-dot{background:var(--red)}
+.prw .prw-o-tick{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;border:1.5px solid #C5CABF;background:#fff;color:transparent;padding:0;flex:none}
+.prw .prw-o-tick:hover{border-color:var(--green);color:var(--green)}
+.prw-o-tick svg{width:11px;height:11px}
+.prw .prw-o-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left;background:none;border:0;padding:0;color:inherit}
+.prw-o-main .t{font-size:13.5px;font-weight:600;color:var(--ink)}
+.prw-o-main .m{font-size:12px;color:var(--body)}
+button.prw-o-main:hover .t{color:var(--dark);text-decoration:underline;text-underline-offset:2px}
+.prw-o-end{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
+.prw-o-end .go{width:15px;height:15px;color:#B7BDB2}
+.prw-o-late{font-size:11px;font-weight:700;color:var(--red)}
+.prw .prw-o-more{display:block;width:100%;padding:10px 16px;border:0;border-top:1px solid var(--line);background:none;text-align:left;font-size:12.5px;font-weight:600;color:var(--dark)}
+.prw-o-row>.prw-edit{flex-basis:100%;margin-top:4px}
+.prw-o-done{margin-top:4px;font-size:13px;color:var(--body)}
+.prw-o-done summary{cursor:pointer;font-weight:600;color:var(--dark);padding:6px 0}
+.prw-o-done summary .prw-num{font-weight:600;color:var(--body);margin-left:4px}
+.prw-o-done ul{margin:6px 0 0;padding:0;list-style:none;border:1px solid var(--line);border-radius:12px;background:#fff}
+.prw-o-done li{display:flex;justify-content:space-between;gap:16px;padding:9px 16px;border-top:1px solid var(--line)}
+.prw-o-done li:first-child{border-top:0}
+.prw-o-done em{font-style:normal;font-size:12px;white-space:nowrap}
 .prw-out-sum .late b{color:var(--red)}
 .prw-out-bar{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
 .prw-out .prw-li .src{font-weight:600;color:var(--dark)}
@@ -1443,11 +1471,12 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
         id: `req-${q.id}`,
         title: q.subject,
         source: "Request",
-        from: q.status === "review" ? "Ready for your review" : ROOM_REQUEST_STATUS_LABEL[q.status] ?? q.status,
+        from: [ROOM_REQUEST_KIND_LABEL[q.kind] ?? "Request", `asked by ${q.by}`, fmtDate(q.createdAt)].filter(Boolean).join(" · "),
         owner: q.owner ?? undefined,
         due: q.due ?? undefined,
         side: q.status === "review" ? "you" : "us",
         module: "requests",
+        request: { id: q.id, status: q.status, owner: q.owner, due: q.due },
         ...(q.status === "review" ? { approveRequestId: q.id } : {}),
       })),
     ...meetings.flatMap((m) =>
@@ -1981,7 +2010,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                         return (
                           <div key={x.key || x.title}>
                             {off && (i === 0 || !programDeclined(all[i - 1], snapshot.choices)) && <div className="prw-later">Not now</div>}
-                            <ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
+                            <ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} />
                           </div>
                         );
                       })}
@@ -2008,7 +2037,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                   <div>
                     <div className="prw-eyebrow">Outstanding</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What’s open, and who has it</h2>
-                    <p>Every open item from the plan, meetings, marketing and your requests, in one list. Finish it here or open it where it lives.</p>
+                    <p>Everything still open, from the plan, meetings, marketing and requests. Click an item to go to it.</p>
                   </div>
                   <button type="button" className="prw-btn pri" onClick={() => openRequest()}>
                     <Plus aria-hidden /> Make a request
@@ -2016,11 +2045,13 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                 </div>
                 <OutstandingView
                   items={outstanding}
+                  doneRequests={snapshot.requests.filter((q) => q.status === "done").map((q) => ({ id: q.id, subject: q.subject, by: q.by, when: fmtDate(q.createdAt) }))}
                   ourName={brandLabel}
                   theirName={partnerLabel}
                   isTeam={isTeam}
                   canAct={!!store && !!snapshot.viewer}
-                  onOpen={(m) => (!modules.some((x) => x.key === m) ? undefined : m === "requests" ? document.querySelector("[data-room-requests]")?.scrollIntoView({ behavior: "smooth", block: "start" }) : setView(m as RoomModuleKey))}
+                  people={ourPeople}
+                  onOpen={(m) => modules.some((x) => x.key === m) && m !== "requests" && setView(m as RoomModuleKey)}
                   onTick={async (key) => {
                     if (!store) return null;
                     const r = await store.setTaskDone(key, true);
@@ -2031,12 +2062,26 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                     const r = await store.updateRequest(id, { status: "done" });
                     return r.ok ? null : r.error;
                   }}
+                  onEditRequest={
+                    canEditLive && store
+                      ? async (id, patch) => {
+                          const r = await store.updateRequest(id, patch);
+                          return r.ok ? null : r.error;
+                        }
+                      : undefined
+                  }
                 />
-                <div className="prw-out-h" data-room-requests>
-                  <h3>Requests</h3>
-                  <p>Ask us for anything: a change to an asset, an event, a report. It goes to the right person with a target date, and you approve it here when it’s ready.</p>
-                </div>
-                <RequestsTable snapshot={snapshot} isEditor={isEditor} onSignIn={() => setAsk({ kind: "email" })} store={canEditLive ? store : null} customerStore={!isTeam && snapshot.viewer ? store : null} people={ourPeople} />
+                {!snapshot.viewer && !isEditor && (
+                  <div className="prw-card" style={{ marginTop: 16 }}>
+                    <div className="prw-li">
+                      <div>
+                        <div className="t">Confirm your email to see and make requests</div>
+                        <div className="m">Requests are shared with your team only.</div>
+                      </div>
+                      <div className="a"><button type="button" className="prw-btn pri" onClick={() => setAsk({ kind: "email" })}><Mail aria-hidden /> Confirm email</button></div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -2239,55 +2284,6 @@ function PlanRowEditor({ row, edit, onClose }: { row: PlanRow; edit: PlanEdit; o
   );
 }
 
-/** One request's editable fields, in a strip under its row: status, owner and due date, saved together. */
-function RequestRowEditor({ request, store, people, onClose }: { request: RoomRequest; store: RoomStoreHandle; people: string[]; onClose: () => void }) {
-  const [status, setStatus] = useState(request.status);
-  const [owner, setOwner] = useState(request.owner ?? "");
-  const [due, setDue] = useState(request.due ?? "");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const save = async () => {
-    const patch: { status?: string; owner?: string; due?: string } = {};
-    if (status !== request.status) patch.status = status;
-    if (owner !== (request.owner ?? "")) patch.owner = owner;
-    if (due.trim() !== (request.due ?? "")) patch.due = due.trim();
-    if (Object.keys(patch).length === 0) return onClose();
-    setBusy(true);
-    setError("");
-    const r = await store.updateRequest(request.id, patch);
-    setBusy(false);
-    if (r.ok) onClose();
-    else setError(r.error);
-  };
-  return (
-    <tr className="prw-edit" data-room-request-editor>
-      <td colSpan={7}>
-        <div className="f">
-          <label>
-            <span>Status</span>
-            <select className="prw-pick" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" data-room-request-status>
-              {Object.entries(ROOM_REQUEST_STATUS_LABEL).map(([k, label]) => <option key={k} value={k}>{k === "review" ? "Ready for their review" : label}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Owner</span>
-            <OwnerPick value={owner} people={people} onPick={setOwner} label="Owner" />
-          </label>
-          <label>
-            <span>Due</span>
-            <input className="prw-pick" value={due} onChange={(e) => setDue(e.target.value)} placeholder="Nov 21" aria-label="Due" />
-          </label>
-          <span className="b">
-            <button type="button" className="prw-btn pri" disabled={busy} onClick={save} data-room-request-save>{busy ? "Saving" : "Save"}</button>
-            <button type="button" className="prw-btn" disabled={busy} onClick={onClose}>Cancel</button>
-          </span>
-        </div>
-        {error && <div className="prw-err" role="alert">{error}</div>}
-      </td>
-    </tr>
-  );
-}
-
 /**
  * "Download the template", shown with the description of a roster upload (the
  * practice list, the doctor roster): a spreadsheet with the customer's
@@ -2466,85 +2462,6 @@ function AssetRow({ asset, isEditor, onTrack, onOpen, onRequest, canRequest }: {
 
 /* ── Requests ────────────────────────────────────────────────────────────── */
 
-function RequestsTable({ snapshot, isEditor, onSignIn, store, customerStore, people }: { snapshot: RoomSnapshot; isEditor: boolean; onSignIn: () => void; /** Set for the account team on the live page: they can move a request along. */ store: RoomStoreHandle | null; /** Set for a known customer: they can approve a request that is ready. */ customerStore: RoomStoreHandle | null; people: string[] }) {
-  // The account team edits one request at a time: the table stays plain text, and a pencil opens that row's fields.
-  const [editing, setEditing] = useState<number | null>(null);
-  if (!snapshot.viewer && !isEditor) {
-    return (
-      <div className="prw-card">
-        <div className="prw-li">
-          <div>
-            <div className="t">Confirm your email to see and make requests</div>
-            <div className="m">Requests are shared with your team only.</div>
-          </div>
-          <div className="a">
-            <button type="button" className="prw-btn pri" onClick={onSignIn}>
-              <Mail aria-hidden /> Confirm email
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  const list: RoomRequest[] = snapshot.requests;
-  const count = (s: string) => list.filter((q) => q.status === s).length;
-  return (
-    <>
-      <div className="prw-sum">
-        <div><b className="prw-num">{count("new") + count("in_progress")}</b>open</div>
-        <div><b className="prw-num">{count("review")}</b>ready for your review</div>
-        <div><b className="prw-num">{count("done")}</b>completed</div>
-      </div>
-      {list.length === 0 ? (
-        <div className="prw-card"><div className="prw-empty">No requests yet. Use “Make a request”, or “Request changes” on any launch-kit item.</div></div>
-      ) : (
-        <table className="prw-reqs">
-          <thead>
-            <tr>
-              <th>Request</th>
-              <th style={{ width: 116 }}>Type</th>
-              <th style={{ width: 150 }}>From</th>
-              <th style={{ width: 76 }}>Asked</th>
-              <th style={{ width: 136 }}>Owner</th>
-              <th style={{ width: 168 }}>Status</th>
-              {store && <th style={{ width: 64 }} />}
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((q) => (
-              <Fragment key={q.id}>
-                <tr data-room-request={q.status} className={editing === q.id ? "on" : undefined}>
-                  <td><div className="t">{q.subject}</div></td>
-                  <td className="c">{ROOM_REQUEST_KIND_LABEL[q.kind] ?? "Other"}</td>
-                  <td className="c">{q.by}</td>
-                  <td className="c">{fmtDate(q.createdAt)}</td>
-                  <td className="c">{q.owner || "Being assigned"}</td>
-                  <td>
-                    <span className={`prw-chip ${q.status}`}>
-                      {(store && q.status === "review" ? "Ready for their review" : ROOM_REQUEST_STATUS_LABEL[q.status]) ?? q.status}
-                      {q.due && q.status !== "done" ? ` · due ${q.due}` : ""}
-                    </span>
-                    {q.status === "review" && customerStore && (
-                      <button type="button" className="prw-btn pri" style={{ marginTop: 6 }} onClick={() => void customerStore.updateRequest(q.id, { status: "done" })} data-room-request-approve><Check aria-hidden /> Approve</button>
-                    )}
-                  </td>
-                  {store && (
-                    <td className="r">
-                      <button type="button" className={`prw-ib${editing === q.id ? " on" : ""}`} title="Edit this request" aria-label={`Edit: ${q.subject}`} aria-expanded={editing === q.id} onClick={() => setEditing((k) => (k === q.id ? null : q.id))} data-room-edit-request>
-                        <PencilLine aria-hidden />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-                {store && editing === q.id && <RequestRowEditor request={q} store={store} people={people} onClose={() => setEditing(null)} />}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </>
-  );
-}
 
 function useEscape(onClose: () => void) {
   useEffect(() => {
@@ -2833,7 +2750,7 @@ function ContactDialog({ store, partnerName, onClose, onNeedEmail }: { store: Ro
 
 /* ── Marketing plan ──────────────────────────────────────────────────────── */
 
-function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { program: RoomProgram; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void }) {
+function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot }: { program: RoomProgram; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; /** Some program on the page has a picture: ones without get a quiet placeholder so the text lines up. */ slot: boolean }) {
   const key = roomMilestoneKey({ key: program.key, task: program.title });
   const options = (program.options ?? []).filter((o) => o.trim());
   const chosen = snapshot.choices[key];
@@ -2857,18 +2774,16 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { progr
   const declined = !!chosen && !!no && chosen.value === no;
   return (
     <div className={`prw-prog${declined ? " off" : ""}`} data-room-program={options.length >= 2 ? (declined ? "declined" : chosen ? "chosen" : "open") : "fixed"}>
-      {image ? <img className="im" src={image} alt="" loading="lazy" /> : <span className="im" aria-hidden />}
-      <div>
+      {image ? <img className="im" src={image} alt="" loading="lazy" /> : slot ? <span className="im ph" aria-hidden><Megaphone /></span> : null}
+      <div className="tx">
         <h3><E item={program} field="title" placeholder="Program" /></h3>
         {(program.description || isEditor) && <p><E item={program} field="description" multiline placeholder="What it is" /></p>}
+        {(program.audience || program.when) && <div className="meta">{[program.audience, program.when].filter(Boolean).join(" · ")}</div>}
       </div>
-      <div className="who">{program.audience}</div>
-      <div className="when">{program.when && <b>{program.when}</b>}</div>
       <div className="dec">
         {options.length >= 2 ? (
           <>
-            {!chosen && <span className="need">Your decision</span>}
-            <span className="prw-thumbs" role="group" aria-label={program.title}>
+            <span className="prw-thumbs" role="group" aria-label={program.title} title={chosen?.by ? `${chosen.value} · ${chosen.by} · ${fmtDate(chosen.at)}` : "Waiting on a decision"}>
               {/* Several ways to say yes (Dinner / Onsite training) stay as named choices; one way is a thumbs-up. */}
               {no && yes.length === 1 ? (
                 <button type="button" className={`prw-thumb up${chosen?.value === yes[0] ? " on" : ""}`} aria-pressed={chosen?.value === yes[0]} aria-label={`${yes[0]}: ${program.title}`} title={yes[0]} disabled={!!busy} onClick={() => void pick(yes[0])} data-room-thumb="up">
@@ -2889,11 +2804,10 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { progr
                 </button>
               )}
             </span>
-            {chosen?.by && <span className="by">{chosen.by} · {fmtDate(chosen.at)}</span>}
             {error && <span className="prw-err" role="alert">{error}</span>}
           </>
         ) : (
-          <span className="prw-fixed">{program.fixedLabel || "In plan"}</span>
+          <span className="prw-fixed">{program.fixedLabel || "Included"}</span>
         )}
       </div>
     </div>

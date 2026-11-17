@@ -1,6 +1,6 @@
 /**
  * The Outstanding module of a partner room: one list of everything still
- * open, wherever it came from, and who has it.
+ * open, wherever it came from, grouped by whose move it is.
  *
  * A room has several kinds of to-do, each living in its own module:
  *   setup steps        (Overview)        the customer's first three things
@@ -10,18 +10,27 @@
  *   requests           (here)            what the customer asked us for
  *   meeting actions    (Meetings)        action items from minutes
  *
- * This module gathers the open ones into a single list split by whose move
- * it is, so nobody has to visit six tabs to know what is waiting. Each row
- * either acts in place (tick a meeting action, approve a request) or opens
- * the module where it is done.
+ * This module gathers the open ones so nobody has to visit six tabs to know
+ * what is waiting. The layout is deliberately plain: a heading per side, one
+ * line per item, and the whole line is the button. A meeting action is
+ * ticked in place; a request shows its status (and Approve, when it is ready
+ * for the customer); everything else opens the module where it is done.
+ * Finished requests fold away at the bottom.
  *
- * Styles live in the room block's CSS string (`.prw-out-*`).
+ * Styles live in the room block's CSS string (`.prw-o-*`).
  */
 import { useState } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { Check, ChevronRight, PencilLine } from "lucide-react";
 
 export type OutstandingSide = "you" | "us" | "both";
 export type OutstandingSource = "Setup" | "Action plan" | "Marketing plan" | "Goals" | "Request" | "Meeting";
+
+export interface OutstandingRequest {
+  id: number;
+  status: string;
+  owner: string | null;
+  due: string | null;
+}
 
 export interface OutstandingItem {
   id: string;
@@ -39,6 +48,15 @@ export interface OutstandingItem {
   taskKey?: string;
   /** A request ready for the customer's review: can be approved right here. */
   approveRequestId?: number;
+  /** The request behind a "Request" item: its status shows on the line, and the team can edit it. */
+  request?: OutstandingRequest;
+}
+
+export interface DoneRequest {
+  id: number;
+  subject: string;
+  by: string;
+  when: string;
 }
 
 const slug = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -74,34 +92,48 @@ export function sortOutstanding(items: OutstandingItem[]): OutstandingItem[] {
   return items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map((x) => x.item);
 }
 
+const REQUEST_STATUS: Record<string, string> = { new: "Received", in_progress: "In progress", review: "Ready for review", done: "Done" };
+/** How many lines a group shows before "Show all". */
+const FOLD = 6;
+
 export function OutstandingView({
   items,
+  doneRequests = [],
   ourName,
   theirName,
   isTeam,
   canAct,
+  people = [],
   onOpen,
   onTick,
   onApprove,
+  onEditRequest,
 }: {
   items: OutstandingItem[];
+  doneRequests?: DoneRequest[];
   ourName: string;
   theirName: string;
   /** The page owner's own team is looking: "you" would be wrong, so the customer is named. */
   isTeam: boolean;
   canAct: boolean;
+  /** Our people, for assigning a request. */
+  people?: string[];
   onOpen: (module: string) => void;
   onTick: (taskKey: string) => Promise<string | null>;
   onApprove: (requestId: number) => Promise<string | null>;
+  /** Set for the account team on the live page: they can move a request along. */
+  onEditRequest?: (requestId: number, patch: { status?: string; owner?: string; due?: string }) => Promise<string | null>;
 }) {
-  const [show, setShow] = useState<"all" | "you" | "us">("all");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const you = isTeam ? theirName : "you";
-  const yours = items.filter((i) => i.side !== "us");
-  const ours = items.filter((i) => i.side !== "you");
-  const overdue = items.filter((i) => i.overdue);
-  const shown = sortOutstanding(show === "you" ? yours : show === "us" ? ours : items);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<string | null>(null);
+  const sorted = sortOutstanding(items);
+  const groups: { key: OutstandingSide; title: string; items: OutstandingItem[] }[] = [
+    { key: "you" as const, title: `Waiting on ${isTeam ? theirName : "you"}`, items: sorted.filter((i) => i.side === "you") },
+    { key: "us" as const, title: `Waiting on ${ourName}`, items: sorted.filter((i) => i.side === "us") },
+    { key: "both" as const, title: "Shared between us", items: sorted.filter((i) => i.side === "both") },
+  ].filter((g) => g.items.length > 0);
   const run = async (id: string, fn: () => Promise<string | null>) => {
     setBusy(id);
     setError("");
@@ -109,46 +141,123 @@ export function OutstandingView({
     setBusy("");
     if (err) setError(err);
   };
+
+  const line = (i: OutstandingItem) => {
+    const meta = [i.source === "Request" ? "" : i.source, i.from, i.owner, i.due ? `due ${i.due}` : ""].filter(Boolean).join(" · ");
+    const body = (
+      <>
+        <span className="t">{i.title}</span>
+        {meta && <span className="m">{meta}</span>}
+      </>
+    );
+    const tickable = !!i.taskKey && canAct;
+    return (
+      <div className={`prw-o-row${i.overdue ? " late" : ""}`} key={i.id} data-room-outstanding-item={i.source}>
+        {tickable ? (
+          <button type="button" className="prw-o-tick" disabled={busy === i.id} onClick={() => run(i.id, () => onTick(i.taskKey!))} aria-label={`Mark done: ${i.title}`} title="Mark done" data-room-outstanding-done>
+            <Check aria-hidden />
+          </button>
+        ) : (
+          <span className="prw-o-dot" aria-hidden />
+        )}
+        {i.request || tickable ? (
+          <div className="prw-o-main">{body}</div>
+        ) : (
+          <button type="button" className="prw-o-main" onClick={() => onOpen(i.module)}>{body}</button>
+        )}
+        <span className="prw-o-end">
+          {i.overdue && <span className="prw-o-late">Overdue</span>}
+          {i.request && <span className={`prw-chip ${i.request.status}`}>{REQUEST_STATUS[i.request.status] ?? i.request.status}</span>}
+          {i.approveRequestId && canAct && !isTeam && (
+            <button type="button" className="prw-btn pri" disabled={busy === i.id} onClick={() => run(i.id, () => onApprove(i.approveRequestId!))} data-room-outstanding-approve><Check aria-hidden /> Approve</button>
+          )}
+          {i.request && onEditRequest && (
+            <button type="button" className={`prw-ib${editing === i.id ? " on" : ""}`} title="Edit this request" aria-label={`Edit: ${i.title}`} aria-expanded={editing === i.id} onClick={() => setEditing((k) => (k === i.id ? null : i.id))} data-room-edit-request>
+              <PencilLine aria-hidden />
+            </button>
+          )}
+          {!i.request && !tickable && <ChevronRight className="go" aria-hidden />}
+        </span>
+        {i.request && onEditRequest && editing === i.id && <RequestEditor request={i.request} people={people} onClose={() => setEditing(null)} onSave={(patch) => onEditRequest(i.request!.id, patch)} />}
+      </div>
+    );
+  };
+
   return (
-    <>
-      <div className="prw-sum prw-out-sum" data-room-outstanding-summary>
-        <div><b className="prw-num">{yours.length}</b>waiting on {you}</div>
-        <div><b className="prw-num">{ours.length}</b>waiting on {ourName}</div>
-        {overdue.length > 0 && <div className="late"><b className="prw-num">{overdue.length}</b>overdue</div>}
-      </div>
-      <div className="prw-out-bar">
-        <div className="prw-seg" role="group" aria-label="Whose">
-          <button type="button" className={show === "all" ? "on" : ""} onClick={() => setShow("all")}>All</button>
-          <button type="button" className={show === "you" ? "on" : ""} onClick={() => setShow("you")} data-room-outstanding-filter="you">{isTeam ? theirName : "Yours"}</button>
-          <button type="button" className={show === "us" ? "on" : ""} onClick={() => setShow("us")} data-room-outstanding-filter="us">{ourName}</button>
-        </div>
-        {error && <span className="prw-err" role="alert">{error}</span>}
-      </div>
-      <div className="prw-card prw-out" data-room-outstanding>
-        {shown.length === 0 && <div className="prw-empty">{items.length === 0 ? "Nothing is outstanding. Everything open on both sides shows up here." : "Nothing here."}</div>}
-        {shown.map((i) => (
-          <div className="prw-li" key={i.id} data-room-outstanding-item={i.source}>
-            <div>
-              <div className="t">{i.title}</div>
-              <div className="m">
-                <span className="src">{i.source}</span>
-                {[i.from, i.owner ? `Owner: ${i.owner}` : "", i.due ? `Due ${i.due}` : ""].filter(Boolean).map((x) => ` · ${x}`).join("")}
-                {i.overdue && <span className="late"> · Overdue</span>}
-              </div>
+    <div className="prw-o" data-room-outstanding>
+      {error && <div className="prw-err" role="alert">{error}</div>}
+      {groups.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is outstanding. Everything open on either side shows up here.</div></div>}
+      {groups.map((g) => {
+        const all = open[g.key] || g.items.length <= FOLD + 1;
+        return (
+          <section key={g.key} data-room-outstanding-group={g.key}>
+            <h3>{g.title}<span className="prw-num">{g.items.length}</span></h3>
+            <div className="prw-card">
+              {(all ? g.items : g.items.slice(0, FOLD)).map(line)}
+              {!all && <button type="button" className="prw-o-more" onClick={() => setOpen((o) => ({ ...o, [g.key]: true }))}>Show all {g.items.length}</button>}
             </div>
-            <div className="a">
-              <span className={`who ${i.side}`}>{i.side === "you" ? (isTeam ? theirName : "You") : i.side === "us" ? ourName : "Both"}</span>
-              {i.taskKey && canAct ? (
-                <button type="button" className="prw-btn" disabled={busy === i.id} onClick={() => run(i.id, () => onTick(i.taskKey!))} data-room-outstanding-done><Check aria-hidden /> Done</button>
-              ) : i.approveRequestId && canAct && !isTeam ? (
-                <button type="button" className="prw-btn pri" disabled={busy === i.id} onClick={() => run(i.id, () => onApprove(i.approveRequestId!))} data-room-outstanding-approve><Check aria-hidden /> Approve</button>
-              ) : (
-                <button type="button" className="prw-btn" onClick={() => onOpen(i.module)}>Open <ArrowRight aria-hidden /></button>
-              )}
-            </div>
-          </div>
-        ))}
+          </section>
+        );
+      })}
+      {doneRequests.length > 0 && (
+        <details className="prw-o-done" data-room-requests-done>
+          <summary>Completed requests <span className="prw-num">{doneRequests.length}</span></summary>
+          <ul>
+            {doneRequests.map((q) => <li key={q.id}><span>{q.subject}</span><em>{[q.by, q.when].filter(Boolean).join(" · ")}</em></li>)}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+/** A request's status, owner and due date, in a strip under its line, saved together. */
+function RequestEditor({ request, people, onSave, onClose }: { request: OutstandingRequest; people: string[]; onSave: (patch: { status?: string; owner?: string; due?: string }) => Promise<string | null>; onClose: () => void }) {
+  const [status, setStatus] = useState(request.status);
+  const [owner, setOwner] = useState(request.owner ?? "");
+  const [due, setDue] = useState(request.due ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const owners = [...new Set([...(request.owner ? [request.owner] : []), ...people])];
+  const save = async () => {
+    const patch: { status?: string; owner?: string; due?: string } = {};
+    if (status !== request.status) patch.status = status;
+    if (owner !== (request.owner ?? "")) patch.owner = owner;
+    if (due.trim() !== (request.due ?? "")) patch.due = due.trim();
+    if (Object.keys(patch).length === 0) return onClose();
+    setBusy(true);
+    setError("");
+    const err = await onSave(patch);
+    setBusy(false);
+    if (err) setError(err);
+    else onClose();
+  };
+  return (
+    <div className="prw-edit" data-room-request-editor>
+      <div className="f">
+        <label>
+          <span>Status</span>
+          <select className="prw-pick" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" data-room-request-status>
+            {Object.entries(REQUEST_STATUS).map(([k, label]) => <option key={k} value={k}>{k === "review" ? "Ready for their review" : label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Owner</span>
+          <select className="prw-pick" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
+            <option value="">—</option>
+            {owners.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Due</span>
+          <input className="prw-pick" value={due} onChange={(e) => setDue(e.target.value)} placeholder="Nov 21" aria-label="Due" />
+        </label>
+        <span className="b">
+          <button type="button" className="prw-btn pri" disabled={busy} onClick={save} data-room-request-save>{busy ? "Saving" : "Save"}</button>
+          <button type="button" className="prw-btn" disabled={busy} onClick={onClose}>Cancel</button>
+        </span>
       </div>
-    </>
+      {error && <div className="prw-err" role="alert">{error}</div>}
+    </div>
   );
 }

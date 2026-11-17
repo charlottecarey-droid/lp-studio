@@ -152,7 +152,7 @@ describe("room-workspace — marketing plan, launch kit, hide anything", () => {
     expect(html).toContain('data-room-view="marketing"');
     expect((html.match(/data-room-program="fixed"/g) ?? []).length).toBe(2);
     expect((html.match(/data-room-program="open"/g) ?? []).length).toBe(2);
-    expect(html).toContain("In plan");
+    expect(html).toContain(">Included<");
     expect(html).toContain('title="Include"');
     expect(html).toContain('title="Not now"');
   });
