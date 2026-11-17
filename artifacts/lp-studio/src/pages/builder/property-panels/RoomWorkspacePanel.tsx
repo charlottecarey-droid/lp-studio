@@ -342,7 +342,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Opens in a pop-up. Automatic rooms and the standard launch files are under Settings → Integrations → Partner rooms.</p>
+            <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Opens in a pop-up. Automatic rooms and the standard launch files are under Settings → Partner Hubs.</p>
           </div>
         )}
         <p className="px-1 text-[11px] leading-snug text-muted-foreground">Switch a module off to hide it from this customer; its content and data are kept. Most text can also be edited by clicking it on the page.</p>

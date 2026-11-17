@@ -169,7 +169,7 @@ afterAll(async () => {
     await pool.query(`DELETE FROM lp_room_win_likes WHERE tenant_id = $1`, [id]).catch(() => {});
     await pool.query(`DELETE FROM lp_room_win_comments WHERE tenant_id = $1`, [id]).catch(() => {});
     await pool.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [id]).catch(() => {});
-    for (const table of ["lp_room_practices", "lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
+    for (const table of ["lp_room_practice_snapshots", "lp_room_practices", "lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
       await pool.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [id]).catch(() => {});
     }
     await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
@@ -428,13 +428,36 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: again } })).json).toEqual({ ok: true, added: 1, updated: 2, removed: 0 });
 
     const anon = (await post("state", { pageId })).json as { practices: { total: number; byStage: Record<string, number>; regions: string[] } };
-    expect(anon.practices).toEqual({ total: 4, byStage: { live: 1, trained: 1, scheduling: 1, not_started: 1 }, regions: ["Colorado", "North Texas"] });
+    expect(anon.practices).toMatchObject({ total: 4, byStage: { live: 1, trained: 1, scheduling: 1, not_started: 1 }, regions: ["Colorado", "North Texas"] });
+    // The scorecard's extras: live share per region, the waves to filter by, and today's point on the trend (one per day, however often the list refreshes).
+    const card = anon.practices as unknown as { byRegion: { region: string; total: number; live: number; trained: number }[]; waves: string[]; trend: { day: string; total: number; byStage: Record<string, number> }[] };
+    expect(card.byRegion).toEqual([{ region: "North Texas", total: 2, live: 1, trained: 2 }, { region: "Colorado", total: 1, live: 0, trained: 0 }]);
+    expect(card.waves).toEqual(["1", "2", "3"]);
+    expect(card.trend).toEqual([{ day: new Date().toISOString().slice(0, 10), total: 4, byStage: { live: 1, trained: 1, scheduling: 1, not_started: 1 } }]);
     expect((await post("practices", { pageId })).status).toBe(401);
     const all = (await post("practices", { pageId, hl })).json as { total: number; rows: { name: string; stage: string }[] };
     expect(all.total).toBe(4);
     const tx = (await post("practices", { pageId, hl, region: "North Texas" })).json as { total: number; rows: { name: string; stage: string }[] };
     expect(tx.rows.map((p) => `${p.name}:${p.stage}`)).toEqual(["Lakeside Family:trained", "Main Street Dental:live"]);
     expect(((await post("practices", { pageId, hl, q: "summit" })).json as { total: number }).total).toBe(1);
+    // Clicking a scorecard number: one stage, or a group ("trained" counts live ones too); plus wave and made-up values.
+    const names = async (filter: object) => ((await post("practices", { pageId, hl, ...filter })).json as { rows: { name: string }[] }).rows.map((p) => p.name).sort();
+    expect(await names({ stage: "live" })).toEqual(["Main Street Dental"]);
+    expect(await names({ stage: "trained" })).toEqual(["Lakeside Family", "Main Street Dental"]);
+    expect(await names({ stage: "open" })).toEqual(["Brand New Dental", "Summit Dental"]);
+    expect(await names({ wave: "2" })).toEqual(["Summit Dental"]);
+    expect(await names({ stage: "'; drop table" })).toHaveLength(4);
+    // More Salesforce columns arrive with a report; the account owner and last activity are for the team's own view only.
+    const report = ["Account Name,Account Owner,Last Activity,Brand of Scanner at Office,Contract Signed Date", "Summit Dental,Rae Rep,11/2/2026,iTero,1/13/2026", "Lakeside Family,Rae Rep,10/1/2026,None,1/13/2026"].join("\n");
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: report } })).json).toMatchObject({ ok: true, updated: 2 });
+    const asCustomer = (await post("practices", { pageId, hl, q: "summit" })).json as { columns: Record<string, boolean>; rows: Record<string, unknown>[] };
+    expect(asCustomer.columns).toMatchObject({ brand: true, contract: true, owner: false, activity: false });
+    expect(asCustomer.rows[0]).toMatchObject({ name: "Summit Dental", scannerBrand: "iTero", contractSigned: "1/13/2026" });
+    expect(asCustomer.rows[0]).not.toHaveProperty("owner");
+    expect(asCustomer.rows[0]).not.toHaveProperty("lastActivity");
+    // The roster check is about our Salesforce data: a customer can't ask for it.
+    expect((await post("scorecard-check", { pageId, hl })).status).toBe(403);
+    expect((await post("scorecard-check", { pageId })).status).toBe(401);
 
     // The team edits one practice; another tenant cannot.
     const list = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/practices?q=Summit`, headers: asTenant(tenantId) })).json as { rows: { id: number }[] };

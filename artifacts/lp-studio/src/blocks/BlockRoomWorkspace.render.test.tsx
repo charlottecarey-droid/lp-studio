@@ -215,8 +215,11 @@ describe("room-workspace — goals and practices", () => {
   it("practices: uses the customer's word for a location and shows an empty state before the list is loaded", () => {
     const html = only("practices", { locationsNoun: "practices" });
     expect(html).toContain('data-room-nav="practices"');
-    expect(html).toContain(">Practices<");
+    expect(html).toContain(">Scorecard<");
     expect(html).toContain("data-room-practice-summary");
+    // One tile per stage, each a button that filters the list.
+    for (const tile of ["all", "not_started", "scheduling", "training_booked", "trained", "live"]) expect(html).toContain(`data-room-tile="${tile}"`);
+    expect(html).not.toContain("data-room-scorecard-check"); // the Salesforce call-out is for the team's own view
     expect(html).toContain("will appear here once the list is loaded");
   });
 });

@@ -393,9 +393,19 @@ export interface RoomPracticeInput {
   /** Scanners at the practice now; null when the source doesn't say. */
   scannerCount: number | null;
   scannerModels: string | null;
+  /** More of what a Salesforce report carries, as written there. Optional so older callers need not set them. */
+  scannerBrand?: string | null;
+  contractSigned?: string | null;
+  sourceStatus?: string | null;
+  /** Internal: shown to the team only. */
+  owner?: string | null;
+  lastActivity?: string | null;
 }
 
 const SCANNER_MODEL_COLUMNS: [string, string][] = [["trios 3", "Trios 3"], ["trios 5", "Trios 5"], ["dandy vision", "Dandy Vision"], ["medit", "Medit"], ["itero", "iTero"]];
+
+/** Salesforce writes "None" for an empty picklist. */
+const noneAsBlank = (v: string | null) => (v && /^(none|n\/a|-)$/i.test(v) ? null : v);
 
 /** One practice row from a pasted list or an API body; null when it has no name. */
 export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInput | null {
@@ -431,6 +441,11 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     regionalManager: get("regionalManager", "regional_manager", "regional manager", "regional manager name", "region manager", "rm"),
     scannerCount: count != null && /^\d{1,4}$/.test(count) ? Number(count) : null,
     scannerModels: get("scannerModels", "scanner_models", "scanner models", "scanner type") ?? (models || null),
+    scannerBrand: noneAsBlank(get("scannerBrand", "scanner_brand", "scanner brand", "brand of scanner at office", "brand of scanner")),
+    contractSigned: get("contractSigned", "contract_signed", "contract signed date", "contract signed"),
+    sourceStatus: fromScannerExport ? null : get("status", "stage"),
+    owner: get("owner", "account owner"),
+    lastActivity: get("lastActivity", "last_activity", "last activity"),
   };
 }
 

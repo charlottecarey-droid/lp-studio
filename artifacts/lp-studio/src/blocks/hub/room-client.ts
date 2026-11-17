@@ -81,7 +81,8 @@ export interface RoomContact {
 
 export interface RoomSnapshot {
   status: "idle" | "loading" | "ready" | "error";
-  viewer: { email: string; name: string | null } | null;
+  /** `team` is set when the viewer is one of the page owner's own team. */
+  viewer: { email: string; name: string | null; team?: boolean } | null;
   tasks: Record<string, RoomTaskState>;
   /** The customer's requests to the team. Empty for an anonymous visitor. */
   requests: RoomRequest[];
@@ -94,7 +95,16 @@ export interface RoomSnapshot {
   /** People the customer added to their team. Empty for an anonymous visitor. */
   contacts: RoomContact[];
   /** Practice counts by stage and the regions present (no names: safe for any visitor). */
-  practices: { total: number; byStage: Record<string, number>; regions: string[]; scanners?: { total: number; practices: number } };
+  practices: {
+    total: number;
+    byStage: Record<string, number>;
+    regions: string[];
+    scanners?: { total: number; practices: number };
+    byRegion?: { region: string; total: number; live: number; trained: number }[];
+    waves?: string[];
+    /** One point per day the list was refreshed, oldest first. */
+    trend?: { day: string; total: number; byStage: Record<string, number> }[];
+  };
   /** Meetings synced from the team's calendar (only ones with a customer guest). */
   events: RoomSyncedEvent[];
   /** Minutes the team published. */
@@ -134,14 +144,34 @@ export interface RoomPractice {
   regionalManager?: string | null;
   scannerCount?: number | null;
   scannerModels?: string | null;
+  scannerBrand?: string | null;
+  contractSigned?: string | null;
+  /** Team viewers only. */
+  owner?: string | null;
+  lastActivity?: string | null;
 }
-export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount";
+export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity";
+/** A scorecard tile: one stage, or a group ("trained" includes live; "open" is everything not yet trained). */
+export type RoomPracticeStageFilter = "not_started" | "scheduling" | "training_booked" | "trained" | "live" | "open";
+/** Team only: how the customer's own rosters compare with what Salesforce lists. */
+export interface RoomScorecardCheck {
+  checked: boolean;
+  fileName?: string;
+  onRoster?: number;
+  listed?: number;
+  matched?: number;
+  missingFromSalesforce?: string[];
+  missingCount?: number;
+  notOnRoster?: string[];
+  notOnRosterCount?: number;
+  doctors?: number | null;
+}
 export interface RoomPracticePage {
   total: number;
   page: number;
   pageSize: number;
   /** Which optional columns this room has any data for. */
-  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean };
+  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean };
   rows: RoomPractice[];
 }
 
@@ -298,7 +328,17 @@ class RoomStore {
   }
 
   /** One page of the practice list (known visitors only). Null when it could not be loaded. */
-  async loadPractices(filter: { region?: string; q?: string; page?: number; sort?: RoomPracticeSort; dir?: "asc" | "desc" }): Promise<RoomPracticePage | "identity" | null> {
+  /** Team only: compare the customer's rosters with the Salesforce list. Null when not available to this viewer. */
+  async checkScorecard(): Promise<RoomScorecardCheck | null> {
+    try {
+      const { status, json } = await this.post("scorecard-check", {});
+      return status === 200 ? (json as unknown as RoomScorecardCheck) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async loadPractices(filter: { region?: string; q?: string; page?: number; sort?: RoomPracticeSort; dir?: "asc" | "desc"; stage?: RoomPracticeStageFilter; wave?: string; scanner?: "yes" | "no" }): Promise<RoomPracticePage | "identity" | null> {
     try {
       const { status, json } = await this.post("practices", filter);
       if (status === 200) return json as unknown as RoomPracticePage;

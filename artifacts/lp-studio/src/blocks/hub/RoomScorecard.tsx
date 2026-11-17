@@ -1,0 +1,467 @@
+/**
+ * The Scorecard module of a partner room: where the rollout stands, location
+ * by location.
+ *
+ *   tiles     one number per stage, evenly spaced; click one to see only
+ *             those locations (click again to clear)
+ *   bar       the same split as one stacked bar
+ *   trend     how the counts moved, one point per day the list refreshed
+ *   goals     the room's location goals with a progress bar each
+ *   regions   live share per region; click a region to filter
+ *   table     search, filters, sortable columns, and a column chooser
+ *
+ * For the page owner's own team only: a call-out when what Salesforce lists
+ * does not match the roster the customer uploaded (so the account hierarchy
+ * can be fixed). A customer never sees it.
+ *
+ * Styles live in the room block's CSS string (`.prw-sc-*`).
+ */
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Columns3, Mail, X } from "lucide-react";
+import type { RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
+
+export const SCORECARD_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
+const STAGE_ORDER = ["not_started", "scheduling", "training_booked", "trained", "live"] as const;
+
+type Trend = NonNullable<RoomSnapshot["practices"]["trend"]>;
+
+/** What a tile counts, from the stage counts. "trained" includes live ones (a live location was trained). */
+export function tileCount(byStage: Record<string, number>, total: number, tile: RoomPracticeStageFilter | "all"): number {
+  const n = (k: string) => byStage[k] ?? 0;
+  if (tile === "all") return total;
+  if (tile === "trained") return n("trained") + n("live");
+  if (tile === "open") return n("not_started") + n("scheduling") + n("training_booked");
+  return n(tile);
+}
+
+/**
+ * How a tile moved against the newest point at least `days` old (so "this
+ * week" compares with a week ago, not with this morning). Null with no point
+ * that old.
+ */
+export function trendDelta(trend: Trend, tile: RoomPracticeStageFilter | "all", days = 7, today: string = new Date().toISOString().slice(0, 10)): number | null {
+  if (trend.length === 0) return null;
+  const cutoff = new Date(`${today}T00:00:00Z`);
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const limit = cutoff.toISOString().slice(0, 10);
+  const then = [...trend].reverse().find((p) => p.day <= limit);
+  const now = trend[trend.length - 1];
+  if (!then || then === now) return null;
+  return tileCount(now.byStage, now.total, tile) - tileCount(then.byStage, then.total, tile);
+}
+
+/** Points for a small line chart: x across the days, y from 0 to the largest value. */
+export function sparkPoints(values: number[], width: number, height: number, top?: number): string {
+  if (values.length === 0) return "";
+  const max = Math.max(1, top ?? 0, ...values);
+  const step = values.length > 1 ? width / (values.length - 1) : 0;
+  return values.map((v, i) => `${(i * step).toFixed(1)},${(height - (v / max) * height).toFixed(1)}`).join(" ");
+}
+
+export interface ScorecardGoal {
+  key: string;
+  title: string;
+  value: number;
+  target: number;
+  targetText?: string;
+}
+
+interface ColumnDef {
+  key: string;
+  label: string;
+  sort: RoomPracticeSort;
+  /** Shown unless the viewer turns it off. */
+  on: boolean;
+  /** Only offered when the list has data for it. */
+  has?: keyof NonNullable<RoomPracticePage["columns"]>;
+  teamOnly?: boolean;
+  cell: (p: RoomPractice) => React.ReactNode;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: "region", label: "Region", sort: "region", on: true, cell: (p) => p.region },
+  { key: "state", label: "State", sort: "state", on: false, cell: (p) => p.state },
+  { key: "manager", label: "Regional manager", sort: "regionalManager", on: true, has: "manager", cell: (p) => p.regionalManager },
+  { key: "wave", label: "Wave", sort: "wave", on: true, has: "wave", cell: (p) => p.wave },
+  { key: "contract", label: "Contract signed", sort: "contractSigned", on: false, has: "contract", cell: (p) => p.contractSigned },
+  { key: "training", label: "Training", sort: "trainingDate", on: true, cell: (p) => p.trainingDate },
+  { key: "live", label: "Live", sort: "liveDate", on: true, cell: (p) => p.liveDate },
+  {
+    key: "scanners",
+    label: "Scanners",
+    sort: "scannerCount",
+    on: true,
+    has: "scannerCount",
+    cell: (p) => (
+      <>
+        {p.scannerCount != null && <span className="prw-num" style={{ color: "var(--ink)", fontWeight: 600 }}>{p.scannerCount}</span>}
+        {p.scannerModels && <div className="m">{p.scannerModels}</div>}
+      </>
+    ),
+  },
+  { key: "brand", label: "Scanner brand", sort: "scannerBrand", on: false, has: "brand", cell: (p) => p.scannerBrand },
+  { key: "sent", label: "Scanner sent", sort: "scannerSent", on: true, has: "scanner", cell: (p) => p.scannerSent },
+  { key: "activated", label: "Activated", sort: "scannerActivated", on: true, has: "scanner", cell: (p) => p.scannerActivated },
+  { key: "owner", label: "Account owner", sort: "owner", on: false, has: "owner", teamOnly: true, cell: (p) => p.owner },
+  { key: "activity", label: "Last activity", sort: "lastActivity", on: false, has: "activity", teamOnly: true, cell: (p) => p.lastActivity },
+];
+
+const COLS_KEY = "lp_room_scorecard_cols";
+function savedColumns(): Record<string, boolean> {
+  try {
+    const raw = window.localStorage.getItem(COLS_KEY);
+    const v = raw ? (JSON.parse(raw) as unknown) : null;
+    return v && typeof v === "object" ? (v as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+const TILES: { key: RoomPracticeStageFilter | "all"; label: string }[] = [
+  { key: "all", label: "In the rollout" },
+  { key: "not_started", label: "Not started" },
+  { key: "scheduling", label: "Scheduling" },
+  { key: "training_booked", label: "Training booked" },
+  { key: "trained", label: "Trained" },
+  { key: "live", label: "Live" },
+];
+
+export function ScorecardView({ snapshot, store, isEditor, noun, display, goals, onNeedEmail }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; noun: string; display: string; goals: ScorecardGoal[]; onNeedEmail: () => void }) {
+  const pr = snapshot.practices;
+  const trend = pr.trend ?? [];
+  const byRegion = pr.byRegion ?? [];
+  const waves = pr.waves ?? [];
+  const isTeam = !!snapshot.viewer?.team;
+  const one = noun.replace(/s$/, "");
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
+
+  const [stage, setStage] = useState<RoomPracticeStageFilter | "">("");
+  const [region, setRegion] = useState("");
+  const [wave, setWave] = useState("");
+  const [scanner, setScanner] = useState<"" | "yes" | "no">("");
+  const [q, setQ] = useState("");
+  const [pageNo, setPageNo] = useState(0);
+  const [sort, setSort] = useState<{ key: RoomPracticeSort; dir: "asc" | "desc" } | null>(null);
+  const [data, setData] = useState<RoomPracticePage | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const [colsOpen, setColsOpen] = useState(false);
+  const [allRegions, setAllRegions] = useState(false);
+  const [check, setCheck] = useState<RoomScorecardCheck | null>(null);
+  const [checkOpen, setCheckOpen] = useState(false);
+
+  useEffect(() => setPicked(savedColumns()), []);
+  const viewerKey = snapshot.viewer?.email ?? "";
+  useEffect(() => {
+    if (!store || !viewerKey) return;
+    let cancelled = false;
+    setLoading(true);
+    const t = window.setTimeout(() => {
+      void store.loadPractices({ region, q, page: pageNo, ...(stage ? { stage } : {}), ...(wave ? { wave } : {}), ...(scanner ? { scanner } : {}), ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
+        if (cancelled) return;
+        setLoading(false);
+        if (r && r !== "identity") setData(r);
+      });
+    }, q ? 250 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [store, viewerKey, region, q, pageNo, pr.total, sort, stage, wave, scanner]);
+
+  // Team only: does Salesforce match the customer's rosters? Asked once per visit.
+  useEffect(() => {
+    if (!store || !isTeam || pr.total === 0) return;
+    let cancelled = false;
+    void store.checkScorecard().then((r) => !cancelled && setCheck(r));
+    return () => {
+      cancelled = true;
+    };
+  }, [store, isTeam, pr.total]);
+
+  const sortBy = (key: RoomPracticeSort) => {
+    setPageNo(0);
+    setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
+  };
+  const pick = (tile: RoomPracticeStageFilter | "all") => {
+    setPageNo(0);
+    setStage((s) => (tile === "all" || s === tile ? "" : tile));
+  };
+  const has = data?.columns;
+  const offered = useMemo(() => COLUMNS.filter((c) => (!c.teamOnly || isTeam) && (!c.has || !!has?.[c.has] || (!has && c.on && !c.teamOnly))), [has, isTeam]);
+  const shown = offered.filter((c) => picked[c.key] ?? c.on);
+  const toggleColumn = (key: string, on: boolean) => {
+    const next = { ...picked, [key]: on };
+    setPicked(next);
+    try {
+      window.localStorage.setItem(COLS_KEY, JSON.stringify(next));
+    } catch {
+      /* private window: the choice lasts for this visit */
+    }
+  };
+  const colCount = shown.length + 2;
+  const filtered = !!(stage || region || wave || scanner || q);
+  const clear = () => {
+    setStage("");
+    setRegion("");
+    setWave("");
+    setScanner("");
+    setQ("");
+    setPageNo(0);
+  };
+
+  const Th = ({ k, children, width }: { k: RoomPracticeSort; children: React.ReactNode; width?: string }) => (
+    <th style={width ? { width } : undefined} aria-sort={sort?.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className={`prw-th${sort?.key === k ? " on" : ""}`} onClick={() => sortBy(k)} data-room-sort={k}>
+        {children}
+        {sort?.key === k ? sort.dir === "asc" ? <ArrowUp aria-hidden /> : <ArrowDown aria-hidden /> : <ArrowUpDown aria-hidden />}
+      </button>
+    </th>
+  );
+
+  const liveSeries = trend.map((p) => p.byStage.live ?? 0);
+  const trainedSeries = trend.map((p) => (p.byStage.trained ?? 0) + (p.byStage.live ?? 0));
+  const regionsShown = allRegions ? byRegion : byRegion.slice(0, 6);
+  const mismatch = check?.checked ? (check.missingCount ?? 0) + (check.notOnRosterCount ?? 0) : 0;
+
+  return (
+    <>
+      <div className="prw-hd">
+        <div>
+          <div className="prw-eyebrow">Scorecard</div>
+          <h2 style={{ fontFamily: display }}>Rollout scorecard</h2>
+          <p>Where every {one} stands, kept current by our team. Click a number to see only those {noun}.</p>
+        </div>
+        {pr.regions.length > 0 && <div className="prw-meta"><b>{pr.total}</b> {noun} · <b>{pr.regions.length}</b> regions</div>}
+      </div>
+
+      {isTeam && check?.checked && (
+        <div className={`prw-sc-check${mismatch ? " warn" : ""}`} data-room-scorecard-check={mismatch ? "mismatch" : "match"}>
+          <div className="hd">
+            {mismatch ? <AlertTriangle aria-hidden /> : <CheckCircle2 aria-hidden />}
+            <div>
+              <b>{mismatch ? "Salesforce doesn't match the customer's roster" : "Salesforce matches the customer's roster"}</b>
+              <span>
+                {mismatch
+                  ? `${check.matched ?? 0} of the ${check.onRoster ?? 0} ${noun} on “${check.fileName}” are in Salesforce. Fix the account hierarchy so the scorecard counts every ${one}.`
+                  : `All ${check.onRoster ?? 0} ${noun} on “${check.fileName}” are in Salesforce.`}
+                {check.doctors ? ` Their doctor roster lists ${check.doctors} doctors.` : ""}
+              </span>
+            </div>
+            <em>Only your team sees this</em>
+          </div>
+          {mismatch > 0 && (
+            <>
+              <div className="rows">
+                {(check.missingCount ?? 0) > 0 && <div><b className="prw-num">{check.missingCount}</b> on their roster, not in Salesforce (child accounts to add or re-parent)</div>}
+                {(check.notOnRosterCount ?? 0) > 0 && <div><b className="prw-num">{check.notOnRosterCount}</b> in Salesforce, not on their roster (wrong parent, closed, or missing from their list)</div>}
+              </div>
+              <button type="button" className="prw-btn" onClick={() => setCheckOpen((o) => !o)} data-room-scorecard-names>{checkOpen ? "Hide names" : "Show names"}</button>
+              {checkOpen && (
+                <div className="names">
+                  {(check.missingFromSalesforce ?? []).length > 0 && (
+                    <div>
+                      <h5>Not in Salesforce</h5>
+                      <ul>{(check.missingFromSalesforce ?? []).map((n) => <li key={n}>{n}</li>)}</ul>
+                    </div>
+                  )}
+                  {(check.notOnRoster ?? []).length > 0 && (
+                    <div>
+                      <h5>Not on their roster</h5>
+                      <ul>{(check.notOnRoster ?? []).map((n) => <li key={n}>{n}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="prw-sc-tiles" style={{ ["--n" as string]: TILES.length + (pr.scanners ? 1 : 0) }} data-room-practice-summary>
+        {TILES.map((t) => {
+          const n = tileCount(pr.byStage, pr.total, t.key);
+          const delta = trendDelta(trend, t.key);
+          const active = t.key === "all" ? !stage : stage === t.key;
+          return (
+            <button key={t.key} type="button" className={`prw-sc-tile${active ? " on" : ""}`} aria-pressed={active} onClick={() => pick(t.key)} data-room-tile={t.key}>
+              <b className="prw-num">{n}</b>
+              <span>{t.label}</span>
+              <small>
+                {t.key !== "all" && pr.total > 0 ? `${Math.round((n / pr.total) * 100)}%` : " "}
+                {/* More trained or live is good news; the other tiles just move as locations progress, so they stay neutral. */}
+                {delta ? <i className={t.key === "trained" || t.key === "live" ? (delta > 0 ? "up" : "down") : ""}>{delta > 0 ? "+" : ""}{delta} this week</i> : null}
+              </small>
+            </button>
+          );
+        })}
+        {pr.scanners && (
+          <button type="button" className={`prw-sc-tile${scanner === "yes" ? " on" : ""}`} aria-pressed={scanner === "yes"} onClick={() => { setPageNo(0); setScanner((s) => (s === "yes" ? "" : "yes")); }} data-room-tile="scanners">
+            <b className="prw-num">{pr.scanners.practices}</b>
+            <span>With scanners</span>
+            <small>{pr.scanners.total} scanners</small>
+          </button>
+        )}
+      </div>
+
+      {pr.total > 0 && (
+        <div className="prw-sc-bar" role="img" aria-label={STAGE_ORDER.map((s) => `${SCORECARD_STAGE_LABEL[s]}: ${pr.byStage[s] ?? 0}`).join(", ")}>
+          {STAGE_ORDER.map((s) => ((pr.byStage[s] ?? 0) > 0 ? <span key={s} className={s} style={{ flexGrow: pr.byStage[s] }} title={`${SCORECARD_STAGE_LABEL[s]}: ${pr.byStage[s]}`} /> : null))}
+        </div>
+      )}
+
+      {pr.total > 0 && (
+        <div className="prw-sc-grid">
+          <div className="prw-card prw-sc-panel" data-room-scorecard-trend>
+            <h4>Trend</h4>
+            {trend.length >= 2 ? (
+              <>
+                <svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden>
+                  <polyline className="trained" points={sparkPoints(trainedSeries, 300, 66)} transform="translate(0,2)" />
+                  <polyline className="live" points={sparkPoints(liveSeries, 300, 66, Math.max(...trainedSeries))} transform="translate(0,2)" />
+                </svg>
+                <div className="key">
+                  <span><i className="live" /> Live <b className="prw-num">{liveSeries[liveSeries.length - 1]}</b></span>
+                  <span><i className="trained" /> Trained <b className="prw-num">{trainedSeries[trainedSeries.length - 1]}</b></span>
+                  <span className="since">since {trend[0].day}</span>
+                </div>
+              </>
+            ) : (
+              <p className="none">The trend starts now: one point is added each day the list refreshes, so the line fills in over the coming weeks.</p>
+            )}
+          </div>
+          <div className="prw-card prw-sc-panel" data-room-scorecard-goals>
+            <h4>Goals</h4>
+            {goals.length > 0 ? (
+              goals.map((g) => {
+                const pct = Math.max(0, Math.min(100, Math.round((g.value / g.target) * 100)));
+                return (
+                  <div className="goal" key={g.key}>
+                    <div className="top"><span>{g.title}</span><b className="prw-num">{g.value} of {g.target}</b></div>
+                    <div className="track"><span style={{ width: `${pct}%` }} /></div>
+                    <div className="foot">{pct}%{g.targetText ? ` · target ${g.targetText}` : ""}</div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="none">No {one} goals are set yet. Goals with a number (for example {noun} live by Day 90) show their progress here.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {byRegion.length > 1 && (
+        <div className="prw-card prw-sc-regions" data-room-scorecard-regions>
+          <div className="hd"><h4>By region</h4><span>Click a region to see its {noun}</span></div>
+          {regionsShown.map((r) => {
+            const pct = r.total ? Math.round((r.live / r.total) * 100) : 0;
+            return (
+              <button type="button" key={r.region} className={region === r.region ? "on" : ""} onClick={() => { setPageNo(0); setRegion((cur) => (cur === r.region ? "" : r.region)); }} data-room-region={r.region}>
+                <span className="n">{r.region}</span>
+                <span className="track"><span style={{ width: `${pct}%` }} /></span>
+                <span className="v prw-num">{r.live} of {r.total} live</span>
+              </button>
+            );
+          })}
+          {byRegion.length > 6 && <button type="button" className="more" onClick={() => setAllRegions((a) => !a)}>{allRegions ? "Show fewer" : `Show all ${byRegion.length} regions`}</button>}
+        </div>
+      )}
+
+      {pr.total === 0 ? (
+        <div className="prw-card"><div className="prw-empty">Your {noun} will appear here once the list is loaded.</div></div>
+      ) : !snapshot.viewer && !isEditor ? (
+        <div className="prw-card">
+          <div className="prw-li">
+            <div>
+              <div className="t">Confirm your email to see each {one}</div>
+              <div className="m">The list is shared with your team only.</div>
+            </div>
+            <div className="a"><button type="button" className="prw-btn pri" onClick={onNeedEmail}><Mail aria-hidden /> Confirm email</button></div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="prw-tools prw-sc-tools">
+            <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} placeholder={`Search ${noun}`} aria-label={`Search ${noun}`} />
+            <select value={region} onChange={(e) => { setRegion(e.target.value); setPageNo(0); }} aria-label="Region">
+              <option value="">All regions</option>
+              {pr.regions.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <select value={stage} onChange={(e) => { setStage(e.target.value as RoomPracticeStageFilter | ""); setPageNo(0); }} aria-label="Status">
+              <option value="">Any status</option>
+              {STAGE_ORDER.map((s) => <option key={s} value={s}>{s === "trained" ? "Trained (incl. live)" : SCORECARD_STAGE_LABEL[s]}</option>)}
+              <option value="open">Not yet trained</option>
+            </select>
+            {waves.length > 0 && (
+              <select value={wave} onChange={(e) => { setWave(e.target.value); setPageNo(0); }} aria-label="Wave">
+                <option value="">All waves</option>
+                {waves.map((w) => <option key={w} value={w}>Wave {w}</option>)}
+              </select>
+            )}
+            {pr.scanners && (
+              <select value={scanner} onChange={(e) => { setScanner(e.target.value as "" | "yes" | "no"); setPageNo(0); }} aria-label="Scanners">
+                <option value="">Scanner or not</option>
+                <option value="yes">Has a scanner</option>
+                <option value="no">No scanner yet</option>
+              </select>
+            )}
+            <div className="prw-sc-cols">
+              <button type="button" className="prw-btn" aria-expanded={colsOpen} onClick={() => setColsOpen((o) => !o)} data-room-columns><Columns3 aria-hidden /> Columns</button>
+              {colsOpen && (
+                <div className="menu" role="group" aria-label="Columns">
+                  {offered.map((c) => (
+                    <label key={c.key}>
+                      <input type="checkbox" checked={picked[c.key] ?? c.on} onChange={(e) => toggleColumn(c.key, e.target.checked)} data-room-column={c.key} />
+                      {c.label}
+                      {c.teamOnly && <em>team only</em>}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            {filtered && <button type="button" className="prw-btn" onClick={clear} data-room-clear><X aria-hidden /> Clear</button>}
+          </div>
+          <div className="prw-scroll">
+            <table style={{ minWidth: colCount > 6 ? 980 : undefined }}>
+              <thead>
+                <tr>
+                  <Th k="name" width={colCount > 6 ? "24%" : "34%"}>{Noun.replace(/s$/, "")}</Th>
+                  {shown.map((c) => <Th key={c.key} k={c.sort}>{c.label}</Th>)}
+                  <Th k="stage">Status</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.rows ?? []).map((p) => (
+                  <tr key={p.id} data-room-practice={p.stage}>
+                    <td>
+                      <div className="t">{p.name}</div>
+                      {(p.city || p.state) && <div className="m">{[p.city, p.state].filter(Boolean).join(", ")}</div>}
+                    </td>
+                    {shown.map((c) => <td key={c.key} className="c">{c.cell(p)}</td>)}
+                    <td><span className={`prw-chip ${p.stage}`}>{SCORECARD_STAGE_LABEL[p.stage] ?? p.stage}</span></td>
+                  </tr>
+                ))}
+                {data && data.rows.length === 0 && <tr><td colSpan={colCount} className="c">Nothing matches.</td></tr>}
+                {!data && <tr><td colSpan={colCount} className="c">{loading ? "Loading…" : ""}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          {data && (
+            <div className="prw-pager">
+              <span className="prw-num">
+                {data.total === 0 ? "0" : `${pageNo * data.pageSize + 1}–${Math.min(data.total, (pageNo + 1) * data.pageSize)}`} of {data.total}
+                {filtered ? ` (filtered from ${pr.total})` : ""}
+              </span>
+              {data.total > data.pageSize && (
+                <span style={{ display: "flex", gap: 6 }}>
+                  <button type="button" className="prw-btn" disabled={pageNo === 0} onClick={() => setPageNo((n) => n - 1)}>Previous</button>
+                  <button type="button" className="prw-btn" disabled={(pageNo + 1) * data.pageSize >= data.total} onClick={() => setPageNo((n) => n + 1)}>Next</button>
+                </span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}

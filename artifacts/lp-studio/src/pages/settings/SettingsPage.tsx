@@ -1,7 +1,7 @@
 import { useLocation, Redirect } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/context/AuthContext";
-import { Settings as SettingsIcon, Globe, Search, Mail, LayoutTemplate, Flame, Plug } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Search, Mail, LayoutTemplate, Flame, Plug, DoorOpen } from "lucide-react";
 import { GeneralContent } from "./GeneralPage";
 import { DomainContent } from "./DomainPage";
 import { SeoContent } from "./SeoPage";
@@ -12,8 +12,9 @@ import { EmailSendingContent } from "./EmailSendingPage";
 import { AlertRecipientsContent } from "./AlertRecipients";
 import { TemplateSettingsContent } from "./TemplateSettingsPage";
 import { IntegrationsSettingsContent } from "./IntegrationsSettingsPage";
+import { AutomaticRoomsSection, StandardFilesManager } from "@/components/analytics/PageRoomPanel";
 
-type TabId = "general" | "domain" | "seo" | "scoring" | "templates" | "integrations" | "email";
+type TabId = "general" | "domain" | "seo" | "scoring" | "templates" | "integrations" | "hubs" | "email";
 type EmailSubTab = "templates" | "sending" | "recipients" | "preferences";
 
 const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string; adminOnly: boolean }[] = [
@@ -26,6 +27,8 @@ const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string;
   { id: "scoring", label: "Lead scoring", icon: Flame, path: "/settings/scoring", adminOnly: true },
   { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/settings/templates", adminOnly: true },
   { id: "integrations", label: "Integrations", icon: Plug, path: "/settings/integrations", adminOnly: true },
+  // Partner Hubs: automatic creation from the signed-accounts sheet and the files every hub gets.
+  { id: "hubs", label: "Partner Hubs", icon: DoorOpen, path: "/settings/partner-hubs", adminOnly: true },
   { id: "email", label: "Email", icon: Mail, path: "/settings/email", adminOnly: false },
 ];
 
@@ -38,6 +41,7 @@ function resolveRoute(location: string): { tab: TabId; emailSub: EmailSubTab } {
   if (location.startsWith("/settings/scoring")) return { tab: "scoring", emailSub: "templates" };
   if (location.startsWith("/settings/templates")) return { tab: "templates", emailSub: "templates" };
   if (location.startsWith("/settings/integrations")) return { tab: "integrations", emailSub: "templates" };
+  if (location.startsWith("/settings/partner-hubs")) return { tab: "hubs", emailSub: "templates" };
   if (location.startsWith("/settings/notifications")) return { tab: "email", emailSub: "preferences" };
   if (location.startsWith("/settings/email/sending")) return { tab: "email", emailSub: "sending" };
   if (location.startsWith("/settings/email/recipients")) return { tab: "email", emailSub: "recipients" };
@@ -121,6 +125,16 @@ export default function SettingsPage() {
         {tab === "scoring" && canManage && <HeatScoringContent />}
         {tab === "templates" && canManage && <TemplateSettingsContent />}
         {tab === "integrations" && canManage && <IntegrationsSettingsContent />}
+        {tab === "hubs" && canManage && (
+          <div className="space-y-8" data-testid="settings-partner-hubs">
+            <div>
+              <h2 className="text-lg font-semibold">Partner Hubs</h2>
+              <p className="text-sm text-muted-foreground">Settings that apply to every Partner Hub in this workspace: creating one automatically for each newly signed account, and the files every hub starts with. Each hub's own settings are under Manage on its page.</p>
+            </div>
+            <AutomaticRoomsSection />
+            <StandardFilesManager />
+          </div>
+        )}
         {tab === "email" && (
           <div className="space-y-6">
             <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit" role="tablist">

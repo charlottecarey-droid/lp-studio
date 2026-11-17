@@ -56,7 +56,7 @@ import { accountPeople, createRoomForAccount, isSfdcFieldName, syncRoomAutocreat
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
-import { buildRoomDigest, practiceSummary, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
+import { buildRoomDigest, loadSalesforceGap, practiceSummary, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices, rowsFromUpload } from "../../lib/partnerRoomReconcile";
 import {
   ASANA_REQUEST_KINDS,
@@ -432,7 +432,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
     const extras = page.isWorkspace
       ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id), ...(await loadPublicRoomCalendar(page.id)) }
       : { choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] };
-    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name } : null, tasks, requests, ...extras });
+    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras });
   } catch (err) {
     req.log.error({ err }, "room state failed");
     res.status(500).json({ error: "Could not load the room" });
@@ -661,8 +661,13 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
   try {
     const ctx = await requireWorkspaceViewer(req, res);
     if (!ctx) return;
-    const { page } = ctx;
+    const { page, viewer } = ctx;
     const region = typeof req.body?.region === "string" ? req.body.region.trim().slice(0, 80) : "";
+    const wave = typeof req.body?.wave === "string" ? req.body.wave.trim().slice(0, 80) : "";
+    // The scorecard's tiles: one stage, or a group of them ("trained" counts live ones too, as the tile does).
+    const STAGE_GROUPS: Record<string, string[]> = { not_started: ["not_started"], scheduling: ["scheduling"], training_booked: ["training_booked"], trained: ["trained", "live"], live: ["live"], open: ["not_started", "scheduling", "training_booked"] };
+    const stages = typeof req.body?.stage === "string" ? STAGE_GROUPS[req.body.stage] : undefined;
+    const scanner = req.body?.scanner === "yes" || req.body?.scanner === "no" ? (req.body.scanner as "yes" | "no") : null;
     const q = typeof req.body?.q === "string" ? req.body.q.trim().slice(0, 80) : "";
     const pageNo = Math.max(0, Math.min(1000, Math.floor(Number(req.body?.page) || 0)));
     // Sorting: one of a fixed set of columns (never a name from the request), blanks last.
@@ -677,6 +682,11 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       scannerActivated: lpRoomPracticesTable.scannerActivated,
       regionalManager: lpRoomPracticesTable.regionalManager,
       scannerCount: lpRoomPracticesTable.scannerCount,
+      scannerBrand: lpRoomPracticesTable.scannerBrand,
+      contractSigned: lpRoomPracticesTable.contractSigned,
+      state: lpRoomPracticesTable.state,
+      owner: lpRoomPracticesTable.owner,
+      lastActivity: lpRoomPracticesTable.lastActivity,
     } as const;
     const sortKey = typeof req.body?.sort === "string" && req.body.sort in SORTS ? (req.body.sort as keyof typeof SORTS) : null;
     const down = req.body?.dir === "desc";
@@ -684,6 +694,9 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const where = and(
       eq(lpRoomPracticesTable.pageId, page.id),
       region ? eq(lpRoomPracticesTable.region, region) : undefined,
+      wave ? eq(lpRoomPracticesTable.wave, wave) : undefined,
+      stages ? inArray(lpRoomPracticesTable.stage, stages) : undefined,
+      scanner === "yes" ? sql`${lpRoomPracticesTable.scannerCount} > 0` : scanner === "no" ? sql`COALESCE(${lpRoomPracticesTable.scannerCount}, 0) = 0` : undefined,
       q ? or(ilike(lpRoomPracticesTable.name, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.city, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.regionalManager, `%${q.replace(/[%_\\]/g, "")}%`)) : undefined,
     );
     const [rows, [{ n }], [has]] = await Promise.all([
@@ -691,7 +704,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       db.select({ n: sql<number>`COUNT(*)::int` }).from(lpRoomPracticesTable).where(where),
       // Which optional columns this room has any data for, so the page shows only those.
       db
-        .select({ scanner: sql<boolean>`bool_or(${lpRoomPracticesTable.scannerSent} IS NOT NULL OR ${lpRoomPracticesTable.scannerActivated} IS NOT NULL)`, scannerCount: sql<boolean>`bool_or(${lpRoomPracticesTable.scannerCount} IS NOT NULL)`, manager: sql<boolean>`bool_or(${lpRoomPracticesTable.regionalManager} IS NOT NULL)`, wave: sql<boolean>`bool_or(${lpRoomPracticesTable.wave} IS NOT NULL)` })
+        .select({ scanner: sql<boolean>`bool_or(${lpRoomPracticesTable.scannerSent} IS NOT NULL OR ${lpRoomPracticesTable.scannerActivated} IS NOT NULL)`, scannerCount: sql<boolean>`bool_or(${lpRoomPracticesTable.scannerCount} IS NOT NULL)`, manager: sql<boolean>`bool_or(${lpRoomPracticesTable.regionalManager} IS NOT NULL)`, wave: sql<boolean>`bool_or(${lpRoomPracticesTable.wave} IS NOT NULL)`, brand: sql<boolean>`bool_or(${lpRoomPracticesTable.scannerBrand} IS NOT NULL)`, contract: sql<boolean>`bool_or(${lpRoomPracticesTable.contractSigned} IS NOT NULL)`, owner: sql<boolean>`bool_or(${lpRoomPracticesTable.owner} IS NOT NULL)`, activity: sql<boolean>`bool_or(${lpRoomPracticesTable.lastActivity} IS NOT NULL)` })
         .from(lpRoomPracticesTable)
         .where(eq(lpRoomPracticesTable.pageId, page.id)),
     ]);
@@ -699,8 +712,13 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       total: n,
       page: pageNo,
       pageSize: 50,
-      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave },
-      rows: rows.map((p) => ({ id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels })),
+      // The account owner and last sales activity are ours: only the team's own view gets them.
+      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
+      rows: rows.map((p) => ({
+        id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels,
+        scannerBrand: p.scannerBrand, contractSigned: p.contractSigned,
+        ...(viewer.team ? { owner: p.owner, lastActivity: p.lastActivity } : {}),
+      })),
     });
   } catch (err) {
     req.log.error({ err }, "room practices failed");
@@ -713,6 +731,43 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
  * in the viewer). Same shape as the hub's beacon, plus who it was when the
  * visitor is identified. Always answers 204: tracking never blocks the page.
  */
+/**
+ * Team only: does what Salesforce lists match the customer's own rosters?
+ * Compares the practice list (from Salesforce) with the newest roster the
+ * customer uploaded, and counts the doctors on their doctor roster. A
+ * customer never gets this: it is about our data, and names their files.
+ */
+router.post("/lp/room/scorecard-check", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    if (!ctx.viewer.team) {
+      res.status(403).json({ error: "Not available" });
+      return;
+    }
+    const gap = await loadSalesforceGap(ctx.page.id);
+    if (!gap) {
+      res.json({ checked: false });
+      return;
+    }
+    res.json({
+      checked: true,
+      fileName: gap.fileName,
+      onRoster: gap.uploaded,
+      listed: gap.listed ?? 0,
+      matched: gap.matched,
+      missingFromSalesforce: gap.missing.slice(0, 200),
+      missingCount: gap.missing.length,
+      notOnRoster: (gap.notOnRoster ?? []).slice(0, 200),
+      notOnRosterCount: (gap.notOnRoster ?? []).length,
+      doctors: gap.doctors,
+    });
+  } catch (err) {
+    req.log.error({ err }, "room scorecard check failed");
+    res.status(500).json({ error: "Could not compare the rosters" });
+  }
+});
+
 router.post("/lp/room/asset", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = parseAssetEventBody(req.body);

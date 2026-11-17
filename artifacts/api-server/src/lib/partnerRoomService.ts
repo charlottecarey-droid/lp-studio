@@ -10,6 +10,7 @@ import {
   lpRoomChoicesTable,
   lpRoomContactsTable,
   lpRoomPracticesTable,
+  lpRoomPracticeSnapshotsTable,
   lpRoomRequestsTable,
   lpRoomSettingsTable,
   lpRoomTaskStateTable,
@@ -31,19 +32,72 @@ import { sendRoomDigestEmail } from "./notifications";
 import { slackService } from "./slack-service";
 
 /** Practice counts by stage and the list of regions: safe for any visitor (no practice names). */
-export async function practiceSummary(pageId: number): Promise<{ total: number; byStage: Record<string, number>; regions: string[]; scanners?: { total: number; practices: number } }> {
+export interface PracticeTrendPoint {
+  day: string;
+  total: number;
+  byStage: Record<string, number>;
+}
+
+export interface PracticeSummary {
+  total: number;
+  byStage: Record<string, number>;
+  regions: string[];
+  scanners?: { total: number; practices: number };
+  /** Per region: how many practices, and how many of them are live / trained or live. Largest first. */
+  byRegion: { region: string; total: number; live: number; trained: number }[];
+  waves: string[];
+  /** One point per day the list was refreshed (oldest first, up to 120 days). */
+  trend: PracticeTrendPoint[];
+}
+
+export async function practiceSummary(pageId: number): Promise<PracticeSummary> {
   const rows = (await db.execute(sql`SELECT stage, region, COUNT(*)::int AS n FROM lp_room_practices WHERE page_id = ${pageId} GROUP BY stage, region`)).rows as Array<{ stage: string; region: string | null; n: number }>;
   const byStage: Record<string, number> = {};
-  const regions = new Set<string>();
+  const regions = new Map<string, { region: string; total: number; live: number; trained: number }>();
   let total = 0;
   for (const r of rows) {
     byStage[r.stage] = (byStage[r.stage] ?? 0) + r.n;
     total += r.n;
-    if (r.region) regions.add(r.region);
+    if (!r.region) continue;
+    const g = regions.get(r.region) ?? { region: r.region, total: 0, live: 0, trained: 0 };
+    g.total += r.n;
+    if (r.stage === "live") g.live += r.n;
+    if (r.stage === "live" || r.stage === "trained") g.trained += r.n;
+    regions.set(r.region, g);
   }
   // Scanner counts, when the list carries them (the scanner tracker's office breakdown).
   const [sc] = (await db.execute(sql`SELECT COALESCE(SUM(scanner_count), 0)::int AS total, COUNT(*) FILTER (WHERE scanner_count > 0)::int AS practices, COUNT(scanner_count)::int AS known FROM lp_room_practices WHERE page_id = ${pageId}`)).rows as Array<{ total: number; practices: number; known: number }>;
-  return { total, byStage, regions: [...regions].sort(), ...(sc && sc.known > 0 ? { scanners: { total: sc.total, practices: sc.practices } } : {}) };
+  const [waves, trend] = total
+    ? await Promise.all([
+        db.execute(sql`SELECT DISTINCT wave FROM lp_room_practices WHERE page_id = ${pageId} AND wave IS NOT NULL ORDER BY wave LIMIT 40`).then((r) => (r.rows as Array<{ wave: string }>).map((w) => w.wave)),
+        db.select({ day: lpRoomPracticeSnapshotsTable.day, total: lpRoomPracticeSnapshotsTable.total, byStage: lpRoomPracticeSnapshotsTable.byStage }).from(lpRoomPracticeSnapshotsTable).where(eq(lpRoomPracticeSnapshotsTable.pageId, pageId)).orderBy(desc(lpRoomPracticeSnapshotsTable.day)).limit(120),
+      ])
+    : [[], []];
+  return {
+    total,
+    byStage,
+    regions: [...regions.keys()].sort(),
+    ...(sc && sc.known > 0 ? { scanners: { total: sc.total, practices: sc.practices } } : {}),
+    byRegion: [...regions.values()].sort((a, b) => b.total - a.total || a.region.localeCompare(b.region)).slice(0, 60),
+    waves,
+    trend: trend.reverse(),
+  };
+}
+
+/**
+ * Record today's stage counts for the trend line. One row per room per day
+ * (the latest refresh of the day wins). An empty list records nothing.
+ */
+export async function recordPracticeSnapshot(page: { id: number; tenantId: number }, now: Date = new Date()): Promise<void> {
+  const rows = (await db.execute(sql`SELECT stage, COUNT(*)::int AS n, COALESCE(SUM(scanner_count), 0)::int AS sc, COUNT(scanner_count)::int AS known FROM lp_room_practices WHERE page_id = ${page.id} GROUP BY stage`)).rows as Array<{ stage: string; n: number; sc: number; known: number }>;
+  const total = rows.reduce((n, r) => n + r.n, 0);
+  if (total === 0) return;
+  const byStage = Object.fromEntries(rows.map((r) => [r.stage, r.n]));
+  const scanners = rows.some((r) => r.known > 0) ? rows.reduce((n, r) => n + r.sc, 0) : null;
+  await db
+    .insert(lpRoomPracticeSnapshotsTable)
+    .values({ tenantId: page.tenantId, pageId: page.id, day: now.toISOString().slice(0, 10), total, byStage, scanners })
+    .onConflictDoUpdate({ target: [lpRoomPracticeSnapshotsTable.pageId, lpRoomPracticeSnapshotsTable.day], set: { total, byStage, scanners } });
 }
 
 /** Add or update practices: matched by Salesforce id when given, else by name. A row that says nothing about the stage keeps the saved one. */
@@ -73,12 +127,17 @@ export async function upsertPractices(page: { id: number; tenantId: number }, ro
           ...(r.regionalManager ? { regionalManager: r.regionalManager } : {}),
           ...(r.scannerCount != null ? { scannerCount: r.scannerCount } : {}),
           ...(r.scannerModels ? { scannerModels: r.scannerModels } : {}),
+          ...(r.scannerBrand ? { scannerBrand: r.scannerBrand } : {}),
+          ...(r.contractSigned ? { contractSigned: r.contractSigned } : {}),
+          ...(r.sourceStatus ? { sourceStatus: r.sourceStatus } : {}),
+          ...(r.owner ? { owner: r.owner } : {}),
+          ...(r.lastActivity ? { lastActivity: r.lastActivity } : {}),
           updatedAt: sql`now()`,
         })
         .where(eq(lpRoomPracticesTable.id, id));
       updated++;
     } else {
-      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels });
+      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels, scannerBrand: r.scannerBrand ?? null, contractSigned: r.contractSigned ?? null, sourceStatus: r.sourceStatus ?? null, owner: r.owner ?? null, lastActivity: r.lastActivity ?? null });
       byName.set(r.name.trim().toLowerCase(), -1);
       if (r.externalId) byExt.set(r.externalId, -1);
     }
@@ -92,6 +151,8 @@ export async function upsertPractices(page: { id: number; tenantId: number }, ro
     for (let i = 0; i < gone.length; i += 500) await db.delete(lpRoomPracticesTable).where(inArray(lpRoomPracticesTable.id, gone.slice(i, i + 500)));
     removed = gone.length;
   }
+  // Today's counts, for the scorecard's trend. Never worth failing a refresh over.
+  await recordPracticeSnapshot(page).catch((err) => logger.warn({ err, pageId: page.id }, "practice snapshot failed"));
   return { added: inserts.length, updated, removed };
 }
 
@@ -240,6 +301,10 @@ export interface SalesforceGap {
   matched: number;
   uploaded: number;
   doctors: number | null;
+  /** Practices we list (from Salesforce) that the customer's roster does not. */
+  notOnRoster?: string[];
+  /** How many practices we list. */
+  listed?: number;
 }
 
 const storage = new ObjectStorageService();
@@ -276,7 +341,7 @@ export async function loadSalesforceGap(pageId: number): Promise<SalesforceGap |
   if (!names && doctors === null) return null;
   const roomNames = (await db.select({ name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, pageId))).map((p) => p.name);
   const r = names ? reconcilePractices(names.names, roomNames) : null;
-  return { fileName: names?.fileName ?? "", missing: r?.missingFromRoom ?? [], matched: r?.matched ?? 0, uploaded: r?.uploaded ?? 0, doctors };
+  return { fileName: names?.fileName ?? "", missing: r?.missingFromRoom ?? [], matched: r?.matched ?? 0, uploaded: r?.uploaded ?? 0, doctors, notOnRoster: r?.notOnUpload ?? [], listed: roomNames.length };
 }
 
 /** The RevOps lines for Slack: who to mention, how many child accounts and doctors to add, and the first names. Empty when there is no gap. */

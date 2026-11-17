@@ -157,9 +157,36 @@ export const lpRoomPracticesTable = pgTable(
     /** Scanners at the practice now, and which models ("1 Trios 3 · 3 Dandy Vision"). */
     scannerCount: integer("scanner_count"),
     scannerModels: text("scanner_models"),
+    /** More of what the Salesforce report carries, as written there: the scanner brand at the office, when its contract was signed, its status in Salesforce's words. */
+    scannerBrand: text("scanner_brand"),
+    contractSigned: text("contract_signed"),
+    sourceStatus: text("source_status"),
+    /** Internal: the account owner and the last sales activity. Shown to the team only. */
+    owner: text("owner"),
+    lastActivity: text("last_activity"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_practices_page_idx").on(t.pageId, t.region), uniqueIndex("lp_room_practices_page_ext_uniq").on(t.pageId, t.externalId).where(sql`${t.externalId} IS NOT NULL`)],
+);
+
+/**
+ * One row per room per day: how many practices were at each stage, so the
+ * scorecard can show a trend. Written whenever the practice list is refreshed.
+ */
+export const lpRoomPracticeSnapshotsTable = pgTable(
+  "lp_room_practice_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    /** YYYY-MM-DD (UTC). */
+    day: text("day").notNull(),
+    total: integer("total").notNull().default(0),
+    byStage: jsonb("by_stage").$type<Record<string, number>>().notNull().default({}),
+    scanners: integer("scanners"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_practice_snapshots_page_day_uniq").on(t.pageId, t.day)],
 );
 
 /**

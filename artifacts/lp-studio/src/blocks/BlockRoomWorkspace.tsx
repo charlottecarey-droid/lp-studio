@@ -10,6 +10,7 @@ import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed, opensInViewer, resolveAssetHref, type HubAsset, type HubAssetAction } from "./hub/hub-assets";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
+import { ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
 import { resolveHubPalette } from "@/lib/hub-theme";
 import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
 import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomPracticePage, type RoomPracticeSort, type RoomSyncedEvent, type RoomSyncedMinutes } from "./hub/room-client";
@@ -57,7 +58,7 @@ export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "wins", label: "Wins" },
   { key: "goals", label: "Goals" },
   { key: "plan", label: "Action plan" },
-  { key: "practices", label: "Practices" },
+  { key: "practices", label: "Scorecard" },
   { key: "marketing", label: "Marketing plan" },
   { key: "kit", label: "Launch kit" },
   { key: "calendar", label: "Calendar" },
@@ -976,6 +977,69 @@ const CSS = `
 .prw-body{border-top:1px solid var(--line);background:#FAFBF8;padding:14px 16px 16px 64px;font-size:13.5px;white-space:pre-wrap;color:var(--ink)}
 .prw-chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A;white-space:nowrap}
 .prw-chip.review{background:#FBF3D9;color:#7A6100}.prw-chip.in_progress{background:#E8EEF9;color:var(--blue)}.prw-chip.new{background:#F1F2EE;color:var(--body)}
+.prw-sc-tiles{display:grid;grid-template-columns:repeat(var(--n,6),minmax(0,1fr));gap:10px;margin-bottom:14px}
+.prw-sc-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:14px 14px 12px;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--body);font-size:12.5px;transition:border-color .12s,box-shadow .12s}
+.prw-sc-tile:hover{border-color:color-mix(in srgb,var(--dark) 40%,var(--line))}
+.prw-sc-tile.on{border-color:var(--dark);box-shadow:inset 0 0 0 1px var(--dark)}
+.prw-sc-tile b{font-size:24px;line-height:1.05;color:var(--dark);letter-spacing:-.03em;font-weight:700}
+.prw-sc-tile span{font-weight:600;color:var(--ink);min-height:2.5em;line-height:1.25}
+.prw-sc-tile small{display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;min-height:15px}
+.prw-sc-tile small i{font-style:normal;font-weight:600;white-space:nowrap}
+.prw-sc-tile small i.up{color:#0B6B3A}.prw-sc-tile small i.down{color:#A4401B}
+@media (max-width:1180px){.prw-sc-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.prw-sc-bar{display:flex;gap:2px;height:8px;border-radius:999px;overflow:hidden;margin-bottom:22px;background:#F1F2EE}
+.prw-sc-bar span{display:block;min-width:3px}
+.prw-sc-bar .not_started{background:#D9DCD4}.prw-sc-bar .scheduling{background:#E3C65A}.prw-sc-bar .training_booked{background:#9DB5E4}.prw-sc-bar .trained{background:var(--blue)}.prw-sc-bar .live{background:var(--green)}
+.prw-sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.prw-sc-panel{padding:18px 20px}
+.prw-sc-panel h4,.prw-sc-regions h4{font-size:13px;font-weight:700;color:var(--dark);margin:0 0 12px}
+.prw-sc-panel svg{display:block;width:100%;height:70px}
+.prw-sc-panel polyline{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.prw-sc-panel polyline.live{stroke:var(--green)}.prw-sc-panel polyline.trained{stroke:var(--blue)}
+.prw-sc-panel .key{display:flex;gap:16px;align-items:center;margin-top:10px;font-size:12px;color:var(--body);flex-wrap:wrap}
+.prw-sc-panel .key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.prw-sc-panel .key i.live{background:var(--green)}.prw-sc-panel .key i.trained{background:var(--blue)}
+.prw-sc-panel .key b{color:var(--ink);margin-left:3px}
+.prw-sc-panel .key .since{margin-left:auto}
+.prw-sc-panel .none{font-size:12.5px;color:var(--body);margin:0;max-width:46ch}
+.prw-sc-panel .goal+.goal{margin-top:14px}
+.prw-sc-panel .goal .top{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--ink);font-weight:600}
+.prw-sc-panel .goal .top b{color:var(--dark);white-space:nowrap}
+.prw-sc-panel .track,.prw-sc-regions .track{display:block;height:6px;border-radius:999px;background:#F1F2EE;overflow:hidden;margin:7px 0 5px}
+.prw-sc-panel .track span,.prw-sc-regions .track span{display:block;height:100%;background:var(--green);border-radius:999px}
+.prw-sc-panel .goal .foot{font-size:11.5px;color:var(--body)}
+.prw-sc-regions{padding:18px 20px 10px;margin-bottom:22px}
+.prw-sc-regions .hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.prw-sc-regions .hd span{font-size:12px;color:var(--body)}
+.prw-sc-regions>button{display:grid;grid-template-columns:minmax(120px,1.2fr) 2fr minmax(96px,auto);gap:14px;align-items:center;width:100%;padding:7px 8px;margin:0 -8px;border:0;border-radius:8px;background:none;text-align:left;font-size:13px;color:var(--ink)}
+.prw-sc-regions>button:hover{background:#F7F8F5}
+.prw-sc-regions>button.on{background:color-mix(in srgb,var(--green) 10%,#fff)}
+.prw-sc-regions>button .n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prw-sc-regions>button .track{margin:0}
+.prw-sc-regions>button .v{font-size:12px;color:var(--body);text-align:right;white-space:nowrap}
+.prw-sc-regions>button.more{display:block;width:auto;margin:6px 0 4px;padding:4px 0;font-size:12px;font-weight:600;color:var(--dark)}
+.prw-sc-tools input{max-width:280px}
+.prw-sc-cols{position:relative;margin-left:auto}
+.prw-sc-cols .menu{position:absolute;right:0;top:38px;z-index:20;min-width:210px;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 12px 28px -14px rgba(0,0,0,.3)}
+.prw-sc-cols .menu label{display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:13px;color:var(--ink);border-radius:6px;cursor:pointer}
+.prw-sc-cols .menu input{flex:none;width:15px;height:15px;min-width:0;max-width:none;padding:0;margin:0;border:0;accent-color:var(--dark)}
+.prw-sc-cols .menu label:hover{background:#F7F8F5}
+.prw-sc-cols .menu em{margin-left:auto;font-style:normal;font-size:10.5px;color:var(--body)}
+.prw-sc-check{border:1px solid color-mix(in srgb,var(--green) 40%,var(--line));background:color-mix(in srgb,var(--green) 7%,#fff);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--ink)}
+.prw-sc-check.warn{border-color:#E3C65A;background:#FDF8E6}
+.prw-sc-check .hd{display:flex;gap:12px;align-items:flex-start}
+.prw-sc-check .hd svg{width:18px;height:18px;flex:none;margin-top:1px;color:#0B6B3A}
+.prw-sc-check.warn .hd svg{color:#8A6A00}
+.prw-sc-check .hd b{display:block;color:var(--dark)}
+.prw-sc-check .hd span{display:block;color:var(--body);margin-top:2px;max-width:70ch}
+.prw-sc-check .hd em{margin-left:auto;font-style:normal;font-size:11px;font-weight:600;color:var(--body);white-space:nowrap;border:1px solid var(--line);border-radius:999px;padding:2px 8px;background:#fff}
+.prw-sc-check .rows{display:grid;gap:4px;margin:12px 0 12px 30px}
+.prw-sc-check .rows b{color:var(--dark);margin-right:4px}
+.prw-sc-check>.prw-btn{margin-left:30px}
+.prw-sc-check .names{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:12px 0 2px 30px}
+.prw-sc-check .names h5{font-size:11.5px;font-weight:700;color:var(--body);margin:0 0 4px}
+.prw-sc-check .names ul{margin:0;padding:0;list-style:none;max-height:220px;overflow:auto;font-size:12.5px}
+.prw-sc-check .names li{padding:2px 0}
 .prw-sum{display:flex;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:20px}
 .prw-sum div{padding:18px 24px;border-left:1px solid var(--line);font-size:12.5px;color:var(--body)}
 .prw-sum div:first-child{border-left:0}
@@ -1045,6 +1109,7 @@ const CSS = `
 .prw-team td{display:block;border-top:0;padding:2px 14px;white-space:normal!important}
 .prw-team td:first-child{padding-top:12px;border-top:1px solid var(--line)}
 .prw-team td:last-child{padding-bottom:12px}
+.prw-sc-tiles{grid-template-columns:1fr 1fr}.prw-sc-tile span{min-height:0}.prw-sc-grid{grid-template-columns:1fr}.prw-sc-check .names{grid-template-columns:1fr}.prw-sc-check .hd{flex-wrap:wrap}.prw-sc-check .hd em{margin-left:30px}.prw-sc-regions>button{grid-template-columns:1fr auto}.prw-sc-regions>button .track{display:none}.prw-sc-cols{margin-left:0}
 .prw-sum{flex-wrap:wrap}
 }
 `;
@@ -1092,6 +1157,10 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   const events = splitEvents([...(props.calendar?.events ?? []), ...snapshot.events.map(syncedEventToRoomEvent)], today);
   const meetings = [...(props.meetings?.items ?? []), ...snapshot.minutes.map(syncedMinutesToMeeting)].filter((m) => !m.hidden && (m.title ?? "").trim()).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const pr = snapshot.practices;
+  // Goals counted from the practice list, with a number to reach: the scorecard shows their progress.
+  const scorecardGoals: ScorecardGoal[] = goals
+    .filter((g) => (g.metric === "practices_live" || g.metric === "practices_trained") && typeof g.targetValue === "number" && g.targetValue > 0)
+    .map((g) => ({ key: g.key, title: g.title, value: goalValue(g, { byStage: pr.byStage, planDone: 0 }) ?? 0, target: g.targetValue as number, targetText: g.target }));
   const noun = (props.locationsNoun ?? "").trim() || "locations";
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
@@ -1262,7 +1331,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               {modules.map((m, i) => (
                 <button key={m.key} type="button" className={m.key === active ? "on" : ""} onClick={() => setView(m.key)} data-room-nav={m.key}>
                   <span className="n prw-num">{String(i + 1).padStart(2, "0")}</span>
-                  {m.key === "practices" ? Noun : m.label}
+                  {m.label}
                   {badge[m.key] && <em>{badge[m.key]}</em>}
                 </button>
               ))}
@@ -1641,7 +1710,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               </>
             )}
 
-            {active === "practices" && <PracticesView snapshot={snapshot} store={store} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} onNeedEmail={() => setAsk({ kind: "email" })} />}
+            {active === "practices" && <ScorecardView snapshot={snapshot} store={store} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} />}
 
             {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
 
@@ -2360,154 +2429,6 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail }: { progr
         )}
       </div>
     </div>
-  );
-}
-
-/* ── Practices ───────────────────────────────────────────────────────────── */
-
-function PracticesView({ snapshot, store, isEditor, noun, display, onNeedEmail }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; noun: string; display: string; onNeedEmail: () => void }) {
-  const pr = snapshot.practices;
-  const [region, setRegion] = useState("");
-  const [q, setQ] = useState("");
-  const [pageNo, setPageNo] = useState(0);
-  const [data, setData] = useState<RoomPracticePage | null>(null);
-  const [sort, setSort] = useState<{ key: RoomPracticeSort; dir: "asc" | "desc" } | null>(null);
-  /** Click a column to sort by it; click again to reverse; a third click returns to the default order. */
-  const sortBy = (key: RoomPracticeSort) => {
-    setPageNo(0);
-    setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
-  };
-  const Th = ({ k, children, width }: { k: RoomPracticeSort; children: React.ReactNode; width?: string }) => (
-    <th style={width ? { width } : undefined} aria-sort={sort?.key === k ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-      <button type="button" className={`prw-th${sort?.key === k ? " on" : ""}`} onClick={() => sortBy(k)} data-room-sort={k}>
-        {children}
-        {sort?.key === k ? sort.dir === "asc" ? <ArrowUp aria-hidden /> : <ArrowDown aria-hidden /> : <ArrowUpDown aria-hidden />}
-      </button>
-    </th>
-  );
-  const [loading, setLoading] = useState(false);
-  const viewerKey = snapshot.viewer?.email ?? "";
-  useEffect(() => {
-    if (!store || !viewerKey) return;
-    let cancelled = false;
-    setLoading(true);
-    const t = window.setTimeout(() => {
-      void store.loadPractices({ region, q, page: pageNo, ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
-        if (cancelled) return;
-        setLoading(false);
-        if (r && r !== "identity") setData(r);
-      });
-    }, q ? 250 : 0);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [store, viewerKey, region, q, pageNo, pr.total, sort]);
-  const cols = data?.columns ?? { scanner: false, scannerCount: false, manager: false, wave: true };
-  const colCount = 5 + Number(cols.wave) + Number(cols.manager) + Number(cols.scanner) * 2 + Number(cols.scannerCount);
-  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
-  const stat = (label: string, n: number) => (
-    <div><b className="prw-num">{n}</b>{label}</div>
-  );
-  return (
-    <>
-      <div className="prw-hd">
-        <div>
-          <div className="prw-eyebrow">{Noun}</div>
-          <h2 style={{ fontFamily: display }}>Rollout by {noun.replace(/s$/, "")}</h2>
-          <p>Where each one stands, kept current by our team. No spreadsheet to maintain.</p>
-        </div>
-        {pr.regions.length > 0 && <div className="prw-meta"><b>{pr.total}</b> {noun} · <b>{pr.regions.length}</b> regions</div>}
-      </div>
-      <div className="prw-sum" data-room-practice-summary>
-        {stat("in the rollout", pr.total)}
-        {stat("training booked", pr.byStage.training_booked ?? 0)}
-        {stat("trained", (pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0))}
-        {stat("live", pr.byStage.live ?? 0)}
-        {pr.scanners && stat("with scanners", pr.scanners.practices)}
-        {pr.scanners && stat("scanners", pr.scanners.total)}
-      </div>
-      {pr.total === 0 ? (
-        <div className="prw-card"><div className="prw-empty">Your {noun} will appear here once the list is loaded.</div></div>
-      ) : !snapshot.viewer && !isEditor ? (
-        <div className="prw-card">
-          <div className="prw-li">
-            <div>
-              <div className="t">Confirm your email to see each {noun.replace(/s$/, "")}</div>
-              <div className="m">The list is shared with your team only.</div>
-            </div>
-            <div className="a"><button type="button" className="prw-btn pri" onClick={onNeedEmail}><Mail aria-hidden /> Confirm email</button></div>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="prw-tools">
-            <select value={region} onChange={(e) => { setRegion(e.target.value); setPageNo(0); }} aria-label="Region">
-              <option value="">All regions</option>
-              {pr.regions.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} placeholder={`Search ${noun}`} aria-label={`Search ${noun}`} />
-          </div>
-          <div className="prw-scroll">
-          <table style={{ minWidth: colCount > 6 ? 980 : undefined }}>
-            <thead>
-              <tr>
-                <Th k="name" width={colCount > 6 ? "24%" : "34%"}>{Noun.replace(/s$/, "")}</Th>
-                <Th k="region">Region</Th>
-                {cols.manager && <Th k="regionalManager">Regional manager</Th>}
-                {cols.wave && <Th k="wave">Wave</Th>}
-                <Th k="trainingDate">Training</Th>
-                <Th k="liveDate">Live</Th>
-                {cols.scannerCount && <Th k="scannerCount">Scanners</Th>}
-                {cols.scanner && <Th k="scannerSent">Scanner sent</Th>}
-                {cols.scanner && <Th k="scannerActivated">Activated</Th>}
-                <Th k="stage">Status</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.rows ?? []).map((p) => (
-                <tr key={p.id} data-room-practice={p.stage}>
-                  <td>
-                    <div className="t">{p.name}</div>
-                    {(p.city || p.state) && <div className="m">{[p.city, p.state].filter(Boolean).join(", ")}</div>}
-                  </td>
-                  <td className="c">{p.region}</td>
-                  {cols.manager && <td className="c">{p.regionalManager}</td>}
-                  {cols.wave && <td className="c">{p.wave}</td>}
-                  <td className="c">{p.trainingDate}</td>
-                  <td className="c">{p.liveDate}</td>
-                  {cols.scannerCount && (
-                    <td className="c">
-                      {p.scannerCount != null && <span className="prw-num" style={{ color: "var(--ink)", fontWeight: 600 }}>{p.scannerCount}</span>}
-                      {p.scannerModels && <div className="m">{p.scannerModels}</div>}
-                    </td>
-                  )}
-                  {cols.scanner && <td className="c">{p.scannerSent}</td>}
-                  {cols.scanner && <td className="c">{p.scannerActivated}</td>}
-                  <td><span className={`prw-chip ${p.stage}`}>{ROOM_PRACTICE_STAGE_LABEL[p.stage] ?? p.stage}</span></td>
-                </tr>
-              ))}
-              {data && data.rows.length === 0 && (
-                <tr><td colSpan={colCount} className="c">Nothing matches.</td></tr>
-              )}
-              {!data && (
-                <tr><td colSpan={colCount} className="c">{loading ? "Loading…" : ""}</td></tr>
-              )}
-            </tbody>
-          </table>
-          </div>
-          {data && data.total > data.pageSize && (
-            <div className="prw-pager">
-              <span className="prw-num">{pageNo * data.pageSize + 1}–{Math.min(data.total, (pageNo + 1) * data.pageSize)} of {data.total}</span>
-              <span style={{ display: "flex", gap: 6 }}>
-                <button type="button" className="prw-btn" disabled={pageNo === 0} onClick={() => setPageNo((n) => n - 1)}>Previous</button>
-                <button type="button" className="prw-btn" disabled={(pageNo + 1) * data.pageSize >= data.total} onClick={() => setPageNo((n) => n + 1)}>Next</button>
-              </span>
-            </div>
-          )}
-        </>
-      )}
-    </>
   );
 }
 

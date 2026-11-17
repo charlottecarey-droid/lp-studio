@@ -353,6 +353,7 @@ function AppRouter() {
         <Route path="/settings/email/recipients" component={SettingsPage} />
         <Route path="/settings/email" component={SettingsPage} />
         <Route path="/settings/integrations" component={SettingsPage} />
+        <Route path="/settings/partner-hubs" component={SettingsPage} />
         {/* Task #425 — self-serve billing settings. Open to ANY
             authenticated workspace member in read-only mode so teammates
             can see what plan they're on and the renewal date. The

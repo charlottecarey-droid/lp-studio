@@ -256,7 +256,7 @@ export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: 
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-sm font-medium">Live Google Sheet</p>
               <p className="text-xs text-muted-foreground">
-                The room re-reads this sheet about every hour and matches it exactly: rows removed from the sheet leave the room. First row = column names: name, region, wave, stage, training date, live date. Share the sheet with your workspace’s Google service account, the one lead sync uses (its address is shown under Settings → Integrations → Partner rooms).
+                The room re-reads this sheet about every hour and matches it exactly: rows removed from the sheet leave the room. First row = column names: name, region, wave, stage, training date, live date. Share the sheet with your workspace’s Google service account, the one lead sync uses (its address is shown under Settings → Partner Hubs).
               </p>
               <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
                 <Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" />
@@ -1148,7 +1148,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets }: { pageId: nu
       <div className="space-y-2 rounded-md border p-3">
         <p className="text-sm font-medium">Standard files</p>
         <p className="text-xs text-muted-foreground">
-          The same for every customer, uploaded once under <a className="underline" href="/settings/integrations">Settings → Integrations → Partner rooms</a>. A room with its own version keeps it.
+          The same for every customer, uploaded once under <a className="underline" href="/settings/partner-hubs">Settings → Partner Hubs</a>. A room with its own version keeps it.
         </p>
         {(standard ?? []).map((a) => (
           <p key={a.key} className="text-sm">

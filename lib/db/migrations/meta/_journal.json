@@ -1107,6 +1107,13 @@
       "when": 1758030240000,
       "tag": "0157_room_wins_photos_mentions_reactions",
       "breakpoints": false
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1758030300000,
+      "tag": "0158_room_scorecard",
+      "breakpoints": false
     }
   ]
 }
