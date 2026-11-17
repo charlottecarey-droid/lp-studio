@@ -419,15 +419,17 @@ const emptySnapshot = () => EMPTY;
  */
 export type RoomStoreHandle = RoomStore;
 
-export function useRoom(pageId: number | undefined, enabled: boolean, opts: { readOnly?: boolean } = {}): { snapshot: RoomSnapshot; store: RoomStore | null } {
+export function useRoom(pageId: number | undefined, enabled: boolean, opts: { readOnly?: boolean } = {}): { snapshot: RoomSnapshot; store: RoomStore | null; reader: RoomStore | null } {
   // Dev only: the block fixture page sets `window.__ROOM_PREVIEW__` to exercise the room against a mock API.
   const devPreview = import.meta.env.DEV && typeof window !== "undefined" && !!(window as unknown as { __ROOM_PREVIEW__?: boolean }).__ROOM_PREVIEW__;
-  const active = enabled && typeof pageId === "number" && pageId > 0 && typeof window !== "undefined" && (devPreview || opts.readOnly || !isTrackingSuppressed());
+  const active = enabled && typeof pageId === "number" && pageId > 0 && typeof window !== "undefined";
+  // The builder and in-app previews read the room (so it looks as it will for the customer) but never act as a visitor.
+  const readOnly = !!opts.readOnly || (active && !devPreview && isTrackingSuppressed());
   const store = active ? storeFor(pageId as number) : null;
   const snapshot = useSyncExternalStore(store ? store.subscribe : noopSubscribe, store ? store.getSnapshot : emptySnapshot, emptySnapshot);
   useEffect(() => {
     store?.start();
   }, [store]);
-  // Read-only (the builder): the data shows, but nothing can be done as a visitor from there.
-  return { snapshot, store: opts.readOnly ? null : store };
+  // `reader` is for loading lists (the scorecard's practices); `store` is what visitor actions go through.
+  return { snapshot, store: readOnly ? null : store, reader: store };
 }

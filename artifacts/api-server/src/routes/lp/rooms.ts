@@ -41,7 +41,7 @@ import {
   tenantsTable,
 } from "@workspace/db";
 import { and, asc, desc, eq, ilike, inArray, or, sql, gte } from "drizzle-orm";
-import { getTenantId } from "../../middleware/requireAuth";
+import { getTenantId, optionalAuth } from "../../middleware/requireAuth";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { getActiveHostsForTenant } from "../../lib/tenantHosts";
@@ -98,6 +98,9 @@ import {
 } from "../../lib/partnerRoom";
 
 const router = Router();
+
+// The visitor routes are public, but a signed-in team member is recognised on them (see resolveViewer).
+router.use((req: Request, res: Response, next) => (req.path.startsWith("/lp/room/") && !req.authUser ? optionalAuth(req, res, next) : next()));
 const objectStorage = new ObjectStorageService();
 const ROOM_UPLOAD_FOLDER = "room-uploads";
 
@@ -213,7 +216,7 @@ async function customerNameFor(page: RoomPage, email: string): Promise<string | 
  * Who is acting? A personal link for THIS page wins (the contact is known);
  * otherwise a valid room token whose address is still allowed. Null = anonymous.
  */
-async function resolveViewer(page: RoomPage, body: { hl?: unknown; rt?: unknown }): Promise<Viewer | null> {
+async function resolveViewer(page: RoomPage, body: { hl?: unknown; rt?: unknown }, signedIn?: { email?: string | null } | null): Promise<Viewer | null> {
   const hl = typeof body.hl === "string" ? body.hl.trim() : "";
   if (hl && hl.length <= 64) {
     const [row] = await db
@@ -242,6 +245,12 @@ async function resolveViewer(page: RoomPage, body: { hl?: unknown; rt?: unknown 
     if (team) return { email: claims.email, name: team, via: "email", team: true };
     const [settings, status] = await Promise.all([loadSettings(page.id), memberStatus(page.id, claims.email)]);
     if (isEmailAllowed(claims.email, settings.allowedDomains, status)) return { email: claims.email, name: await customerNameFor(page, claims.email), via: "email" };
+  }
+  // Someone signed in to LP Studio who is on this page's own team (the builder, an in-app preview): no link or email check needed.
+  const own = normalizeEmail(signedIn?.email);
+  if (own) {
+    const team = await teamMemberName(page.tenantId, own);
+    if (team) return { email: own, name: team, via: "email", team: true };
   }
   return null;
 }
@@ -372,7 +381,7 @@ async function requireWorkspaceViewer(req: Request, res: Response): Promise<{ pa
     res.status(404).json({ error: "Room not found" });
     return null;
   }
-  const viewer = await resolveViewer(page, req.body ?? {});
+  const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
   if (!viewer) {
     res.status(401).json({ error: "Confirm your email to continue", code: "identity_required" });
     return null;
@@ -394,7 +403,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
       res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
       return;
     }
-    const viewer = await resolveViewer(page, req.body ?? {});
+    const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
     const [states, uploads] = await Promise.all([
       db.select().from(lpRoomTaskStateTable).where(eq(lpRoomTaskStateTable.pageId, page.id)),
       db
@@ -494,7 +503,7 @@ async function requireActor(req: Request, res: Response): Promise<{ page: RoomPa
     res.status(404).json({ error: "Room not found" });
     return null;
   }
-  const viewer = await resolveViewer(page, req.body ?? {});
+  const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
   if (!viewer) {
     res.status(401).json({ error: "Confirm your email to continue", code: "identity_required" });
     return null;
@@ -603,7 +612,7 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
       res.status(404).json({ error: "Room not found" });
       return;
     }
-    const viewer = await resolveViewer(page, req.body ?? {});
+    const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
     if (!viewer) {
       res.status(401).json({ error: "Confirm your email to continue", code: "identity_required" });
       return;
@@ -773,7 +782,7 @@ router.post("/lp/room/asset", stateLimiter, async (req: Request, res: Response):
     const parsed = parseAssetEventBody(req.body);
     const page = parsed ? await loadRoomPage(parsed.pageId) : null;
     if (parsed && page) {
-      const viewer = await resolveViewer(page, req.body ?? {}).catch(() => null);
+      const viewer = await resolveViewer(page, req.body ?? {}, req.authUser).catch(() => null);
       await db.insert(lpAssetEventsTable).values({
         tenantId: page.tenantId,
         pageId: page.id,
@@ -1234,6 +1243,31 @@ router.post("/lp/partner-rooms/:pageId/members", async (req: Request, res: Respo
   } catch (err) {
     req.log.error({ err }, "room member failed");
     res.status(500).json({ error: "Could not save" });
+  }
+});
+
+/**
+ * A link that opens the published hub as the signed-in team member, on the
+ * customer-facing address (where LP Studio's own sign-in doesn't reach).
+ */
+router.get("/lp/partner-rooms/:pageId/my-link", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const email = normalizeEmail(req.authUser?.email);
+    if (!email) {
+      res.status(400).json({ error: "Sign in again to get your link" });
+      return;
+    }
+    const [row] = await db.select({ status: lpPagesTable.status }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1);
+    if (row?.status !== "published") {
+      res.status(400).json({ error: "This hub isn't published yet, so it has no public page. Use Preview in the builder: you're recognised there automatically." });
+      return;
+    }
+    res.json({ url: `${await roomPageUrl(req, page, undefined)}?rt=${encodeURIComponent(signRoomToken(page.id, email))}` });
+  } catch (err) {
+    req.log.error({ err }, "room my-link failed");
+    res.status(500).json({ error: "Could not make your link" });
   }
 });
 

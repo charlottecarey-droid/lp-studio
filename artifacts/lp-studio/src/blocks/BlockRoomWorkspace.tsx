@@ -1812,7 +1812,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
               </>
             )}
 
-            {active === "practices" && <ScorecardView snapshot={snapshot} store={store} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} />}
+            {active === "practices" && <ScorecardView snapshot={snapshot} store={store ?? room.reader} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} />}
 
             {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
 

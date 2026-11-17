@@ -455,6 +455,23 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(asCustomer.rows[0]).toMatchObject({ name: "Summit Dental", scannerBrand: "iTero", contractSigned: "1/13/2026" });
     expect(asCustomer.rows[0]).not.toHaveProperty("owner");
     expect(asCustomer.rows[0]).not.toHaveProperty("lastActivity");
+    // Someone signed in to LP Studio on this page's own team needs no link or email check (the builder, an in-app preview)...
+    const teamEmail = `rep-${Date.now()}@vendor-scorecard.com`;
+    await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Rae Rep', 'active')`, [tenantId, teamEmail]);
+    const signedIn = (path: string, body: object, as: number, email: string) => inject(app, { method: "POST", url: `/lp/room/${path}`, headers: { ...asTenant(as), "x-test-email": email }, body });
+    const mine = (await signedIn("state", { pageId }, tenantId, teamEmail)).json as { viewer: { email: string; name: string; team?: boolean } | null };
+    expect(mine.viewer).toEqual({ email: teamEmail, name: "Rae Rep", team: true });
+    const asTeam = (await signedIn("practices", { pageId, q: "summit" }, tenantId, teamEmail)).json as { columns: Record<string, boolean>; rows: Record<string, unknown>[] };
+    expect(asTeam.columns).toMatchObject({ owner: true, activity: true });
+    expect(asTeam.rows[0]).toMatchObject({ owner: "Rae Rep", lastActivity: "11/2/2026" });
+    expect((await signedIn("scorecard-check", { pageId }, tenantId, teamEmail)).json).toEqual({ checked: false }); // no roster uploaded yet
+    // ...but someone signed in to a different workspace is a stranger here.
+    expect(((await signedIn("state", { pageId }, decoyTenantId, "outsider@other.com")).json as { viewer: unknown }).viewer).toBeNull();
+    expect((await signedIn("practices", { pageId }, decoyTenantId, "outsider@other.com")).status).toBe(401);
+    // The team's own link to the published page, for the customer-facing address where LP Studio's sign-in doesn't reach.
+    const link = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/my-link`, headers: { ...asTenant(tenantId), "x-test-email": teamEmail } })).json as { url: string };
+    expect(((await post("state", { pageId, rt: tokenFrom(link.url) })).json as { viewer: { email: string; team?: boolean } }).viewer).toMatchObject({ email: teamEmail, team: true });
+    expect((await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/my-link`, headers: { ...asTenant(decoyTenantId), "x-test-email": "outsider@other.com" } })).status).toBe(404);
     // The roster check is about our Salesforce data: a customer can't ask for it.
     expect((await post("scorecard-check", { pageId, hl })).status).toBe(403);
     expect((await post("scorecard-check", { pageId })).status).toBe(401);
@@ -484,7 +501,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], sfdcAccountId: "not an id" } })).status).toBe(400);
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], asanaProjectGid: "abc" } })).status).toBe(400);
     expect((await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: asTenant(tenantId), body: { allowedDomains: [], sfdcAccountId: "0015d000041HyXrAAK", asanaProjectGid: "1212539527149031" } })).json).toMatchObject({ sfdcAccountId: "0015d000041HyXrAAK", asanaProjectGid: "1212539527149031" });
-  });
+  }, 60_000);
 
   it("marketing requests are filed in Asana as Expansion Support - customer - request, with intake status submitted; other kinds are not", async () => {
     const tenantId = await seedTenant();

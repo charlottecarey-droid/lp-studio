@@ -115,6 +115,7 @@ export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: 
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [openNote, setOpenNote] = useState("");
 
   useEffect(() => {
     if (!data) return;
@@ -171,6 +172,26 @@ export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: 
         <p className="text-sm text-muted-foreground">
           Who can upload files and mark tasks done on this page, and what they have sent. Anyone with the link can view the page.
         </p>
+        {data.isWorkspace && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-room-open-as-me
+              onClick={async () => {
+                setOpenNote("");
+                const r = await fetch(`${base}/my-link`);
+                const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
+                if (r.ok && j.url) window.open(j.url, "_blank", "noopener");
+                else setOpenNote(j.error ?? "Could not make your link");
+              }}
+            >
+              Open the hub as me
+            </Button>
+            <span className="text-xs text-muted-foreground">{openNote || "Opens the published page already recognised as you, so you see the practice list and can post without the email check."}</span>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Room sections">
