@@ -127,6 +127,8 @@ export interface RoomSetupFacts {
   domain: string | null;
   practicesLinked: boolean;
   ownerNamed: boolean;
+  /** The practice microsite: "found" (one already existed), "drafted" (made from the template), or none. */
+  practiceSite?: "found" | "drafted" | null;
 }
 
 export const EMPTY_SETUP_FACTS: RoomSetupFacts = { standardFiles: 0, teamFilled: 0, contacts: 0, domain: null, practicesLinked: false, ownerNamed: false };
@@ -146,6 +148,11 @@ export function roomSetupChecklist(f: RoomSetupFacts): SetupItem[] {
       : { done: false, text: "Add the customer's team (Team module: add people, paste a list, or pull from the account)" },
     f.domain ? { done: true, text: `Customer email domain set to ${f.domain}` } : { done: false, text: "Add the customer's email domain (Manage → Settings)" },
     f.practicesLinked ? { done: true, text: "Practice list linked to the locations sheet" } : { done: false, text: "Connect the practice list (Manage → Practices & files)" },
+    f.practiceSite === "found"
+      ? { done: true, text: "Practice microsite found and linked in the launch kit" }
+      : f.practiceSite === "drafted"
+        ? { done: true, text: "Practice microsite drafted from your template. Review and publish it" }
+        : { done: false, text: "Create the practice microsite (no practice-microsite template was found to make one from)" },
     { done: false, text: "Add the customer's logo and the kickoff date" },
     { done: false, text: f.ownerNamed ? "Fill in the rest of your team (the account owner is already on it)" : "Fill in your team, with emails so people can be tagged" },
     { done: false, text: "Connect your calendar (Manage → Calendar & minutes) so meetings and minutes appear" },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@workspace/db", () => ({ db: {}, salesAccountsTable: {}, salesContactsTable: {}, appUsersTable: {}, tenantMembersTable: {}, tenantsTable: {}, lpPagesTable: {}, lpRoomAutocreateAccountsTable: {}, lpRoomAutocreateTable: {}, lpRoomStandardAssetsTable: {}, lpRoomSettingsTable: {}, lpRoomUploadsTable: {} }));
+vi.mock("@workspace/db", () => ({ db: {}, lpRoomPracticesTable: {}, salesAccountsTable: {}, salesContactsTable: {}, appUsersTable: {}, tenantMembersTable: {}, tenantsTable: {}, lpPagesTable: {}, lpRoomAutocreateAccountsTable: {}, lpRoomAutocreateTable: {}, lpRoomStandardAssetsTable: {}, lpRoomSettingsTable: {}, lpRoomUploadsTable: {} }));
 vi.mock("./notifications", () => ({ sendRoomDigestEmail: vi.fn(async () => true) }));
 vi.mock("./sfdc-service", () => ({ sfdcService: {} }));
 vi.mock("./tenantHosts", () => ({ WILDCARD_BASE_HOSTS: ["app.example.com", "example.com"] }));

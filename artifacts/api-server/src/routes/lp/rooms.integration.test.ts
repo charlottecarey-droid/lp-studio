@@ -1135,6 +1135,9 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     await contact("Bo", "Bounce", "Director of Ops", "Director", "bounce@cedardental.com");
 
     const { slackService } = await import("../../lib/slack-service");
+    // The workspace's practice-microsite template, and another customer's existing microsite that must not be mistaken for Cedar's.
+    await pool.query(`INSERT INTO lp_pages (tenant_id, title, slug, status, is_template, template_label, blocks) VALUES ($1, 'New DSO Partner Practice Microsite Template', $2, 'published', true, 'Practice Microsite', $3::jsonb)`, [tenantId, `tpl-${Date.now()}`, JSON.stringify([{ id: "h", type: "dso-practice-hero", props: { eyebrow: "[dso name]  x dandy", headline: "See why practices trust us" } }])]);
+    await pool.query(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'Oak Dental Practices Microsite', $2, 'published', $3::jsonb)`, [tenantId, `oak-practices-${Date.now()}`, JSON.stringify([{ id: "h", type: "dso-practice-hero", props: { eyebrow: "Oak x dandy" } }])]);
     vi.mocked(slackService.postMessage).mockClear();
     const test = (await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { name: "Cedar Dental", owner: "Sam Owner" } })).json as { pageId: number; teamFilled: number; contacts: number; domain: string };
     expect(test).toMatchObject({ teamFilled: 3, contacts: 3, domain: "cedardental.com" });
@@ -1152,9 +1155,25 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const settings = await pool.query<{ allowed_domains: string[] }>(`SELECT allowed_domains FROM lp_room_settings WHERE page_id = $1`, [test.pageId]);
     expect(settings.rows[0].allowed_domains).toEqual(["cedardental.com"]);
 
+    // The practice microsite: none existed for Cedar, so a draft was made from the template with the name filled in, and the hub links to it.
+    const made = test as unknown as { practiceSite: { pageId: number; title: string; existing: boolean; status: string; url: string } };
+    expect(made.practiceSite).toMatchObject({ title: "Cedar Dental Practices Microsite (test)", existing: false, status: "draft" });
+    const sitePage = await pool.query<{ slug: string; status: string; is_template: boolean; sfdc_account_id: string | null; blocks: { props: { eyebrow: string } }[] }>(`SELECT slug, status, is_template, sfdc_account_id, blocks FROM lp_pages WHERE id = $1 AND tenant_id = $2`, [made.practiceSite.pageId, tenantId]);
+    expect(sitePage.rows[0]).toMatchObject({ slug: "cedar-dental-practices-test", status: "draft", is_template: false, sfdc_account_id: "0015d00000CEDARAAA" });
+    expect(sitePage.rows[0].blocks[0].props.eyebrow).toBe("Cedar Dental  x dandy");
+    const hubLinks = (room.props as unknown as { links: { title: string; url: string }[] }).links;
+    expect(hubLinks[0].url).toBe(made.practiceSite.url);
+    expect(hubLinks[0].url.endsWith("/cedar-dental-practices-test")).toBe(true);
+
     // The same test run from just the Salesforce ID: the account's real name is used, and an ID nobody knows is refused.
     const byId = await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { sfdcId: "0015d00000CEDAR" } });
     expect(byId.json).toMatchObject({ ok: true, name: "Cedar Dental", teamFilled: 3, domain: "cedardental.com", practices: 0 });
+    // This time Cedar already has a microsite (the draft just made): it is found, not made again.
+    expect((byId.json as { practiceSite: { pageId: number; existing: boolean } }).practiceSite).toMatchObject({ pageId: made.practiceSite.pageId, existing: true });
+    // From an existing hub's launch kit: the same page is found and linked; another workspace can't use it.
+    const viaKit = await inject(app, { method: "POST", url: `/lp/partner-rooms/${test.pageId}/practice-site`, headers: asTenant(tenantId), body: {} });
+    expect(viaKit.json).toMatchObject({ ok: true, pageId: made.practiceSite.pageId, existing: true, link: { key: "practice-site", url: made.practiceSite.url } });
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${test.pageId}/practice-site`, headers: asTenant(otherTenantId), body: {} })).status).toBe(404);
     const idPage = await pool.query<{ title: string }>(`SELECT title FROM lp_pages WHERE id = $1`, [(byId.json as { pageId: number }).pageId]);
     expect(idPage.rows[0].title).toBe("Cedar Dental Partner Hub (test)");
     expect((await inject(app, { method: "POST", url: `/lp/room-autocreate/test`, headers: asTenant(tenantId), body: { sfdcId: "0015d00000NOBODY" } })).status).toBe(400);
@@ -1167,6 +1186,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(slack).toContain("Customer email domain set to cedardental.com");
     expect(slack).toContain("Connect your calendar");
     expect(slack).toContain("3 contacts on the account");
+    expect(slack).toContain("Practice microsite drafted from your template");
 
     // The contacts to invite: this tenant only.
     const contactsOf = (as: number) => inject(app, { method: "GET", url: `/lp/partner-rooms/${test.pageId}/account-contacts`, headers: asTenant(as) });

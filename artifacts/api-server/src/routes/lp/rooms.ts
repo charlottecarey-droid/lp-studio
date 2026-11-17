@@ -53,7 +53,8 @@ import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, 
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
 import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
-import { accountPeople, createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { ensurePracticeSite, setRoomPracticeLink } from "../../lib/partnerRoomPracticeSite";
+import { accountPeople, publicPageUrl, createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -1428,6 +1429,46 @@ async function roomAccountPeople(page: RoomPage) {
   ]);
   return accountPeople(page.tenantId, { sfdcId: settings?.sfdcAccountId ?? auto?.sfdcId ?? null, name: auto?.name ?? page.partnerName });
 }
+
+/**
+ * The practice microsite for this hub: the account's own page when the
+ * workspace already has one, otherwise a new draft from the workspace's
+ * practice-microsite template. Either way it is linked at the top of the
+ * launch kit, so the one-pager and media kit print its address.
+ */
+router.post("/lp/partner-rooms/:pageId/practice-site", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    if (!page.partnerName.trim() || /^\[.*\]$/.test(page.partnerName.trim())) {
+      res.status(400).json({ error: "Set the customer's name on the hub first." });
+      return;
+    }
+    const [[settings], [auto], [row]] = await Promise.all([
+      db.select({ sfdcAccountId: lpRoomSettingsTable.sfdcAccountId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1),
+      db.select({ name: lpRoomAutocreateAccountsTable.accountName, sfdcId: lpRoomAutocreateAccountsTable.sfdcAccountId }).from(lpRoomAutocreateAccountsTable).where(eq(lpRoomAutocreateAccountsTable.pageId, page.id)).limit(1),
+      db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1),
+    ]);
+    const name = auto?.name ?? page.partnerName;
+    const people = await accountPeople(page.tenantId, { sfdcId: settings?.sfdcAccountId ?? auto?.sfdcId ?? null, name }).catch(() => null);
+    const sfdcId = settings?.sfdcAccountId ?? auto?.sfdcId ?? people?.sfdcId ?? null;
+    // A test hub (made by "Run a test") keeps to test microsites; a real hub never picks one up.
+    const site = await ensurePracticeSite(page.tenantId, { name, sfdcId }, { accountId: people?.accountId ?? null, test: /-test-hub(-\d+)?$/.test(page.slug) });
+    if (!site) {
+      res.status(404).json({ error: "No practice microsite was found for this account, and this workspace has no practice-microsite template to make one from. Save one of your practice sign-up pages as a template, then try again." });
+      return;
+    }
+    const url = await publicPageUrl(page.tenantId, site.slug);
+    // The blocks keep the short-name variable; the link's title is written out the way the page shows it.
+    const short = (row?.blocks as { type?: string; props?: { partnerShort?: string } }[] | undefined)?.find((b) => b?.type === "room-workspace")?.props?.partnerShort?.trim() || name;
+    const next = row && url ? setRoomPracticeLink(row.blocks, { url, short }) : null;
+    if (next && next !== row?.blocks) await db.update(lpPagesTable).set({ blocks: next as never, updatedAt: new Date() }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, pageId: site.pageId, title: site.title, status: site.status, existing: site.existing, url, link: { key: "practice-site", title: `${short} practice sign-up page`, description: url.replace(/^https?:\/\//, ""), url } });
+  } catch (err) {
+    req.log.error({ err }, "room practice site failed");
+    res.status(500).json({ error: "Could not set up the practice microsite" });
+  }
+});
 
 /** The account's contacts for this room (from the workspace's Accounts), each with whether they already have access. */
 router.get("/lp/partner-rooms/:pageId/account-contacts", async (req: Request, res: Response): Promise<void> => {

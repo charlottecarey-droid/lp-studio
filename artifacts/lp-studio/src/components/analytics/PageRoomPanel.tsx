@@ -82,9 +82,17 @@ async function send(url: string, method: string, body?: unknown): Promise<string
 
 export type RoomPanelTab = "activity" | "kit" | "practices" | "calendar" | "settings";
 /** A file the Room panel just put in the launch kit. The builder applies it to its own copy of the page too, so its next save keeps it. */
+/** A link added to the launch kit from the Room panel (the practice microsite). */
+export interface RoomKitLinkChange {
+  key: string;
+  title: string;
+  description: string;
+  url: string;
+}
+
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; initialTab?: RoomPanelTab }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "activity" }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab }) {
   const [tab, setTab] = useState<RoomPanelTab>(initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -394,7 +402,7 @@ export function PageRoomPanel({ pageId, onKitAssets, initialTab = "activity" }: 
           </section>
         )}
 
-        {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} />}
+        {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} onKitLink={onKitLink} />}
 
         {tab === "kit" && data.isWorkspace && <EngagementSection engagement={data.engagement} />}
 
@@ -1057,7 +1065,7 @@ function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"
  * the cover photo): the partnership one-pager and two social graphics. Each is
  * generated here, uploaded, and filed into the room's launch kit.
  */
-function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets }: { pageId: number; kit: NonNullable<RoomDetail["kit"]>; refresh: () => Promise<void>; onKitAssets?: (assets: RoomKitAssetChange[]) => void }) {
+function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: { pageId: number; kit: NonNullable<RoomDetail["kit"]>; refresh: () => Promise<void>; onKitAssets?: (assets: RoomKitAssetChange[]) => void; onKitLink?: (link: RoomKitLinkChange) => void }) {
   const [state, setState] = useState<Record<string, "working" | "done" | string>>({});
   const [busy, setBusy] = useState(false);
   const [previews, setPreviews] = useState<Record<string, string>>({});
@@ -1092,15 +1100,33 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets }: { pageId: nu
     await refresh();
   };
 
+  // The practice microsite: the account's own page if there is one, else a draft from the template; linked in the kit either way.
+  const [site, setSite] = useState<{ url: string; title: string; status: string; existing: boolean; pageId: number } | null>(null);
+  const [siteNote, setSiteNote] = useState("");
+  const ensureSite = async (): Promise<string> => {
+    setSiteNote("");
+    const r = await fetch(`/api/lp/partner-rooms/${pageId}/practice-site`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const j = (await r.json().catch(() => ({}))) as { url?: string; title?: string; status?: string; existing?: boolean; pageId?: number; error?: string; link?: RoomKitLinkChange };
+    if (!r.ok || !j.url || !j.pageId) {
+      setSiteNote(j.error ?? "Could not set up the practice microsite");
+      return "";
+    }
+    setSite({ url: j.url, title: j.title ?? "", status: j.status ?? "", existing: !!j.existing, pageId: j.pageId });
+    if (j.link) onKitLink?.(j.link);
+    return j.url;
+  };
+
   const create = async (keys: readonly string[]) => {
     setBusy(true);
     try {
+      // The whole kit starts with the practice microsite, so the one-pager and media kit carry its address.
+      const siteUrl = keys.length > 1 ? await ensureSite() : "";
       const [{ createLaunchAsset }, { fetchBrandConfig }] = await Promise.all([import("@/lib/room-launch-assets"), import("@/lib/brand-config")]);
       const brand = await fetchBrandConfig();
       for (const key of keys) {
         setState((s) => ({ ...s, [key]: "working" }));
         try {
-          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => x.title) });
+          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: siteUrl || site?.url || kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => x.title) });
           setPreviews((p) => ({ ...p, [key]: url }));
           const spec = (await import("@/lib/room-launch-assets")).LAUNCH_ASSETS.find((x) => x.key === key);
           if (spec) onKitAssets?.([{ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl: url }]);
@@ -1182,10 +1208,23 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets }: { pageId: nu
           {stdNote && <span className="text-xs text-muted-foreground">{stdNote}</span>}
         </div>
       </div>
+      <div className="space-y-1.5 rounded-md border p-3" data-room-practice-site>
+        <p className="text-sm font-medium">Practice microsite</p>
+        <p className="text-xs text-muted-foreground">The page this customer’s practices sign up on. If the account already has one it is linked here; if not, a draft is made from your practice-microsite template with their name filled in.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" disabled={busy || !kit.partnerName} onClick={async () => { setBusy(true); try { await ensureSite(); await refresh(); } finally { setBusy(false); } }}>Find or create it</Button>
+          {site && (
+            <span className="text-xs text-muted-foreground">
+              {site.existing ? "Found" : "Drafted"}: <a className="underline" href={`/builder/${site.pageId}`}>{site.title}</a> ({site.status === "published" ? "published" : "a draft: review and publish it"}) · {site.url.replace(/^https?:\/\//, "")}
+            </span>
+          )}
+          {siteNote && <span className="text-xs text-destructive">{siteNote}</span>}
+        </div>
+      </div>
       <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
         {busy ? "Creating…" : "Create launch kit"}
       </Button>
-      <p className="text-xs text-muted-foreground">Creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
+      <p className="text-xs text-muted-foreground">Finds or drafts the practice microsite, creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
     </section>
   );
 }
@@ -1310,7 +1349,7 @@ export function AutomaticRoomsSection() {
     try {
       const made = step("Create the draft room");
       const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(/^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(testName.trim()) && /\d/.test(testName) ? { sfdcId: testName.trim() } : { name: testName.trim() }) });
-      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; practices?: number; practicesNote?: string | null; teamFilled?: number; contacts?: number; domain?: string | null; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
+      const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; practices?: number; practicesNote?: string | null; practiceSite?: { title: string; existing: boolean; url: string; status: string } | null; teamFilled?: number; contacts?: number; domain?: string | null; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
       if (!r.ok || !j.pageId) {
         made("failed", j.error ?? "Could not create the room");
         return;
@@ -1319,6 +1358,7 @@ export function AutomaticRoomsSection() {
       setTestPage(j.pageId);
       steps.push({ label: "Attach the standard files", state: j.standardFiles ? "done" : "failed", detail: j.standardFiles ? `${j.standardFiles} attached` : "None uploaded yet (see Standard launch files below)" });
       steps.push({ label: "Read the account's practices from the locations sheet", state: j.practices ? "done" : "failed", detail: j.practices ? `${j.practices} practices loaded into the Scorecard` : j.practicesNote || "No locations tab is set above, or no Salesforce ID was given to match on" });
+      steps.push({ label: "Find or draft the practice microsite", state: j.practiceSite ? "done" : "failed", detail: j.practiceSite ? `${j.practiceSite.existing ? "Found" : "Drafted from your template"}: ${j.practiceSite.title} · ${j.practiceSite.url.replace(/^https?:\/\//, "")}` : "None exists for this account and no practice-microsite template was found" });
       steps.push({ label: "Fill the customer's team from the account", state: j.teamFilled ? "done" : "failed", detail: j.teamFilled ? `${j.teamFilled} people added to the Team module; ${j.contacts ?? 0} contacts can be invited` : "No account with that name (or Salesforce ID) and contacts was found under Accounts" });
       steps.push({ label: "Set the customer's email domain", state: j.domain ? "done" : "failed", detail: j.domain ?? "Couldn't work it out; add it under the room's Settings" });
       steps.push({ label: "Tell the team in Slack", state: "done", detail: "Sent to your workspace channel with the setup checklist, marked as a test" });

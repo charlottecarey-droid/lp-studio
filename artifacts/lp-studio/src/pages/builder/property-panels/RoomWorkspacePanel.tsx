@@ -216,7 +216,20 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         </DialogHeader>
         {roomTab !== null && (
           <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
-            <PageRoomPanel pageId={pageId} initialTab={roomTab} onKitAssets={applyKitAssets} />
+            <PageRoomPanel
+              pageId={pageId}
+              initialTab={roomTab}
+              onKitAssets={applyKitAssets}
+              onKitLink={(link) => {
+                // The practice microsite was linked on the saved page: add it to the builder's copy too, or the next save here would drop it.
+                const current = propsRef.current;
+                const links = (current.links ?? []) as { key?: string; title: string; description?: string; url: string }[];
+                if (links.some((l) => l.url === link.url)) return;
+                const next = { ...current, links: [link, ...links.filter((l) => l.key !== link.key)] };
+                propsRef.current = next;
+                onChange(next);
+              }}
+            />
           </Suspense>
         )}
       </DialogContent>

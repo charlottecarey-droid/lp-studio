@@ -22,6 +22,7 @@ import { logger } from "./logger";
 import { ROOM_STANDARD_ASSETS, setRoomKitAsset } from "./partnerRoom";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
+import { ensurePracticeSite, type PracticeSite } from "./partnerRoomPracticeSite";
 import { addTeamPeople, cleanDomain, EMPTY_SETUP_FACTS, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist, type AccountContact, type RoomSetupFacts } from "./partnerRoomTeam";
 import { SHEET_ID_RE, SHEET_TAB_RE, syncPracticesFromSheet } from "./partnerRoomService";
 import { slackService } from "./slack-service";
@@ -73,9 +74,9 @@ export const roomSlugFor = (name: string) => `${accountKey(name).slice(0, 60).re
 /** The blocks of a new room for an account: the template with the name set (its text follows the name), plus the workspace's standard guides. */
 export const DEFAULT_ROOM_COVER = "/room/default-cover.jpg";
 
-export function roomBlocksForAccount(name: string, slug: string, standard: { assetKey: string; fileUrl: string }[]): unknown[] {
+export function roomBlocksForAccount(name: string, slug: string, standard: { assetKey: string; fileUrl: string }[], signupUrl = ""): unknown[] {
   // The cover photo is the one on the model room; the "Next up" line on it follows the plan (the first milestone still open).
-  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "", eyebrow: "Partner Hub" } } : b));
+  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER, ...(signupUrl ? { signupUrl } : {}) }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "", eyebrow: "Partner Hub" } } : b));
   for (const spec of ROOM_STANDARD_ASSETS) {
     const file = standard.find((s) => s.assetKey === spec.key);
     const next = file ? setRoomKitAsset(blocks, { key: spec.key, kind: "pdf", title: spec.title, description: spec.description, fileUrl: file.fileUrl }) : null;
@@ -119,6 +120,8 @@ export async function linkRoomPractices(tenantId: number, pageId: number, sfdcId
 const sameSfdcId = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && a.length >= 15 && b.length >= 15 && a.slice(0, 15) === b.slice(0, 15);
 
 export interface AccountPeople {
+  /** The account's row under Accounts. */
+  accountId: number;
   /** The account's Salesforce id as LP Studio has it. */
   sfdcId: string | null;
   domain: string | null;
@@ -141,7 +144,7 @@ export async function accountPeople(tenantId: number, account: { sfdcId: string 
     .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, hit.id)))
     .limit(2000);
   const domain = cleanDomain(hit.domain) ?? mainEmailDomain(rows.map((r) => r.email));
-  return { sfdcId: hit.salesforceId ?? null, domain, contacts: rankAccountContacts(rows, domain) };
+  return { accountId: hit.id, sfdcId: hit.salesforceId ?? null, domain, contacts: rankAccountContacts(rows, domain) };
 }
 
 /** How many of the account's contacts go on the room's Team module to start with. The rest can still be invited. */
@@ -210,7 +213,19 @@ export async function createRoom(tenantId: number, account: SignedAccount, opts:
   try {
     const slug = await freeSlug(tenantId, opts.test ? roomSlugFor(account.name).replace(/-hub$/, "-test-hub") : roomSlugFor(account.name));
     const standard = await db.select({ assetKey: lpRoomStandardAssetsTable.assetKey, fileUrl: lpRoomStandardAssetsTable.fileUrl }).from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, tenantId));
-    const blocks = roomBlocksForAccount(account.name, slug, standard);
+    // What LP Studio already knows about the account: its contacts, its email domain, and its Salesforce id when the sheet has none.
+    const people = await accountPeople(tenantId, account).catch((err) => {
+      logger.warn({ err, account: account.name }, "account lookup for an automatic room failed");
+      return null;
+    });
+    const sfdcId = account.sfdcId ?? people?.sfdcId ?? null;
+    // The practice microsite: the account's own when one exists, else a draft from the workspace's template. The launch kit links to it.
+    const site: PracticeSite | null = await ensurePracticeSite(tenantId, { name: account.name, sfdcId }, { accountId: people?.accountId ?? null, test: opts.test }).catch((err) => {
+      logger.warn({ err, account: account.name }, "practice microsite for an automatic room failed");
+      return null;
+    });
+    const siteUrl = site ? await publicPageUrl(tenantId, site.slug).catch(() => "") : "";
+    const blocks = roomBlocksForAccount(account.name, slug, standard, siteUrl);
     const [page] = await db
       .insert(lpPagesTable)
       .values({ tenantId, title: `${account.name} Partner Hub${opts.test ? " (test)" : ""}`, slug, blocks: blocks as never, status: "draft", createdBy: "automatic rooms" })
@@ -218,19 +233,14 @@ export async function createRoom(tenantId: number, account: SignedAccount, opts:
     await db.update(lpRoomAutocreateAccountsTable).set({ pageId: page.id }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, account.key)));
     // Its practices come from the workbook's locations tab, by the account's Salesforce id. Best effort: the room exists either way.
     const [cfg] = await db.select({ sheetId: lpRoomAutocreateTable.sheetId, practicesTab: lpRoomAutocreateTable.practicesTab }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
-    // What LP Studio already knows about the account: its contacts, its email domain, and its Salesforce id when the sheet has none.
-    const people = await accountPeople(tenantId, account).catch((err) => {
-      logger.warn({ err, pageId: page.id }, "account lookup for an automatic room failed");
-      return null;
-    });
-    const sfdcId = account.sfdcId ?? people?.sfdcId ?? null;
     const filled = await fillRoomFromAccount(tenantId, page.id, account, blocks, people).catch((err) => {
       logger.warn({ err, pageId: page.id }, "filling an automatic room from the account failed");
       return { teamFilled: 0, contacts: 0, domain: null, ownerNamed: false };
     });
     const linked = await linkRoomPractices(tenantId, page.id, sfdcId, cfg?.sheetId ?? null, cfg?.practicesTab ?? null).catch(() => false);
     const read = linked ? await syncPracticesFromSheet(page.id).catch((err) => (logger.warn({ err, pageId: page.id }, "first practices read for an automatic room failed"), { ok: false })) : { ok: false };
-    const facts: RoomSetupFacts = { ...EMPTY_SETUP_FACTS, ...filled, standardFiles: standard.length, practicesLinked: linked && read.ok };
+    const facts: RoomSetupFacts = { ...EMPTY_SETUP_FACTS, ...filled, standardFiles: standard.length, practicesLinked: linked && read.ok, practiceSite: site ? (site.existing ? "found" : "drafted") : null };
+    lastPracticeSite.set(page.id, site);
     // Alerts, the sheet log and the Salesforce field. A test run does these itself so it can report each one.
     if (!opts.test) await afterRoomCreated(tenantId, { ...account, sfdcId }, page.id, { facts }).catch((err) => logger.warn({ err, pageId: page.id }, "follow-ups for an automatic room failed"));
     return { pageId: page.id, facts };
@@ -300,6 +310,19 @@ async function appendRoomLog(tenantId: number, sheetId: string, tab: string, row
  * write the room's link to a Salesforce field. Each is best effort and
  * reports how it went; none can undo the room.
  */
+/** The practice microsite found or made for each room created in this process, for the test run's report. */
+const lastPracticeSite = new Map<number, PracticeSite | null>();
+export const practiceSiteOfRoom = (pageId: number) => lastPracticeSite.get(pageId) ?? null;
+
+/** The customer-facing address of one of the workspace's pages. */
+export async function publicPageUrl(tenantId: number, slug: string): Promise<string> {
+  const [tenant] = await db.select({ slug: tenantsTable.slug, domain: tenantsTable.domain, micrositeDomain: tenantsTable.micrositeDomain }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1);
+  if (tenant?.micrositeDomain) return `https://${tenant.micrositeDomain}/${slug}`;
+  const baseHost = WILDCARD_BASE_HOSTS.find((h) => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
+  const workspace = tenant?.domain ? `https://${tenant.domain.toLowerCase()}` : baseHost && tenant?.slug ? `https://${tenant.slug.toLowerCase()}.${baseHost}` : "";
+  return workspace ? `${workspace}/lp/${slug}` : "";
+}
+
 /** Where a room is edited (the builder) and where the customer opens it once it is published. */
 export async function roomLinks(tenantId: number, pageId: number): Promise<{ edit: string; room: string }> {
   const [[page], [tenant]] = await Promise.all([
@@ -450,6 +473,8 @@ export interface TestRoomResult {
   teamFilled: number;
   contacts: number;
   domain: string | null;
+  /** The practice microsite found or drafted for the account. */
+  practiceSite: (PracticeSite & { url: string }) | null;
   followUps: RoomFollowUps;
 }
 
@@ -503,5 +528,6 @@ export async function testRoomAutocreate(tenantId: number, rawName: string, sfdc
     db.select({ n: sql<number>`COUNT(*)::int` }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, pageId)),
     db.select({ note: lpRoomSettingsTable.practicesSyncNote }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, pageId)).limit(1),
   ]);
-  return { pageId, name, standardFiles: facts.standardFiles, practicesLinked: facts.practicesLinked, practices: count?.n ?? 0, practicesNote: settings?.note ?? null, teamFilled: facts.teamFilled, contacts: facts.contacts, domain: facts.domain, followUps };
+  const site = practiceSiteOfRoom(pageId);
+  return { pageId, name, practiceSite: site ? { ...site, url: await publicPageUrl(tenantId, site.slug).catch(() => "") } : null, standardFiles: facts.standardFiles, practicesLinked: facts.practicesLinked, practices: count?.n ?? 0, practicesNote: settings?.note ?? null, teamFilled: facts.teamFilled, contacts: facts.contacts, domain: facts.domain, followUps };
 }
