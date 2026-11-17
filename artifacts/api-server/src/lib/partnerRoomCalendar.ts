@@ -13,7 +13,8 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import OpenAI from "openai";
 import { and, asc, desc, eq, gte, isNotNull, isNull, lt, notInArray, sql } from "drizzle-orm";
-import { db, lpRoomEventsTable, lpRoomSettingsTable, type RoomMinutes } from "@workspace/db";
+import { appUsersTable, db, lpGoogleConnectionsTable, lpRoomEventsTable, lpRoomSettingsTable, type RoomMinutes } from "@workspace/db";
+import { FREE_MAIL_DOMAINS } from "./partnerRoom";
 import { logger } from "./logger";
 import { slackService } from "./slack-service";
 import { googleGet, type GoogleResponse } from "./googleWorkspace";
@@ -67,6 +68,33 @@ const parseWhen = (v: { dateTime?: string; date?: string } | undefined): { at: D
   if (v?.date && /^\d{4}-\d{2}-\d{2}$/.test(v.date)) return { at: new Date(`${v.date}T00:00:00Z`), allDay: true };
   return null;
 };
+
+/**
+ * The room's allowed domains that are the customer's: our own team's domain is
+ * left out. A meeting belongs in the room because the customer is on it; with
+ * our own domain counted, every internal meeting on the calendar would match.
+ */
+export function customerDomains(allowed: string[], own: Iterable<string>): string[] {
+  const ours = new Set([...own].map((d) => d.trim().toLowerCase()).filter(Boolean));
+  return [...new Set(allowed.map((d) => d.trim().toLowerCase().replace(/^@/, "")).filter((d) => d && !ours.has(d)))];
+}
+
+/** The email domains of the workspace's own people: its active members, and whoever connected the calendar. */
+async function ownDomains(tenantId: number, connectionId: number | null): Promise<Set<string>> {
+  const out = new Set<string>();
+  const add = (email: string | null | undefined) => {
+    const d = emailDomain(email ?? undefined);
+    if (d && !FREE_MAIL_DOMAINS.has(d)) out.add(d);
+  };
+  const users = await db.select({ email: appUsersTable.email }).from(appUsersTable).where(and(eq(appUsersTable.tenantId, tenantId), eq(appUsersTable.status, "active"))).limit(2000);
+  users.forEach((u) => add(u.email));
+  if (connectionId) {
+    const [conn] = await db.select({ googleEmail: lpGoogleConnectionsTable.googleEmail, userEmail: lpGoogleConnectionsTable.userEmail }).from(lpGoogleConnectionsTable).where(eq(lpGoogleConnectionsTable.id, connectionId)).limit(1);
+    add(conn?.googleEmail);
+    add(conn?.userEmail);
+  }
+  return out;
+}
 
 /**
  * Calendar events → the ones this room shows: not cancelled, not marked
@@ -220,8 +248,11 @@ export async function syncRoomCalendar(pageId: number, opts: { now?: Date; custo
     await db.update(lpRoomSettingsTable).set({ calendarSyncedAt: sql`now()`, calendarSyncNote: note.slice(0, 300) }).where(eq(lpRoomSettingsTable.pageId, pageId));
     return { ok, note, drafted };
   };
-  const domains = Array.isArray(settings.allowedDomains) ? settings.allowedDomains : [];
-  if (domains.length === 0) return finish(false, "Add the customer's email domain under Settings first. The room shows meetings that have a guest at that domain.");
+  const allowedDomains = Array.isArray(settings.allowedDomains) ? settings.allowedDomains : [];
+  if (allowedDomains.length === 0) return finish(false, "Add the customer's email domain under Settings first. The room shows meetings that have a guest at that domain.");
+  // Our own domain may be on the list (to let teammates in), but it never decides which meetings show.
+  const domains = customerDomains(allowedDomains, await ownDomains(settings.tenantId, settings.calendarConnectionId ?? null).catch(() => new Set<string>()));
+  if (domains.length === 0) return finish(false, `Only your own team's domain (${allowedDomains.join(", ")}) is saved for this room. Add the customer's email domain under Settings: the room shows meetings that have a guest at the customer's domain.`);
   try {
     const connectionId = settings.calendarConnectionId ?? null;
     const from = new Date(now.getTime() - WINDOW_BACK_MS);

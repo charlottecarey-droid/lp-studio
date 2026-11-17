@@ -7,6 +7,7 @@
  * live on the page's analytics screen, under Room.
  */
 import {
+  ROOM_ASSET_ICONS,
   ROOM_MODULES,
   ROOM_STATUS_LABEL,
   resolveRoomStatus,
@@ -707,6 +708,18 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                 </SelectContent>
               </Select>
             </div>
+            <Field label="Icon">
+              <Select value={a.icon || "auto"} onValueChange={(v) => setAsset(i, { icon: v === "auto" ? "" : v })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto" className="text-xs">Automatic (fits the item)</SelectItem>
+                  {ROOM_ASSET_ICONS.map((ic) => (
+                    <SelectItem key={ic.key} value={ic.key} className="text-xs"><span className="inline-flex items-center gap-2"><ic.Icon className="h-3.5 w-3.5" /> {ic.label}</span></SelectItem>
+                  ))}
+                  <SelectItem value="tag" className="text-xs">File-type tag (PDF, TXT)</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <div className="grid grid-cols-[1fr_auto] items-center gap-2">
               <Input value={a.description ?? ""} onChange={(e) => setAsset(i, { description: e.target.value })} className="h-7 text-xs" placeholder="One line about it" />
               <HideToggle hidden={a.hidden} onChange={(h) => setAsset(i, { hidden: h })} />

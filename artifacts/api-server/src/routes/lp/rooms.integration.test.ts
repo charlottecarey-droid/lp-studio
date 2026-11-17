@@ -628,7 +628,14 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await settings({ allowedDomains: [], calendarId: "primary" })).status).toBe(200);
     // No customer domain yet: nothing can be matched.
     expect((await sync()).status).toBe(400);
-    expect((await settings({ allowedDomains: ["mb2dental.com"], calendarId: "primary" })).status).toBe(200);
+    // Our own domain on the list (to let teammates in) never decides which meetings show: alone, it matches nothing.
+    await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Cal Owner', 'active')`, [tenantId, `cal-${Date.now()}@vendor.com`]);
+    expect((await settings({ allowedDomains: ["vendor.com"], calendarId: "primary" })).status).toBe(200);
+    const ownOnly = await sync();
+    expect(ownOnly.status).toBe(400);
+    expect(JSON.stringify(ownOnly.json)).toContain("Only your own team's domain");
+    // With the customer's domain beside it, only meetings the customer is on come in (the internal one below stays out).
+    expect((await settings({ allowedDomains: ["mb2dental.com", "vendor.com"], calendarId: "primary" })).status).toBe(200);
     expect((await sync(decoyTenantId)).status).toBe(404);
 
     const past = new Date(Date.now() - 2 * 86_400_000);

@@ -30,6 +30,8 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomNextUp,
+  roomAssetIconKey,
+  targetHasPassed,
   visibleModules,
   type RoomWorkspaceBlockProps,
 } from "./BlockRoomWorkspace";
@@ -355,5 +357,33 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(lt).toContain('data-room-cover="light"');
     expect(lt).not.toContain("/logo-white.png"); // a white logo would vanish on the pale cover
     expect(render({ coverStyle: "nope" as never })).toContain('data-room-cover="split"');
+  });
+  it("overdue: a target date that has passed, read with or without a year; other wording is never a date", () => {
+    const now = new Date(2026, 10, 16); // Nov 16, 2026
+    expect(targetHasPassed("2026-11-15", now)).toBe(true);
+    expect(targetHasPassed("2026-11-16", now)).toBe(false); // due today is not overdue
+    expect(targetHasPassed("Oct 6", now)).toBe(true);
+    expect(targetHasPassed("Dec 3", now)).toBe(false);
+    expect(targetHasPassed("Jan 2", now)).toBe(false); // next January, not last
+    expect(targetHasPassed("Jan 2, 2026", now)).toBe(true);
+    expect(targetHasPassed("Day 30", now)).toBe(false);
+    expect(targetHasPassed("", now)).toBe(false);
+    // The Overdue card is not on the page at all when nothing is overdue.
+    expect(only("overview", { planGroups: [{ title: "P", rows: [{ task: "Later", status: "on-track" }] }] })).not.toContain("data-room-blocked");
+    expect(only("overview", { planGroups: [{ title: "P", rows: [{ task: "Stuck", status: "blocking" }] }] })).toContain(">Overdue<");
+  });
+  it("launch kit: each item gets an icon that fits it, a chosen one wins, and the file-type tag is still available", () => {
+    expect(roomAssetIconKey({ kind: "pdf", title: "Partnership one-pager" })).toBe("document");
+    expect(roomAssetIconKey({ kind: "text", title: "Announcement email" })).toBe("email");
+    expect(roomAssetIconKey({ kind: "text", title: "Social post, version 1" })).toBe("social");
+    expect(roomAssetIconKey({ kind: "pdf", title: "Practice Welcome Guide" })).toBe("guide");
+    expect(roomAssetIconKey({ kind: "link", title: "Dandy logos" })).toBe("brand");
+    expect(roomAssetIconKey({ kind: "link", title: "Sign-up page" })).toBe("link");
+    expect(roomAssetIconKey({ kind: "pdf", title: "One-pager", icon: "slides" })).toBe("slides");
+    expect(roomAssetIconKey({ kind: "pdf", title: "One-pager", icon: "nope" })).toBe("document");
+    expect(roomAssetIconKey({ kind: "pdf", title: "One-pager", icon: "tag" })).toBeNull();
+    const html = only("kit", { assets: [{ kind: "text", title: "Announcement email", body: "Hi" }, { kind: "pdf", title: "Old style", fileUrl: "/api/storage/objects/uploads/x", icon: "tag" }] });
+    expect(html).toContain('data-room-asset-icon="email"');
+    expect(html).toContain(">PDF<");
   });
 });

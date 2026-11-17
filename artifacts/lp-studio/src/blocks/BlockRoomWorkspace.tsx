@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, Mail, PencilLine, Plus, Upload, UserPlus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -72,7 +72,7 @@ export const ROOM_STATUS_LABEL: Record<RoomMilestoneStatus, string> = {
   done: "Done",
   "on-track": "On track",
   pending: "Pending",
-  blocking: "Blocking",
+  blocking: "Overdue",
   "not-started": "Not started",
 };
 
@@ -119,6 +119,8 @@ export interface RoomAsset {
   externalUrl?: string;
   /** The copy itself (kind "text"). */
   body?: string;
+  /** Which icon sits beside it. Blank = chosen from what the item is; "tag" = the small file-type tag (PDF, TXT). */
+  icon?: string;
   hidden?: boolean;
 }
 
@@ -445,7 +447,7 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
     { label: "Days 31–60", title: "Momentum", summary: "Early wins reviewed, reporting live, next wave scheduled.", endDay: 60 },
     { label: "Days 61–90", title: "Scale & review", summary: "Results reviewed, first success story, plan for what comes next.", endDay: 90 },
   ],
-  planIntro: "Every milestone has an owner on each side. Anything blocked for more than a week goes to both executive sponsors.",
+  planIntro: "Every milestone has an owner on each side. Anything overdue for more than a week goes to both executive sponsors.",
   planGroups: [
     {
       title: "Days 1–30 · Foundation & launch",
@@ -546,6 +548,28 @@ export function resolveRoomStatus(s: string | undefined): RoomMilestoneStatus {
 }
 
 /** Day of the rollout (kickoff = day 1). Null without a valid kickoff date or before it. */
+/**
+ * Has a milestone's target date passed? Reads "2026-11-03" and "Nov 3" (with
+ * or without a year; without one, the year that puts it closest to today).
+ * Anything else ("Day 30", "By kickoff") is not a date, so never overdue.
+ */
+export function targetHasPassed(target: string | undefined, now: Date): boolean {
+  const raw = (target ?? "").trim();
+  if (!raw) return false;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]).getTime() < today;
+  const m = raw.match(/^([A-Za-z]{3,9})\.? (\d{1,2})(?:,? (\d{4}))?$/);
+  if (!m) return false;
+  const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(m[1].slice(0, 3).toLowerCase());
+  if (month < 0) return false;
+  if (m[3]) return new Date(+m[3], month, +m[2]).getTime() < today;
+  // No year: take the one that lands nearest today (a January target seen in December is next month, not eleven months ago).
+  const y = now.getFullYear();
+  const nearest = [y - 1, y, y + 1].map((yr) => new Date(yr, month, +m[2]).getTime()).sort((a, b) => Math.abs(a - today) - Math.abs(b - today))[0];
+  return nearest < today;
+}
+
 export function rolloutDay(kickoffDate: string | undefined, now: Date): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((kickoffDate ?? "").trim());
   if (!m) return null;
@@ -701,7 +725,81 @@ const initials = (name: string) => {
   const w = (name ?? "").trim().split(/\s+/).filter((x) => /^[\p{L}\p{N}]/u.test(x));
   return w.length ? ((w[0][0] ?? "") + (w.length > 1 ? (w[w.length - 1][0] ?? "") : "")).toUpperCase() : "";
 };
+/** The icons a launch-kit item can carry, in the order the builder offers them. */
+export const ROOM_ASSET_ICONS: { key: string; label: string; Icon: LucideIcon }[] = [
+  { key: "document", label: "Document", Icon: FileText },
+  { key: "email", label: "Email", Icon: Mail },
+  { key: "social", label: "Social post", Icon: Share2 },
+  { key: "image", label: "Image", Icon: ImageIcon },
+  { key: "video", label: "Video", Icon: Video },
+  { key: "link", label: "Link", Icon: Link2 },
+  { key: "guide", label: "Guide", Icon: BookOpen },
+  { key: "brand", label: "Logos and brand", Icon: Palette },
+  { key: "announcement", label: "Announcement", Icon: Megaphone },
+  { key: "slides", label: "Slides", Icon: Presentation },
+  { key: "quote", label: "Approved wording", Icon: Quote },
+  { key: "checklist", label: "Checklist", Icon: ClipboardList },
+];
+
+/**
+ * The icon for a launch-kit item: the one chosen in the builder, else one that
+ * fits what the item is (its kind and its title). Null means the small
+ * file-type tag was asked for.
+ */
+export function roomAssetIconKey(asset: Pick<RoomAsset, "kind" | "title" | "icon">): string | null {
+  const chosen = (asset.icon ?? "").trim();
+  if (chosen === "tag") return null;
+  if (chosen && ROOM_ASSET_ICONS.some((i) => i.key === chosen)) return chosen;
+  const t = (asset.title ?? "").toLowerCase();
+  if (asset.kind === "video") return "video";
+  if (asset.kind === "image") return "image";
+  if (/\b(e-?mail|newsletter)\b/.test(t)) return "email";
+  if (/\b(social|post|caption|linkedin)\b/.test(t)) return "social";
+  if (/\b(logos?|brand)\b/.test(t)) return "brand";
+  if (/\b(guide|playbook|handbook|plan)\b/.test(t)) return "guide";
+  if (/\b(deck|slides|presentation)\b/.test(t)) return "slides";
+  if (/\b(press|announcement|release)\b/.test(t)) return "announcement";
+  if (/\b(description|boilerplate|wording|messaging)\b/.test(t)) return "quote";
+  if (/\b(checklist|roster|list)\b/.test(t)) return "checklist";
+  return asset.kind === "link" ? "link" : "document";
+}
+
 const FILE_TAG: Record<RoomAssetKind, string> = { pdf: "PDF", video: "VID", image: "IMG", text: "TXT", link: "URL", file: "FILE" };
+
+/**
+ * Tables that turn into stacked rows when there isn't room for their columns.
+ * Used twice: on a narrow screen (media query), and whenever the room itself
+ * is narrow on a wide screen, as in the builder's canvas (`.prw.tight`, set
+ * from the room's measured width), where a media query never fires.
+ */
+const STACK_RULES = `.prw-plan thead,.prw-reqs thead{display:none}
+.prw-reqs tr{display:block;border-top:1px solid var(--line)}
+.prw-reqs td{display:block;border-top:0;padding:2px 14px}
+.prw-reqs td:first-child{padding-top:12px}
+.prw-reqs td:last-child{padding-bottom:12px}
+.prw-plan tr{display:block}
+.prw-plan td{display:block;border-top:0;padding:2px 14px;white-space:normal!important;text-align:left!important}
+.prw-plan td:first-child{padding-top:12px}
+.prw-plan td:last-child{padding-bottom:12px;border-bottom:1px solid var(--line)}
+.prw-plan tr.grp td,.prw-plan tr.chk td{padding:8px 14px}
+.prw-prog{grid-template-columns:64px minmax(0,1fr);gap:8px 12px}
+.prw-prog .im{width:64px;height:48px}
+.prw-prog .who,.prw-prog .when,.prw-prog .dec{grid-column:2;justify-self:start;text-align:left}`;
+const TEAM_STACK_RULES = `.prw-team thead{display:none}
+.prw-team td{display:block;border-top:0;padding:2px 14px;white-space:normal!important}
+.prw-team td:first-child{padding-top:12px;border-top:1px solid var(--line)}
+.prw-team td:last-child{padding-bottom:12px}`;
+/** Each rule again, applying only inside a tight room. */
+const whenTight = (rules: string) =>
+  rules
+    .split("\n")
+    .map((line) => {
+      const at = line.indexOf("{");
+      return at < 0 ? line : `${line.slice(0, at).split(",").map((sel) => `.prw.tight ${sel.trim()}`).join(",")}${line.slice(at)}`;
+    })
+    .join("\n");
+/** Below this width the plan and marketing tables have no room for their columns. */
+export const ROOM_TIGHT_WIDTH = 1200;
 
 const CSS = `
 .prw{--ink:#0E1A16;--body:#5C6B61;--faint:#9AA69E;--line:#E7E7E0;--paper:#FCFCFA;--page:#F3F4EF;--green:#1AC065;--blue:#224EA0;--amber:#A98600;--red:#B42318;background:var(--page);color:var(--ink);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -972,6 +1070,8 @@ const CSS = `
 .prw-doc:first-child{border-top:0}
 .prw-ft{width:34px;height:40px;border-radius:5px;border:1px solid var(--line);background:var(--paper);display:grid;place-items:end center;padding-bottom:5px;font-size:8.5px;font-weight:700;color:var(--dark);letter-spacing:.04em;flex:none;overflow:hidden}
 .prw-ft.img{padding:0;place-items:stretch}
+.prw-ft.ic{width:40px;height:40px;border:0;border-radius:10px;padding:0;place-items:center;background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--dark)}
+.prw-ft.ic svg{width:18px;height:18px}
 .prw-ft.img img{width:100%;height:100%;object-fit:cover}
 .prw-doc .a{margin-left:auto;display:flex;gap:8px;flex:none}
 .prw-body{border-top:1px solid var(--line);background:#FAFBF8;padding:14px 16px 16px 64px;font-size:13.5px;white-space:pre-wrap;color:var(--ink)}
@@ -1054,8 +1154,14 @@ const CSS = `
 .prw-modal select,.prw-modal textarea,.prw-modal input{width:100%;border:1px solid #D4D8D0;border-radius:8px;padding:9px 11px;font:inherit;color:#0E1A16;background:#fff}
 .prw-modal .row{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 .prw-modal .x{position:absolute;right:14px;top:14px;background:none;border:0;color:#5C6B61;width:28px;height:28px;display:grid;place-items:center}
+${whenTight(STACK_RULES)}
+${whenTight(TEAM_STACK_RULES)}
+.prw.tight .prw-sc-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+.prw.tight .prw-sc-grid{grid-template-columns:1fr}
 @media (max-width:900px){
 .prw-wrap{padding:0 16px}
+.prw-doc{flex-wrap:wrap}
+.prw-doc .a{margin-left:48px;flex-wrap:wrap}
 .prw-hero{grid-template-columns:1fr;gap:24px;padding-bottom:88px}
 .prw-cover h1{font-size:32px}
 .prw-me{display:none}
@@ -1082,21 +1188,7 @@ const CSS = `
 .prw-phases,.prw-grid2,.prw-kpis{grid-template-columns:1fr 1fr}
 .prw-ph{padding:0 0 14px!important;border:0!important}
 .prw-phases{grid-template-columns:1fr}
-.prw-plan thead,.prw-reqs thead{display:none}
-.prw-reqs tr{display:block;border-top:1px solid var(--line)}
-.prw-reqs td{display:block;border-top:0;padding:2px 14px}
-.prw-reqs td:first-child{padding-top:12px}
-.prw-reqs td:last-child{padding-bottom:12px}
-.prw-plan tr{display:block}
-.prw-plan td{display:block;border-top:0;padding:2px 14px;white-space:normal!important;text-align:left!important}
-.prw-plan td:first-child{padding-top:12px}
-.prw-plan td:last-child{padding-bottom:12px;border-bottom:1px solid var(--line)}
-.prw-plan tr.grp td,.prw-plan tr.chk td{padding:8px 14px}
-.prw-doc{flex-wrap:wrap}
-.prw-doc .a{margin-left:48px;flex-wrap:wrap}
-.prw-prog{grid-template-columns:64px minmax(0,1fr);gap:8px 12px}
-.prw-prog .im{width:64px;height:48px}
-.prw-prog .who,.prw-prog .when,.prw-prog .dec{grid-column:2;justify-self:start;text-align:left}
+${STACK_RULES}
 .prw-step{flex-wrap:wrap}
 .prw-min .mb{grid-template-columns:1fr;padding-left:16px}
 .prw-win .wb,.prw-win .wx,.prw-win .wc,.prw-cbox{padding-left:16px}
@@ -1105,10 +1197,7 @@ const CSS = `
 .prw-ctools .tool span{display:none}
 .prw-ob .bar{display:none}
 .prw-body{padding-left:16px}
-.prw-team thead{display:none}
-.prw-team td{display:block;border-top:0;padding:2px 14px;white-space:normal!important}
-.prw-team td:first-child{padding-top:12px;border-top:1px solid var(--line)}
-.prw-team td:last-child{padding-bottom:12px}
+${TEAM_STACK_RULES}
 .prw-sc-tiles{grid-template-columns:1fr 1fr}.prw-sc-tile span{min-height:0}.prw-sc-grid{grid-template-columns:1fr}.prw-sc-check .names{grid-template-columns:1fr}.prw-sc-check .hd{flex-wrap:wrap}.prw-sc-check .hd em{margin-left:30px}.prw-sc-regions>button{grid-template-columns:1fr auto}.prw-sc-regions>button .track{display:none}.prw-sc-cols{margin-left:0}
 .prw-sum{flex-wrap:wrap}
 }
@@ -1122,7 +1211,20 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   const { props, rawOf } = useMemo(() => resolveRoomProps(rawProps), [rawProps]);
   const isEditor = !!onFieldChange;
   const { pageId, sessionId } = usePageContext();
-  const room = useRoom(pageId, !isEditor);
+  // In the builder the page isn't live, but what the customer will see still matters: load the room's data read-only there.
+  const room = useRoom(pageId, true, { readOnly: isEditor });
+  // Is the room itself narrow (the builder's canvas, a small laptop)? Then the wide tables stack instead of squeezing.
+  const rootRef = useRef<HTMLElement | null>(null);
+  const [tight, setTight] = useState(false);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setTight(el.getBoundingClientRect().width < ROOM_TIGHT_WIDTH);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const { snapshot, store } = room;
   const modules = visibleModules(props.hiddenModules);
   const [view, setView] = useState<RoomModuleKey>(modules[0].key);
@@ -1227,7 +1329,8 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
   const openRequest = (preset?: RequestPreset) => needViewer(() => setAsk({ kind: "request", preset }));
   const canRequest = modules.some((m) => m.key === "requests");
 
-  const blocked = rows.filter((x) => x.status === "blocking");
+  // Overdue: marked so by the team, or not done with a target date that has passed.
+  const blocked = rows.filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && (x.status === "blocking" || (x.status !== "done" && !!now && targetHasPassed(x.r.target, now))));
   // Everything the customer has to act on, as one number and one list.
   const attention = [...stepsOpen, ...mine, ...reviewRequests];
   const badge: Partial<Record<RoomModuleKey, string>> = {
@@ -1245,7 +1348,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
 
   return (
     <RoomEditContext.Provider value={editItem}>
-    <section className="prw" style={vars} data-room-workspace>
+    <section ref={rootRef} className={`prw${tight ? " tight" : ""}`} style={vars} data-room-workspace>
       <style>{CSS}</style>
       <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
         <div className="prw-wrap">
@@ -1415,7 +1518,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                     <div className="v prw-num">{snapshot.viewer ? openRequests.length : "—"}</div>
                   </div>
                 </div>
-                <div className="prw-grid2 prw-sec">
+                <div className="prw-grid2 prw-sec" style={!(now && events.upcoming.length > 0) && blocked.length === 0 ? { gridTemplateColumns: "1fr" } : undefined}>
                   <div className="prw-card prw-att" data-room-attention>
                     <h3>
                       Needs your attention
@@ -1473,24 +1576,23 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                         <EventRow key={e.key || e.title + e.date} event={e} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
                       ))}
                     </div>
-                  ) : (
-                    <div className="prw-card">
-                      <h3>Blocked</h3>
-                      {blocked.length === 0 && <div className="prw-empty">Nothing is blocked.</div>}
+                  ) : blocked.length > 0 ? (
+                    <div className="prw-card" data-room-blocked>
+                      <h3>Overdue</h3>
                       {blocked.slice(0, 4).map((x) => (
                         <div className="prw-li" key={x.key}>
                           <div>
                             <div className="t">{x.r.task}</div>
-                            <div className="m">{[x.r.note, x.r.partnerOwner].filter(Boolean).join(" · ")}</div>
+                            <div className="m">{[x.r.target ? `Due ${fmtDate(x.r.target)}` : "", x.r.note, x.r.partnerOwner].filter(Boolean).join(" · ")}</div>
                           </div>
                         </div>
                       ))}
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 {now && events.upcoming.length > 0 && blocked.length > 0 && (
                   <div className="prw-card prw-sec" data-room-blocked>
-                    <h3>Blocked</h3>
+                    <h3>Overdue</h3>
                     {blocked.slice(0, 4).map((x) => (
                       <div className="prw-li" key={x.key}>
                         <div>
@@ -1578,7 +1680,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                   </thead>
                   <tbody>
                     {groups.map((g, gi) => (
-                      <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi)} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
+                      <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
                     ))}
                   </tbody>
                 </table>
@@ -1705,7 +1807,7 @@ export function BlockRoomWorkspace({ props: rawProps, brand, blockId, onFieldCha
                   <div className="prw-kpi"><div className="k">{Noun} live</div><div className="v prw-num">{pr.byStage.live ?? 0} <small>of {pr.total}</small></div></div>
                   <div className="prw-kpi"><div className="k">{Noun} trained</div><div className="v prw-num">{(pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0)} <small>of {pr.total}</small></div></div>
                   <div className="prw-kpi"><div className="k">Plan items complete</div><div className="v prw-num">{doneCount} <small>of {rows.length}</small></div></div>
-                  <div className="prw-kpi"><div className="k">Blocking</div><div className="v prw-num">{rows.filter((x) => x.status === "blocking").length}</div></div>
+                  {blocked.length > 0 && <div className="prw-kpi"><div className="k">Overdue</div><div className="v prw-num">{blocked.length}</div></div>}
                 </div>
               </>
             )}
@@ -1973,7 +2075,11 @@ function AssetRow({ asset, isEditor, onTrack, onOpen, onRequest, canRequest }: {
         {asset.kind === "image" && file ? (
           <span className="prw-ft img"><img src={file} alt="" loading="lazy" /></span>
         ) : (
-          <span className="prw-ft">{FILE_TAG[asset.kind] ?? "FILE"}</span>
+          (() => {
+            const key = roomAssetIconKey(asset);
+            const Icon = ROOM_ASSET_ICONS.find((i) => i.key === key)?.Icon;
+            return Icon ? <span className="prw-ft ic" data-room-asset-icon={key}><Icon aria-hidden /></span> : <span className="prw-ft">{FILE_TAG[asset.kind] ?? "FILE"}</span>;
+          })()
         )}
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 600 }}><E item={asset} field="title" placeholder="Asset name" /></div>

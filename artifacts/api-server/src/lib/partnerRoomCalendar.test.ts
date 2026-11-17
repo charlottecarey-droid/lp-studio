@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@workspace/db", () => ({ db: {}, lpRoomEventsTable: {}, lpRoomSettingsTable: {} }));
+vi.mock("@workspace/db", () => ({ db: {}, appUsersTable: {}, lpGoogleConnectionsTable: {}, lpRoomEventsTable: {}, lpRoomSettingsTable: {} }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
 import { cleanMinutes, googleDocText, minutesAreEmpty, minutesFromModel, roomEventsFromGoogle, CALENDAR_ID_RE } from "./partnerRoomCalendar";
+import { customerDomains } from "./partnerRoomCalendar";
 import { roomCalendarIcs } from "./partnerRoom";
 
 const DOC = "application/vnd.google-apps.document";
@@ -67,5 +68,13 @@ describe("calendar feed with synced meetings", () => {
     expect(ics).toContain("DTEND:20270112T203000Z");
     expect(ics).toContain("DTSTART;VALUE=DATE:20270201");
     expect(ics).toContain("DTEND;VALUE=DATE:20270202");
+  });
+});
+
+describe("which domains decide the room's meetings", () => {
+  it("leaves out our own team's domain, however it is written", () => {
+    expect(customerDomains(["MeetDandy.com", "@ladd.com", "ladd.com", ""], ["meetdandy.com"])).toEqual(["ladd.com"]);
+    expect(customerDomains(["meetdandy.com"], new Set(["meetdandy.com"]))).toEqual([]);
+    expect(customerDomains(["mb2dental.com"], [])).toEqual(["mb2dental.com"]);
   });
 });
