@@ -80,16 +80,20 @@ describe("room-workspace — modules can be hidden per account", () => {
     expect(html).not.toContain("data-room-request-button");
   });
   it("lands on the first visible module, and never hides everything", () => {
-    expect(render({ hiddenModules: ["overview", "wins", "goals"] })).toContain('data-room-view="plan"');
+    expect(render({ hiddenModules: ["overview", "practices", "wins", "goals"] })).toContain('data-room-view="plan"');
     expect(visibleModules(["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar", "meetings", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
     expect(visibleModules(undefined)).toHaveLength(10);
+    // Scorecard sits right under Overview, and a hub can set its own order.
+    expect(visibleModules(undefined).map((m) => m.key).slice(0, 3)).toEqual(["overview", "practices", "wins"]);
+    expect(visibleModules(["wins"], ["team", "plan"]).map((m) => m.key).slice(0, 4)).toEqual(["team", "plan", "overview", "practices"]);
+    expect(render({ moduleOrder: ["plan"] as never })).toContain('data-room-view="plan"');
     // One entry for the launch kit and the marketing plan together: it stays while either is shown.
     expect(visibleModules(undefined).map((m) => m.key)).not.toContain("kit");
     expect(visibleModules(["marketing"]).map((m) => m.key)).toContain("marketing");
     expect(visibleModules(["marketing", "kit"]).map((m) => m.key)).not.toContain("marketing");
   });
   it("the action plan shows both owners, a checkpoint, and customer actions with no file link", () => {
-    const html = render({ hiddenModules: ["overview", "wins", "goals"] });
+    const html = render({ hiddenModules: ["overview", "practices", "wins", "goals"] });
     expect(html).toContain("Executive sponsor");
     expect(html).toContain("Account lead");
     expect(html).toContain("Checkpoint");
@@ -315,14 +319,14 @@ describe("room-workspace — welcome banner and needs your attention", () => {
   it("text is click-to-edit in the builder only, and never inside a link or button", () => {
     const live = render();
     expect(live).not.toContain("data-room-edit");
-    const editing = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: { ...structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS), hiddenModules: ["overview", "wins", "goals"] }, brand: BRAND, onFieldChange: () => {} }));
+    const editing = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: { ...structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS), hiddenModules: ["overview", "practices", "wins", "goals"] }, brand: BRAND, onFieldChange: () => {} }));
     expect(editing).toContain('data-room-edit="task"');
     expect(editing).toContain('data-room-edit="planIntro"');
     expect(editing).not.toMatch(/<(a|button)\b[^>]*>(?:(?!<\/\1>).)*data-room-edit/s);
   });
   it("the account name is a variable: one template reads right for any customer, and edits still reach the stored props", () => {
     const base = structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS);
-    const raw = { ...base, partnerName: "MB2 Dental", partnerShort: "MB2", planIntro: "Every milestone has an owner at Northwind and at [Partner].", kitIntro: "Made for {{account}}.", hiddenModules: ["overview", "wins", "goals"] as never };
+    const raw = { ...base, partnerName: "MB2 Dental", partnerShort: "MB2", planIntro: "Every milestone has an owner at Northwind and at [Partner].", kitIntro: "Made for {{account}}.", hiddenModules: ["overview", "practices", "wins", "goals"] as never };
     const html = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: raw, brand: BRAND }));
     expect(html).toContain("and at MB2.");
     expect(html).not.toContain("[Partner]");

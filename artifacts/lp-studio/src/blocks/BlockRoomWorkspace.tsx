@@ -56,10 +56,10 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
 export type RoomModuleKey = "overview" | "wins" | "goals" | "plan" | "practices" | "marketing" | "kit" | "calendar" | "meetings" | "requests" | "team";
 export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "practices", label: "Scorecard" },
   { key: "wins", label: "Wins" },
   { key: "goals", label: "Goals" },
   { key: "plan", label: "Action plan" },
-  { key: "practices", label: "Scorecard" },
   { key: "marketing", label: "Marketing plan" },
   { key: "kit", label: "Launch kit" },
   { key: "calendar", label: "Calendar" },
@@ -421,6 +421,8 @@ export interface RoomWorkspaceBlockProps {
   nextMilestoneLabel?: string;
   nextMilestoneDate?: string;
   hiddenModules?: RoomModuleKey[];
+  /** The order of the modules in the side menu. Empty = the standard order. The first one shown is the view the hub opens on. */
+  moduleOrder?: RoomModuleKey[];
   phases?: RoomPhase[];
   planIntro?: string;
   planGroups?: RoomPlanGroup[];
@@ -632,11 +634,22 @@ export function phaseStates(phases: RoomPhase[], day: number | null): RoomPhaseS
   });
 }
 
-export function visibleModules(hidden: readonly string[] | undefined): typeof ROOM_MODULES {
+/**
+ * The modules in the order this hub shows them: the ones named in `order`
+ * first, in that order, then any it does not name in the standard order (so
+ * a module added later still appears on a hub ordered before it existed).
+ */
+export function orderedModules(order: readonly string[] | undefined): typeof ROOM_MODULES {
+  const named = [...new Set(order ?? [])].map((k) => ROOM_MODULES.find((m) => m.key === k)).filter((m): m is (typeof ROOM_MODULES)[number] => !!m);
+  return [...named, ...ROOM_MODULES.filter((m) => !named.includes(m))];
+}
+
+export function visibleModules(hidden: readonly string[] | undefined, order?: readonly string[]): typeof ROOM_MODULES {
+  const all = orderedModules(order);
   const h = new Set(hidden ?? []);
   // Overview is the landing view: it can be hidden only when something else remains.
   // The launch kit lives inside the marketing module: one entry, shown while either has not been hidden.
-  const rest = ROOM_MODULES.filter((m) => (m.key === "kit" ? false : m.key === "marketing" ? !(h.has("marketing") && h.has("kit")) : !h.has(m.key)));
+  const rest = all.filter((m) => (m.key === "kit" ? false : m.key === "marketing" ? !(h.has("marketing") && h.has("kit")) : !h.has(m.key)));
   return rest.length ? rest : ROOM_MODULES.filter((m) => m.key === "overview");
 }
 
@@ -1438,7 +1451,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     return () => ro.disconnect();
   }, []);
   const { snapshot, store } = room;
-  const modules = visibleModules(props.hiddenModules);
+  const modules = visibleModules(props.hiddenModules, props.moduleOrder);
   const [view, setView] = useState<RoomModuleKey>(modules[0].key);
   const active = modules.some((m) => m.key === view) ? view : modules[0].key;
   const [ask, setAsk] = useState<Ask>(null);

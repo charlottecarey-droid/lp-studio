@@ -9,6 +9,7 @@
 import {
   ROOM_ASSET_ICONS,
   ROOM_MODULES,
+  orderedModules,
   ROOM_STATUS_LABEL,
   resolveRoomStatus,
   roomMilestoneKey,
@@ -45,7 +46,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "rea
 import { useRoute } from "wouter";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { RoomKitAssetChange, RoomPanelTab } from "@/components/analytics/PageRoomPanel";
-import { ChevronLeft, ChevronRight, DoorOpen, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, DoorOpen, Plus, X } from "lucide-react";
 
 // The team's Room panel (uploads, practices, launch kit, calendar, settings). Loaded only when opened.
 const PageRoomPanel = lazy(() => import("@/components/analytics/PageRoomPanel").then((m) => ({ default: m.PageRoomPanel })));
@@ -282,6 +283,17 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
     update({ hiddenModules: ROOM_MODULES.map((m) => m.key).filter((k) => next.has(k)) });
   };
 
+  // The launch kit has no entry of its own in the hub's menu (it sits inside the marketing module), so it is not part of the order.
+  const ordered = orderedModules(props.moduleOrder);
+  const moveModule = (key: RoomModuleKey, by: -1 | 1) => {
+    const keys = ordered.map((m) => m.key);
+    const at = keys.indexOf(key);
+    const to = at + by;
+    if (at < 0 || to < 0 || to >= keys.length) return;
+    [keys[at], keys[to]] = [keys[to], keys[at]];
+    update({ moduleOrder: keys });
+  };
+
   const MODULE_HINT: Partial<Record<RoomModuleKey, string>> = {
     overview: `${steps.length} setup item${steps.length === 1 ? "" : "s"} · ${phases.length} phases`,
     wins: "Posted from the room, or under Manage → Activity",
@@ -309,9 +321,14 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
         <div>
-          <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Modules</div>
+          <div className="mb-1.5 flex items-baseline justify-between px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>Modules</span>
+            {(props.moduleOrder ?? []).length > 0 && (
+              <button type="button" onClick={() => update({ moduleOrder: [] })} className="font-medium normal-case tracking-normal underline-offset-2 hover:underline">Reset order</button>
+            )}
+          </div>
           <div className="divide-y rounded-lg border">
-            {ROOM_MODULES.map((m) => {
+            {ordered.map((m, at) => {
               const shown = !hidden.has(m.key);
               const body = (
                 <span className="min-w-0 flex-1">
@@ -330,6 +347,14 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
                   ) : (
                     body
                   )}
+                  <span className="flex shrink-0 items-center">
+                    <button type="button" onClick={() => moveModule(m.key, -1)} disabled={at === 0} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent" aria-label={`Move ${m.label} up`} title="Move up">
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => moveModule(m.key, 1)} disabled={at === ordered.length - 1} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent" aria-label={`Move ${m.label} down`} title="Move down">
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
                 </div>
               );
             })}
