@@ -102,7 +102,9 @@ export function BlockVideoCardTrio({ props, brand, onFieldChange }: Props) {
   const pal = resolveGlowPalette(props, brand);
   const isEditor = !!onFieldChange;
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+  // "Only when play is clicked" needs a button to click: default it to center.
   const playButton = props.playButton ?? "none";
+  const effectivePlayButton = props.playMode === "off" && playButton === "none" ? "center" : playButton;
   const cards = props.cards && props.cards.length > 0 ? props.cards : VIDEO_CARD_TRIO_DEFAULT_PROPS.cards;
 
   const field = (key: keyof VideoCardTrioBlockProps) =>
@@ -166,10 +168,10 @@ export function BlockVideoCardTrio({ props, brand, onFieldChange }: Props) {
                   playMode={props.playMode ?? "inview"}
                   active={openIdx === null}
                   overlay={
-                    playButton !== "none" && card.videoUrl ? (
+                    effectivePlayButton !== "none" && card.videoUrl ? (
                       <button
                         type="button"
-                        data-play-button={playButton}
+                        data-play-button={effectivePlayButton}
                         aria-label={`Play video: ${card.title}`}
                         // In the builder the button is a preview only, so the image stays editable.
                         tabIndex={isEditor ? -1 : undefined}
@@ -179,14 +181,14 @@ export function BlockVideoCardTrio({ props, brand, onFieldChange }: Props) {
                         }}
                         className={cn(
                           "absolute z-10 flex items-center justify-center rounded-full text-white backdrop-blur-md transition-transform duration-200 hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
-                          playButton === "center"
+                          effectivePlayButton === "center"
                             ? "left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2"
                             : "bottom-3 right-3 h-11 w-11",
                           isEditor && "pointer-events-none",
                         )}
                         style={{ background: "rgba(11,11,15,0.72)", boxShadow: "0 10px 30px -12px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.18)" }}
                       >
-                        <Play className={cn("translate-x-[1px] fill-current", playButton === "center" ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
+                        <Play className={cn("translate-x-[1px] fill-current", effectivePlayButton === "center" ? "h-5 w-5" : "h-4 w-4")} aria-hidden />
                       </button>
                     ) : undefined
                   }

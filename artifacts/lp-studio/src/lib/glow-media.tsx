@@ -50,7 +50,7 @@ export const GLOW_DARK_BG = "#121212";
  *  screen on dark. "none" = ordinary opaque media. */
 export type MediaBlend = "auto" | "multiply" | "screen" | "none";
 export type MediaAspect = "16/9" | "4/3" | "3/2" | "1/1" | "21/9";
-export type MediaPlayMode = "inview" | "hover" | "hover-sound" | "always";
+export type MediaPlayMode = "inview" | "hover" | "hover-sound" | "always" | "off";
 
 export const MEDIA_ASPECT_CSS: Record<MediaAspect, string> = {
   "16/9": "16 / 9",
@@ -296,7 +296,7 @@ export interface BlendMediaProps {
   aspect?: MediaAspect;
   /** "cover" fills the frame; "contain" letterboxes (transparent bars blend away). */
   fit?: "cover" | "contain";
-  /** inview (default): play while on screen. hover: play on pointer-over. hover-sound: the same, with audio. always: never pause. */
+  /** inview (default): play while on screen. hover: play on pointer-over. hover-sound: the same, with audio. always: never pause. off: never play here (still frame; the block plays it elsewhere, e.g. a modal). */
   playMode?: MediaPlayMode;
   /** When false the video is paused regardless of mode (stepper inactive panels). */
   active?: boolean;
@@ -457,7 +457,7 @@ export function BlendMedia({
               muted
               loop
               playsInline
-              autoPlay={playMode === "always" || staticRender}
+              autoPlay={playMode === "always" || (staticRender && playMode !== "off")}
               preload={active ? "metadata" : "none"}
               aria-label={title}
             />

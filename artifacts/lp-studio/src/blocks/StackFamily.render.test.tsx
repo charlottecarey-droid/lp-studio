@@ -111,6 +111,14 @@ describe("Stack family — media contract", () => {
     }
   });
 
+  it("video-card-trio playMode \"off\" never autoplays and always offers a play button", () => {
+    const cards = [{ title: "A", body: "b", videoUrl: "/videos/a.mp4" }];
+    const html = renderStatic(BlockVideoCardTrio as never, { ...defaultsFor("video-card-trio"), cards, playMode: "off" }, true);
+    expect(html).toContain("<video");
+    expect(html).not.toMatch(/<video[^>]*autoplay/i);
+    expect(html).toContain('data-play-button="center"');
+  });
+
   it("an image-only slot renders an <img>, an empty slot renders the placeholder graphic", () => {
     const withImage = renderStatic(BlockVideoStepShowcase as never, {
       ...defaultsFor("video-step-showcase"),

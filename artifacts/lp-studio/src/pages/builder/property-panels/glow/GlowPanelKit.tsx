@@ -212,6 +212,7 @@ export function MediaOptionsFields({
               <SelectItem value="hover" className="text-xs">Play on hover</SelectItem>
               <SelectItem value="hover-sound" className="text-xs">Play on hover - with sound</SelectItem>
               <SelectItem value="always" className="text-xs">Always play</SelectItem>
+              <SelectItem value="off" className="text-xs">Only when play is clicked</SelectItem>
             </SelectContent>
           </Select>
         </Field>
