@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
  * "Auditable. Private. Secured." — a centered headline, then 3 (or 4) tall
  * cards each led by a looping product clip or illustration that blends into
  * the card's glow, with a title and one-line body underneath. Clips play in
- * view by default or on hover.
+ * view by default, on hover, or on hover with sound.
  * -------------------------------------------------------------------------- */
 
 export interface VideoTrioCard {

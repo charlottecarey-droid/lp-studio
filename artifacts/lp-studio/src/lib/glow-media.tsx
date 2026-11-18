@@ -50,7 +50,7 @@ export const GLOW_DARK_BG = "#121212";
  *  screen on dark. "none" = ordinary opaque media. */
 export type MediaBlend = "auto" | "multiply" | "screen" | "none";
 export type MediaAspect = "16/9" | "4/3" | "3/2" | "1/1" | "21/9";
-export type MediaPlayMode = "inview" | "hover" | "always";
+export type MediaPlayMode = "inview" | "hover" | "hover-sound" | "always";
 
 export const MEDIA_ASPECT_CSS: Record<MediaAspect, string> = {
   "16/9": "16 / 9",
@@ -296,7 +296,7 @@ export interface BlendMediaProps {
   aspect?: MediaAspect;
   /** "cover" fills the frame; "contain" letterboxes (transparent bars blend away). */
   fit?: "cover" | "contain";
-  /** inview (default): play while on screen. hover: play on pointer-over. always: never pause. */
+  /** inview (default): play while on screen. hover: play on pointer-over. hover-sound: the same, with audio. always: never pause. */
   playMode?: MediaPlayMode;
   /** When false the video is paused regardless of mode (stepper inactive panels). */
   active?: boolean;
@@ -346,6 +346,13 @@ export function BlendMedia({
   const [inView, setInView] = useState(playMode !== "inview");
   const [hovering, setHovering] = useState(false);
   const [muted, setMuted] = useState(true);
+  // "hover-sound": browsers refuse unmuted playback until the visitor has
+  // interacted with the page, so a refused hover falls back to muted and a
+  // click on the media turns the sound on.
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const hoverMode = playMode === "hover" || playMode === "hover-sound";
+  // Never in the builder (onImageUpdate present): audio while editing is noise.
+  const hoverSound = playMode === "hover-sound" && !onImageUpdate && !staticRender;
 
   const embed = !!videoUrl && isEmbedVideoUrl(videoUrl);
   const native = !!videoUrl && !embed;
@@ -368,21 +375,41 @@ export function BlendMedia({
   }, [native, playMode, staticRender]);
 
   const shouldPlay =
-    native && active && (playMode === "always" || (playMode === "inview" && inView) || (playMode === "hover" && hovering));
+    native && active && (playMode === "always" || (playMode === "inview" && inView) || (hoverMode && hovering));
 
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     if (shouldPlay) {
+      if (hoverSound) v.muted = false;
       const p = v.play();
-      if (p && typeof p.catch === "function") p.catch(() => {});
+      if (p && typeof p.catch === "function") {
+        p.catch(() => {
+          if (!hoverSound) return;
+          v.muted = true;
+          setSoundBlocked(true);
+          const retry = v.play();
+          if (retry && typeof retry.catch === "function") retry.catch(() => {});
+        });
+      }
     } else {
       v.pause();
-      if (playMode === "hover") {
+      if (hoverMode) {
         try { v.currentTime = 0; } catch { /* not seekable yet */ }
       }
+      if (hoverSound) v.muted = true;
     }
-  }, [shouldPlay, playMode, videoUrl]);
+  }, [shouldPlay, hoverMode, hoverSound, videoUrl]);
+
+  const enableHoverSound = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    setSoundBlocked(false);
+    setHovering(true);
+    const p = v.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  };
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = muted;
@@ -407,9 +434,10 @@ export function BlendMedia({
       ref={wrapRef}
       className={cn("relative w-full overflow-hidden", className)}
       style={{ aspectRatio: MEDIA_ASPECT_CSS[aspect], ...style }}
-      onMouseEnter={playMode === "hover" ? () => setHovering(true) : undefined}
-      onMouseLeave={playMode === "hover" ? () => setHovering(false) : undefined}
-      onTouchStart={playMode === "hover" ? () => setHovering((h) => !h) : undefined}
+      onMouseEnter={hoverMode ? () => setHovering(true) : undefined}
+      onMouseLeave={hoverMode ? () => setHovering(false) : undefined}
+      onTouchStart={hoverMode ? () => setHovering((h) => !h) : undefined}
+      onClick={hoverSound && native && soundBlocked ? enableHoverSound : undefined}
     >
       {!hasMedia && <PlaceholderUi variant={placeholder} palette={palette} />}
 
@@ -455,6 +483,15 @@ export function BlendMedia({
             />
           )}
         </div>
+      )}
+
+      {native && hoverSound && soundBlocked && hovering && (
+        <span
+          className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-10 rounded-full px-3 py-1.5 text-[11px] font-medium backdrop-blur-md whitespace-nowrap"
+          style={{ background: palette.dark ? "rgba(255,255,255,0.14)" : "rgba(11,11,15,0.78)", color: "#FFFFFF" }}
+        >
+          Click for sound
+        </span>
       )}
 
       {native && showSoundToggle && !staticRender && (

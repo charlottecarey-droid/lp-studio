@@ -210,6 +210,7 @@ export function MediaOptionsFields({
             <SelectContent>
               <SelectItem value="inview" className="text-xs">Play while on screen</SelectItem>
               <SelectItem value="hover" className="text-xs">Play on hover</SelectItem>
+              <SelectItem value="hover-sound" className="text-xs">Play on hover - with sound</SelectItem>
               <SelectItem value="always" className="text-xs">Always play</SelectItem>
             </SelectContent>
           </Select>
