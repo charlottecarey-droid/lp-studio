@@ -175,3 +175,32 @@ export function roomCreatedSlackBlocks(name: string, links: { edit: string; room
     { type: "section", text: { type: "mrkdwn", text: `*Your setup checklist*\n${items.filter((i) => !i.done).map(line).join("\n")}` } },
   ];
 }
+
+/* ── People who are in the hub but not on its team list ───────────────────── */
+
+/** A readable name from an address when nothing better is known: "dana.ruiz@x.com" → "Dana Ruiz". Falls back to the address. */
+export function nameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  const parts = local.split(/[._-]+/).filter((w) => /^[a-z]{2,}$/i.test(w));
+  if (parts.length === 0 || parts.length > 3) return email;
+  return parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+}
+
+/**
+ * The customer's people who can get into the hub (invited, or signed in) but
+ * are on neither the Team module nor the list of people the customer added.
+ * Without them "Add your team" tells someone who is already in that nobody is
+ * listed. `listed` = addresses already shown; `ours` = our own team's.
+ */
+export function unlistedPeople(access: { email: string; name?: string | null }[], listed: (string | null | undefined)[], ours: (string | null | undefined)[] = []): { name: string; email: string }[] {
+  const key = (e: string | null | undefined) => (e ?? "").trim().toLowerCase();
+  const skip = new Set([...listed, ...ours].map(key).filter(Boolean));
+  const out: { name: string; email: string }[] = [];
+  for (const a of access) {
+    const email = key(a.email);
+    if (!email || skip.has(email)) continue;
+    skip.add(email);
+    out.push({ email, name: a.name?.trim() || nameFromEmail(email) });
+  }
+  return out;
+}

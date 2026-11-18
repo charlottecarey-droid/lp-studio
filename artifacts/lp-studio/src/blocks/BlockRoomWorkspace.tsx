@@ -749,19 +749,21 @@ export function assetReady(a: RoomAsset): boolean {
   return has(a.fileUrl);
 }
 
+/** Kit items in their own order, with the ones that only point elsewhere (a folder, a guidelines page) moved to the end. */
+const linksLast = (assets: RoomAsset[]) => [...assets.filter((a) => a.kind !== "link"), ...assets.filter((a) => a.kind === "link")];
+
 /**
  * The launch kit and the marketing programs sorted into the sections of the
- * combined module: links; programs waiting on a yes or no; assets that are
- * ready to use; programs that are in the plan (fixed, or said yes to) and
+ * combined module: programs waiting on a yes or no; assets that are
+ * ready to use (files and copy first, links to brand folders and the like last); programs that are in the plan (fixed, or said yes to) and
  * assets still being prepared; programs said no to, saved for later.
  */
 export function groupLaunch(assets: RoomAsset[], programs: RoomProgram[], choices: Record<string, { value: string }>) {
   const choice = (p: RoomProgram) => choices[roomMilestoneKey({ key: p.key, task: p.title })];
   const hasChoice = (p: RoomProgram) => (p.options ?? []).filter((o) => o.trim()).length >= 2;
   return {
-    linkAssets: assets.filter((a) => a.kind === "link"),
-    ready: assets.filter((a) => a.kind !== "link" && assetReady(a)),
-    preparing: assets.filter((a) => a.kind !== "link" && !assetReady(a)),
+    ready: linksLast(assets.filter(assetReady)),
+    preparing: linksLast(assets.filter((a) => !assetReady(a))),
     toDecide: programs.filter((p) => hasChoice(p) && !choice(p)),
     inProgress: programs.filter((p) => !hasChoice(p) || (!!choice(p) && !programDeclined(p, choices))),
     later: programs.filter((p) => hasChoice(p) && programDeclined(p, choices)),
@@ -2195,7 +2197,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   {undecided.length > 0 && showMarketing && <div className="prw-meta"><b>{undecided.length}</b> waiting on your decision</div>}
                 </div>
 
-                {showKit && (links.length > 0 || launch.linkAssets.length > 0) && (
+                {showKit && links.length > 0 && (
                   <section className="prw-lk" data-room-launch="links">
                     <h3>Important links</h3>
                     <div className="prw-card">
@@ -2223,9 +2225,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                             </a>
                           </div>
                         </div>
-                      ))}
-                      {launch.linkAssets.map((a, i) => (
-                        <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
                       ))}
                     </div>
                   </section>
@@ -2377,7 +2376,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                       <TeamGroup key={gi} group={g} isEditor={isEditor} invite={gi > 0 ? teamInvite : null} />
                     ))}
                     {snapshot.contacts.length > 0 && (
-                      <TeamGroup group={{ title: `Added by ${props.partnerName}`, members: snapshot.contacts.map((c) => ({ name: c.name, role: c.role ?? undefined, email: c.email ?? undefined })) }} isEditor={isEditor} invite={teamInvite} />
+                      <TeamGroup group={{ title: snapshot.contacts.some((c) => c.invited) ? `Also on ${props.partnerName}’s team` : `Added by ${props.partnerName}`, members: snapshot.contacts.map((c) => ({ name: c.name, role: c.role ?? undefined, email: c.email ?? undefined })) }} isEditor={isEditor} invite={teamInvite} />
                     )}
                   </tbody>
                 </table>

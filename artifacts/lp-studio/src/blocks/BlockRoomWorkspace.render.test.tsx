@@ -477,8 +477,8 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     const assets = [
       { kind: "pdf" as const, title: "One-pager", fileUrl: "/api/storage/objects/uploads/x" },
       { kind: "pdf" as const, title: "Welcome guide" }, // no file yet
-      { kind: "text" as const, title: "Announcement email", body: "Hi" },
       { kind: "link" as const, title: "Brand guidelines", externalUrl: "https://x.example/brand" },
+      { kind: "text" as const, title: "Announcement email", body: "Hi" },
     ];
     const programs = [
       { key: "ann", title: "Partnership announcement" },
@@ -489,8 +489,8 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(assetReady(assets[0])).toBe(true);
     expect(assetReady(assets[1])).toBe(false);
     const g = groupLaunch(assets, programs, { ll: { value: "Include" }, tour: { value: "Not now" } });
-    expect(g.linkAssets.map((a) => a.title)).toEqual(["Brand guidelines"]);
-    expect(g.ready.map((a) => a.title)).toEqual(["One-pager", "Announcement email"]);
+    // Links to brand folders sit with the materials, after the files and copy; they are not "Important links".
+    expect(g.ready.map((a) => a.title)).toEqual(["One-pager", "Announcement email", "Brand guidelines"]);
     expect(g.preparing.map((a) => a.title)).toEqual(["Welcome guide"]);
     expect(g.toDecide.map((p) => p.title)).toEqual(["Press release"]);
     expect(g.inProgress.map((p) => p.title)).toEqual(["Partnership announcement", "Lunch & Learn"]);
@@ -505,6 +505,8 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(html).not.toContain('data-room-launch="later"'); // nothing has been declined
     expect(html).toContain("Important links");
     expect(html).toContain("Ready for launch");
+    expect(html.indexOf("Brand guidelines")).toBeGreaterThan(html.indexOf('data-room-launch="ready"'));
+    expect(html.indexOf("Brand guidelines")).toBeGreaterThan(html.indexOf("Announcement email"));
     // With the marketing plan hidden for an account, the same tab still carries the kit.
     const kitOnly = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "marketing", "calendar", "meetings", "requests", "team"] as never, assets });
     expect(kitOnly).toContain('data-room-launch="ready"');

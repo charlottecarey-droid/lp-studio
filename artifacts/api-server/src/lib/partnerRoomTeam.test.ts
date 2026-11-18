@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addTeamPeople, cleanDomain, EMPTY_SETUP_FACTS, levelRank, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist } from "./partnerRoomTeam";
+import { addTeamPeople, cleanDomain, EMPTY_SETUP_FACTS, levelRank, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist, nameFromEmail, unlistedPeople } from "./partnerRoomTeam";
 
 describe("room people from the account", () => {
   it("works out the customer's email domain, never a free-mail one", () => {
@@ -80,5 +80,26 @@ describe("the setup checklist for a new room", () => {
     expect(text).toContain("*Your setup checklist*");
     expect(text).toContain("◻️ Connect your calendar");
     expect(JSON.stringify(roomCreatedSlackBlocks("X", { edit: "", room: "" }, EMPTY_SETUP_FACTS, { test: true }))).toContain("Test run");
+  });
+});
+
+describe("people in the hub who are on no list", () => {
+  it("reads a name from an address, and gives the address back when it can't", () => {
+    expect(nameFromEmail("dana.ruiz@customer.com")).toBe("Dana Ruiz");
+    expect(nameFromEmail("KIM_lee@customer.com")).toBe("Kim Lee");
+    expect(nameFromEmail("ops@customer.com")).toBe("Ops");
+    expect(nameFromEmail("d.r@customer.com")).toBe("d.r@customer.com");
+    expect(nameFromEmail("a1b2c3@customer.com")).toBe("a1b2c3@customer.com");
+  });
+  it("lists invited people once, leaving out anyone already shown and our own team", () => {
+    const got = unlistedPeople(
+      [{ email: "Dana.Ruiz@customer.com" }, { email: "listed@customer.com" }, { email: "dana.ruiz@customer.com" }, { email: "rep@us.com" }, { email: "kim@customer.com", name: " Kim Lee " }, { email: "" }],
+      ["LISTED@customer.com", null],
+      ["rep@us.com"],
+    );
+    expect(got).toEqual([
+      { email: "dana.ruiz@customer.com", name: "Dana Ruiz" },
+      { email: "kim@customer.com", name: "Kim Lee" },
+    ]);
   });
 });

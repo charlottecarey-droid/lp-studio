@@ -57,6 +57,7 @@ import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
 import { ensurePracticeSite, setRoomPracticeLink } from "../../lib/partnerRoomPracticeSite";
 import { accountPeople, publicPageUrl, createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
+import { unlistedPeople } from "../../lib/partnerRoomTeam";
 import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -381,7 +382,34 @@ async function loadWorkspaceState(page: RoomPage, viewer: Viewer | null) {
     choices[c.choiceKey] = { value: c.value, at: c.chosenAt.toISOString(), ...(viewer ? { by: c.chosenByName || c.chosenByEmail } : {}) };
   }
   // Names and opaque keys only: the page never learns an address it wasn't already shown.
-  return { choices, wins, contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email })), people: people.map((p) => ({ key: p.key, name: p.name })) };
+  return { choices, wins, contacts: [...contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email })), ...(viewer ? await peopleInTheHub(page, viewer, contactRows.map((c) => c.email)) : [])], people: people.map((p) => ({ key: p.key, name: p.name })) };
+}
+
+/**
+ * The customer's people who are in the hub (invited, or the visitor reading
+ * this) but on neither the Team module nor the list the customer added. They
+ * are shown with the added contacts, so "Add your team" never tells someone
+ * who is already in that nobody is listed. Our own team is left out.
+ */
+async function peopleInTheHub(page: RoomPage, viewer: Viewer, contactEmails: (string | null)[]) {
+  const members = await db.select({ id: lpRoomMembersTable.id, email: lpRoomMembersTable.email }).from(lpRoomMembersTable).where(and(eq(lpRoomMembersTable.pageId, page.id), eq(lpRoomMembersTable.status, "allowed"))).orderBy(asc(lpRoomMembersTable.createdAt)).limit(60);
+  const access = [...members.map((m) => ({ email: m.email })), ...(viewer.team ? [] : [{ email: viewer.email }])];
+  const extra = unlistedPeople(access, [...page.teamPeople.map((p) => p.email), ...contactEmails]);
+  const out: { id: number; name: string; role: string | null; email: string; invited: true }[] = [];
+  for (const [i, p] of extra.entries()) {
+    if (await teamMemberName(page.tenantId, p.email)) continue; // one of ours
+    const known = p.email === viewer.email ? viewer.name : await customerNameFor(page, p.email);
+    // Negative ids: these are not rows a contact can be removed by.
+    out.push({ id: -(members.find((m) => m.email === p.email)?.id ?? 1_000_000 + i), name: known?.trim() || p.name, role: null, email: p.email, invited: true });
+  }
+  return out;
+}
+
+/** An invitation that named the person: keep the name as a contact, so the hub lists them as they were written. */
+async function rememberInvited(page: RoomPage, email: string, name: string, byEmail: string): Promise<void> {
+  if (!name || page.teamPeople.some((p) => p.email.trim().toLowerCase() === email)) return;
+  const [have] = await db.select({ id: lpRoomContactsTable.id }).from(lpRoomContactsTable).where(and(eq(lpRoomContactsTable.pageId, page.id), eq(lpRoomContactsTable.email, email))).limit(1);
+  if (!have) await db.insert(lpRoomContactsTable).values({ tenantId: page.tenantId, pageId: page.id, name, email, addedByEmail: byEmail });
 }
 
 /** A known visitor on a workspace page, or a 401/404 already sent. */
@@ -828,6 +856,7 @@ router.post("/lp/room/invite", actionLimiter, async (req: Request, res: Response
       .insert(lpRoomMembersTable)
       .values({ tenantId: ctx.page.tenantId, pageId: ctx.page.id, email, status: "allowed" })
       .onConflictDoUpdate({ target: [lpRoomMembersTable.pageId, lpRoomMembersTable.email], set: { status: "allowed", updatedAt: sql`now()` } });
+    await rememberInvited(ctx.page, email, name, ctx.viewer.email).catch(() => {});
     const url = await roomPageUrl(req, ctx.page, req.body?.path);
     const sent = await sendRoomInviteEmail({ recipientEmail: email, recipientName: name, invitedBy: ctx.viewer.name || ctx.viewer.email, roomUrl: `${url}?rt=${encodeURIComponent(signRoomToken(ctx.page.id, email))}`, roomTitle: ctx.page.title, tenantId: ctx.page.tenantId }).catch(() => false);
     if (!sent) {
@@ -1626,6 +1655,7 @@ router.post("/lp/partner-rooms/:pageId/invite", async (req: Request, res: Respon
         .insert(lpRoomMembersTable)
         .values({ tenantId: page.tenantId, pageId: page.id, email, status: "allowed" })
         .onConflictDoUpdate({ target: [lpRoomMembersTable.pageId, lpRoomMembersTable.email], set: { status: "allowed", updatedAt: sql`now()` } });
+      if (page.isWorkspace) await rememberInvited(page, email, name, req.authUser?.email ?? "team").catch(() => {});
       const ok = await sendRoomInviteEmail({ recipientEmail: email, recipientName: name, invitedBy, note, roomUrl: `${url}?rt=${encodeURIComponent(signRoomToken(page.id, email))}`, roomTitle: page.title, tenantId: page.tenantId }).catch(() => false);
       (ok ? sent : failed).push(email);
     }

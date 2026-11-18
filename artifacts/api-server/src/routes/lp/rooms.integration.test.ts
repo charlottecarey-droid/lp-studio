@@ -389,7 +389,8 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const s1 = (await post("state", { pageId, hl })).json as { tasks: Record<string, { done: boolean }>; choices: Record<string, { value: string; by?: string }>; contacts: { name: string; email: string }[]; wins: { id: number; likes: number; liked: boolean; by: string; comments: unknown[] }[] };
     expect(Object.keys(s1.tasks).sort()).toEqual(["onboard-gift", "onboard-logo", "onboard-team"]);
     expect(s1.choices).toEqual({ "mk-event": { value: "Onsite training", at: expect.any(String), by: "Dana Visitor" } });
-    expect(s1.contacts).toEqual([expect.objectContaining({ name: "Sam Rivera", email: "sam@roomco.com" })]);
+    // The person they added, then themself: in the hub by personal link, on no list, so shown rather than asked to add themself.
+    expect(s1.contacts).toEqual([expect.objectContaining({ name: "Sam Rivera", email: "sam@roomco.com" }), expect.objectContaining({ name: "Dana Visitor", email: "dana@roomco.com", invited: true })]);
     expect(s1.wins).toEqual([expect.objectContaining({ likes: 0, liked: false, by: "Dana Visitor", comments: [] })]);
     const winId = s1.wins[0].id;
 
@@ -414,7 +415,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await inject(app, { method: "DELETE", url: `/lp/partner-rooms/${pageId}/wins/${winId}`, headers: asTenant(tenantId) })).status).toBe(200);
     expect(((await post("state", { pageId })).json as { wins: unknown[] }).wins).toEqual([]);
     await inject(app, { method: "DELETE", url: `/lp/partner-rooms/${pageId}/contacts/${detail.contacts[0].id}`, headers: asTenant(tenantId) });
-    expect(((await post("state", { pageId, hl })).json as { contacts: unknown[] }).contacts).toEqual([]);
+    expect(((await post("state", { pageId, hl })).json as { contacts: { email: string }[] }).contacts.map((c) => c.email)).toEqual(["dana@roomco.com"]);
   }, 30_000);
 
   it("practices: the team imports a list, any visitor sees counts, only known visitors see names; goals can be agreed", async () => {
@@ -1382,6 +1383,25 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(p.days).toHaveLength(30);
     expect(p.trackedSince).toBeTruthy();
     expect((await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/performance`, headers: asTenant(otherTenantId) })).status).toBe(404);
+
+    // "Add your team" must show everyone who is already in. Ana is on the Team list, so she is not repeated; someone invited
+    // by name keeps that name; someone let in by address alone gets a readable one; a visitor who just signed in sees themself.
+    type Listed = { id: number; name: string; email: string; invited?: boolean };
+    const listed = async (token: string) => ((await post("state", { pageId, rt: token })).json as { contacts: Listed[] }).contacts;
+    expect(await listed(rt)).toEqual([]);
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/invite`, headers: rep, body: { people: [{ name: "Dee Dunn", email: "dd@birchdental.com" }, { email: "ana@birchdental.com", name: "Ana Ruiz" }] } })).status).toBe(200);
+    await pool.query(`INSERT INTO lp_room_members (tenant_id, page_id, email, status) VALUES ($1, $2, 'kim.lee@birchdental.com', 'allowed')`, [tenantId, pageId]);
+    const afterInvite = await listed(rt);
+    expect(afterInvite.map((c) => [c.name, c.email, !!c.invited])).toEqual([
+      ["Dee Dunn", "dd@birchdental.com", false],
+      ["Kim Lee", "kim.lee@birchdental.com", true],
+    ]);
+    expect(afterInvite[1].id).toBeLessThan(0);
+    await post("access", { pageId, email: "zed.fox@birchdental.com", path: "/birch" });
+    const zed = tokenFrom(sentEmails.filter((e) => e.recipientEmail === "zed.fox@birchdental.com").pop()!.roomUrl);
+    expect((await listed(zed)).map((c) => c.name)).toEqual(["Dee Dunn", "Kim Lee", "Zed Fox"]);
+    // A stranger still learns nothing.
+    expect(((await post("state", { pageId })).json as { contacts: unknown[] }).contacts).toEqual([]);
 
     // Back in the list: live, with a link, one person, a last visit.
     const live = (await list(rep)).find((h) => h.pageId === pageId)!;

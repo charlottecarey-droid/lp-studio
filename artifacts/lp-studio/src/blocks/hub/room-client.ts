@@ -77,6 +77,8 @@ export interface RoomContact {
   name: string;
   role: string | null;
   email: string | null;
+  /** In the hub (invited, or signed in) without having been added to a list: shown so nobody adds them twice. */
+  invited?: boolean;
 }
 
 export interface RoomSnapshot {
