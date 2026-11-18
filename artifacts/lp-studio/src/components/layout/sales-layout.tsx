@@ -22,6 +22,7 @@ import {
   Plug,
   Sparkles,
   Megaphone,
+  DoorOpen,
   SquarePen,
 } from "lucide-react";
 import {
@@ -281,6 +282,13 @@ export function SalesTopNav() {
       icon: <Building2 className="w-4 h-4" />,
       permission: "sales_accounts",
       matchFn: (loc) => loc === "/sales/accounts" || loc.startsWith("/sales/accounts/"),
+    },
+    {
+      label: "Partner Hubs",
+      href: "/sales/partner-hubs",
+      icon: <DoorOpen className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/partner-hubs" || loc.startsWith("/sales/partner-hubs/"),
     },
     {
       label: "Activity",

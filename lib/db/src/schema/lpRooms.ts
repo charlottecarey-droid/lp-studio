@@ -49,6 +49,8 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   calendarSyncNote: text("calendar_sync_note"),
   /** The team member's Google connection this room reads its calendar and notes through. Null = the workspace connector. */
   calendarConnectionId: integer("calendar_connection_id"),
+  /** Post to Slack when someone from the customer opens the hub (at most once per person every few hours). Off unless the team ticks it. */
+  visitAlert: boolean("visit_alert").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -423,6 +425,30 @@ export const lpRoomWinCommentsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_win_comments_win_idx").on(t.winId, t.createdAt)],
+);
+
+/**
+ * One row each time a visitor opens a section of a hub. The browser makes the
+ * id, sends the row when the section opens and again with the seconds spent
+ * when they leave it. The page's own team is never recorded.
+ */
+export const lpRoomViewsTable = pgTable(
+  "lp_room_views",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    /** Made in the browser, one per section opening. */
+    viewId: text("view_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    module: text("module").notNull(),
+    seconds: integer("seconds").notNull().default(0),
+    /** Null = a visitor nobody could name (an open hub, not signed in). */
+    viewerEmail: text("viewer_email"),
+    viewerName: text("viewer_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_views_view_uniq").on(t.pageId, t.viewId), index("lp_room_views_page_idx").on(t.pageId, t.createdAt)],
 );
 
 export type LpRoomRequest = typeof lpRoomRequestsTable.$inferSelect;

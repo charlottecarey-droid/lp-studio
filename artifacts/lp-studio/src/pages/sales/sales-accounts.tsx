@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { Link, useLocation, useRoute } from "wouter";
+import { AccountHubButton } from "@/components/sales/AccountHubButton";
 import { format } from "date-fns";
 import {
   Building2,
@@ -2923,14 +2924,17 @@ function AccountDetailView({ id }: { id: string }) {
               )}
             </div>
           </div>
-          <Button
-            onClick={() => { setDetailTab("microsites"); setShowMicrositeModal(true); }}
-            className="gap-2 shrink-0"
-            size="sm"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            Generate Microsite
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <AccountHubButton accountId={account.id} />
+            <Button
+              onClick={() => { setDetailTab("microsites"); setShowMicrositeModal(true); }}
+              className="gap-2 shrink-0"
+              size="sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate Microsite
+            </Button>
+          </div>
         </div>
 
         {/* Tab Bar */}

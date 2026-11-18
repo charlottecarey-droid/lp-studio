@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { RoomInviteSection } from "./RoomInvite";
+import { RoomPerformance } from "./RoomPerformance";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -23,6 +24,8 @@ interface RoomDetail {
   digest?: { enabled: boolean; recipients: string[]; lastSentAt: string | null };
   sheet?: { id: string | null; tab: string | null; syncedAt: string | null; note: string | null; filterColumn?: string | null; filterValue?: string | null };
   revopsSlackMention?: string | null;
+  /** Post to Slack when someone from the customer opens the hub. */
+  visitAlert?: boolean;
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
   kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
@@ -80,7 +83,7 @@ async function send(url: string, method: string, body?: unknown): Promise<string
   }
 }
 
-export type RoomPanelTab = "activity" | "kit" | "practices" | "calendar" | "settings";
+export type RoomPanelTab = "performance" | "activity" | "kit" | "practices" | "calendar" | "settings";
 /** A file the Room panel just put in the launch kit. The builder applies it to its own copy of the page too, so its next save keeps it. */
 /** A link added to the launch kit from the Room panel (the practice microsite). */
 export interface RoomKitLinkChange {
@@ -92,7 +95,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "activity" }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   const [tab, setTab] = useState<RoomPanelTab>(initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -171,15 +174,19 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "ac
   const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
 
   return (
-    <Card data-testid="page-room-panel">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-base flex items-center gap-2">
-          <DoorOpen className="w-4 h-4 text-muted-foreground" />
-          Room
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Who can upload files and mark tasks done on this page, and what they have sent. Anyone with the link can view the page.
-        </p>
+    <Card data-testid="page-room-panel" className={embedded ? "border-0 bg-transparent shadow-none" : undefined}>
+      <CardHeader className={embedded ? "space-y-1 p-0 pb-4" : "space-y-1"}>
+        {!embedded && (
+          <>
+            <CardTitle className="text-base flex items-center gap-2">
+              <DoorOpen className="w-4 h-4 text-muted-foreground" />
+              Room
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Who can upload files and mark tasks done on this page, and what they have sent. Anyone with the link can view the page.
+            </p>
+          </>
+        )}
         {data.isWorkspace && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <Button
@@ -201,10 +208,11 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "ac
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className={embedded ? "space-y-6 p-0" : "space-y-6"}>
         <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Room sections">
           {(
             [
+              ...(data.isWorkspace ? [{ id: "performance", label: "Performance", count: 0 }] : []),
               { id: "activity", label: "Activity", count: requests.length + (data.requests ?? []).filter((q) => q.status === "new").length },
               ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
               { id: "practices", label: data.isWorkspace ? "Practices & files" : "Files", count: 0 },
@@ -227,6 +235,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "ac
           ))}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} />}
         {tab === "activity" && requests.length === 0 && (data.requests ?? []).length === 0 && (data.choices ?? []).length === 0 && !data.isWorkspace && data.tasks.length === 0 && <p className="text-sm text-muted-foreground">Nothing has happened in this room yet.</p>}
 
         {tab === "activity" && requests.length > 0 && (
@@ -652,6 +661,22 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "ac
             <Button size="sm" variant="brand" onClick={saveSettings}>Save</Button>
             {saved && <span className="text-sm text-muted-foreground">Saved</span>}
           </div>
+          {data.isWorkspace && (
+            <label className="flex items-start gap-2 text-sm" data-room-visit-alert>
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={!!data.visitAlert}
+                onChange={async (e) => {
+                  await run(send(`${base}/settings`, "PATCH", { visitAlert: e.target.checked }));
+                }}
+              />
+              <span>
+                <span className="font-medium">Tell us in Slack when the customer visits</span>
+                <span className="block text-xs text-muted-foreground">One post per person, at most every six hours, in the channel above. Only people who signed in with their email are named; your own team never triggers it.</span>
+              </span>
+            </label>
+          )}
 
           {data.isWorkspace && <RoomInviteSection pageId={pageId} onInvited={refresh} />}
 

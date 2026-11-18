@@ -37,6 +37,7 @@ import {
   lpRoomSettingsTable,
   lpRoomTaskStateTable,
   lpRoomUploadsTable,
+  lpRoomViewsTable,
   salesContactsTable,
   salesHotlinksTable,
   tenantsTable,
@@ -56,6 +57,7 @@ import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
 import { ensurePracticeSite, setRoomPracticeLink } from "../../lib/partnerRoomPracticeSite";
 import { accountPeople, publicPageUrl, createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
+import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { applyRoster, buildRoomDigest, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
@@ -1008,6 +1010,45 @@ router.post("/lp/room/asset", stateLimiter, async (req: Request, res: Response):
   res.status(204).end();
 });
 
+/**
+ * A visitor opened a section of the hub (seconds 0), or left it (the seconds
+ * they spent). One row per opening; the page's own team is never recorded,
+ * and nothing is recorded behind an email gate nobody has passed.
+ */
+router.post("/lp/room/view", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = parseRoomView(req.body);
+    const page = parsed ? await loadRoomPage(parsed.pageId) : null;
+    if (parsed && page?.isWorkspace) {
+      const viewer = await resolveViewer(page, req.body ?? {}, req.authUser).catch(() => null);
+      if (!viewer?.team && !(page.gated && !viewer)) {
+        // Tell the team in Slack when a named customer arrives, if the hub asks for it and they have not been in for a while.
+        if (viewer && parsed.seconds === 0) {
+          const [cfg] = await db.select({ visitAlert: lpRoomSettingsTable.visitAlert, slackChannelId: lpRoomSettingsTable.slackChannelId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1);
+          if (cfg?.visitAlert) {
+            const [seen] = await db
+              .select({ id: lpRoomViewsTable.id })
+              .from(lpRoomViewsTable)
+              .where(and(eq(lpRoomViewsTable.pageId, page.id), eq(lpRoomViewsTable.viewerEmail, viewer.email), gte(lpRoomViewsTable.createdAt, new Date(Date.now() - VISIT_ALERT_QUIET_MS))))
+              .limit(1);
+            if (!seen) postToSlack(page, cfg.slackChannelId, "Partner Hub visit", [`*${mrk(viewer.name || viewer.email)}*${viewer.name ? ` (${mrk(viewer.email)})` : ""} is in the hub.`], await roomPageUrl(req, page, req.body?.path).catch(() => undefined));
+          }
+        }
+        await db
+          .insert(lpRoomViewsTable)
+          .values({ tenantId: page.tenantId, pageId: page.id, viewId: parsed.viewId, sessionId: parsed.sessionId, module: parsed.module, seconds: parsed.seconds, viewerEmail: viewer?.email ?? null, viewerName: viewer?.name ?? null })
+          .onConflictDoUpdate({
+            target: [lpRoomViewsTable.pageId, lpRoomViewsTable.viewId],
+            set: { seconds: sql`GREATEST(${lpRoomViewsTable.seconds}, ${parsed.seconds})`, viewerEmail: sql`COALESCE(${lpRoomViewsTable.viewerEmail}, ${viewer?.email ?? null})`, viewerName: sql`COALESCE(${lpRoomViewsTable.viewerName}, ${viewer?.name ?? null})` },
+          });
+      }
+    }
+  } catch (err) {
+    req.log.warn({ err }, "room view event failed");
+  }
+  res.status(204).end();
+});
+
 /** The room's calendar as an iCalendar feed a calendar app can subscribe to. Events come from the page itself, which is already open to anyone with the link. */
 router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1242,6 +1283,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       digest: { enabled: !!fullSettings?.digestEnabled, recipients: Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients : [], lastSentAt: fullSettings?.lastDigestAt?.toISOString() ?? null },
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
+      visitAlert: !!fullSettings?.visitAlert,
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
@@ -1337,7 +1379,8 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
       return;
     }
     // Optional keys: only touched when the request carries them.
-    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null; practicesSheetFilterColumn?: string | null; practicesSheetFilterValue?: string | null; revopsSlackMention?: string | null; calendarId?: string | null; calendarConnectionId?: number | null } = {};
+    const extra: { digestEnabled?: boolean; digestRecipients?: string[]; practicesSheetId?: string | null; practicesSheetTab?: string | null; practicesSheetFilterColumn?: string | null; practicesSheetFilterValue?: string | null; revopsSlackMention?: string | null; calendarId?: string | null; calendarConnectionId?: number | null; visitAlert?: boolean } = {};
+    if (typeof req.body?.visitAlert === "boolean") extra.visitAlert = req.body.visitAlert;
     // "mine" = read this room's calendar through the signed-in member's own Google connection; null = stop.
     if (req.body?.calendarConnection !== undefined) {
       if (req.body.calendarConnection === "mine") {

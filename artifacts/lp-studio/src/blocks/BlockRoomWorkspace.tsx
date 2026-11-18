@@ -1427,6 +1427,9 @@ ${TEAM_STACK_RULES}
 type RequestPreset = { subject: string; assetKey?: string; kind?: string; stepKey?: string; details?: string; form?: "shipping" };
 type Ask = { kind: "request"; preset?: RequestPreset } | { kind: "email" } | { kind: "contact" } | null;
 
+/** An id made in the browser for one section opening (or one visit when the page gave no session). */
+const roomViewId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}${Math.random().toString(36).slice(2, 8)}`;
+
 export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldChange }: Props) {
   const isEditor = !!onFieldChange;
   const { pageId, sessionId } = usePageContext();
@@ -1453,6 +1456,38 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const modules = visibleModules(props.hiddenModules, props.moduleOrder);
   const [view, setView] = useState<RoomModuleKey>(modules[0].key);
   const active = modules.some((m) => m.key === view) ? view : modules[0].key;
+  // Which sections a visitor opens, and for how long: the account team reads it under Performance. Never in the
+  // builder, never behind the email gate, and the server drops the page's own team.
+  const viewerKnown = !!snapshot.viewer;
+  const viewSession = useRef("");
+  useEffect(() => {
+    if (isEditor || !store || !pageId || isTrackingSuppressed()) return;
+    if (props.requireEmail && !viewerKnown) return;
+    if (!viewSession.current) viewSession.current = sessionId && /^[A-Za-z0-9_-]{8,64}$/.test(sessionId) ? sessionId : roomViewId();
+    const base = { viewId: roomViewId(), sessionId: viewSession.current, module: active };
+    const started = Date.now();
+    let hiddenAt = 0;
+    let away = 0;
+    const seconds = () => Math.max(0, Math.round((Date.now() - started - away - (hiddenAt ? Date.now() - hiddenAt : 0)) / 1000));
+    store.trackView({ ...base, seconds: 0 });
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        store.trackView({ ...base, seconds: seconds() });
+        hiddenAt = Date.now();
+      } else if (hiddenAt) {
+        away += Date.now() - hiddenAt;
+        hiddenAt = 0;
+      }
+    };
+    const onLeave = () => store.trackView({ ...base, seconds: seconds() });
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onLeave);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onLeave);
+      store.trackView({ ...base, seconds: seconds() });
+    };
+  }, [active, store, isEditor, pageId, sessionId, viewerKnown, props.requireEmail]);
   const [ask, setAsk] = useState<Ask>(null);
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => setNow(new Date()), []);

@@ -100,6 +100,7 @@ import { pool } from "@workspace/db";
 import { inject } from "../../test-utils/injectRequest";
 import { __clearRecordedAsanaCalls, __getRecordedAsanaCalls } from "../../lib/asana";
 import roomsRouter from "./rooms";
+import partnerHubsRouter from "./partnerHubs";
 import googleConnectRouter from "./googleConnect";
 import { signConnectState } from "../../lib/googleWorkspace";
 
@@ -164,10 +165,11 @@ beforeAll(() => {
   app.use((req: Request, _res: Response, next: NextFunction) => {
     (req as unknown as { log: unknown }).log = { error: () => {}, warn: () => {}, info: () => {} };
     const t = req.header("x-test-tenant");
-    if (t) (req as unknown as { authUser: unknown }).authUser = { userId: 1, tenantId: Number(t), ...(req.header("x-test-email") ? { email: req.header("x-test-email") } : {}) };
+    if (t) (req as unknown as { authUser: unknown }).authUser = { userId: 1, tenantId: Number(t), ...(req.header("x-test-email") ? { email: req.header("x-test-email") } : {}), ...(req.header("x-test-name") ? { name: req.header("x-test-name") } : {}) };
     next();
   });
   app.use(roomsRouter);
+  app.use(partnerHubsRouter);
   app.use(googleConnectRouter);
 });
 
@@ -176,7 +178,7 @@ afterAll(async () => {
     await pool.query(`DELETE FROM lp_room_win_likes WHERE tenant_id = $1`, [id]).catch(() => {});
     await pool.query(`DELETE FROM lp_room_win_comments WHERE tenant_id = $1`, [id]).catch(() => {});
     await pool.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [id]).catch(() => {});
-    for (const table of ["lp_room_doctors", "lp_room_practice_snapshots", "lp_room_practices", "lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
+    for (const table of ["lp_room_views", "lp_room_autocreate_accounts", "lp_room_doctors", "lp_room_practice_snapshots", "lp_room_practices", "lp_room_wins", "lp_room_contacts", "lp_room_choices", "lp_room_requests", "lp_room_uploads", "lp_room_task_state", "lp_room_members", "lp_room_settings", "sales_hotlinks", "sales_contacts", "sales_accounts", "lp_pages"]) {
       await pool.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [id]).catch(() => {});
     }
     await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
@@ -1293,4 +1295,98 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const state = (await post("state", { pageId })).json as { practices: { scanners?: { total: number; practices: number } } };
     expect(state.practices.scanners).toEqual({ total: 5, practices: 2 });
   });
+  it("Sales Console: a rep makes a hub for an account once, finds it in the list, and sees who visited which section", async () => {
+    const tenantId = await seedTenant();
+    const otherTenantId = await seedTenant();
+    const acct = await pool.query<{ id: number }>(`INSERT INTO sales_accounts (tenant_id, name, status, domain, salesforce_id, owner) VALUES ($1, 'Birch Dental Partners', 'active', 'birchdental.com', '0015d00000BIRCHAAA', 'Sam Owner') RETURNING id`, [tenantId]);
+    const accountId = acct.rows[0].id;
+    await pool.query(`INSERT INTO sales_contacts (tenant_id, account_id, first_name, last_name, title, title_level, email, status) VALUES ($1, $2, 'Ana', 'Ruiz', 'COO', 'C Suite', 'ana@birchdental.com', 'active')`, [tenantId, accountId]);
+    const rep = { ...asTenant(tenantId), "x-test-email": "rep@dandy.example", "x-test-name": "Riley Rep" };
+
+    // The picker: the account is there, with no hub yet. Another workspace cannot see or use it.
+    const find = async (headers: Record<string, string>, qs: string) => ((await inject(app, { method: "GET", url: `/lp/partner-hub-accounts?${qs}`, headers })).json as { accounts: { id: number; name: string; hubPageId: number | null }[] }).accounts;
+    expect(await find(rep, "q=birch")).toEqual([expect.objectContaining({ id: accountId, hubPageId: null })]);
+    expect(await find(asTenant(otherTenantId), "q=birch")).toEqual([]);
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms`, headers: asTenant(otherTenantId), body: { accountId } })).status).toBe(404);
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms`, headers: rep, body: { accountId: "x" } })).status).toBe(404);
+
+    // Create: a draft hub tied to the account; asking again hands back the same one.
+    const made = await inject(app, { method: "POST", url: `/lp/partner-rooms`, headers: rep, body: { accountId } });
+    expect(made.status).toBe(200);
+    const pageId = (made.json as { pageId: number }).pageId;
+    expect(made.json).toMatchObject({ ok: true });
+    expect((made.json as { existed?: boolean }).existed).toBeUndefined();
+    const again = await inject(app, { method: "POST", url: `/lp/partner-rooms`, headers: rep, body: { accountId } });
+    expect(again.json).toMatchObject({ pageId, existed: true });
+    const row = await pool.query<{ status: string; account_id: number; sfdc_account_id: string; updated_by: string; title: string }>(`SELECT status, account_id, sfdc_account_id, updated_by, title FROM lp_pages WHERE id = $1`, [pageId]);
+    expect(row.rows[0]).toMatchObject({ status: "draft", account_id: accountId, sfdc_account_id: "0015d00000BIRCHAAA", updated_by: "rep@dandy.example", title: "Birch Dental Partners Partner Hub" });
+    expect((await find(rep, `id=${accountId}`))[0].hubPageId).toBe(pageId);
+
+    // The list: the rep's own, a draft, nothing waiting on us. The owner sees it as theirs too; a third person does not.
+    type Hub = { pageId: number; name: string; status: string; url: string; mine: boolean; account: { id: number; owner: string } | null; waitingOnCustomer: number; waitingOnUs: number; views30: number; people30: number; lastVisitAt: string | null };
+    const list = async (headers: Record<string, string>) => ((await inject(app, { method: "GET", url: `/lp/partner-rooms`, headers })).json as { hubs: Hub[] }).hubs;
+    const mine = (await list(rep)).find((h) => h.pageId === pageId)!;
+    expect(mine).toMatchObject({ name: "Birch Dental Partners", status: "draft", url: "", mine: true, account: { id: accountId, owner: "Sam Owner" }, waitingOnUs: 0, people30: 0, lastVisitAt: null });
+    expect(mine.waitingOnCustomer).toBeGreaterThan(0);
+    expect((await list({ ...asTenant(tenantId), "x-test-email": "sam@dandy.example", "x-test-name": "Sam Owner" })).find((h) => h.pageId === pageId)!.mine).toBe(true);
+    expect((await list({ ...asTenant(tenantId), "x-test-email": "other@dandy.example", "x-test-name": "Other Person" })).find((h) => h.pageId === pageId)!.mine).toBe(false);
+    expect(await list(asTenant(otherTenantId))).toEqual([]);
+
+    // Setup: nothing done on a fresh draft except the team that was filled in from the account.
+    const setup = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/setup`, headers: rep })).json as { status: string; setup: { key: string; done: boolean }[] };
+    expect(setup.status).toBe("draft");
+    expect(Object.fromEntries(setup.setup.map((i) => [i.key, i.done]))).toMatchObject({ logo: false, team: true, publish: false, invite: false });
+    expect((await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/setup`, headers: asTenant(otherTenantId) })).status).toBe(404);
+
+    // Visits. The hub asks for an email, so a stranger's section view is not recorded; a recognised customer's is, by name.
+    await pool.query(`UPDATE lp_pages SET status = 'published' WHERE id = $1`, [pageId]);
+    const view = (extra: Record<string, unknown>) => post("view", { pageId, sessionId: "sess-birch-1", viewId: "view-birch-0001", module: "overview", seconds: 0, ...extra });
+    expect((await view({})).status).toBe(204);
+    expect((await pool.query(`SELECT 1 FROM lp_room_views WHERE page_id = $1`, [pageId])).rowCount).toBe(0);
+    await post("access", { pageId, email: "ana@birchdental.com", path: "/birch" });
+    const rt = tokenFrom(sentEmails.filter((e) => e.recipientEmail === "ana@birchdental.com").pop()!.roomUrl);
+
+    // The Slack note is off until the team ticks it.
+    const { slackService } = await import("../../lib/slack-service");
+    vi.mocked(slackService.postMessage).mockClear();
+    await view({ rt });
+    expect(vi.mocked(slackService.postMessage)).not.toHaveBeenCalled();
+    await pool.query(`DELETE FROM lp_room_views WHERE page_id = $1`, [pageId]);
+    const saved = await inject(app, { method: "PATCH", url: `/lp/partner-rooms/${pageId}/settings`, headers: rep, body: { visitAlert: true } });
+    expect(saved.json).toMatchObject({ visitAlert: true, allowedDomains: ["birchdental.com"] });
+    expect(((await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: rep })).json as { visitAlert: boolean }).visitAlert).toBe(true);
+
+    // First arrival posts once; leaving the section updates the same row; the next section does not post again.
+    await view({ rt });
+    await view({ rt, seconds: 40 });
+    await view({ rt, seconds: 12 }); // a late, smaller report never shrinks the time
+    await view({ rt, viewId: "view-birch-0002", module: "practices", seconds: 0 });
+    await view({ rt, viewId: "view-birch-0002", module: "practices", seconds: 90 });
+    const slackTexts = vi.mocked(slackService.postMessage).mock.calls.map((c) => JSON.stringify(c[1]));
+    expect(slackTexts.filter((t) => t.includes("Partner Hub visit"))).toHaveLength(1);
+    expect(slackTexts.find((t) => t.includes("Partner Hub visit"))).toContain("Ana Ruiz");
+    // The page's own team is never counted, and junk is dropped.
+    expect((await inject(app, { method: "POST", url: `/lp/room/view`, headers: rep, body: { pageId, sessionId: "sess-team-01", viewId: "view-team-0001", module: "overview", seconds: 5 } })).status).toBe(204);
+    expect((await view({ rt, viewId: "bad id", module: "overview" })).status).toBe(204);
+    const stored = await pool.query<{ view_id: string; module: string; seconds: number; viewer_email: string; viewer_name: string }>(`SELECT view_id, module, seconds, viewer_email, viewer_name FROM lp_room_views WHERE page_id = $1 ORDER BY id`, [pageId]);
+    expect(stored.rows).toEqual([
+      { view_id: "view-birch-0001", module: "overview", seconds: 40, viewer_email: "ana@birchdental.com", viewer_name: "Ana Ruiz" },
+      { view_id: "view-birch-0002", module: "practices", seconds: 90, viewer_email: "ana@birchdental.com", viewer_name: "Ana Ruiz" },
+    ]);
+
+    const perf = await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/performance`, headers: rep });
+    expect(perf.json).toMatchObject({ windowDays: 30, visits: 1, visitors: 1, named: 1, anonymous: 0, seconds: 130 });
+    const p = perf.json as { people: { email: string; visits: number; modules: { module: string }[] }[]; modules: { module: string; opens: number }[]; days: unknown[]; trackedSince: string | null };
+    expect(p.people[0]).toMatchObject({ email: "ana@birchdental.com", visits: 1 });
+    expect(p.people[0].modules.map((m) => m.module)).toEqual(["practices", "overview"]);
+    expect(p.days).toHaveLength(30);
+    expect(p.trackedSince).toBeTruthy();
+    expect((await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/performance`, headers: asTenant(otherTenantId) })).status).toBe(404);
+
+    // Back in the list: live, with a link, one person, a last visit.
+    const live = (await list(rep)).find((h) => h.pageId === pageId)!;
+    expect(live).toMatchObject({ status: "live", people30: 1 });
+    expect(live.url).toContain(row.rows[0].title ? "birch-dental-partners-hub" : "");
+    expect(live.lastVisitAt).toBeTruthy();
+  }, 60_000);
 });

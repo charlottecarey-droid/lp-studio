@@ -379,6 +379,15 @@ class RoomStore {
     }
   }
 
+  /** A section of the hub was opened (seconds 0) or left (the seconds spent in it). Best effort; survives the tab closing. */
+  trackView(payload: { viewId: string; sessionId: string; module: string; seconds: number }): void {
+    try {
+      void fetch("/api/lp/room/view", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...this.auth(), ...payload }), keepalive: true }).catch(() => {});
+    } catch {
+      /* tracking never blocks the page */
+    }
+  }
+
   sendRequest(input: { kind: string; subject: string; details: string; assetKey?: string }) {
     return this.act("request", input);
   }
