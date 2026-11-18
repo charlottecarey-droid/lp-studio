@@ -1,4 +1,5 @@
-import type { VideoCardTrioBlockProps, VideoTrioCard } from "@/blocks/BlockVideoCardTrio";
+import type { VideoCardTrioBlockProps, VideoTrioCard, VideoTrioPlayButton } from "@/blocks/BlockVideoCardTrio";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,17 @@ export function VideoCardTrioPanel({ props, onChange }: Props) {
           showAspect={false}
           showPlayMode
         />
+        <Field label="Play button">
+          <Select value={props.playButton ?? "none"} onValueChange={(v) => update({ playButton: v as VideoTrioPlayButton })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none" className="text-xs">None</SelectItem>
+              <SelectItem value="center" className="text-xs">Center</SelectItem>
+              <SelectItem value="bottom-right" className="text-xs">Bottom right</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground mt-1">Opens the card's video in a pop-up with full controls. Shows only on cards that have a video.</p>
+        </Field>
       </PanelSection>
 
       <PanelSection title="Colors">

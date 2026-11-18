@@ -10,6 +10,9 @@ export interface VideoModalProps {
   videoUrl?: string;
   ariaLabel?: string;
   posterUrl?: string;
+  /** Force the native <video> player (or the iframe embed). Default: decided by file extension.
+   *  Pass it for media-library uploads, whose URLs carry no extension. */
+  native?: boolean;
 }
 
 export function VideoModal({
@@ -18,6 +21,7 @@ export function VideoModal({
   videoUrl,
   ariaLabel = "Video player",
   posterUrl,
+  native,
 }: VideoModalProps) {
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -50,7 +54,7 @@ export function VideoModal({
   if (typeof document === "undefined") return null;
 
   const hasUrl = !!videoUrl && videoUrl.trim() !== "";
-  const isNative = hasUrl && isNativeVideoUrl(videoUrl!);
+  const isNative = hasUrl && (native ?? isNativeVideoUrl(videoUrl!));
 
   return createPortal(
     <AnimatePresence>

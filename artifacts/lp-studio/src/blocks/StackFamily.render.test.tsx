@@ -99,6 +99,18 @@ describe("Stack family — media contract", () => {
     expect(html).toMatch(/mix-blend-mode:\s*normal/);
   });
 
+  it("video-card-trio draws a play button only when the option is on and the card has a video", () => {
+    const cards = [{ title: "A", body: "b", videoUrl: "/videos/a.mp4" }, { title: "B", body: "b" }];
+    const off = renderStatic(BlockVideoCardTrio as never, { ...defaultsFor("video-card-trio"), cards });
+    expect(off).not.toContain("data-play-button");
+    for (const pos of ["center", "bottom-right"]) {
+      const on = renderStatic(BlockVideoCardTrio as never, { ...defaultsFor("video-card-trio"), cards, playButton: pos });
+      expect(on.match(/data-play-button/g)).toHaveLength(1);
+      expect(on).toContain(`data-play-button="${pos}"`);
+      expect(on).toContain('aria-label="Play video: A"');
+    }
+  });
+
   it("an image-only slot renders an <img>, an empty slot renders the placeholder graphic", () => {
     const withImage = renderStatic(BlockVideoStepShowcase as never, {
       ...defaultsFor("video-step-showcase"),

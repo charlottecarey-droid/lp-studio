@@ -308,6 +308,8 @@ export interface BlendMediaProps {
   className?: string;
   style?: CSSProperties;
   title?: string;
+  /** Extra layer drawn over the media, inside the hover area (e.g. a play button). */
+  overlay?: ReactNode;
   onImageUpdate?: (url: string) => void;
   onAltUpdate?: (alt: string) => void;
   onFocalUpdate?: (focal: string) => void;
@@ -336,6 +338,7 @@ export function BlendMedia({
   className,
   style,
   title,
+  overlay,
   onImageUpdate,
   onAltUpdate,
   onFocalUpdate,
@@ -484,6 +487,8 @@ export function BlendMedia({
           )}
         </div>
       )}
+
+      {overlay}
 
       {native && hoverSound && soundBlocked && hovering && (
         <span
