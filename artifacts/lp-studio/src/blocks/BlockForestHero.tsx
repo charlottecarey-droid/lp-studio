@@ -148,7 +148,7 @@ function Words({ text, mounted, reduced, delayStart = 0.12 }: { text: string; mo
           {line.split(/\s+/).filter(Boolean).map((w, wi) => {
             const idx = i++;
             return (
-              <span key={wi} className="inline-block overflow-hidden align-bottom mr-[0.22em]">
+              <span key={wi} className="inline-block overflow-hidden align-bottom pb-[0.16em] -mb-[0.16em] pr-[0.08em] mr-[0.14em]">
                 <span
                   className="inline-block"
                   style={{
@@ -329,7 +329,7 @@ export function BlockForestHero({ props, brand, pageId, variantId, onCtaClick, o
               )}
               <h1
                 className="mt-[26px]"
-                style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(2.75rem, 6.4vw, 5.6rem)", lineHeight: 1.02, letterSpacing: "-0.04em", fontWeight: 400, color: cream, maxWidth: "12ch", margin: "26px 0 0", textWrap: "balance" } as React.CSSProperties}
+                style={{ fontFamily: FOREST_DISPLAY, fontSize: "clamp(2.75rem, 6.4vw, 5.6rem)", lineHeight: 1.12, letterSpacing: "-0.04em", fontWeight: 400, color: cream, maxWidth: "12ch", margin: "26px 0 0", textWrap: "balance" } as React.CSSProperties}
               >
                 {isEditor ? (
                   <InlineText as="span" value={p.headline} onUpdate={field("headline")} multiline />
@@ -337,7 +337,7 @@ export function BlockForestHero({ props, brand, pageId, variantId, onCtaClick, o
                   <Words text={p.headline} mounted={mounted} reduced={reduced} />
                 )}
                 {(p.headlineMuted || isEditor) && (
-                  <span className="block" style={{ color: onDarkMuted, fontSize: "0.56em", letterSpacing: "-0.025em", marginTop: "0.35em", lineHeight: 1.1 }}>
+                  <span className="block" style={{ color: onDarkMuted, fontSize: "0.56em", letterSpacing: "-0.025em", marginTop: "0.35em", lineHeight: 1.2 }}>
                     {isEditor ? (
                       <InlineText as="span" value={p.headlineMuted ?? ""} onUpdate={field("headlineMuted")} multiline />
                     ) : (
