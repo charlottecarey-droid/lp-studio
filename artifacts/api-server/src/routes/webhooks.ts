@@ -29,8 +29,9 @@ import {
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { broadcastSignal } from "./sales/signals";
-import { resolveSignalLinkage, deriveDomainFromEmail, fillContactLinkedinUrl } from "../lib/signalAttribution";
+import { resolveSignalLinkage, deriveDomainFromEmail, fillContactLinkedinUrl, normalizeDomain } from "../lib/signalAttribution";
 import { logger } from "../lib/logger";
+import { stripUnresolvedPlaceholders } from "../lib/webhookPlaceholders";
 
 // ─── Payload schemas ──────────────────────────────────────────
 // Each schema validates that the inbound body has the expected outer shape for
@@ -147,10 +148,13 @@ function slugFromUrl(pageUrl: string | undefined): string | null {
   }
 }
 
-/** Normalise a domain string — strip www., lowercase, trim. */
+/**
+ * Normalise a domain string. Providers may send a full website URL (Apollo's
+ * `{{account.website_url}}` → "https://www.acme.com/"), so strip protocol,
+ * www., and any path via the shared helper.
+ */
 function normaliseDomain(raw: string | undefined): string | null {
-  if (!raw) return null;
-  return raw.toLowerCase().replace(/^www\./, "").trim();
+  return normalizeDomain(raw);
 }
 
 /**
@@ -347,7 +351,11 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
       return;
     }
 
-    const body = apolloParsed.data as Record<string, any>;
+    // Apollo's workflow webhook body is hand-built; field labels typed as text
+    // (instead of inserted as variables) arrive as "<Contact › First name>".
+    // Drop them so they're never stored as visitor data.
+    const { value: body, stripped: placeholderCount } =
+      stripUnresolvedPlaceholders(apolloParsed.data as Record<string, any>);
 
     const org    = body.organization ?? body.org ?? {};
     const visitor = body.visitor ?? {};
@@ -369,6 +377,18 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
     // Enrich a missing org domain from a corporate email so the signal carries a
     // usable domain and can match an account by domain.
     const resolvedDomain: string | null = companyDomain ?? deriveDomainFromEmail(email);
+
+    if (placeholderCount > 0) {
+      logger.warn(
+        { tenantId, source: "apollo", placeholderCount },
+        "apollo webhook body has unfilled placeholders — map the fields to Apollo variables in the workflow's webhook step",
+      );
+    }
+    // Nothing identifies the visitor or their company: don't create an empty signal.
+    if (!companyName && !resolvedDomain && !firstName && !lastName && !email && !linkedinUrl) {
+      res.status(202).json({ ok: true, ignored: "no visitor or company data" });
+      return;
+    }
 
     const { accountId, contactId } = await resolveSignalLinkage(tenantId, {
       email,
