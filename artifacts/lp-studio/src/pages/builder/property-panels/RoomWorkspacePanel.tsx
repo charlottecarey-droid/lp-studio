@@ -101,10 +101,8 @@ function TeamImport({ groups, pageId, onAdd }: { groups: string[]; pageId: numbe
           <SelectContent>{groups.map((g, i) => <SelectItem key={i} value={String(i)}>{g}</SelectItem>)}</SelectContent>
         </Select>
       </Field>
-      <Textarea value={text} onChange={(e) => { setText(e.target.value); setNote(""); }} rows={5} className="font-mono text-[11px]" placeholder={`${TEAM_IMPORT_COLUMNS}\nDana Ruiz, Chief Operating Officer, dana@customer.com, Customer\nSam Rep, Account Manager, sam@yourcompany.com, Us`} />
-      <p className="text-[11px] text-muted-foreground">
-        Paste from a sheet or type one person per line. With a first row of column names ({TEAM_IMPORT_COLUMNS}; also first name, last name, title, owns, when) the columns can be in any order, and a <b>team</b> column sorts people onto each side. Without one, each line is read as Name, Role, Email.
-      </p>
+      <Textarea value={text} onChange={(e) => { setText(e.target.value); setNote(""); }} rows={5} className="font-mono text-[11px]" />
+      <p className="text-[11px] text-muted-foreground">One person per line: Name, Role, Email</p>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" className="h-7 text-[11px]" disabled={parsed.people.length === 0} onClick={() => { say(onAdd(parsed.people, group), parsed.people.length); setText(""); }}>
           Add {parsed.people.length || ""} {parsed.people.length === 1 ? "person" : "people"}
@@ -230,6 +228,11 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 propsRef.current = next;
                 onChange(next);
               }}
+              onCover={(c) => {
+                const next = { ...propsRef.current, headline: c.headline, eyebrow: c.eyebrow, coverStyle: c.coverStyle, coverPhotoScrolls: c.coverPhotoScrolls };
+                propsRef.current = next;
+                onChange(next);
+              }}
               onKitLink={(link) => {
                 // The practice microsite was linked on the saved page: add it to the builder's copy too, or the next save here would drop it.
                 const current = propsRef.current;
@@ -305,14 +308,14 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
 
   const MODULE_HINT: Partial<Record<RoomModuleKey, string>> = {
     overview: `${steps.length} setup item${steps.length === 1 ? "" : "s"} · ${phases.length} phases`,
-    wins: "Posted from the room, or under Manage → Activity",
+    wins: "Posts, photos and comments",
     goals: `${goalItems.length} goal${goalItems.length === 1 ? "" : "s"}`,
     plan: `${groups.reduce((n, g) => n + (g.rows ?? []).length, 0)} milestones in ${groups.length} phases`,
     practices: "Loaded under Manage → Practices & files",
     marketing: `${mGroups.reduce((n, g) => n + (g.programs ?? []).length, 0)} programs`,
     kit: `${links.length} link${links.length === 1 ? "" : "s"} · ${assets.length} asset${assets.length === 1 ? "" : "s"}`,
     calendar: `${events.length} event${events.length === 1 ? "" : "s"}, plus synced meetings`,
-    meetings: `${meetingItems.length} typed in, plus published minutes`,
+    meetings: `Shown inside Calendar · ${meetingItems.length} typed in`,
     requests: "Answered under Manage → Activity",
     team: `${team.reduce((n, g) => n + (g.members ?? []).length, 0)} people`,
   };
@@ -392,10 +395,8 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Opens in a pop-up. Automatic rooms and the standard launch files are under Settings → Partner Hubs.</p>
           </div>
         )}
-        <p className="px-1 text-[11px] leading-snug text-muted-foreground">Switch a module off to hide it from this customer; its content and data are kept. Most text can also be edited by clicking it on the page.</p>
       </div>
     );
   }
@@ -589,7 +590,6 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setGoals({ items: [...goalItems, { key: `goal-${Date.now().toString(36)}`, title: "New goal", metric: "manual", status: "on-track" }] })}>
           <Plus className="h-3 w-3" /> Add goal
         </Button>
-        <p className="text-[11px] leading-snug text-muted-foreground">Counted goals update on their own from the room. The practice list is loaded on this page’s analytics, under Room.</p>
       </SectionBody>
       )}
 
@@ -622,7 +622,6 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
             <Plus className="h-3 w-3" /> Add kickoff and Day 30 / 60 / 90
           </Button>
         )}
-        <p className="text-[11px] leading-snug text-muted-foreground">Events without a date stay off the page. Customers can add one event to their calendar or subscribe to all of them.</p>
       </SectionBody>
       )}
 
@@ -665,7 +664,6 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMinutes({ items: [{ key: `meeting-${Date.now().toString(36)}`, title: "New meeting", date: todayIso, decisions: [], actions: [] }, ...meetingItems] })}>
           <Plus className="h-3 w-3" /> Add meeting
         </Button>
-        <p className="text-[11px] leading-snug text-muted-foreground">Everything here is visible to the customer. Keep internal notes out, and only link notes or recordings they may open.</p>
       </SectionBody>
       )}
 
@@ -720,7 +718,6 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setMarketing({ groups: [...mGroups, { title: "New group", programs: [] }] })}>
           <Plus className="h-3 w-3" /> Add group
         </Button>
-        <p className="text-[11px] leading-snug text-muted-foreground">The customer’s choices show on this page’s analytics, under Room, and post to Slack.</p>
       </SectionBody>
       )}
 
@@ -798,7 +795,6 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ planGroups: [...groups, { title: "New phase", checkpoint: "", rows: [] }] })}>
           <Plus className="h-3 w-3" /> Add phase
         </Button>
-        <p className="text-[11px] leading-snug text-muted-foreground">Files a customer uploads are private. They download from this page’s analytics, under Room, where you also set who is allowed to act.</p>
       </SectionBody>
       )}
 

@@ -41,6 +41,7 @@ import {
   coverLabel,
   roomHeadline,
   roomHeadlineDefault,
+  roomFirstStep,
   safeHttpUrl,
   roomAssetIconKey,
   targetHasPassed,
@@ -66,7 +67,7 @@ describe("room-workspace — registry + default render", () => {
     expect(roomHeadlineDefault("Northwind")).toBe("{{account}} × Northwind Partnership Hub");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
     expect(html).toContain("data-room-request-button");
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(10); // the launch kit lives inside Launch & marketing
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(9); // the launch kit lives inside Launch & marketing, meeting notes inside Calendar
     expect(html).toContain('data-room-view="overview"');
     expect(html).not.toContain("Here is where the rollout stands.");
     expect(html).not.toContain("One shared plan"); // other modules are separate views
@@ -83,16 +84,17 @@ describe("room-workspace — registry + default render", () => {
 describe("room-workspace — modules can be hidden per account", () => {
   it("drops hidden modules from the nav; hiding Requests removes Make a request", () => {
     const html = render({ hiddenModules: ["requests", "team"] });
-    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(8);
+    expect((html.match(/data-room-nav="/g) ?? []).length).toBe(7);
     expect(html).not.toContain('data-room-nav="requests"');
     expect(html).not.toContain("data-room-request-button");
   });
   it("lands on the first visible module, and never hides everything", () => {
     expect(render({ hiddenModules: ["overview", "practices", "wins", "goals"] })).toContain('data-room-view="plan"');
     expect(visibleModules(["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar", "meetings", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
-    expect(visibleModules(undefined)).toHaveLength(10);
+    expect(visibleModules(undefined)).toHaveLength(9);
     // Scorecard sits right under Overview, and a hub can set its own order.
     expect(visibleModules(undefined).map((m) => m.key).slice(0, 3)).toEqual(["overview", "practices", "wins"]);
+    expect(visibleModules(["calendar"]).map((m) => m.key)).toContain("calendar"); // meeting notes still show there
     expect(visibleModules(["wins"], ["team", "plan"]).map((m) => m.key).slice(0, 4)).toEqual(["team", "plan", "overview", "practices"]);
     expect(render({ moduleOrder: ["plan"] as never })).toContain('data-room-view="plan"');
     // One entry for the launch kit and the marketing plan together: it stays while either is shown.
@@ -204,7 +206,7 @@ describe("room-workspace — marketing plan, launch kit, hide anything", () => {
   it("wins: the feed renders a composer and an empty state before anything is posted", () => {
     const html = only("wins");
     expect(html).toContain("data-room-win-compose");
-    expect(html).toContain("No wins yet");
+    expect(html).toContain("No posts yet");
   });
 });
 
@@ -259,9 +261,35 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(welcomeName(null, "MB2 Dental")).toBe("MB2 Dental");
     expect(welcomeName(null, "")).toBe("there");
   });
-  it("upload milestones can be completed straight from Needs your attention", () => {
+  it("the first three steps are the practice list, the doctor roster and the welcome gift, then others take their place", () => {
+    expect(roomFirstStep("practice-roster", "Upload your practice list")).toBe("practices");
+    expect(roomFirstStep("doctor-roster", "Upload your doctor roster")).toBe("doctors");
+    expect(roomFirstStep("brand-guidelines", "Your brand guidelines shared")).toBeNull();
+    const planGroups = [{ title: "P", rows: [
+      { key: "brand", task: "Share brand guidelines", customerAction: "check" as const },
+      { key: "doctor-roster", task: "Upload your doctor roster", customerAction: "upload" as const },
+      { key: "practice-roster", task: "Upload your practice list", customerAction: "upload" as const },
+    ] }];
+    const onboarding = { steps: [
+      { key: "onboard-logo", title: "Upload your logo", action: "upload" as const },
+      { key: "onboard-gift", title: "Accept your welcome gift", action: "request" as const },
+    ] };
+    const html = render({ planGroups, onboarding } as never);
+    const list = html.slice(html.indexOf("data-room-attention"), html.indexOf("prw-track") > html.indexOf("data-room-attention") ? html.indexOf("prw-track") : undefined);
+    const at = (t: string) => list.indexOf(t);
+    expect(at("Upload your practice list")).toBeGreaterThan(-1);
+    expect(at("Upload your practice list")).toBeLessThan(at("Upload your doctor roster"));
+    expect(at("Upload your doctor roster")).toBeLessThan(at("Accept your welcome gift"));
+    expect(at("Upload your logo")).toBe(-1); // the fourth thing waits its turn
+    // With the practice list done, the next item takes its place.
+    const later = render({ planGroups: [{ title: "P", rows: planGroups[0].rows.map((r) => (r.key === "practice-roster" ? { ...r, status: "done" as const } : r)) }], onboarding } as never);
+    const list2 = later.slice(later.indexOf("data-room-attention"));
+    expect(list2.indexOf("Upload your doctor roster")).toBeLessThan(list2.indexOf("Accept your welcome gift"));
+    expect(list2).toContain("Upload your logo");
+  });
+  it("upload milestones can be completed straight from Your next steps", () => {
     const html = render();
-    const attention = html.slice(html.indexOf("Needs your attention"));
+    const attention = html.slice(html.indexOf("Your next steps"));
     expect(attention).toContain('data-room-action="upload"');
     expect(attention).toContain("Upload roster");
   });

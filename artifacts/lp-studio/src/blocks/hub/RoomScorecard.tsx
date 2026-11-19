@@ -17,7 +17,7 @@
  * Styles live in the room block's CSS string (`.prw-sc-*`).
  */
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Mail, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Mail, Search, X } from "lucide-react";
 import type { RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
 
 export const SCORECARD_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
@@ -451,7 +451,10 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       ) : (
         <>
           <div className="prw-tools prw-sc-tools">
-            <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} aria-label={`Search ${noun}`} />
+            <label className="prw-sc-search">
+              <Search aria-hidden />
+              <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} aria-label={`Search ${noun}`} />
+            </label>
             <select value={region} onChange={(e) => { setRegion(e.target.value); setPageNo(0); }} aria-label="Region">
               <option value="">All regions</option>
               {pr.regions.map((r) => <option key={r} value={r}>{r}</option>)}

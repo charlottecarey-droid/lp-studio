@@ -847,6 +847,51 @@ export function setRoomGoals(blocks: unknown, goals: RoomGoalsInput): unknown[] 
   return blocks.map((b) => (b === block ? { ...(b as object), props: next } : b));
 }
 
+/* ── The cover, edited from the team's pop-up ────────────────────────────── */
+
+export const ROOM_COVER_STYLES = ["fade", "split", "fullbleed", "light"] as const;
+export type RoomCoverStyle = (typeof ROOM_COVER_STYLES)[number];
+
+export interface RoomCoverInput {
+  /** Blank = the default headline ("Customer × Us Partnership Hub"). */
+  headline: string;
+  /** The small label above the headline. Blank hides it. */
+  eyebrow: string;
+  coverStyle: RoomCoverStyle;
+  /** Fading-photo cover only: the photo scrolls with the page instead of staying put. */
+  coverPhotoScrolls: boolean;
+}
+
+function coverText(v: unknown): string {
+  return typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
+}
+
+export function parseRoomCover(raw: unknown): { ok: true; cover: RoomCoverInput } | { ok: false; error: string } {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const headline = coverText(r.headline);
+  const eyebrow = coverText(r.eyebrow);
+  if (headline.length > 160) return { ok: false, error: "Keep the headline under 160 characters." };
+  if (eyebrow.length > 80) return { ok: false, error: "Keep the label under 80 characters." };
+  const coverStyle = (ROOM_COVER_STYLES as readonly unknown[]).includes(r.coverStyle) ? (r.coverStyle as RoomCoverStyle) : "fade";
+  return { ok: true, cover: { headline, eyebrow, coverStyle, coverPhotoScrolls: r.coverPhotoScrolls === true } };
+}
+
+/** The hub's cover as stored (account-name variables left as typed), or null when the page has no workspace block. */
+export function roomCoverInfo(blocks: unknown): RoomCoverInput | null {
+  const props = workspaceBlock(blocks)?.props;
+  if (!props) return null;
+  const parsed = parseRoomCover(props);
+  return parsed.ok ? parsed.cover : { headline: "", eyebrow: coverText(props.eyebrow).slice(0, 80), coverStyle: "fade", coverPhotoScrolls: props.coverPhotoScrolls === true };
+}
+
+/** Replace the cover's text and style. Returns new blocks, or null when the page has no workspace block. */
+export function setRoomCover(blocks: unknown, cover: RoomCoverInput): unknown[] | null {
+  const block = workspaceBlock(blocks);
+  if (!block || !Array.isArray(blocks)) return null;
+  const next = { ...(block.props ?? {}), headline: cover.headline, eyebrow: cover.eyebrow, coverStyle: cover.coverStyle, coverPhotoScrolls: cover.coverPhotoScrolls };
+  return blocks.map((b) => (b === block ? { ...(b as object), props: next } : b));
+}
+
 /** The launch-kit files that are the same for every customer. Uploaded once per workspace. */
 export const ROOM_STANDARD_ASSETS: { key: string; title: string; description: string }[] = [
   { key: "practice-welcome-guide", title: "Practice Welcome Guide", description: "What a practice can expect: training, first cases and who to call" },

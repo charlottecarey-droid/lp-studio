@@ -10,6 +10,7 @@ import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
+import { RoomCoverSection, type HubCover } from "./RoomCover";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -31,6 +32,8 @@ interface RoomDetail {
   events?: RoomEventRow[];
   /** The hub's goals as stored on the page (workspace hubs only). */
   goals?: HubGoals | null;
+  /** The hub's cover text and style as stored on the page (workspace hubs only). */
+  cover?: HubCover | null;
   kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
@@ -98,7 +101,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   const [tab, setTab] = useState<RoomPanelTab>(initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -207,7 +210,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initial
             >
               Open the hub as me
             </Button>
-            <span className="text-xs text-muted-foreground">{openNote || "Opens the published page already recognised as you, so you see the practice list and can post without the email check."}</span>
+            {openNote && <span className="text-xs text-muted-foreground">{openNote}</span>}
           </div>
         )}
       </CardHeader>
@@ -312,19 +315,14 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initial
             </p>
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-sm font-medium">Live Google Sheet</p>
-              <p className="text-xs text-muted-foreground">
-                The room re-reads this sheet about every hour and matches it exactly: rows removed from the sheet leave the room. First row = column names: name, region, wave, stage, training date, live date. Share the sheet with your workspace’s Google service account, the one lead sync uses (its address is shown under Settings → Partner Hubs).
-              </p>
+              <p className="text-xs text-muted-foreground">Columns: name, region, wave, stage, training date, live date. Re-read about every hour.</p>
               <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
-                <Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" />
-                <Input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder="Tab name (blank = first)" />
+                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Sheet link</span><Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} /></label>
+                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Tab name</span><Input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} /></label>
               </div>
-              <p className="text-xs text-muted-foreground">
-                A sheet that lists every customer’s locations needs narrowing to this one. If it has a “Parent Account ID” column, the room keeps the rows that match the Salesforce account ID saved below, and you can leave these blank. Otherwise name a column and the text its rows must contain.
-              </p>
               <div className="grid gap-2 sm:grid-cols-2">
-                <Input value={filterCol} onChange={(e) => setFilterCol(e.target.value)} placeholder="Only rows where this column… (Parent Account Name)" aria-label="Filter column" />
-                <Input value={filterVal} onChange={(e) => setFilterVal(e.target.value)} placeholder="…contains this (Acme Group)" aria-label="Filter value" />
+                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Only rows where this column</span><Input value={filterCol} onChange={(e) => setFilterCol(e.target.value)} aria-label="Filter column" /></label>
+                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Text it must contain</span><Input value={filterVal} onChange={(e) => setFilterVal(e.target.value)} aria-label="Filter value" /></label>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -373,11 +371,12 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initial
               )}
               {note && <span className="text-sm text-muted-foreground">{note}</span>}
             </div>
+            <p className="text-xs font-medium text-muted-foreground">Or paste a list. First line: name, region, wave, stage, training date, live date</p>
             <textarea
               className="min-h-[88px] w-full rounded-md border bg-background p-2 font-mono text-xs"
               value={csv}
               onChange={(e) => setCsv(e.target.value)}
-              placeholder={"Or paste a list (first line = column names):\nname,region,wave,stage,training date,live date\nMain Street Dental,North Texas,1,live,Nov 4,Nov 12"}
+             
               aria-label="Paste a practice list"
             />
             <div className="flex items-center gap-2">
@@ -437,18 +436,28 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initial
 
         {tab === "calendar" && data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
 
+        {tab === "settings" && data.isWorkspace && data.cover && (
+          <RoomCoverSection
+            pageId={pageId}
+            cover={data.cover}
+            onSaved={async (c) => {
+              onCover?.(c);
+              await refresh();
+            }}
+          />
+        )}
         {tab === "settings" && data.isWorkspace && (
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Weekly digest</h4>
             <p className="text-sm text-muted-foreground">
-              Every Monday morning: an email to the customer addresses below, and a post in this room’s Slack channel with what’s blocking and what’s waiting. A week with nothing to report is skipped.
+              Mondays: an email to the customer and a Slack post.
               {data.digest?.lastSentAt ? ` Last sent ${fmtDate(data.digest.lastSentAt)}.` : ""}
             </p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={digestOn} onChange={(e) => setDigestOn(e.target.checked)} />
               Send the weekly digest for this room
             </label>
-            <Input value={digestTo} onChange={(e) => setDigestTo(e.target.value)} placeholder="Customer emails, comma-separated" />
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Customer emails</span><Input value={digestTo} onChange={(e) => setDigestTo(e.target.value)} /></label>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
@@ -648,30 +657,25 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initial
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
               <span className="font-medium">Allowed email domains</span>
-              <Input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="customer.com, customer-group.com" />
-              <span className="block text-xs text-muted-foreground">Anyone with an address at these domains gets a link by email without approval.</span>
+              <Input value={domains} onChange={(e) => setDomains(e.target.value)} />
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium">Slack channel ID</span>
-              <Input value={channel} onChange={(e) => setChannel(e.target.value)} placeholder="C0123ABCDEF" />
-              <span className="block text-xs text-muted-foreground">Uploads, completed tasks and access requests post here. Blank uses your default channel.</span>
+              <Input value={channel} onChange={(e) => setChannel(e.target.value)} />
             </label>
             {data.isWorkspace && (
               <>
                 <label className="space-y-1 text-sm">
                   <span className="font-medium">Salesforce account ID</span>
-                  <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} placeholder="0015d000041HyXrAAK" />
-                  <span className="block text-xs text-muted-foreground">The customer’s parent account. Its child accounts become the practice list.</span>
+                  <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} />
                 </label>
                 <label className="space-y-1 text-sm">
                   <span className="font-medium">RevOps Slack mention</span>
-                  <Input value={revopsMention} onChange={(e) => setRevopsMention(e.target.value)} placeholder="S0123ABCD (user group) or U0123ABCD (person)" />
-                  <span className="block text-xs text-muted-foreground">Mentioned in the weekly Slack digest when Salesforce is missing practices or doctors the customer listed. RevOps never gets an Asana task.</span>
+                  <Input value={revopsMention} onChange={(e) => setRevopsMention(e.target.value)} />
                 </label>
                 <label className="space-y-1 text-sm">
                   <span className="font-medium">Asana project ID</span>
-                  <Input value={asanaProject} onChange={(e) => setAsanaProject(e.target.value)} placeholder="Blank uses your connected Asana project" />
-                  <span className="block text-xs text-muted-foreground">Marketing requests are filed here as “Expansion Support - customer - request”, with Intake status set to Submitted.</span>
+                  <Input value={asanaProject} onChange={(e) => setAsanaProject(e.target.value)} />
                 </label>
               </>
             )}
@@ -702,13 +706,13 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initial
           <div className="space-y-2 pt-2">
             <span className="text-sm font-medium">People</span>
             <form
-              className="flex gap-2"
+              className="flex items-end gap-2"
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (newEmail.trim() && (await setMember(newEmail.trim(), "allowed"))) setNewEmail("");
               }}
             >
-              <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="person@anywhere.com" className="max-w-xs" />
+              <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Email</span><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="max-w-xs" /></label>
               <Button type="submit" size="sm" variant="outline">Allow this person</Button>
             </form>
             {others.length > 0 && (
@@ -764,8 +768,8 @@ function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: 
         </select>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Input value={owner} onChange={(e) => setOwner(e.target.value)} onBlur={() => owner !== (q.owner ?? "") && onSave({ owner })} placeholder="Owner (name or team)" className="h-8 max-w-[220px] text-sm" />
-        <Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} placeholder="Due (Nov 21)" className="h-8 max-w-[140px] text-sm" />
+        <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Owner</span><Input value={owner} onChange={(e) => setOwner(e.target.value)} onBlur={() => owner !== (q.owner ?? "") && onSave({ owner })} className="h-8 max-w-[220px] text-sm" /></label>
+        <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Due</span><Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} className="h-8 max-w-[140px] text-sm" /></label>
       </div>
     </div>
   );
@@ -787,8 +791,8 @@ function WinsSection({ base, wins, run }: { base: string; wins: NonNullable<Room
           }
         }}
       >
-        <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Headline, optional (1,000 cases submitted)" className="h-8 text-sm" />
-        <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Share a win with the customer" className="h-8 text-sm" />
+        <label className="block space-y-1 text-xs flex-1"><span className="font-medium text-muted-foreground">Headline (optional)</span><Input value={headline} onChange={(e) => setHeadline(e.target.value)} className="h-8 text-sm" /></label>
+        <label className="block space-y-1 text-xs flex-1"><span className="font-medium text-muted-foreground">Win</span><Input value={body} onChange={(e) => setBody(e.target.value)} className="h-8 text-sm" /></label>
         <Button type="submit" size="sm" variant="brand" disabled={!body.trim()}>Post to the room</Button>
       </form>
       {wins.length > 0 && (
@@ -961,8 +965,8 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
         )}
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer">Use a shared calendar instead of the main one</summary>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Input className="max-w-sm" value={calId} onChange={(e) => setCalId(e.target.value)} placeholder="primary, or a calendar ID (team@group.calendar.google.com)" aria-label="Google Calendar ID" />
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Calendar ID</span><Input className="max-w-sm" value={calId} onChange={(e) => setCalId(e.target.value)} aria-label="Google Calendar ID" /></label>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => connect()}>Save and read</Button>
           </div>
         </details>
@@ -1428,12 +1432,10 @@ export function AutomaticRoomsSection() {
   return (
     <section className="space-y-2">
       <h4 className="text-sm font-semibold">Automatic rooms</h4>
-      <p className="text-sm text-muted-foreground">
-        Point LP Studio at the sheet tab that lists signed accounts. Each account added to it gets a draft room with the account’s name filled in and the standard files attached, and your Slack channel is told. Accounts already on the list when you turn this on are recorded, not created. Rooms stay drafts until someone publishes them.
-      </p>
+      <p className="text-sm text-muted-foreground">Each account added to the sheet gets a draft hub.</p>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
-        <Input value={sheet} onChange={(e) => setSheet(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Signed accounts sheet" />
-        <Input value={tab} onChange={(e) => setTab(e.target.value)} placeholder="Accounts with MSAs Signed" aria-label="Tab name" />
+        <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Signed accounts sheet link</span><Input value={sheet} onChange={(e) => setSheet(e.target.value)} aria-label="Signed accounts sheet" /></label>
+        <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Tab name</span><Input value={tab} onChange={(e) => setTab(e.target.value)} aria-label="Tab name" /></label>
       </div>
       <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs" data-room-share-with>
         {data?.shareWith ? (
@@ -1443,10 +1445,7 @@ export function AutomaticRoomsSection() {
         )}
       </p>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
-        <p className="text-xs text-muted-foreground">
-          Practices: name the tab of the same workbook that lists every account’s locations (its exact name, for example Sheet14). Each new room then reads its own practices from it. The signed-accounts tab needs an “Account ID” or “18 digit ID” column, and the locations tab a “Parent Account ID” or “Parent Account” column.
-        </p>
-        <Input value={practicesTab} onChange={(e) => setPracticesTab(e.target.value)} placeholder="Sheet14" aria-label="Practices tab name" />
+        <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Practices tab</span><Input value={practicesTab} onChange={(e) => setPracticesTab(e.target.value)} aria-label="Practices tab name" /></label>
       </div>
       <div className="space-y-3 rounded-md border p-3" data-room-followups>
         <p className="text-sm font-medium">When a room is created</p>
@@ -1456,8 +1455,7 @@ export function AutomaticRoomsSection() {
             <input type="checkbox" checked={alertOwner} onChange={(e) => setAlertOwner(e.target.checked)} />
             The account owner
           </label>
-          <p className="text-xs text-muted-foreground">The sheet gives the owner’s name, so this reaches them when a team member in LP Studio has exactly that name.</p>
-          <Input value={alertEmails} onChange={(e) => setAlertEmails(e.target.value)} placeholder="Anyone else: emails, comma-separated" aria-label="Other alert emails" />
+          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Other emails</span><Input value={alertEmails} onChange={(e) => setAlertEmails(e.target.value)} aria-label="Other alert emails" /></label>
         </div>
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Spreadsheet</p>
@@ -1466,15 +1464,13 @@ export function AutomaticRoomsSection() {
             Add a row for each new room
           </label>
           <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
-            <Input value={logSheet} onChange={(e) => setLogSheet(e.target.value)} placeholder="Blank = the workbook above" aria-label="Log sheet" disabled={!logEnabled} />
-            <Input value={logTab} onChange={(e) => setLogTab(e.target.value)} placeholder="Digital Sales Rooms" aria-label="Log tab" disabled={!logEnabled} />
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Log sheet link</span><Input value={logSheet} onChange={(e) => setLogSheet(e.target.value)} aria-label="Log sheet" disabled={!logEnabled} /></label>
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Log tab</span><Input value={logTab} onChange={(e) => setLogTab(e.target.value)} aria-label="Log tab" disabled={!logEnabled} /></label>
           </div>
-          <p className="text-xs text-muted-foreground">The tab is created if it isn’t there. Columns: created, account, status, room link, edit link, account owner, contract signed, Salesforce ID. The address above needs Editor access to that workbook.</p>
         </div>
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Salesforce</p>
-          <Input className="max-w-sm" value={sfdcField} onChange={(e) => setSfdcField(e.target.value)} placeholder="Account field API name, e.g. Digital_Sales_Room__c" aria-label="Salesforce field" />
-          <p className="text-xs text-muted-foreground">Writes the room’s link to that field on the account. Needs Salesforce connected in LP Studio, an Account ID column on the sheet, and an editable text or URL field. Blank turns it off.</p>
+          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Salesforce account field (API name)</span><Input className="max-w-sm" value={sfdcField} onChange={(e) => setSfdcField(e.target.value)} aria-label="Salesforce field" /></label>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -1486,11 +1482,8 @@ export function AutomaticRoomsSection() {
       {err && <p className="text-sm text-destructive">{err}</p>}
       <div className="space-y-2 rounded-md border p-3" data-room-autotest>
         <p className="text-sm font-medium">Run a test</p>
-        <p className="text-xs text-muted-foreground">
-          See exactly what a newly signed account gets, without touching the sheet. Paste a <b>Salesforce account ID</b> (for example 0015d000041HyXrAAK) to run it on a real account: its real name and owner, its practices from the locations tab, and its contacts for the team. Or type any name to see the shape with no data. Either way you get a draft hub, the standard files, the Slack note and checklist, then the one-pager, both graphics and the media kit. It is marked as a test, never published, and nothing is written to Salesforce.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} placeholder="Salesforce account ID, or a name" aria-label="Salesforce account ID or account name" />
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Account ID or name</span><Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} aria-label="Salesforce account ID or account name" /></label>
           <Button size="sm" variant="brand" disabled={busy || testName.trim().length < 2} onClick={runTest}>{busy && testSteps.length ? "Running…" : "Run a test"}</Button>
           {testPage && <a className="text-sm underline" href={`/builder/${testPage}`}>Open the test room</a>}
         </div>

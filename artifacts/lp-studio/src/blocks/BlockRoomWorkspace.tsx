@@ -57,7 +57,7 @@ export type RoomModuleKey = "overview" | "wins" | "goals" | "plan" | "practices"
 export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "practices", label: "Scorecard" },
-  { key: "wins", label: "Wins" },
+  { key: "wins", label: "Feed" },
   { key: "goals", label: "Goals" },
   { key: "plan", label: "Action plan" },
   { key: "marketing", label: "Marketing plan" },
@@ -644,6 +644,9 @@ export function phaseStates(phases: RoomPhase[], day: number | null): RoomPhaseS
  * first, in that order, then any it does not name in the standard order (so
  * a module added later still appears on a hub ordered before it existed).
  */
+/** How many things the Overview asks of the customer at once. The nav badges carry the full counts. */
+export const ROOM_NEXT_UP = 3;
+
 export function orderedModules(order: readonly string[] | undefined): typeof ROOM_MODULES {
   const named = [...new Set(order ?? [])].map((k) => ROOM_MODULES.find((m) => m.key === k)).filter((m): m is (typeof ROOM_MODULES)[number] => !!m);
   return [...named, ...ROOM_MODULES.filter((m) => !named.includes(m))];
@@ -654,7 +657,10 @@ export function visibleModules(hidden: readonly string[] | undefined, order?: re
   const h = new Set(hidden ?? []);
   // Overview is the landing view: it can be hidden only when something else remains.
   // The launch kit lives inside the marketing module: one entry, shown while either has not been hidden.
-  const rest = all.filter((m) => (m.key === "kit" ? false : m.key === "marketing" ? !(h.has("marketing") && h.has("kit")) : !h.has(m.key)));
+  // Same for meeting notes, which live inside Calendar.
+  const pair: Partial<Record<RoomModuleKey, RoomModuleKey>> = { marketing: "kit", calendar: "meetings" };
+  const inside = new Set<RoomModuleKey>(["kit", "meetings"]);
+  const rest = all.filter((m) => (inside.has(m.key) ? false : pair[m.key] ? !(h.has(m.key) && h.has(pair[m.key]!)) : !h.has(m.key)));
   return rest.length ? rest : ROOM_MODULES.filter((m) => m.key === "overview");
 }
 
@@ -1119,8 +1125,8 @@ const CSS = `
 .prw-chip.training{background:#E8EEF9;color:var(--blue)}
 .prw-chip.marketing{background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A}
 .prw-chip.milestone{background:#FBF3D9;color:#7A6100}
-.prw-month{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:32px 0 12px}
-.prw-month:first-of-type{margin-top:0}
+.prw-month{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:36px 0 12px}
+.prw-months>div:first-child .prw-month{margin-top:0}
 .prw-min{border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:16px;overflow:hidden}
 .prw-min .mh{display:flex;gap:16px;align-items:center;padding:18px 24px;width:100%;background:none;border:0;text-align:left}
 .prw-min .mb{border-top:1px solid var(--line);padding:20px 24px 24px 86px;font-size:13.5px;color:var(--ink);display:grid;grid-template-columns:1fr 1fr;gap:24px}
@@ -1245,7 +1251,10 @@ const CSS = `
 .prw-sc-regions>button .track{margin:0}
 .prw-sc-regions>button .v{font-size:12px;color:var(--body);text-align:right;white-space:nowrap}
 .prw-sc-regions>button.more{display:block;width:auto;margin:6px 0 4px;padding:4px 0;font-size:12px;font-weight:600;color:var(--dark)}
-.prw-sc-tools input{max-width:280px}
+.prw-sc-search{position:relative;display:block;flex:1 1 220px;max-width:280px}
+.prw-sc-search svg{position:absolute;left:11px;top:50%;width:15px;height:15px;transform:translateY(-50%);color:var(--body);opacity:.7;pointer-events:none}
+.prw-sc-tools .prw-sc-search input{width:100%;max-width:none;padding-left:33px}
+.prw-compose-label{font-size:12.5px;font-weight:600;color:var(--dark);margin-bottom:8px}
 .prw-act{display:inline-flex;flex-direction:column;align-items:center;gap:5px;vertical-align:middle}
 .prw-rowact{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
 .prw-ib.on{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
@@ -1386,8 +1395,10 @@ ${whenTight(TEAM_STACK_RULES)}
 .prw-hero{grid-template-columns:1fr;gap:24px;padding-bottom:88px}
 .prw-cover h1{font-size:32px}
 .prw-top{min-height:60px}
+.prw-stats{grid-auto-flow:row;grid-template-columns:1fr 1fr}
 .prw-stats>div{padding:14px 8px 0 0}
-.prw-stats>div+div{padding-left:12px}
+.prw-stats>div+div{padding-left:14px}
+.prw-stats>div:nth-child(odd){padding-left:0;border-left:0}
 .prw-stats b{font-size:21px}
 .prw-stats b i{font-size:12.5px}
 .prw-stats span{font-size:11px}
@@ -1648,6 +1659,26 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const blocked = rows.filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && (x.status === "blocking" || (x.status !== "done" && !!now && targetHasPassed(x.r.target, now))));
   // Everything the customer has to act on, as one number and one list.
   const attention = [...stepsOpen, ...mine, ...reviewRequests];
+  // Overview shows the next three things only. The practice list, the doctor roster and the welcome gift
+  // always come first; as each is done, the next setup step, plan item or request to review takes its place.
+  const nextUp = (() => {
+    type Next = { kind: "step"; x: (typeof stepsOpen)[number] } | { kind: "row"; x: (typeof mine)[number] } | { kind: "review"; q: (typeof reviewRequests)[number] };
+    const rowIs = (x: (typeof mine)[number], which: "practices" | "doctors") => roomFirstStep(x.key, x.r.task) === which;
+    const practiceRow = mine.find((x) => rowIs(x, "practices"));
+    const doctorRow = mine.find((x) => rowIs(x, "doctors"));
+    const giftStep = stepsOpen.find((x) => isGiftStep(x.step));
+    const first: Next[] = [
+      ...(practiceRow ? [{ kind: "row" as const, x: practiceRow }] : []),
+      ...(doctorRow ? [{ kind: "row" as const, x: doctorRow }] : []),
+      ...(giftStep ? [{ kind: "step" as const, x: giftStep }] : []),
+    ];
+    const rest: Next[] = [
+      ...stepsOpen.filter((x) => x !== giftStep).map((x) => ({ kind: "step" as const, x })),
+      ...[...mine].filter((x) => x !== practiceRow && x !== doctorRow).sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).map((x) => ({ kind: "row" as const, x })),
+      ...reviewRequests.map((q) => ({ kind: "review" as const, q })),
+    ];
+    return [...first, ...rest].slice(0, ROOM_NEXT_UP);
+  })();
   // Outstanding: every open item from every module, with whose move it is.
   const brandLabel = brand.brandName || "Us";
   const partnerLabel = (props.partnerShort ?? "").trim() || props.partnerName || "You";
@@ -1859,7 +1890,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
             <div className="in">
               {modules.map((m, i) => (
                 <button key={m.key} type="button" className={m.key === active ? "on" : ""} onClick={() => setView(m.key)} data-room-nav={m.key}>
-                  {m.key === "marketing" ? "Launch & marketing" : m.label}
+                  {m.key === "marketing" ? "Launch & marketing" : m.key === "calendar" && hiddenSet.has("calendar") ? "Meetings" : m.label}
                   {badge[m.key] && <em className="prw-num" aria-label={`${badge[m.key]} waiting on you`}>{badge[m.key]}</em>}
                 </button>
               ))}
@@ -1914,14 +1945,17 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 <div className="prw-grid2 prw-sec" style={!(now && events.upcoming.length > 0) && blocked.length === 0 ? { gridTemplateColumns: "1fr" } : undefined}>
                   <div className="prw-card prw-att" data-room-attention>
                     <h3>
-                      Needs your attention
+                      Your next steps
                       {modules.some((m) => m.key === "plan") && (
                         <button type="button" onClick={() => setView("plan")}>Open action plan</button>
                       )}
                     </h3>
                     {attention.length === 0 && <div className="prw-empty">Nothing is waiting on you.</div>}
                     {/* Setup items (logo, welcome kit, team) sit in the same list as everything else: no separate checklist. */}
-                    {stepsOpen.slice(0, 3).map((x) => (
+                    {nextUp.map((n) => {
+                      if (n.kind === "step") {
+                        const x = n.x;
+                        return (
                       <OnboardingStep
                         key={x.key}
                         step={x.step}
@@ -1936,8 +1970,11 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
                         onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key, form: isGiftStep(x.step) ? "shipping" : undefined })}
                       />
-                    ))}
-                    {[...mine].sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).slice(0, Math.max(2, 5 - Math.min(3, stepsOpen.length))).map((x) => (
+                        );
+                      }
+                      if (n.kind === "row") {
+                        const x = n.x;
+                        return (
                       <div className="prw-li" key={x.key}>
                         <div style={{ minWidth: 0 }}>
                           <div className="t">{x.r.task}</div>
@@ -1948,8 +1985,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                           <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
                         </div>
                       </div>
-                    ))}
-                    {reviewRequests.slice(0, 2).map((q) => (
+                        );
+                      }
+                      const q = n.q;
+                      return (
                       <div className="prw-li" key={`q${q.id}`}>
                         <div style={{ minWidth: 0 }}>
                           <div className="t">{q.subject}</div>
@@ -1959,7 +1998,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                           <button type="button" className="prw-btn pri" onClick={() => setView("requests")}>Review</button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {now && events.upcoming.length > 0 ? (
                     <div className="prw-card" data-room-coming-up>
@@ -2003,6 +2043,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
 
             {active === "calendar" && (
               <>
+                {!hiddenSet.has("calendar") && (
+                <>
                 <div className="prw-hd">
                   <div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Calendar</h2>
@@ -2024,20 +2066,21 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   </details>
                 )}
-              </>
-            )}
-
-            {active === "meetings" && (
-              <>
+                </>
+                )}
+                {!hiddenSet.has("meetings") && (
+                <div className={hiddenSet.has("calendar") ? undefined : "prw-sec"} data-room-minutes>
                 <div className="prw-hd">
                   <div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Meetings</h2>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Meeting notes</h2>
                   </div>
                 </div>
                 {meetings.length === 0 && <div className="prw-card"><div className="prw-empty">No minutes yet.</div></div>}
                 {meetings.map((m, i) => (
                   <MeetingCard key={m.key || m.title + m.date} meeting={{ ...m, actions: (m.actions ?? []).map((a) => ({ ...a, done: actionDone(m, a) })) }} defaultOpen={i === 0} isEditor={isEditor} />
                 ))}
+                </div>
+                )}
               </>
             )}
 
@@ -2132,6 +2175,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
             {active === "practices" && <ScorecardView snapshot={snapshot} store={store ?? room.reader} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} />}
 
             {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
+
 
             {active === "marketing" && (
               <>
@@ -2571,6 +2615,14 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row:
 }
 
 /** The upload tasks that take a roster (the practice list, the doctor roster): they offer the template. */
+/** The two uploads every hub asks for first: the practice list and the doctor roster. */
+export function roomFirstStep(key: string, task: string): "practices" | "doctors" | null {
+  const text = `${key} ${task}`.toLowerCase();
+  if (/doctor|provider|dentist/.test(text) && /roster|list/.test(text)) return "doctors";
+  if (/(practice|location|office)s?[- ](roster|list)/.test(text)) return "practices";
+  return null;
+}
+
 export const isRosterTask = (key: string) => /roster|practice-list|doctor/.test(key);
 
 /* ── Launch kit ──────────────────────────────────────────────────────────── */
@@ -3324,7 +3376,7 @@ function EventList({ events, calendarName, isEditor }: { events: RoomEvent[]; ca
     else groups.push({ month, items: [e] });
   }
   return (
-    <>
+    <div className="prw-months">
       {groups.map((g) => (
         <div key={g.month}>
           <div className="prw-month">{g.month}</div>
@@ -3335,7 +3387,7 @@ function EventList({ events, calendarName, isEditor }: { events: RoomEvent[]; ca
           </div>
         </div>
       ))}
-    </>
+    </div>
   );
 }
 

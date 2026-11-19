@@ -175,7 +175,7 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
             {data?.name ?? "Partner Hub"}
             {data && <span className={`text-sm font-normal ${data.status === "live" ? "text-emerald-700" : "text-muted-foreground"}`}>{data.status === "live" ? "Live" : "Draft"}</span>}
           </DialogTitle>
-          <DialogDescription>How the hub is doing, what the customer has sent, the launch kit, practices, calendar and who has access. Changes save straight away.</DialogDescription>
+          <DialogDescription className="sr-only">Manage this Partner Hub</DialogDescription>
         </DialogHeader>
         {pageId !== null && (
           <div className="space-y-5">

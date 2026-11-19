@@ -324,7 +324,7 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
     const list = [...files].filter((f) => f.type.startsWith("image/")).slice(0, room);
     if (list.length === 0) return;
     setAdding(true);
-    setError(files.length > room ? `A win can have up to ${WIN_IMAGE_MAX} photos.` : "");
+    setError(files.length > room ? `A post can have up to ${WIN_IMAGE_MAX} photos.` : "");
     for (const f of list) {
       let data: string;
       try {
@@ -363,7 +363,7 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
     <>
       <div className="prw-hd">
         <div>
-          <h2 style={{ fontFamily: display }}>Wins</h2>
+          <h2 style={{ fontFamily: display }}>Feed</h2>
         </div>
       </div>
       <form
@@ -374,7 +374,8 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
         }}
         data-room-win-compose
       >
-        <FeedField ref={field} multiline value={text} onChange={setText} people={snapshot.people ?? []} onPick={(p) => setPicked((cur) => [...cur, p])} label="Share a win" max={1500} onSubmit={() => void post()} />
+        <div className="prw-compose-label">Share an update</div>
+        <FeedField ref={field} multiline value={text} onChange={setText} people={snapshot.people ?? []} onPick={(p) => setPicked((cur) => [...cur, p])} label="Share an update" max={1500} onSubmit={() => void post()} />
         {(images.length > 0 || adding) && (
           <div className="prw-pics" data-room-thumbs>
             {images.map((src) => (
@@ -415,7 +416,7 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
       )}
       {snapshot.wins.length === 0 && (
         <div className="prw-card" style={{ marginTop: 16 }}>
-          <div className="prw-empty">No wins yet.</div>
+          <div className="prw-empty">No posts yet.</div>
         </div>
       )}
       {snapshot.wins.map((w) => (

@@ -79,6 +79,9 @@ import {
   parseRoomKitAsset,
   setRoomKitAsset,
   setRoomGoals,
+  setRoomCover,
+  parseRoomCover,
+  roomCoverInfo,
   parseRoomGoals,
   roomGoalsInfo,
   roomPartnerName,
@@ -1319,6 +1322,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       goals: page.isWorkspace ? await roomGoalsFor(page.id) : null,
+      cover: page.isWorkspace ? await roomCoverFor(page.id) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
@@ -2038,6 +2042,29 @@ router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Res
  * Save the hub's goals from the manage pop-up. Goals live on the page (the
  * Goals section reads them), so only that part of the page changes.
  */
+router.put("/lp/partner-rooms/:pageId/cover", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const parsed = parseRoomCover(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomCover(row.blocks, parsed.cover) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, cover: roomCoverInfo(next) });
+  } catch (err) {
+    req.log.error({ err }, "room cover save failed");
+    res.status(500).json({ error: "Could not save the cover" });
+  }
+});
+
 router.put("/lp/partner-rooms/:pageId/goals", async (req: Request, res: Response): Promise<void> => {
   try {
     const page = await ownedRoomPage(req, res);
@@ -2138,6 +2165,11 @@ async function roomKitFor(pageId: number) {
 }
 
 /** The hub's goals as stored on the page, for the manage pop-up to edit. */
+async function roomCoverFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return row ? roomCoverInfo(row.blocks) : null;
+}
+
 async function roomGoalsFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomGoalsInfo(row.blocks) : null;
