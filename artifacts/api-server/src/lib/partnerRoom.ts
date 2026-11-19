@@ -194,7 +194,7 @@ export const ROOM_BLOCK_TYPES = ["room-workspace", "hub-plan"] as const;
 /* ── A hub that asks for an email before showing anything ─────────────────── */
 
 /** What a signed-out visitor to a gated hub is sent: the cover, and nothing under it. */
-export const ROOM_COVER_PROPS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoScale", "brandLogoScale", "partnerLogoOriginal", "eyebrow", "title", "lede", "heroImageUrl", "heroImageAlt", "coverStyle", "accentColor"] as const;
+export const ROOM_COVER_PROPS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoScale", "brandLogoScale", "partnerLogoOriginal", "eyebrow", "title", "lede", "heroImageUrl", "heroImageAlt", "coverStyle", "titleBrandHidden", "accentColor"] as const;
 
 const isGatedRoom = (b: unknown): b is { type: string; props: Record<string, unknown> } =>
   !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace" && (b as { props?: { requireEmail?: unknown } }).props?.requireEmail === true;

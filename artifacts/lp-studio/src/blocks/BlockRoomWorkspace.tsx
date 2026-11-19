@@ -403,7 +403,7 @@ export interface RoomWorkspaceBlockProps {
   requireEmail?: boolean;
   /** Set by the server on what it sends a stranger to a hub that asks for an email: this is the cover, the rest is withheld. */
   gated?: boolean;
-  /** "Schedule a meeting" in the top bar: where it books (a rep's booking page). Blank = no button. */
+  /** "Schedule" in the top bar: where it books (a rep's booking page). Blank = no button. */
   scheduleUrl?: string;
   scheduleLabel?: string;
   /** The name of the rep whose calendar it books, for the builder to show. */
@@ -414,7 +414,10 @@ export interface RoomWorkspaceBlockProps {
   heroImageUrl?: string;
   heroImageAlt?: string;
   /** How the cover looks: "split" = text beside a photo card; "fullbleed" = the photo behind the whole cover; "light" = a pale, editorial cover. */
-  coverStyle?: "split" | "fullbleed" | "light";
+  /** Cover look. Nothing chosen = "fade" (the photo runs off the right edge and fades into the cover). */
+  coverStyle?: "split" | "fullbleed" | "light" | "fade";
+  /** The headline reads "Customer × Us". On = just the customer's name. */
+  titleBrandHidden?: boolean;
   /** Kickoff date, YYYY-MM-DD. Drives "Day N of 90" and each phase's state. */
   kickoffDate?: string;
   rolloutDays?: number;
@@ -904,6 +907,11 @@ const CSS = `
 .prw-cover.fb h1{font-size:54px}
 .prw-cover.fb .prw-next,.prw-cover.lt .prw-next{display:inline-flex;gap:10px;align-items:center;margin-top:22px;padding:8px 14px;border-radius:999px;font-size:12.5px;border:1px solid color-mix(in srgb,currentColor 28%,transparent)}
 .prw-cover.fb .prw-next b,.prw-cover.lt .prw-next b{color:var(--accent)}
+.prw-cover.fd .prw-fade{position:absolute;top:0;right:0;bottom:0;width:54%;background-size:cover;background-position:center;background-repeat:no-repeat;-webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 34%,#000 68%);mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 34%,#000 68%)}
+.prw-cover.fd .prw-fade::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--dark) 62%,transparent) 0%,transparent 30%,transparent 62%,color-mix(in srgb,var(--dark) 70%,transparent) 100%)}
+.prw-cover.fd .prw-wrap{position:relative}
+.prw-cover.fd .prw-hero{grid-template-columns:minmax(0,600px);padding:52px 0 132px}
+.prw-cover.fd h1{font-size:48px}
 .prw-cover.lt{background:var(--paper);color:var(--ink);border-bottom:1px solid var(--line)}
 .prw-cover.lt .prw-eyebrow{color:var(--green)}
 .prw-cover.lt h1{color:var(--dark)}
@@ -943,17 +951,17 @@ const CSS = `
 .prw-team td.r{white-space:nowrap}
 .prw-team td.r .prw-ib+.prw-ib{margin-left:6px}
 .prw-req{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:8px;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:700;border:0;white-space:nowrap}
-.prw-me{font-size:13px;opacity:.75}
 .prw-hero{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:56px;align-items:center;padding:26px 0 100px}
 .prw-hero.solo{grid-template-columns:minmax(0,1fr)}
 .prw-cover .prw-eyebrow{color:var(--accent)}
 .prw-cover h1{font-size:42px;line-height:1.08;letter-spacing:-.03em;font-weight:700;margin:14px 0 12px}
 .prw-cover p.lede{opacity:.76;max-width:52ch;font-size:15px;margin:0}
-.prw-stats{display:flex;margin-top:28px;border-top:1px solid color-mix(in srgb,var(--on-dark) 18%,transparent)}
-.prw-stats>div{padding:16px 28px 0 0}
-.prw-stats>div+div{padding-left:28px;border-left:1px solid color-mix(in srgb,var(--on-dark) 18%,transparent)}
-.prw-stats b{display:block;font-size:26px;font-weight:700;letter-spacing:-.025em;line-height:1.1}
-.prw-stats span{display:block;font-size:12px;opacity:.68;margin-top:5px}
+.prw-stats{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);margin-top:28px;border-top:1px solid color-mix(in srgb,var(--on-dark) 18%,transparent)}
+.prw-stats>div{padding:16px 16px 0 0;min-width:0}
+.prw-stats>div+div{padding-left:20px;border-left:1px solid color-mix(in srgb,var(--on-dark) 18%,transparent)}
+.prw-stats b{display:block;font-size:28px;font-weight:700;letter-spacing:-.025em;line-height:1.1;white-space:nowrap}
+.prw-stats b i{font-style:normal;font-size:15px;font-weight:500;letter-spacing:0;opacity:.55;margin-left:3px}
+.prw-stats span{display:block;font-size:12px;opacity:.68;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prw-photo{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/10.5;box-shadow:0 30px 60px -30px rgba(0,0,0,.6)}
 .prw-photo img{width:100%;height:100%;object-fit:cover;display:block}
 .prw-photo .cap{position:absolute;left:14px;bottom:14px;background:color-mix(in srgb,var(--dark) 84%,transparent);backdrop-filter:blur(6px);color:var(--on-dark);border-radius:9px;padding:9px 12px;font-size:12px;display:flex;gap:10px;align-items:center}
@@ -1374,14 +1382,17 @@ ${whenTight(TEAM_STACK_RULES)}
 .prw-doc .a{margin-left:48px;flex-wrap:wrap}
 .prw-hero{grid-template-columns:1fr;gap:24px;padding-bottom:88px}
 .prw-cover h1{font-size:32px}
-.prw-me{display:none}
 .prw-top{min-height:60px}
-.prw-stats{flex-wrap:wrap;row-gap:4px}
-.prw-stats>div{padding:14px 18px 0 0}
-.prw-stats>div+div{padding-left:18px}
-.prw-stats b{font-size:20px;white-space:nowrap}
+.prw-stats>div{padding:14px 8px 0 0}
+.prw-stats>div+div{padding-left:12px}
+.prw-stats b{font-size:21px}
+.prw-stats b i{font-size:12.5px}
+.prw-stats span{font-size:11px}
 .prw{zoom:1}
 .prw-cover.fb h1{font-size:34px}
+.prw-cover.fd h1{font-size:34px}
+.prw-cover.fd .prw-hero{padding:32px 0 104px}
+.prw-cover.fd .prw-fade{width:100%;opacity:.3;-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 80%);mask-image:linear-gradient(90deg,transparent 0%,#000 80%)}
 .prw-cover.fb .prw-hero{padding:36px 0 110px}
 .prw-sheet{grid-template-columns:1fr}
 .prw-mod{padding:28px 20px 36px}
@@ -1555,7 +1566,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   );
   const doneCount = rows.filter((x) => x.status === "done").length;
   // The line on the cover photo: what the builder typed, else the first milestone still open in the plan.
-  const next = roomNextUp(props.nextMilestoneLabel, props.nextMilestoneDate, rows.filter((x) => !x.r.hidden && !groups[x.gi]?.hidden).map((x) => ({ task: x.r.task, target: x.r.target, done: x.status === "done" })));
   const mine = rows.filter((x) => x.action && x.status !== "done");
   const reviewRequests = snapshot.requests.filter((q) => q.status === "review");
   const openRequests = snapshot.requests.filter((q) => q.status !== "done");
@@ -1695,7 +1705,13 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     requests: outstandingYours ? String(outstandingYours) : "",
   };
   const heroImage = (props.heroImageUrl ?? "").trim();
-  const cover = props.coverStyle === "fullbleed" || props.coverStyle === "light" ? props.coverStyle : "split";
+  const cover = props.coverStyle === "fullbleed" || props.coverStyle === "light" || props.coverStyle === "split" ? props.coverStyle : "fade";
+  const headline = roomHeadline(props.partnerName, brand.brandName, props.titleBrandHidden);
+  // "fade": the photo runs off the right edge of the cover and dissolves into its colour on the left.
+  const fadePhoto =
+    cover === "fade" && heroImage ? (
+      <div className="prw-fade" style={{ backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` }} role={props.heroImageAlt ? "img" : undefined} aria-label={props.heroImageAlt || undefined} data-room-cover-fade />
+    ) : null;
   // The customer's logo is recoloured for the cover: white on the dark covers, dark on the pale one. Kept in its own colours,
   // a logo made for dark covers would vanish on the pale cover, so there the name is set in type instead.
   const partnerLogo = cover === "light" && props.partnerLogoOriginal ? "" : (props.partnerLogoUrl ?? "").trim();
@@ -1707,7 +1723,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     return (
       <section className="prw" style={vars} data-room-workspace data-room-gate>
         <style>{CSS}</style>
-        <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
+        <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? " fd" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
+          {fadePhoto}
           <div className="prw-wrap">
             <div className="prw-top">
               <div className="prw-lock" style={{ ["--blogo" as string]: logoScale(props.brandLogoScale) }}>
@@ -1730,17 +1747,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 </button>
               </div>
             </div>
-            <div className={`prw-hero${heroImage && cover !== "fullbleed" ? "" : " solo"}`}>
+            <div className={`prw-hero${heroImage && cover === "split" || heroImage && cover === "light" ? "" : " solo"}`}>
               <div>
-                {props.eyebrow && <div className="prw-eyebrow">{props.eyebrow}</div>}
-                <h1 style={{ fontFamily: BRAND_DISPLAY_STACK }}>
-                  {props.partnerName} × {brand.brandName || "us"}
-                  <br />
-                  {props.title}
-                </h1>
-                {props.lede && <p className="lede">{props.lede}</p>}
+                {coverLabel(props.eyebrow, brand.brandName) && <div className="prw-eyebrow">{coverLabel(props.eyebrow, brand.brandName)}</div>}
+                <h1 style={{ fontFamily: BRAND_DISPLAY_STACK }}>{headline}</h1>
               </div>
-              {heroImage && cover !== "fullbleed" && (
+              {heroImage && (cover === "split" || cover === "light") && (
                 <div className="prw-photo">
                   <img src={heroImage} alt={props.heroImageAlt ?? ""} />
                 </div>
@@ -1762,7 +1774,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     <RoomEditContext.Provider value={editItem}>
     <section ref={rootRef} className={`prw${tight ? " tight" : ""}`} style={vars} data-room-workspace>
       <style>{CSS}</style>
-      <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
+      <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? " fd" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
+          {fadePhoto}
         <div className="prw-wrap">
           <div className="prw-top">
             <div className="prw-lock" style={{ ["--blogo" as string]: logoScale(props.brandLogoScale) }}>
@@ -1773,7 +1786,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
               {safeHttpUrl(props.scheduleUrl) && (
                 <a className="prw-sched" href={isEditor ? undefined : safeHttpUrl(props.scheduleUrl)} target="_blank" rel="noopener noreferrer" data-room-schedule>
-                  <CalendarPlus style={{ width: 14, height: 14 }} aria-hidden /> {(props.scheduleLabel ?? "").trim() || "Schedule a meeting"}
+                  <CalendarPlus style={{ width: 14, height: 14 }} aria-hidden /> {scheduleButtonLabel(props.scheduleLabel)}
                 </a>
               )}
               {!isEditor && store && snapshot.status === "ready" && !snapshot.viewer ? (
@@ -1783,71 +1796,51 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 </button>
               ) : !new Set(props.hiddenModules ?? []).has("requests") && (
                 <button type="button" className="prw-req" onClick={() => openRequest()} data-room-request-button>
-                  <Plus style={{ width: 14, height: 14 }} aria-hidden /> Make a request
+                  <Plus style={{ width: 14, height: 14 }} aria-hidden /> Request
                 </button>
               )}
-              {snapshot.viewer && <span className="prw-me">{snapshot.viewer.name || snapshot.viewer.email}</span>}
             </div>
           </div>
-          <div className={`prw-hero${heroImage && cover !== "fullbleed" ? "" : " solo"}`}>
+          <div className={`prw-hero${heroImage && cover === "split" || heroImage && cover === "light" ? "" : " solo"}`}>
             <div>
-              {(props.eyebrow || isEditor) && (
+              {isEditor ? (
                 <div className="prw-eyebrow">
                   <InlineText as="span" value={props.eyebrow ?? ""} onUpdate={field("eyebrow")} />
                 </div>
-              )}
-              <h1 style={{ fontFamily: BRAND_DISPLAY_STACK }}>
-                {props.partnerName} × {brand.brandName || "us"}
-                <br />
-                <InlineText as="span" value={props.title ?? ""} onUpdate={field("title")} />
-              </h1>
-              {(props.lede || isEditor) && (
-                <p className="lede">
-                  <InlineText as="span" value={props.lede ?? ""} onUpdate={field("lede")} multiline />
-                </p>
-              )}
+              ) : coverLabel(props.eyebrow, brand.brandName) ? (
+                <div className="prw-eyebrow">{coverLabel(props.eyebrow, brand.brandName)}</div>
+              ) : null}
+              <h1 style={{ fontFamily: BRAND_DISPLAY_STACK }}>{headline}</h1>
               <div className="prw-stats">
                 {day !== null && (
                   <div>
-                    <b className="prw-num">Day {Math.min(day, total)}</b>
-                    <span>of {total}{states.includes("current") ? ` · ${phases[states.indexOf("current")].title}` : ""}</span>
+                    <b className="prw-num">{Math.min(day, total)}<i>/{total}</i></b>
+                    <span>Day</span>
                   </div>
                 )}
                 {rows.length > 0 && (
                   <div>
-                    <b className="prw-num">{doneCount} of {rows.length}</b>
-                    <span>plan items complete</span>
+                    <b className="prw-num">{doneCount}<i>/{rows.length}</i></b>
+                    <span>Plan items done</span>
                   </div>
                 )}
                 {pr.total > 0 && (
                   <div data-room-kpi="live">
-                    <b className="prw-num">{pr.byStage.live ?? 0} of {pr.total}</b>
-                    <span>{noun} live</span>
+                    <b className="prw-num">{pr.byStage.live ?? 0}<i>/{pr.total}</i></b>
+                    <span>{noun.charAt(0).toUpperCase() + noun.slice(1)} live</span>
                   </div>
                 )}
                 {mine.length + reviewRequests.length + stepsOpen.length + undecided.length > 0 && (
                   <div>
                     <b className="prw-num">{mine.length + reviewRequests.length + stepsOpen.length + undecided.length}</b>
-                    <span>waiting on you</span>
+                    <span>Waiting on you</span>
                   </div>
                 )}
               </div>
-              {cover === "fullbleed" && next && (
-                <div className="prw-next" data-room-next>
-                  {next.date && <b>{fmtDate(next.date)}</b>}
-                  <span>Next up: {next.label}</span>
-                </div>
-              )}
             </div>
-            {heroImage && cover !== "fullbleed" && (
+            {heroImage && (cover === "split" || cover === "light") && (
               <div className="prw-photo">
                 <img src={heroImage} alt={props.heroImageAlt ?? ""} />
-                {next && (
-                  <div className="cap" data-room-next>
-                    {next.date && <b>{fmtDate(next.date)}</b>}
-                    <span>Next up: {next.label}</span>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -2709,6 +2702,27 @@ const SHIPPING_FORM: RequestForm = {
     { key: "notes", label: "Anything we should know", placeholder: "Delivery hours, who to ask for, how many people it’s for", size: "long" },
   ],
 };
+
+/** The cover headline: "Customer × Us", or just the customer when the brand is switched off or has no name. */
+export function roomHeadline(partnerName: string | undefined, brandName: string | undefined, brandHidden?: boolean): string {
+  const partner = (partnerName ?? "").trim();
+  const brand = (brandName ?? "").trim();
+  return brandHidden || !brand || !partner ? partner : `${partner} × ${brand}`;
+}
+
+/** The small label above the customer's name. The logos already say who we are, so a leading brand name is dropped ("Dandy Partner Hub" reads "Partner Hub"). */
+export function coverLabel(eyebrow: string | undefined, brandName: string | undefined): string {
+  const label = (eyebrow ?? "").trim();
+  const brand = (brandName ?? "").trim();
+  if (!brand || !label.toLowerCase().startsWith(`${brand.toLowerCase()} `)) return label;
+  return label.slice(brand.length).trim();
+}
+
+/** The top-bar booking button says "Schedule" unless a rep typed their own words (the old default counts as none). */
+export function scheduleButtonLabel(label: string | undefined): string {
+  const typed = (label ?? "").trim();
+  return !typed || typed.toLowerCase() === "schedule a meeting" ? "Schedule" : typed;
+}
 
 /** Every other request: the same four questions whatever it is about, so requests line up in one table. */
 const GENERAL_FORM: RequestForm = {

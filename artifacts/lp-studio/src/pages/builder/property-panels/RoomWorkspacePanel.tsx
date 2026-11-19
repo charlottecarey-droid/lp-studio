@@ -399,7 +399,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
     );
   }
 
-  // People on our side who have a booking link: the calendars the "Schedule a meeting" button can use.
+  // People on our side who have a booking link: the calendars the "Schedule" button can use.
   const bookable = (team[0]?.members ?? []).filter((m) => /^https?:\/\//i.test((m.bookingUrl ?? "").trim()) && (m.name ?? "").trim()).map((m) => ({ name: m.name.trim(), role: m.role, bookingUrl: (m.bookingUrl ?? "").trim() }));
   // The people on the Team module, offered wherever an owner is typed (first group = ours, the rest = the customer's).
   const named = (g: RoomTeamGroup | undefined) => (g?.members ?? []).map((m) => (m.name ?? "").trim()).filter((n) => n && !/^\[.*\]$/.test(n) && n !== "New person");
@@ -444,7 +444,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           </Field>
         </div>
         <div className="space-y-1.5 rounded border p-2" data-room-schedule-settings>
-          <span className="text-xs font-semibold">“Schedule a meeting” button (top bar)</span>
+          <span className="text-xs font-semibold">“Schedule” button (top bar)</span>
           <Field label="Whose calendar it books">
             <Select
               value={!props.scheduleUrl ? "off" : bookable.find((m) => m.bookingUrl === props.scheduleUrl)?.name ?? "custom"}
@@ -466,7 +466,7 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           {!!props.scheduleUrl && (
             <>
               <Input value={props.scheduleUrl} onChange={(e) => update({ scheduleUrl: e.target.value.trim(), scheduleRep: "" })} className="h-7 text-xs" placeholder="https://calendly.com/…" aria-label="Booking link" />
-              <Input value={props.scheduleLabel ?? ""} onChange={(e) => update({ scheduleLabel: e.target.value })} className="h-7 text-xs" placeholder="Schedule a meeting" aria-label="Button text" />
+              <Input value={props.scheduleLabel ?? ""} onChange={(e) => update({ scheduleLabel: e.target.value })} className="h-7 text-xs" aria-label="Button text" />
             </>
           )}
         </div>
@@ -475,19 +475,22 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <Field label="Rollout length (days)"><Input type="number" min={1} value={props.rolloutDays ?? 90} onChange={(e) => update({ rolloutDays: Math.max(1, Number(e.target.value) || 90) })} className="h-8 text-xs" /></Field>
         </div>
         <p className="text-[11px] leading-snug text-muted-foreground">The kickoff date drives “Day N of 90” and which phase is in progress. Leave it blank to hide both.</p>
+        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Switch checked={!props.titleBrandHidden} onCheckedChange={(v) => update({ titleBrandHidden: !v })} aria-label="Show your company name after the customer's in the headline" />
+          Headline reads “Customer × You” (off = just the customer’s name)
+        </label>
         <Field label="Label above the title"><Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} className="h-8 text-xs" /></Field>
-        <Field label="Title (after “Customer × You”)"><Input value={props.title ?? ""} onChange={(e) => update({ title: e.target.value })} className="h-8 text-xs" /></Field>
-        <Field label="Intro line"><Textarea value={props.lede ?? ""} onChange={(e) => update({ lede: e.target.value })} rows={2} className="text-xs" /></Field>
         <Field label="Cover style">
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-2 gap-1">
             {(
               [
+                { id: "fade", label: "Fading photo", hint: "The photo runs off the right edge and fades into the cover" },
                 { id: "split", label: "Photo card", hint: "Text beside a framed photo" },
                 { id: "fullbleed", label: "Full-bleed", hint: "The photo fills the cover" },
                 { id: "light", label: "Light", hint: "Pale, editorial" },
               ] as const
             ).map((c) => {
-              const on = (props.coverStyle ?? "split") === c.id;
+              const on = (props.coverStyle ?? "fade") === c.id;
               return (
                 <button key={c.id} type="button" onClick={() => update({ coverStyle: c.id })} aria-pressed={on} title={c.hint} className={`rounded-md border px-2 py-1.5 text-[11px] font-medium ${on ? "border-foreground bg-muted" : "text-muted-foreground hover:bg-muted/50"}`} data-room-cover-option={c.id}>
                   {c.label}
@@ -499,10 +502,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
         <div className="flex items-center gap-2">
           <ThumbButton value={props.heroImageUrl ?? ""} onChange={(url) => update({ heroImageUrl: url })} label="Cover photo" />
           <span className="text-[11px] text-muted-foreground">Cover photo. Blank gives a text-only cover.</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="“Next up” on the photo"><Input value={props.nextMilestoneLabel ?? ""} onChange={(e) => update({ nextMilestoneLabel: e.target.value })} className="h-8 text-xs" placeholder="Blank = the next open item in the plan" /></Field>
-          <Field label="Its date"><Input type="date" value={props.nextMilestoneDate ?? ""} onChange={(e) => update({ nextMilestoneDate: e.target.value })} className="h-8 text-xs" /></Field>
         </div>
       </SectionBody>
       )}

@@ -37,6 +37,9 @@ import {
   assetReady,
   isRosterTask,
   logoScale,
+  scheduleButtonLabel,
+  coverLabel,
+  roomHeadline,
   safeHttpUrl,
   roomAssetIconKey,
   targetHasPassed,
@@ -56,7 +59,9 @@ describe("room-workspace — registry + default render", () => {
   });
   it("renders the cover with both names, a single h1, the module list and the overview", () => {
     const html = render();
-    expect(html).toContain("Acme Group × Northwind");
+    expect(html).toMatch(/<h1[^>]*>Acme Group × Northwind<\/h1>/);
+    expect(render({ titleBrandHidden: true })).toMatch(/<h1[^>]*>Acme Group<\/h1>/);
+    expect(roomHeadline("Acme", "", false)).toBe("Acme");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
     expect(html).toContain("data-room-request-button");
     expect((html.match(/data-room-nav="/g) ?? []).length).toBe(10); // the launch kit lives inside Launch & marketing
@@ -69,7 +74,7 @@ describe("room-workspace — registry + default render", () => {
     const html = render({ kickoffDate: "" });
     expect(html).not.toMatch(/Day \d/);
     expect(html).not.toContain("In progress");
-    expect(html).toContain("1 of 5"); // one default milestone is done
+    expect(html).toMatch(/>1<i>\/5<\/i>/); // one default milestone is done
   });
 });
 
@@ -326,9 +331,9 @@ describe("room-workspace — welcome banner and needs your attention", () => {
   });
   it("the account name is a variable: one template reads right for any customer, and edits still reach the stored props", () => {
     const base = structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS);
-    const raw = { ...base, partnerName: "MB2 Dental", partnerShort: "MB2", lede: "Every milestone has an owner at Northwind and at [Partner].", kitIntro: "Made for {{account}}.", hiddenModules: ["overview", "practices", "wins", "goals"] as never };
+    const raw = { ...base, partnerName: "MB2 Dental", partnerShort: "MB2", eyebrow: "Partner Hub for [Partner]", kitIntro: "Made for {{account}}.", hiddenModules: ["overview", "practices", "wins", "goals"] as never };
     const html = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: raw, brand: BRAND }));
-    expect(html).toContain("and at MB2.");
+    expect(html).toContain("Partner Hub for MB2");
     expect(html).toContain("MB2 Dental × Northwind Partner Hub");
     expect(html).not.toContain("[Partner]");
     const { props, rawOf } = resolveRoomProps(raw);
@@ -361,17 +366,22 @@ describe("room-workspace — welcome banner and needs your attention", () => {
   });
   it("cover styles: photo card by default, full-bleed puts the photo behind the cover, light is pale", () => {
     const img = "/api/storage/objects/uploads/cover";
-    expect(render({ heroImageUrl: img })).toContain('data-room-cover="split"');
+    expect(render({ heroImageUrl: img })).toContain('data-room-cover="fade"');
+    expect(render({ heroImageUrl: img, coverStyle: "split" })).toContain('class="prw-photo"');
     const fb = render({ heroImageUrl: img, coverStyle: "fullbleed", nextMilestoneLabel: "Business review" });
     expect(fb).toContain('data-room-cover="fullbleed"');
     expect(fb).toContain("background-image:url(/api/storage/objects/uploads/cover)");
     expect(fb).not.toContain('class="prw-photo"');
-    expect(fb).toContain("Next up: Business review");
+    expect(fb).not.toContain("Next up");
+    const fd = render({ heroImageUrl: img, coverStyle: "fade" });
+    expect(fd).toContain('data-room-cover="fade"');
+    expect(fd).toContain("data-room-cover-fade");
+    expect(fd).not.toContain('class="prw-photo"');
+    expect(render({ coverStyle: "fade" })).not.toContain("data-room-cover-fade"); // no photo, plain cover
     // Nothing typed: the cover shows the first plan item still open, and moves on once it is done.
     const plan = [{ title: "Phase", rows: [{ task: "Kickoff held", status: "done" as const }, { task: "Announce the partnership", target: "2026-12-03" }, { task: "Later thing" }] }];
     const auto = render({ heroImageUrl: img, planGroups: plan });
-    expect(auto).toContain("Next up: Announce the partnership");
-    expect(auto).not.toContain("Next up: Kickoff held");
+    expect(auto).not.toContain("Next up");
     expect(roomNextUp("", "", [{ task: "A", done: true }])).toBeNull();
     expect(roomNextUp(" Typed ", "2026-01-02", [{ task: "A", done: false }])).toEqual({ label: "Typed", date: "2026-01-02" });
     const lt = render({ heroImageUrl: img, coverStyle: "light", partnerLogoUrl: "/logo-white.png", partnerLogoOriginal: true });
@@ -381,7 +391,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(render({ partnerLogoUrl: "/logo.png" })).toContain("filter:brightness(0) invert(1)");
     expect(render({ partnerLogoUrl: "/logo.png", coverStyle: "light" })).toMatch(/src="\/logo\.png"[^>]*filter:brightness\(0\)"/);
     expect(render({ partnerLogoUrl: "/logo.png", partnerLogoOriginal: true })).not.toContain("filter:brightness");
-    expect(render({ coverStyle: "nope" as never })).toContain('data-room-cover="split"');
+    expect(render({ coverStyle: "nope" as never })).toContain('data-room-cover="fade"');
   });
   it("overdue: a target date that has passed, read with or without a year; other wording is never a date", () => {
     const now = new Date(2026, 10, 16); // Nov 16, 2026
@@ -432,7 +442,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(full).toMatch(/Outstanding<em[^>]*>3<\/em>/);
     expect(render()).toContain(">Our Team<");
   });
-  it("top bar: logos can be sized, and a Schedule a meeting button books a rep's calendar", () => {
+  it("top bar: logos can be sized, and a Schedule button books a rep's calendar", () => {
     expect(logoScale(undefined)).toBe(1);
     expect(logoScale(180)).toBe(1.8);
     expect(logoScale(10)).toBe(0.5);
@@ -445,7 +455,9 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     const sched = render({ scheduleUrl: "https://calendly.com/rae-rep/30", scheduleLabel: "" });
     expect(sched).toContain('data-room-schedule');
     expect(sched).toContain('href="https://calendly.com/rae-rep/30"');
-    expect(sched).toContain("Schedule a meeting");
+    expect(sched).toMatch(/<\/svg> Schedule<\/a>/);
+    expect(scheduleButtonLabel("Schedule a meeting")).toBe("Schedule");
+    expect(scheduleButtonLabel(" Book time ")).toBe("Book time");
     // Only a real web address becomes a link.
     expect(safeHttpUrl("javascript:alert(1)")).toBe("");
     expect(safeHttpUrl(" https://x.example/a ")).toBe("https://x.example/a");
@@ -516,8 +528,11 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     // What the server sends a stranger: the cover only, marked as gated.
     const html = render({ requireEmail: true, gated: true, partnerName: "MB2 Dental", title: "launch plan", lede: "The plan we run together." } as never);
     expect(html).toContain("data-room-gate");
-    expect(html).toContain("MB2 Dental × Northwind");
-    expect(html).toContain("The plan we run together.");
+    expect(html).toMatch(/<h1[^>]*>MB2 Dental × Northwind<\/h1>/);
+    expect(html).not.toContain("The plan we run together.");
+    expect(coverLabel("Northwind Partner Hub", "Northwind")).toBe("Partner Hub");
+    expect(coverLabel("Partner Hub", "Northwind")).toBe("Partner Hub");
+    expect(coverLabel("Northwind", "Northwind")).toBe("Northwind");
     expect(html).toContain("data-room-gate-card");
     expect(html).not.toContain("data-room-nav="); // no tabs
     expect(html).not.toContain("data-room-request-button"); // no Make a request
