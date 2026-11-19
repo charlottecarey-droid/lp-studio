@@ -416,8 +416,10 @@ export interface RoomWorkspaceBlockProps {
   /** How the cover looks: "split" = text beside a photo card; "fullbleed" = the photo behind the whole cover; "light" = a pale, editorial cover. */
   /** Cover look. Nothing chosen = "fade" (the photo runs off the right edge and fades into the cover). */
   coverStyle?: "split" | "fullbleed" | "light" | "fade";
-  /** The headline reads "Customer × Us". On = just the customer's name. */
-  titleBrandHidden?: boolean;
+  /** Fading-photo cover: the photo normally stays put while the page scrolls over it. On = it scrolls with the page. */
+  coverPhotoScrolls?: boolean;
+  /** The cover headline. Blank = "{{account}} × Us Partnership Hub". `{{account}}` is the customer's name. */
+  headline?: string;
   /** Kickoff date, YYYY-MM-DD. Drives "Day N of 90" and each phase's state. */
   kickoffDate?: string;
   rolloutDays?: number;
@@ -908,6 +910,7 @@ const CSS = `
 .prw-cover.fb .prw-next,.prw-cover.lt .prw-next{display:inline-flex;gap:10px;align-items:center;margin-top:22px;padding:8px 14px;border-radius:999px;font-size:12.5px;border:1px solid color-mix(in srgb,currentColor 28%,transparent)}
 .prw-cover.fb .prw-next b,.prw-cover.lt .prw-next b{color:var(--accent)}
 .prw-cover.fd .prw-fade{position:absolute;top:0;right:0;bottom:0;width:54%;background-size:cover;background-position:center;background-repeat:no-repeat;-webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 34%,#000 68%);mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 34%,#000 68%)}
+.prw-cover.fd.fx .prw-fade{background-attachment:fixed;background-position:right top;background-size:max(56vw,820px) auto}
 .prw-cover.fd .prw-fade::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb,var(--dark) 62%,transparent) 0%,transparent 30%,transparent 62%,color-mix(in srgb,var(--dark) 70%,transparent) 100%)}
 .prw-cover.fd .prw-wrap{position:relative}
 .prw-cover.fd .prw-hero{grid-template-columns:minmax(0,600px);padding:52px 0 132px}
@@ -1392,6 +1395,7 @@ ${whenTight(TEAM_STACK_RULES)}
 .prw-cover.fb h1{font-size:34px}
 .prw-cover.fd h1{font-size:34px}
 .prw-cover.fd .prw-hero{padding:32px 0 104px}
+.prw-cover.fd.fx .prw-fade{background-attachment:scroll;background-position:center;background-size:cover}
 .prw-cover.fd .prw-fade{width:100%;opacity:.3;-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 80%);mask-image:linear-gradient(90deg,transparent 0%,#000 80%)}
 .prw-cover.fb .prw-hero{padding:36px 0 110px}
 .prw-sheet{grid-template-columns:1fr}
@@ -1706,7 +1710,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   };
   const heroImage = (props.heroImageUrl ?? "").trim();
   const cover = props.coverStyle === "fullbleed" || props.coverStyle === "light" || props.coverStyle === "split" ? props.coverStyle : "fade";
-  const headline = roomHeadline(props.partnerName, brand.brandName, props.titleBrandHidden);
+  const headline = roomHeadline(props.headline, props.partnerName, brand.brandName);
   // "fade": the photo runs off the right edge of the cover and dissolves into its colour on the left.
   const fadePhoto =
     cover === "fade" && heroImage ? (
@@ -1723,7 +1727,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     return (
       <section className="prw" style={vars} data-room-workspace data-room-gate>
         <style>{CSS}</style>
-        <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? " fd" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
+        <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? (props.coverPhotoScrolls || isEditor ? " fd" : " fd fx") : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
           {fadePhoto}
           <div className="prw-wrap">
             <div className="prw-top">
@@ -1774,7 +1778,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     <RoomEditContext.Provider value={editItem}>
     <section ref={rootRef} className={`prw${tight ? " tight" : ""}`} style={vars} data-room-workspace>
       <style>{CSS}</style>
-      <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? " fd" : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
+      <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? (props.coverPhotoScrolls || isEditor ? " fd" : " fd fx") : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
           {fadePhoto}
         <div className="prw-wrap">
           <div className="prw-top">
@@ -1810,7 +1814,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               ) : coverLabel(props.eyebrow, brand.brandName) ? (
                 <div className="prw-eyebrow">{coverLabel(props.eyebrow, brand.brandName)}</div>
               ) : null}
-              <h1 style={{ fontFamily: BRAND_DISPLAY_STACK }}>{headline}</h1>
+              <h1 style={{ fontFamily: BRAND_DISPLAY_STACK }}>
+                <InlineText as="span" value={headline} onUpdate={field("headline")} />
+              </h1>
               <div className="prw-stats">
                 {day !== null && (
                   <div>
@@ -2703,11 +2709,17 @@ const SHIPPING_FORM: RequestForm = {
   ],
 };
 
-/** The cover headline: "Customer × Us", or just the customer when the brand is switched off or has no name. */
-export function roomHeadline(partnerName: string | undefined, brandName: string | undefined, brandHidden?: boolean): string {
-  const partner = (partnerName ?? "").trim();
+/** What the headline says when nobody typed one, with the customer's name left as a variable. */
+export function roomHeadlineDefault(brandName: string | undefined): string {
   const brand = (brandName ?? "").trim();
-  return brandHidden || !brand || !partner ? partner : `${partner} × ${brand}`;
+  return brand ? `{{account}} × ${brand} Partnership Hub` : "{{account}} Partnership Hub";
+}
+
+/** The cover headline: what was typed, else "Customer × Us Partnership Hub". */
+export function roomHeadline(headline: string | undefined, partnerName: string | undefined, brandName: string | undefined): string {
+  const typed = (headline ?? "").trim();
+  if (typed) return typed;
+  return roomHeadlineDefault(brandName).replace("{{account}}", (partnerName ?? "").trim()).trim();
 }
 
 /** The small label above the customer's name. The logos already say who we are, so a leading brand name is dropped ("Dandy Partner Hub" reads "Partner Hub"). */

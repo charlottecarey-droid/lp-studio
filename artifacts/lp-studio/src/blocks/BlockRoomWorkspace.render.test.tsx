@@ -40,6 +40,7 @@ import {
   scheduleButtonLabel,
   coverLabel,
   roomHeadline,
+  roomHeadlineDefault,
   safeHttpUrl,
   roomAssetIconKey,
   targetHasPassed,
@@ -59,9 +60,10 @@ describe("room-workspace — registry + default render", () => {
   });
   it("renders the cover with both names, a single h1, the module list and the overview", () => {
     const html = render();
-    expect(html).toMatch(/<h1[^>]*>Acme Group × Northwind<\/h1>/);
-    expect(render({ titleBrandHidden: true })).toMatch(/<h1[^>]*>Acme Group<\/h1>/);
-    expect(roomHeadline("Acme", "", false)).toBe("Acme");
+    expect(html).toContain("Acme Group × Northwind Partnership Hub</");
+    expect(render({ headline: "Welcome, {{account}}" })).toContain("Welcome, Acme Group</");
+    expect(roomHeadline("", "Acme", "")).toBe("Acme Partnership Hub");
+    expect(roomHeadlineDefault("Northwind")).toBe("{{account}} × Northwind Partnership Hub");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
     expect(html).toContain("data-room-request-button");
     expect((html.match(/data-room-nav="/g) ?? []).length).toBe(10); // the launch kit lives inside Launch & marketing
@@ -376,6 +378,8 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     const fd = render({ heroImageUrl: img, coverStyle: "fade" });
     expect(fd).toContain('data-room-cover="fade"');
     expect(fd).toContain("data-room-cover-fade");
+    expect(fd).toContain('class="prw-cover fd fx"'); // photo stays put by default
+    expect(render({ heroImageUrl: img, coverStyle: "fade", coverPhotoScrolls: true })).toContain('class="prw-cover fd"');
     expect(fd).not.toContain('class="prw-photo"');
     expect(render({ coverStyle: "fade" })).not.toContain("data-room-cover-fade"); // no photo, plain cover
     // Nothing typed: the cover shows the first plan item still open, and moves on once it is done.
@@ -528,7 +532,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     // What the server sends a stranger: the cover only, marked as gated.
     const html = render({ requireEmail: true, gated: true, partnerName: "MB2 Dental", title: "launch plan", lede: "The plan we run together." } as never);
     expect(html).toContain("data-room-gate");
-    expect(html).toMatch(/<h1[^>]*>MB2 Dental × Northwind<\/h1>/);
+    expect(html).toMatch(/<h1[^>]*>MB2 Dental × Northwind Partnership Hub<\/h1>/);
     expect(html).not.toContain("The plan we run together.");
     expect(coverLabel("Northwind Partner Hub", "Northwind")).toBe("Partner Hub");
     expect(coverLabel("Partner Hub", "Northwind")).toBe("Partner Hub");

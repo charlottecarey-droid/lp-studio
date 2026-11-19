@@ -35,6 +35,7 @@ import {
   type RoomTeamGroup,
   type RoomTeamMember,
   type RoomWorkspaceBlockProps,
+  roomHeadlineDefault,
 } from "@/blocks/BlockRoomWorkspace";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -183,7 +184,7 @@ function HideToggle({ hidden, onChange }: { hidden?: boolean; onChange: (hidden:
 
 const KIND_LABEL: Record<RoomAssetKind, string> = { pdf: "PDF", video: "Video", image: "Image", text: "Copy (text)", link: "Link", file: "Other file" };
 
-export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBlockProps; onChange: (p: RoomWorkspaceBlockProps) => void }) {
+export function RoomWorkspacePanel({ props, onChange, brandName }: { props: RoomWorkspaceBlockProps; onChange: (p: RoomWorkspaceBlockProps) => void; brandName?: string }) {
   const update = (patch: Partial<RoomWorkspaceBlockProps>) => onChange({ ...props, ...patch });
   // One screen at a time: the list of modules, or one module's settings.
   const [active, setActive] = useState<string | null>(null);
@@ -416,24 +417,20 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
       {active === "account" && (
       <SectionBody title="Account" hint="Who the room is for, the kickoff date and the cover">
         <Field label="Customer name"><Input value={props.partnerName ?? ""} onChange={(e) => update({ partnerName: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
-        <Field label="Short name (optional)"><Input value={props.partnerShort ?? ""} onChange={(e) => update({ partnerShort: e.target.value })} className="h-8 text-xs" placeholder="MB2" /></Field>
-        <p className="text-[11px] leading-snug text-muted-foreground">The name fills in everywhere automatically. In any text, <code>{"{{account}}"}</code> is the customer name and <code>{"{{account_short}}"}</code> the short name; the template’s [Partner name] and [Partner] work the same way.</p>
+        <Field label="Short name (optional)"><Input value={props.partnerShort ?? ""} onChange={(e) => update({ partnerShort: e.target.value })} className="h-8 text-xs" /></Field>
         <div className="flex items-center gap-2">
           <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo (for the dark cover)" />
-          <span className="text-[11px] text-muted-foreground">Customer logo. Any version works: it is recoloured to white on the dark cover. Blank shows their name.</span>
+          <span className="text-[11px] text-muted-foreground">Customer logo</span>
         </div>
         <div className="space-y-1 rounded border p-2" data-room-require-email>
           <label className="flex items-center gap-2 text-xs font-semibold">
             <Switch checked={!!props.requireEmail} onCheckedChange={(v) => update({ requireEmail: v })} aria-label="Ask for an email before showing the hub" />
             Ask for a work email before showing the hub
           </label>
-          <p className="text-[11px] leading-snug text-muted-foreground">
-            On: a visitor who isn’t recognised sees only the cover and “Enter your work email to get started”. People you invite, personal links and your own team go straight in. Off: anyone with the link can read the hub, and only the practice list and requests ask for an email.
-          </p>
         </div>
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <Switch checked={!!props.partnerLogoOriginal} onCheckedChange={(v) => update({ partnerLogoOriginal: v })} aria-label="Keep the logo's own colours" />
-          Keep the logo’s own colours (use this if the logo has a solid background)
+          Keep the logo’s own colours
         </label>
         <div className="grid grid-cols-2 gap-2">
           <Field label={`Customer logo size · ${Math.round(props.partnerLogoScale ?? 100)}%`}>
@@ -462,7 +459,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
               </SelectContent>
             </Select>
           </Field>
-          {bookable.length === 0 && <p className="text-[11px] text-muted-foreground">Nobody on your side of the team has a booking link yet. Add people from the Sales Reps library under Team (their links come with them), or paste a link here.</p>}
           {!!props.scheduleUrl && (
             <>
               <Input value={props.scheduleUrl} onChange={(e) => update({ scheduleUrl: e.target.value.trim(), scheduleRep: "" })} className="h-7 text-xs" placeholder="https://calendly.com/…" aria-label="Booking link" />
@@ -474,12 +470,8 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
           <Field label="Kickoff date"><Input type="date" value={props.kickoffDate ?? ""} onChange={(e) => update({ kickoffDate: e.target.value })} className="h-8 text-xs" /></Field>
           <Field label="Rollout length (days)"><Input type="number" min={1} value={props.rolloutDays ?? 90} onChange={(e) => update({ rolloutDays: Math.max(1, Number(e.target.value) || 90) })} className="h-8 text-xs" /></Field>
         </div>
-        <p className="text-[11px] leading-snug text-muted-foreground">The kickoff date drives “Day N of 90” and which phase is in progress. Leave it blank to hide both.</p>
-        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <Switch checked={!props.titleBrandHidden} onCheckedChange={(v) => update({ titleBrandHidden: !v })} aria-label="Show your company name after the customer's in the headline" />
-          Headline reads “Customer × You” (off = just the customer’s name)
-        </label>
-        <Field label="Label above the title"><Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} className="h-8 text-xs" /></Field>
+        <Field label="Headline"><Input value={props.headline?.trim() ? props.headline : roomHeadlineDefault(brandName)} onChange={(e) => update({ headline: e.target.value })} className="h-8 text-xs" /></Field>
+        <Field label="Label above the headline"><Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} className="h-8 text-xs" /></Field>
         <Field label="Cover style">
           <div className="grid grid-cols-2 gap-1">
             {(
@@ -499,9 +491,15 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
             })}
           </div>
         </Field>
+        {(props.coverStyle ?? "fade") === "fade" && (
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Switch checked={!props.coverPhotoScrolls} onCheckedChange={(v) => update({ coverPhotoScrolls: !v })} aria-label="Photo stays in place while the page scrolls" />
+            Photo stays in place while the page scrolls
+          </label>
+        )}
         <div className="flex items-center gap-2">
           <ThumbButton value={props.heroImageUrl ?? ""} onChange={(url) => update({ heroImageUrl: url })} label="Cover photo" />
-          <span className="text-[11px] text-muted-foreground">Cover photo. Blank gives a text-only cover.</span>
+          <span className="text-[11px] text-muted-foreground">Cover photo</span>
         </div>
       </SectionBody>
       )}

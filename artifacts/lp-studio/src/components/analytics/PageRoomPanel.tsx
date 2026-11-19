@@ -902,9 +902,6 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
   return (
     <section className="space-y-2">
       <h4 className="text-sm font-semibold">Calendar and minutes{drafts.length > 0 ? ` · ${drafts.length} draft${drafts.length === 1 ? "" : "s"} to review` : ""}</h4>
-      <p className="text-sm text-muted-foreground">
-        Connect a Google Calendar and the room shows its meetings that have a guest at this customer’s email domain. Internal meetings never show. When a finished meeting has Gemini notes attached, minutes are drafted here for you to review; the customer sees them only after you publish.
-      </p>
       {!hasDomain && (
         <form
           className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3"
@@ -924,9 +921,9 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
             }
           }}
         >
-          <p className="text-sm text-amber-900">First, what is the customer’s email domain? The room shows your meetings that have a guest at that domain.</p>
+          <p className="text-sm text-amber-900">Customer’s email domain</p>
           <div className="flex flex-wrap items-center gap-2">
-            <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="customer.com" className="h-8 max-w-xs bg-white text-sm" aria-label="Customer email domain" />
+            <Input value={domain} onChange={(e) => setDomain(e.target.value)} className="h-8 max-w-xs bg-white text-sm" aria-label="Customer email domain" />
             <Button type="submit" size="sm" variant="brand" disabled={busy || !domain.trim()}>Save domain</Button>
           </div>
         </form>
@@ -948,19 +945,11 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
         ) : (
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="brand" disabled={busy || google?.configured === false} onClick={connectGoogle}>Connect Google</Button>
-            <span className="text-xs text-muted-foreground">
-              {google?.configured === false ? "Google isn’t set up on this server yet." : "Read-only access to your calendar events and Google Docs. Connect the account that runs this customer’s meetings."}
-            </span>
+            {google?.configured === false && <span className="text-xs text-muted-foreground">Google isn’t set up on this server yet.</span>}
           </div>
         )}
-        {google?.setup && (google.setup.problem || !google.connection) && (
-          <div className="mt-2 space-y-1 text-xs text-muted-foreground" data-room-google-setup>
-            {google.setup.problem && <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-amber-900">Setup problem: {google.setup.problem}</p>}
-            <p>
-              Using {google.setup.source === "workspace" ? "the separate Google client" : "the sign-in Google client"}
-              {google.setup.clientIdTail ? ` (${google.setup.clientIdTail})` : ""}. It must allow this redirect address: <code className="break-all">{google.setup.redirectUri}</code>
-            </p>
-          </div>
+        {google?.setup?.problem && (
+          <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900" data-room-google-setup>Setup problem: {google.setup.problem}</p>
         )}
         {calendar?.connection && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

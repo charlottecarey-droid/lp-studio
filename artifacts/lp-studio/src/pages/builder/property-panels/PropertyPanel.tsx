@@ -7980,7 +7980,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "account-microsite":
         return <AccountMicrositePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} onApplyCtaToAll={onApplyCtaToAll} />;
       case "room-workspace":
-        return <RoomWorkspacePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
+        return <RoomWorkspacePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandName={brand?.brandName} />;
       case "onboarding-hub":
         return <OnboardingHubPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "value-renewal-review":
