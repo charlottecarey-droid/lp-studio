@@ -186,7 +186,7 @@ export function OutstandingView({
   return (
     <div className="prw-o" data-room-outstanding>
       {error && <div className="prw-err" role="alert">{error}</div>}
-      {groups.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is outstanding. Everything open on either side shows up here.</div></div>}
+      {groups.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is outstanding.</div></div>}
       {groups.map((g) => {
         const all = open[g.key] || g.items.length <= FOLD + 1;
         return (
@@ -250,7 +250,7 @@ function RequestEditor({ request, people, onSave, onClose }: { request: Outstand
         </label>
         <label>
           <span>Due</span>
-          <input className="prw-pick" value={due} onChange={(e) => setDue(e.target.value)} placeholder="Nov 21" aria-label="Due" />
+          <input className="prw-pick" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due" />
         </label>
         <span className="b">
           <button type="button" className="prw-btn pri" disabled={busy} onClick={save} data-room-request-save>{busy ? "Saving" : "Save"}</button>

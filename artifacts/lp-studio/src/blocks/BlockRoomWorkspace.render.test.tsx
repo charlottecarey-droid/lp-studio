@@ -61,7 +61,7 @@ describe("room-workspace — registry + default render", () => {
     expect(html).toContain("data-room-request-button");
     expect((html.match(/data-room-nav="/g) ?? []).length).toBe(10); // the launch kit lives inside Launch & marketing
     expect(html).toContain('data-room-view="overview"');
-    expect(html).toContain("Here is where the rollout stands.");
+    expect(html).not.toContain("Here is where the rollout stands.");
     expect(html).not.toContain("One shared plan"); // other modules are separate views
     expect(html).not.toMatch(/<img[^>]*src=""/);
   });
@@ -140,7 +140,7 @@ describe("room-workspace — setup items on the home screen", () => {
     expect(attention).toMatch(/<\/svg>\s*Upload<\/button>/);
     expect(attention).toMatch(/<\/svg>\s*(Add|Review)<\/button>/);
     expect(html).toContain('data-room-nav="overview"');
-    expect(html).toContain("2 to set up");
+    expect(html).toMatch(/Overview<em[^>]*>2<\/em>/);
     // No visitor is known during SSR: the headline greets the account.
     expect(html).toContain("Welcome, Acme Group!");
   });
@@ -216,11 +216,11 @@ describe("room-workspace — goals and practices", () => {
     expect(html).toContain('data-room-goals-agreement="open"');
     expect((html.match(/data-room-goal="auto"/g) ?? []).length).toBe(1);
     expect((html.match(/data-room-goal="manual"/g) ?? []).length).toBe(1);
-    expect(html).toContain("Live from this room");
+    expect(html).not.toContain("Live from this room");
     expect(html).toContain("Insights, Nov 14");
     expect(html).toContain("Needs attention");
     expect(html).not.toContain("Hidden goal");
-    expect(html).toContain("to agree");
+    expect(html).toMatch(/Goals<em[^>]*>1<\/em>/);
   });
   it("goalValue counts from the room for automatic metrics and uses the typed number otherwise", () => {
     const ctx = { byStage: { live: 18, trained: 6, scheduling: 4 }, planDone: 11 };
@@ -238,7 +238,7 @@ describe("room-workspace — goals and practices", () => {
     // One tile per stage, each a button that filters the list.
     for (const tile of ["all", "not_started", "scheduling", "training_booked", "trained", "live"]) expect(html).toContain(`data-room-tile="${tile}"`);
     expect(html).not.toContain("data-room-scorecard-check"); // the Salesforce call-out is for the team's own view
-    expect(html).toContain("will appear here once the list is loaded");
+    expect(html).toContain("loaded yet");
   });
 });
 
@@ -268,7 +268,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
         { key: "n", date: "TBD", title: "Undated thing" },
       ] },
     });
-    expect(html).toContain("What’s scheduled");
+    expect(html).toMatch(/<h2[^>]*>Calendar<\/h2>/);
     expect(html.indexOf("January 2027")).toBeGreaterThan(-1);
     expect(html.indexOf("January 2027")).toBeLessThan(html.indexOf("February 2027"));
     expect(html).toContain("Add Executive kickoff to your calendar");
@@ -322,14 +322,14 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(live).not.toContain("data-room-edit");
     const editing = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: { ...structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS), hiddenModules: ["overview", "practices", "wins", "goals"] }, brand: BRAND, onFieldChange: () => {} }));
     expect(editing).toContain('data-room-edit="task"');
-    expect(editing).toContain('data-room-edit="planIntro"');
-    expect(editing).not.toMatch(/<(a|button)\b[^>]*>(?:(?!<\/\1>).)*data-room-edit/s);
+        expect(editing).not.toMatch(/<(a|button)\b[^>]*>(?:(?!<\/\1>).)*data-room-edit/s);
   });
   it("the account name is a variable: one template reads right for any customer, and edits still reach the stored props", () => {
     const base = structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS);
-    const raw = { ...base, partnerName: "MB2 Dental", partnerShort: "MB2", planIntro: "Every milestone has an owner at Northwind and at [Partner].", kitIntro: "Made for {{account}}.", hiddenModules: ["overview", "practices", "wins", "goals"] as never };
+    const raw = { ...base, partnerName: "MB2 Dental", partnerShort: "MB2", lede: "Every milestone has an owner at Northwind and at [Partner].", kitIntro: "Made for {{account}}.", hiddenModules: ["overview", "practices", "wins", "goals"] as never };
     const html = renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: raw, brand: BRAND }));
     expect(html).toContain("and at MB2.");
+    expect(html).toContain("MB2 Dental × Northwind Partner Hub");
     expect(html).not.toContain("[Partner]");
     const { props, rawOf } = resolveRoomProps(raw);
     expect(props.kitIntro).toBe("Made for MB2 Dental.");
@@ -429,7 +429,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     // With the other modules shown, the tab counts what is the customer's across all of them: the upload, the decision, the meeting action
     // (the overdue item is ours, the on-track one isn't outstanding).
     const full = render({ ...content, hiddenModules: ["overview", "wins", "goals", "practices", "kit", "calendar", "team"] as never });
-    expect(full).toMatch(/Outstanding<em>3 yours<\/em>/);
+    expect(full).toMatch(/Outstanding<em[^>]*>3<\/em>/);
     expect(render()).toContain(">Our Team<");
   });
   it("top bar: logos can be sized, and a Schedule a meeting button books a rep's calendar", () => {

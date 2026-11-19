@@ -771,6 +771,11 @@ export function groupLaunch(assets: RoomAsset[], programs: RoomProgram[], choice
 }
 
 export const ROOM_GOALS_AGREED_KEY = "goals-agreed";
+
+/** The one line under the hub: "Signature Dental Partners × Dandy Partner Hub". */
+export function roomFooterLine(partnerName: string | undefined, brandName: string | undefined): string {
+  return `${[(partnerName ?? "").trim(), (brandName ?? "").trim()].filter(Boolean).join(" × ")} Partner Hub`.trim();
+}
 export const ROOM_PRACTICE_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
 
 /** A goal's value today: counted from the room for automatic metrics, the typed value otherwise. */
@@ -956,11 +961,11 @@ const CSS = `
 .prw-sheet{margin-top:-64px;position:relative;display:grid;grid-template-columns:236px minmax(0,1fr);background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px -32px rgba(0,0,0,.35);min-height:520px}
 .prw-toc{padding:44px 20px 44px 20px;border-right:1px solid var(--line)}
 .prw-toc .h{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:0 0 14px 12px}
-.prw-toc button{display:flex;gap:12px;align-items:center;width:100%;padding:9px 12px;margin-bottom:2px;border-radius:8px;font-size:13.5px;line-height:1.3;color:var(--body);font-weight:500;background:none;border:0;text-align:left;outline:0}
+.prw-toc button{display:flex;gap:10px;align-items:center;width:100%;padding:9px 12px;margin-bottom:2px;border-radius:8px;font-size:13.5px;line-height:1.3;color:var(--body);font-weight:500;background:none;border:0;text-align:left;outline:0}
 .prw-toc button:hover{background:color-mix(in srgb,var(--dark) 4%,transparent)}
 .prw-toc button:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb,var(--dark) 35%,transparent)}
 .prw-toc button .n{color:var(--faint);width:16px}
-.prw-toc button em{margin-left:auto;font-style:normal;font-size:11px;font-weight:600;color:var(--amber);white-space:nowrap}
+.prw-toc button em{margin-left:auto;font-style:normal;font-size:11.5px;font-weight:600;color:var(--body);white-space:nowrap}
 .prw-toc button.on{color:var(--dark);font-weight:600;background:color-mix(in srgb,var(--dark) 6%,transparent)}
 .prw-toc button.on .n{color:var(--green)}
 .prw-toc .who{margin:24px 12px 0;padding-top:20px;border-top:1px solid var(--line);font-size:12px;color:var(--body)}
@@ -968,7 +973,7 @@ const CSS = `
 .prw-mod{padding:48px 56px 64px;min-width:0}
 .prw-sec{margin-top:32px}
 .prw-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;margin-bottom:32px}
-.prw-hd h2{font-size:32px;line-height:1.12;letter-spacing:-.025em;font-weight:600;color:var(--dark);margin:10px 0 0}
+.prw-hd h2{font-size:32px;line-height:1.12;letter-spacing:-.025em;font-weight:600;color:var(--dark);margin:0}
 .prw-hd p{margin:12px 0 0;color:var(--body);max-width:60ch;font-size:15px}
 .prw-meta{font-size:12.5px;color:var(--body);white-space:nowrap}
 .prw-meta b{color:var(--dark)}
@@ -1683,11 +1688,11 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const outstanding = outstandingAll.filter((i) => i.source === "Meeting" || modules.some((m) => m.key === i.module));
   const outstandingYours = outstanding.filter((i) => i.side !== "us").length;
   const badge: Partial<Record<RoomModuleKey, string>> = {
-    overview: stepsOpen.length ? `${stepsOpen.length} to set up` : "",
-    goals: needsAgreement ? "to agree" : "",
-    marketing: undecided.length ? `${undecided.length} to decide` : "",
-    plan: mine.length ? `${mine.length} to do` : "",
-    requests: outstandingYours ? `${outstandingYours} yours` : "",
+    overview: stepsOpen.length ? String(stepsOpen.length) : "",
+    goals: needsAgreement ? "1" : "",
+    marketing: undecided.length ? String(undecided.length) : "",
+    plan: mine.length ? String(mine.length) : "",
+    requests: outstandingYours ? String(outstandingYours) : "",
   };
   const heroImage = (props.heroImageUrl ?? "").trim();
   const cover = props.coverStyle === "fullbleed" || props.coverStyle === "light" ? props.coverStyle : "split";
@@ -1746,7 +1751,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         <div className="prw-wrap">
           <RoomGate store={room.reader} loading={snapshot.status === "idle" || snapshot.status === "loading"} partner={props.partnerName} brandName={brand.brandName || ""} />
           <div className="prw-foot">
-            {props.partnerName} × {brand.brandName} · {props.eyebrow}
+            {roomFooterLine(props.partnerName, brand.brandName)}
           </div>
         </div>
       </section>
@@ -1814,6 +1819,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <span>plan items complete</span>
                   </div>
                 )}
+                {pr.total > 0 && (
+                  <div data-room-kpi="live">
+                    <b className="prw-num">{pr.byStage.live ?? 0} of {pr.total}</b>
+                    <span>{noun} live</span>
+                  </div>
+                )}
                 {mine.length + reviewRequests.length + stepsOpen.length + undecided.length > 0 && (
                   <div>
                     <b className="prw-num">{mine.length + reviewRequests.length + stepsOpen.length + undecided.length}</b>
@@ -1847,19 +1858,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         <div className="prw-sheet">
           <aside className="prw-toc">
             <div className="in">
-              <div className="h">Workspace</div>
               {modules.map((m, i) => (
                 <button key={m.key} type="button" className={m.key === active ? "on" : ""} onClick={() => setView(m.key)} data-room-nav={m.key}>
-                  <span className="n prw-num">{String(i + 1).padStart(2, "0")}</span>
                   {m.key === "marketing" ? "Launch & marketing" : m.label}
-                  {badge[m.key] && <em>{badge[m.key]}</em>}
+                  {badge[m.key] && <em className="prw-num" aria-label={`${badge[m.key]} waiting on you`}>{badge[m.key]}</em>}
                 </button>
               ))}
-              {snapshot.viewer && (
-                <div className="who">
-                  Signed in as<b>{snapshot.viewer.name || snapshot.viewer.email}</b>
-                </div>
-              )}
             </div>
           </aside>
 
@@ -1868,15 +1872,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd prw-welcome">
                   <div>
-                    <div className="prw-eyebrow">Overview</div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }} data-room-welcome>
                       {(props.onboarding?.title ?? "").trim() || `Welcome, ${welcomeName(snapshot.viewer, props.partnerName)}!`}
                     </h2>
-                    <p>
-                      {day !== null
-                        ? `Day ${Math.min(day, total)} of ${total}${states.includes("current") ? `, ${phases[states.indexOf("current")].title.toLowerCase()}` : ""}. Here is where the rollout stands.`
-                        : "Here is where the rollout stands."}
-                    </p>
                   </div>
                   {(props.kickoffDate ?? "").trim() && (
                     <div className="prw-meta">
@@ -1914,27 +1912,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   </>
                 )}
-                <div className="prw-kpis">
-                  {pr.total > 0 ? (
-                    <div className="prw-kpi" data-room-kpi="live">
-                      <div className="k">{Noun} live</div>
-                      <div className="v prw-num">{pr.byStage.live ?? 0} <small>of {pr.total}</small></div>
-                    </div>
-                  ) : (
-                    <div className="prw-kpi">
-                      <div className="k">Plan items complete</div>
-                      <div className="v prw-num">{doneCount} <small>of {rows.length}</small></div>
-                    </div>
-                  )}
-                  <div className="prw-kpi">
-                    <div className="k">Waiting on you</div>
-                    <div className="v prw-num">{attention.length}</div>
-                  </div>
-                  <div className="prw-kpi">
-                    <div className="k">Open requests</div>
-                    <div className="v prw-num">{snapshot.viewer ? openRequests.length : "—"}</div>
-                  </div>
-                </div>
                 <div className="prw-grid2 prw-sec" style={!(now && events.upcoming.length > 0) && blocked.length === 0 ? { gridTemplateColumns: "1fr" } : undefined}>
                   <div className="prw-card prw-att" data-room-attention>
                     <h3>
@@ -2029,9 +2006,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Calendar</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What’s scheduled</h2>
-                    {props.calendar && (props.calendar.intro || isEditor) && <p><E item={props.calendar} field="intro" multiline placeholder="Intro line" /></p>}
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Calendar</h2>
                   </div>
                   {pageId && !isEditor && (
                     <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}${props.requireEmail && room.reader?.feedToken() ? `&rt=${encodeURIComponent(room.reader.feedToken())}` : ""}`} data-room-calendar-feed>
@@ -2057,17 +2032,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Meetings</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Minutes and decisions</h2>
-                    {props.meetings && (props.meetings.intro || isEditor) && <p><E item={props.meetings} field="intro" multiline placeholder="Intro line" /></p>}
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Meetings</h2>
                   </div>
-                  {meetings.length > 0 && (
-                    <div className="prw-meta">
-                      <b>{meetings.length}</b> {meetings.length === 1 ? "meeting" : "meetings"} · <b>{meetings.reduce((n, m) => n + (m.actions ?? []).filter((a) => !actionDone(m, a)).length, 0)}</b> open actions
-                    </div>
-                  )}
                 </div>
-                {meetings.length === 0 && <div className="prw-card"><div className="prw-empty">Minutes will appear here after each meeting.</div></div>}
+                {meetings.length === 0 && <div className="prw-card"><div className="prw-empty">No minutes yet.</div></div>}
                 {meetings.map((m, i) => (
                   <MeetingCard key={m.key || m.title + m.date} meeting={{ ...m, actions: (m.actions ?? []).map((a) => ({ ...a, done: actionDone(m, a) })) }} defaultOpen={i === 0} isEditor={isEditor} />
                 ))}
@@ -2078,12 +2046,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Action plan</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>One shared plan, owned on both sides</h2>
-                    {(props.planIntro || isEditor) && <p><E item={props} field="planIntro" multiline placeholder="Intro line" /></p>}
-                  </div>
-                  <div className="prw-meta">
-                    <b>{doneCount}</b> of {rows.length} done{mine.length ? <> · <b>{mine.length}</b> yours to do</> : null}
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Action plan</h2>
                   </div>
                 </div>
                 <table className="prw-plan">
@@ -2103,11 +2066,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     ))}
                   </tbody>
                 </table>
-                <div className="prw-legend">
-                  {STATUSES.map((s) => (
-                    <span key={s} className={`prw-st ${s}`}>{ROOM_STATUS_LABEL[s]}</span>
-                  ))}
-                </div>
               </>
             )}
 
@@ -2115,9 +2073,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Goals</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What success looks like</h2>
-                    {props.goals && (props.goals.intro || isEditor) && <p><E item={props.goals} field="intro" multiline placeholder="Intro line" /></p>}
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Goals</h2>
                   </div>
                 </div>
                 {!!props.goals?.askAgreement && goals.length > 0 && (
@@ -2126,7 +2082,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                       <span><b>Agreed</b>{goalsAgreed.by ? ` by ${goalsAgreed.by}` : ""}{goalsAgreed.at ? ` · ${fmtDate(goalsAgreed.at)}` : ""}</span>
                     ) : (
                       <>
-                        <span><b>Do these goals look right?</b> Agree to them, or ask for a change.</span>
+                        <span><b>Do these goals look right?</b></span>
                         <span style={{ display: "flex", gap: 8 }}>
                           {canRequest && <button type="button" className="prw-btn" onClick={() => openRequest({ subject: "Change a goal", kind: "other" })}>Suggest a change</button>}
                           <button type="button" className="prw-btn pri" onClick={() => needViewer(() => void store?.setTaskDone(ROOM_GOALS_AGREED_KEY, true))}><Check aria-hidden /> Agree</button>
@@ -2161,7 +2117,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                           <td className="c">{g.target}</td>
                           <td className="c">
                             <b style={{ color: "var(--ink)" }}>{auto ? value : g.current || (value ?? "—")}</b>
-                            <div className="m">{auto ? "Live from this room" : g.source}</div>
+                            {!auto && g.source && <div className="m">{g.source}</div>}
                           </td>
                           <td>{pctDone !== null && <div className={`prw-bar${status === "pending" ? " warn" : ""}`}><i style={{ width: `${pctDone}%` }} /></div>}</td>
                           <td><span className={`prw-st ${status}`}>{status === "done" ? "Achieved" : status === "pending" ? "Needs attention" : "On track"}</span></td>
@@ -2171,13 +2127,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     })}
                   </tbody>
                 </table>
-                <div className="prw-eyebrow" style={{ margin: "26px 0 10px" }}>Rollout health</div>
-                <div className="prw-kpis" style={{ marginTop: 0 }}>
-                  <div className="prw-kpi"><div className="k">{Noun} live</div><div className="v prw-num">{pr.byStage.live ?? 0} <small>of {pr.total}</small></div></div>
-                  <div className="prw-kpi"><div className="k">{Noun} trained</div><div className="v prw-num">{(pr.byStage.trained ?? 0) + (pr.byStage.live ?? 0)} <small>of {pr.total}</small></div></div>
-                  <div className="prw-kpi"><div className="k">Plan items complete</div><div className="v prw-num">{doneCount} <small>of {rows.length}</small></div></div>
-                  {blocked.length > 0 && <div className="prw-kpi"><div className="k">Overdue</div><div className="v prw-num">{blocked.length}</div></div>}
-                </div>
               </>
             )}
 
@@ -2189,12 +2138,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Launch &amp; marketing</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Everything to launch the partnership</h2>
-                    {showMarketing && props.marketing && (props.marketing.intro || isEditor) && <p><E item={props.marketing} field="intro" multiline placeholder="Intro line" /></p>}
-                    {!showMarketing && (props.kitIntro || isEditor) && <p><E item={props} field="kitIntro" multiline placeholder="Intro line" /></p>}
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Launch &amp; marketing</h2>
                   </div>
-                  {undecided.length > 0 && showMarketing && <div className="prw-meta"><b>{undecided.length}</b> waiting on your decision</div>}
                 </div>
 
                 {showKit && links.length > 0 && (
@@ -2233,7 +2178,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {showMarketing && launch.toDecide.length > 0 && (
                   <section className="prw-lk" data-room-launch="decide">
                     <h3>To decide<span className="prw-num">{launch.toDecide.length}</span></h3>
-                    <p>Tick the ones you want and they move to In progress. Open any of them for details.</p>
                     <div className="prw-progs">
                       {launch.toDecide.map((x) => (
                         <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
@@ -2245,7 +2189,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {showKit && launch.ready.length > 0 && (
                   <section className="prw-lk" data-room-launch="ready">
                     <h3>Ready for launch<span className="prw-num">{launch.ready.length}</span></h3>
-                    <p>{(props.kitIntro ?? "").trim() || "Approved and ready to use."}</p>
                     <div className="prw-docs">
                       {launch.ready.map((a, i) => (
                         <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
@@ -2257,7 +2200,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {(launch.inProgress.length > 0 || launch.preparing.length > 0) && (
                   <section className="prw-lk" data-room-launch="progress">
                     <h3>In progress<span className="prw-num">{launch.inProgress.length + launch.preparing.length}</span></h3>
-                    <p>In the plan and under way, with when each one happens.</p>
                     <div className="prw-progs">
                       {launch.inProgress.map((x) => (
                         <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
@@ -2276,7 +2218,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {showMarketing && launch.later.length > 0 && (
                   <section className="prw-lk" data-room-launch="later">
                     <h3>Saved for later<span className="prw-num">{launch.later.length}</span></h3>
-                    <p>Not in the plan for now. Tick one to bring it in.</p>
                     <div className="prw-progs">
                       {launch.later.map((x) => (
                         <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
@@ -2285,17 +2226,6 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   </section>
                 )}
 
-                {canRequest && (
-                  <div className="prw-li" style={{ border: "1px dashed #CBD1C8", borderRadius: 10, marginTop: 12, background: "#fff" }}>
-                    <div>
-                      <div className="t">Something else?</div>
-                      <div className="m">Tell us what would help your teams adopt, and we’ll scope it.</div>
-                    </div>
-                    <div className="a">
-                      <button type="button" className="prw-btn" onClick={() => openRequest({ subject: "Marketing support", kind: "marketing" })}>Ask for it</button>
-                    </div>
-                  </div>
-                )}
               </>
             )}
 
@@ -2303,9 +2233,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Outstanding</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>What’s open, and who has it</h2>
-                    <p>Everything still open, from the plan, meetings, marketing and requests. Click an item to go to it.</p>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Outstanding</h2>
                   </div>
                   <button type="button" className="prw-btn pri" onClick={() => openRequest()}>
                     <Plus aria-hidden /> Make a request
@@ -2344,7 +2272,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <div className="prw-li">
                       <div>
                         <div className="t">Confirm your email to see and make requests</div>
-                        <div className="m">Requests are shared with your team only.</div>
+                        
                       </div>
                       <div className="a"><button type="button" className="prw-btn pri" onClick={() => setAsk({ kind: "email" })}><Mail aria-hidden /> Confirm email</button></div>
                     </div>
@@ -2357,8 +2285,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <div className="prw-eyebrow">Our Team</div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Named people on both sides</h2>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Our Team</h2>
                   </div>
                   {props.teamNote && <div className="prw-meta">{props.teamNote}</div>}
                 </div>
@@ -2390,7 +2317,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
           </div>
         </div>
         <div className="prw-foot">
-          {props.partnerName} × {brand.brandName} · {props.eyebrow}
+          {roomFooterLine(props.partnerName, brand.brandName)}
         </div>
       </div>
 
@@ -2532,7 +2459,7 @@ function PlanRowEditor({ row, edit, onClose }: { row: PlanRow; edit: PlanEdit; o
         <div className="f">
           <label>
             <span>Target date</span>
-            <input className="prw-pick" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Nov 21" />
+            <input className="prw-pick" value={target} onChange={(e) => setTarget(e.target.value)} />
           </label>
           <label>
             <span>Our owner</span>
@@ -2587,7 +2514,6 @@ function RosterTemplateLink({ store, show }: { store: RoomStoreHandle | null; sh
       >
         <Download aria-hidden /> Download the template
       </button>
-      <span>your practices are already filled in</span>
       {error && <span className="prw-err" role="alert">{error}</span>}
     </div>
   );
@@ -2864,7 +2790,7 @@ function RequestDialog({ store, preset, onClose, onSent, onNeedEmail }: { store:
               <option value="other">Something else</option>
             </select>
             <label htmlFor="prw-subject">About</label>
-            <input id="prw-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Which item or topic" maxLength={160} />
+            <input id="prw-subject" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={160} />
           </>
         )}
         <div className="prw-rfs">{form.fields.map(input)}</div>
@@ -2910,19 +2836,19 @@ function RoomGate({ store, loading, partner, brandName }: { store: RoomStoreHand
       ) : result === "sent" ? (
         <>
           <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Check your inbox</h2>
-          <p>We sent a link to <b>{email.trim()}</b>. Open it on this device and you’re in. It keeps working here for 90 days.</p>
+          <p>We sent a link to <b>{email.trim()}</b>. Open it on this device.</p>
         </>
       ) : result === "requested" ? (
         <>
           <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Thanks, we’ve let the team know</h2>
-          <p>We don’t have <b>{email.trim()}</b> on the list yet, so your {brandName || "account"} team has been asked to add you. You’ll get an email with your link once they do.</p>
+          <p><b>{email.trim()}</b> isn’t on the list yet. We’ll email your link once you’re added.</p>
         </>
       ) : (
         <form onSubmit={submit}>
           <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Enter your work email to get started</h2>
-          <p>This is the shared workspace for {partner}{brandName ? ` and ${brandName}` : ""}: the plan, the launch kit, upcoming dates and the team on both sides. We’ll email you a link that opens it.</p>
+          <p>We’ll email you a link that opens the hub.</p>
           <div className="row">
-            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" aria-label="Work email" data-room-gate-email />
+            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Work email" data-room-gate-email />
             <button type="submit" className="prw-btn pri" disabled={busy || !store}>{busy ? "Sending…" : "Continue"}</button>
           </div>
           {error && <div className="prw-err" role="alert">{error}</div>}
@@ -2959,9 +2885,9 @@ function AccessDialog({ store, onClose }: { store: RoomStoreHandle; onClose: () 
         {result === null ? (
           <form onSubmit={submit}>
             <h3>Confirm it’s you</h3>
-            <p>Enter your work email and we’ll send you a link. Open it once and this browser can upload files, complete items and make requests.</p>
+            <p>We’ll email you a link.</p>
             <label htmlFor="prw-email">Work email</label>
-            <input id="prw-email" ref={inputRef} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
+            <input id="prw-email" ref={inputRef} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             {error && <div className="prw-err" role="alert">{error}</div>}
             <div className="row">
               <button type="submit" className="prw-btn pri" disabled={busy} style={solid}>
@@ -3175,7 +3101,7 @@ function ContactDialog({ store, partnerName, existing, confirmKey, onClose, onNe
         <h3>{existing.length ? "Your team" : "Add your team"}</h3>
         {existing.length > 0 ? (
           <>
-            <p>These {existing.length === 1 ? "person is" : `${existing.length} people are`} already listed for {partnerName}, so there’s no need to add them again. Add anyone who is missing.</p>
+            <p>Already listed:</p>
             <ul className="prw-have" data-room-team-existing>
               {existing.map((p, i) => (
                 <li key={i}><b>{p.name}</b>{p.role ? <span> · {p.role}</span> : null}</li>
@@ -3189,12 +3115,12 @@ function ContactDialog({ store, partnerName, existing, confirmKey, onClose, onNe
             <div className="prw-have-h">Add someone else</div>
           </>
         ) : (
-          <p>Who should we work with at {partnerName}? Add as many people as you like.</p>
+          <p>Who should we work with at {partnerName}?</p>
         )}
         <label htmlFor="prw-cname">Name</label>
         <input id="prw-cname" ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
         <label htmlFor="prw-crole">Role</label>
-        <input id="prw-crole" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Operations lead, regional manager…" maxLength={120} />
+        <input id="prw-crole" value={role} onChange={(e) => setRole(e.target.value)} maxLength={120} />
         <label htmlFor="prw-cemail">Email</label>
         <input id="prw-cemail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         {error && <div className="prw-err" role="alert">{error}</div>}

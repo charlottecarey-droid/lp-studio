@@ -167,7 +167,7 @@ interface FeedFieldHandle {
 /** A text field that suggests people after "@". The parent keeps the text and the picked people. */
 const FeedField = forwardRef<
   FeedFieldHandle,
-  { value: string; onChange: (v: string) => void; people: RoomPersonRef[]; onPick: (p: RoomPersonRef) => void; multiline?: boolean; placeholder: string; label: string; max: number; autoFocus?: boolean; onSubmit?: () => void }
+  { value: string; onChange: (v: string) => void; people: RoomPersonRef[]; onPick: (p: RoomPersonRef) => void; multiline?: boolean; placeholder?: string; label: string; max: number; autoFocus?: boolean; onSubmit?: () => void }
 >(function FeedField({ value, onChange, people, onPick, multiline, placeholder, label, max, autoFocus, onSubmit }, handle) {
   const el = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
   const [query, setQuery] = useState<{ from: number; q: string } | null>(null);
@@ -363,15 +363,8 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
     <>
       <div className="prw-hd">
         <div>
-          <div className="prw-eyebrow">Wins</div>
-          <h2 style={{ fontFamily: display }}>What’s going well</h2>
-          <p>Share a win with a photo, tag people with @, and react or comment. Anyone you tag gets an email.</p>
+          <h2 style={{ fontFamily: display }}>Wins</h2>
         </div>
-        {snapshot.wins.length > 0 && (
-          <div className="prw-meta">
-            <b>{snapshot.wins.length}</b> {snapshot.wins.length === 1 ? "win" : "wins"} so far
-          </div>
-        )}
       </div>
       <form
         className="prw-compose"
@@ -381,7 +374,7 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
         }}
         data-room-win-compose
       >
-        <FeedField ref={field} multiline value={text} onChange={setText} people={snapshot.people ?? []} onPick={(p) => setPicked((cur) => [...cur, p])} placeholder="Share a win: a great case, a happy doctor, a milestone" label="Share a win" max={1500} onSubmit={() => void post()} />
+        <FeedField ref={field} multiline value={text} onChange={setText} people={snapshot.people ?? []} onPick={(p) => setPicked((cur) => [...cur, p])} label="Share a win" max={1500} onSubmit={() => void post()} />
         {(images.length > 0 || adding) && (
           <div className="prw-pics" data-room-thumbs>
             {images.map((src) => (
@@ -422,7 +415,7 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
       )}
       {snapshot.wins.length === 0 && (
         <div className="prw-card" style={{ marginTop: 16 }}>
-          <div className="prw-empty">No wins yet. Be the first to share one.</div>
+          <div className="prw-empty">No wins yet.</div>
         </div>
       )}
       {snapshot.wins.map((w) => (
@@ -504,7 +497,7 @@ function WinCard({ win, snapshot, store, isEditor, onNeedEmail }: FeedProps & { 
             void send();
           }}
         >
-          <FeedField ref={field} value={text} onChange={setText} people={snapshot.people ?? []} onPick={(p) => setPicked((cur) => [...cur, p])} placeholder="Write a comment. Type @ to mention someone" label="Write a comment" max={1000} autoFocus />
+          <FeedField ref={field} value={text} onChange={setText} people={snapshot.people ?? []} onPick={(p) => setPicked((cur) => [...cur, p])} label="Write a comment" max={1000} autoFocus />
           <EmojiButton emoji={FEED_EMOJI} label="Add an emoji" icon="write" className="tool" onPick={(e) => field.current?.insert(e)} />
           <button type="submit" className="prw-btn" disabled={busy || !text.trim()}>
             Send

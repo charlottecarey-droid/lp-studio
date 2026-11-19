@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 
 export type HubGoalMetric = "manual" | "practices_live" | "practices_trained" | "plan_complete";
@@ -70,14 +69,12 @@ export function RoomGoalsSection({
   onSaved: (goals: HubGoals) => void | Promise<void>;
 }) {
   const [state, setState] = useState<HubGoals>(goals);
-  const [intro, setIntro] = useState(goals.intro);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setState(goals);
-    setIntro(goals.intro);
   }, [goals]);
 
   const save = async (next: HubGoals): Promise<boolean> => {
@@ -91,7 +88,6 @@ export function RoomGoalsSection({
         return false;
       }
       setState(j.goals);
-      setIntro(j.goals.intro);
       await onSaved(j.goals);
       return true;
     } catch {
@@ -212,13 +208,6 @@ export function RoomGoalsSection({
       )}
 
       <div className="space-y-3 rounded-md border p-3">
-        <label className="block space-y-1 text-sm">
-          <span className="font-medium">Intro line</span>
-          <Textarea value={intro} onChange={(e) => setIntro(e.target.value)} rows={2} maxLength={400} className="text-sm" placeholder="One or two sentences above the goals" />
-        </label>
-        {intro.trim() !== state.intro && (
-          <Button type="button" size="sm" variant="brand" className="h-8" disabled={busy} onClick={() => save({ ...state, intro })}>Save intro</Button>
-        )}
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={state.askAgreement} disabled={busy} onChange={(e) => save({ ...state, askAgreement: e.target.checked })} />
           Ask the customer to agree to these goals
@@ -245,7 +234,7 @@ function GoalEditor({ goal, busy, byStage, isNew = false, onSave, onCancel, onRe
     <div className="space-y-3 border-t bg-muted/30 px-3 py-3" data-room-goal-editor={goal.key}>
       <label className={field}>
         Goal
-        <Input autoFocus={isNew} value={g.title} onChange={(e) => set({ title: e.target.value })} maxLength={160} placeholder="Share of lab spend with Dandy" className="h-9 text-sm text-foreground" />
+        <Input autoFocus={isNew} value={g.title} onChange={(e) => set({ title: e.target.value })} maxLength={160} className="h-9 text-sm text-foreground" />
       </label>
       <label className={field}>
         Detail (optional)
@@ -254,11 +243,11 @@ function GoalEditor({ goal, busy, byStage, isNew = false, onSave, onCancel, onRe
       <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
         <label className={field}>
           Target, as it reads
-          <Input value={g.target ?? ""} onChange={(e) => set({ target: e.target.value })} maxLength={80} placeholder="40 by Day 90" className="h-9 text-sm text-foreground" />
+          <Input value={g.target ?? ""} onChange={(e) => set({ target: e.target.value })} maxLength={80} className="h-9 text-sm text-foreground" />
         </label>
         <label className={field}>
           Target as a number
-          <Input type="number" value={targetValue} onChange={(e) => setTargetValue(e.target.value)} placeholder="40" className="h-9 text-sm text-foreground" />
+          <Input type="number" value={targetValue} onChange={(e) => setTargetValue(e.target.value)} className="h-9 text-sm text-foreground" />
         </label>
       </div>
       <label className={field}>
@@ -271,15 +260,15 @@ function GoalEditor({ goal, busy, byStage, isNew = false, onSave, onCancel, onRe
         <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
           <label className={field}>
             Today, as it reads
-            <Input value={g.current ?? ""} onChange={(e) => set({ current: e.target.value })} maxLength={80} placeholder="22%" className="h-9 text-sm text-foreground" />
+            <Input value={g.current ?? ""} onChange={(e) => set({ current: e.target.value })} maxLength={80} className="h-9 text-sm text-foreground" />
           </label>
           <label className={field}>
             Today as a number
-            <Input type="number" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} placeholder="22" className="h-9 text-sm text-foreground" />
+            <Input type="number" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} className="h-9 text-sm text-foreground" />
           </label>
           <label className={`${field} sm:col-span-2`}>
             Where the number came from, and when
-            <Input value={g.source ?? ""} onChange={(e) => set({ source: e.target.value })} maxLength={160} placeholder="Dandy Insights, Nov 14" className="h-9 text-sm text-foreground" />
+            <Input value={g.source ?? ""} onChange={(e) => set({ source: e.target.value })} maxLength={160} className="h-9 text-sm text-foreground" />
           </label>
         </div>
       ) : (

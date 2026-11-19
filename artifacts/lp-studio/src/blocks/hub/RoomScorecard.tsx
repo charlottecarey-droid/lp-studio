@@ -281,9 +281,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     <>
       <div className="prw-hd">
         <div>
-          <div className="prw-eyebrow">Scorecard</div>
-          <h2 style={{ fontFamily: display }}>Rollout scorecard</h2>
-          <p>Where every {one} stands, kept current by our team. Click a number to see only those {noun}.</p>
+          <h2 style={{ fontFamily: display }}>Scorecard</h2>
         </div>
         {(pr.regions.length > 0 || pr.syncedAt) && (
           <div className="prw-meta">
@@ -399,7 +397,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                 </div>
               </>
             ) : (
-              <p className="none">The trend starts now: one point is added each day the list refreshes, so the line fills in over the coming weeks.</p>
+              <p className="none">Not enough history yet.</p>
             )}
           </div>
           <div className="prw-card prw-sc-panel" data-room-scorecard-goals>
@@ -416,7 +414,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                 );
               })
             ) : (
-              <p className="none">No {one} goals are set yet. Goals with a number (for example {noun} live by Day 90) show their progress here.</p>
+              <p className="none">No goals with a number yet.</p>
             )}
           </div>
         </div>
@@ -440,13 +438,12 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       )}
 
       {pr.total === 0 ? (
-        <div className="prw-card"><div className="prw-empty">Your {noun} will appear here once the list is loaded.</div></div>
+        <div className="prw-card"><div className="prw-empty">No {noun} loaded yet.</div></div>
       ) : !snapshot.viewer && !isEditor ? (
         <div className="prw-card">
           <div className="prw-li">
             <div>
               <div className="t">Confirm your email to see each {one}</div>
-              <div className="m">The list is shared with your team only.</div>
             </div>
             <div className="a"><button type="button" className="prw-btn pri" onClick={onNeedEmail}><Mail aria-hidden /> Confirm email</button></div>
           </div>
@@ -454,7 +451,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       ) : (
         <>
           <div className="prw-tools prw-sc-tools">
-            <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} placeholder={`Search ${noun}`} aria-label={`Search ${noun}`} />
+            <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} aria-label={`Search ${noun}`} />
             <select value={region} onChange={(e) => { setRegion(e.target.value); setPageNo(0); }} aria-label="Region">
               <option value="">All regions</option>
               {pr.regions.map((r) => <option key={r} value={r}>{r}</option>)}

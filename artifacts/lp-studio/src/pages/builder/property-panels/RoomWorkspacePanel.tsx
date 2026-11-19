@@ -549,7 +549,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
 
       {active === "goals" && (
       <SectionBody title={`Goals (${goalItems.length})`} hint="What success looks like, and where each goal stands">
-        <Field label="Intro line"><Textarea value={goals.intro ?? ""} onChange={(e) => setGoals({ intro: e.target.value })} rows={2} className="text-xs" /></Field>
         <label className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs">
           <span>Ask the customer to agree to these goals</span>
           <Switch checked={!!goals.askAgreement} onCheckedChange={(v) => setGoals({ askAgreement: v })} aria-label="Ask the customer to agree" />
@@ -599,7 +598,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
 
       {active === "calendar" && (
       <SectionBody title={`Calendar (${events.length})`} hint="Meetings, trainings and sends. The next three also show on the overview">
-        <Field label="Intro line"><Input value={calendar.intro ?? ""} onChange={(e) => setCalendar({ intro: e.target.value })} className="h-8 text-xs" /></Field>
         {events.map((ev, i) => (
           <CollapseItem key={i} startOpen={String(ev.title || `Event ${i + 1}`).startsWith("New ")} header={<ItemHeader label={ev.title || `Event ${i + 1}`} index={i} total={events.length} onMove={(dir) => setCalendar({ events: moveItem(events, i, dir) })} onRemove={() => setCalendar({ events: events.filter((_, idx) => idx !== i) })} />}>
             <Input value={ev.title ?? ""} onChange={(e) => setEvent(i, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="Event" />
@@ -633,7 +631,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
 
       {active === "meetings" && (
       <SectionBody title={`Meetings (${meetingItems.length})`} hint="Minutes: decisions and action items, newest first">
-        <Field label="Intro line"><Input value={minutes.intro ?? ""} onChange={(e) => setMinutes({ intro: e.target.value })} className="h-8 text-xs" /></Field>
         {meetingItems.map((m, i) => (
           <CollapseItem key={i} startOpen={String(m.title || `Meeting ${i + 1}`).startsWith("New ")} header={<ItemHeader label={m.title || `Meeting ${i + 1}`} index={i} total={meetingItems.length} onMove={(dir) => setMinutes({ items: moveItem(meetingItems, i, dir) })} onRemove={() => setMinutes({ items: meetingItems.filter((_, idx) => idx !== i) })} />}>
             <div className="grid grid-cols-[1fr_130px] gap-1">
@@ -677,7 +674,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
 
       {active === "marketing" && (
       <SectionBody title="Marketing plan" hint="Programs the customer includes, skips or picks an option for">
-        <Field label="Intro line"><Textarea value={marketing.intro ?? ""} onChange={(e) => setMarketing({ intro: e.target.value })} rows={2} className="text-xs" /></Field>
         {mGroups.map((g, gi) => (
           <CollapseItem key={gi} startOpen={String(g.title || `Group ${gi + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={mGroups.length} onMove={(dir) => setMarketing({ groups: moveItem(mGroups, gi, dir) })} onRemove={() => setMarketing({ groups: mGroups.filter((_, idx) => idx !== gi) })} />}>
             <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
@@ -753,7 +749,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
 
       {active === "plan" && (
       <SectionBody title="Action plan" hint="Milestones by phase, an owner on each side">
-        <Field label="Intro line"><Textarea value={props.planIntro ?? ""} onChange={(e) => update({ planIntro: e.target.value })} rows={2} className="text-xs" /></Field>
         {groups.map((g, gi) => (
           <CollapseItem key={gi} startOpen={String(g.title || `Phase ${gi + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Phase ${gi + 1}`} index={gi} total={groups.length} onMove={(dir) => update({ planGroups: moveItem(groups, gi, dir) })} onRemove={() => update({ planGroups: groups.filter((_, idx) => idx !== gi) })} />}>
             <div className="flex items-center gap-2">
@@ -812,7 +807,6 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
 
       {active === "kit" && (
       <SectionBody title={`Launch kit (${assets.length})`} hint="Assets with View, Download and Request changes">
-        <Field label="Intro line"><Textarea value={props.kitIntro ?? ""} onChange={(e) => update({ kitIntro: e.target.value })} rows={2} className="text-xs" /></Field>
         {assets.map((a, i) => (
           <CollapseItem key={i} startOpen={String(a.title || `Asset ${i + 1}`).startsWith("New ")} header={<ItemHeader label={a.title || `Asset ${i + 1}`} index={i} total={assets.length} onMove={(dir) => update({ assets: moveItem(assets, i, dir) })} onRemove={() => update({ assets: assets.filter((_, idx) => idx !== i) })} />}>
             <div className="grid grid-cols-[1fr_120px] gap-2">
