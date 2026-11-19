@@ -221,6 +221,14 @@ export function RoomWorkspacePanel({ props, onChange }: { props: RoomWorkspaceBl
               pageId={pageId}
               initialTab={roomTab}
               onKitAssets={applyKitAssets}
+              onGoals={(g) => {
+                // Goals were saved on the page from here: keep the builder's copy the same, or its next save would put the old ones back.
+                const current = propsRef.current;
+                const hiddenModules = (current.hiddenModules ?? []).filter((m) => m !== "goals");
+                const next = { ...current, goals: { ...current.goals, intro: g.intro, askAgreement: g.askAgreement, items: g.items }, hiddenModules: g.moduleHidden ? [...hiddenModules, "goals" as const] : hiddenModules };
+                propsRef.current = next;
+                onChange(next);
+              }}
               onKitLink={(link) => {
                 // The practice microsite was linked on the saved page: add it to the builder's copy too, or the next save here would drop it.
                 const current = propsRef.current;

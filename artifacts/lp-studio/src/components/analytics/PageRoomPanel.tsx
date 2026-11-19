@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
+import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -28,6 +29,8 @@ interface RoomDetail {
   visitAlert?: boolean;
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
+  /** The hub's goals as stored on the page (workspace hubs only). */
+  goals?: HubGoals | null;
   kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
@@ -83,7 +86,7 @@ async function send(url: string, method: string, body?: unknown): Promise<string
   }
 }
 
-export type RoomPanelTab = "performance" | "activity" | "kit" | "practices" | "calendar" | "settings";
+export type RoomPanelTab = "performance" | "goals" | "activity" | "kit" | "practices" | "calendar" | "settings";
 /** A file the Room panel just put in the launch kit. The builder applies it to its own copy of the page too, so its next save keeps it. */
 /** A link added to the launch kit from the Room panel (the practice microsite). */
 export interface RoomKitLinkChange {
@@ -95,7 +98,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   const [tab, setTab] = useState<RoomPanelTab>(initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -213,6 +216,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "ac
           {(
             [
               ...(data.isWorkspace ? [{ id: "performance", label: "Performance", count: 0 }] : []),
+              ...(data.isWorkspace && data.goals ? [{ id: "goals", label: "Goals", count: 0 }] : []),
               { id: "activity", label: "Activity", count: requests.length + (data.requests ?? []).filter((q) => q.status === "new").length },
               ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
               { id: "practices", label: data.isWorkspace ? "Practices & files" : "Files", count: 0 },
@@ -236,6 +240,21 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, initialTab = "ac
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} />}
+        {tab === "goals" && data.isWorkspace && data.goals && (
+          <RoomGoalsSection
+            pageId={pageId}
+            goals={data.goals}
+            byStage={data.practices?.total ? data.practices.byStage : undefined}
+            agreement={(() => {
+              const t = data.tasks.find((x) => x.key === "goals-agreed");
+              return t ? { done: t.done, by: t.completedBy, at: t.completedAt } : null;
+            })()}
+            onSaved={async (g) => {
+              onGoals?.(g);
+              await refresh();
+            }}
+          />
+        )}
         {tab === "activity" && requests.length === 0 && (data.requests ?? []).length === 0 && (data.choices ?? []).length === 0 && !data.isWorkspace && data.tasks.length === 0 && <p className="text-sm text-muted-foreground">Nothing has happened in this room yet.</p>}
 
         {tab === "activity" && requests.length > 0 && (

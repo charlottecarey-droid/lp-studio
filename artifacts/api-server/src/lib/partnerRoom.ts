@@ -738,6 +738,115 @@ export function setRoomKitAsset(blocks: unknown, asset: RoomKitAssetInput): unkn
   return blocks.map((b) => (b === block ? { ...(b as object), props: { ...props, assets: next } } : b));
 }
 
+/* ── Goals, edited from the hub's manage pop-up ──────────────────────────── */
+
+export const ROOM_GOAL_METRICS = ["manual", "practices_live", "practices_trained", "plan_complete"] as const;
+export const ROOM_GOAL_STATUSES = ["on-track", "pending", "done"] as const;
+export const ROOM_GOALS_MAX = 20;
+
+export interface RoomGoalInput {
+  key: string;
+  title: string;
+  detail?: string;
+  target?: string;
+  targetValue?: number;
+  metric: (typeof ROOM_GOAL_METRICS)[number];
+  current?: string;
+  currentValue?: number;
+  source?: string;
+  status: (typeof ROOM_GOAL_STATUSES)[number];
+  owner?: string;
+  hidden?: boolean;
+}
+export interface RoomGoalsInput {
+  intro: string;
+  askAgreement: boolean;
+  /** The whole Goals section is switched off in the hub. */
+  moduleHidden: boolean;
+  items: RoomGoalInput[];
+}
+
+const goalNumber = (raw: unknown): number | undefined => (typeof raw === "number" && Number.isFinite(raw) && Math.abs(raw) <= 1e12 ? raw : undefined);
+
+function cleanGoals(raw: unknown): { goals: RoomGoalsInput; error: string | null } {
+  const b = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const list = Array.isArray(b.items) ? b.items : [];
+  const items: RoomGoalInput[] = [];
+  const used = new Set<string>();
+  let error: string | null = list.length > ROOM_GOALS_MAX ? `A hub can have up to ${ROOM_GOALS_MAX} goals.` : null;
+  for (const entry of list.slice(0, ROOM_GOALS_MAX)) {
+    const g = (entry && typeof entry === "object" ? entry : {}) as Record<string, unknown>;
+    const title = cleanText(g.title, 160);
+    if (!title) {
+      error = error ?? "Every goal needs a name.";
+      continue;
+    }
+    const typedKey = typeof g.key === "string" ? g.key.trim() : "";
+    let key = /^[A-Za-z0-9][A-Za-z0-9_-]{0,60}$/.test(typedKey) ? typedKey : planTaskKey({ task: title }) || "goal";
+    for (let n = 2; used.has(key); n++) key = `${key.replace(/-\d+$/, "")}-${n}`;
+    used.add(key);
+    const metric = (ROOM_GOAL_METRICS as readonly string[]).includes(g.metric as string) ? (g.metric as RoomGoalInput["metric"]) : "manual";
+    const status = (ROOM_GOAL_STATUSES as readonly string[]).includes(g.status as string) ? (g.status as RoomGoalInput["status"]) : "on-track";
+    const detail = cleanText(g.detail, 300);
+    const target = cleanText(g.target, 80);
+    const targetValue = goalNumber(g.targetValue);
+    const current = cleanText(g.current, 80);
+    const currentValue = goalNumber(g.currentValue);
+    const source = cleanText(g.source, 160);
+    const owner = cleanText(g.owner, 120);
+    items.push({
+      key,
+      title,
+      ...(detail ? { detail } : {}),
+      ...(target ? { target } : {}),
+      ...(targetValue !== undefined ? { targetValue } : {}),
+      metric,
+      // A counted goal's value comes from the hub itself; a typed one would only go stale.
+      ...(metric === "manual" && current ? { current } : {}),
+      ...(metric === "manual" && currentValue !== undefined ? { currentValue } : {}),
+      ...(metric === "manual" && source ? { source } : {}),
+      status,
+      ...(owner ? { owner } : {}),
+      ...(g.hidden === true ? { hidden: true } : {}),
+    });
+  }
+  return { goals: { intro: cleanText(b.intro, 400), askAgreement: b.askAgreement === true, moduleHidden: b.moduleHidden === true, items }, error };
+}
+
+/** What the team sent from the manage pop-up, checked. Nothing is saved when any goal is unusable. */
+export function parseRoomGoals(raw: unknown): { ok: true; goals: RoomGoalsInput } | { ok: false; error: string } {
+  const { goals, error } = cleanGoals(raw);
+  return error ? { ok: false, error } : { ok: true, goals };
+}
+
+/**
+ * The hub's goals as they are STORED (account-name variables left as typed,
+ * because the pop-up writes them back). Null when the page has no workspace block.
+ */
+export function roomGoalsInfo(blocks: unknown): RoomGoalsInput | null {
+  const props = workspaceBlock(blocks)?.props;
+  if (!props) return null;
+  const goals = (props.goals && typeof props.goals === "object" ? props.goals : {}) as Record<string, unknown>;
+  const hidden = Array.isArray(props.hiddenModules) && props.hiddenModules.includes("goals");
+  // Lenient on the way out: a goal the builder left half-typed is dropped from the list, not an error.
+  return cleanGoals({ ...goals, moduleHidden: hidden }).goals;
+}
+
+/**
+ * Replace the hub's goals. Returns new blocks, or null when the page has no
+ * workspace block. Everything else on the page is untouched.
+ */
+export function setRoomGoals(blocks: unknown, goals: RoomGoalsInput): unknown[] | null {
+  const block = workspaceBlock(blocks);
+  if (!block || !Array.isArray(blocks)) return null;
+  const props = block.props ?? {};
+  const before = (props.goals && typeof props.goals === "object" ? props.goals : {}) as Record<string, unknown>;
+  const hiddenBefore = Array.isArray(props.hiddenModules) ? (props.hiddenModules as unknown[]) : [];
+  const hiddenModules = goals.moduleHidden ? (hiddenBefore.includes("goals") ? hiddenBefore : [...hiddenBefore, "goals"]) : hiddenBefore.filter((m) => m !== "goals");
+  const next = { ...props, goals: { ...before, intro: goals.intro, askAgreement: goals.askAgreement, items: goals.items }, hiddenModules };
+  return blocks.map((b) => (b === block ? { ...(b as object), props: next } : b));
+}
+
 /** The launch-kit files that are the same for every customer. Uploaded once per workspace. */
 export const ROOM_STANDARD_ASSETS: { key: string; title: string; description: string }[] = [
   { key: "practice-welcome-guide", title: "Practice Welcome Guide", description: "What a practice can expect: training, first cases and who to call" },

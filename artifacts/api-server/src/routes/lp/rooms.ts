@@ -78,6 +78,9 @@ import {
   ROOM_STANDARD_ASSETS,
   parseRoomKitAsset,
   setRoomKitAsset,
+  setRoomGoals,
+  parseRoomGoals,
+  roomGoalsInfo,
   roomPartnerName,
   type RoomPracticeInput,
   extractRoomChoices,
@@ -1315,6 +1318,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       visitAlert: !!fullSettings?.visitAlert,
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
+      goals: page.isWorkspace ? await roomGoalsFor(page.id) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
@@ -2030,6 +2034,33 @@ router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Res
   }
 });
 
+/**
+ * Save the hub's goals from the manage pop-up. Goals live on the page (the
+ * Goals section reads them), so only that part of the page changes.
+ */
+router.put("/lp/partner-rooms/:pageId/goals", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const parsed = parseRoomGoals(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomGoals(row.blocks, parsed.goals) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, goals: roomGoalsInfo(next) });
+  } catch (err) {
+    req.log.error({ err }, "room goals save failed");
+    res.status(500).json({ error: "Could not save the goals" });
+  }
+});
+
 /** Re-read the room's Google Calendar now (it is also re-read about every hour). */
 router.post("/lp/partner-rooms/:pageId/calendar/sync", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -2104,6 +2135,12 @@ async function roomKitFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks, createdBy: lpPagesTable.createdBy }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   const kit = row ? roomKitInfo(resolveRoomBlocks(row.blocks)) : null;
   return kit ? { ...kit, automatic: row?.createdBy === "automatic rooms" } : null;
+}
+
+/** The hub's goals as stored on the page, for the manage pop-up to edit. */
+async function roomGoalsFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return row ? roomGoalsInfo(row.blocks) : null;
 }
 
 /** Whose Google account a room reads through, for the team's panel (never the token). */
