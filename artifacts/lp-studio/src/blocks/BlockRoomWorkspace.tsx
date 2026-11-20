@@ -305,6 +305,10 @@ export interface RoomEvent {
   /** Set on meetings synced from the team's calendar: the real start and end (ISO), used for add-to-calendar. */
   startsAt?: string;
   endsAt?: string | null;
+  /** Set on a practice's training day from the practice list: the practice. Several on one day are shown as one row. */
+  practice?: string;
+  /** Set on that one row: every practice training that day. */
+  practices?: string[];
 }
 
 export interface RoomMeetingAction {
@@ -681,6 +685,7 @@ export function welcomeName(viewer: { email: string; name: string | null } | nul
 }
 
 export const ROOM_EVENT_KIND_LABEL: Record<RoomEventKind, string> = { meeting: "Meeting", training: "Training", marketing: "Marketing", milestone: "Milestone" };
+const ROOM_EVENT_KIND_PLURAL: Record<RoomEventKind, string> = { meeting: "Meetings", training: "Trainings", marketing: "Marketing", milestone: "Milestones" };
 
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const validDay = (v: string | undefined) => /^\d{4}-\d{2}-\d{2}$/.test((v ?? "").trim());
@@ -704,7 +709,38 @@ export function syncedEventToRoomEvent(e: RoomSyncedEvent): RoomEvent {
     const mins = e.endsAt ? Math.round((new Date(e.endsAt).getTime() - start.getTime()) / 60_000) : 0;
     time = `${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZoneName: "short" })}${mins > 0 && mins < 600 ? ` · ${mins >= 60 && mins % 60 === 0 ? `${mins / 60} hr` : `${mins} min`}` : ""}`;
   }
-  return { key: `sync-${e.id}`, date: localDay(e.startsAt, e.allDay), time, title: e.title, kind: e.kind === "training" ? "training" : "meeting", ...(e.allDay ? {} : { startsAt: e.startsAt, endsAt: e.endsAt }) };
+  const training = e.kind === "training";
+  return { key: `sync-${e.id}`, date: localDay(e.startsAt, e.allDay), time, title: e.title, kind: training ? "training" : "meeting", ...(training ? { practice: e.title.replace(/^Training:\s*/, "") } : {}), ...(e.allDay ? {} : { startsAt: e.startsAt, endsAt: e.endsAt }) };
+}
+
+/**
+ * Practice trainings from the practice list, one row per day: a day with
+ * several becomes "6 trainings" carrying the practices' names, so a large
+ * rollout doesn't bury the meetings. A day with one keeps its own row.
+ * Everything else passes through untouched.
+ */
+export function groupTrainings(events: RoomEvent[]): RoomEvent[] {
+  const byDay = new Map<string, RoomEvent[]>();
+  for (const e of events) if (e.practice) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e]);
+  const done = new Set<string>();
+  const out: RoomEvent[] = [];
+  for (const e of events) {
+    const same = e.practice ? byDay.get(e.date)! : null;
+    if (!same || same.length < 2) {
+      out.push(e);
+      continue;
+    }
+    if (done.has(e.date)) continue;
+    done.add(e.date);
+    out.push({ key: `trainings-${e.date}`, date: e.date, title: `${same.length} trainings`, kind: "training", practices: same.map((t) => t.practice!).sort((a, b) => a.localeCompare(b)) });
+  }
+  return out;
+}
+
+/** The kinds of event a calendar holds, in a fixed order, for its filter. */
+export function eventKinds(events: RoomEvent[]): RoomEventKind[] {
+  const have = new Set(events.filter((e) => !e.hidden).map((e) => e.kind));
+  return (["meeting", "training", "marketing", "milestone"] as const).filter((k) => have.has(k));
 }
 
 /** Published minutes of a synced meeting, as a Meetings row. */
@@ -1130,6 +1166,13 @@ const CSS = `
 .prw-chip.training{background:#E8EEF9;color:var(--blue)}
 .prw-chip.marketing{background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A}
 .prw-chip.milestone{background:#FBF3D9;color:#7A6100}
+.prw-cal-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.prw-trainings{font-size:12.5px;color:var(--body)}
+.prw-trainings summary{cursor:pointer;list-style:none;width:max-content;color:var(--body);text-decoration:underline;text-underline-offset:2px}
+.prw-trainings summary::-webkit-details-marker{display:none}
+.prw-trainings[open] summary{margin-bottom:6px}
+.prw-trainings ul{margin:0;padding:0;list-style:none;columns:2;column-gap:28px;color:var(--ink)}
+.prw-trainings li{padding:1px 0;break-inside:avoid}
 .prw-month{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:36px 0 12px}
 .prw-months>div:first-child .prw-month{margin-top:0}
 .prw-min{border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:16px;overflow:hidden}
@@ -1620,7 +1663,13 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const needsAgreement = !!props.goals?.askAgreement && goals.length > 0 && !goalsAgreed?.done;
   const today = now ? isoDay(now) : "0000-00-00";
   // The page's own events and minutes, plus meetings synced from the team's calendar and the minutes published for them.
-  const events = splitEvents([...(props.calendar?.events ?? []), ...snapshot.events.map(syncedEventToRoomEvent)], today);
+  const allEvents = useMemo(() => groupTrainings([...(props.calendar?.events ?? []), ...snapshot.events.map(syncedEventToRoomEvent)]), [props.calendar?.events, snapshot.events]);
+  const events = splitEvents(allEvents, today);
+  // The Calendar's own filter: one kind of event, or all of them.
+  const [calKind, setCalKind] = useState<RoomEventKind | "">("");
+  const calKinds = eventKinds(allEvents);
+  const shownKind = calKind && calKinds.includes(calKind) ? calKind : "";
+  const calEvents = shownKind ? { upcoming: events.upcoming.filter((e) => e.kind === shownKind), past: events.past.filter((e) => e.kind === shownKind) } : events;
   const meetings = [...(props.meetings?.items ?? []), ...snapshot.minutes.map(syncedMinutesToMeeting)].filter((m) => !m.hidden && (m.title ?? "").trim()).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const pr = snapshot.practices;
   // Goals counted from the practice list, with a number to reach: the scorecard shows their progress.
@@ -2116,20 +2165,30 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <div>
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Calendar</h2>
                   </div>
+                  <div className="prw-cal-tools">
+                  {calKinds.length > 1 && (
+                    <span className="prw-seg" role="group" aria-label="Show" data-room-calendar-filter={shownKind || "all"}>
+                      <button type="button" className={shownKind ? "" : "on"} aria-pressed={!shownKind} onClick={() => setCalKind("")}>All</button>
+                      {calKinds.map((k) => (
+                        <button type="button" key={k} className={shownKind === k ? "on" : ""} aria-pressed={shownKind === k} onClick={() => setCalKind(k)} data-room-calendar-kind={k}>{ROOM_EVENT_KIND_PLURAL[k]}</button>
+                      ))}
+                    </span>
+                  )}
                   {pageId && !isEditor && (
                     <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}${room.reader?.feedToken() ? `&rt=${encodeURIComponent(room.reader.feedToken())}` : ""}`} data-room-calendar-feed>
                       <CalendarPlus aria-hidden /> Subscribe
                     </a>
                   )}
+                  </div>
                 </div>
-                {events.upcoming.length === 0 && events.past.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is scheduled yet.</div></div>}
-                {events.upcoming.length === 0 && events.past.length > 0 && <div className="prw-card"><div className="prw-empty">Nothing upcoming.</div></div>}
-                <EventList events={events.upcoming} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
-                {events.past.length > 0 && (
+                {calEvents.upcoming.length === 0 && calEvents.past.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is scheduled yet.</div></div>}
+                {calEvents.upcoming.length === 0 && calEvents.past.length > 0 && <div className="prw-card"><div className="prw-empty">Nothing upcoming.</div></div>}
+                <EventList events={calEvents.upcoming} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
+                {calEvents.past.length > 0 && (
                   <details className="prw-sec">
-                    <summary className="prw-meta" style={{ cursor: "pointer" }}>Earlier ({events.past.length})</summary>
+                    <summary className="prw-meta" style={{ cursor: "pointer" }}>Earlier ({calEvents.past.length})</summary>
                     <div style={{ marginTop: 16 }}>
-                      <EventList events={events.past} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
+                      <EventList events={calEvents.past} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
                     </div>
                   </details>
                 )}
@@ -3408,7 +3467,7 @@ function EventRow({ event, calendarName, isEditor }: { event: RoomEvent; calenda
   const kind = event.kind && ROOM_EVENT_KIND_LABEL[event.kind] ? event.kind : null;
   const download = () => {
     if (isEditor) return;
-    const url = URL.createObjectURL(new Blob([eventIcs(event, calendarName)], { type: "text/calendar" }));
+    const url = URL.createObjectURL(new Blob([eventIcs(event.practices ? { ...event, detail: event.practices.join(", ") } : event, calendarName)], { type: "text/calendar" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `${event.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "event"}.ics`;
@@ -3419,11 +3478,18 @@ function EventRow({ event, calendarName, isEditor }: { event: RoomEvent; calenda
     <div className="prw-li" data-room-event={event.kind ?? "event"}>
       <DateTile date={event.date} />
       <div style={{ minWidth: 0 }}>
-        <div className="t">{event.startsAt ? event.title : <E item={event} field="title" placeholder="Event" />}</div>
+        <div className="t">{event.startsAt || event.practice || event.practices ? event.title : <E item={event} field="title" placeholder="Event" />}</div>
+        {event.practices ? (
+          <details className="prw-trainings" data-room-trainings={event.practices.length}>
+            <summary>Show practices</summary>
+            <ul>{event.practices.map((p) => <li key={p}>{p}</li>)}</ul>
+          </details>
+        ) : (
         <div className="m">
           {[event.time, event.detail].filter(Boolean).join(" · ")}
           {kind && <>{event.time || event.detail ? " · " : ""}<span className={`prw-chip ${kind === "meeting" ? "kind" : kind}`}>{ROOM_EVENT_KIND_LABEL[kind]}</span></>}
         </div>
+        )}
       </div>
       <div className="a">
         <button type="button" className="prw-ib" title="Add to calendar" aria-label={`Add ${event.title} to your calendar`} onClick={download}>
