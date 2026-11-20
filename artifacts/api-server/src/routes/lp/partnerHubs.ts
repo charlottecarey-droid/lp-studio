@@ -12,6 +12,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { extractRoomTasks, pageIsRoom, resolveRoomBlocks, roomPartnerName, roomWorkspaceProps } from "../../lib/partnerRoom";
 import { teamPeopleFromBlocks } from "../../lib/partnerRoomFeed";
 import { digestRolloutDay } from "../../lib/partnerRoomDigest";
+import { roomStageFromProps } from "../../lib/partnerRoomStage";
 import { accountKey, cleanAccountName } from "../../lib/partnerRoomNames";
 import { createRoom, publicPageUrl } from "../../lib/partnerRoomAutocreate";
 import { hubIsMine, hubSetupItems, sameSfdcId, summarizeRoomViews } from "../../lib/partnerRoomViews";
@@ -66,6 +67,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
       db.select({ pageId: lpPageVisitsTable.pageId, at: sql<string | null>`max(${lpPageVisitsTable.createdAt})` }).from(lpPageVisitsTable).where(inArray(lpPageVisitsTable.pageId, ids)).groupBy(lpPageVisitsTable.pageId),
       db.select({ pageId: lpRoomViewsTable.pageId, n: sql<number>`count(distinct ${lpRoomViewsTable.viewerEmail})::int`, at: sql<string | null>`max(${lpRoomViewsTable.createdAt})` }).from(lpRoomViewsTable).where(and(inArray(lpRoomViewsTable.pageId, ids), gte(lpRoomViewsTable.createdAt, since))).groupBy(lpRoomViewsTable.pageId),
     ]);
+    const practiceCounts = (await db.execute(sql`SELECT page_id AS "pageId", COUNT(*)::int AS total, COUNT(*) FILTER (WHERE stage = 'live')::int AS live FROM lp_room_practices WHERE page_id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)}) GROUP BY page_id`)).rows as { pageId: number; total: number; live: number }[];
     const iso = (v: string | Date | null | undefined) => (v ? new Date(v).toISOString() : null);
     const now = new Date();
     const hubs = await Promise.all(
@@ -87,6 +89,10 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
           url: p.status === "published" ? await publicPageUrl(tenantId, p.slug).catch(() => "") : "",
           account: account ? { id: account.id, name: account.displayName || account.name, owner: account.owner } : null,
           day: digestRolloutDay(props.kickoffDate, now),
+          // Internal: where the hub is in the partnership, whether to ask the team to move it on, and how many practices are live.
+          stage: roomStageFromProps(props, now).stage,
+          stagePrompt: roomStageFromProps(props, now).prompt,
+          practices: practiceCounts.find((c) => c.pageId === p.id) ?? null,
           waitingOnCustomer: [...tasks.keys()].filter((k) => !done.has(k)).length,
           waitingOnUs: openRequests.find((r) => r.pageId === p.id)?.n ?? 0,
           views30: visits.find((v) => v.pageId === p.id)?.views ?? 0,

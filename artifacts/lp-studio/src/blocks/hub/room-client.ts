@@ -110,6 +110,8 @@ export interface RoomSnapshot {
     scanners?: { total: number; practices: number };
     byRegion?: { region: string; total: number; live: number; trained: number }[];
     waves?: string[];
+    /** Per wave: how many practices and how many are live. */
+    byWave?: { wave: string; total: number; live: number }[];
     /** One point per day the list was refreshed, oldest first. */
     trend?: { day: string; total: number; byStage: Record<string, number> }[];
     /** Doctors on the customer's roster, and how many sit at a practice we hold. */

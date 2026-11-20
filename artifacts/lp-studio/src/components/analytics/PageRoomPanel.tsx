@@ -11,6 +11,7 @@ import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import { RoomCoverSection, type HubCover } from "./RoomCover";
+import { RoomStagePrompt, RoomStageSection, type HubStage } from "./RoomStage";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -34,6 +35,7 @@ interface RoomDetail {
   goals?: HubGoals | null;
   /** The hub's cover text and style as stored on the page (workspace hubs only). */
   cover?: HubCover | null;
+  stage?: HubStage | null;
   kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
@@ -101,7 +103,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   const [tab, setTab] = useState<RoomPanelTab>(initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -216,6 +218,16 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
         )}
       </CardHeader>
       <CardContent className={embedded ? "space-y-6 p-0" : "space-y-6"}>
+        {data.isWorkspace && data.stage && (
+          <RoomStagePrompt
+            pageId={pageId}
+            stage={data.stage}
+            onSaved={async (st) => {
+              onStage?.(st);
+              await refresh();
+            }}
+          />
+        )}
         <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Room sections">
           {(
             [
@@ -441,6 +453,16 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
 
         {tab === "calendar" && data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
 
+        {tab === "settings" && data.isWorkspace && data.stage && (
+          <RoomStageSection
+            pageId={pageId}
+            stage={data.stage}
+            onSaved={async (st) => {
+              onStage?.(st);
+              await refresh();
+            }}
+          />
+        )}
         {tab === "settings" && data.isWorkspace && data.cover && (
           <RoomCoverSection
             pageId={pageId}

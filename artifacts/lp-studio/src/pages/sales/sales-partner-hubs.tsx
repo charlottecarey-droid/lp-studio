@@ -12,7 +12,7 @@ import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { toast } from "@/hooks/use-toast";
 import { fmtWhen } from "@/components/analytics/RoomPerformance";
 import type { RoomPanelTab } from "@/components/analytics/PageRoomPanel";
-import { filterHubs, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
+import { filterHubs, hubStageText, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
 
 /* ----------------------------------------------------------------------------
  * Sales Console → Partner Hubs. Where a rep finds their hubs, makes one for an
@@ -321,7 +321,7 @@ export default function SalesPartnerHubs() {
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="px-4 py-2.5 font-normal">Account</th>
-                    <th className="px-3 py-2.5 font-normal">Rollout</th>
+                    <th className="px-3 py-2.5 font-normal">Stage</th>
                     <th className="px-3 py-2.5 font-normal">Waiting on them</th>
                     <th className="px-3 py-2.5 font-normal">Waiting on us</th>
                     <th className="px-3 py-2.5 font-normal">Views, 30 days</th>
@@ -339,7 +339,13 @@ export default function SalesPartnerHubs() {
                           {h.account?.owner ? ` · ${h.account.owner}` : ""}
                         </span>
                       </td>
-                      <td className="px-3 py-3 tabular-nums">{h.day === null ? <span className="text-muted-foreground">Not started</span> : `Day ${h.day}`}</td>
+                      <td className="px-3 py-3 tabular-nums" data-hub-stage={h.stage ?? "rollout"}>
+                        <span className={`block ${h.stage !== "expansion" && h.day === null ? "text-muted-foreground" : ""}`}>{hubStageText(h)}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {h.stage === "expansion" ? "Expansion" : "Rollout"}
+                          {h.stagePrompt && <span className="ml-1.5 font-medium text-amber-700" data-hub-stage-prompt>· ready to move on</span>}
+                        </span>
+                      </td>
                       <td className="px-3 py-3 tabular-nums">{h.waitingOnCustomer || <span className="text-muted-foreground">0</span>}</td>
                       <td className="px-3 py-3 tabular-nums">{h.waitingOnUs ? <span className="font-medium text-amber-700">{h.waitingOnUs}</span> : <span className="text-muted-foreground">0</span>}</td>
                       <td className="px-3 py-3 tabular-nums">

@@ -11,6 +11,7 @@ import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
 import { ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
+import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
 import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
 import { resolveHubPalette } from "@/lib/hub-theme";
 import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
@@ -429,6 +430,14 @@ export interface RoomWorkspaceBlockProps {
   /** Kickoff date, YYYY-MM-DD. Drives "Day N of 90" and each phase's state. */
   kickoffDate?: string;
   rolloutDays?: number;
+  /** INTERNAL: where the hub is in the partnership. "expansion" = past the rollout. The customer's hub never names a stage. A team member sets it; blank = rollout. */
+  stage?: "rollout" | "expansion";
+  /** The day the hub moved past its rollout (YYYY-MM-DD). Set with the stage. */
+  stageSince?: string;
+  /** Past the rollout: the hub's waves, in order. `key` is what the practice list calls the wave. */
+  waves?: { key: string; name: string; start?: string; target?: string }[];
+  /** Past the rollout: which timeline the Overview opens on. */
+  timelineView?: "waves" | "practices";
   nextMilestoneLabel?: string;
   nextMilestoneDate?: string;
   hiddenModules?: RoomModuleKey[];
@@ -851,6 +860,13 @@ export function roomNextUp(label: string | undefined, date: string | undefined, 
   return open ? { label: open.task.trim(), date: (open.target ?? "").trim() } : null;
 }
 
+/** "Oct 2026" from a kickoff date, for the cover once the rollout is over. Blank without a valid date. */
+export function partnerSince(kickoffDate: string | undefined): string {
+  const m = /^(\d{4})-(\d{2})-\d{2}$/.exec((kickoffDate ?? "").trim());
+  const month = m ? MONTHS[+m[2] - 1] : undefined;
+  return m && month ? `${month} ${m[1]}` : "";
+}
+
 const fmtDate = (iso: string | undefined) => {
   if (!iso) return "";
   const d = new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
@@ -920,7 +936,8 @@ const STACK_RULES = `.prw-plan thead,.prw-reqs thead{display:none}
 .prw-prog .hd{gap:10px;padding:14px 16px}
 .prw-prog .more{padding:2px 16px 16px}
 .prw-prog .im{width:44px;height:44px}`;
-const MAP_STACK_RULES = `.prw-map{grid-template-columns:minmax(0,1fr)}
+const MAP_STACK_RULES = `.prw-tl-waves{grid-template-columns:1fr 1fr}
+.prw-map{grid-template-columns:minmax(0,1fr)}
 .prw-map-side{border-left:0;border-top:1px solid var(--line)}
 .prw-sc-hd{flex-direction:column;align-items:flex-start;gap:10px}`;
 const TEAM_STACK_RULES = `.prw-team thead{display:none}
@@ -1166,6 +1183,24 @@ const CSS = `
 .prw-chip.training{background:#E8EEF9;color:var(--blue)}
 .prw-chip.marketing{background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A}
 .prw-chip.milestone{background:#FBF3D9;color:#7A6100}
+.prw-tl{margin-bottom:8px}
+.prw-tl-hd{display:flex;justify-content:flex-end;margin-bottom:14px}
+.prw-tl-waves{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:12px}
+.prw-tl-wave{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:#fff;min-width:0}
+.prw-tl-wave[data-room-wave=current]{border-color:var(--dark);box-shadow:inset 0 0 0 1px var(--dark)}
+.prw-tl-wave .d{font-size:12px;color:var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prw-tl-wave>b,.prw-tl-all .top b{font-size:28px;line-height:1.05;font-weight:600;letter-spacing:-.025em;color:var(--dark)}
+.prw-tl-wave>b i,.prw-tl-all .top b i{font-style:normal;font-size:14px;font-weight:500;color:var(--faint);letter-spacing:0;margin-left:2px}
+.prw-tl .track{display:block;height:6px;border-radius:999px;background:#F1F2EE;overflow:hidden}
+.prw-tl .track span{display:block;height:100%;background:var(--green);border-radius:999px}
+.prw-tl .m{font-size:12px;color:var(--body);min-height:18px}
+.prw-tl-all{padding:20px 24px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.prw-tl-all .top{display:flex;align-items:baseline;gap:10px;margin-bottom:34px}
+.prw-tl-all .top span{font-size:13px;color:var(--body)}
+.prw-tl-all .bar{position:relative;margin-bottom:10px}
+.prw-tl-all .bar .track{height:10px}
+.prw-tl-all .bar>b{position:absolute;top:-5px;width:2px;height:20px;background:var(--dark)}
+.prw-tl-all .bar>em{position:absolute;top:-27px;transform:translateX(-50%);font-style:normal;font-size:11.5px;font-weight:700;color:var(--dark);white-space:nowrap}
 .prw-cal-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .prw-trainings{font-size:12.5px;color:var(--body)}
 .prw-trainings summary{cursor:pointer;list-style:none;width:max-content;color:var(--body);text-decoration:underline;text-underline-offset:2px}
@@ -1642,6 +1677,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
 
   const total = Math.max(1, props.rolloutDays ?? 90);
   const day = now ? rolloutDay(props.kickoffDate, now) : null;
+  // Past the rollout the hub stops counting days and reading as a launch. (An internal stage: nothing here names it to the customer.)
+  const expansion = props.stage === "expansion";
   const phases = (props.phases ?? []).slice(0, 5);
   const states = phaseStates(phases, day);
   const groups = useMemo(() => (props.planGroups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, rows: (g.rows ?? []).filter((r) => !r.hidden) })), [props.planGroups]);
@@ -1676,6 +1713,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const scorecardGoals: ScorecardGoal[] = goals
     .filter((g) => (g.metric === "practices_live" || g.metric === "practices_trained") && typeof g.targetValue === "number" && g.targetValue > 0)
     .map((g) => ({ key: g.key, title: g.title, value: goalValue(g, { byStage: pr.byStage, planDone: 0 }) ?? 0, target: g.targetValue as number, targetText: g.target }));
+  const liveGoal = goals.find((g) => g.metric === "practices_live" && typeof g.targetValue === "number" && g.targetValue > 0) ?? null;
   const noun = (props.locationsNoun ?? "").trim() || "locations";
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
@@ -1696,6 +1734,11 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     [groups, snapshot.tasks, planEdits],
   );
   const doneCount = rows.filter((x) => x.status === "done").length;
+  /** Every milestone in this phase of the plan is done (an empty phase is not "done"). */
+  const planGroupDone = (gi: number) => {
+    const own = rows.filter((x) => x.gi === gi);
+    return own.length > 0 && own.every((x) => x.status === "done");
+  };
   // The line on the cover photo: what the builder typed, else the first milestone still open in the plan.
   const mine = rows.filter((x) => x.action && x.status !== "done");
   const reviewRequests = snapshot.requests.filter((q) => q.status === "review");
@@ -1772,7 +1815,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const canRequest = modules.some((m) => m.key === "requests");
 
   // Overdue: marked so by the team, or not done with a target date that has passed.
-  const blocked = rows.filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && (x.status === "blocking" || (x.status !== "done" && !!now && targetHasPassed(x.r.target, now))));
+  // Past the rollout, a launch milestone whose date had already gone by when the hub moved on is no longer counted late: only what slips after that is.
+  const movedOn = expansion && /^\d{4}-\d{2}-\d{2}$/.test(props.stageSince ?? "") ? new Date(`${props.stageSince}T12:00:00`) : null;
+  const lateByDate = (target: string | undefined) => !!now && targetHasPassed(target, now) && !(expansion && (!movedOn || targetHasPassed(target, movedOn)));
+  const blocked = rows.filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && (x.status === "blocking" || (x.status !== "done" && lateByDate(x.r.target))));
   // Everything the customer has to act on, as one number and one list.
   const attention = [...stepsOpen, ...mine, ...reviewRequests];
   // Overview shows the next three things only. The practice list, the doctor roster and the welcome gift
@@ -1783,14 +1829,15 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     const practiceRow = mine.find((x) => rowIs(x, "practices"));
     const doctorRow = mine.find((x) => rowIs(x, "doctors"));
     const giftStep = stepsOpen.find((x) => isGiftStep(x.step));
-    const first: Next[] = [
+    // The practice list, doctor roster and welcome gift lead only during the rollout; after it, whatever is open comes in its own order.
+    const first: Next[] = expansion ? [] : [
       ...(practiceRow ? [{ kind: "row" as const, x: practiceRow }] : []),
       ...(doctorRow ? [{ kind: "row" as const, x: doctorRow }] : []),
       ...(giftStep ? [{ kind: "step" as const, x: giftStep }] : []),
     ];
     const rest: Next[] = [
-      ...stepsOpen.filter((x) => x !== giftStep).map((x) => ({ kind: "step" as const, x })),
-      ...[...mine].filter((x) => x !== practiceRow && x !== doctorRow).sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).map((x) => ({ kind: "row" as const, x })),
+      ...stepsOpen.filter((x) => expansion || x !== giftStep).map((x) => ({ kind: "step" as const, x })),
+      ...[...mine].filter((x) => expansion || (x !== practiceRow && x !== doctorRow)).sort((a, b) => Number(b.action === "upload") - Number(a.action === "upload")).map((x) => ({ kind: "row" as const, x })),
       ...reviewRequests.map((q) => ({ kind: "review" as const, q })),
     ];
     return [...first, ...rest].slice(0, ROOM_NEXT_UP);
@@ -1965,7 +2012,14 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 <InlineText as="span" value={headline} onUpdate={field("headline")} />
               </h1>
               <div className="prw-stats">
-                {day !== null && (
+                {expansion ? (
+                  partnerSince(props.kickoffDate) && (
+                    <div data-room-kpi="since">
+                      <b className="prw-num">{partnerSince(props.kickoffDate)}</b>
+                      <span>Partner since</span>
+                    </div>
+                  )
+                ) : day !== null && (
                   <div>
                     <b className="prw-num">{Math.min(day, total)}<i>/{total}</i></b>
                     <span>Day</span>
@@ -2028,7 +2082,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   )}
                 </div>
-                {phases.length > 0 && (
+                {expansion && pr.total > 0 && (
+                  <PartnershipTimeline waves={timelineWaves(props.waves, pr.byWave)} total={pr.total} live={pr.byStage.live ?? 0} goal={liveGoal ? { target: liveGoal.targetValue as number, text: liveGoal.target } : null} defaultView={props.timelineView === "waves" ? "waves" : "practices"} noun={noun} fmtDate={(d) => fmtDate(d)} />
+                )}
+                {!expansion && phases.length > 0 && (
                   <>
                     <div className="prw-track">
                       <i style={{ width: `${pct}%` }} />
@@ -2217,6 +2274,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Action plan</h2>
                   </div>
                 </div>
+                {/* Past the rollout, a phase whose milestones are all done folds away; anything still open stays in the plan. */}
+                {expansion && groups.every((_, gi) => planGroupDone(gi)) && groups.length > 0 ? null : (
                 <table className="prw-plan">
                   <thead>
                     <tr>
@@ -2229,11 +2288,38 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </tr>
                   </thead>
                   <tbody>
-                    {groups.map((g, gi) => (
+                    {groups.map((g, gi) => (expansion && planGroupDone(gi) ? null : (
+
                       <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
-                    ))}
+                    )))}
                   </tbody>
                 </table>
+                )}
+                {expansion && groups.some((_, gi) => planGroupDone(gi)) && (
+                  <details className="prw-sec prw-plan-done" data-room-plan-completed>
+                    <summary className="prw-meta" style={{ cursor: "pointer" }}>Rollout, completed ({rows.filter((x) => planGroupDone(x.gi)).length})</summary>
+                    <div style={{ marginTop: 16 }}>
+                <table className="prw-plan">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 76 }}>Target</th>
+                      <th>Milestone</th>
+                      <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>
+                      <th style={{ width: 136 }}>{props.partnerName}</th>
+                      <th style={{ width: 104 }}>Status</th>
+                      <th style={{ width: canEditLive ? 186 : 132 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groups.map((g, gi) => (!planGroupDone(gi) ? null : (
+
+                      <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
+                    )))}
+                  </tbody>
+                </table>
+                    </div>
+                  </details>
+                )}
               </>
             )}
 

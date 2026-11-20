@@ -49,6 +49,8 @@ export interface PracticeSummary {
   /** Per region: how many practices, and how many of them are live / trained or live. Largest first. */
   byRegion: { region: string; total: number; live: number; trained: number }[];
   waves: string[];
+  /** Per wave, as the practice list names it: how many practices and how many are live. Counts only: safe for any visitor. */
+  byWave: { wave: string; total: number; live: number }[];
   /** One point per day the list was refreshed (oldest first, up to 120 days). */
   trend: PracticeTrendPoint[];
   /** Doctors on the customer's roster, and how many of them sit at a practice we hold. Absent until a roster with doctors is read. */
@@ -74,9 +76,9 @@ export async function practiceSummary(pageId: number): Promise<PracticeSummary> 
   }
   // Scanner counts, when the list carries them (the scanner tracker's office breakdown).
   const [sc] = (await db.execute(sql`SELECT COALESCE(SUM(scanner_count), 0)::int AS total, COUNT(*) FILTER (WHERE scanner_count > 0)::int AS practices, COUNT(scanner_count)::int AS known FROM lp_room_practices WHERE page_id = ${pageId}`)).rows as Array<{ total: number; practices: number; known: number }>;
-  const [waves, trend] = total
+  const [byWave, trend] = total
     ? await Promise.all([
-        db.execute(sql`SELECT DISTINCT wave FROM lp_room_practices WHERE page_id = ${pageId} AND wave IS NOT NULL ORDER BY wave LIMIT 40`).then((r) => (r.rows as Array<{ wave: string }>).map((w) => w.wave)),
+        db.execute(sql`SELECT wave, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE stage = 'live')::int AS live FROM lp_room_practices WHERE page_id = ${pageId} AND wave IS NOT NULL GROUP BY wave ORDER BY wave LIMIT 40`).then((r) => r.rows as Array<{ wave: string; total: number; live: number }>),
         db.select({ day: lpRoomPracticeSnapshotsTable.day, total: lpRoomPracticeSnapshotsTable.total, byStage: lpRoomPracticeSnapshotsTable.byStage }).from(lpRoomPracticeSnapshotsTable).where(eq(lpRoomPracticeSnapshotsTable.pageId, pageId)).orderBy(desc(lpRoomPracticeSnapshotsTable.day)).limit(120),
       ])
     : [[], []];
@@ -86,7 +88,8 @@ export async function practiceSummary(pageId: number): Promise<PracticeSummary> 
     regions: [...regions.keys()].sort(),
     ...(sc && sc.known > 0 ? { scanners: { total: sc.total, practices: sc.practices } } : {}),
     byRegion: [...regions.values()].sort((a, b) => b.total - a.total || a.region.localeCompare(b.region)).slice(0, 60),
-    waves,
+    waves: byWave.map((w) => w.wave),
+    byWave,
     trend: trend.reverse(),
     ...(await doctorTotals(pageId, total)),
     ...(await lastSheetRead(pageId)),

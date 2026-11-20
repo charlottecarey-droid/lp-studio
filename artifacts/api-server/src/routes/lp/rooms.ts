@@ -62,6 +62,7 @@ import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews"
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
+import { extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage } from "../../lib/partnerRoomStage";
 import { kitNotice } from "../../lib/partnerRoomKit";
 import { sendWelcomeKits } from "../../lib/partnerRoomKitService";
 import { practicesExportCsv } from "../../lib/partnerRoomRoster";
@@ -1477,6 +1478,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       goals: page.isWorkspace ? await roomGoalsFor(page.id) : null,
       cover: page.isWorkspace ? await roomCoverFor(page.id) : null,
+      stage: page.isWorkspace ? await roomStageFor(page.id) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
         ? (await db.select().from(lpRoomEventsTable).where(eq(lpRoomEventsTable.pageId, page.id)).orderBy(desc(lpRoomEventsTable.startsAt)).limit(300)).map((e) => ({
@@ -2210,6 +2212,53 @@ router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Res
 });
 
 /**
+ * The hub's stage (rollout or expansion: internal names, the customer only
+ * sees "Partnership"), its waves and which timeline the Overview leads with.
+ * A team member moves a hub on; nothing does it for them.
+ */
+router.put("/lp/partner-rooms/:pageId/stage", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const parsed = parseRoomStage(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomStage(row.blocks, parsed.value) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, stage: roomStageInfo(next) });
+  } catch (err) {
+    req.log.error({ err }, "room stage save failed");
+    res.status(500).json({ error: "Could not save the stage" });
+  }
+});
+
+/** "Not yet": keep the hub in rollout and ask again later (30 days unless told otherwise). */
+router.post("/lp/partner-rooms/:pageId/stage/extend", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? extendRoomStage(row.blocks, req.body?.days) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, stage: roomStageInfo(next) });
+  } catch (err) {
+    req.log.error({ err }, "room stage extend failed");
+    res.status(500).json({ error: "Could not save" });
+  }
+});
+
+/**
  * Save the hub's goals from the manage pop-up. Goals live on the page (the
  * Goals section reads them), so only that part of the page changes.
  */
@@ -2336,6 +2385,11 @@ async function roomKitFor(pageId: number) {
 }
 
 /** The hub's goals as stored on the page, for the manage pop-up to edit. */
+async function roomStageFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return row ? roomStageInfo(row.blocks) : null;
+}
+
 async function roomCoverFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomCoverInfo(row.blocks) : null;

@@ -228,6 +228,12 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 propsRef.current = next;
                 onChange(next);
               }}
+              onStage={(st) => {
+                // Saved on the page from the pop-up: keep the builder's copy in step, or its next save would undo it.
+                const next = { ...propsRef.current, stage: st.stage, stageSince: st.stageSince ?? undefined, timelineView: st.timelineView, waves: st.waves };
+                propsRef.current = next;
+                onChange(next);
+              }}
               onCover={(c) => {
                 const next = { ...propsRef.current, headline: c.headline, eyebrow: c.eyebrow, coverStyle: c.coverStyle, coverPhotoScrolls: c.coverPhotoScrolls };
                 propsRef.current = next;
