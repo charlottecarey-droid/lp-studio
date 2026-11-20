@@ -1390,6 +1390,12 @@ const CSS = `
 .prw-map-pick dl{margin:2px 0 0;display:grid;gap:1px}
 .prw-map-pick dt{font-size:11px;color:var(--body);margin-top:6px}
 .prw-map-pick dd{margin:0;color:var(--ink)}
+.prw-topscroll{overflow-x:auto;overflow-y:hidden;height:14px;margin-bottom:6px}
+.prw-topscroll>div{height:1px}
+.prw-topscroll::-webkit-scrollbar,.prw-scroll.sync::-webkit-scrollbar{height:10px}
+.prw-topscroll::-webkit-scrollbar-track,.prw-scroll.sync::-webkit-scrollbar-track{background:#F1F2EE;border-radius:999px}
+.prw-topscroll::-webkit-scrollbar-thumb,.prw-scroll.sync::-webkit-scrollbar-thumb{background:#C3C9BF;border-radius:999px}
+.prw-topscroll::-webkit-scrollbar-thumb:hover,.prw-scroll.sync::-webkit-scrollbar-thumb:hover{background:#9AA69E}
 .prw-sc-search{position:relative;display:block;flex:1 1 220px;max-width:280px}
 .prw-sc-search svg{position:absolute;left:11px;top:50%;width:15px;height:15px;transform:translateY(-50%);color:var(--body);opacity:.7;pointer-events:none}
 .prw-sc-tools .prw-sc-search input{width:100%;max-width:none;padding-left:33px}
@@ -1734,6 +1740,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     [groups, snapshot.tasks, planEdits],
   );
   const doneCount = rows.filter((x) => x.status === "done").length;
+  // A column with nothing in it is left out: a plan of the customer's own steps has no owner on our side, and one with no dates has no Due column.
+  const planCols = { target: isEditor || rows.some((x) => planCell(x.r.target)), ours: rows.some((x) => planCell(x.r.ourOwner)) };
   /** Every milestone in this phase of the plan is done (an empty phase is not "done"). */
   const planGroupDone = (gi: number) => {
     const own = rows.filter((x) => x.gi === gi);
@@ -2279,10 +2287,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 <table className="prw-plan">
                   <thead>
                     <tr>
-                      <th style={{ width: 76 }}>Target</th>
-                      <th>Milestone</th>
-                      <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>
-                      <th style={{ width: 136 }}>{props.partnerName}</th>
+                      {planCols.target && <th style={{ width: 96 }}>Due</th>}
+                      <th>Step</th>
+                      {planCols.ours && <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>}
+                      <th style={{ width: 150 }}>{planCols.ours ? props.partnerName : "Owner"}</th>
                       <th style={{ width: 104 }}>Status</th>
                       <th style={{ width: canEditLive ? 186 : 132 }} />
                     </tr>
@@ -2290,7 +2298,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <tbody>
                     {groups.map((g, gi) => (expansion && planGroupDone(gi) ? null : (
 
-                      <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
+                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
                     )))}
                   </tbody>
                 </table>
@@ -2302,10 +2310,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 <table className="prw-plan">
                   <thead>
                     <tr>
-                      <th style={{ width: 76 }}>Target</th>
-                      <th>Milestone</th>
-                      <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>
-                      <th style={{ width: 136 }}>{props.partnerName}</th>
+                      {planCols.target && <th style={{ width: 96 }}>Due</th>}
+                      <th>Step</th>
+                      {planCols.ours && <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>}
+                      <th style={{ width: 150 }}>{planCols.ours ? props.partnerName : "Owner"}</th>
                       <th style={{ width: 104 }}>Status</th>
                       <th style={{ width: canEditLive ? 186 : 132 }} />
                     </tr>
@@ -2313,7 +2321,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <tbody>
                     {groups.map((g, gi) => (!planGroupDone(gi) ? null : (
 
-                      <PlanGroup key={gi} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
+                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
                     )))}
                   </tbody>
                 </table>
@@ -2631,20 +2639,34 @@ function OwnerPick({ value, people, onPick, label }: { value: string | undefined
   );
 }
 
-function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit }: { group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null }) {
+/** A due date as people read it: an ISO date becomes "Dec 5"; anything else ("Week 2") is shown as typed. */
+export function planDue(v: string | undefined): string {
+  const t = planCell(v);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  return m && MONTHS[+m[2] - 1] ? `${MONTHS[+m[2] - 1]} ${+m[3]}` : t;
+}
+
+/** What a plan cell shows: a dash typed as a placeholder ("—", "-", "n/a") reads as empty. */
+export function planCell(v: string | undefined): string {
+  const t = (v ?? "").trim();
+  return /^(—|–|-|n\/a)$/i.test(t) ? "" : t;
+}
+
+function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit, cols }: { cols: { target: boolean; ours: boolean }; group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null }) {
   // The account team edits one row at a time: the table stays plain text, and a pencil opens that row's fields.
   const [editing, setEditing] = useState<string | null>(null);
+  const span = 4 + Number(cols.target) + Number(cols.ours);
   return (
     <>
       <tr className="grp">
-        <td colSpan={6}>{group.title}</td>
+        <td colSpan={span}>{group.title}</td>
       </tr>
       {rows.map((x) => (
         <Fragment key={x.key || x.ri}>
           <tr data-room-milestone={x.status} className={editing === x.key ? "on" : undefined}>
-            <td className="c">{x.r.target}</td>
+            {cols.target && <td className="c">{planDue(x.r.target)}</td>}
             <td>
-              <div className="t"><E item={x.r} field="task" placeholder="Milestone" /></div>
+              <div className="t"><E item={x.r} field="task" placeholder="Step" /></div>
               {x.saved?.done ? (
                 <div className="m" data-room-received>
                   {[x.action === "upload" ? (x.saved.fileName ? `Received ${x.saved.fileName}` : "File received") : "Marked complete", x.saved.by, fmtDate(x.saved.at)].filter(Boolean).join(" · ")}
@@ -2654,8 +2676,8 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit }
               )}
               {x.action === "upload" && isRosterTask(x.key) && <RosterTemplateLink store={store} show={!isEditor && !!snapshot.viewer} />}
             </td>
-            <td className="c">{x.r.ourOwner}</td>
-            <td className="c">{x.r.partnerOwner}</td>
+            {cols.ours && <td className="c">{planCell(x.r.ourOwner)}</td>}
+            <td className="c">{planCell(x.r.partnerOwner)}</td>
             <td>
               <span className={`prw-st ${x.status}`}>{ROOM_STATUS_LABEL[x.status]}</span>
             </td>
@@ -2670,12 +2692,12 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit }
               </span>
             </td>
           </tr>
-          {edit && editing === x.key && <PlanRowEditor row={x} edit={edit} onClose={() => setEditing(null)} />}
+          {edit && editing === x.key && <PlanRowEditor row={x} edit={edit} span={span} onClose={() => setEditing(null)} />}
         </Fragment>
       ))}
       {group.checkpoint && (
         <tr className="chk">
-          <td colSpan={6}>
+          <td colSpan={span}>
             <b>Checkpoint</b> · {group.checkpoint}
           </td>
         </tr>
@@ -2685,7 +2707,7 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit }
 }
 
 /** One milestone's editable fields, in a strip under its row: target date, both owners and status, saved together. */
-function PlanRowEditor({ row, edit, onClose }: { row: PlanRow; edit: PlanEdit; onClose: () => void }) {
+function PlanRowEditor({ row, edit, onClose, span }: { row: PlanRow; edit: PlanEdit; onClose: () => void; span: number }) {
   const clean = (v: string | undefined) => ((v ?? "").trim() === "—" ? "" : (v ?? "").trim());
   const [target, setTarget] = useState(row.r.target ?? "");
   const [ours, setOurs] = useState(clean(row.r.ourOwner));
@@ -2710,7 +2732,7 @@ function PlanRowEditor({ row, edit, onClose }: { row: PlanRow; edit: PlanEdit; o
   };
   return (
     <tr className="prw-edit" data-room-row-editor>
-      <td colSpan={6}>
+      <td colSpan={span}>
         <div className="f">
           <label>
             <span>Target date</span>

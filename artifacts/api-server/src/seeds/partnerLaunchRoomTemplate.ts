@@ -399,69 +399,65 @@ export interface WorkspaceMilestone {
 }
 type WorkspaceGroup = { title: string; checkpoint?: string; rows: WorkspaceMilestone[] };
 
-const M = (key: string, task: string, ourOwner: string, partnerOwner: string, extra: Partial<WorkspaceMilestone> = {}): WorkspaceMilestone => ({ key, task, ourOwner, partnerOwner, status: "not-started", ...extra });
 
 /**
- * The post-signature Mutual Action Plan from the Partnership Success Workbook:
- * every milestone with a Dandy owner and a partner owner, a checkpoint per
- * phase. The partner's own deliverables can be completed from the room.
+ * The customer's action plan for the first 90 days: only steps the customer
+ * takes (what our own team does is ours to track, not theirs to read), each
+ * written as something to do, with the role on their side that owns it and a
+ * way to mark it done from the hub. A checkpoint per phase says what "done"
+ * looks like. Keys that existed before keep their meaning, so a hub's saved
+ * ticks still line up.
  */
+const D = (key: string, task: string, partnerOwner: string, extra: Partial<WorkspaceMilestone> = {}): WorkspaceMilestone => ({ key, task, ourOwner: "", partnerOwner, status: "not-started", customerAction: "check", ...extra });
+
 export const DEFAULT_WORKSPACE_PLAN: WorkspaceGroup[] = [
   {
-    title: "Days 0–5 · Setup & welcome",
-    checkpoint: "Team named on both sides · roster received · billing verified",
+    title: "Days 0–5 · Get set up",
+    checkpoint: "Practice list and doctor roster in · billing contact confirmed",
     rows: [
-      M("team-assigned", "Your dedicated team assigned and introduced", "AE", "—"),
-      M("practice-roster", "Upload your practice list", "—", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload practice list", note: "Practice names, addresses, regional managers and an office contact for each" }),
-      M("doctor-roster", "Upload your doctor roster", "—", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload doctor roster", note: "Doctors by practice, so training and support reach the right people" }),
-      M("accounts-confirmed", "Accounts, hierarchy and mailing addresses confirmed", "Implementation", "Operations Lead"),
-      M("pricing-verified", "Contracted pricing verified against your first invoice", "Dandy Billing", "Procurement"),
-      M("welcome-email", "Welcome email and partnership one-pager to your leadership", "Dandy Marketing", "—"),
+      D("practice-roster", "Upload your practice list", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload practice list", note: "Practice names, addresses, regional managers and an office contact for each" }),
+      D("doctor-roster", "Upload your doctor roster", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload doctor roster", note: "Doctors by practice, so training and support reach the right people" }),
+      D("accounts-confirmed", "Confirm your billing contact and each practice's mailing address", "Procurement"),
+      D("brand-guidelines", "Share your brand guidelines", "Communications", { note: "So everything we make for you carries your brand" }),
     ],
   },
   {
     title: "Days 5–15 · Launch",
-    checkpoint: "Plan signed off · partnership announced · kits shipped and tracked",
+    checkpoint: "Kickoff held · partnership announced to your practices",
     rows: [
-      M("exec-kickoff", "Executive kickoff: walk this plan together, finalize owners and dates", "AE", "Executive Sponsor"),
-      M("brand-guidelines", "Your brand guidelines and logos shared", "Dandy Marketing", "Communications"),
-      M("internal-announcement", "Internal announcement via the co-branded launch kit", "Dandy Marketing", "Communications", { customerAction: "check" }),
-      M("welcome-kits", "Welcome kits shipped to practices; leadership gifts to regional managers", "Dandy Marketing", "—"),
-      M("welcome-event", "Welcome event chosen and scoped", "AE", "Executive Sponsor", { customerAction: "check" }),
+      D("exec-kickoff", "Join the executive kickoff and agree owners and dates", "Executive Sponsor"),
+      D("internal-announcement", "Send the partnership announcement to your practices", "Communications", { note: "The email and social copy are ready in Launch & marketing" }),
+      D("welcome-event", "Choose your welcome event", "Executive Sponsor"),
     ],
   },
   {
-    title: "Days 15–30 · Alignment",
-    checkpoint: "Regional 1:1s booked · first wave on the calendar · Lunch & Learns underway",
+    title: "Days 15–30 · Align your regions",
+    checkpoint: "Regional managers introduced · first practices scheduled",
     rows: [
-      M("regional-kickoff", "Regional managers kickoff, then 1:1s scheduled", "AE", "Regional Managers", { customerAction: "check" }),
-      M("marketing-kickoff", "Marketing kickoff with your marketing leadership", "Dandy Marketing", "Communications"),
-      M("lunch-and-learns", "Lunch & Learn program begins across practices", "Practice-Level AE", "Regional Managers"),
-      M("first-wave-scheduled", "First-wave practices scheduled: scanner delivery, setup and training", "Implementation", "Operations Lead"),
-      M("first-case-watch", "First-case quality watch on: enhanced double-review of every practice's first cases", "Dandy Lab", "—"),
+      D("regional-kickoff", "Introduce your regional managers to your Dandy team", "Operations Lead"),
+      D("regional-1-1s", "Regional managers book their 1:1s", "Regional Managers"),
+      D("first-wave-scheduled", "Confirm the first practices and their training dates", "Operations Lead"),
+      D("lunch-and-learns", "Approve Lunch & Learn dates for your practices", "Regional Managers"),
     ],
   },
   {
-    title: "Days 31–60 · Momentum & optimization",
-    checkpoint: "Early wins documented · Hub reviewed · next wave scheduled · events booked",
+    title: "Days 31–60 · Build momentum",
+    checkpoint: "Early feedback shared · next practices confirmed",
     rows: [
-      M("regional-1-1s", "1:1 meetings completed with every regional manager", "AE", "Regional Managers"),
-      M("first-live", "First practices live and submitting cases; early clinical wins reviewed", "Implementation", "Clinical Champion"),
-      M("education-events", "Education events booked for your regions", "Dandy Training", "Regional Managers"),
-      M("hub-walkthrough", "Enterprise Hub walkthrough: utilization, quality and ROI by location", "Account Manager", "Executive Sponsor"),
-      M("feedback-loop", "Structured feedback loop running with leadership and practice teams", "Account Manager", "Operations Lead"),
-      M("next-wave", "Next wave of practices identified and planned", "AE + AM", "Regional Managers", { customerAction: "check" }),
+      D("first-live", "Share early feedback from your first practices", "Clinical Champion"),
+      D("hub-walkthrough", "Join the Enterprise Hub walkthrough", "Executive Sponsor", { note: "Utilization, quality and ROI by location" }),
+      D("education-events", "Pick education events for your regions", "Regional Managers"),
+      D("next-wave", "Confirm the next practices to bring on", "Regional Managers"),
     ],
   },
   {
-    title: "Days 61–90 · Scaling & ROI",
-    checkpoint: "ROI reviewed · case study in hand · expansion plan agreed · standing executive cadence",
+    title: "Days 61–90 · Review and plan ahead",
+    checkpoint: "Results reviewed · plan for the remaining practices agreed",
     rows: [
-      M("roi-review", "Initial ROI and performance review from the Enterprise Hub", "Account Manager", "Executive Sponsor"),
-      M("case-study", "Your own case study from your first practices", "Dandy Marketing", "Clinical Champion"),
-      M("regional-events", "Regional events to accelerate adoption", "Dandy Events", "Regional Managers"),
-      M("first-ebr", "First Executive Business Review: outcomes vs. goals, expansion plan", "AE + Exec Sponsor", "Executive Sponsor"),
-      M("transition", "Transition from onboarding to long-term optimization and growth planning", "Account Manager", "Operations Lead"),
+      D("roi-review", "Review results with your Dandy team", "Executive Sponsor"),
+      D("case-study", "Approve your case study", "Communications"),
+      D("first-ebr", "Join the first Executive Business Review", "Executive Sponsor"),
+      D("transition", "Agree the plan for your remaining practices", "Operations Lead"),
     ],
   },
 ];

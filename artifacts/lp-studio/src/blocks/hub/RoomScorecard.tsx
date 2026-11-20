@@ -16,10 +16,47 @@
  *
  * Styles live in the room block's CSS string (`.prw-sc-*`).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Download, List, Mail, Package, Map as MapIcon, Search, X } from "lucide-react";
 import { RoomMap } from "./RoomMap";
 import type { RoomKitResult, RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
+
+/**
+ * A wide table with a scrollbar above it as well as below, kept in step: a
+ * long list no longer has to be scrolled to its end to move sideways. The top
+ * bar only appears when the table is wider than its frame.
+ */
+function TwoWayScroll({ children }: { children: React.ReactNode }) {
+  const top = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = body.current;
+    if (!el) return;
+    const measure = () => setWidth(el.scrollWidth > el.clientWidth + 1 ? el.scrollWidth : 0);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  });
+  const follow = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
+    if (from && to && to.scrollLeft !== from.scrollLeft) to.scrollLeft = from.scrollLeft;
+  };
+  return (
+    <>
+      {width > 0 && (
+        <div className="prw-topscroll" ref={top} onScroll={() => follow(top.current, body.current)} data-room-topscroll aria-hidden>
+          <div style={{ width }} />
+        </div>
+      )}
+      <div className="prw-scroll sync" ref={body} onScroll={() => follow(body.current, top.current)}>
+        {children}
+      </div>
+    </>
+  );
+}
 
 export const SCORECARD_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
 const STAGE_ORDER = ["not_started", "scheduling", "training_booked", "trained", "live"] as const;
@@ -582,7 +619,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
               </div>
             </div>
           )}
-          <div className="prw-scroll">
+          <TwoWayScroll>
             <table style={{ minWidth: colCount > 6 ? 980 : undefined }}>
               <thead>
                 <tr>
@@ -616,7 +653,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                 {!data && <tr><td colSpan={colCount} className="c">{loading ? "Loading…" : ""}</td></tr>}
               </tbody>
             </table>
-          </div>
+          </TwoWayScroll>
           {data && (
             <div className="prw-pager">
               <span className="prw-num">
