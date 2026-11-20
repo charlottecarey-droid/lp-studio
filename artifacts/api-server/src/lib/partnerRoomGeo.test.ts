@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePracticeRow } from "./partnerRoom";
+import { parsePracticeRow, roomSharesMap } from "./partnerRoom";
 import { splitAddress, usingDandyStage, zip5 } from "./partnerRoomGeo";
 import { parseRoster } from "./partnerRoomRoster";
 import { zipCentroid } from "./zipCentroids";
@@ -65,5 +65,15 @@ describe("a location list with addresses (the Southeast Dental Partners sheet)",
   it("a customer's roster fills the ZIP, office type and phone the same way", () => {
     const parsed = parseRoster("roster.csv", Buffer.from(["Practice name,Address,Office type,Phone,RDO", '"Broad River Dental","1210 E Marion St, Shelby, NC 28150",General,704-484-0611,Hollie'].join("\n")))!;
     expect(parsed.rows[0]).toMatchObject({ practiceName: "Broad River Dental", address: "1210 E Marion St", city: "Shelby", state: "NC", zip: "28150", officeType: "General", phone: "704-484-0611", regionalManager: "Hollie" });
+  });
+});
+
+describe("sharing the map", () => {
+  it("is off unless the hub's own switch is on", () => {
+    expect(roomSharesMap([{ type: "room-workspace", props: { partnerName: "MB2" } }])).toBe(false);
+    expect(roomSharesMap([{ type: "room-workspace", props: { shareMap: "yes" } }])).toBe(false);
+    expect(roomSharesMap([{ type: "hub-hero", props: { shareMap: true } }])).toBe(false);
+    expect(roomSharesMap([{ type: "room-workspace", props: { shareMap: true } }])).toBe(true);
+    expect(roomSharesMap(null)).toBe(false);
   });
 });

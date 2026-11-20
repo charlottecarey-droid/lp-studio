@@ -401,6 +401,8 @@ export interface RoomWorkspaceBlockProps {
   partnerLogoOriginal?: boolean;
   /** Ask for a work email before showing anything under the cover. The server then sends a stranger the cover only. */
   requireEmail?: boolean;
+  /** Show the Scorecard's map to anyone who opens the hub. Off = the map is for the team's own view only (it shows which offices are not ordering). */
+  shareMap?: boolean;
   /** Set by the server on what it sends a stranger to a hub that asks for an email: this is the cover, the rest is withheld. */
   gated?: boolean;
   /** "Schedule" in the top bar: where it books (a rep's booking page). Blank = no button. */
@@ -2226,7 +2228,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               </>
             )}
 
-            {active === "practices" && <ScorecardView snapshot={snapshot} store={store ?? room.reader} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} />}
+            {active === "practices" && <ScorecardView snapshot={snapshot} store={store ?? room.reader} mapShared={!!props.shareMap} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} />}
 
             {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
 

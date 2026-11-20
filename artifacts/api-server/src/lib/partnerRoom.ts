@@ -200,6 +200,11 @@ export const ROOM_COVER_PROPS = ["partnerName", "partnerShort", "partnerLogoUrl"
 const isGatedRoom = (b: unknown): b is { type: string; props: Record<string, unknown> } =>
   !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace" && (b as { props?: { requireEmail?: unknown } }).props?.requireEmail === true;
 
+/** True when the page's hub shows its practice map to anyone who can open it (the team switched it on); otherwise the map is for the team only. */
+export function roomSharesMap(blocks: unknown): boolean {
+  return Array.isArray(blocks) && blocks.some((b) => !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace" && (b as { props?: { shareMap?: unknown } }).props?.shareMap === true);
+}
+
 /** True when the page's hub asks for an email before showing its contents. */
 export function roomRequiresEmail(blocks: unknown): boolean {
   return Array.isArray(blocks) && blocks.some(isGatedRoom);

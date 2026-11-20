@@ -181,7 +181,7 @@ const TILES: { key: RoomPracticeStageFilter | "all"; label: string }[] = [
   { key: "live", label: "Live" },
 ];
 
-export function ScorecardView({ snapshot, store, isEditor, noun, display, goals, onNeedEmail }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; noun: string; display: string; goals: ScorecardGoal[]; onNeedEmail: () => void }) {
+export function ScorecardView({ snapshot, store, isEditor, noun, display, goals, onNeedEmail, mapShared = false }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; /** The hub shows its map to every visitor, not only the team. */ mapShared?: boolean; isEditor: boolean; noun: string; display: string; goals: ScorecardGoal[]; onNeedEmail: () => void }) {
   const pr = snapshot.practices;
   const trend = pr.trend ?? [];
   const byRegion = pr.byRegion ?? [];
@@ -204,9 +204,10 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const [allRegions, setAllRegions] = useState(false);
   const [check, setCheck] = useState<RoomScorecardCheck | null>(null);
   const [checkOpen, setCheckOpen] = useState(false);
-  // The map shows which offices are not ordering: it is for the team's own view.
+  // The map shows which offices are not ordering: it is for the team's own view unless the hub shares it.
   const [mode, setMode] = useState<"list" | "map">("list");
-  const mapOn = isTeam && mode === "map";
+  const canMap = isTeam || mapShared;
+  const mapOn = canMap && mode === "map";
 
   useEffect(() => setPicked(savedColumns()), []);
   const viewerKey = snapshot.viewer?.email ?? "";
@@ -295,7 +296,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
               {pr.syncedAt && <span className="prw-sc-sync" data-room-scorecard-synced title="The list refreshes from Salesforce about every hour">Updated {updatedLabel(pr.syncedAt)}</span>}
             </div>
           )}
-          {isTeam && pr.total > 0 && (
+          {canMap && pr.total > 0 && (
             <span className="prw-seg" role="group" aria-label="View" data-room-scorecard-mode={mode}>
               <button type="button" className={mode === "list" ? "on" : ""} aria-pressed={mode === "list"} onClick={() => setMode("list")}><List aria-hidden /> List</button>
               <button type="button" className={mode === "map" ? "on" : ""} aria-pressed={mode === "map"} onClick={() => setMode("map")} data-room-scorecard-map><MapIcon aria-hidden /> Map</button>

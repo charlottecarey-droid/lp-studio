@@ -73,6 +73,7 @@ import {
   ROOM_PRACTICE_STAGES,
   roomCalendarIcs,
   roomRequiresEmail,
+  roomSharesMap,
   roomWorkspaceProps,
   roomKitInfo,
   resolveRoomBlocks,
@@ -144,6 +145,8 @@ interface RoomPage {
   teamPeople: { name: string; email: string }[];
   /** The hub asks for an email before showing its contents: a stranger gets the cover and nothing else. */
   gated: boolean;
+  /** The team switched on "show the map to anyone who opens the hub". */
+  mapShared: boolean;
 }
 
 async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
@@ -157,7 +160,7 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
   if (!page || page.tenantId == null) return null;
   // Everything read from the page uses the account name filled in, as the page itself shows it.
   page.blocks = resolveRoomBlocks(page.blocks);
-  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks), gated: roomRequiresEmail(page.blocks) };
+  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks), gated: roomRequiresEmail(page.blocks), mapShared: roomSharesMap(page.blocks) };
 }
 
 async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null; asanaProjectGid: string | null }> {
@@ -819,31 +822,46 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
 });
 
 /**
- * Team only: every practice with a map position, for the scorecard's map.
+ * Every practice with a map position, for the scorecard's map.
+ *
+ * For the team by default: the map shows which of the customer's offices are
+ * not ordering. A hub with "show the map to anyone who opens it" switched on
+ * also answers visitors, with less detail (no street address, phone or scanner
+ * count). A hub that asks for an email still tells a stranger nothing.
+ *
  * A practice is placed at the middle of its ZIP code (looked up on the server,
  * so no address goes to an outside service); one with no ZIP we know is
- * counted in `unplaced` and listed without a position. The customer never
- * gets this: it shows which of their offices are not ordering.
+ * counted in `unplaced` and listed without a position.
  */
 router.post("/lp/room/practice-map", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const ctx = await requireWorkspaceViewer(req, res);
-    if (!ctx) return;
-    if (!ctx.viewer.team) {
+    const page = await loadRoomPage(req.body?.pageId);
+    if (!page || !page.isWorkspace) {
+      res.status(404).json({ error: "Room not found" });
+      return;
+    }
+    const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
+    if (page.gated && !viewer) {
+      res.status(401).json({ error: "Confirm your email to continue", code: "identity_required" });
+      return;
+    }
+    const team = !!viewer?.team;
+    if (!team && !page.mapShared) {
       res.status(403).json({ error: "Not available" });
       return;
     }
     const rows = await db
       .select({ id: lpRoomPracticesTable.id, name: lpRoomPracticesTable.name, stage: lpRoomPracticesTable.stage, region: lpRoomPracticesTable.region, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, address: lpRoomPracticesTable.address, regionalManager: lpRoomPracticesTable.regionalManager, officeType: lpRoomPracticesTable.officeType, phone: lpRoomPracticesTable.phone, scannerCount: lpRoomPracticesTable.scannerCount })
       .from(lpRoomPracticesTable)
-      .where(eq(lpRoomPracticesTable.pageId, ctx.page.id))
+      .where(eq(lpRoomPracticesTable.pageId, page.id))
       .orderBy(asc(lpRoomPracticesTable.name))
       .limit(5000);
     let unplaced = 0;
     const points = rows.map((p) => {
       const at = zipCentroid(p.zip);
       if (!at) unplaced++;
-      return { ...p, lat: at?.lat ?? null, lng: at?.lng ?? null };
+      const shared = { id: p.id, name: p.name, stage: p.stage, region: p.region, city: p.city, state: p.state, regionalManager: p.regionalManager, officeType: p.officeType, lat: at?.lat ?? null, lng: at?.lng ?? null };
+      return team ? { ...shared, zip: p.zip, address: p.address, phone: p.phone, scannerCount: p.scannerCount } : { ...shared, zip: null, address: null, phone: null, scannerCount: null };
     });
     res.json({ points, unplaced });
   } catch (err) {

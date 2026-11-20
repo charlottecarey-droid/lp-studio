@@ -485,6 +485,14 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     // The roster check is about our Salesforce data: a customer can't ask for it.
     expect((await post("scorecard-check", { pageId, hl })).status).toBe(403);
     expect((await post("scorecard-check", { pageId })).status).toBe(401);
+    // The map is the team's own view until the hub's switch shares it; then a visitor gets positions without the street address or phone.
+    expect((await post("practice-map", { pageId, hl })).status).toBe(403);
+    expect((await signedIn("practice-map", { pageId }, tenantId, teamEmail)).status).toBe(200);
+    await pool.query(`UPDATE lp_pages SET blocks = jsonb_set(blocks, '{0,props,shareMap}', 'true') WHERE id = $1`, [pageId]);
+    const sharedMap = await post("practice-map", { pageId });
+    expect(sharedMap.status).toBe(200);
+    expect((sharedMap.json as { points: { address: string | null; phone: string | null }[] }).points.every((p) => p.address === null && p.phone === null)).toBe(true);
+    await pool.query(`UPDATE lp_pages SET blocks = jsonb_set(blocks, '{0,props,shareMap}', 'false') WHERE id = $1`, [pageId]);
 
     // The team edits one practice; another tenant cannot.
     const list = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}/practices?q=Summit`, headers: asTenant(tenantId) })).json as { rows: { id: number }[] };

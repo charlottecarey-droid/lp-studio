@@ -429,6 +429,12 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
             Ask for a work email before showing the hub
           </label>
         </div>
+        <div className="space-y-1 rounded border p-2" data-room-share-map>
+          <label className="flex items-center gap-2 text-xs font-semibold">
+            <Switch checked={!!props.shareMap} onCheckedChange={(v) => update({ shareMap: v })} aria-label="Show the practice map to anyone who opens the hub" />
+            Show the practice map to anyone who opens the hub
+          </label>
+        </div>
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <Switch checked={!!props.partnerLogoOriginal} onCheckedChange={(v) => update({ partnerLogoOriginal: v })} aria-label="Keep the logo's own colours" />
           Keep the logo’s own colours
