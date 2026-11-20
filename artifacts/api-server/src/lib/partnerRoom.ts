@@ -24,6 +24,7 @@
  * allowed right now.
  */
 import crypto from "crypto";
+import { splitAddress, usingDandyStage, zip5 } from "./partnerRoomGeo";
 
 export const ROOM_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
@@ -505,6 +506,12 @@ export interface RoomPracticeInput {
   /** Internal: shown to the team only. */
   owner?: string | null;
   lastActivity?: string | null;
+  /** Where the practice is and what kind it is, when the list carries them (a location list with addresses). */
+  address?: string | null;
+  zip?: string | null;
+  officeType?: string | null;
+  phone?: string | null;
+  officeManager?: string | null;
 }
 
 const SCANNER_MODEL_COLUMNS: [string, string][] = [["trios 3", "Trios 3"], ["trios 5", "Trios 5"], ["dandy vision", "Dandy Vision"], ["medit", "Medit"], ["itero", "iTero"]];
@@ -527,23 +534,29 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
   if (!name) return null;
   const count = get("scannerCount", "scanner_count", "scanners", "scanner count", "current total", "total scanners");
   const models = SCANNER_MODEL_COLUMNS.map(([col, label]) => [Number(get(col)), label] as const).filter(([n]) => Number.isFinite(n) && n > 0).map(([n, label]) => `${n} ${label}`).join(" · ");
-  const state = get("state", "billing state/province", "billing state", "billing state / province");
+  // An address on one line ("166 Furman Road Ste B, Boone, NC 28607") also gives the city, state and ZIP when they have no column of their own.
+  const addressRaw = get("address", "street address", "street", "billing street", "shipping street");
+  const parts = splitAddress(addressRaw);
+  const state = get("state", "billing state/province", "billing state", "billing state / province") ?? parts.state;
+  // A plain "Using Dandy: Yes / No" column says whether the office orders today, whatever the file's other columns are.
+  const using = usingDandyStage(get("using dandy", "on dandy", "uses dandy", "dandy customer"));
+  const stageText = get("stage", "status");
   return {
     externalId: get("externalId", "external_id", "sfdc_id", "sfdc id", "salesforce_id", "id", "account id", "18 digit id", "account id (18)"),
     name,
     // No region column (a plain Salesforce report): group by state.
     region: get("region", "market", "region / regional manager") ?? state,
-    city: get("city", "billing city"),
+    city: get("city", "billing city") ?? parts.city,
     state,
     wave: get("wave"),
-    stage: fromScannerExport ? "not_started" : normalizePracticeStage(get("stage", "status")),
-    stageGiven: !fromScannerExport && !!get("stage", "status"),
+    stage: using ?? (fromScannerExport ? "not_started" : normalizePracticeStage(stageText)),
+    stageGiven: !!using || (!fromScannerExport && !!stageText),
     trainingDate: get("trainingDate", "training_date", "training date", "training"),
     liveDate: get("liveDate", "live_date", "live date", "activated date", "activated"),
     // Salesforce's own column names for the scanner dates are accepted as they are.
     scannerSent: get("scannerSent", "scanner_sent", "scanner sent", "scanner delivered", "scanner shipped", "scanner sent date", "first opp"),
     scannerActivated: get("scannerActivated", "scanner_activated", "scanner activated", "scanner connected", "scanner activation date"),
-    regionalManager: get("regionalManager", "regional_manager", "regional manager", "regional manager name", "region manager", "rm"),
+    regionalManager: get("regionalManager", "regional_manager", "regional manager", "regional manager name", "region manager", "rm", "rdo", "regional director", "regional director of operations"),
     scannerCount: count != null && /^\d{1,4}$/.test(count) ? Number(count) : null,
     scannerModels: get("scannerModels", "scanner_models", "scanner models", "scanner type") ?? (models || null),
     scannerBrand: noneAsBlank(get("scannerBrand", "scanner_brand", "scanner brand", "brand of scanner at office", "brand of scanner")),
@@ -551,6 +564,11 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     sourceStatus: fromScannerExport ? null : get("status", "stage"),
     owner: get("owner", "account owner"),
     lastActivity: get("lastActivity", "last_activity", "last activity"),
+    address: addressRaw ? parts.street || addressRaw : null,
+    zip: zip5(get("zip", "zip code", "postal code", "postcode", "billing zip/postal code")) ?? parts.zip,
+    officeType: get("officeType", "office_type", "office type", "practice type", "location type"),
+    phone: get("phone", "phone number", "office phone"),
+    officeManager: get("officeManager", "office_manager", "office manager", "practice manager"),
   };
 }
 

@@ -18,10 +18,11 @@
  * Pure functions; the routes do the reading and writing.
  */
 import { practiceNameKey, rowsFromUpload } from "./partnerRoomReconcile";
+import { splitAddress } from "./partnerRoomGeo";
 
-export const ROSTER_COLUMNS = ["Practice ID", "Practice name", "Street address", "City", "State", "ZIP", "Regional manager", "Office manager", "Doctor name", "Doctor email", "Doctor NPI", "Doctor role"] as const;
+export const ROSTER_COLUMNS = ["Practice ID", "Practice name", "Street address", "City", "State", "ZIP", "Phone", "Office type", "Regional manager", "Office manager", "Doctor name", "Doctor email", "Doctor NPI", "Doctor role"] as const;
 
-type Field = "practiceId" | "practiceName" | "address" | "city" | "state" | "zip" | "regionalManager" | "officeManager" | "doctorName" | "doctorEmail" | "npi" | "role";
+type Field = "practiceId" | "practiceName" | "address" | "city" | "state" | "zip" | "phone" | "officeType" | "regionalManager" | "officeManager" | "doctorName" | "doctorEmail" | "npi" | "role";
 
 /** Column names people actually use, mapped to the template's fields. */
 const ALIASES: Record<Field, RegExp> = {
@@ -31,6 +32,8 @@ const ALIASES: Record<Field, RegExp> = {
   city: /^(city|billing city|shipping city)$/i,
   state: /^(state|st|province|billing state(\/province)?|state\/province)$/i,
   zip: /^(zip( code)?|postal( code)?|postcode|billing zip(\/postal code)?)$/i,
+  phone: /^(phone( number)?|office phone|practice phone|telephone)$/i,
+  officeType: /^(office type|practice type|location type|type of (office|practice))$/i,
   regionalManager: /^(regional manager( name)?|regional|region manager|rm|rdo|regional director( of operations)?)$/i,
   officeManager: /^(office manager( name)?|practice manager( name)?|om|office contact)$/i,
   doctorName: /^(doctor( name)?|dr\.?( name)?|provider( name)?|dentist( name)?|clinician( name)?)$/i,
@@ -46,6 +49,8 @@ export interface RosterRow {
   city: string;
   state: string;
   zip: string;
+  phone: string;
+  officeType: string;
   regionalManager: string;
   officeManager: string;
   doctorName: string;
@@ -89,7 +94,9 @@ export function parseRoster(fileName: string, buf: Buffer): { rows: RosterRow[];
     for (const f of cols.keys()) found.add(f);
     for (const raw of rows.slice(at + 1, at + 20_001)) {
       const get = (f: Field) => (cols.has(f) ? clean(raw[cols.get(f)!]) : "");
-      const row: RosterRow = { practiceId: get("practiceId"), practiceName: get("practiceName"), address: get("address"), city: get("city"), state: get("state"), zip: get("zip").slice(0, 12), regionalManager: get("regionalManager"), officeManager: get("officeManager"), doctorName: get("doctorName"), doctorEmail: get("doctorEmail").toLowerCase(), npi: get("npi").replace(/\D/g, "").slice(0, 10), role: get("role") };
+      // An address on one line also gives the city, state and ZIP when they have no column of their own.
+      const parts = splitAddress(get("address"));
+      const row: RosterRow = { practiceId: get("practiceId"), practiceName: get("practiceName"), address: parts.zip ? parts.street : get("address"), city: get("city") || parts.city || "", state: get("state") || parts.state || "", zip: get("zip").slice(0, 12) || parts.zip || "", phone: get("phone").slice(0, 40), officeType: get("officeType").slice(0, 60), regionalManager: get("regionalManager"), officeManager: get("officeManager"), doctorName: get("doctorName"), doctorEmail: get("doctorEmail").toLowerCase(), npi: get("npi").replace(/\D/g, "").slice(0, 10), role: get("role") };
       if ((!row.practiceName && !row.practiceId && !row.doctorName) || /^example\b/i.test(row.practiceName)) continue;
       out.push(row);
     }
@@ -118,6 +125,8 @@ export interface RosterPracticeUpdate {
   city?: string;
   state?: string;
   zip?: string;
+  phone?: string;
+  officeType?: string;
   regionalManager?: string;
   officeManager?: string;
 }
@@ -212,7 +221,7 @@ export function matchRoster(rows: RosterRow[], practices: RosterPractice[]): { u
     }
     if (hit) {
       const u = updates.get(hit.id) ?? { id: hit.id };
-      for (const f of ["address", "city", "state", "zip", "regionalManager", "officeManager"] as const) if (row[f] && !u[f]) u[f] = row[f];
+      for (const f of ["address", "city", "state", "zip", "phone", "officeType", "regionalManager", "officeManager"] as const) if (row[f] && !u[f]) u[f] = row[f];
       updates.set(hit.id, u);
     }
     if (!row.doctorName) continue;
@@ -259,10 +268,10 @@ const csvCell = (v: string) => (/[",\n\r]/.test(v) || /^[=+\-@\t]/.test(v) ? `"$
  * The customer adds a row per doctor (copying the practice's row), corrects
  * anything wrong, and adds practices we are missing at the bottom.
  */
-export function rosterTemplateCsv(practices: { id: number; externalId: string | null; name: string; address: string | null; city: string | null; state: string | null; zip: string | null; regionalManager: string | null; officeManager: string | null }[]): string {
+export function rosterTemplateCsv(practices: { id: number; externalId: string | null; name: string; address: string | null; city: string | null; state: string | null; zip: string | null; phone?: string | null; officeType?: string | null; regionalManager: string | null; officeManager: string | null }[]): string {
   const lines = [ROSTER_COLUMNS.join(",")];
   for (const p of practices) {
-    lines.push([p.externalId || String(p.id), p.name, p.address ?? "", p.city ?? "", p.state ?? "", p.zip ?? "", p.regionalManager ?? "", p.officeManager ?? "", "", "", "", ""].map(csvCell).join(","));
+    lines.push([p.externalId || String(p.id), p.name, p.address ?? "", p.city ?? "", p.state ?? "", p.zip ?? "", p.phone ?? "", p.officeType ?? "", p.regionalManager ?? "", p.officeManager ?? "", "", "", "", ""].map(csvCell).join(","));
   }
   return `﻿${lines.join("\r\n")}\r\n`;
 }

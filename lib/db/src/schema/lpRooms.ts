@@ -169,6 +169,9 @@ export const lpRoomPracticesTable = pgTable(
     address: text("address"),
     zip: text("zip"),
     officeManager: text("office_manager"),
+    /** What kind of office it is, in the source's words ("General", "Pediatric"), and its phone number. */
+    officeType: text("office_type"),
+    phone: text("phone"),
     /** Internal: the account owner and the last sales activity. Shown to the team only. */
     owner: text("owner"),
     lastActivity: text("last_activity"),

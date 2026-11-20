@@ -151,12 +151,17 @@ export async function upsertPractices(page: { id: number; tenantId: number }, ro
           ...(r.sourceStatus ? { sourceStatus: r.sourceStatus } : {}),
           ...(r.owner ? { owner: r.owner } : {}),
           ...(r.lastActivity ? { lastActivity: r.lastActivity } : {}),
+          ...(r.address ? { address: r.address } : {}),
+          ...(r.zip ? { zip: r.zip } : {}),
+          ...(r.officeType ? { officeType: r.officeType } : {}),
+          ...(r.phone ? { phone: r.phone } : {}),
+          ...(r.officeManager ? { officeManager: r.officeManager } : {}),
           updatedAt: sql`now()`,
         })
         .where(eq(lpRoomPracticesTable.id, id));
       updated++;
     } else {
-      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels, scannerBrand: r.scannerBrand ?? null, contractSigned: r.contractSigned ?? null, sourceStatus: r.sourceStatus ?? null, owner: r.owner ?? null, lastActivity: r.lastActivity ?? null });
+      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels, scannerBrand: r.scannerBrand ?? null, contractSigned: r.contractSigned ?? null, sourceStatus: r.sourceStatus ?? null, owner: r.owner ?? null, lastActivity: r.lastActivity ?? null, address: r.address ?? null, zip: r.zip ?? null, officeType: r.officeType ?? null, phone: r.phone ?? null, officeManager: r.officeManager ?? null });
       byName.set(r.name.trim().toLowerCase(), -1);
       if (r.externalId) byExt.set(r.externalId, -1);
     }
@@ -348,7 +353,7 @@ export async function latestRosterResult(pageId: number): Promise<(RosterResult 
 /** The roster template for a room: its practices as we hold them, ready for the customer to add doctors and corrections. */
 export async function roomRosterTemplate(pageId: number): Promise<string> {
   const practices = await db
-    .select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name, address: lpRoomPracticesTable.address, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, regionalManager: lpRoomPracticesTable.regionalManager, officeManager: lpRoomPracticesTable.officeManager })
+    .select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name, address: lpRoomPracticesTable.address, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, phone: lpRoomPracticesTable.phone, officeType: lpRoomPracticesTable.officeType, regionalManager: lpRoomPracticesTable.regionalManager, officeManager: lpRoomPracticesTable.officeManager })
     .from(lpRoomPracticesTable)
     .where(eq(lpRoomPracticesTable.pageId, pageId))
     .orderBy(lpRoomPracticesTable.name)

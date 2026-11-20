@@ -61,6 +61,7 @@ import { unlistedPeople } from "../../lib/partnerRoomTeam";
 import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
+import { zipCentroid } from "../../lib/zipCentroids";
 import { applyRoster, buildRoomDigest, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices, rowsFromUpload } from "../../lib/partnerRoomReconcile";
 import {
@@ -758,6 +759,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       scannerActivated: lpRoomPracticesTable.scannerActivated,
       regionalManager: lpRoomPracticesTable.regionalManager,
       officeManager: lpRoomPracticesTable.officeManager,
+      officeType: lpRoomPracticesTable.officeType,
       doctors: sql`(SELECT COUNT(*) FROM lp_room_doctors d WHERE d.practice_id = ${lpRoomPracticesTable.id})`,
       scannerCount: lpRoomPracticesTable.scannerCount,
       scannerBrand: lpRoomPracticesTable.scannerBrand,
@@ -792,7 +794,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const doctorsByPractice = new Map<number, { name: string; role: string | null }[]>();
     for (const d of docs) if (d.practiceId) doctorsByPractice.set(d.practiceId, [...(doctorsByPractice.get(d.practiceId) ?? []), { name: d.name, role: d.role }]);
     const [extra] = await db
-      .select({ address: sql<boolean>`bool_or(${lpRoomPracticesTable.address} IS NOT NULL)`, office: sql<boolean>`bool_or(${lpRoomPracticesTable.officeManager} IS NOT NULL)` })
+      .select({ address: sql<boolean>`bool_or(${lpRoomPracticesTable.address} IS NOT NULL)`, office: sql<boolean>`bool_or(${lpRoomPracticesTable.officeManager} IS NOT NULL)`, officeType: sql<boolean>`bool_or(${lpRoomPracticesTable.officeType} IS NOT NULL)` })
       .from(lpRoomPracticesTable)
       .where(eq(lpRoomPracticesTable.pageId, page.id));
     const [anyDoctor] = await db.select({ id: lpRoomDoctorsTable.id }).from(lpRoomDoctorsTable).where(eq(lpRoomDoctorsTable.pageId, page.id)).limit(1);
@@ -801,11 +803,11 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       page: pageNo,
       pageSize: 50,
       // The account owner and last sales activity are ours: only the team's own view gets them.
-      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
+      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, officeType: !!extra?.officeType, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
       rows: rows.map((p) => ({
         id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels,
         scannerBrand: p.scannerBrand, contractSigned: p.contractSigned,
-        address: p.address, zip: p.zip, officeManager: p.officeManager,
+        address: p.address, zip: p.zip, officeManager: p.officeManager, officeType: p.officeType, phone: p.phone,
         doctors: doctorsByPractice.get(p.id) ?? [],
         ...(viewer.team ? { owner: p.owner, lastActivity: p.lastActivity } : {}),
       })),
@@ -813,6 +815,40 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
   } catch (err) {
     req.log.error({ err }, "room practices failed");
     res.status(500).json({ error: "Could not load practices" });
+  }
+});
+
+/**
+ * Team only: every practice with a map position, for the scorecard's map.
+ * A practice is placed at the middle of its ZIP code (looked up on the server,
+ * so no address goes to an outside service); one with no ZIP we know is
+ * counted in `unplaced` and listed without a position. The customer never
+ * gets this: it shows which of their offices are not ordering.
+ */
+router.post("/lp/room/practice-map", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    if (!ctx.viewer.team) {
+      res.status(403).json({ error: "Not available" });
+      return;
+    }
+    const rows = await db
+      .select({ id: lpRoomPracticesTable.id, name: lpRoomPracticesTable.name, stage: lpRoomPracticesTable.stage, region: lpRoomPracticesTable.region, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, address: lpRoomPracticesTable.address, regionalManager: lpRoomPracticesTable.regionalManager, officeType: lpRoomPracticesTable.officeType, phone: lpRoomPracticesTable.phone, scannerCount: lpRoomPracticesTable.scannerCount })
+      .from(lpRoomPracticesTable)
+      .where(eq(lpRoomPracticesTable.pageId, ctx.page.id))
+      .orderBy(asc(lpRoomPracticesTable.name))
+      .limit(5000);
+    let unplaced = 0;
+    const points = rows.map((p) => {
+      const at = zipCentroid(p.zip);
+      if (!at) unplaced++;
+      return { ...p, lat: at?.lat ?? null, lng: at?.lng ?? null };
+    });
+    res.json({ points, unplaced });
+  } catch (err) {
+    req.log.error({ err }, "room practice map failed");
+    res.status(500).json({ error: "Could not load the map" });
   }
 });
 
@@ -1724,7 +1760,10 @@ router.post("/lp/partner-rooms/:pageId/practices/import", async (req: Request, r
         const [head, ...body] = sheet.rows;
         if (!head) continue;
         const keys = head.map((h) => String(h ?? "").trim().toLowerCase());
-        const parsed = body.map((r) => parsePracticeRow(Object.fromEntries(keys.map((k, i) => [k, r[i] ?? ""])))).filter((r): r is RoomPracticeInput => !!r);
+        // The first column with a name wins: a summary table beside the list often repeats a heading ("Using Dandy" as a count).
+        const firstAt = new Map<string, number>();
+        keys.forEach((k, i) => k && !firstAt.has(k) && firstAt.set(k, i));
+        const parsed = body.map((r) => parsePracticeRow(Object.fromEntries([...firstAt].map(([k, i]) => [k, r[i] ?? ""])))).filter((r): r is RoomPracticeInput => !!r);
         // A workbook can hold several sheets (a timeline, a change log): take the one that reads as a list of practices.
         if (parsed.length > best.length) {
           best = parsed;

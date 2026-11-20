@@ -589,7 +589,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const tpl = (await post("roster-template", { pageId, hl })).json as { fileName: string; csv: string };
     expect(tpl.fileName).toBe("mb2-dental-practice-and-doctor-roster.csv");
     const lines = tpl.csv.replace(/^\uFEFF/, "").trim().split("\r\n");
-    expect(lines[0]).toBe("Practice ID,Practice name,Street address,City,State,ZIP,Regional manager,Office manager,Doctor name,Doctor email,Doctor NPI,Doctor role");
+    expect(lines[0]).toBe("Practice ID,Practice name,Street address,City,State,ZIP,Phone,Office type,Regional manager,Office manager,Doctor name,Doctor email,Doctor NPI,Doctor role");
     expect(lines).toHaveLength(4);
     expect(lines[1]).toBe("0015d00000BBBBBAAA,Lakeside Family,,,CO,,,,,,,");
 

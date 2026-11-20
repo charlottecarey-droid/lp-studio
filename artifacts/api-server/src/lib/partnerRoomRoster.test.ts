@@ -16,7 +16,7 @@ describe("roster template", () => {
     ]);
     const lines = text.replace(/^﻿/, "").trim().split("\r\n");
     expect(lines[0]).toBe(ROSTER_COLUMNS.join(","));
-    expect(lines[1]).toBe('0015d00000AAAAAAAA,"Main Street Dental, P.C.",,Dallas,TX,,Dana Ruiz,,,,,');
+    expect(lines[1]).toBe('0015d00000AAAAAAAA,"Main Street Dental, P.C.",,Dallas,TX,,,,Dana Ruiz,,,,,');
     expect(lines[2].startsWith(`13,"'=HYPERLINK(1)"`)).toBe(true);
     // The template reads back as a roster with those practices and no doctors.
     const back = parseRoster("roster.csv", Buffer.from(text))!;
