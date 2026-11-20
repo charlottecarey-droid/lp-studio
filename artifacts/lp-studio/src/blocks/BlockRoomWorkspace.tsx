@@ -3025,7 +3025,7 @@ export function scheduleButtonLabel(label: string | undefined): string {
 /** Every other request: the same four questions whatever it is about, so requests line up in one table. */
 const GENERAL_FORM: RequestForm = {
   title: "Make a request",
-  intro: "It goes to the right person and shows up under Outstanding with a target date.",
+  intro: "Your account team will follow up. You can track it under Outstanding.",
   submit: "Send request",
   fields: [
     { key: "details", label: "Details", required: true, size: "long", placeholder: "Tell us what you need" },
@@ -3196,8 +3196,8 @@ function AccessDialog({ store, onClose }: { store: RoomStoreHandle; onClose: () 
         <button type="button" className="x" onClick={onClose} aria-label="Close"><X style={{ width: 16, height: 16 }} /></button>
         {result === null ? (
           <form onSubmit={submit}>
-            <h3>Confirm it’s you</h3>
-            <p>We’ll email you a link.</p>
+            <h3>Verify your email</h3>
+            <p>We’ll send a secure link to your work email.</p>
             <label htmlFor="prw-email">Work email</label>
             <input id="prw-email" ref={inputRef} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             {error && <div className="prw-err" role="alert">{error}</div>}
@@ -3212,11 +3212,11 @@ function AccessDialog({ store, onClose }: { store: RoomStoreHandle; onClose: () 
             <h3>{result === "sent" ? "Check your inbox" : "We’ve asked the team"}</h3>
             <p>
               {result === "sent"
-                ? `We sent a link to ${email.trim()}. Open it on this device and you’re set for the next 90 days.`
+                ? `We sent a link to ${email.trim()}. Open it on this device to continue. It stays valid for 90 days.`
                 : `${email.trim()} isn’t on this room’s list yet, so we’ve asked the team to add you. You’ll be able to request your link once they do.`}
             </p>
             <div className="row">
-              <button type="button" className="prw-btn pri" onClick={onClose} style={{ ...solid, width: "auto" }}>Got it</button>
+              <button type="button" className="prw-btn pri" onClick={onClose} style={{ ...solid, width: "auto" }}>Close</button>
             </div>
           </>
         )}

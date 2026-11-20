@@ -170,10 +170,10 @@ export function RoomAccessDialog({ store, palette, onClose }: { store: RoomStore
         {result === null ? (
           <form onSubmit={submit}>
             <h3 id="hub-room-access-title" style={{ ...hubDisplayStyle(palette, "1.5rem"), color: ink }}>
-              Confirm it’s you
+              Verify your email
             </h3>
             <p className="mt-2 text-[14.5px] leading-relaxed" style={{ color: soft }}>
-              Enter your work email and we’ll send you a link. Open it once and this browser can upload files and mark tasks done.
+              We’ll send a secure link to your work email. Open it once on this device to upload files and mark tasks complete.
             </p>
             <label className="mt-5 block text-[12px] font-semibold uppercase tracking-[0.14em]" style={{ color: soft }} htmlFor="hub-room-access-email">
               Work email
@@ -207,11 +207,11 @@ export function RoomAccessDialog({ store, palette, onClose }: { store: RoomStore
             </h3>
             <p className="mt-2 text-[14.5px] leading-relaxed" style={{ color: soft }}>
               {result === "sent"
-                ? `We sent a link to ${email.trim()}. Open it on this device and you’re set for the next 90 days.`
+                ? `We sent a link to ${email.trim()}. Open it on this device to continue. It stays valid for 90 days.`
                 : `${email.trim()} isn’t on this room’s list yet, so we’ve asked the team to add you. You’ll be able to request your link once they do.`}
             </p>
             <button type="button" onClick={onClose} className={`${HUB_PILL_SM_CLASS} mt-5 cursor-pointer`} style={{ ...hubPillStyle(palette, "solid", "sm"), minHeight: 44 }}>
-              Got it
+              Close
             </button>
           </div>
         )}
