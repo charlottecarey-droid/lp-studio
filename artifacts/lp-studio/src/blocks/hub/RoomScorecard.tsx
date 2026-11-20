@@ -17,7 +17,8 @@
  * Styles live in the room block's CSS string (`.prw-sc-*`).
  */
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Mail, Search, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, List, Mail, Map as MapIcon, Search, X } from "lucide-react";
+import { RoomMap } from "./RoomMap";
 import type { RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
 
 export const SCORECARD_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
@@ -121,6 +122,7 @@ const COLUMNS: ColumnDef[] = [
       </>
     ),
   },
+  { key: "type", label: "Office type", sort: "officeType", on: true, has: "officeType", cell: (p) => p.officeType },
   { key: "office", label: "Office manager", sort: "officeManager", on: true, has: "office", cell: (p) => p.officeManager },
   {
     key: "doctors",
@@ -202,6 +204,9 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const [allRegions, setAllRegions] = useState(false);
   const [check, setCheck] = useState<RoomScorecardCheck | null>(null);
   const [checkOpen, setCheckOpen] = useState(false);
+  // The map shows which offices are not ordering: it is for the team's own view.
+  const [mode, setMode] = useState<"list" | "map">("list");
+  const mapOn = isTeam && mode === "map";
 
   useEffect(() => setPicked(savedColumns()), []);
   const viewerKey = snapshot.viewer?.email ?? "";
@@ -283,12 +288,20 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         <div>
           <h2 style={{ fontFamily: display }}>Scorecard</h2>
         </div>
-        {(pr.regions.length > 0 || pr.syncedAt) && (
-          <div className="prw-meta">
-            {pr.regions.length > 0 && <><b>{pr.total}</b> {noun} · <b>{pr.regions.length}</b> regions</>}
-            {pr.syncedAt && <span className="prw-sc-sync" data-room-scorecard-synced title="The list refreshes from Salesforce about every hour">Updated {updatedLabel(pr.syncedAt)}</span>}
-          </div>
-        )}
+        <div className="prw-sc-hd">
+          {(pr.regions.length > 0 || pr.syncedAt) && (
+            <div className="prw-meta">
+              {pr.regions.length > 0 && <><b>{pr.total}</b> {noun} · <b>{pr.regions.length}</b> regions</>}
+              {pr.syncedAt && <span className="prw-sc-sync" data-room-scorecard-synced title="The list refreshes from Salesforce about every hour">Updated {updatedLabel(pr.syncedAt)}</span>}
+            </div>
+          )}
+          {isTeam && pr.total > 0 && (
+            <span className="prw-seg" role="group" aria-label="View" data-room-scorecard-mode={mode}>
+              <button type="button" className={mode === "list" ? "on" : ""} aria-pressed={mode === "list"} onClick={() => setMode("list")}><List aria-hidden /> List</button>
+              <button type="button" className={mode === "map" ? "on" : ""} aria-pressed={mode === "map"} onClick={() => setMode("map")} data-room-scorecard-map><MapIcon aria-hidden /> Map</button>
+            </span>
+          )}
+        </div>
       </div>
 
       {isTeam && check?.checked && (
@@ -374,13 +387,15 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         )}
       </div>
 
-      {pr.total > 0 && (
+      {mapOn && <RoomMap store={store} noun={noun} stage={stage} stageLabel={(s) => SCORECARD_STAGE_LABEL[s] ?? s} />}
+
+      {!mapOn && pr.total > 0 && (
         <div className="prw-sc-bar" role="img" aria-label={STAGE_ORDER.map((s) => `${SCORECARD_STAGE_LABEL[s]}: ${pr.byStage[s] ?? 0}`).join(", ")}>
           {STAGE_ORDER.map((s) => ((pr.byStage[s] ?? 0) > 0 ? <span key={s} className={s} style={{ flexGrow: pr.byStage[s] }} title={`${SCORECARD_STAGE_LABEL[s]}: ${pr.byStage[s]}`} /> : null))}
         </div>
       )}
 
-      {pr.total > 0 && (
+      {!mapOn && pr.total > 0 && (
         <div className="prw-sc-grid">
           <div className="prw-card prw-sc-panel" data-room-scorecard-trend>
             <h4>Trend</h4>
@@ -420,7 +435,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         </div>
       )}
 
-      {byRegion.length > 1 && (
+      {!mapOn && byRegion.length > 1 && (
         <div className="prw-card prw-sc-regions" data-room-scorecard-regions>
           <div className="hd"><h4>By region</h4><span>Click a region to see its {noun}</span></div>
           {regionsShown.map((r) => {
@@ -437,7 +452,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         </div>
       )}
 
-      {pr.total === 0 ? (
+      {mapOn ? null : pr.total === 0 ? (
         <div className="prw-card"><div className="prw-empty">No {noun} loaded yet.</div></div>
       ) : !snapshot.viewer && !isEditor ? (
         <div className="prw-card">

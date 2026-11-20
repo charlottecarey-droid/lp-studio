@@ -162,12 +162,14 @@ export interface RoomPractice {
   address?: string | null;
   zip?: string | null;
   officeManager?: string | null;
+  officeType?: string | null;
+  phone?: string | null;
   doctors?: { name: string; role: string | null }[];
   /** Team viewers only. */
   owner?: string | null;
   lastActivity?: string | null;
 }
-export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity" | "officeManager" | "doctors";
+export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity" | "officeManager" | "doctors" | "officeType";
 /** A scorecard tile: one stage, or a group ("trained" includes live; "open" is everything not yet trained). */
 export type RoomPracticeStageFilter = "not_started" | "scheduling" | "training_booked" | "trained" | "live" | "open";
 /** Team only: how the customer's own rosters compare with what Salesforce lists. */
@@ -191,12 +193,34 @@ export interface RoomScorecardCheck {
   /** Practices that gained a regional manager, office manager or address from the roster. */
   enriched?: number;
 }
+/** Team only: one practice for the scorecard's map. `lat`/`lng` are null when its ZIP code is missing or unknown. */
+export interface RoomMapPoint {
+  id: number;
+  name: string;
+  stage: string;
+  region: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  address: string | null;
+  regionalManager: string | null;
+  officeType: string | null;
+  phone: string | null;
+  scannerCount: number | null;
+  lat: number | null;
+  lng: number | null;
+}
+export interface RoomMapData {
+  points: RoomMapPoint[];
+  /** How many have no position. */
+  unplaced: number;
+}
 export interface RoomPracticePage {
   total: number;
   page: number;
   pageSize: number;
   /** Which optional columns this room has any data for. */
-  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; doctors?: boolean };
+  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; officeType?: boolean; doctors?: boolean };
   rows: RoomPractice[];
 }
 
@@ -400,6 +424,17 @@ class RoomStore {
     try {
       const { status, json } = await this.post("scorecard-check", {});
       return status === 200 ? (json as unknown as RoomScorecardCheck) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Team only: every practice with its map position. Null when not available to this viewer. */
+  async loadPracticeMap(): Promise<RoomMapData | null> {
+    try {
+      const { status, json } = await this.post("practice-map", {});
+      const data = json as unknown as RoomMapData;
+      return status === 200 && Array.isArray(data.points) ? data : null;
     } catch {
       return null;
     }
