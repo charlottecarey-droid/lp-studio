@@ -291,6 +291,9 @@ export const lpRoomAutocreateTable = pgTable("lp_room_autocreate", {
   /** The marketing team's welcome kit recipient list. Null sheet = the hub log workbook; null tab = "Send Welcome Kits". */
   kitSheetId: text("kit_sheet_id"),
   kitTab: text("kit_tab"),
+  /** Asana for every hub's marketing requests: the project they are filed in and who they are assigned to. Null = the Asana connection's own project, unassigned. A hub's own project still wins. */
+  asanaProjectGid: text("asana_project_gid"),
+  asanaAssigneeGid: text("asana_assignee_gid"),
   /** On a new room: write its link to this field on the Salesforce Account (API name), when Salesforce is connected. */
   sfdcField: text("sfdc_field"),
   syncedAt: timestamp("synced_at", { withTimezone: true }),

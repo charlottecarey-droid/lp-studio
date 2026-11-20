@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { KIT_HEADERS, kitNotice, kitRows, planKits, type KitPractice } from "./partnerRoomKit";
+import { KIT_HEADERS, kitAsanaTask, kitNotice, kitRows, planKits, type KitPractice } from "./partnerRoomKit";
+import { pickAsanaTarget } from "./partnerRoomAsanaPick";
 
 const practice = (over: Partial<KitPractice> = {}): KitPractice => ({ id: 1, externalId: "0015d00003UR9S2AAL", name: "Porter Dental", address: "7839 Eastern Ave", city: "Baltimore", state: "MD", zip: "21224", phone: "4035034903", owner: "Harris Russell", kitSentAt: null, ...over });
 const ctx = { parentAccount: "Benevis-HQ", parentAccountId: "0015d000041HyYi", date: "2026-11-20" };
@@ -44,5 +45,22 @@ describe("welcome kit list", () => {
     expect(n.lines).toContain("• Porter Dental");
     expect(n.lines.at(-1)).toBe("List: https://docs.google.com/spreadsheets/d/abc");
     expect(kitNotice("B", Array.from({ length: 30 }, (_, i) => `P${i}`), "R", "u").lines).toContain("…and 5 more");
+  });
+
+  it("asks marketing in Asana to send the kits, with the date asked and the list", () => {
+    const t = kitAsanaTask("Benevis", ["Porter Dental", "Pippin Dental"], "Rae Rep", "https://docs.google.com/spreadsheets/d/abc", "2026-11-20");
+    expect(t.subject).toBe("Send welcome kits to 2 practices (requested 2026-11-20)");
+    expect(t.notes).toContain("Please send welcome kits to 2 Benevis practices.");
+    expect(t.notes).toContain("Requested: 2026-11-20");
+    expect(t.notes).toContain("Requested by: Rae Rep");
+    expect(t.notes).toContain("https://docs.google.com/spreadsheets/d/abc");
+    expect(t.notes).toContain("- Porter Dental");
+  });
+
+  it("files hub requests in the hub's own project, else the workspace's for all hubs, assigned to the workspace's person", () => {
+    expect(pickAsanaTarget(null, { projectGid: "1212535445652653", assigneeGid: "1211027313000479" })).toEqual({ projectGid: "1212535445652653", assigneeGid: "1211027313000479" });
+    expect(pickAsanaTarget("1299999999999999", { projectGid: "1212535445652653", assigneeGid: "1211027313000479" })).toEqual({ projectGid: "1299999999999999", assigneeGid: "1211027313000479" });
+    expect(pickAsanaTarget("", null)).toEqual({ projectGid: null, assigneeGid: null });
+    expect(pickAsanaTarget("not an id", { projectGid: " 1212535445652653 ", assigneeGid: "me" })).toEqual({ projectGid: "1212535445652653", assigneeGid: null });
   });
 });

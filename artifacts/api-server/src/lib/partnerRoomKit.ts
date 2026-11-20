@@ -125,3 +125,25 @@ export function kitNotice(customer: string, names: string[], by: string, sheetUr
     lines: [`${by} added ${n} ${customer} ${n === 1 ? "practice" : "practices"} to the welcome kit list.`, ...shown.map((name) => `• ${name}`), ...(n > shown.length ? [`…and ${n - shown.length} more`] : []), `List: ${sheetUrl}`],
   };
 }
+
+/**
+ * The task marketing gets in Asana when practices are added: a request to
+ * send the kits, when it was asked and by whom, the practices, and the list.
+ */
+export function kitAsanaTask(customer: string, names: string[], by: string, sheetUrl: string, date: string): { subject: string; notes: string } {
+  const n = names.length;
+  const shown = names.slice(0, 100);
+  return {
+    subject: `Send welcome kits to ${n} ${n === 1 ? "practice" : "practices"} (requested ${date})`,
+    notes: [
+      `Please send welcome kits to ${n} ${customer} ${n === 1 ? "practice" : "practices"}.`,
+      `Requested: ${date}`,
+      `Requested by: ${by}`,
+      `Recipient list (Google Sheet, rows dated ${date}): ${sheetUrl}`,
+      "",
+      "Practices:",
+      ...shown.map((name) => `- ${name}`),
+      ...(n > shown.length ? [`…and ${n - shown.length} more (all are in the list)`] : []),
+    ].join("\n"),
+  };
+}

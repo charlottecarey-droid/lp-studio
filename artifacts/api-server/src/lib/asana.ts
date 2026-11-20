@@ -208,6 +208,8 @@ export interface CreateIntakeTaskInput {
   notes: string;
   /** Project to file under. Blank = the tenant's configured project. */
   projectGid?: string | null;
+  /** Who the task is assigned to (an Asana user id). Blank = unassigned. */
+  assigneeGid?: string | null;
   /** Custom field to set on the task, matched by NAME on the project (case-insensitive). */
   statusFieldName?: string;
   statusOptionName?: string;
@@ -228,6 +230,8 @@ export async function createIntakeTask(input: CreateIntakeTaskInput): Promise<As
   const optionName = (input.statusOptionName ?? "Submitted").toLowerCase();
   const payload: Record<string, unknown> = { name: input.name, notes: input.notes, projects: [project] };
   if (config.workspaceId) payload.workspace = config.workspaceId;
+  const assignee = (input.assigneeGid ?? "").trim();
+  if (/^\d{5,25}$/.test(assignee)) payload.assignee = assignee;
 
   if (isFakeMode()) {
     const taskId = `fake-${++fakeTaskCounter}`;

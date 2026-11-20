@@ -63,7 +63,8 @@ import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
 import { extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage } from "../../lib/partnerRoomStage";
-import { kitNotice } from "../../lib/partnerRoomKit";
+import { kitAsanaTask, kitNotice } from "../../lib/partnerRoomKit";
+import { ASANA_GID_RE, hubAsanaTarget } from "../../lib/partnerRoomAsana";
 import { sendWelcomeKits } from "../../lib/partnerRoomKitService";
 import { practicesExportCsv } from "../../lib/partnerRoomRoster";
 import { applyRoster, buildRoomDigest, practiceTrainingEvents, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
@@ -733,12 +734,14 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
     res.json({ ok: true, id: row.id });
     // Marketing work also goes to the marketing intake in Asana (after the response; never blocks the request).
     if (ASANA_REQUEST_KINDS.includes(parsed.kind)) {
+      const asana = await hubAsanaTarget(page.tenantId, settings.asanaProjectGid);
       void createIntakeTask({
         tenantId: page.tenantId,
         pageId: page.id,
         name: asanaRequestTaskName(page.partnerName || page.title, parsed.subject),
-        notes: [`Requested by ${viewer.name ? `${viewer.name} (${viewer.email})` : viewer.email} in the ${page.partnerName || page.title} partner room.`, `Type: ${ROOM_REQUEST_KIND_LABEL[parsed.kind as RoomRequestKind]}`, "", parsed.details ?? "", "", `Room: ${await roomPageUrl(req, page, req.body?.path)}`].join("\n"),
-        projectGid: settings.asanaProjectGid,
+        notes: [`Requested by ${viewer.name ? `${viewer.name} (${viewer.email})` : viewer.email} in the ${page.partnerName || page.title} partner room.`, `Requested: ${new Date().toISOString().slice(0, 10)}`, `Type: ${ROOM_REQUEST_KIND_LABEL[parsed.kind as RoomRequestKind]}`, "", parsed.details ?? "", "", `Room: ${await roomPageUrl(req, page, req.body?.path)}`].join("\n"),
+        projectGid: asana.projectGid,
+        assigneeGid: asana.assigneeGid,
       })
         .then(async (result) => {
           if (result.taskId) await db.update(lpRoomRequestsTable).set({ asanaTaskGid: result.taskId }).where(eq(lpRoomRequestsTable.id, row.id));
@@ -908,7 +911,10 @@ router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Resp
     const notice = kitNotice(customer, result.sent, by, result.sheetUrl ?? "");
     // The sheet's link goes in as a link: `mrk` would break the underscores in its id.
     postToSlack(page, settings.slackChannelId, `📦 ${notice.title}`, [...notice.lines.slice(0, -1).map(mrk), ...(result.sheetUrl ? [`<${result.sheetUrl}|Open the welcome kit list>`] : [])], await roomPageUrl(req, page, req.body?.path));
-    void createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name: asanaRequestTaskName(customer, `Welcome kits for ${result.sent.length} ${result.sent.length === 1 ? "practice" : "practices"}`), notes: notice.lines.join("\n"), projectGid: settings.asanaProjectGid })
+    // The request to actually send the kits: marketing's intake in Asana, with the day it was asked and the list.
+    const kitTask = kitAsanaTask(customer, result.sent, by, result.sheetUrl ?? "", new Date().toISOString().slice(0, 10));
+    const asana = await hubAsanaTarget(page.tenantId, settings.asanaProjectGid);
+    void createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name: asanaRequestTaskName(customer, kitTask.subject), notes: `${kitTask.notes}\n\nHub: ${await roomPageUrl(req, page, req.body?.path)}`, projectGid: asana.projectGid, assigneeGid: asana.assigneeGid })
       .then((r) => r.warning && req.log.warn({ pageId: page.id, warning: r.warning }, "welcome kit asana warning"))
       .catch((err) => req.log.error({ err }, "welcome kit asana failed"));
   } catch (err) {
@@ -1968,6 +1974,8 @@ router.get("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       logTab: cfg?.logTab ?? null,
       kitSheetId: cfg?.kitSheetId ?? null,
       kitTab: cfg?.kitTab ?? null,
+      asanaProjectGid: cfg?.asanaProjectGid ?? null,
+      asanaAssigneeGid: cfg?.asanaAssigneeGid ?? null,
       sfdcField: cfg?.sfdcField ?? null,
       syncedAt: cfg?.syncedAt?.toISOString() ?? null,
       note: cfg?.syncNote ?? null,
@@ -2031,12 +2039,18 @@ router.put("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       res.status(400).json({ error: "That welcome kit tab name has characters a sheet tab can't be read by." });
       return;
     }
+    const hubAsanaProject = typeof req.body?.asanaProjectGid === "string" ? req.body.asanaProjectGid.trim() : "";
+    const hubAsanaAssignee = typeof req.body?.asanaAssigneeGid === "string" ? req.body.asanaAssigneeGid.trim() : "";
+    if ((hubAsanaProject && !ASANA_GID_RE.test(hubAsanaProject)) || (hubAsanaAssignee && !ASANA_GID_RE.test(hubAsanaAssignee))) {
+      res.status(400).json({ error: "An Asana project or person ID is a number, for example 1212535445652653." });
+      return;
+    }
     if (sfdcField && !isSfdcFieldName(sfdcField)) {
       res.status(400).json({ error: "Use the Salesforce field's API name, for example Digital_Sales_Room__c." });
       return;
     }
     const enabled = req.body?.enabled === true && !!sheetId;
-    const values = { enabled, sheetId, sheetTab: tab || null, practicesTab: practicesTab || null, alertOwner: req.body?.alertOwner === true, alertEmails, logEnabled: req.body?.logEnabled !== false, logSheetId, logTab: logTab || null, kitSheetId, kitTab: kitTab || null, sfdcField: sfdcField || null, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
+    const values = { enabled, sheetId, sheetTab: tab || null, practicesTab: practicesTab || null, alertOwner: req.body?.alertOwner === true, alertEmails, logEnabled: req.body?.logEnabled !== false, logSheetId, logTab: logTab || null, kitSheetId, kitTab: kitTab || null, asanaProjectGid: hubAsanaProject || null, asanaAssigneeGid: hubAsanaAssignee || null, sfdcField: sfdcField || null, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
     await db.insert(lpRoomAutocreateTable).values({ tenantId, ...values }).onConflictDoUpdate({ target: lpRoomAutocreateTable.tenantId, set: values });
     res.json({ ok: true, enabled });
   } catch (err) {
