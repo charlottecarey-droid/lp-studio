@@ -1,3 +1,4 @@
+import { roomActionEmailBody } from "./partnerRoomEmail";
 import { logger } from "./logger";
 import { renderEmail, expandEmailVars } from "./emailRender";
 import { getNotificationTemplate } from "./notificationTemplates";
@@ -449,6 +450,33 @@ export async function sendMagicLinkEmail(payload: {
 }
 
 /**
+ * A Partner Hub email to the customer, in the workspace's own email shell
+ * (its logo, header colour and footer) rather than LP Studio's: the customer
+ * knows the partner, not the tool. Falls back to the LP Studio frame when the
+ * workspace has no brand to draw from, or when the shell renders to nothing
+ * (a blank shell override), so a broken shell can never stop the link going out.
+ */
+async function buildRoomActionEmailHtml(tenantId: number, opts: { headline: string; bodyHtml: string; ctaLabel: string; ctaUrl: string; footerNote: string; expiryNote?: string }): Promise<string> {
+  const fallback = buildAuthActionEmailHtml(opts);
+  try {
+    const resolved = await resolveTenantShell(tenantId);
+    if (resolved.source === "platform") return fallback;
+    const rendered = renderEmail({
+      shell: resolved.shell,
+      bodyHtml: roomActionEmailBody({ ...opts, buttonColor: resolved.shell.headerBg }),
+      wrapInShell: true,
+      vars: expandEmailVars({ headline: opts.headline, subject: opts.headline, physicalAddress: resolved.physicalAddress, workspaceUrl: originOf(opts.ctaUrl), workspaceHost: hostOf(opts.ctaUrl) }),
+    });
+    // The link must be in what we send: an override whose body slot is missing renders without it.
+    if (!rendered.includes(escapeHtml(opts.ctaUrl))) throw new Error("room email rendered without its link");
+    return rendered;
+  } catch (err) {
+    logger.error({ err, tenantId }, "Partner Hub email: tenant shell failed; using the platform frame");
+    return fallback;
+  }
+}
+
+/**
  * Partner room access link: sent when a visitor to a room page asks to act
  * (upload a file, tick a task) with an address the room allows. The link
  * carries a signed room token (lib/partnerRoom.ts) and is not single-use, so
@@ -461,7 +489,7 @@ export async function sendRoomAccessEmail(payload: {
   tenantId: number;
 }): Promise<boolean> {
   const { recipientEmail, roomUrl, roomTitle, tenantId } = payload;
-  const html = buildAuthActionEmailHtml({
+  const html = await buildRoomActionEmailHtml(tenantId, {
     headline: "Your link to the Partner Hub",
     bodyHtml: `Use the button below to open <strong>${escapeHtml(roomTitle)}</strong> as yourself. From there you can upload files and mark tasks done.`,
     ctaLabel: "Open the Partner Hub",
@@ -499,7 +527,7 @@ export async function sendRoomInviteEmail(payload: {
   const { recipientEmail, roomUrl, roomTitle, tenantId } = payload;
   const first = (payload.recipientName ?? "").trim().split(/\s+/)[0];
   const note = (payload.note ?? "").trim();
-  const html = buildAuthActionEmailHtml({
+  const html = await buildRoomActionEmailHtml(tenantId, {
     headline: `You're invited to ${roomTitle}`,
     bodyHtml: `${first ? `Hi ${escapeHtml(first)}, ` : ""}${escapeHtml(payload.invitedBy)} invited you to <strong>${escapeHtml(roomTitle)}</strong>: the shared Partner Hub for our partnership, with the plan, the launch kit, upcoming dates and the team on both sides.${note ? `<br><br>${escapeHtml(note).replace(/\n/g, "<br>")}` : ""}`,
     ctaLabel: "Open the Partner Hub",
