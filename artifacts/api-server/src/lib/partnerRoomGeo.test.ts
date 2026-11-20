@@ -56,6 +56,12 @@ describe("a location list with addresses (the Southeast Dental Partners sheet)",
     expect(row({ zip: "28150" }).zip).toBe("28150");
   });
 
+  it("a Salesforce report: the shipping address is where the practice is, billing is the fallback", () => {
+    const sf = { "account name": "Gold Hill Family Dentistry", "billing address line 1": "1 Head Office Way", "billing city": "Charlotte", "billing state/province": "NC", "billing zip/postal code": "28202", "shipping street": "12 Gold Hill Rd", "shipping address line 1": "12 Gold Hill Rd", "shipping city": "Fort Mill", "shipping state/province": "SC", "shipping zip/postal code": "29708-1234" };
+    expect(parsePracticeRow(sf)).toMatchObject({ address: "12 Gold Hill Rd", city: "Fort Mill", state: "SC", zip: "29708", region: "SC" });
+    expect(parsePracticeRow({ ...sf, "shipping street": "", "shipping address line 1": "", "shipping city": "", "shipping state/province": "", "shipping zip/postal code": "" })).toMatchObject({ address: "1 Head Office Way", city: "Charlotte", state: "NC", zip: "28202" });
+  });
+
   it("a customer's roster fills the ZIP, office type and phone the same way", () => {
     const parsed = parseRoster("roster.csv", Buffer.from(["Practice name,Address,Office type,Phone,RDO", '"Broad River Dental","1210 E Marion St, Shelby, NC 28150",General,704-484-0611,Hollie'].join("\n")))!;
     expect(parsed.rows[0]).toMatchObject({ practiceName: "Broad River Dental", address: "1210 E Marion St", city: "Shelby", state: "NC", zip: "28150", officeType: "General", phone: "704-484-0611", regionalManager: "Hollie" });

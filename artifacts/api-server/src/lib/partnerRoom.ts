@@ -535,9 +535,10 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
   const count = get("scannerCount", "scanner_count", "scanners", "scanner count", "current total", "total scanners");
   const models = SCANNER_MODEL_COLUMNS.map(([col, label]) => [Number(get(col)), label] as const).filter(([n]) => Number.isFinite(n) && n > 0).map(([n, label]) => `${n} ${label}`).join(" · ");
   // An address on one line ("166 Furman Road Ste B, Boone, NC 28607") also gives the city, state and ZIP when they have no column of their own.
-  const addressRaw = get("address", "street address", "street", "billing street", "shipping street");
+  // Salesforce reports carry two addresses. Shipping is where the practice is; billing is often the group's head office, so it is the fallback.
+  const addressRaw = get("address", "street address", "street", "shipping street", "shipping address line 1", "billing street", "billing address line 1");
   const parts = splitAddress(addressRaw);
-  const state = get("state", "billing state/province", "billing state", "billing state / province") ?? parts.state;
+  const state = get("state", "shipping state/province", "shipping state", "billing state/province", "billing state", "billing state / province") ?? parts.state;
   // A plain "Using Dandy: Yes / No" column says whether the office orders today, whatever the file's other columns are.
   const using = usingDandyStage(get("using dandy", "on dandy", "uses dandy", "dandy customer"));
   const stageText = get("stage", "status");
@@ -546,7 +547,7 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     name,
     // No region column (a plain Salesforce report): group by state.
     region: get("region", "market", "region / regional manager") ?? state,
-    city: get("city", "billing city") ?? parts.city,
+    city: get("city", "shipping city", "billing city") ?? parts.city,
     state,
     wave: get("wave"),
     stage: using ?? (fromScannerExport ? "not_started" : normalizePracticeStage(stageText)),
@@ -565,7 +566,7 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     owner: get("owner", "account owner"),
     lastActivity: get("lastActivity", "last_activity", "last activity"),
     address: addressRaw ? parts.street || addressRaw : null,
-    zip: zip5(get("zip", "zip code", "postal code", "postcode", "billing zip/postal code")) ?? parts.zip,
+    zip: zip5(get("zip", "zip code", "postal code", "postcode")) ?? zip5(get("shipping zip/postal code", "shipping zip")) ?? zip5(get("billing zip/postal code", "billing zip")) ?? parts.zip,
     officeType: get("officeType", "office_type", "office type", "practice type", "location type"),
     phone: get("phone", "phone number", "office phone"),
     officeManager: get("officeManager", "office_manager", "office manager", "practice manager"),
