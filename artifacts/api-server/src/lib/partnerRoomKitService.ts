@@ -15,10 +15,11 @@ export interface KitTarget {
   url: string;
 }
 
-/** Where the workspace keeps its welcome kit list: its own setting, else a "Send Welcome Kits" tab in the workbook the hub log uses. */
+/** Where the workspace keeps its welcome kit list: its own setting, else a "Send Welcome Kits" tab in the workbook the hubs read practices from. */
 export async function kitTarget(tenantId: number): Promise<KitTarget | null> {
   const [cfg] = await db.select({ kitSheetId: lpRoomAutocreateTable.kitSheetId, kitTab: lpRoomAutocreateTable.kitTab, logSheetId: lpRoomAutocreateTable.logSheetId, sheetId: lpRoomAutocreateTable.sheetId }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
-  const sheetId = cfg?.kitSheetId || cfg?.logSheetId || cfg?.sheetId || "";
+  // Unset = the workbook the hubs read their practices from (the one with the locations tab), not the separate hub log.
+  const sheetId = cfg?.kitSheetId || cfg?.sheetId || cfg?.logSheetId || "";
   if (!SHEET_ID_RE.test(sheetId)) return null;
   const tab = cfg?.kitTab && SHEET_TAB_RE.test(cfg.kitTab) ? cfg.kitTab : DEFAULT_KIT_TAB;
   return { sheetId, tab, url: `https://docs.google.com/spreadsheets/d/${sheetId}` };
