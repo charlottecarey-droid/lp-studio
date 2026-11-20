@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown,
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
-import { usePageContext } from "@/lib/page-context";
+import { useBuilderPageId, usePageContext } from "@/lib/page-context";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed, opensInViewer, resolveAssetHref, type HubAsset, type HubAssetAction } from "./hub/hub-assets";
@@ -1515,7 +1515,11 @@ const roomViewId = () => `${Date.now().toString(36)}-${Math.random().toString(36
 
 export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldChange }: Props) {
   const isEditor = !!onFieldChange;
-  const { pageId, sessionId } = usePageContext();
+  const { pageId: livePageId, sessionId } = usePageContext();
+  // In the builder there is no page context (blocks must not track or submit from the editor), but the hub
+  // still reads its live data there so the team sees the real scorecard while editing. Read only: see useRoom below.
+  const builderPageId = useBuilderPageId();
+  const pageId = livePageId ?? (isEditor ? builderPageId : undefined);
   // In the builder the page isn't live, but what the customer will see still matters: load the room's data read-only there.
   const room = useRoom(pageId, true, { readOnly: isEditor });
   // A hub that asks for an email arrives as its cover only; once the visitor is recognised, the room hands over the rest.

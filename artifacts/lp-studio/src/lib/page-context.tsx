@@ -37,3 +37,19 @@ export function PageContextProvider({
 export function usePageContext(): PageContextValue {
   return useContext(PageContext);
 }
+
+/**
+ * The id of the page open in the builder. Kept apart from `PageContext` on
+ * purpose: blocks read `pageId` there to track views and submit forms, which
+ * must never happen from the editor. A block that only needs to READ live
+ * data for the page while it is being edited (the Partner Hub) asks for this.
+ */
+const BuilderPageIdContext = createContext<number | undefined>(undefined);
+
+export function BuilderPageIdProvider({ value, children }: { value: number | undefined; children: React.ReactNode }) {
+  return <BuilderPageIdContext.Provider value={value}>{children}</BuilderPageIdContext.Provider>;
+}
+
+export function useBuilderPageId(): number | undefined {
+  return useContext(BuilderPageIdContext);
+}

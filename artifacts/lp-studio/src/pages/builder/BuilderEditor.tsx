@@ -1,3 +1,4 @@
+import { BuilderPageIdProvider } from "@/lib/page-context";
 import { useEffect, useState, useRef, useCallback, useMemo, memo, Component, type ReactNode, type RefObject, type ErrorInfo } from "react";
 import { motion, type TargetAndTransition } from "framer-motion";
 import { useRoute, useLocation } from "wouter";
@@ -1212,7 +1213,18 @@ function CustomCssPanel({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
+/** The editor, with the open page's id on hand for blocks that show the page's live data while it is edited (the Partner Hub's scorecard). */
 export default function BuilderEditor() {
+  const [, params] = useRoute("/builder/:pageId");
+  const id = parseInt(params?.pageId ?? "", 10);
+  return (
+    <BuilderPageIdProvider value={Number.isFinite(id) && id > 0 ? id : undefined}>
+      <BuilderEditorInner />
+    </BuilderPageIdProvider>
+  );
+}
+
+function BuilderEditorInner() {
   const [, params] = useRoute("/builder/:pageId");
   const [, navigate] = useLocation();
   const pageId = params?.pageId ?? "";
