@@ -2022,7 +2022,7 @@ router.put("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
     const kitSheetId = rawKitSheet ? sheetIdFrom(rawKitSheet) : null;
     const kitTab = typeof req.body?.kitTab === "string" ? req.body.kitTab.trim() : "";
     if (rawKitSheet && !kitSheetId) {
-      res.status(400).json({ error: "Paste the welcome kit sheet's link (or leave it blank to use the practices workbook)." });
+      res.status(400).json({ error: "Paste the welcome kit sheet's link (or leave it blank to use the hub log workbook)." });
       return;
     }
     if (kitTab && !SHEET_TAB_RE.test(kitTab)) {
