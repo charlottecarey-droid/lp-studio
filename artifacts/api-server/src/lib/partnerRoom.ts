@@ -25,6 +25,7 @@
  */
 import crypto from "crypto";
 import { splitAddress, usingDandyStage, zip5 } from "./partnerRoomGeo";
+import { firstDateIn } from "./partnerRoomDates";
 
 export const ROOM_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
@@ -557,7 +558,8 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     wave: get("wave"),
     stage: using ?? (fromScannerExport ? "not_started" : normalizePracticeStage(stageText)),
     stageGiven: !!using || (!fromScannerExport && !!stageText),
-    trainingDate: get("trainingDate", "training_date", "training date", "training"),
+    // "Training Date" as written; when it is blank, the first date in "Training Dates" (a practice can have several sessions).
+    trainingDate: get("trainingDate", "training_date", "training date", "training") ?? firstDateIn(get("training dates", "trainingDates", "training_dates")),
     liveDate: get("liveDate", "live_date", "live date", "activated date", "activated"),
     // Salesforce's own column names for the scanner dates are accepted as they are.
     scannerSent: get("scannerSent", "scanner_sent", "scanner sent", "scanner delivered", "scanner shipped", "scanner sent date", "first opp"),

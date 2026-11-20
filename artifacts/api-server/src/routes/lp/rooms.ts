@@ -65,7 +65,7 @@ import { zipCentroid } from "../../lib/zipCentroids";
 import { kitNotice } from "../../lib/partnerRoomKit";
 import { sendWelcomeKits } from "../../lib/partnerRoomKitService";
 import { practicesExportCsv } from "../../lib/partnerRoomRoster";
-import { applyRoster, buildRoomDigest, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
+import { applyRoster, buildRoomDigest, practiceTrainingEvents, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices, rowsFromUpload } from "../../lib/partnerRoomReconcile";
 import {
   ASANA_REQUEST_KINDS,
@@ -440,6 +440,18 @@ async function requireWorkspaceViewer(req: Request, res: Response): Promise<{ pa
   return { page, viewer };
 }
 
+/**
+ * The hub's calendar from the server: synced meetings and published minutes
+ * for everyone, plus each practice's training day for a recognised visitor
+ * (a training names the practice, and practice names are not for strangers).
+ */
+async function calendarFor(pageId: number, known: boolean) {
+  const cal = await loadPublicRoomCalendar(pageId);
+  if (!known) return cal;
+  const trainings = await practiceTrainingEvents(pageId).catch(() => []);
+  return { ...cal, events: [...cal.events, ...trainings] };
+}
+
 /* ── PUBLIC ──────────────────────────────────────────────────────────────── */
 
 /**
@@ -495,7 +507,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
       : [];
     // Synced meetings and published minutes read the same for every visitor, like the page's own calendar. Drafts never leave the server.
     const extras = page.isWorkspace
-      ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id), ...(await loadPublicRoomCalendar(page.id)) }
+      ? { ...(await loadWorkspaceState(page, viewer)), practices: await practiceSummary(page.id), ...(await calendarFor(page.id, !!viewer)) }
       : { choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] };
     // A recognised visitor to a gated hub is handed the hub itself: the page they loaded carried only the cover.
     // The account team sees who has already been let in, so the page can say "Invited" instead of offering it again.
@@ -1229,16 +1241,20 @@ router.get("/lp/room/calendar.ics", stateLimiter, async (req: Request, res: Resp
     const [found] = Number.isFinite(pageId) && pageId > 0 ? await db.select({ title: lpPagesTable.title, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1) : [];
     // A gated hub's calendar is for its people: the feed address carries the subscriber's own room token.
     const room = found && roomRequiresEmail(found.blocks) ? await loadRoomPage(pageId) : null;
-    const allowed = !found || !roomRequiresEmail(found.blocks) || (!!room && !!(await resolveViewer(room, { rt: typeof req.query.rt === "string" ? req.query.rt : "" })));
+    const rt = typeof req.query.rt === "string" ? req.query.rt : "";
+    // A subscriber whose feed address carries their room token is known: their feed includes the practice trainings.
+    const subscriberRoom = rt && found ? (room ?? (await loadRoomPage(pageId))) : null;
+    const known = subscriberRoom ? !!(await resolveViewer(subscriberRoom, { rt })) : false;
+    const allowed = !found || !roomRequiresEmail(found.blocks) || (!!room && known);
     const page = allowed ? found : undefined;
-    const synced = page ? (await loadPublicRoomCalendar(pageId)).events : [];
+    const synced = page ? (await calendarFor(pageId, known)).events : [];
     const ics = page ? roomCalendarIcs(resolveRoomBlocks(page.blocks), `${roomPartnerName(page.blocks) || page.title} partnership`, synced) : null;
     if (!ics) {
       res.status(404).end();
       return;
     }
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-    res.setHeader("Cache-Control", room ? "private, max-age=900" : "public, max-age=900");
+    res.setHeader("Cache-Control", room || known ? "private, max-age=900" : "public, max-age=900");
     res.send(ics);
   } catch (err) {
     req.log.error({ err }, "room calendar feed failed");

@@ -26,6 +26,7 @@ import { doctorCountFromUpload, practiceNameKey, practiceNamesFromUpload, reconc
 import { lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomUploadsTable } from "@workspace/db";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
+import { firstDateIn } from "./partnerRoomDates";
 import { matchRoster, parseRoster, rosterTemplateCsv, type RosterResult } from "./partnerRoomRoster";
 import { desc } from "drizzle-orm";
 import { parsePracticeRow, resolveRoomBlocks, type RoomPracticeInput } from "./partnerRoom";
@@ -198,6 +199,25 @@ export async function upsertPractices(page: { id: number; tenantId: number }, ro
   // Today's counts, for the scorecard's trend. Never worth failing a refresh over.
   await recordPracticeSnapshot(page).catch((err) => logger.warn({ err, pageId: page.id }, "practice snapshot failed"));
   return { added: inserts.length, updated, removed };
+}
+
+/**
+ * Each practice's training as a calendar entry ("Training: Main Street
+ * Dental", all day). From the practice list's training date, read however the
+ * sheet writes it; one that isn't a date ("TBD") is left out. Covers the last
+ * two months onward. Ids are negative so they never collide with a synced
+ * meeting's.
+ */
+export async function practiceTrainingEvents(pageId: number, now: Date = new Date()): Promise<{ id: number; title: string; startsAt: string; endsAt: null; allDay: true; kind: "training" }[]> {
+  const rows = await db.select({ id: lpRoomPracticesTable.id, name: lpRoomPracticesTable.name, trainingDate: lpRoomPracticesTable.trainingDate }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, pageId), sql`${lpRoomPracticesTable.trainingDate} IS NOT NULL`)).orderBy(lpRoomPracticesTable.name).limit(5000);
+  const from = new Date(now.getTime() - 60 * 86_400_000).toISOString().slice(0, 10);
+  const out: { id: number; title: string; startsAt: string; endsAt: null; allDay: true; kind: "training" }[] = [];
+  for (const r of rows) {
+    const day = firstDateIn(r.trainingDate, now);
+    if (!day || day < from) continue;
+    out.push({ id: -r.id, title: `Training: ${r.name}`, startsAt: `${day}T00:00:00.000Z`, endsAt: null, allDay: true, kind: "training" });
+  }
+  return out.sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.title.localeCompare(b.title)).slice(0, 600);
 }
 
 /* ── A connected Google Sheet as the practice list ───────────────────────── */

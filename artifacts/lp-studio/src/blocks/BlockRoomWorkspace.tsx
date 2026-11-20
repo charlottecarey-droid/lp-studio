@@ -704,7 +704,7 @@ export function syncedEventToRoomEvent(e: RoomSyncedEvent): RoomEvent {
     const mins = e.endsAt ? Math.round((new Date(e.endsAt).getTime() - start.getTime()) / 60_000) : 0;
     time = `${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZoneName: "short" })}${mins > 0 && mins < 600 ? ` · ${mins >= 60 && mins % 60 === 0 ? `${mins / 60} hr` : `${mins} min`}` : ""}`;
   }
-  return { key: `sync-${e.id}`, date: localDay(e.startsAt, e.allDay), time, title: e.title, kind: "meeting", ...(e.allDay ? {} : { startsAt: e.startsAt, endsAt: e.endsAt }) };
+  return { key: `sync-${e.id}`, date: localDay(e.startsAt, e.allDay), time, title: e.title, kind: e.kind === "training" ? "training" : "meeting", ...(e.allDay ? {} : { startsAt: e.startsAt, endsAt: e.endsAt }) };
 }
 
 /** Published minutes of a synced meeting, as a Meetings row. */
@@ -2117,7 +2117,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Calendar</h2>
                   </div>
                   {pageId && !isEditor && (
-                    <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}${props.requireEmail && room.reader?.feedToken() ? `&rt=${encodeURIComponent(room.reader.feedToken())}` : ""}`} data-room-calendar-feed>
+                    <a className="prw-btn" href={`webcal://${typeof window !== "undefined" ? window.location.host : ""}/api/lp/room/calendar.ics?pageId=${pageId}${room.reader?.feedToken() ? `&rt=${encodeURIComponent(room.reader.feedToken())}` : ""}`} data-room-calendar-feed>
                       <CalendarPlus aria-hidden /> Subscribe
                     </a>
                   )}

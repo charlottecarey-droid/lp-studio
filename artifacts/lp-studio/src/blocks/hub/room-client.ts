@@ -129,6 +129,8 @@ export interface RoomSyncedEvent {
   startsAt: string;
   endsAt: string | null;
   allDay: boolean;
+  /** "training" for a practice's training day (from the practice list); a synced meeting has none. */
+  kind?: string;
 }
 export interface RoomSyncedMinutes {
   id: number;
