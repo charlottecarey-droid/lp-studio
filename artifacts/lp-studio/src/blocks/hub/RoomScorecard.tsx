@@ -17,7 +17,7 @@
  * Styles live in the room block's CSS string (`.prw-sc-*`).
  */
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, List, Mail, Map as MapIcon, Search, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Download, List, Mail, Map as MapIcon, Search, X } from "lucide-react";
 import { RoomMap } from "./RoomMap";
 import type { RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
 
@@ -206,6 +206,30 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const [checkOpen, setCheckOpen] = useState(false);
   // The map shows which offices are not ordering: it is for the team's own view unless the hub shares it.
   const [mode, setMode] = useState<"list" | "map">("list");
+  // Team only: tick practices (the ticks last across pages and filters) and export them as a CSV.
+  const [ticked, setTicked] = useState<Set<number>>(() => new Set());
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState("");
+  const tick = (ids: number[], on: boolean) =>
+    setTicked((cur) => {
+      const next = new Set(cur);
+      for (const id of ids) on ? next.add(id) : next.delete(id);
+      return next;
+    });
+  const exportNow = async () => {
+    if (!store || exporting) return;
+    setExporting(true);
+    setExportNote("");
+    const file = await store.exportPractices(ticked.size ? [...ticked] : undefined);
+    setExporting(false);
+    if (!file) return setExportNote("Couldn't export.");
+    const url = URL.createObjectURL(new Blob([file.csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.fileName;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
   const canMap = isTeam || mapShared;
   const mapOn = canMap && mode === "map";
 
@@ -258,7 +282,9 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       /* private window: the choice lasts for this visit */
     }
   };
-  const colCount = shown.length + 2;
+  const colCount = shown.length + 2 + (isTeam ? 1 : 0);
+  const pageIds = (data?.rows ?? []).map((p) => p.id);
+  const pageAllTicked = pageIds.length > 0 && pageIds.every((id) => ticked.has(id));
   const filtered = !!(stage || region || wave || scanner || q);
   const clear = () => {
     setStage("");
@@ -510,10 +536,23 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
             </div>
             {filtered && <button type="button" className="prw-btn" onClick={clear} data-room-clear><X aria-hidden /> Clear</button>}
           </div>
+          {isTeam && (
+            <div className="prw-sc-picked" data-room-picked={ticked.size}>
+              <span className="prw-num">{ticked.size ? `${ticked.size} selected` : ""}</span>
+              {ticked.size > 0 && <button type="button" className="prw-btn" onClick={() => setTicked(new Set())} data-room-unpick><X aria-hidden /> Clear</button>}
+              <button type="button" className="prw-btn" disabled={exporting} onClick={() => void exportNow()} data-room-export><Download aria-hidden /> {ticked.size ? "Export" : "Export all"}</button>
+              {exportNote && <span role="status">{exportNote}</span>}
+            </div>
+          )}
           <div className="prw-scroll">
             <table style={{ minWidth: colCount > 6 ? 980 : undefined }}>
               <thead>
                 <tr>
+                  {isTeam && (
+                    <th className="prw-sc-pick">
+                      <input type="checkbox" checked={pageAllTicked} onChange={(e) => tick(pageIds, e.target.checked)} aria-label={`Select every ${one} on this page`} data-room-pick-page />
+                    </th>
+                  )}
                   <Th k="name" width={colCount > 6 ? "24%" : "34%"}>{Noun.replace(/s$/, "")}</Th>
                   {shown.map((c) => <Th key={c.key} k={c.sort}>{c.label}</Th>)}
                   <Th k="stage">Status</Th>
@@ -521,7 +560,12 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
               </thead>
               <tbody>
                 {(data?.rows ?? []).map((p) => (
-                  <tr key={p.id} data-room-practice={p.stage}>
+                  <tr key={p.id} data-room-practice={p.stage} className={ticked.has(p.id) ? "picked" : undefined}>
+                    {isTeam && (
+                      <td className="prw-sc-pick">
+                        <input type="checkbox" checked={ticked.has(p.id)} onChange={(e) => tick([p.id], e.target.checked)} aria-label={`Select ${p.name}`} data-room-pick={p.id} />
+                      </td>
+                    )}
                     <td>
                       <div className="t">{p.name}</div>
                       {(p.city || p.state) && <div className="m">{[p.city, p.state].filter(Boolean).join(", ")}</div>}

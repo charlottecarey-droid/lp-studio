@@ -431,6 +431,16 @@ class RoomStore {
     }
   }
 
+  /** Team only: practices as a CSV (the ticked ones, or all of them with no ids). Null when it could not be made. */
+  async exportPractices(ids?: number[]): Promise<{ fileName: string; csv: string; count: number } | null> {
+    try {
+      const { status, json } = await this.post("practices-export", ids && ids.length ? { ids } : {});
+      return status === 200 && typeof json.csv === "string" ? { fileName: String(json.fileName || "practices.csv"), csv: json.csv, count: Number(json.count) || 0 } : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Team only: every practice with its map position. Null when not available to this viewer. */
   async loadPracticeMap(): Promise<RoomMapData | null> {
     try {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchRoster, parseRoster, rosterTemplateCsv, ROSTER_COLUMNS } from "./partnerRoomRoster";
+import { matchRoster, parseRoster, practicesExportCsv, PRACTICE_EXPORT_COLUMNS, rosterTemplateCsv, ROSTER_COLUMNS } from "./partnerRoomRoster";
 
 const OURS = [
   { id: 11, externalId: "0015d00000AAAAAAAA", name: "Main Street Dental, P.C." },
@@ -69,5 +69,21 @@ describe("reading a roster", () => {
     expect(parseRoster("photo.png", Buffer.from("x"))).toBeNull();
     const orphan = matchRoster(parseRoster("d.csv", csv(["Practice name,Doctor name", ",Dr. No Practice"]))!.rows, OURS).result;
     expect(orphan.issues).toEqual(["1 doctor has no practice on their row."]);
+  });
+});
+
+describe("exporting practices", () => {
+  it("writes one row per practice, in words, that reads back in as a roster; values can't run as formulas", () => {
+    const base = { externalId: null, address: null, city: null, state: null, zip: null, phone: null, officeType: null, regionalManager: null, officeManager: null, region: null, wave: null, sourceStatus: null, scannerCount: null, trainingDate: null, liveDate: null };
+    const text = practicesExportCsv([
+      { ...base, id: 11, externalId: "0015d00000AAAAAAAA", name: "Main Street Dental, P.C.", address: "100 Main St", city: "Dallas", state: "TX", zip: "75201", regionalManager: "Dana Ruiz", stage: "training_booked", scannerCount: 2 },
+      { ...base, id: 13, name: "=HYPERLINK(1)", stage: "live" },
+    ]);
+    const lines = text.replace(/^\uFEFF/, "").trim().split("\r\n");
+    expect(lines[0]).toBe(PRACTICE_EXPORT_COLUMNS.join(","));
+    expect(lines[1]).toBe('0015d00000AAAAAAAA,"Main Street Dental, P.C.",100 Main St,Dallas,TX,75201,,,Dana Ruiz,,,,Training booked,,2,,');
+    expect(lines[2].startsWith(`13,"'=HYPERLINK(1)"`)).toBe(true);
+    const back = parseRoster("export.csv", Buffer.from(text))!;
+    expect(back.rows[0]).toMatchObject({ practiceId: "0015d00000AAAAAAAA", zip: "75201", regionalManager: "Dana Ruiz" });
   });
 });

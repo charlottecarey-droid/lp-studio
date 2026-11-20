@@ -62,6 +62,7 @@ import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews"
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
+import { practicesExportCsv } from "../../lib/partnerRoomRoster";
 import { applyRoster, buildRoomDigest, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices, rowsFromUpload } from "../../lib/partnerRoomReconcile";
 import {
@@ -818,6 +819,39 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
   } catch (err) {
     req.log.error({ err }, "room practices failed");
     res.status(500).json({ error: "Could not load practices" });
+  }
+});
+
+/**
+ * Team only: practices as a CSV, for a mailing list or a hand-off to another
+ * tool. `ids` picks the ones ticked on the scorecard; without it, every
+ * practice in the hub. Addresses and phone numbers are in it, so a customer
+ * or a stranger never gets one.
+ */
+router.post("/lp/room/practices-export", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    if (!ctx.viewer.team) {
+      res.status(403).json({ error: "Not available" });
+      return;
+    }
+    const ids = Array.isArray(req.body?.ids) ? [...new Set((req.body.ids as unknown[]).filter((v): v is number => typeof v === "number" && Number.isInteger(v) && v > 0))].slice(0, 5000) : null;
+    if (ids && ids.length === 0) {
+      res.status(400).json({ error: "Nothing selected" });
+      return;
+    }
+    const rows = await db
+      .select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name, address: lpRoomPracticesTable.address, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, phone: lpRoomPracticesTable.phone, officeType: lpRoomPracticesTable.officeType, regionalManager: lpRoomPracticesTable.regionalManager, officeManager: lpRoomPracticesTable.officeManager, region: lpRoomPracticesTable.region, wave: lpRoomPracticesTable.wave, stage: lpRoomPracticesTable.stage, sourceStatus: lpRoomPracticesTable.sourceStatus, scannerCount: lpRoomPracticesTable.scannerCount, trainingDate: lpRoomPracticesTable.trainingDate, liveDate: lpRoomPracticesTable.liveDate })
+      .from(lpRoomPracticesTable)
+      .where(and(eq(lpRoomPracticesTable.pageId, ctx.page.id), ids ? inArray(lpRoomPracticesTable.id, ids) : undefined))
+      .orderBy(asc(lpRoomPracticesTable.name))
+      .limit(5000);
+    const slug = ctx.page.partnerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "hub";
+    res.json({ fileName: `${slug}-practices-${new Date().toISOString().slice(0, 10)}.csv`, count: rows.length, csv: practicesExportCsv(rows) });
+  } catch (err) {
+    req.log.error({ err }, "room practices export failed");
+    res.status(500).json({ error: "Could not export" });
   }
 });
 

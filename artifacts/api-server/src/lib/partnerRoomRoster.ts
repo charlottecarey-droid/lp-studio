@@ -262,7 +262,7 @@ export function matchRoster(rows: RosterRow[], practices: RosterPractice[]): { u
   };
 }
 
-const csvCell = (v: string) => (/[",\n\r]/.test(v) || /^[=+\-@\t]/.test(v) ? `"${(/^[=+\-@\t]/.test(v) ? `'${v}` : v).replace(/"/g, '""')}"` : v);
+export const csvCell = (v: string) => (/[",\n\r]/.test(v) || /^[=+\-@\t]/.test(v) ? `"${(/^[=+\-@\t]/.test(v) ? `'${v}` : v).replace(/"/g, '""')}"` : v);
 
 /**
  * The roster template for a room, as CSV: the column names, then one row per
@@ -276,4 +276,42 @@ export function rosterTemplateCsv(practices: { id: number; externalId: string | 
     lines.push([p.externalId || String(p.id), p.name, p.address ?? "", p.city ?? "", p.state ?? "", p.zip ?? "", p.phone ?? "", p.officeType ?? "", p.regionalManager ?? "", p.officeManager ?? "", "", "", "", ""].map(csvCell).join(","));
   }
   return `﻿${lines.join("\r\n")}\r\n`;
+}
+
+export const PRACTICE_EXPORT_COLUMNS = ["Practice ID", "Practice name", "Street address", "City", "State", "ZIP", "Phone", "Office type", "Regional manager", "Office manager", "Region", "Wave", "Status", "Salesforce status", "Scanners", "Training date", "Live date"] as const;
+
+export interface PracticeExportRow {
+  id: number;
+  externalId: string | null;
+  name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  officeType: string | null;
+  regionalManager: string | null;
+  officeManager: string | null;
+  region: string | null;
+  wave: string | null;
+  stage: string;
+  sourceStatus: string | null;
+  scannerCount: number | null;
+  trainingDate: string | null;
+  liveDate: string | null;
+}
+
+const STAGE_WORDS: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
+
+/**
+ * Practices as a CSV for the team (a mailing list, a hand-off to another
+ * tool): one row per practice, the same column names the roster template
+ * uses so the file reads back in. Values can't run as formulas.
+ */
+export function practicesExportCsv(practices: PracticeExportRow[]): string {
+  const lines = [PRACTICE_EXPORT_COLUMNS.join(",")];
+  for (const p of practices) {
+    lines.push([p.externalId || String(p.id), p.name, p.address ?? "", p.city ?? "", p.state ?? "", p.zip ?? "", p.phone ?? "", p.officeType ?? "", p.regionalManager ?? "", p.officeManager ?? "", p.region ?? "", p.wave ?? "", STAGE_WORDS[p.stage] ?? p.stage, p.sourceStatus ?? "", p.scannerCount == null ? "" : String(p.scannerCount), p.trainingDate ?? "", p.liveDate ?? ""].map(csvCell).join(","));
+  }
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
 }

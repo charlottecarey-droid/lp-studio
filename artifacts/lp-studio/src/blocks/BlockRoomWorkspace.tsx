@@ -1257,6 +1257,11 @@ const CSS = `
 .prw-sc-regions>button .v{font-size:12px;color:var(--body);text-align:right;white-space:nowrap}
 .prw-sc-regions>button.more{display:block;width:auto;margin:6px 0 4px;padding:4px 0;font-size:12px;font-weight:600;color:var(--dark)}
 .prw-sc-hd{display:flex;align-items:flex-end;gap:18px}
+.prw-sc-picked{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:-8px 0 12px;font-size:12.5px;color:var(--body);min-height:32px}
+.prw-sc-picked>span:first-child{margin-right:auto;font-weight:600;color:var(--ink)}
+.prw th.prw-sc-pick,.prw td.prw-sc-pick{width:36px;padding-right:0}
+.prw-sc-pick input{display:block;width:16px;height:16px;min-width:0;margin:0;padding:0;accent-color:var(--dark);cursor:pointer}
+.prw tr.picked td{background:color-mix(in srgb,var(--dark) 4%,#fff)}
 .prw-sc-hd .prw-seg button{display:inline-flex;align-items:center;gap:6px}
 .prw-sc-hd .prw-seg svg{width:13px;height:13px}
 .prw-map{display:grid;grid-template-columns:minmax(0,1fr) 264px;margin-bottom:22px}
