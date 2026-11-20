@@ -62,6 +62,8 @@ import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews"
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
+import { kitNotice } from "../../lib/partnerRoomKit";
+import { sendWelcomeKits } from "../../lib/partnerRoomKitService";
 import { practicesExportCsv } from "../../lib/partnerRoomRoster";
 import { applyRoster, buildRoomDigest, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
 import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices, rowsFromUpload } from "../../lib/partnerRoomReconcile";
@@ -764,6 +766,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       regionalManager: lpRoomPracticesTable.regionalManager,
       officeManager: lpRoomPracticesTable.officeManager,
       officeType: lpRoomPracticesTable.officeType,
+      kitSentAt: lpRoomPracticesTable.kitSentAt,
       doctors: sql`(SELECT COUNT(*) FROM lp_room_doctors d WHERE d.practice_id = ${lpRoomPracticesTable.id})`,
       scannerCount: lpRoomPracticesTable.scannerCount,
       scannerBrand: lpRoomPracticesTable.scannerBrand,
@@ -798,7 +801,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const doctorsByPractice = new Map<number, { name: string; role: string | null }[]>();
     for (const d of docs) if (d.practiceId) doctorsByPractice.set(d.practiceId, [...(doctorsByPractice.get(d.practiceId) ?? []), { name: d.name, role: d.role }]);
     const [extra] = await db
-      .select({ address: sql<boolean>`bool_or(${lpRoomPracticesTable.address} IS NOT NULL)`, office: sql<boolean>`bool_or(${lpRoomPracticesTable.officeManager} IS NOT NULL)`, officeType: sql<boolean>`bool_or(${lpRoomPracticesTable.officeType} IS NOT NULL)` })
+      .select({ address: sql<boolean>`bool_or(${lpRoomPracticesTable.address} IS NOT NULL)`, office: sql<boolean>`bool_or(${lpRoomPracticesTable.officeManager} IS NOT NULL)`, officeType: sql<boolean>`bool_or(${lpRoomPracticesTable.officeType} IS NOT NULL)`, kit: sql<boolean>`bool_or(${lpRoomPracticesTable.kitSentAt} IS NOT NULL)` })
       .from(lpRoomPracticesTable)
       .where(eq(lpRoomPracticesTable.pageId, page.id));
     const [anyDoctor] = await db.select({ id: lpRoomDoctorsTable.id }).from(lpRoomDoctorsTable).where(eq(lpRoomDoctorsTable.pageId, page.id)).limit(1);
@@ -807,11 +810,12 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       page: pageNo,
       pageSize: 50,
       // The account owner and last sales activity are ours: only the team's own view gets them.
-      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, officeType: !!extra?.officeType, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
+      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, officeType: !!extra?.officeType, kit: !!viewer.team && !!extra?.kit, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
       rows: rows.map((p) => ({
         id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels,
         scannerBrand: p.scannerBrand, contractSigned: p.contractSigned,
         address: p.address, zip: p.zip, officeManager: p.officeManager, officeType: p.officeType, phone: p.phone,
+        ...(viewer.team ? { kitSentAt: p.kitSentAt ? p.kitSentAt.toISOString() : null } : {}),
         doctors: doctorsByPractice.get(p.id) ?? [],
         ...(viewer.team ? { owner: p.owner, lastActivity: p.lastActivity } : {}),
       })),
@@ -852,6 +856,51 @@ router.post("/lp/room/practices-export", stateLimiter, async (req: Request, res:
   } catch (err) {
     req.log.error({ err }, "room practices export failed");
     res.status(500).json({ error: "Could not export" });
+  }
+});
+
+/**
+ * Team only: add the ticked practices to the marketing team's welcome kit
+ * list (a sheet their direct-mail workflow reads). `dryRun` answers what
+ * would be sent, for the page's confirm step. A practice already on the list,
+ * or with no full mailing address, is left out and named. Marketing is told
+ * in Slack and with an intake task when practices were added.
+ */
+router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    if (!viewer.team) {
+      res.status(403).json({ error: "Not available" });
+      return;
+    }
+    const ids = Array.isArray(req.body?.ids) ? [...new Set((req.body.ids as unknown[]).filter((v): v is number => typeof v === "number" && Number.isInteger(v) && v > 0))].slice(0, 2000) : [];
+    if (ids.length === 0) {
+      res.status(400).json({ error: "Nothing selected" });
+      return;
+    }
+    const settings = await loadSettings(page.id);
+    const by = viewer.name || viewer.email;
+    const customer = page.partnerName || page.title;
+    const result = await sendWelcomeKits({ id: page.id, tenantId: page.tenantId, partnerName: customer }, { ids, by, sfdcAccountId: settings.sfdcAccountId, dryRun: req.body?.dryRun === true });
+    if (!result.ok) {
+      res.status(400).json({ error: result.error ?? "Could not add to the welcome kit list", sent: [], already: result.already, noAddress: result.noAddress });
+      return;
+    }
+    const dryRun = req.body?.dryRun === true;
+    res.json({ ok: true, dryRun, sent: result.sent, already: result.already, noAddress: result.noAddress, sheetUrl: result.sheetUrl });
+    if (dryRun || result.sent.length === 0) return;
+    // Tell marketing (after the response; never blocks it): the hub's Slack channel, and the marketing intake in Asana.
+    const notice = kitNotice(customer, result.sent, by, result.sheetUrl ?? "");
+    // The sheet's link goes in as a link: `mrk` would break the underscores in its id.
+    postToSlack(page, settings.slackChannelId, `📦 ${notice.title}`, [...notice.lines.slice(0, -1).map(mrk), ...(result.sheetUrl ? [`<${result.sheetUrl}|Open the welcome kit list>`] : [])], await roomPageUrl(req, page, req.body?.path));
+    void createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name: asanaRequestTaskName(customer, `Welcome kits for ${result.sent.length} ${result.sent.length === 1 ? "practice" : "practices"}`), notes: notice.lines.join("\n"), projectGid: settings.asanaProjectGid })
+      .then((r) => r.warning && req.log.warn({ pageId: page.id, warning: r.warning }, "welcome kit asana warning"))
+      .catch((err) => req.log.error({ err }, "welcome kit asana failed"));
+  } catch (err) {
+    req.log.error({ err }, "room welcome kit failed");
+    res.status(500).json({ error: "Could not add to the welcome kit list" });
   }
 });
 
@@ -1899,6 +1948,8 @@ router.get("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       logEnabled: cfg ? cfg.logEnabled : true,
       logSheetId: cfg?.logSheetId ?? null,
       logTab: cfg?.logTab ?? null,
+      kitSheetId: cfg?.kitSheetId ?? null,
+      kitTab: cfg?.kitTab ?? null,
       sfdcField: cfg?.sfdcField ?? null,
       syncedAt: cfg?.syncedAt?.toISOString() ?? null,
       note: cfg?.syncNote ?? null,
@@ -1951,12 +2002,23 @@ router.put("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       res.status(400).json({ error: "That log tab name has characters a sheet tab can't be read by." });
       return;
     }
+    const rawKitSheet = typeof req.body?.kitSheet === "string" ? req.body.kitSheet.trim() : "";
+    const kitSheetId = rawKitSheet ? sheetIdFrom(rawKitSheet) : null;
+    const kitTab = typeof req.body?.kitTab === "string" ? req.body.kitTab.trim() : "";
+    if (rawKitSheet && !kitSheetId) {
+      res.status(400).json({ error: "Paste the welcome kit sheet's link (or leave it blank to use the log workbook)." });
+      return;
+    }
+    if (kitTab && !SHEET_TAB_RE.test(kitTab)) {
+      res.status(400).json({ error: "That welcome kit tab name has characters a sheet tab can't be read by." });
+      return;
+    }
     if (sfdcField && !isSfdcFieldName(sfdcField)) {
       res.status(400).json({ error: "Use the Salesforce field's API name, for example Digital_Sales_Room__c." });
       return;
     }
     const enabled = req.body?.enabled === true && !!sheetId;
-    const values = { enabled, sheetId, sheetTab: tab || null, practicesTab: practicesTab || null, alertOwner: req.body?.alertOwner === true, alertEmails, logEnabled: req.body?.logEnabled !== false, logSheetId, logTab: logTab || null, sfdcField: sfdcField || null, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
+    const values = { enabled, sheetId, sheetTab: tab || null, practicesTab: practicesTab || null, alertOwner: req.body?.alertOwner === true, alertEmails, logEnabled: req.body?.logEnabled !== false, logSheetId, logTab: logTab || null, kitSheetId, kitTab: kitTab || null, sfdcField: sfdcField || null, updatedBy: req.authUser?.email ?? null, updatedAt: new Date() };
     await db.insert(lpRoomAutocreateTable).values({ tenantId, ...values }).onConflictDoUpdate({ target: lpRoomAutocreateTable.tenantId, set: values });
     res.json({ ok: true, enabled });
   } catch (err) {

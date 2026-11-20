@@ -17,9 +17,9 @@
  * Styles live in the room block's CSS string (`.prw-sc-*`).
  */
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Download, List, Mail, Map as MapIcon, Search, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Download, List, Mail, Package, Map as MapIcon, Search, X } from "lucide-react";
 import { RoomMap } from "./RoomMap";
-import type { RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
+import type { RoomKitResult, RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
 
 export const SCORECARD_STAGE_LABEL: Record<string, string> = { not_started: "Not started", scheduling: "Scheduling", training_booked: "Training booked", trained: "Trained", live: "Live" };
 const STAGE_ORDER = ["not_started", "scheduling", "training_booked", "trained", "live"] as const;
@@ -157,6 +157,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "brand", label: "Scanner brand", sort: "scannerBrand", on: false, has: "brand", cell: (p) => p.scannerBrand },
   { key: "sent", label: "Scanner sent", sort: "scannerSent", on: true, has: "scanner", cell: (p) => <Flag value={p.scannerSent} /> },
   { key: "activated", label: "Activated", sort: "scannerActivated", on: true, has: "scanner", cell: (p) => <Flag value={p.scannerActivated} /> },
+  { key: "kit", label: "Welcome kit", sort: "kitSentAt", on: true, has: "kit", teamOnly: true, cell: (p) => (p.kitSentAt ? new Date(p.kitSentAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null) },
   { key: "owner", label: "Account owner", sort: "owner", on: false, has: "owner", teamOnly: true, cell: (p) => p.owner },
   { key: "activity", label: "Last activity", sort: "lastActivity", on: false, has: "activity", teamOnly: true, cell: (p) => p.lastActivity },
 ];
@@ -230,6 +231,25 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     a.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
+  // Welcome kits: ask first what would be sent (it puts practices on the direct-mail list), then send.
+  const [kit, setKit] = useState<{ state: "asking" | "confirm" | "sending" | "done" | "error"; result?: RoomKitResult } | null>(null);
+  const [reload, setReload] = useState(0);
+  const askKit = async () => {
+    if (!store || ticked.size === 0) return;
+    setKit({ state: "asking" });
+    const r = await store.welcomeKit([...ticked], true);
+    setKit(r.ok ? { state: "confirm", result: r } : { state: "error", result: r });
+  };
+  const sendKit = async () => {
+    if (!store || !kit?.result) return;
+    setKit({ state: "sending", result: kit.result });
+    const r = await store.welcomeKit([...ticked], false);
+    setKit({ state: r.ok ? "done" : "error", result: r });
+    if (r.ok) {
+      setTicked(new Set());
+      setReload((n) => n + 1);
+    }
+  };
   const canMap = isTeam || mapShared;
   const mapOn = canMap && mode === "map";
 
@@ -250,7 +270,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [store, viewerKey, region, q, pageNo, pr.total, sort, stage, wave, scanner]);
+  }, [store, viewerKey, region, q, pageNo, pr.total, sort, stage, wave, scanner, reload]);
 
   // Team only: does Salesforce match the customer's rosters? Asked once per visit.
   useEffect(() => {
@@ -541,7 +561,25 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
               <span className="prw-num">{ticked.size ? `${ticked.size} selected` : ""}</span>
               {ticked.size > 0 && <button type="button" className="prw-btn" onClick={() => setTicked(new Set())} data-room-unpick><X aria-hidden /> Clear</button>}
               <button type="button" className="prw-btn" disabled={exporting} onClick={() => void exportNow()} data-room-export><Download aria-hidden /> {ticked.size ? "Export" : "Export all"}</button>
+              {ticked.size > 0 && <button type="button" className="prw-btn pri" disabled={kit?.state === "asking" || kit?.state === "sending"} onClick={() => void askKit()} data-room-kit><Package aria-hidden /> Send welcome kit</button>}
               {exportNote && <span role="status">{exportNote}</span>}
+            </div>
+          )}
+          {isTeam && kit && kit.state !== "asking" && (
+            <div className={`prw-sc-kit${kit.state === "error" ? " warn" : ""}`} role="status" data-room-kit-state={kit.state}>
+              {kit.state === "error" && <p><b>{kit.result?.error ?? "That didn't work."}</b></p>}
+              {(kit.state === "confirm" || kit.state === "sending") && (
+                <p>
+                  <b>{kit.result!.sent.length ? `Add ${kit.result!.sent.length} ${kit.result!.sent.length === 1 ? one : noun} to the welcome kit list?` : `None of these can be added.`}</b>
+                </p>
+              )}
+              {kit.state === "done" && <p><b>{kit.result!.sent.length} added to the welcome kit list.</b>{kit.result!.sheetUrl ? <> <a href={kit.result!.sheetUrl} target="_blank" rel="noreferrer">Open the list</a></> : null}</p>}
+              {kit.state !== "error" && (kit.result?.already.length ?? 0) > 0 && <p>{kit.result!.already.length} already on the list: {kit.result!.already.slice(0, 6).join(", ")}{kit.result!.already.length > 6 ? "…" : ""}</p>}
+              {kit.state !== "error" && (kit.result?.noAddress.length ?? 0) > 0 && <p>{kit.result!.noAddress.length} with no full address: {kit.result!.noAddress.slice(0, 6).join(", ")}{kit.result!.noAddress.length > 6 ? "…" : ""}</p>}
+              <div className="b">
+                {(kit.state === "confirm" || kit.state === "sending") && kit.result!.sent.length > 0 && <button type="button" className="prw-btn pri" disabled={kit.state === "sending"} onClick={() => void sendKit()} data-room-kit-send><Package aria-hidden /> {kit.state === "sending" ? "Adding…" : "Add them"}</button>}
+                <button type="button" className="prw-btn" onClick={() => setKit(null)} data-room-kit-close>{kit.state === "done" || kit.state === "error" ? "Close" : "Cancel"}</button>
+              </div>
             </div>
           )}
           <div className="prw-scroll">

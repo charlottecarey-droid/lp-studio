@@ -176,6 +176,9 @@ export const lpRoomPracticesTable = pgTable(
     source: text("source"),
     /** Fields an upload set (["address", "regionalManager", …]): the customer's word wins, so the sheet sync leaves them alone. */
     keptFields: jsonb("kept_fields").$type<string[]>(),
+    /** When the practice was added to the welcome kit list, and by whom. Set once: a kit is never sent twice. */
+    kitSentAt: timestamp("kit_sent_at", { withTimezone: true }),
+    kitSentBy: text("kit_sent_by"),
     /** Internal: the account owner and the last sales activity. Shown to the team only. */
     owner: text("owner"),
     lastActivity: text("last_activity"),
@@ -285,6 +288,9 @@ export const lpRoomAutocreateTable = pgTable("lp_room_autocreate", {
   logEnabled: boolean("log_enabled").notNull().default(true),
   logSheetId: text("log_sheet_id"),
   logTab: text("log_tab"),
+  /** The marketing team's welcome kit recipient list. Null sheet = the log workbook; null tab = "Welcome Kit". */
+  kitSheetId: text("kit_sheet_id"),
+  kitTab: text("kit_tab"),
   /** On a new room: write its link to this field on the Salesforce Account (API name), when Salesforce is connected. */
   sfdcField: text("sfdc_field"),
   syncedAt: timestamp("synced_at", { withTimezone: true }),

@@ -1259,6 +1259,12 @@ const CSS = `
 .prw-sc-hd{display:flex;align-items:flex-end;gap:18px}
 .prw-sc-picked{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:-8px 0 12px;font-size:12.5px;color:var(--body);min-height:32px}
 .prw-sc-picked>span:first-child{margin-right:auto;font-weight:600;color:var(--ink)}
+.prw-sc-kit{margin:0 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:13px;color:var(--body)}
+.prw-sc-kit.warn{border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
+.prw-sc-kit p{margin:0 0 4px}
+.prw-sc-kit p b{color:var(--ink);font-weight:600}
+.prw-sc-kit a{color:var(--dark);font-weight:600;text-decoration:underline}
+.prw-sc-kit .b{display:flex;gap:8px;margin-top:10px}
 .prw th.prw-sc-pick,.prw td.prw-sc-pick{width:36px;padding-right:0}
 .prw-sc-pick input{display:block;width:16px;height:16px;min-width:0;margin:0;padding:0;accent-color:var(--dark);cursor:pointer}
 .prw tr.picked td{background:color-mix(in srgb,var(--dark) 4%,#fff)}

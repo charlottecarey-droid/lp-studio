@@ -1322,7 +1322,7 @@ export function AutomaticRoomsSection() {
     queryFn: async () => {
       const r = await fetch("/api/lp/room-autocreate");
       if (!r.ok) throw new Error("autocreate");
-      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; alertOwner?: boolean; alertEmails?: string[]; logEnabled?: boolean; logSheetId?: string | null; logTab?: string | null; sfdcField?: string | null; syncedAt: string | null; note: string | null; shareWith?: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
+      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; alertOwner?: boolean; alertEmails?: string[]; logEnabled?: boolean; logSheetId?: string | null; logTab?: string | null; kitSheetId?: string | null; kitTab?: string | null; sfdcField?: string | null; syncedAt: string | null; note: string | null; shareWith?: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
     },
   });
   const [sheet, setSheet] = useState("");
@@ -1333,6 +1333,8 @@ export function AutomaticRoomsSection() {
   const [logEnabled, setLogEnabled] = useState(true);
   const [logSheet, setLogSheet] = useState("");
   const [logTab, setLogTab] = useState("");
+  const [kitSheet, setKitSheet] = useState("");
+  const [kitTab, setKitTab] = useState("");
   const [sfdcField, setSfdcField] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
@@ -1348,13 +1350,15 @@ export function AutomaticRoomsSection() {
     setLogEnabled(data.logEnabled !== false);
     setLogSheet(data.logSheetId ? `https://docs.google.com/spreadsheets/d/${data.logSheetId}` : "");
     setLogTab(data.logTab ?? "");
+    setKitSheet(data.kitSheetId ? `https://docs.google.com/spreadsheets/d/${data.kitSheetId}` : "");
+    setKitTab(data.kitTab ?? "");
     setSfdcField(data.sfdcField ?? "");
   }, [data]);
 
   const save = async (enabled: boolean) => {
     setBusy(true);
     setNote("");
-    let e = await send("/api/lp/room-autocreate", "PUT", { enabled, sheet: sheet.trim(), tab: tab.trim(), practicesTab: practicesTab.trim(), alertOwner, alertEmails: alertEmails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean), logEnabled, logSheet: logSheet.trim(), logTab: logTab.trim(), sfdcField: sfdcField.trim() });
+    let e = await send("/api/lp/room-autocreate", "PUT", { enabled, sheet: sheet.trim(), tab: tab.trim(), practicesTab: practicesTab.trim(), alertOwner, alertEmails: alertEmails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean), logEnabled, logSheet: logSheet.trim(), logTab: logTab.trim(), kitSheet: kitSheet.trim(), kitTab: kitTab.trim(), sfdcField: sfdcField.trim() });
     if (!e && enabled) {
       const r = await fetch("/api/lp/room-autocreate/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const j = (await r.json().catch(() => ({}))) as { note?: string; error?: string };
@@ -1471,6 +1475,13 @@ export function AutomaticRoomsSection() {
           <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
             <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Log sheet link</span><Input value={logSheet} onChange={(e) => setLogSheet(e.target.value)} aria-label="Log sheet" disabled={!logEnabled} /></label>
             <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Log tab</span><Input value={logTab} onChange={(e) => setLogTab(e.target.value)} aria-label="Log tab" disabled={!logEnabled} /></label>
+          </div>
+        </div>
+        <div className="space-y-1.5" data-room-kit-settings>
+          <p className="text-xs font-medium text-muted-foreground">Welcome kits</p>
+          <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Welcome kit sheet link</span><Input value={kitSheet} onChange={(e) => setKitSheet(e.target.value)} aria-label="Welcome kit sheet" /></label>
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Welcome kit tab</span><Input value={kitTab} onChange={(e) => setKitTab(e.target.value)} aria-label="Welcome kit tab" /></label>
           </div>
         </div>
         <div className="space-y-1.5">

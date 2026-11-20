@@ -164,12 +164,14 @@ export interface RoomPractice {
   officeManager?: string | null;
   officeType?: string | null;
   phone?: string | null;
+  /** Team viewers only: when the practice was added to the welcome kit list. */
+  kitSentAt?: string | null;
   doctors?: { name: string; role: string | null }[];
   /** Team viewers only. */
   owner?: string | null;
   lastActivity?: string | null;
 }
-export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity" | "officeManager" | "doctors" | "officeType";
+export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity" | "officeManager" | "doctors" | "officeType" | "kitSentAt";
 /** A scorecard tile: one stage, or a group ("trained" includes live; "open" is everything not yet trained). */
 export type RoomPracticeStageFilter = "not_started" | "scheduling" | "training_booked" | "trained" | "live" | "open";
 /** Team only: how the customer's own rosters compare with what Salesforce lists. */
@@ -217,12 +219,22 @@ export interface RoomMapData {
   /** How many have no position. */
   unplaced: number;
 }
+/** Team only: what adding the ticked practices to the welcome kit list would do, or did. */
+export interface RoomKitResult {
+  ok: boolean;
+  error?: string;
+  dryRun?: boolean;
+  sent: string[];
+  already: string[];
+  noAddress: string[];
+  sheetUrl?: string;
+}
 export interface RoomPracticePage {
   total: number;
   page: number;
   pageSize: number;
   /** Which optional columns this room has any data for. */
-  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; officeType?: boolean; doctors?: boolean };
+  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; officeType?: boolean; kit?: boolean; doctors?: boolean };
   rows: RoomPractice[];
 }
 
@@ -438,6 +450,17 @@ class RoomStore {
       return status === 200 && typeof json.csv === "string" ? { fileName: String(json.fileName || "practices.csv"), csv: json.csv, count: Number(json.count) || 0 } : null;
     } catch {
       return null;
+    }
+  }
+
+  /** Team only: add the ticked practices to the welcome kit list (`dryRun` only reports what would happen). */
+  async welcomeKit(ids: number[], dryRun: boolean): Promise<RoomKitResult> {
+    try {
+      const { status, json } = await this.post("welcome-kit", { ids, dryRun });
+      const list = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
+      return { ok: status === 200, error: typeof json.error === "string" ? json.error : undefined, dryRun: json.dryRun === true, sent: list(json.sent), already: list(json.already), noAddress: list(json.noAddress), sheetUrl: typeof json.sheetUrl === "string" ? json.sheetUrl : undefined };
+    } catch {
+      return { ok: false, error: "Couldn't reach the server.", sent: [], already: [], noAddress: [] };
     }
   }
 
