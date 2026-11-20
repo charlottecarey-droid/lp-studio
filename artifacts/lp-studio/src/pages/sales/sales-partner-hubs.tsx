@@ -223,7 +223,7 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
   );
 }
 
-const HUB_TABS: RoomPanelTab[] = ["performance", "goals", "activity", "kit", "practices", "calendar", "settings"];
+const HUB_TABS: RoomPanelTab[] = ["performance", "plays", "goals", "activity", "kit", "practices", "calendar", "settings"];
 const tabFromSearch = (search: string): RoomPanelTab => {
   const t = new URLSearchParams(search).get("tab") as RoomPanelTab | null;
   return t && HUB_TABS.includes(t) ? t : "performance";
