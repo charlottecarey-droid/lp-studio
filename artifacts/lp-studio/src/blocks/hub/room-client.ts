@@ -192,6 +192,8 @@ export interface RoomScorecardCheck {
   issues?: string[];
   /** Practices that gained a regional manager, office manager or address from the roster. */
   enriched?: number;
+  /** Practices the roster named that Salesforce doesn't list, added to the hub from the roster. */
+  added?: number;
 }
 /** Team only: one practice for the scorecard's map. `lat`/`lng` are null when its ZIP code is missing or unknown. */
 export interface RoomMapPoint {

@@ -172,6 +172,10 @@ export const lpRoomPracticesTable = pgTable(
     /** What kind of office it is, in the source's words ("General", "Pediatric"), and its phone number. */
     officeType: text("office_type"),
     phone: text("phone"),
+    /** "upload" when the practice was added by an upload (the customer's roster, a list the team imported) rather than the synced sheet: the sheet sync never removes it. */
+    source: text("source"),
+    /** Fields an upload set (["address", "regionalManager", …]): the customer's word wins, so the sheet sync leaves them alone. */
+    keptFields: jsonb("kept_fields").$type<string[]>(),
     /** Internal: the account owner and the last sales activity. Shown to the team only. */
     owner: text("owner"),
     lastActivity: text("last_activity"),

@@ -22,7 +22,7 @@ import {
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { ObjectStorageService } from "./objectStorage";
-import { doctorCountFromUpload, practiceNamesFromUpload, reconcilePractices } from "./partnerRoomReconcile";
+import { doctorCountFromUpload, practiceNameKey, practiceNamesFromUpload, reconcilePractices } from "./partnerRoomReconcile";
 import { lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomUploadsTable } from "@workspace/db";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
@@ -119,31 +119,55 @@ export async function recordPracticeSnapshot(page: { id: number; tenantId: numbe
     .onConflictDoUpdate({ target: [lpRoomPracticeSnapshotsTable.pageId, lpRoomPracticeSnapshotsTable.day], set: { total, byStage, scanners } });
 }
 
-/** Add or update practices: matched by Salesforce id when given, else by name. A row that says nothing about the stage keeps the saved one. */
-export async function upsertPractices(page: { id: number; tenantId: number }, rows: RoomPracticeInput[], opts: { mirror?: boolean } = {}): Promise<{ added: number; updated: number; removed: number }> {
-  const existing = await db.select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
+/** What an upload can say about a practice that the synced sheet must then leave alone. */
+export const KEPT_PRACTICE_FIELDS = ["city", "state", "address", "zip", "phone", "officeType", "regionalManager", "officeManager"] as const;
+type KeptField = (typeof KEPT_PRACTICE_FIELDS)[number];
+
+/**
+ * Add or update practices: matched by Salesforce id when given, else by name.
+ * A row that says nothing about the stage keeps the saved one.
+ *
+ * Two kinds of source:
+ *   - a sync (the connected sheet, Salesforce): the default. With `mirror`,
+ *     practices the source no longer lists are removed.
+ *   - an upload (`upload: true`: a list the team imports): the customer's word.
+ *     What it sets is remembered per practice and a later sync does not
+ *     overwrite it; a practice it adds is never removed by a sync.
+ */
+export async function upsertPractices(page: { id: number; tenantId: number }, rows: RoomPracticeInput[], opts: { mirror?: boolean; upload?: boolean } = {}): Promise<{ added: number; updated: number; removed: number }> {
+  const existing = await db.select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name, source: lpRoomPracticesTable.source, keptFields: lpRoomPracticesTable.keptFields }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
+  const byId = new Map(existing.map((e) => [e.id, e]));
   const byExt = new Map(existing.filter((e) => e.externalId).map((e) => [e.externalId as string, e.id]));
   const byName = new Map(existing.map((e) => [e.name.trim().toLowerCase(), e.id]));
+  // An uploaded list rarely spells a practice exactly as Salesforce does ("Main St Dental" / "Main Street Dental, P.C."): fall back to the loose name.
+  const byKey = new Map<string, number>();
+  if (opts.upload) for (const e of existing) if (practiceNameKey(e.name) && !byKey.has(practiceNameKey(e.name))) byKey.set(practiceNameKey(e.name), e.id);
   const inserts: (typeof lpRoomPracticesTable.$inferInsert)[] = [];
+  const matched = new Set<number>();
   let updated = 0;
   for (const r of rows) {
-    const id = (r.externalId && byExt.get(r.externalId)) || byName.get(r.name.trim().toLowerCase());
-    if (id) {
+    const id = (r.externalId && byExt.get(r.externalId)) || byName.get(r.name.trim().toLowerCase()) || (opts.upload ? byKey.get(practiceNameKey(r.name)) : undefined);
+    const given: Partial<Record<KeptField, string>> = {};
+    for (const f of KEPT_PRACTICE_FIELDS) if (r[f]) given[f] = r[f] as string;
+    if (id && id > 0) {
+      matched.add(id);
+      const kept = new Set<string>(byId.get(id)?.keptFields ?? []);
+      // A sync leaves alone what an upload set; an upload sets what it carries and remembers it.
+      const fields = Object.fromEntries(Object.entries(given).filter(([f]) => opts.upload || !kept.has(f)));
+      if (opts.upload) for (const f of Object.keys(given)) kept.add(f);
       await db
         .update(lpRoomPracticesTable)
         .set({
-          name: r.name,
+          // The name stays as the sync has it once an upload matched loosely (the upload's spelling is not Salesforce's).
+          ...(opts.upload ? {} : { name: r.name }),
           ...(r.externalId ? { externalId: r.externalId } : {}),
-          ...(r.region ? { region: r.region } : {}),
-          ...(r.city ? { city: r.city } : {}),
-          ...(r.state ? { state: r.state } : {}),
+          ...fields,
           ...(r.wave ? { wave: r.wave } : {}),
           ...(r.stageGiven ? { stage: r.stage } : {}),
           ...(r.trainingDate ? { trainingDate: r.trainingDate } : {}),
           ...(r.liveDate ? { liveDate: r.liveDate } : {}),
           ...(r.scannerSent ? { scannerSent: r.scannerSent } : {}),
           ...(r.scannerActivated ? { scannerActivated: r.scannerActivated } : {}),
-          ...(r.regionalManager ? { regionalManager: r.regionalManager } : {}),
           ...(r.scannerCount != null ? { scannerCount: r.scannerCount } : {}),
           ...(r.scannerModels ? { scannerModels: r.scannerModels } : {}),
           ...(r.scannerBrand ? { scannerBrand: r.scannerBrand } : {}),
@@ -151,27 +175,23 @@ export async function upsertPractices(page: { id: number; tenantId: number }, ro
           ...(r.sourceStatus ? { sourceStatus: r.sourceStatus } : {}),
           ...(r.owner ? { owner: r.owner } : {}),
           ...(r.lastActivity ? { lastActivity: r.lastActivity } : {}),
-          ...(r.address ? { address: r.address } : {}),
-          ...(r.zip ? { zip: r.zip } : {}),
-          ...(r.officeType ? { officeType: r.officeType } : {}),
-          ...(r.phone ? { phone: r.phone } : {}),
-          ...(r.officeManager ? { officeManager: r.officeManager } : {}),
+          ...(opts.upload ? { keptFields: [...kept] } : {}),
           updatedAt: sql`now()`,
         })
         .where(eq(lpRoomPracticesTable.id, id));
       updated++;
-    } else {
-      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels, scannerBrand: r.scannerBrand ?? null, contractSigned: r.contractSigned ?? null, sourceStatus: r.sourceStatus ?? null, owner: r.owner ?? null, lastActivity: r.lastActivity ?? null, address: r.address ?? null, zip: r.zip ?? null, officeType: r.officeType ?? null, phone: r.phone ?? null, officeManager: r.officeManager ?? null });
+    } else if (!id) {
+      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels, scannerBrand: r.scannerBrand ?? null, contractSigned: r.contractSigned ?? null, sourceStatus: r.sourceStatus ?? null, owner: r.owner ?? null, lastActivity: r.lastActivity ?? null, address: r.address ?? null, zip: r.zip ?? null, officeType: r.officeType ?? null, phone: r.phone ?? null, officeManager: r.officeManager ?? null, ...(opts.upload ? { source: "upload", keptFields: Object.keys(given) } : {}) });
       byName.set(r.name.trim().toLowerCase(), -1);
       if (r.externalId) byExt.set(r.externalId, -1);
+      if (opts.upload && practiceNameKey(r.name)) byKey.set(practiceNameKey(r.name), -1);
     }
   }
   for (let i = 0; i < inserts.length; i += 200) await db.insert(lpRoomPracticesTable).values(inserts.slice(i, i + 200));
-  // Mirror mode (a connected sheet is the source of truth): drop practices the source no longer lists.
+  // Mirror mode (a connected sheet is the practice list): drop practices the sheet no longer lists, except the ones an upload added.
   let removed = 0;
   if (opts.mirror) {
-    const keep = new Set(rows.map((r) => r.name.trim().toLowerCase()));
-    const gone = existing.filter((e) => !keep.has(e.name.trim().toLowerCase())).map((e) => e.id);
+    const gone = existing.filter((e) => !matched.has(e.id) && e.source !== "upload").map((e) => e.id);
     for (let i = 0; i < gone.length; i += 500) await db.delete(lpRoomPracticesTable).where(inArray(lpRoomPracticesTable.id, gone.slice(i, i + 500)));
     removed = gone.length;
   }
@@ -312,29 +332,58 @@ export async function syncPracticesFromSheet(pageId: number): Promise<{ ok: bool
 /* ── The customer's roster ───────────────────────────────────────────────── */
 
 /**
- * Read an uploaded file as a roster and apply it: add the regional manager,
- * office manager and address it gives to each practice it matches, and
- * replace the room's doctors with the ones it lists (each tied to its
- * practice). Practices are never created or removed here: the practice list
- * stays whatever Salesforce says, and what doesn't line up is reported.
+ * Read an uploaded file as a roster and apply it. The customer's roster is
+ * their word on their own practices, so it wins:
+ *   - the regional manager, office manager, address and the rest it gives are
+ *     saved on each practice it matches, and the sheet sync leaves them alone;
+ *   - a practice it lists that we don't hold is added (and the sync never
+ *     removes it);
+ *   - the room's doctors are replaced with the ones it lists, each tied to
+ *     its practice.
+ * Nothing is removed. What Salesforce is missing, and what Salesforce has
+ * that the roster doesn't, is reported for the team (`unmatched`,
+ * `notOnRoster`: both measured against the practices that came from the
+ * sync, not the ones a roster added).
  * Returns null when the file isn't a roster (no practice column).
  */
 export async function applyRoster(page: { id: number; tenantId: number }, upload: { id: number; fileName: string }, buf: Buffer): Promise<RosterResult | null> {
   const parsed = parseRoster(upload.fileName, buf);
   if (!parsed || parsed.rows.length === 0) return null;
-  const practices = await db.select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
-  const { updates, doctors, result } = matchRoster(parsed.rows, practices);
-  for (const u of updates) {
+  const load = () => db.select({ id: lpRoomPracticesTable.id, externalId: lpRoomPracticesTable.externalId, name: lpRoomPracticesTable.name, source: lpRoomPracticesTable.source, keptFields: lpRoomPracticesTable.keptFields }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id));
+  let practices = await load();
+  // How the roster compares with what the sync lists: this is what the team is told.
+  const gap = matchRoster(parsed.rows, practices.filter((p) => p.source !== "upload")).result;
+  // Practices the roster names that we don't hold at all: add them, with what their first row says.
+  let match = matchRoster(parsed.rows, practices);
+  const missing = new Set(match.result.unmatched.map((n) => practiceNameKey(n)).filter(Boolean));
+  const adds: (typeof lpRoomPracticesTable.$inferInsert)[] = [];
+  for (const row of parsed.rows) {
+    const key = practiceNameKey(row.practiceName);
+    if (!key || !missing.has(key) || adds.length >= 2000) continue;
+    missing.delete(key);
+    const kept = KEPT_PRACTICE_FIELDS.filter((f) => row[f]);
+    adds.push({ tenantId: page.tenantId, pageId: page.id, name: row.practiceName.slice(0, 160), region: row.state || null, city: row.city || null, state: row.state || null, address: row.address || null, zip: row.zip || null, phone: row.phone || null, officeType: row.officeType || null, regionalManager: row.regionalManager || null, officeManager: row.officeManager || null, source: "upload", keptFields: kept });
+  }
+  if (adds.length) {
+    for (let i = 0; i < adds.length; i += 200) await db.insert(lpRoomPracticesTable).values(adds.slice(i, i + 200));
+    practices = await load();
+    match = matchRoster(parsed.rows, practices);
+  }
+  const keptById = new Map(practices.map((p) => [p.id, p.keptFields ?? []]));
+  for (const u of match.updates) {
     const { id, ...fields } = u;
-    await db.update(lpRoomPracticesTable).set({ ...fields, updatedAt: sql`now()` }).where(and(eq(lpRoomPracticesTable.id, id), eq(lpRoomPracticesTable.pageId, page.id)));
+    const kept = [...new Set([...(keptById.get(id) ?? []), ...Object.keys(fields)])];
+    await db.update(lpRoomPracticesTable).set({ ...fields, keptFields: kept, updatedAt: sql`now()` }).where(and(eq(lpRoomPracticesTable.id, id), eq(lpRoomPracticesTable.pageId, page.id)));
   }
   // The doctors are replaced as a whole, but only by a file that has a doctor column (a practices-only list leaves them alone).
   if (parsed.hasDoctors) {
     await db.delete(lpRoomDoctorsTable).where(eq(lpRoomDoctorsTable.pageId, page.id));
-    for (let i = 0; i < doctors.length; i += 200) {
-      await db.insert(lpRoomDoctorsTable).values(doctors.slice(i, i + 200).map((d) => ({ tenantId: page.tenantId, pageId: page.id, practiceId: d.practiceId, practiceName: d.practiceName || null, name: d.name, email: d.email, npi: d.npi, role: d.role, uploadId: upload.id })));
+    for (let i = 0; i < match.doctors.length; i += 200) {
+      await db.insert(lpRoomDoctorsTable).values(match.doctors.slice(i, i + 200).map((d) => ({ tenantId: page.tenantId, pageId: page.id, practiceId: d.practiceId, practiceName: d.practiceName || null, name: d.name, email: d.email, npi: d.npi, role: d.role, uploadId: upload.id })));
     }
   }
+  if (adds.length) await recordPracticeSnapshot(page).catch((err) => logger.warn({ err, pageId: page.id }, "practice snapshot failed"));
+  const result: RosterResult = { ...match.result, practices: gap.practices, matched: gap.matched, unmatched: gap.unmatched, notOnRoster: gap.notOnRoster, likely: gap.likely, doctorsUnmatched: gap.doctorsUnmatched, enriched: gap.enriched, added: adds.length };
   await db.update(lpRoomUploadsTable).set({ rosterResult: { ...result, hasDoctors: parsed.hasDoctors, fileName: upload.fileName } as Record<string, unknown> }).where(eq(lpRoomUploadsTable.id, upload.id));
   return result;
 }
@@ -415,7 +464,7 @@ export async function loadSalesforceGap(pageId: number): Promise<SalesforceGap |
     }
   }
   if (!names && doctors === null) return null;
-  const roomNames = (await db.select({ name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, pageId))).map((p) => p.name);
+  const roomNames = (await db.select({ name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, pageId), sql`${lpRoomPracticesTable.source} IS DISTINCT FROM 'upload'`))).map((p) => p.name); // the gap is against what the sync lists, not what a roster added
   const r = names ? reconcilePractices(names.names, roomNames) : null;
   return { fileName: names?.fileName ?? "", missing: r?.missingFromRoom ?? [], matched: r?.matched ?? 0, uploaded: r?.uploaded ?? 0, doctors, notOnRoster: r?.notOnUpload ?? [], listed: roomNames.length };
 }

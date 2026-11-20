@@ -117,6 +117,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const [sfdcId, setSfdcId] = useState("");
   const [asanaProject, setAsanaProject] = useState("");
   const [csv, setCsv] = useState("");
+  const [fromCustomer, setFromCustomer] = useState(false);
   const [note, setNote] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetTab, setSheetTab] = useState("");
@@ -379,6 +380,10 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
              
               aria-label="Paste a practice list"
             />
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={fromCustomer} onChange={(e) => setFromCustomer(e.target.checked)} data-room-import-from-customer />
+              This list came from the customer (it wins over the synced sheet)
+            </label>
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
@@ -386,7 +391,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                 disabled={!csv.trim()}
                 onClick={async () => {
                   setNote("");
-                  const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) });
+                  const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv, fromCustomer }) });
                   const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number };
                   setError(r.ok ? "" : j.error ?? "Import failed");
                   if (r.ok) {
@@ -413,7 +418,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                     const bytes = new Uint8Array(await file.arrayBuffer());
                     let bin = "";
                     for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
-                    const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileBase64: btoa(bin) }) });
+                    const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileBase64: btoa(bin), fromCustomer }) });
                     const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number; sheet?: string };
                     setError(r.ok ? "" : j.error ?? "Import failed");
                     if (r.ok) {

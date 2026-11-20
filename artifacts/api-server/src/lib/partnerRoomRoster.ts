@@ -147,6 +147,8 @@ export interface RosterResult {
   /** Things the customer should fix in the file. */
   issues: string[];
   enriched: number;
+  /** Practices the roster named that we did not hold, and so were added (set when a roster is applied). */
+  added?: number;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

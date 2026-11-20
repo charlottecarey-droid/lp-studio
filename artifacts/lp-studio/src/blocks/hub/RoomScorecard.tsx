@@ -316,6 +316,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                   : `All ${check.onRoster ?? 0} ${noun} on “${check.fileName}” are in Salesforce.`}
                 {check.doctors ? ` Their roster lists ${check.doctors} doctors${check.doctorsUnmatched ? `, ${check.doctorsUnmatched} of them at a practice that isn't in Salesforce` : ""}.` : ""}
                 {check.enriched ? ` It added regional managers, office managers or addresses to ${check.enriched} ${noun}.` : ""}
+                {check.added ? ` ${check.added} ${noun} from their roster were added to the hub.` : ""}
               </span>
             </div>
             <em>Only your team sees this</em>

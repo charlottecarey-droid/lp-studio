@@ -596,30 +596,31 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     // The customer fills it in and uploads it: a renamed practice still lands by its ID, and one practice isn't in Salesforce.
     const roster = [
       lines[0],
-      "0015d00000AAAAAAAA,Main St Dental,100 Main St,Dallas,TX,75201,Dana Ruiz,Pat Lee,Dr. Ana Patel,ana@mainst.com,1234567890,General",
-      "0015d00000AAAAAAAA,Main St Dental,,,,,,,Dr. Ben Cho,ben@mainst.com,,Associate",
-      "0015d00000BBBBBAAA,Lakeside Family,22 Lake Rd,Denver,CO,80202,Sam Ortiz,,Dr. Cy Diaz,cy@lakeside.com,,",
-      ",Brand New Smiles,9 New Way,Austin,TX,78701,Dana Ruiz,,Dr. Dee Fox,dee@new.com,,",
+      "0015d00000AAAAAAAA,Main St Dental,100 Main St,Dallas,TX,75201,,,Dana Ruiz,Pat Lee,Dr. Ana Patel,ana@mainst.com,1234567890,General",
+      "0015d00000AAAAAAAA,Main St Dental,,,,,,,,,Dr. Ben Cho,ben@mainst.com,,Associate",
+      "0015d00000BBBBBAAA,Lakeside Family,22 Lake Rd,Denver,CO,80202,,,Sam Ortiz,,Dr. Cy Diaz,cy@lakeside.com,,",
+      ",Brand New Smiles,9 New Way,Austin,TX,78701,512-555-0100,General,Dana Ruiz,,Dr. Dee Fox,dee@new.com,,",
     ].join("\n");
     const up = await post("upload", { pageId, hl, taskKey: "practice-roster", fileName: "MB2 roster.csv", fileBase64: Buffer.from(roster).toString("base64") });
     expect(up.json).toMatchObject({ ok: true, roster: { practices: 3, doctors: 4, issues: [] } });
     expect(JSON.stringify(up.json)).not.toContain("Brand New Smiles"); // what Salesforce is missing is for the team, not the customer
 
-    // The Scorecard: doctors under their practice, regional manager and address filled in, the practice list itself unchanged.
+    // The Scorecard: doctors under their practice, regional manager and address filled in, and the practice Salesforce is missing added from the roster (the customer's list is their word).
     const card = (await post("practices", { pageId, hl })).json as { total: number; columns: Record<string, boolean>; rows: { name: string; regionalManager: string | null; address: string | null; zip: string | null; officeManager: string | null; doctors: { name: string; role: string | null }[] }[] };
-    expect(card.total).toBe(3);
+    expect(card.total).toBe(4);
+    expect(card.rows.find((p) => p.name === "Brand New Smiles")).toMatchObject({ regionalManager: "Dana Ruiz", address: "9 New Way", zip: "78701" });
     expect(card.columns).toMatchObject({ address: true, office: true, doctors: true, manager: true });
     const main = card.rows.find((p) => p.name === "Main Street Dental")!;
     expect(main).toMatchObject({ regionalManager: "Dana Ruiz", address: "100 Main St", zip: "75201", officeManager: "Pat Lee" });
     expect(main.doctors).toEqual([{ name: "Dr. Ana Patel", role: "General" }, { name: "Dr. Ben Cho", role: "Associate" }]);
     expect(card.rows.find((p) => p.name === "Summit Dental")!.doctors).toEqual([]);
-    expect(((await post("state", { pageId })).json as { practices: { doctors: { total: number; matched: number } } }).practices.doctors).toEqual({ total: 4, matched: 3 });
+    expect(((await post("state", { pageId })).json as { practices: { doctors: { total: number; matched: number } } }).practices.doctors).toEqual({ total: 4, matched: 4 });
 
     // The team's check: what Salesforce is missing, what the roster left out, and the doctors with nowhere to go.
     const teamEmail = `rep-${Date.now()}@vendor-roster.com`;
     await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Rae Rep', 'active')`, [tenantId, teamEmail]);
     const check = (await inject(app, { method: "POST", url: `/lp/room/scorecard-check`, headers: { ...asTenant(tenantId), "x-test-email": teamEmail }, body: { pageId } })).json;
-    expect(check).toMatchObject({ checked: true, fileName: "MB2 roster.csv", onRoster: 3, matched: 2, missingFromSalesforce: ["Brand New Smiles"], notOnRoster: ["Summit Dental"], doctors: 4, doctorsUnmatched: 1, enriched: 2 });
+    expect(check).toMatchObject({ checked: true, fileName: "MB2 roster.csv", onRoster: 3, matched: 2, missingFromSalesforce: ["Brand New Smiles"], notOnRoster: ["Summit Dental"], doctors: 4, doctorsUnmatched: 1, enriched: 2, added: 1 });
 
     // A later practices-only list updates details but leaves the doctors alone; a file that isn't a roster changes nothing.
     const again = await post("upload", { pageId, hl, taskKey: "practice-roster", fileName: "locations.csv", fileBase64: Buffer.from("Location Name,RDO\nSummit Dental,Lee Chen").toString("base64") });
@@ -719,12 +720,24 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const state = (await post("state", { pageId })).json as { practices: { total: number; byStage: Record<string, number> } };
     expect(state.practices).toMatchObject({ total: 2, byStage: { live: 1, scheduling: 1 } });
 
+    // A list the customer gave us wins: the sync keeps a practice only they listed, and doesn't overwrite what they said about one it does list.
+    const imp = await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { fromCustomer: true, csv: "Office,RDO,Address\nMain Street Dental,Dana Ruiz,\"100 Main St, Dallas, TX 75201\"\nOnly On Their List,Sam Ortiz,\"9 New Way, Austin, TX 78701\"" } });
+    expect(imp.json).toEqual({ ok: true, added: 1, updated: 1, removed: 0 });
+    sheetValues = [["Name", "Region", "Stage", "Regional Manager", "Billing Zip/Postal Code"], ["Main Street Dental", "North Texas", "Live", "From Salesforce", "75001"], ["Summit Dental", "Colorado", "Scheduling", "From Salesforce", "80202"]];
+    expect((await sync()).json).toEqual({ ok: true, note: "2 practices in the sheet (0 added, 2 updated, 0 removed)." });
+    const kept = (await pool.query<{ name: string; regional_manager: string | null; zip: string | null; source: string | null }>(`SELECT name, regional_manager, zip, source FROM lp_room_practices WHERE page_id = $1 ORDER BY name`, [pageId])).rows;
+    expect(kept).toEqual([
+      { name: "Main Street Dental", regional_manager: "Dana Ruiz", zip: "75201", source: null },
+      { name: "Only On Their List", regional_manager: "Sam Ortiz", zip: "78701", source: "upload" },
+      { name: "Summit Dental", regional_manager: "From Salesforce", zip: "80202", source: null },
+    ]);
+
     // A sheet we can't open, or an empty one, never wipes the list.
     sheetValues = null;
     expect((await sync()).status).toBe(400);
     sheetValues = [["Name"]];
     expect((await sync()).status).toBe(400);
-    expect(((await post("state", { pageId })).json as { practices: { total: number } }).practices.total).toBe(2);
+    expect(((await post("state", { pageId })).json as { practices: { total: number } }).practices.total).toBe(3);
     const detail = (await inject(app, { method: "GET", url: `/lp/partner-rooms/${pageId}`, headers: asTenant(tenantId) })).json as { sheet: { id: string; tab: string; note: string } };
     expect(detail.sheet).toMatchObject({ id: "1AbCdEfGhIjKlMnOpQrStUvWxYz012345", tab: "All practices" });
     expect(detail.sheet.note).toContain("no rows with a practice name");

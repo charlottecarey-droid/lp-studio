@@ -1028,6 +1028,7 @@ router.post("/lp/room/scorecard-check", stateLimiter, async (req: Request, res: 
         likely: roster.likely.slice(0, 100),
         issues: roster.issues,
         enriched: roster.enriched,
+        added: roster.added ?? 0,
       });
       return;
     }
@@ -1745,6 +1746,7 @@ router.post("/lp/partner-rooms/:pageId/practices/import", async (req: Request, r
   try {
     const page = await ownedRoomPage(req, res);
     if (!page) return;
+    // `fromCustomer` marks a list the customer gave us: it is their word, so the sheet sync never removes its practices or overwrites what it says.
     // Pasted text, or a file (.xlsx / .csv) such as the scanner tracker's Excel export. A file's rows are matched to
     // practices by name and only fill in what they carry, so a scanner export adds scanner counts without touching stages.
     let rows = parsePracticeCsv(req.body?.csv);
@@ -1776,7 +1778,7 @@ router.post("/lp/partner-rooms/:pageId/practices/import", async (req: Request, r
       res.status(400).json({ error: "Nothing to import. The first row needs column names, including “name” (or “office”)." });
       return;
     }
-    res.json({ ok: true, ...(sheetName ? { sheet: sheetName } : {}), ...(await upsertPractices(page, rows)) });
+    res.json({ ok: true, ...(sheetName ? { sheet: sheetName } : {}), ...(await upsertPractices(page, rows, { upload: req.body?.fromCustomer === true })) });
   } catch (err) {
     req.log.error({ err }, "room practices import failed");
     res.status(500).json({ error: "Import failed" });
@@ -2259,7 +2261,7 @@ router.post("/lp/partner-rooms/:pageId/uploads/:id/compare", async (req: Request
       res.status(400).json({ error: "Couldn't find a practice or doctor column in that file. The header row needs a column like “Practice name” or “Doctor”." });
       return;
     }
-    const roomNames = (await db.select({ name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(eq(lpRoomPracticesTable.pageId, page.id))).map((p) => p.name);
+    const roomNames = (await db.select({ name: lpRoomPracticesTable.name }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, page.id), sql`${lpRoomPracticesTable.source} IS DISTINCT FROM 'upload'`))).map((p) => p.name); // the gap is against what the sync lists, not what a roster added
     const result = names ? reconcilePractices(names.names, roomNames) : null;
     res.json({
       fileName: upload.fileName,
