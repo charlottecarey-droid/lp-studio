@@ -12,6 +12,7 @@ import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import { RoomCoverSection, type HubCover } from "./RoomCover";
 import { RoomStagePrompt, RoomStageSection, type HubStage } from "./RoomStage";
+import { RoomPlays } from "./RoomPlays";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -91,7 +92,7 @@ async function send(url: string, method: string, body?: unknown): Promise<string
   }
 }
 
-export type RoomPanelTab = "performance" | "goals" | "activity" | "kit" | "practices" | "calendar" | "settings";
+export type RoomPanelTab = "performance" | "plays" | "goals" | "activity" | "kit" | "practices" | "calendar" | "settings";
 /** A file the Room panel just put in the launch kit. The builder applies it to its own copy of the page too, so its next save keeps it. */
 /** A link added to the launch kit from the Room panel (the practice microsite). */
 export interface RoomKitLinkChange {
@@ -232,6 +233,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           {(
             [
               ...(data.isWorkspace ? [{ id: "performance", label: "Performance", count: 0 }] : []),
+              ...(data.isWorkspace ? [{ id: "plays", label: "Plays", count: 0 }] : []),
               ...(data.isWorkspace && data.goals ? [{ id: "goals", label: "Goals", count: 0 }] : []),
               { id: "activity", label: "Activity", count: requests.length + (data.requests ?? []).filter((q) => q.status === "new").length },
               ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
@@ -256,6 +258,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} />}
+        {tab === "plays" && data.isWorkspace && <RoomPlays pageId={pageId} />}
         {tab === "goals" && data.isWorkspace && data.goals && (
           <RoomGoalsSection
             pageId={pageId}

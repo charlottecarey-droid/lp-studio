@@ -51,6 +51,10 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   calendarConnectionId: integer("calendar_connection_id"),
   /** Post to Slack when someone from the customer opens the hub (at most once per person every few hours). Off unless the team ticks it. */
   visitAlert: boolean("visit_alert").notNull().default(false),
+  /** The account doesn't allow direct outreach to its practices: no welcome kits or mail from the hub, and plays that need it are not suggested. */
+  noDirectOutreach: boolean("no_direct_outreach").notNull().default(false),
+  /** Recommended plays the team acted on or set aside: play key → { state, until, by }. A play stays quiet until `until`. */
+  playsState: jsonb("plays_state").$type<Record<string, { state: string; until: string; by?: string }>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

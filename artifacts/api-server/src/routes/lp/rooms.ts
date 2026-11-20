@@ -62,6 +62,8 @@ import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews"
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
+import { playRequest } from "../../lib/partnerRoomPlays";
+import { hubPlays, hubRestrictsOutreach, setNoDirectOutreach, setPlayState } from "../../lib/partnerRoomPlaysService";
 import { extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage } from "../../lib/partnerRoomStage";
 import { kitAsanaTask, kitNotice } from "../../lib/partnerRoomKit";
 import { ASANA_GID_RE, hubAsanaTarget } from "../../lib/partnerRoomAsana";
@@ -894,6 +896,10 @@ router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Resp
     const ids = Array.isArray(req.body?.ids) ? [...new Set((req.body.ids as unknown[]).filter((v): v is number => typeof v === "number" && Number.isInteger(v) && v > 0))].slice(0, 2000) : [];
     if (ids.length === 0) {
       res.status(400).json({ error: "Nothing selected" });
+      return;
+    }
+    if (await hubRestrictsOutreach(page.id)) {
+      res.status(400).json({ error: "This account doesn't allow direct outreach to its practices, so welcome kits can't be sent from the hub.", sent: [], already: [], noAddress: [] });
       return;
     }
     const settings = await loadSettings(page.id);
@@ -2222,6 +2228,82 @@ router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Res
   } catch (err) {
     req.log.error({ err }, "room kit asset save failed");
     res.status(500).json({ error: "Could not add the asset to the launch kit" });
+  }
+});
+
+/**
+ * Recommended plays for the account team: rules over the hub's own numbers
+ * (where the practices are, which are live, what has been sent), named and
+ * dated as the Expansion Playbook has them. Plays the team already asked
+ * for, did or set aside are left out until their quiet period ends.
+ */
+router.get("/lp/partner-rooms/:pageId/plays", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const got = await hubPlays(page);
+    if (!got) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    res.json({ plays: got.plays, quiet: got.quiet, noDirectOutreach: got.noDirectOutreach });
+  } catch (err) {
+    req.log.error({ err }, "room plays failed");
+    res.status(500).json({ error: "Could not work out the plays" });
+  }
+});
+
+/** Act on a play: ask marketing for it (an intake task and a Slack note), mark it done, or set it aside. Either way it stays quiet for 30 days. */
+router.post("/lp/partner-rooms/:pageId/plays/act", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const key = typeof req.body?.key === "string" ? req.body.key.trim().slice(0, 80) : "";
+    const action = req.body?.action === "request" || req.body?.action === "done" || req.body?.action === "dismiss" ? (req.body.action as "request" | "done" | "dismiss") : null;
+    if (!key || !action) {
+      res.status(400).json({ error: "Unknown play or action" });
+      return;
+    }
+    const by = req.authUser?.name || req.authUser?.email || "A team member";
+    if (action !== "request") {
+      await setPlayState(page, key, action === "done" ? "done" : "dismissed", by);
+      res.json({ ok: true });
+      return;
+    }
+    const got = await hubPlays(page);
+    const play = got?.all.find((p) => p.key === key);
+    if (!got || !play) {
+      res.status(404).json({ error: "That play no longer applies." });
+      return;
+    }
+    const settings = await loadSettings(page.id);
+    const hubUrl = await roomPageUrl(req, page, undefined).catch(() => "");
+    const task = playRequest(got.customer, play, by, new Date().toISOString().slice(0, 10), hubUrl);
+    const asana = await hubAsanaTarget(page.tenantId, settings.asanaProjectGid);
+    const result = await createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name: asanaRequestTaskName(got.customer, task.subject), notes: task.notes, projectGid: asana.projectGid, assigneeGid: asana.assigneeGid });
+    if (!result.ok) {
+      res.status(502).json({ error: result.warning ?? "Asana didn't take the request." });
+      return;
+    }
+    await setPlayState(page, key, "requested", by);
+    postToSlack(page, settings.slackChannelId, `🎯 Play requested: ${mrk(play.title)}`, [`*${mrk(by)}* asked marketing for this play.`, mrk(play.why)], hubUrl || undefined);
+    res.json({ ok: true, taskId: result.taskId ?? null, warning: result.warning ?? null });
+  } catch (err) {
+    req.log.error({ err }, "room play action failed");
+    res.status(500).json({ error: "Could not do that" });
+  }
+});
+
+/** Whether the account allows direct outreach to its practices. Off = no welcome kits or mail from the hub. */
+router.put("/lp/partner-rooms/:pageId/plays/settings", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    await setNoDirectOutreach(page, req.body?.noDirectOutreach === true);
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room plays settings failed");
+    res.status(500).json({ error: "Could not save" });
   }
 });
 
