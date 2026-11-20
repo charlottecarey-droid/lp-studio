@@ -15,7 +15,7 @@ export interface KitTarget {
   url: string;
 }
 
-/** Where the workspace keeps its welcome kit list: its own setting, else a "Welcome Kit" tab in the workbook the hub log uses. */
+/** Where the workspace keeps its welcome kit list: its own setting, else a "Send Welcome Kits" tab in the workbook the hub log uses. */
 export async function kitTarget(tenantId: number): Promise<KitTarget | null> {
   const [cfg] = await db.select({ kitSheetId: lpRoomAutocreateTable.kitSheetId, kitTab: lpRoomAutocreateTable.kitTab, logSheetId: lpRoomAutocreateTable.logSheetId, sheetId: lpRoomAutocreateTable.sheetId }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
   const sheetId = cfg?.kitSheetId || cfg?.logSheetId || cfg?.sheetId || "";

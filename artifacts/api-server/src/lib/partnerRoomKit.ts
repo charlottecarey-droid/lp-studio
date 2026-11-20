@@ -114,7 +114,7 @@ export function planKits(practices: KitPractice[]): KitPlan {
   return plan;
 }
 
-export const DEFAULT_KIT_TAB = "Welcome Kit";
+export const DEFAULT_KIT_TAB = "Send Welcome Kits";
 
 /** What marketing is told when practices are added. */
 export function kitNotice(customer: string, names: string[], by: string, sheetUrl: string): { title: string; lines: string[] } {

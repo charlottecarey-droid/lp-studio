@@ -288,7 +288,7 @@ export const lpRoomAutocreateTable = pgTable("lp_room_autocreate", {
   logEnabled: boolean("log_enabled").notNull().default(true),
   logSheetId: text("log_sheet_id"),
   logTab: text("log_tab"),
-  /** The marketing team's welcome kit recipient list. Null sheet = the log workbook; null tab = "Welcome Kit". */
+  /** The marketing team's welcome kit recipient list. Null sheet = the log workbook; null tab = "Send Welcome Kits". */
   kitSheetId: text("kit_sheet_id"),
   kitTab: text("kit_tab"),
   /** On a new room: write its link to this field on the Salesforce Account (API name), when Salesforce is connected. */
