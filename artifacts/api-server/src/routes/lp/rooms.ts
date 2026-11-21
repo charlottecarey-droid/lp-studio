@@ -1288,6 +1288,10 @@ router.post("/lp/room/asset", stateLimiter, async (req: Request, res: Response):
   res.status(204).end();
 });
 
+/** "View as the customer" posts its visit alert at most this often per person and hub (each section opened would post otherwise). */
+const PREVIEW_VISIT_QUIET_MS = 10 * 60 * 1000;
+const previewVisitAt = new Map<string, number>();
+
 /**
  * A visitor opened a section of the hub (seconds 0), or left it (the seconds
  * they spent). One row per opening; the page's own team is never recorded,
@@ -1299,6 +1303,18 @@ router.post("/lp/room/view", stateLimiter, async (req: Request, res: Response): 
     const page = parsed ? await loadRoomPage(parsed.pageId) : null;
     if (parsed && page?.isWorkspace) {
       const viewer = await resolveViewer(page, req.body ?? {}, req.authUser).catch(() => null);
+      // A team member using "View as the customer" gets the same Slack visit alert a customer would set off
+      // (marked as a preview), so the alert can be seen working. Nothing is recorded: Engagement stays the customer's.
+      if (viewer?.team && req.body?.asCustomer === true && parsed.seconds === 0) {
+        const at = previewVisitAt.get(`${page.id}:${viewer.email}`) ?? 0;
+        if (Date.now() - at > PREVIEW_VISIT_QUIET_MS) {
+          const [cfg] = await db.select({ visitAlert: lpRoomSettingsTable.visitAlert, slackChannelId: lpRoomSettingsTable.slackChannelId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1);
+          if (cfg?.visitAlert) {
+            previewVisitAt.set(`${page.id}:${viewer.email}`, Date.now());
+            postToSlack(page, cfg.slackChannelId, "Partner Hub visit", [`*${mrk(viewer.name || viewer.email)}* is in the hub, viewing it as the customer.`, "_A preview by your own team, not a customer visit._"], await roomPageUrl(req, page, req.body?.path).catch(() => undefined));
+          }
+        }
+      }
       if (!viewer?.team && !(page.gated && !viewer)) {
         // Tell the team in Slack when a named customer arrives, if the hub asks for it and they have not been in for a while.
         if (viewer && parsed.seconds === 0) {

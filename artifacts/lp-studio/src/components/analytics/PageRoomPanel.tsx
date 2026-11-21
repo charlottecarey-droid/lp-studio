@@ -14,7 +14,7 @@ import { RoomCoverSection, type HubCover } from "./RoomCover";
 import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
 import { OutreachSetting, RoomPlays } from "./RoomPlays";
 import { RoomLinksSection, type HubLink } from "./RoomLinks";
-import { RoomPlanQueueSection, type PlanQueueItem } from "./RoomPlanQueue";
+import { RoomPlanQueueSection, planQueueHint, type PlanQueueItem } from "./RoomPlanQueue";
 import { RoomReminderSection } from "./RoomReminder";
 import { RoomSlackPreview } from "./RoomSlackPreview";
 import { ROOM_OVERVIEW_SECTIONS, roomMarketingNames, type RoomOverviewSection } from "@/blocks/BlockRoomWorkspace";
@@ -410,8 +410,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
               </section>
             )}
 
-            {data.isWorkspace && (data.planQueue ?? []).length > 0 && <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} />}
-
             {data.uploads.length > 0 && (
         <section className="space-y-2" data-room-files>
           <h4 className="text-sm font-semibold">Files the customer sent <span className="font-normal text-muted-foreground">· {data.uploads.length}</span></h4>
@@ -539,6 +537,17 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
 
             {/* Reference, not work: closed until someone wants it. */}
             <div className="space-y-2">
+              {/* First of the closed rows: what to do next, then the marketing plan. */}
+              {data.isWorkspace && (
+                <Fold title="Suggested next moves" hint="Ideas worked out from this hub’s practices and what has already been sent" data-room-plays-fold>
+                  <RoomPlays pageId={pageId} />
+                </Fold>
+              )}
+              {data.isWorkspace && (data.planQueue ?? []).length > 0 && (
+                <Fold title="Marketing plan" hint={planQueueHint(data.planQueue!)} data-room-plan-fold>
+                  <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} bare />
+                </Fold>
+              )}
               {data.tasks.length > 0 && (
                 <Fold title="What the customer has done" hint={`${data.tasks.filter((t) => t.done).length} of ${data.tasks.length} steps`}>
                   <div className="divide-y rounded-md border">
@@ -585,12 +594,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                       </div>
                     ))}
                   </div>
-                </Fold>
-              )}
-              {/* Ideas, not obligations: last, and closed. */}
-              {data.isWorkspace && (
-                <Fold title="Suggested next moves" hint="Ideas worked out from this hub’s practices and what has already been sent" data-room-plays-fold>
-                  <RoomPlays pageId={pageId} />
                 </Fold>
               )}
             </div>

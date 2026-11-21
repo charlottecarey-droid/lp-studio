@@ -24,7 +24,14 @@ const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(unde
  * until a rep sends it to marketing's request intake; several ticked at once
  * go as ONE request, so marketing gets a single brief for the account.
  */
-export function RoomPlanQueueSection({ pageId, queue, onSent }: { pageId: number; queue: PlanQueueItem[]; onSent: () => void | Promise<void> }) {
+/** What the folded "Marketing plan" row says while closed: what is waiting on the rep first. */
+export function planQueueHint(queue: PlanQueueItem[]): string {
+  const count = (state: PlanQueueItem["state"]) => queue.filter((i) => i.state === state).length;
+  const parts = [count("queued") ? `${count("queued")} to send to marketing` : "", count("sent") ? `${count("sent")} with marketing` : "", count("undecided") ? `${count("undecided")} not decided yet` : ""].filter(Boolean);
+  return parts.join(" · ") || "Nothing chosen yet";
+}
+
+export function RoomPlanQueueSection({ pageId, queue, onSent, bare = false }: { pageId: number; queue: PlanQueueItem[]; onSent: () => void | Promise<void>; /** Inside a fold that already names it: no heading of its own. */ bare?: boolean }) {
   const waiting = queue.filter((i) => i.state === "queued");
   const sent = queue.filter((i) => i.state === "sent");
   const undecided = queue.filter((i) => i.state === "undecided");
@@ -64,10 +71,12 @@ export function RoomPlanQueueSection({ pageId, queue, onSent }: { pageId: number
   return (
     <section className="space-y-2" data-room-plan-queue>
       <div>
-        <h4 className="text-sm font-semibold">
-          Marketing plan
-          {waiting.length > 0 && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">{waiting.length} to send</span>}
-        </h4>
+        {!bare && (
+          <h4 className="text-sm font-semibold">
+            Marketing plan
+            {waiting.length > 0 && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">{waiting.length} to send</span>}
+          </h4>
+        )}
         <p className="text-sm text-muted-foreground">What the customer said yes to waits here until you send it to marketing. Everything you tick goes as one request.</p>
       </div>
 
