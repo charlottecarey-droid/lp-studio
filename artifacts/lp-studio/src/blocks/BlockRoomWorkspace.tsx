@@ -1417,8 +1417,9 @@ const CSS = `
 .prw-map-stage svg.pan{cursor:grab}
 .prw-map-stage svg.pan:active{cursor:grabbing}
 .prw-map-stage .st{fill:#fff;stroke:#CDD3C8;stroke-width:1;vector-effect:non-scaling-stroke;stroke-linejoin:round}
-.prw-map-stage .st{cursor:pointer;transition:fill .12s}
-.prw-map-stage .st:hover{fill:#F4F7EF}
+.prw-map-stage .st{transition:fill .12s}
+.prw-map-stage .st.has{cursor:pointer}
+.prw-map-stage .st.has:hover{fill:#F4F7EF}
 .prw-map-stage .st.on{fill:#EEF3E6;stroke:#9AA69E}
 .prw-map-stage .sl{fill:#A9B2A8;font-weight:600;text-anchor:middle;dominant-baseline:central;pointer-events:none;letter-spacing:.04em}
 .prw-map-stage .pin{cursor:pointer;outline:none;transition:opacity .15s}

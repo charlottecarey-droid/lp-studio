@@ -213,6 +213,8 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
     [states, fit],
   );
 
+  /** States with at least one practice on the map. Only these can be clicked: an empty state has nothing to zoom to. */
+  const filled = useMemo(() => new Set(pins.map((q) => (q.p.state ?? "").trim().toUpperCase()).filter(Boolean)), [pins]);
   const stages = stage ? STAGE_GROUPS[stage] : null;
   const shows = (p: RoomMapPoint) => (!group || of(p) === group) && (!stages || stages.includes(p.stage));
   const reset = () => {
@@ -269,16 +271,17 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
           setHover(null);
         }}
       >
-        <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Map of ${placed.length} ${noun}`} className={view.k > 1 ? "pan" : ""} onDoubleClick={(e) => !(e.target as Element).closest?.("[data-room-map-state]") && zoom(1.8)}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Map of ${placed.length} ${noun}`} className={view.k > 1 ? "pan" : ""} onDoubleClick={(e) => !(e.target as Element).closest?.("[data-room-map-state-filled]") && zoom(1.8)}>
           <g transform={`translate(${view.x.toFixed(1)} ${view.y.toFixed(1)}) scale(${view.k})`}>
             {outlines.map((s) => (
               <path
                 key={s.id}
-                className={`st${zoomed === s.id ? " on" : ""}`}
+                className={`st${filled.has(s.id) ? " has" : ""}${zoomed === s.id ? " on" : ""}`}
                 d={s.d}
                 data-room-map-state={s.id}
+                data-room-map-state-filled={filled.has(s.id) ? "" : undefined}
                 onClick={() => {
-                  if (panned.current) return;
+                  if (panned.current || !filled.has(s.id)) return;
                   setZoomed(s.id);
                   setView(zoomToBox(stateBox(s.box, pins.filter((q) => (q.p.state ?? "").trim().toUpperCase() === s.id)), W, H, 12, 1.25));
                 }}
