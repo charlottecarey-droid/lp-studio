@@ -141,6 +141,20 @@ const Flag = ({ value }: { value: string | null | undefined }) => {
   return f.tick ? <span className="prw-sc-yes" role="img" aria-label="Yes"><Check aria-hidden /></span> : <>{f.text}</>;
 };
 
+/** "today", "3 days ago", "6 weeks ago": how long since a day. Blank for no day. */
+export function daysAgoLabel(day: string | null | undefined, now: Date = new Date()): { text: string; days: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day ?? "");
+  if (!m) return null;
+  const days = Math.max(0, Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(+m[1], +m[2] - 1, +m[3])) / 86_400_000));
+  const text = days === 0 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : days < 70 ? `${Math.round(days / 7)} weeks ago` : `${Math.round(days / 30)} months ago`;
+  return { text, days };
+}
+/** A practice that hasn't ordered in a month is marked: that is the one to call. */
+const LastOrder = ({ day }: { day: string | null | undefined }) => {
+  const a = daysAgoLabel(day);
+  return a ? <span className={a.days >= 30 ? "prw-sc-late" : undefined}>{a.text}</span> : null;
+};
+
 const COLUMNS: ColumnDef[] = [
   { key: "region", label: "Region", sort: "region", on: true, cell: (p) => p.region },
   { key: "state", label: "State", sort: "state", on: false, cell: (p) => p.state },
@@ -195,6 +209,23 @@ const COLUMNS: ColumnDef[] = [
   { key: "sent", label: "Scanner sent", sort: "scannerSent", on: true, has: "scanner", cell: (p) => <Flag value={p.scannerSent} /> },
   { key: "activated", label: "Activated", sort: "scannerActivated", on: true, has: "scanner", cell: (p) => <Flag value={p.scannerActivated} /> },
   { key: "kit", label: "Welcome kit", sort: "kitSentAt", on: true, has: "kit", teamOnly: true, cell: (p) => (p.kitSentAt ? new Date(p.kitSentAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null) },
+  {
+    key: "products",
+    label: "Products",
+    sort: "products",
+    on: true,
+    has: "products",
+    teamOnly: true,
+    cell: (p) =>
+      // A practice with no product dates is left blank: the report often has orders for it but no first-order dates, so "none" would be wrong.
+      !p.products || p.products.length === 0 ? null : (
+        <details className="prw-sc-docs" data-room-practice-products>
+          <summary><span className="prw-num" style={{ color: "var(--ink)", fontWeight: 600, margin: 0, fontSize: "inherit" }}>{p.products.length}</span><span>show</span></summary>
+          <ul>{p.products.map((line) => <li key={line}>{line}</li>)}</ul>
+        </details>
+      ),
+  },
+  { key: "lastOrder", label: "Last order", sort: "lastOrderDay", on: true, has: "orders", teamOnly: true, cell: (p) => <LastOrder day={p.lastOrderDay} /> },
   { key: "owner", label: "Account owner", sort: "owner", on: false, has: "owner", teamOnly: true, cell: (p) => p.owner },
   { key: "activity", label: "Last activity", sort: "lastActivity", on: false, has: "activity", teamOnly: true, cell: (p) => p.lastActivity },
 ];

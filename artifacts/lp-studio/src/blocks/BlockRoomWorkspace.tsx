@@ -1337,6 +1337,7 @@ const CSS = `
 .prw-sc-hd{display:flex;align-items:flex-end;gap:18px}
 .prw-sc-picked{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:-8px 0 12px;font-size:12.5px;color:var(--body);min-height:32px}
 .prw-sc-picked>span:first-child{margin-right:auto;font-weight:600;color:var(--ink)}
+.prw-sc-late{color:var(--red);font-weight:600}
 .prw-sc-kit{margin:0 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:13px;color:var(--body)}
 .prw-sc-kit.warn{border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
 .prw-sc-kit p{margin:0 0 4px}

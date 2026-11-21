@@ -179,13 +179,20 @@ export async function upsertPractices(page: { id: number; tenantId: number }, ro
           ...(r.sourceStatus ? { sourceStatus: r.sourceStatus } : {}),
           ...(r.owner ? { owner: r.owner } : {}),
           ...(r.lastActivity ? { lastActivity: r.lastActivity } : {}),
+          // Orders: a list with these columns says what is true now, including "none" and "unknown".
+          ...(r.products !== undefined ? { products: r.products.join(", ") } : {}),
+          ...(r.lastOrderDay !== undefined ? { lastOrderDay: r.lastOrderDay } : {}),
+          ...(r.tenthOrderDay !== undefined ? { tenthOrderDay: r.tenthOrderDay } : {}),
+          ...(r.ordersAllTime !== undefined ? { ordersAllTime: r.ordersAllTime } : {}),
+          ...(r.ordersLastMonth !== undefined ? { ordersLastMonth: r.ordersLastMonth } : {}),
+          ...(r.ordersThisMonth !== undefined ? { ordersThisMonth: r.ordersThisMonth } : {}),
           ...(opts.upload ? { keptFields: [...kept] } : {}),
           updatedAt: sql`now()`,
         })
         .where(eq(lpRoomPracticesTable.id, id));
       updated++;
     } else if (!id) {
-      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels, scannerBrand: r.scannerBrand ?? null, contractSigned: r.contractSigned ?? null, sourceStatus: r.sourceStatus ?? null, owner: r.owner ?? null, lastActivity: r.lastActivity ?? null, address: r.address ?? null, zip: r.zip ?? null, officeType: r.officeType ?? null, phone: r.phone ?? null, officeManager: r.officeManager ?? null, ...(opts.upload ? { source: "upload", keptFields: Object.keys(given) } : {}) });
+      inserts.push({ tenantId: page.tenantId, pageId: page.id, externalId: r.externalId, name: r.name, region: r.region, city: r.city, state: r.state, wave: r.wave, stage: r.stage, trainingDate: r.trainingDate, liveDate: r.liveDate, scannerSent: r.scannerSent, scannerActivated: r.scannerActivated, regionalManager: r.regionalManager, scannerCount: r.scannerCount, scannerModels: r.scannerModels, scannerBrand: r.scannerBrand ?? null, contractSigned: r.contractSigned ?? null, sourceStatus: r.sourceStatus ?? null, owner: r.owner ?? null, lastActivity: r.lastActivity ?? null, address: r.address ?? null, zip: r.zip ?? null, officeType: r.officeType ?? null, phone: r.phone ?? null, officeManager: r.officeManager ?? null, products: r.products ? r.products.join(", ") : null, lastOrderDay: r.lastOrderDay ?? null, tenthOrderDay: r.tenthOrderDay ?? null, ordersAllTime: r.ordersAllTime ?? null, ordersLastMonth: r.ordersLastMonth ?? null, ordersThisMonth: r.ordersThisMonth ?? null, ...(opts.upload ? { source: "upload", keptFields: Object.keys(given) } : {}) });
       byName.set(r.name.trim().toLowerCase(), -1);
       if (r.externalId) byExt.set(r.externalId, -1);
       if (opts.upload && practiceNameKey(r.name)) byKey.set(practiceNameKey(r.name), -1);
@@ -327,7 +334,7 @@ export async function syncPracticesFromSheet(pageId: number): Promise<{ ok: bool
     return { ok, note };
   };
   try {
-    const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:AZ20001` : "A1:AZ20001");
+    const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:CZ20001` : "A1:CZ20001");
     const resp = await roomSheetsRequest(settings.tenantId, `/v4/spreadsheets/${sheetId}/values/${range}`);
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");

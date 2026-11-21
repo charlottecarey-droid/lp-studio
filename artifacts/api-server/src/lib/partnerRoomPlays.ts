@@ -27,6 +27,10 @@ export interface PlayPractice {
   /** The practice's training day (YYYY-MM-DD), when the list gives one that reads as a date. */
   trainingDay: string | null;
   kitSent: boolean;
+  /** The product lines it has ordered; null when the list doesn't say. */
+  products: string[] | null;
+  /** The day of its last order (YYYY-MM-DD); null when unknown. */
+  lastOrderDay: string | null;
   wave: string | null;
   lat: number | null;
   lng: number | null;
@@ -242,6 +246,24 @@ export function recommendPlays(input: PlayInput, now: Date = new Date()): Play[]
     if (quiet === null ? d >= 14 || past : quiet >= 21) {
       add({ key: "quiet-customer", title: "Exec engagement has gone quiet: offer a lab tour or vendor day", why: `${quiet === null ? `Nobody at ${input.customer} has signed in to the hub yet` : `Nobody at ${input.customer} has signed in to the hub in ${quiet} days`}. The playbook's play for stalled exec engagement is structured facetime: a lab tour, a vendor day, or the Dandy exec buddy.`, source: "Playbook: when exec engagement stalls", score: 70, action: { kind: "request" } });
     }
+  }
+
+  /* ── What practices order (the report's order columns) ──────────────── */
+  const ordering = practices.filter((p) => p.products && p.products.length > 0);
+  if (ordering.length >= 3) {
+    // The lines the playbook's product-line training is about: a practice ordering restorative work but none of these is the cross-sell.
+    for (const [line, label] of [["Implant", "implants"], ["Full denture", "dentures"], ["Aligner", "aligners"]] as const) {
+      const without = ordering.filter((p) => !p.products!.includes(line) && (line !== "Full denture" || !p.products!.includes("Partial denture")));
+      const withIt = ordering.length - without.length;
+      if (without.length >= 3 && without.length / ordering.length >= 0.3) {
+        add({ key: `cross-sell-${slug(label)}`, title: `Cross-sell ${label} to ${plural(without.length, "practice")}`, why: `${withIt} of the ${ordering.length} practices with orders on record have ordered ${label}; ${without.length} haven't. Book the product-line training for them and lead with a case from a practice in their own group that has.`, source: "Playbook: product-line expansion training", score: 61 + Math.min(8, without.length), action: { kind: "request" }, practices: without });
+      }
+    }
+  }
+  const quietCut = new Date(now.getTime() - 30 * 86_400_000).toISOString().slice(0, 10);
+  const lapsed = practices.filter((p) => isLive(p) && p.lastOrderDay && p.lastOrderDay <= quietCut);
+  if (lapsed.length > 0) {
+    add({ key: "win-back", title: `Win back ${plural(lapsed.length, "practice")} that stopped ordering`, why: `${plural(lapsed.length, "live practice")} ${lapsed.length === 1 ? "has" : "have"} not ordered in 30 days or more. Call before the habit is gone: ask what changed, and offer a refresher or clinical support.`, source: "Playbook: doctors resist at the chair", score: 88 + Math.min(6, lapsed.length), action: { kind: "none" }, practices: lapsed });
   }
 
   /* ── Keeping the hub itself moving ──────────────────────────────────── */

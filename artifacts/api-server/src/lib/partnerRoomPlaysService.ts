@@ -52,7 +52,7 @@ export async function hubPlays(page: { id: number; tenantId: number }, now: Date
       return {
         id: p.id, name: p.name, stage: p.stage, city: p.city, state: p.state, region: p.region, regionalManager: p.regionalManager, officeType: p.officeType,
         mailable: !!(p.address ?? "").trim() && !!(p.city ?? "").trim() && !!(p.state ?? "").trim() && !!zip5((p.zip ?? "").slice(0, 10)),
-        trainingDay: firstDateIn(p.trainingDate, now), kitSent: !!p.kitSentAt, wave: p.wave, lat: at?.lat ?? null, lng: at?.lng ?? null,
+        trainingDay: firstDateIn(p.trainingDate, now), kitSent: !!p.kitSentAt, products: p.products == null ? null : p.products.split(", ").filter(Boolean), lastOrderDay: p.lastOrderDay, wave: p.wave, lat: at?.lat ?? null, lng: at?.lng ?? null,
       };
     }),
     day: stage.day,

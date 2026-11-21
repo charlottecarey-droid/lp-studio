@@ -77,3 +77,20 @@ describe("sharing the map", () => {
     expect(roomSharesMap(null)).toBe(false);
   });
 });
+
+describe("order columns on the locations report", () => {
+  const now = new Date("2026-11-20T12:00:00Z");
+  const base = { "account name": "Gold Hill Dentistry", status: "Ramped" };
+
+  it("reads which product lines a practice has ordered, its last order and its tenth", () => {
+    const row = parsePracticeRow({ ...base, "01st simple restorative order placed": "9/13/2021", "01st implant order placed": "3/9/2022", "01st aligner order placed": "", "01st full denture order placed": "", "days since non canceled orders(for flow)": "3", "date of tenth order delivered": "4/2/2026, 8:00 PM", "# orders (all-time)": "15", "# orders (this month)": "" }, now)!;
+    expect(row).toMatchObject({ products: ["Simple restorative", "Implant"], lastOrderDay: "2026-11-17", tenthOrderDay: "2026-04-02", ordersAllTime: 15, ordersThisMonth: null });
+  });
+
+  it("says 'none yet' when the columns are there and blank, and nothing at all when they aren't", () => {
+    expect(parsePracticeRow({ ...base, "01st implant order placed": "", "days since non canceled orders(for flow)": "" }, now)).toMatchObject({ products: [], lastOrderDay: null });
+    const plain = parsePracticeRow(base, now)!;
+    expect("products" in plain).toBe(false);
+    expect("lastOrderDay" in plain).toBe(false);
+  });
+});

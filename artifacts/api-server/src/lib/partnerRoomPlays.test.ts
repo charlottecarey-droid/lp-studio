@@ -3,7 +3,7 @@ import { activePlays, clusterPractices, milesBetween, playRequest, recommendPlay
 
 const now = new Date("2026-11-20T15:00:00Z");
 let seq = 0;
-const practice = (over: Partial<PlayPractice> = {}): PlayPractice => ({ id: ++seq, name: `Practice ${seq}`, stage: "not_started", city: "Charlotte", state: "NC", region: "NC", regionalManager: null, officeType: "General", mailable: true, trainingDay: null, kitSent: true, wave: null, lat: 35.22, lng: -80.84, ...over });
+const practice = (over: Partial<PlayPractice> = {}): PlayPractice => ({ id: ++seq, name: `Practice ${seq}`, stage: "not_started", city: "Charlotte", state: "NC", region: "NC", regionalManager: null, officeType: "General", mailable: true, trainingDay: null, kitSent: true, products: null, lastOrderDay: null, wave: null, lat: 35.22, lng: -80.84, ...over });
 const input = (over: Partial<PlayInput> = {}): PlayInput => ({ customer: "Southeast", practices: [], day: 40, stage: "rollout", noDirectOutreach: false, trend: [], published: true, lastCustomerVisit: now, lastWin: now, openCustomerSteps: 0, waves: [], ...over });
 const keys = (i: PlayInput) => recommendPlays(i, now).map((p) => p.key);
 const find = (i: PlayInput, key: string) => recommendPlays(i, now).find((p) => p.key === key);
@@ -105,6 +105,23 @@ describe("when things stall", () => {
     expect(keys(input({ practices: charlotte(5), stage: "expansion", waves: [{ name: "Wave 1", total: 10, live: 9, target: "2026-12-01" }, { name: "Wave 2", total: 12, live: 0, target: "" }] }))).toContain("next-wave-wave-2");
     expect(find(input({ practices: [...charlotte(6), ...charlotte(2, { officeType: "Pediatric" })] }), "rescope")!.title).toBe("Agree what to do with 2 pediatric or specialty offices");
     expect(keys(input({ practices: [...charlotte(4), ...charlotte(2, { lat: null, lng: null })] }))).toContain("data-addresses");
+  });
+});
+
+describe("what practices order", () => {
+  it("suggests the product lines most practices haven't tried, and winning back the ones that went quiet", () => {
+    const list = [
+      ...charlotte(4, { stage: "live", products: ["Simple restorative", "Complex restorative"], lastOrderDay: "2026-11-18" }),
+      ...charlotte(2, { stage: "live", products: ["Simple restorative", "Implant", "Full denture", "Aligner"], lastOrderDay: "2026-11-19" }),
+      practice({ stage: "live", products: ["Simple restorative"], lastOrderDay: "2026-09-30" }),
+      practice({ stage: "live", products: [] }),
+    ];
+    const got = keys(input({ practices: list }));
+    expect(got).toEqual(expect.arrayContaining(["cross-sell-implants", "cross-sell-dentures", "cross-sell-aligners", "win-back"]));
+    expect(find(input({ practices: list }), "cross-sell-implants")!.why).toContain("2 of the 7 practices with orders on record have ordered implants; 5 haven't");
+    expect(find(input({ practices: list }), "win-back")!.title).toBe("Win back 1 practice that stopped ordering");
+    // No order columns in the list: no order plays.
+    expect(keys(input({ practices: charlotte(6, { stage: "live" }) })).filter((k) => k.startsWith("cross-sell") || k === "win-back")).toEqual([]);
   });
 });
 

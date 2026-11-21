@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { timelineWaves, waveKey } from "./RoomTimeline";
 import { partnerSince } from "../BlockRoomWorkspace";
+import { daysAgoLabel } from "./RoomScorecard";
 import { hubStageText } from "../../pages/sales/sales-partner-hubs-shared";
 
 describe("post-rollout timeline", () => {
@@ -34,5 +35,14 @@ describe("post-rollout timeline", () => {
     expect(hubStageText({ day: null, practices: null })).toBe("Not started");
     expect(hubStageText({ day: 120, stage: "expansion", practices: { total: 60, live: 28 } })).toBe("28 of 60 live");
     expect(hubStageText({ day: 120, stage: "expansion", practices: null })).toBe("Expansion");
+  });
+
+  it("says how long since a practice last ordered", () => {
+    const now = new Date(2026, 10, 20);
+    expect(daysAgoLabel("2026-11-20", now)).toEqual({ text: "today", days: 0 });
+    expect(daysAgoLabel("2026-11-17", now)).toEqual({ text: "3 days ago", days: 3 });
+    expect(daysAgoLabel("2026-10-09", now)).toEqual({ text: "6 weeks ago", days: 42 });
+    expect(daysAgoLabel("2026-05-20", now)!.text).toBe("6 months ago");
+    expect(daysAgoLabel(null, now)).toBeNull();
   });
 });

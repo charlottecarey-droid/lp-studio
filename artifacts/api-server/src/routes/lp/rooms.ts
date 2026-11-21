@@ -785,6 +785,8 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       officeManager: lpRoomPracticesTable.officeManager,
       officeType: lpRoomPracticesTable.officeType,
       kitSentAt: lpRoomPracticesTable.kitSentAt,
+      products: sql`COALESCE(array_length(string_to_array(NULLIF(${lpRoomPracticesTable.products}, ''), ', '), 1), 0)`,
+      lastOrderDay: lpRoomPracticesTable.lastOrderDay,
       doctors: sql`(SELECT COUNT(*) FROM lp_room_doctors d WHERE d.practice_id = ${lpRoomPracticesTable.id})`,
       scannerCount: lpRoomPracticesTable.scannerCount,
       scannerBrand: lpRoomPracticesTable.scannerBrand,
@@ -819,7 +821,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const doctorsByPractice = new Map<number, { name: string; role: string | null }[]>();
     for (const d of docs) if (d.practiceId) doctorsByPractice.set(d.practiceId, [...(doctorsByPractice.get(d.practiceId) ?? []), { name: d.name, role: d.role }]);
     const [extra] = await db
-      .select({ address: sql<boolean>`bool_or(${lpRoomPracticesTable.address} IS NOT NULL)`, office: sql<boolean>`bool_or(${lpRoomPracticesTable.officeManager} IS NOT NULL)`, officeType: sql<boolean>`bool_or(${lpRoomPracticesTable.officeType} IS NOT NULL)`, kit: sql<boolean>`bool_or(${lpRoomPracticesTable.kitSentAt} IS NOT NULL)` })
+      .select({ address: sql<boolean>`bool_or(${lpRoomPracticesTable.address} IS NOT NULL)`, office: sql<boolean>`bool_or(${lpRoomPracticesTable.officeManager} IS NOT NULL)`, officeType: sql<boolean>`bool_or(${lpRoomPracticesTable.officeType} IS NOT NULL)`, kit: sql<boolean>`bool_or(${lpRoomPracticesTable.kitSentAt} IS NOT NULL)`, products: sql<boolean>`bool_or(${lpRoomPracticesTable.products} IS NOT NULL)`, orders: sql<boolean>`bool_or(${lpRoomPracticesTable.lastOrderDay} IS NOT NULL)` })
       .from(lpRoomPracticesTable)
       .where(eq(lpRoomPracticesTable.pageId, page.id));
     const [anyDoctor] = await db.select({ id: lpRoomDoctorsTable.id }).from(lpRoomDoctorsTable).where(eq(lpRoomDoctorsTable.pageId, page.id)).limit(1);
@@ -828,12 +830,14 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       page: pageNo,
       pageSize: 50,
       // The account owner and last sales activity are ours: only the team's own view gets them.
-      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, officeType: !!extra?.officeType, kit: !!viewer.team && !!extra?.kit, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
+      columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, officeType: !!extra?.officeType, kit: !!viewer.team && !!extra?.kit, products: !!viewer.team && !!extra?.products, orders: !!viewer.team && !!extra?.orders, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
       rows: rows.map((p) => ({
         id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels,
         scannerBrand: p.scannerBrand, contractSigned: p.contractSigned,
         address: p.address, zip: p.zip, officeManager: p.officeManager, officeType: p.officeType, phone: p.phone,
         ...(viewer.team ? { kitSentAt: p.kitSentAt ? p.kitSentAt.toISOString() : null } : {}),
+        // What a practice orders and how recently is ours to see, not the customer's.
+        ...(viewer.team ? { products: p.products == null ? null : p.products.split(", ").filter(Boolean), lastOrderDay: p.lastOrderDay, tenthOrderDay: p.tenthOrderDay } : {}),
         doctors: doctorsByPractice.get(p.id) ?? [],
         ...(viewer.team ? { owner: p.owner, lastActivity: p.lastActivity } : {}),
       })),

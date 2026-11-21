@@ -170,12 +170,16 @@ export interface RoomPractice {
   phone?: string | null;
   /** Team viewers only: when the practice was added to the welcome kit list. */
   kitSentAt?: string | null;
+  /** Team viewers only: the product lines the practice has ordered (null = unknown), the day of its last order and of its tenth. */
+  products?: string[] | null;
+  lastOrderDay?: string | null;
+  tenthOrderDay?: string | null;
   doctors?: { name: string; role: string | null }[];
   /** Team viewers only. */
   owner?: string | null;
   lastActivity?: string | null;
 }
-export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity" | "officeManager" | "doctors" | "officeType" | "kitSentAt";
+export type RoomPracticeSort = "name" | "region" | "wave" | "stage" | "trainingDate" | "liveDate" | "scannerSent" | "scannerActivated" | "regionalManager" | "scannerCount" | "scannerBrand" | "contractSigned" | "state" | "owner" | "lastActivity" | "officeManager" | "doctors" | "officeType" | "kitSentAt" | "products" | "lastOrderDay";
 /** A scorecard tile: one stage, or a group ("trained" includes live; "open" is everything not yet trained). */
 export type RoomPracticeStageFilter = "not_started" | "scheduling" | "training_booked" | "trained" | "live" | "open";
 /** Team only: how the customer's own rosters compare with what Salesforce lists. */
@@ -238,7 +242,7 @@ export interface RoomPracticePage {
   page: number;
   pageSize: number;
   /** Which optional columns this room has any data for. */
-  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; officeType?: boolean; kit?: boolean; doctors?: boolean };
+  columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; officeType?: boolean; kit?: boolean; products?: boolean; orders?: boolean; doctors?: boolean };
   rows: RoomPractice[];
 }
 

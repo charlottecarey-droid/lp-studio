@@ -180,6 +180,13 @@ export const lpRoomPracticesTable = pgTable(
     source: text("source"),
     /** Fields an upload set (["address", "regionalManager", …]): the customer's word wins, so the sheet sync leaves them alone. */
     keptFields: jsonb("kept_fields").$type<string[]>(),
+    /** Orders, from the report the list is synced from. `products` = the product lines it has ordered ("Implant, Aligner"; "" = none yet, null = unknown). Shown to the team only. */
+    products: text("products"),
+    lastOrderDay: text("last_order_day"),
+    tenthOrderDay: text("tenth_order_day"),
+    ordersAllTime: integer("orders_all_time"),
+    ordersLastMonth: integer("orders_last_month"),
+    ordersThisMonth: integer("orders_this_month"),
     /** When the practice was added to the welcome kit list, and by whom. Set once: a kit is never sent twice. */
     kitSentAt: timestamp("kit_sent_at", { withTimezone: true }),
     kitSentBy: text("kit_sent_by"),

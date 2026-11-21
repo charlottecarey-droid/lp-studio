@@ -518,7 +518,30 @@ export interface RoomPracticeInput {
   officeType?: string | null;
   phone?: string | null;
   officeManager?: string | null;
+  /** What the practice orders, when the list carries a first-order date per product line: the lines it has ordered ([] = none yet). Undefined = the list has no such columns, so what is saved stays. */
+  products?: string[];
+  /** The day of its last order (YYYY-MM-DD), worked out from "days since last order". */
+  lastOrderDay?: string | null;
+  /** The day its tenth order was delivered: the practice has ramped. */
+  tenthOrderDay?: string | null;
+  ordersAllTime?: number | null;
+  ordersLastMonth?: number | null;
+  ordersThisMonth?: number | null;
 }
+
+/** The product lines a Salesforce report dates the first order of ("01st Implant Order Placed"), in the order they are shown. */
+export const PRODUCT_LINES: [string, string][] = [
+  ["simple restorative", "Simple restorative"],
+  ["complex restorative", "Complex restorative"],
+  ["removable", "Removable"],
+  ["full denture", "Full denture"],
+  ["partial denture", "Partial denture"],
+  ["implant", "Implant"],
+  ["aligner", "Aligner"],
+  ["surgical guide", "Surgical guide"],
+  ["other", "Other"],
+];
+const productColumn = (line: string) => `01st ${line} order placed`;
 
 const SCANNER_MODEL_COLUMNS: [string, string][] = [["trios 3", "Trios 3"], ["trios 5", "Trios 5"], ["dandy vision", "Dandy Vision"], ["medit", "Medit"], ["itero", "iTero"]];
 
@@ -526,7 +549,7 @@ const SCANNER_MODEL_COLUMNS: [string, string][] = [["trios 3", "Trios 3"], ["tri
 const noneAsBlank = (v: string | null) => (v && /^(none|n\/a|-)$/i.test(v) ? null : v);
 
 /** One practice row from a pasted list or an API body; null when it has no name. */
-export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInput | null {
+export function parsePracticeRow(row: Record<string, unknown>, now: Date = new Date()): RoomPracticeInput | null {
   const get = (...keys: string[]) => {
     for (const k of keys) {
       const v = cleanText(row[k], 160);
@@ -577,7 +600,24 @@ export function parsePracticeRow(row: Record<string, unknown>): RoomPracticeInpu
     officeType: get("officeType", "office_type", "office type", "practice type", "location type"),
     phone: get("phone", "phone number", "office phone"),
     officeManager: get("officeManager", "office_manager", "office manager", "practice manager"),
+    // Orders, when the list is a report that carries them. A column that isn't there says nothing; one that is there and blank says "none".
+    ...(PRODUCT_LINES.some(([line]) => productColumn(line) in row) ? { products: PRODUCT_LINES.filter(([line]) => get(productColumn(line))).map(([, label]) => label) } : {}),
+    ...(daysSinceKey(row) ? { lastOrderDay: dayAgo(get(daysSinceKey(row)!), now) } : {}),
+    ...("date of tenth order delivered" in row ? { tenthOrderDay: firstDateIn(get("date of tenth order delivered"), now) } : {}),
+    ...("# orders (all-time)" in row ? { ordersAllTime: wholeNumber(get("# orders (all-time)")) } : {}),
+    ...("# orders (last month)" in row ? { ordersLastMonth: wholeNumber(get("# orders (last month)")) } : {}),
+    ...("# orders (this month)" in row ? { ordersThisMonth: wholeNumber(get("# orders (this month)")) } : {}),
   };
+}
+
+const wholeNumber = (v: string | null) => (v != null && /^\d{1,6}$/.test(v.trim()) ? Number(v.trim()) : null);
+/** The report's "days since last order" column, whatever its exact name ("Days Since Non Canceled Orders(for flow)"). */
+const daysSinceKey = (row: Record<string, unknown>) => Object.keys(row).find((k) => /^days since .*orders?\b/.test(k)) ?? null;
+/** N days before today as YYYY-MM-DD; null when it isn't a number of days. */
+function dayAgo(v: string | null, now: Date): string | null {
+  const n = wholeNumber(v);
+  if (n === null || n > 20_000) return null;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - n)).toISOString().slice(0, 10);
 }
 
 /** Split one CSV line, honouring quotes. */
