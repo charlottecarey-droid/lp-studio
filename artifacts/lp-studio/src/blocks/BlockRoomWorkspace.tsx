@@ -639,6 +639,15 @@ export function roomLinkAsset(l: { title: string; url: string; fileUrl?: string;
  * anything. Mirrors the server's ROOM_UPLOAD_STEP_KEYS.
  */
 export const ROOM_UPLOAD_STEP_KEYS: Record<string, string> = { "brand-guidelines": "Upload brand guidelines" };
+/** Plan steps that also take the customer's logo, as a second upload beside the step's own. */
+export const ROOM_LOGO_STEP_KEYS = new Set(["brand-guidelines"]);
+/** What a logo upload is filed under (the server maps it to the Overview's logo step where the hub has one). Mirrors the server. */
+export const ROOM_LOGO_TASK_KEY = "customer-logo";
+export const ROOM_LOGO_ACCEPT = ".png,.jpg,.jpeg";
+/** Whether the customer has uploaded a logo, from either place it can be done. */
+export function roomLogoUploaded(tasks: Record<string, { done: boolean } | undefined>): boolean {
+  return !!tasks["onboard-logo"]?.done || !!tasks[ROOM_LOGO_TASK_KEY]?.done;
+}
 /** What the customer does to complete a plan step: tick it, upload a file, or nothing (it is ours). */
 export function roomRowAction(row: { key?: string; task?: string; customerAction?: string }): "check" | "upload" | null {
   if (row.customerAction !== "check" && row.customerAction !== "upload") return null;
@@ -3123,6 +3132,10 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail, onGo }: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
+  // The brand step takes the logo too: a picture that becomes the hub's logo as soon as it is uploaded.
+  const takesLogo = ROOM_LOGO_STEP_KEYS.has(row.key);
+  const hasLogo = takesLogo && roomLogoUploaded(snapshot.tasks);
   const done = row.status === "done" && !!row.saved?.done;
   // Once complete, only a known visitor gets the quiet Replace / Undo control.
   if (done && !snapshot.viewer && !isEditor) return null;
@@ -3144,7 +3157,7 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail, onGo }: 
     else void run((s) => s.setTaskDone(row.key, !done));
   };
   // Short labels so every action fits its column; the longer wording is the tooltip.
-  const label = row.action === "upload" ? (done ? "Replace" : "Upload") : done ? "Undo" : "Complete";
+  const label = row.action === "upload" ? (takesLogo ? (done ? "Replace guidelines" : "Upload guidelines") : done ? "Replace" : "Upload") : done ? "Undo" : "Complete";
   const hint = row.action === "upload" ? (done ? "Replace the file" : (row.r.uploadLabel ?? "").trim() || ROOM_UPLOAD_STEP_KEYS[row.key] || "Upload a file") : done ? "Mark as not done" : "Mark complete";
   const shortcut = !done && onGo ? ROOM_STEP_SHORTCUTS[row.key] : undefined;
   return (
@@ -3154,7 +3167,42 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail, onGo }: 
           {shortcut.label}
         </button>
       )}
-      <button type="button" className={`prw-btn${done || shortcut ? "" : " pri"}`} onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
+      {takesLogo && (!done || snapshot.viewer || isEditor) && (
+        <>
+          <button
+            type="button"
+            className={`prw-btn${hasLogo ? "" : " pri"}`}
+            onClick={() => {
+              if (isEditor || busy) return;
+              if (!store || !snapshot.viewer) return onNeedEmail();
+              logoRef.current?.click();
+            }}
+            disabled={busy}
+            title={hasLogo ? "Replace your logo (PNG or JPG)" : "Upload your logo (PNG or JPG). It goes on the hub and on everything we make for you."}
+            aria-label={hasLogo ? "Replace your logo" : "Upload your logo"}
+            data-room-action="logo"
+          >
+            <Upload aria-hidden /> {hasLogo ? "Replace logo" : "Upload logo"}
+          </button>
+          {!isEditor && (
+            <input
+              ref={logoRef}
+              type="file"
+              accept={ROOM_LOGO_ACCEPT}
+              hidden
+              aria-label="Upload your logo"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                if (!/\.(png|jpe?g)$/i.test(file.name)) return setError("Upload your logo as a PNG or JPG.");
+                void run((s) => s.upload(ROOM_LOGO_TASK_KEY, file));
+              }}
+            />
+          )}
+        </>
+      )}
+      <button type="button" className={`prw-btn${done || shortcut || (takesLogo && !hasLogo) ? "" : " pri"}`} onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
         {busy ? <Loader2 className="animate-spin" aria-hidden /> : row.action === "upload" ? <Upload aria-hidden /> : <Check aria-hidden />}
         {busy ? "Saving" : label}
       </button>

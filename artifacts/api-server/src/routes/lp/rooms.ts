@@ -100,6 +100,10 @@ import {
   setRoomCover,
   parseRoomCover,
   roomCoverInfo,
+  roomLogoTask,
+  isLogoImage,
+  ROOM_LOGO_TASK_KEY,
+  ROOM_LOGO_STEP_KEY,
   roomAccountInfo,
   parseRoomAccount,
   parseRoomTeam,
@@ -524,7 +528,8 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
     ]);
     const tasks: Record<string, { done: boolean; at: string; by?: string; fileName?: string }> = {};
     for (const s of states) {
-      if (!page.tasks.has(s.taskKey)) continue;
+      // The logo upload has no step of its own on some hubs, and the hub still shows that it was done.
+      if (!page.tasks.has(s.taskKey) && s.taskKey !== ROOM_LOGO_TASK_KEY) continue;
       tasks[s.taskKey] = { done: true, at: s.completedAt.toISOString(), ...(viewer ? { by: s.completedByName || s.completedByEmail } : {}) };
     }
     if (viewer) {
@@ -636,12 +641,29 @@ async function requireActor(req: Request, res: Response): Promise<{ page: RoomPa
     return null;
   }
   const key = typeof req.body?.taskKey === "string" ? req.body.taskKey : "";
-  const task = page.tasks.get(key) ?? (await syncedMinutesTask(page.id, key));
+  // The action plan's "Upload logo" is the same task as the Overview's logo step, where the hub has one.
+  const task = (key === ROOM_LOGO_TASK_KEY ? roomLogoTask(page.tasks) : null) ?? page.tasks.get(key) ?? (await syncedMinutesTask(page.id, key));
   if (!task) {
     res.status(404).json({ error: "That task isn't on this page any more" });
     return null;
   }
   return { page, viewer, task };
+}
+
+/**
+ * Make an uploaded picture the hub's logo: a copy the hub can show (the
+ * customer's upload itself stays private to the team), set on the page. A JPG
+ * has no see-through background, so it keeps its own colours rather than being
+ * turned into a white block on the cover.
+ */
+async function useAsHubLogo(page: RoomPage, buffer: Buffer, contentType: string): Promise<string | null> {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+  if (!row) return null;
+  const url = `/api/storage${await objectStorage.uploadObjectEntity(buffer, contentType, { tenantId: page.tenantId })}`;
+  const next = setRoomProps(row.blocks, { partnerLogoUrl: url, ...(contentType === "image/jpeg" ? { partnerLogoOriginal: true } : {}) });
+  if (!next) return null;
+  await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date() }).where(eq(lpPagesTable.id, page.id));
+  return url;
 }
 
 async function markDone(page: RoomPage, taskKey: string, viewer: Viewer): Promise<void> {
@@ -714,16 +736,18 @@ router.post("/lp/room/upload", actionLimiter, async (req: Request, res: Response
     await markDone(page, task.key, viewer);
     // A roster (a list with a practice column) is read straight away: doctors are tied to practices, and regionals and addresses fill in.
     const roster = page.isWorkspace ? await applyRoster(page, { id: saved.id, fileName: parsed.fileName }, parsed.buffer).catch((err) => (req.log.warn({ err }, "room roster read failed"), null)) : null;
+    // A picture uploaded as the logo becomes the hub's logo straight away (Settings, Account shows it; the team can swap it there).
+    const logoUrl = page.isWorkspace && (task.key === ROOM_LOGO_STEP_KEY || task.key === ROOM_LOGO_TASK_KEY) && isLogoImage(parsed.contentType) ? await useAsHubLogo(page, parsed.buffer, parsed.contentType).catch((err) => (req.log.warn({ err }, "room logo set failed"), null)) : null;
     const settings = await loadSettings(page.id);
     notifyTeam(
       page,
       settings,
-      "📎 File received",
-      [`*${mrk(viewer.name || viewer.email)}* uploaded *${mrk(parsed.fileName)}* for *${mrk(task.title)}*.`, "Download it from the page's Room panel in LP Studio."],
+      logoUrl ? "🖼️ Logo received" : "📎 File received",
+      [`*${mrk(viewer.name || viewer.email)}* uploaded *${mrk(parsed.fileName)}* for *${mrk(task.title)}*.`, logoUrl ? "It is now the hub's logo. Change it or its size under Settings, Account." : "Download it from the page's Room panel in LP Studio."],
       await roomPageUrl(req, page, req.body?.path),
     );
     // The customer hears what to fix in the file; which practices Salesforce is missing is for the team.
-    res.json({ ok: true, fileName: parsed.fileName, ...(roster ? { roster: { practices: roster.practices, doctors: roster.doctors, issues: roster.issues } } : {}) });
+    res.json({ ok: true, fileName: parsed.fileName, ...(logoUrl ? { logoUrl } : {}), ...(roster ? { roster: { practices: roster.practices, doctors: roster.doctors, issues: roster.issues } } : {}) });
   } catch (err) {
     req.log.error({ err }, "room upload failed");
     res.status(500).json({ error: "Upload failed. Please try again." });

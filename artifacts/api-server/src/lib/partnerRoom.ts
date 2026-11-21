@@ -247,6 +247,26 @@ export function pageIsRoom(blocks: unknown): boolean {
  */
 export const ROOM_UPLOAD_STEP_KEYS = new Set(["brand-guidelines"]);
 
+/**
+ * The customer's logo. A hub's Overview checklist usually has an "Upload your
+ * logo" step (`onboard-logo`); the action plan's brand step offers the same
+ * upload under `customer-logo`, which stands in for that step (or is filed on
+ * its own on a hub with no such step, without joining the hub's task list). An image uploaded for either becomes
+ * the hub's logo.
+ */
+export const ROOM_LOGO_TASK_KEY = "customer-logo";
+export const ROOM_LOGO_STEP_KEY = "onboard-logo";
+/** The task a logo upload is filed under on this hub. */
+export function roomLogoTask(tasks: Map<string, RoomTask>): RoomTask {
+  const step = tasks.get(ROOM_LOGO_STEP_KEY);
+  // No such step on this hub: the upload still has somewhere to go, without adding a step to anyone's list.
+  return step?.action === "upload" ? step : { key: ROOM_LOGO_TASK_KEY, title: "Upload your logo", action: "upload" };
+}
+/** A file that can be shown as a logo (a picture, not a PDF or a zip of brand files). */
+export function isLogoImage(contentType: string): boolean {
+  return contentType === "image/png" || contentType === "image/jpeg";
+}
+
 export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
   const out = new Map<string, RoomTask>();
   if (!Array.isArray(blocks)) return out;

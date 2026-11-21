@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRoomAccount, parseRoomTeam, roomAccountInfo, setRoomProps } from "./partnerRoom";
+import { ROOM_LOGO_TASK_KEY, extractRoomTasks, isLogoImage, parseRoomAccount, parseRoomTeam, roomAccountInfo, roomLogoTask, setRoomProps } from "./partnerRoom";
 
 const blocks = [
   { type: "hero", props: { headline: "Hi" } },
@@ -45,5 +45,28 @@ describe("hub team from the pop-up", () => {
 
   it("reads the stored team back", () => {
     expect(roomAccountInfo(blocks)!.team).toEqual({ teamNote: "", team: [{ title: "Our team", members: [{ name: "Sam Lee", role: "AE" }] }] });
+  });
+});
+
+describe("the customer's logo", () => {
+  const hub = (steps: unknown[]) => [{ type: "room-workspace", props: { onboarding: { steps }, planGroups: [] } }];
+
+  it("files a logo under the Overview's logo step where the hub has one", () => {
+    const tasks = extractRoomTasks(hub([{ key: "onboard-logo", title: "Upload your logo", action: "upload" }]));
+    expect(tasks.has(ROOM_LOGO_TASK_KEY)).toBe(false);
+    expect(roomLogoTask(tasks)).toMatchObject({ key: "onboard-logo", action: "upload" });
+  });
+
+  it("still takes a logo on a hub with no logo step, without adding to its task list", () => {
+    const tasks = extractRoomTasks(hub([{ key: "onboard-team", title: "Add your team", action: "team" }]));
+    expect(tasks.has(ROOM_LOGO_TASK_KEY)).toBe(false);
+    expect(roomLogoTask(tasks)).toEqual({ key: ROOM_LOGO_TASK_KEY, title: "Upload your logo", action: "upload" });
+  });
+
+  it("only treats pictures as a logo", () => {
+    expect(isLogoImage("image/png")).toBe(true);
+    expect(isLogoImage("image/jpeg")).toBe(true);
+    expect(isLogoImage("application/pdf")).toBe(false);
+    expect(isLogoImage("application/zip")).toBe(false);
   });
 });

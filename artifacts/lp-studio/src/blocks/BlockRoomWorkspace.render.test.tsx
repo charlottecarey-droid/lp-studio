@@ -53,6 +53,8 @@ import {
   targetHasPassed,
   visibleModules,
   type RoomWorkspaceBlockProps,
+  ROOM_LOGO_STEP_KEYS,
+  roomLogoUploaded,
 } from "./BlockRoomWorkspace";
 
 const BRAND = { ...DEFAULT_BRAND, brandName: "Northwind" };
@@ -738,5 +740,14 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(empty).toContain('data-room-team-step="add"');
     // The invite button is for the account team on the live hub: a visitor's page has none.
     expect(render()).not.toContain("data-room-invite");
+  });
+});
+
+describe("the customer's logo on the action plan", () => {
+  it("knows a logo was uploaded from either place", () => {
+    expect(roomLogoUploaded({})).toBe(false);
+    expect(roomLogoUploaded({ "onboard-logo": { done: true } })).toBe(true);
+    expect(roomLogoUploaded({ "customer-logo": { done: true } })).toBe(true);
+    expect(ROOM_LOGO_STEP_KEYS.has("brand-guidelines")).toBe(true);
   });
 });
