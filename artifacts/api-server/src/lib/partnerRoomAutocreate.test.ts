@@ -7,7 +7,7 @@ vi.mock("./tenantHosts", () => ({ WILDCARD_BASE_HOSTS: ["app.example.com", "exam
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 vi.mock("./partnerRoomService", () => ({ SHEET_ID_RE: /^[A-Za-z0-9_-]{20,}$/, SHEET_TAB_RE: /^[A-Za-z0-9 _&().,'-]{1,80}$/, syncPracticesFromSheet: vi.fn(async () => ({ ok: true, note: "" })) }));
 
-import { ROOM_LOG_HEADERS, accountKey, cleanAccountName, isSfdcFieldName, roomBlocksForAccount, roomCreatedEmail, roomLogRow, roomSlugFor, signedAccountsFromSheet } from "./partnerRoomAutocreate";
+import { ROOM_LOG_HEADERS, accountKey, cleanAccountName, hubBlocksFromTemplate, isSfdcFieldName, roomBlocksForAccount, roomCreatedEmail, roomLogRow, roomSlugFor, signedAccountsFromSheet } from "./partnerRoomAutocreate";
 import { resolveRoomBlocks, roomKitInfo } from "./partnerRoom";
 
 describe("signed accounts from the sheet", () => {
@@ -49,6 +49,54 @@ describe("signed accounts from the sheet", () => {
     expect(withIds.map((a) => [a.name, a.sfdcId])).toEqual([["MB2 Dental", "0015d000041HyXrAAK"], ["Heartland Dental", null]]);
     expect(signedAccountsFromSheet([["Owner", "Stage"], ["a", "b"]])).toBeNull();
     expect(signedAccountsFromSheet(null)).toBeNull();
+  });
+});
+
+describe("a hub made from the workspace's own template", () => {
+  const template = [
+    { id: "hero", type: "hub-hero", props: { headline: "x" } },
+    {
+      id: "w1",
+      type: "room-workspace",
+      props: {
+        partnerName: "MB2 Dental", partnerShort: "MB2", headline: "{{account}} × Dandy", kickoffDate: "2026-10-25", stage: "expansion", stageSince: "2026-11-01", waves: [{ key: "1", name: "Wave 1" }], requireEmail: false,
+        planGroups: [{ title: "Our phase", rows: [{ key: "a", task: "Our own step", status: "done", target: "2026-11-03" }, { key: "b", task: "Another", status: "blocking", target: "Week 2" }] }],
+        onboarding: { steps: [{ key: "onboard-logo", title: "Upload your logo", done: true }] },
+        calendar: { events: [{ key: "k", date: "2026-11-03", title: "Kickoff" }] },
+        meetings: { items: [{ key: "m", date: "2026-11-03", title: "Sync" }] },
+        assets: [{ key: "dandy-logos", kind: "link", title: "Dandy logos", externalUrl: "" }, { key: "custom", kind: "text", title: "Our note", body: "Hello" }],
+        links: [],
+      },
+    },
+  ];
+
+  it("copies the template's wording and sections, with this account's name and nothing left over from the page it was saved from", () => {
+    const out = hubBlocksFromTemplate(template, "Southeast Dental Partners") as { type: string; props: Record<string, any> }[];
+    const room = out.find((b) => b.type === "room-workspace")!.props;
+    expect(room.partnerName).toBe("Southeast Dental Partners");
+    expect(room.partnerShort).toBe("");
+    expect(room.headline).toBe("{{account}} × Dandy");
+    for (const k of ["kickoffDate", "stage", "stageSince", "waves"]) expect(room[k]).toBeUndefined();
+    expect(room.planGroups[0].rows).toEqual([{ key: "a", task: "Our own step", status: "not-started" }, { key: "b", task: "Another", status: "not-started", target: "Week 2" }]);
+    expect(room.onboarding.steps[0].done).toBe(false);
+    expect(room.calendar.events).toEqual([]);
+    expect(room.meetings.items).toEqual([]);
+    expect(room.requireEmail).toBe(false); // the template's own choice is kept
+    expect(out[0]).toEqual(template[0]);
+    // The template itself is untouched.
+    expect((template[1].props as any).planGroups[0].rows[0].status).toBe("done");
+  });
+
+  it("is what a new hub starts from when given, with the workspace's files and links and the practice site added as usual", () => {
+    const blocks = roomBlocksForAccount("Southeast Dental Partners", "southeast-hub", [{ assetKey: "dandy-logos", fileUrl: "https://drive.example/logos" }], "https://partners.example.com/southeast-practices", template);
+    const room = (blocks as { type: string; props: Record<string, any> }[]).find((b) => b.type === "room-workspace")!.props;
+    expect(room.planGroups[0].rows.map((r: any) => r.task)).toEqual(["Our own step", "Another"]);
+    expect(room.assets.find((a: any) => a.key === "dandy-logos").externalUrl).toBe("https://drive.example/logos");
+    expect(room.assets.find((a: any) => a.key === "custom").body).toBe("Hello");
+    expect(JSON.stringify(room.links)).toContain("https://partners.example.com/southeast-practices");
+    // With no template, the built-in one is used as before.
+    const builtIn = (roomBlocksForAccount("Southeast Dental Partners", "southeast-hub", []) as { type: string; props: Record<string, any> }[]).find((b) => b.type === "room-workspace")!.props;
+    expect(builtIn.planGroups.length).toBe(5);
   });
 });
 

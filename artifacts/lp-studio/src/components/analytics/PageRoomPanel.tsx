@@ -1347,7 +1347,7 @@ export function AutomaticRoomsSection() {
     queryFn: async () => {
       const r = await fetch("/api/lp/room-autocreate");
       if (!r.ok) throw new Error("autocreate");
-      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; alertOwner?: boolean; alertEmails?: string[]; logEnabled?: boolean; logSheetId?: string | null; logTab?: string | null; kitSheetId?: string | null; kitTab?: string | null; asanaProjectGid?: string | null; asanaAssigneeGid?: string | null; sfdcField?: string | null; syncedAt: string | null; note: string | null; shareWith?: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
+      return (await r.json()) as { enabled: boolean; sheetId: string | null; sheetTab: string | null; practicesTab: string | null; alertOwner?: boolean; alertEmails?: string[]; logEnabled?: boolean; logSheetId?: string | null; logTab?: string | null; kitSheetId?: string | null; kitTab?: string | null; asanaProjectGid?: string | null; asanaAssigneeGid?: string | null; hubTemplate?: { id: number; label: string } | null; sfdcField?: string | null; syncedAt: string | null; note: string | null; shareWith?: string | null; accounts: { key: string; name: string; signedDate: string | null; owner: string | null; sfdcId?: string | null; pageId: number | null }[] };
     },
   });
   const [sheet, setSheet] = useState("");
@@ -1512,6 +1512,17 @@ export function AutomaticRoomsSection() {
             <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Welcome kit sheet link</span><Input value={kitSheet} onChange={(e) => setKitSheet(e.target.value)} aria-label="Welcome kit sheet" /></label>
             <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Welcome kit tab</span><Input value={kitTab} onChange={(e) => setKitTab(e.target.value)} aria-label="Welcome kit tab" /></label>
           </div>
+        </div>
+        <div className="space-y-1.5" data-room-hub-template>
+          <p className="text-xs font-medium text-muted-foreground">Template for new hubs</p>
+          {data?.hubTemplate ? (
+            <p className="text-sm">
+              <span className="font-medium">{data.hubTemplate.label}</span>{" "}
+              <a className="underline" href={`/builder/${data.hubTemplate.id}`}>Edit the template</a>
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">The built-in template. To use your own, open a hub in the builder and save it as a template.</p>
+          )}
         </div>
         <div className="space-y-1.5" data-room-asana-settings>
           <p className="text-xs font-medium text-muted-foreground">Asana (marketing requests and welcome kits, every hub)</p>

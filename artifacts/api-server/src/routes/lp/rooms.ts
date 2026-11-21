@@ -55,7 +55,7 @@ import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
 import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
 import { ensurePracticeSite, setRoomPracticeLink } from "../../lib/partnerRoomPracticeSite";
-import { accountPeople, publicPageUrl, createRoomForAccount, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { accountPeople, publicPageUrl, createRoomForAccount, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { unlistedPeople } from "../../lib/partnerRoomTeam";
 import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
@@ -2010,6 +2010,8 @@ router.get("/lp/room-autocreate", async (req: Request, res: Response): Promise<v
       note: cfg?.syncNote ?? null,
       // The address the workbook must be shared with (the workspace's Google service account), when there is one.
       shareWith: await roomSheetsAccount(tenantId),
+      // What a new hub starts as: the workspace's own saved hub template, or the built-in one.
+      hubTemplate: await hubTemplate(tenantId).then((t) => (t ? { id: t.id, label: t.label } : null)).catch(() => null),
       accounts: accounts.map((a) => ({ key: a.accountKey, name: a.accountName, signedDate: a.signedDate, owner: a.owner, sfdcId: a.sfdcAccountId, pageId: a.pageId && a.pageId > 0 ? a.pageId : null })),
     });
   } catch (err) {

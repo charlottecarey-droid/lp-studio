@@ -13,7 +13,7 @@
  * sheet. A room is made once per account (claimed by a unique row, so two app
  * instances reading at the same moment cannot both create it).
  */
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { appUsersTable, db, lpPagesTable, lpRoomPracticesTable, salesAccountsTable, salesContactsTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
 import { sendRoomDigestEmail } from "./notifications";
 import { sfdcService } from "./sfdc-service";
@@ -22,7 +22,7 @@ import { logger } from "./logger";
 import { ROOM_STANDARD_ASSETS, setRoomKitAsset } from "./partnerRoom";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
-import { ensurePracticeSite, type PracticeSite } from "./partnerRoomPracticeSite";
+import { ensurePracticeSite, setRoomPracticeLink, type PracticeSite } from "./partnerRoomPracticeSite";
 import { addTeamPeople, cleanDomain, EMPTY_SETUP_FACTS, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist, type AccountContact, type RoomSetupFacts } from "./partnerRoomTeam";
 import { SHEET_ID_RE, SHEET_TAB_RE, syncPracticesFromSheet } from "./partnerRoomService";
 import { slackService } from "./slack-service";
@@ -74,9 +74,53 @@ export const roomSlugFor = (name: string) => `${accountKey(name).slice(0, 60).re
 /** The blocks of a new room for an account: the template with the name set (its text follows the name), plus the workspace's standard guides. */
 export const DEFAULT_ROOM_COVER = "/room/default-cover.jpg";
 
-export function roomBlocksForAccount(name: string, slug: string, standard: { assetKey: string; fileUrl: string }[], signupUrl = ""): unknown[] {
+/**
+ * A new hub's blocks from the workspace's own saved hub template: a copy with
+ * this account's name, and with everything that belonged to the page it was
+ * saved from cleared (statuses, dates, the stage, meetings and calendar
+ * entries, ticked setup steps). Wording, sections, programs, kit items and
+ * the cover are the template's. Pure.
+ */
+export function hubBlocksFromTemplate(template: unknown[], name: string): unknown[] {
+  const ISO = /^\d{4}-\d{2}-\d{2}$/;
+  return (JSON.parse(JSON.stringify(template)) as { type?: string; props?: Record<string, unknown> }[]).map((b) => {
+    if (b?.type !== "room-workspace") return b;
+    const p = { ...(b.props ?? {}) } as Record<string, any>;
+    for (const k of ["kickoffDate", "stage", "stageSince", "stageExtendUntil", "waves", "timelineView", "nextMilestoneDate", "gated"]) delete p[k];
+    if (Array.isArray(p.planGroups)) {
+      p.planGroups = p.planGroups.map((g: any) => ({
+        ...g,
+        rows: (g.rows ?? []).map((r: any) => {
+          // A date belongs to the customer it was set for; a relative target ("Week 2") is part of the template.
+          const { target, ...rest } = r;
+          return { ...rest, ...(target && !ISO.test(String(target).trim()) ? { target } : {}), status: "not-started" };
+        }),
+      }));
+    }
+    if (p.onboarding && Array.isArray(p.onboarding.steps)) p.onboarding = { ...p.onboarding, steps: p.onboarding.steps.map((st: any) => ({ ...st, done: false })) };
+    if (p.calendar) p.calendar = { ...p.calendar, events: [] };
+    if (p.meetings) p.meetings = { ...p.meetings, items: [] };
+    return { ...b, props: { ...p, partnerName: name, partnerShort: "", requireEmail: p.requireEmail !== false } };
+  });
+}
+
+/** The workspace's own hub template: the newest page saved as a template that is a Partner Hub. Null = none saved, so the built-in one is used. */
+export async function hubTemplate(tenantId: number): Promise<{ id: number; label: string; blocks: unknown[] } | null> {
+  const [row] = await db
+    .select({ id: lpPagesTable.id, title: lpPagesTable.title, label: lpPagesTable.templateLabel, blocks: lpPagesTable.blocks })
+    .from(lpPagesTable)
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, true), sql`${lpPagesTable.blocks} @> '[{"type":"room-workspace"}]'::jsonb`))
+    .orderBy(desc(lpPagesTable.id))
+    .limit(1);
+  return row && Array.isArray(row.blocks) ? { id: row.id, label: (row.label ?? "").trim() || row.title, blocks: row.blocks as unknown[] } : null;
+}
+
+export function roomBlocksForAccount(name: string, slug: string, standard: { assetKey: string; fileUrl: string }[], signupUrl = "", template: unknown[] | null = null): unknown[] {
+  // The workspace's own saved hub template when it has one; otherwise the built-in one.
   // The cover photo is the one on the model room; the "Next up" line on it follows the plan (the first milestone still open).
-  let blocks: unknown[] = buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER, ...(signupUrl ? { signupUrl } : {}) }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "", eyebrow: "Partner Hub", requireEmail: true } } : b));
+  let blocks: unknown[] = template
+    ? (signupUrl ? (setRoomPracticeLink(hubBlocksFromTemplate(template, name), { url: signupUrl, short: signupUrl.replace(/^https?:\/\//, "") }) ?? hubBlocksFromTemplate(template, name)) : hubBlocksFromTemplate(template, name))
+    : buildPartnerWorkspaceBlocks({ slug, partner: "[Partner name]", partnerShort: "[Partner]", heroImageUrl: DEFAULT_ROOM_COVER, ...(signupUrl ? { signupUrl } : {}) }).map((b) => (b.type === "room-workspace" ? { ...b, props: { ...b.props, partnerName: name, partnerShort: "", eyebrow: "Partner Hub", requireEmail: true } } : b));
   for (const spec of ROOM_STANDARD_ASSETS) {
     const file = standard.find((s) => s.assetKey === spec.key);
     const next = file ? setRoomKitAsset(blocks, { key: spec.key, kind: "pdf", title: spec.title, description: spec.description, fileUrl: file.fileUrl }) : null;
@@ -237,7 +281,8 @@ export async function createRoom(tenantId: number, account: SignedAccount, opts:
       return null;
     });
     const siteUrl = site ? await publicPageUrl(tenantId, site.slug).catch(() => "") : "";
-    const blocks = roomBlocksForAccount(account.name, slug, standard, siteUrl);
+    const template = await hubTemplate(tenantId).catch(() => null);
+    const blocks = roomBlocksForAccount(account.name, slug, standard, siteUrl, template?.blocks ?? null);
     const [page] = await db
       .insert(lpPagesTable)
       .values({ tenantId, title: `${account.name} Partner Hub${opts.test ? " (test)" : ""}`, slug, blocks: blocks as never, status: "draft", createdBy: "automatic rooms" })
