@@ -418,6 +418,8 @@ export interface RoomWorkspaceBlockProps {
   requireEmail?: boolean;
   /** Show the Scorecard's map to anyone who opens the hub. Off = the map is for the team's own view only (it shows which offices are not ordering). */
   shareMap?: boolean;
+  /** The photo beside the News Feed highlight on the Overview. Unset = the standard lab photo. */
+  feedPhotoUrl?: string;
   /** Which look the hub wears. Unset = "classic". */
   look?: "classic" | "polished";
   /** Set by the server on what it sends a stranger to a hub that asks for an email: this is the cover, the rest is withheld. */
@@ -892,7 +894,10 @@ export function feedHighlightText(win: { headline?: string | null; body?: string
   return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), max - 30)).replace(/[\s.,;:!?]+$/, "")}…`;
 }
 
-/** The newest News Feed post, shown on the Overview. Opens the feed. Its photo is the post's own, else the hub's cover photo. */
+/** The photo beside the News Feed highlight when the hub sets none. */
+export const ROOM_FEED_PHOTO = "/room/default-feed.jpg";
+
+/** The newest News Feed post, shown on the Overview. Opens the feed. Its photo is the post's own, else the hub's News Feed photo. */
 function FeedHighlight({ wins, photo, onOpen }: { wins: RoomWin[]; photo: string; onOpen: () => void }) {
   const win = wins[0];
   const text = feedHighlightText(win);
@@ -2301,7 +2306,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     ))}
                   </div>
                 )}
-                <FeedHighlight wins={modules.some((m) => m.key === "wins") ? snapshot.wins : []} photo={heroImage} onOpen={() => setView("wins")} />
+                <FeedHighlight wins={modules.some((m) => m.key === "wins") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />
               </>
             )}
 

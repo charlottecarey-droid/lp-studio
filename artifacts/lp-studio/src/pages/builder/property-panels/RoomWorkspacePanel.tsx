@@ -528,6 +528,10 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
           <ThumbButton value={props.heroImageUrl ?? ""} onChange={(url) => update({ heroImageUrl: url })} label="Cover photo" />
           <span className="text-[11px] text-muted-foreground">Cover photo</span>
         </div>
+        <div className="flex items-center gap-2" data-room-feed-photo>
+          <ThumbButton value={props.feedPhotoUrl ?? ""} onChange={(url) => update({ feedPhotoUrl: url })} label="News Feed photo" />
+          <span className="text-[11px] text-muted-foreground">News Feed photo (Overview)</span>
+        </div>
       </SectionBody>
       )}
 
