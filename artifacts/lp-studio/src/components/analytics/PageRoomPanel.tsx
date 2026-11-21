@@ -13,6 +13,8 @@ import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import { RoomCoverSection, type HubCover } from "./RoomCover";
 import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
 import { RoomPlays } from "./RoomPlays";
+import { RoomLinksSection, type HubLink } from "./RoomLinks";
+import { ROOM_OVERVIEW_SECTIONS, type RoomOverviewSection } from "@/blocks/BlockRoomWorkspace";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -36,6 +38,10 @@ interface RoomDetail {
   goals?: HubGoals | null;
   /** The hub's cover text and style as stored on the page (workspace hubs only). */
   cover?: HubCover | null;
+  /** Parts of the hub's Overview that are switched off (workspace hubs only). */
+  overviewHidden?: RoomOverviewSection[] | null;
+  /** The hub's Important links as stored on the page (workspace hubs only). */
+  links?: HubLink[] | null;
   stage?: HubStage | null;
   kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
@@ -123,7 +129,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, onOverview, onLinks, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   const [tab, setTab] = useState<RoomPanelTab>(initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -492,6 +498,17 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           </section>
         )}
 
+        {tab === "kit" && data.isWorkspace && data.links && (
+          <RoomLinksSection
+            pageId={pageId}
+            links={data.links}
+            onSaved={async (l) => {
+              onLinks?.(l);
+              await refresh();
+            }}
+          />
+        )}
+
         {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} onKitLink={onKitLink} />}
 
         {tab === "kit" && data.isWorkspace && <EngagementSection engagement={data.engagement} />}
@@ -570,6 +587,42 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                     await refresh();
                   }}
                 />
+              </Fold>
+            )}
+
+            {data.isWorkspace && data.overviewHidden && (
+              <Fold title="Overview sections" hint={data.overviewHidden.length ? `${data.overviewHidden.length} hidden` : "All shown"} data-room-overview-settings>
+                <p className="text-xs text-muted-foreground">What the customer sees on the hub’s Overview. Changes save straight away.</p>
+                <div className="divide-y rounded-md border">
+                  {ROOM_OVERVIEW_SECTIONS.map((sec) => {
+                    const hidden = data.overviewHidden!.includes(sec.key);
+                    return (
+                      <label key={sec.key} className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm">
+                        <span className="min-w-0">
+                          <span className="font-medium">{sec.label}</span>
+                          <span className="block text-xs text-muted-foreground">{sec.hint}</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={!hidden}
+                          aria-label={`Show ${sec.label} on the Overview`}
+                          data-room-overview-toggle={sec.key}
+                          onChange={async (e) => {
+                            const next = ROOM_OVERVIEW_SECTIONS.map((x) => x.key).filter((k) => (k === sec.key ? !e.target.checked : data.overviewHidden!.includes(k)));
+                            const r = await fetch(`${base}/overview`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hidden: next }) });
+                            const j = (await r.json().catch(() => ({}))) as { hidden?: RoomOverviewSection[]; error?: string };
+                            setError(r.ok ? "" : j.error ?? "Could not save the Overview");
+                            if (r.ok) {
+                              onOverview?.(j.hidden ?? next);
+                              await refresh();
+                            }
+                          }}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
               </Fold>
             )}
 

@@ -236,6 +236,18 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 propsRef.current = next;
                 onChange(next);
               }}
+              onLinks={(links) => {
+                // Links were changed on the saved page: keep the builder's copy the same, or its next save would undo it.
+                const next = { ...propsRef.current, links };
+                propsRef.current = next;
+                onChange(next);
+              }}
+              onOverview={(hiddenOverview) => {
+                // Sections were shown or hidden on the saved page: keep the builder's copy the same, or its next save would undo it.
+                const next = { ...propsRef.current, hiddenOverview };
+                propsRef.current = next;
+                onChange(next);
+              }}
               onCover={(c) => {
                 const next = { ...propsRef.current, headline: c.headline, eyebrow: c.eyebrow, coverStyle: c.coverStyle, coverPhotoScrolls: c.coverPhotoScrolls };
                 propsRef.current = next;

@@ -990,6 +990,89 @@ export function setRoomCover(blocks: unknown, cover: RoomCoverInput): unknown[] 
   return blocks.map((b) => (b === block ? { ...(b as object), props: next } : b));
 }
 
+/* ── Which parts of the Overview a hub shows, set from the team's pop-up ─── */
+
+/** The parts of the Overview a rep can switch off. Mirrors the block's ROOM_OVERVIEW_SECTIONS. */
+export const ROOM_OVERVIEW_SECTIONS = ["progress", "next", "coming", "overdue", "orders", "feed"] as const;
+export type RoomOverviewSection = (typeof ROOM_OVERVIEW_SECTIONS)[number];
+
+/** Keep only known section names, once each, in the standard order. */
+export function parseRoomOverviewHidden(raw: unknown): RoomOverviewSection[] {
+  const asked = new Set(Array.isArray(raw) ? raw : []);
+  return ROOM_OVERVIEW_SECTIONS.filter((k) => asked.has(k));
+}
+
+/** The Overview sections hidden on this hub, or null when the page has no workspace block. */
+export function roomOverviewHidden(blocks: unknown): RoomOverviewSection[] | null {
+  const props = workspaceBlock(blocks)?.props;
+  return props ? parseRoomOverviewHidden(props.hiddenOverview) : null;
+}
+
+/** Replace the hidden Overview sections. Returns new blocks, or null when the page has no workspace block. */
+export function setRoomOverviewHidden(blocks: unknown, hidden: RoomOverviewSection[]): unknown[] | null {
+  const block = workspaceBlock(blocks);
+  if (!block || !Array.isArray(blocks)) return null;
+  const next = { ...(block.props ?? {}), hiddenOverview: hidden };
+  return blocks.map((b) => (b === block ? { ...(b as object), props: next } : b));
+}
+
+/* ── The hub's Important links, edited from the team's pop-up ────────────── */
+
+export interface RoomLinkInput {
+  /** Set on links the app files itself (the practice microsite), so it can find them again. */
+  key?: string;
+  title: string;
+  description?: string;
+  url: string;
+  hidden?: boolean;
+}
+export const ROOM_LINKS_MAX = 30;
+
+/** Check a list of links from the pop-up: each needs a name and a web address. */
+export function parseRoomLinks(raw: unknown): { ok: true; links: RoomLinkInput[] } | { ok: false; error: string } {
+  if (!Array.isArray(raw)) return { ok: false, error: "Send the list of links." };
+  if (raw.length > ROOM_LINKS_MAX) return { ok: false, error: `Keep it to ${ROOM_LINKS_MAX} links.` };
+  const links: RoomLinkInput[] = [];
+  for (const item of raw) {
+    const r = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const title = coverText(r.title);
+    const description = coverText(r.description);
+    let url = typeof r.url === "string" ? r.url.trim() : "";
+    // "drive.google.com/…" pasted without the scheme is still a web address.
+    if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `https://${url}`;
+    if (!title) return { ok: false, error: "Give each link a name." };
+    if (title.length > 120) return { ok: false, error: "Keep link names under 120 characters." };
+    if (description.length > 200) return { ok: false, error: "Keep link descriptions under 200 characters." };
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(url);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || !/^https?:$/.test(parsed.protocol) || !parsed.hostname.includes(".") || url.length > 2000) return { ok: false, error: `“${title}” needs a web address that starts with https://` };
+    links.push({ ...(typeof r.key === "string" && r.key.trim() ? { key: r.key.trim().slice(0, 80) } : {}), title, ...(description ? { description } : {}), url, ...(r.hidden === true ? { hidden: true } : {}) });
+  }
+  return { ok: true, links };
+}
+
+/** The hub's links as stored, or null when the page has no workspace block. */
+export function roomLinksInfo(blocks: unknown): RoomLinkInput[] | null {
+  const props = workspaceBlock(blocks)?.props;
+  if (!props) return null;
+  const stored = Array.isArray(props.links) ? (props.links as Record<string, unknown>[]) : [];
+  return stored
+    .filter((l) => l && typeof l === "object")
+    .map((l) => ({ ...(typeof l.key === "string" && l.key ? { key: l.key } : {}), title: coverText(l.title), ...(coverText(l.description) ? { description: coverText(l.description) } : {}), url: typeof l.url === "string" ? l.url : "", ...(l.hidden === true ? { hidden: true } : {}) }));
+}
+
+/** Replace the hub's links. Returns new blocks, or null when the page has no workspace block. */
+export function setRoomLinks(blocks: unknown, links: RoomLinkInput[]): unknown[] | null {
+  const block = workspaceBlock(blocks);
+  if (!block || !Array.isArray(blocks)) return null;
+  const next = { ...(block.props ?? {}), links };
+  return blocks.map((b) => (b === block ? { ...(b as object), props: next } : b));
+}
+
 /** The launch-kit files that are the same for every customer. Uploaded once per workspace. */
 export const ROOM_STANDARD_ASSETS: { key: string; title: string; description: string }[] = [
   { key: "practice-welcome-guide", title: "Practice Welcome Guide", description: "What a practice can expect: training, first cases and who to call" },

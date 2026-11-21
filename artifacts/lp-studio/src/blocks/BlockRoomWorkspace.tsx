@@ -55,6 +55,17 @@ import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type 
  * scroll-animated page.
  * -------------------------------------------------------------------------- */
 
+/** The parts of the Overview a rep can show or hide for a hub. Mirrors the server's ROOM_OVERVIEW_SECTIONS. */
+export type RoomOverviewSection = "progress" | "next" | "coming" | "overdue" | "orders" | "feed";
+export const ROOM_OVERVIEW_SECTIONS: { key: RoomOverviewSection; label: string; hint: string }[] = [
+  { key: "progress", label: "Progress", hint: "The timeline at the top" },
+  { key: "next", label: "Your next steps", hint: "What is waiting on the customer" },
+  { key: "coming", label: "Coming up", hint: "The next meetings" },
+  { key: "overdue", label: "Overdue", hint: "Action plan items past their date" },
+  { key: "orders", label: "Orders at a glance", hint: "Your team only, after the rollout" },
+  { key: "feed", label: "News Feed highlight", hint: "The latest win" },
+];
+
 export type RoomModuleKey = "overview" | "wins" | "goals" | "plan" | "practices" | "marketing" | "kit" | "calendar" | "meetings" | "requests" | "team";
 export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -455,6 +466,8 @@ export interface RoomWorkspaceBlockProps {
   nextMilestoneLabel?: string;
   nextMilestoneDate?: string;
   hiddenModules?: RoomModuleKey[];
+  /** Parts of the Overview a rep switched off for this hub. Empty = all shown. */
+  hiddenOverview?: RoomOverviewSection[];
   /** The order of the modules in the side menu. Empty = the standard order. The first one shown is the view the hub opens on. */
   moduleOrder?: RoomModuleKey[];
   phases?: RoomPhase[];
@@ -1248,6 +1261,11 @@ const CSS = `
 .prw-tl-top{margin:36px 0 16px}
 .prw-tl-top h3{margin:0 0 4px;font-size:16px;font-weight:600;color:var(--dark)}
 .prw-tl-top p{margin:0;font-size:13.5px;color:var(--body)}
+.prw-tl-top.link{display:block;width:100%;padding:0;border:0;background:none;text-align:left;font:inherit;cursor:pointer}
+.prw-tl-top .go{margin-left:10px;font-size:12.5px;font-weight:500;color:var(--body);opacity:.75;white-space:nowrap}
+.prw-tl-top.link:hover .go,.prw-tl-top.link:focus-visible .go{opacity:1;text-decoration:underline}
+.prw-tl-open{cursor:pointer;border-radius:12px;transition:opacity .15s}
+.prw-tl-open:hover{opacity:.88}
 .prw-tl-hd{display:flex;justify-content:flex-end;margin-bottom:14px}
 .prw-tl-waves{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:12px}
 .prw-tl-wave{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:#fff;min-width:0}
@@ -2186,7 +2204,14 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
           </aside>
 
           <div className="prw-mod" data-room-view={active}>
-            {active === "overview" && (
+            {active === "overview" && (() => {
+              // What a rep switched off on this hub's Overview, and what is left to lay out.
+              const ovHidden = new Set(props.hiddenOverview ?? []);
+              const canScorecard = modules.some((m) => m.key === "practices");
+              const showNext = !ovHidden.has("next");
+              const showComing = !!now && events.upcoming.length > 0 && !ovHidden.has("coming");
+              const showOverdue = blocked.length > 0 && !ovHidden.has("overdue");
+              return (
               <>
                 <div className="prw-hd prw-welcome">
                   <div>
@@ -2200,16 +2225,24 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   )}
                 </div>
-                {expansion && pr.total > 0 && (
-                  <div className="prw-tl-top" data-room-progress-heading>
-                    <h3>Partnership progress</h3>
-                    <p>{progressLine(pr.byStage.live ?? 0, pr.total, noun)}</p>
-                  </div>
+                {expansion && pr.total > 0 && !ovHidden.has("progress") && (
+                  // The top of the Overview opens the Scorecard, where the same numbers are broken down.
+                  canScorecard ? (
+                    <button type="button" className="prw-tl-top link" onClick={() => setView("practices")} data-room-progress-heading data-room-progress-link>
+                      <h3>Partnership progress <span className="go">Open Scorecard →</span></h3>
+                      <p>{progressLine(pr.byStage.live ?? 0, pr.total, noun)}</p>
+                    </button>
+                  ) : (
+                    <div className="prw-tl-top" data-room-progress-heading>
+                      <h3>Partnership progress</h3>
+                      <p>{progressLine(pr.byStage.live ?? 0, pr.total, noun)}</p>
+                    </div>
+                  )
                 )}
-                {expansion && pr.total > 0 && (
-                  <PartnershipTimeline waves={timelineWaves(props.waves, pr.byWave)} total={pr.total} live={pr.byStage.live ?? 0} goal={liveGoal ? { target: liveGoal.targetValue as number, text: liveGoal.target } : null} defaultView={props.timelineView === "waves" ? "waves" : "practices"} noun={noun} fmtDate={(d) => fmtDate(d)} />
+                {expansion && pr.total > 0 && !ovHidden.has("progress") && (
+                  <PartnershipTimeline onOpen={canScorecard ? () => setView("practices") : undefined} waves={timelineWaves(props.waves, pr.byWave)} total={pr.total} live={pr.byStage.live ?? 0} goal={liveGoal ? { target: liveGoal.targetValue as number, text: liveGoal.target } : null} defaultView={props.timelineView === "waves" ? "waves" : "practices"} noun={noun} fmtDate={(d) => fmtDate(d)} />
                 )}
-                {!expansion && phases.length > 0 && (
+                {!expansion && phases.length > 0 && !ovHidden.has("progress") && (
                   <>
                     <div className="prw-track">
                       <i style={{ width: `${pct}%` }} />
@@ -2239,7 +2272,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   </>
                 )}
-                <div className="prw-grid2 prw-sec" style={!(now && events.upcoming.length > 0) && blocked.length === 0 ? { gridTemplateColumns: "1fr" } : undefined}>
+                {(showNext || showComing || showOverdue) && (
+                <div className="prw-grid2 prw-sec" style={!(showNext && (showComing || showOverdue)) ? { gridTemplateColumns: "1fr" } : undefined}>
+                  {showNext && (
                   <div className="prw-card prw-att" data-room-attention>
                     <h3>
                       Your next steps
@@ -2298,7 +2333,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                       );
                     })}
                   </div>
-                  {now && events.upcoming.length > 0 ? (
+                  )}
+                  {showComing ? (
                     <div className="prw-card" data-room-coming-up>
                       <h3>
                         Coming up
@@ -2308,7 +2344,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         <EventRow key={e.key || e.title + e.date} event={e} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
                       ))}
                     </div>
-                  ) : blocked.length > 0 ? (
+                  ) : showOverdue ? (
                     <div className="prw-card" data-room-blocked>
                       <h3>Overdue</h3>
                       {blocked.slice(0, 4).map((x) => (
@@ -2322,7 +2358,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   ) : null}
                 </div>
-                {now && events.upcoming.length > 0 && blocked.length > 0 && (
+                )}
+                {showComing && showOverdue && (
                   <div className="prw-card prw-sec" data-room-blocked>
                     <h3>Overdue</h3>
                     {blocked.slice(0, 4).map((x) => (
@@ -2335,12 +2372,13 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     ))}
                   </div>
                 )}
-                {expansion && !!snapshot.viewer?.team && modules.some((m) => m.key === "practices") && (
+                {expansion && !!snapshot.viewer?.team && canScorecard && !ovHidden.has("orders") && (
                   <OrdersAtAGlance store={store ?? room.reader} viewerKey={snapshot.viewer?.email ?? ""} noun={noun} onOpen={() => setView("practices")} />
                 )}
-                <FeedHighlight wins={modules.some((m) => m.key === "wins") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />
+                <FeedHighlight wins={modules.some((m) => m.key === "wins") && !ovHidden.has("feed") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />
               </>
-            )}
+              );
+            })()}
 
             {active === "calendar" && (
               <>

@@ -97,6 +97,12 @@ import {
   setRoomCover,
   parseRoomCover,
   roomCoverInfo,
+  parseRoomOverviewHidden,
+  parseRoomLinks,
+  roomLinksInfo,
+  setRoomLinks,
+  roomOverviewHidden,
+  setRoomOverviewHidden,
   parseRoomGoals,
   roomGoalsInfo,
   roomPartnerName,
@@ -1513,6 +1519,8 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       goals: page.isWorkspace ? await roomGoalsFor(page.id) : null,
       cover: page.isWorkspace ? await roomCoverFor(page.id) : null,
+      overviewHidden: page.isWorkspace ? await roomOverviewHiddenFor(page.id) : null,
+      links: page.isWorkspace ? await roomLinksFor(page.id) : null,
       stage: page.isWorkspace ? await roomStageFor(page.id) : null,
       calendar: { id: fullSettings?.calendarId ?? null, syncedAt: fullSettings?.calendarSyncedAt?.toISOString() ?? null, note: fullSettings?.calendarSyncNote ?? null, connection: await roomCalendarConnection(fullSettings?.calendarConnectionId ?? null, page.tenantId, req.authUser?.userId ?? null) },
       events: page.isWorkspace
@@ -2406,6 +2414,50 @@ router.put("/lp/partner-rooms/:pageId/cover", async (req: Request, res: Response
   }
 });
 
+/** Save the hub's Important links from the manage pop-up. They live on the page, so only that part of it changes. */
+router.put("/lp/partner-rooms/:pageId/links", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const parsed = parseRoomLinks(req.body?.links);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomLinks(row.blocks, parsed.links) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, links: roomLinksInfo(next) ?? [] });
+  } catch (err) {
+    req.log.error({ err }, "room links save failed");
+    res.status(500).json({ error: "Could not save the links" });
+  }
+});
+
+/** Save which parts of the hub's Overview are hidden. They live on the page, so only that part of it changes. */
+router.put("/lp/partner-rooms/:pageId/overview", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const hidden = parseRoomOverviewHidden(req.body?.hidden);
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomOverviewHidden(row.blocks, hidden) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, hidden: roomOverviewHidden(next) ?? [] });
+  } catch (err) {
+    req.log.error({ err }, "room overview save failed");
+    res.status(500).json({ error: "Could not save the Overview" });
+  }
+});
+
 router.put("/lp/partner-rooms/:pageId/goals", async (req: Request, res: Response): Promise<void> => {
   try {
     const page = await ownedRoomPage(req, res);
@@ -2509,6 +2561,16 @@ async function roomKitFor(pageId: number) {
 async function roomStageFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomStageInfo(row.blocks) : null;
+}
+
+async function roomLinksFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return row ? roomLinksInfo(row.blocks) : null;
+}
+
+async function roomOverviewHiddenFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return row ? roomOverviewHidden(row.blocks) : null;
 }
 
 async function roomCoverFor(pageId: number) {

@@ -73,11 +73,14 @@ export function timelineWaves(defs: TimelineWaveDef[] | undefined, byWave: { wav
 const STATE_LABEL = { done: "Complete", current: "In progress", upcoming: "Upcoming" } as const;
 const pctOf = (n: number, of: number) => (of > 0 ? Math.max(0, Math.min(100, Math.round((n / of) * 100))) : 0);
 
-export function PartnershipTimeline({ waves, total, live, goal, defaultView, noun, fmtDate }: { waves: TimelineWave[]; total: number; live: number; goal: { target: number; text?: string } | null; defaultView: "waves" | "practices"; noun: string; fmtDate: (iso: string) => string }) {
+export function PartnershipTimeline({ waves, total, live, goal, defaultView, noun, fmtDate, onOpen }: { /** Clicking the bars opens the Scorecard. The Waves / Practices switch above them keeps working. */ onOpen?: () => void; waves: TimelineWave[]; total: number; live: number; goal: { target: number; text?: string } | null; defaultView: "waves" | "practices"; noun: string; fmtDate: (iso: string) => string }) {
   const [picked, setPicked] = useState<"waves" | "practices" | null>(null);
   const view = waves.length === 0 ? "practices" : (picked ?? defaultView);
   const goalPct = goal ? pctOf(goal.target, Math.max(total, goal.target)) : 0;
   const scale = Math.max(total, goal?.target ?? 0);
+  const open = onOpen
+    ? { role: "link" as const, tabIndex: 0, "aria-label": "Open the Scorecard", onClick: onOpen, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } } }
+    : {};
   return (
     <div className="prw-tl" data-room-timeline={view}>
       {waves.length > 0 && (
@@ -89,7 +92,7 @@ export function PartnershipTimeline({ waves, total, live, goal, defaultView, nou
         </div>
       )}
       {view === "waves" ? (
-        <div className="prw-tl-waves" style={{ ["--cols" as string]: Math.min(waves.length, 6) }}>
+        <div className={`prw-tl-waves${onOpen ? " prw-tl-open" : ""}`} style={{ ["--cols" as string]: Math.min(waves.length, 6) }} {...open}>
           {waves.map((w) => (
             <div className="prw-tl-wave" key={w.key} data-room-wave={w.state}>
               <div className="d">
@@ -102,7 +105,7 @@ export function PartnershipTimeline({ waves, total, live, goal, defaultView, nou
           ))}
         </div>
       ) : (
-        <div className="prw-tl-all" data-room-timeline-goal={goal ? goal.target : ""}>
+        <div className={`prw-tl-all${onOpen ? " prw-tl-open" : ""}`} data-room-timeline-goal={goal ? goal.target : ""} {...open}>
           <div className="top">
             <b className="prw-num">{live}<i>/{total}</i></b>
             <span>{noun} live</span>

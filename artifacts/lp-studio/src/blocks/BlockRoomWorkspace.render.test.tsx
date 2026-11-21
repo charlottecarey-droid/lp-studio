@@ -59,6 +59,16 @@ describe("room-workspace — registry + default render", () => {
     expect(def?.category).toBe("Full Page Templates");
     expect(JSON.stringify(def?.defaultProps())).not.toMatch(/dandy|mb2|dental|#003a30/i);
   });
+  it("leaves out the Overview sections a rep switched off", () => {
+    const all = render();
+    expect(all).toContain("data-room-attention");
+    expect(all).toContain('class="prw-phases"');
+    const some = render({ hiddenOverview: ["next", "progress"] });
+    expect(some).toContain('data-room-view="overview"');
+    expect(some).toContain("data-room-welcome");
+    expect(some).not.toContain("data-room-attention");
+    expect(some).not.toContain('class="prw-phases"');
+  });
   it("renders the cover with both names, a single h1, the module list and the overview", () => {
     const html = render();
     expect(html).toContain("Acme Group × Northwind Partnership Hub</");
