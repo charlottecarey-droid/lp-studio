@@ -532,13 +532,18 @@ export async function buildRoomDigest(pageId: number, now: Date = new Date()): P
   const [page] = await db.select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, slug: lpPagesTable.slug, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   if (!page || page.tenantId == null) return null;
   const tenantId = page.tenantId;
-  const [settingsRows, tasks, requests, choices, wins, practices, tenantRows, brandRows] = await Promise.all([
+  const [settingsRows, tasks, requests, choices, wins, practices, practiceRows, tenantRows, brandRows] = await Promise.all([
     db.select().from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, pageId)).limit(1),
     db.select().from(lpRoomTaskStateTable).where(eq(lpRoomTaskStateTable.pageId, pageId)),
     db.select().from(lpRoomRequestsTable).where(eq(lpRoomRequestsTable.pageId, pageId)),
     db.select().from(lpRoomChoicesTable).where(eq(lpRoomChoicesTable.pageId, pageId)),
     db.select().from(lpRoomWinsTable).where(eq(lpRoomWinsTable.pageId, pageId)),
     practiceSummary(pageId),
+    db
+      .select({ name: lpRoomPracticesTable.name, region: lpRoomPracticesTable.region, stage: lpRoomPracticesTable.stage, trainingDate: lpRoomPracticesTable.trainingDate, liveDate: lpRoomPracticesTable.liveDate, lastOrderDay: lpRoomPracticesTable.lastOrderDay, tenthOrderDay: lpRoomPracticesTable.tenthOrderDay, ordersAllTime: lpRoomPracticesTable.ordersAllTime, ordersLastMonth: lpRoomPracticesTable.ordersLastMonth, ordersThisMonth: lpRoomPracticesTable.ordersThisMonth, kitSentAt: lpRoomPracticesTable.kitSentAt })
+      .from(lpRoomPracticesTable)
+      .where(eq(lpRoomPracticesTable.pageId, pageId))
+      .limit(5000),
     db.select({ name: tenantsTable.name, domain: tenantsTable.domain, micrositeDomain: tenantsTable.micrositeDomain }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1),
     db.select({ config: lpBrandSettingsTable.config }).from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1),
   ]);
@@ -550,7 +555,7 @@ export async function buildRoomDigest(pageId: number, now: Date = new Date()): P
       requests: requests.map((q) => ({ subject: q.subject, status: q.status, updatedAt: q.updatedAt, createdAt: q.createdAt })),
       choices: choices.map((c) => ({ key: c.choiceKey, value: c.value })),
       wins: wins.map((w) => ({ body: w.body, headline: w.headline, by: w.authorName || (w.authorSide === "team" ? "The team" : "A team member"), likes: likeRows.filter((l) => l.winId === w.id).length, createdAt: w.createdAt })),
-      practices,
+      practices: { total: practices.total, byStage: practices.byStage, rows: practiceRows, trend: practices.trend, byRegion: practices.byRegion, byWave: practices.byWave, scanners: practices.scanners, doctors: practices.doctors },
     },
     now,
   );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deflateRawSync } from "zlib";
-import { collectDigest, digestIsEmpty, digestRolloutDay, isDigestWindow, renderDigestEmail, renderDigestSlack, type DigestState } from "./partnerRoomDigest";
+import { collectDigest, digestDay, digestIsEmpty, digestRolloutDay, isDigestWindow, renderDigestEmail, renderDigestSlack, type DigestPracticeRow, type DigestState } from "./partnerRoomDigest";
 import { readXlsx } from "./xlsxLite";
 import { doctorCountFromUpload, practiceNameKey, practiceNamesFromUpload, reconcilePractices } from "./partnerRoomReconcile";
 
@@ -58,7 +58,10 @@ describe("weekly digest", () => {
   const d = collectDigest(blocks, state, NOW)!;
   it("collects progress, this week's completions, what waits on the customer, blockers and the top recent win", () => {
     expect(d).toMatchObject({ partnerName: "MB2 Dental", day: 44, totalDays: 90, phase: "Momentum", planDone: 2, planTotal: 4, practicesLive: 36, practicesTotal: 122, nextMilestone: "Business Review #2 · Dec 3", newRequests: 1 });
-    expect(d.doneThisWeek).toEqual(["Internal announcement", "Request completed: Extra welcome kits"]);
+    // Small steps are counted, not listed: only named milestones, welcome kits and finished requests are spelled out.
+    expect(d.doneThisWeek).toEqual(["Request completed: Extra welcome kits"]);
+    expect(d.otherDone).toBe(1);
+    expect(d.kind).toBe("rollout");
     expect(d.waitingOnCustomer).toEqual(["Add your team", "Upload your practice list"]);
     expect(d.blocking).toEqual(["Education events booked · Waiting on venue approval"]);
     expect(d.undecided).toEqual(["Press release"]);
@@ -68,8 +71,10 @@ describe("weekly digest", () => {
   });
   it("the customer email carries what they can see and never the blockers; the Slack post carries the blockers", () => {
     const email = renderDigestEmail(d, { roomUrl: "https://partners.example.com/mb2", senderName: "Dandy", brandColor: "#003A30" });
-    expect(email.subject).toBe("MB2 Dental × Dandy: weekly update (4 waiting on you)");
-    expect(email.html).toContain("Done this week");
+    expect(email.subject).toBe("MB2 Dental × Dandy: weekly update · 36 of 122 practices live");
+    expect(email.html).toContain("Rollout");
+    expect(email.html).toContain("<b>36 of 122</b> practices live (30%)");
+    expect(email.html).toContain("1 other step completed");
     expect(email.html).toContain("Upload your practice list");
     expect(email.html).toContain("Decide: Press release");
     expect(email.html).toContain("Review: Square graphic");
@@ -91,6 +96,95 @@ describe("weekly digest", () => {
     expect(digestIsEmpty(quiet)).toBe(true);
     expect(collectDigest([{ type: "hub-plan", props: {} }], state, NOW)).toBeNull();
   });
+  describe("it changes with the partnership", () => {
+    const plan = [
+      {
+        type: "room-workspace",
+        props: {
+          partnerName: "Acme Group",
+          planGroups: [{ title: "P", rows: [
+            { key: "practice-roster", task: "Upload your practice list", customerAction: "upload" },
+            { key: "doctor-roster", task: "Upload your doctor roster", customerAction: "upload" },
+            { key: "accounts-confirmed", task: "Confirm your billing contact", customerAction: "check" },
+            { key: "exec-kickoff", task: "Join the executive kickoff", customerAction: "check" },
+            { key: "internal-announcement", task: "Send the partnership announcement", customerAction: "check" },
+          ] }],
+        },
+      },
+    ];
+    const P = (name: string, stage: string, x: Partial<DigestPracticeRow> = {}): DigestPracticeRow => ({ name, region: null, stage, trainingDate: null, liveDate: null, lastOrderDay: null, tenthOrderDay: null, ordersAllTime: null, ordersLastMonth: null, ordersThisMonth: null, ...x });
+    const base = { requests: [], choices: [], wins: [] };
+
+    it("setup: names the big milestones and the welcome kits, counts the small steps, and leaves orders out", () => {
+      const rows = [P("Oak Dental", "training_booked", { trainingDate: "2026-11-24", kitSentAt: daysAgo(2) }), P("Elm Dental", "not_started", { kitSentAt: daysAgo(2) }), P("Ash Dental", "not_started")];
+      const s = collectDigest(plan, { ...base, tasks: [{ key: "practice-roster", at: daysAgo(3), by: "Dana" }, { key: "accounts-confirmed", at: daysAgo(1), by: "Dana" }], practices: { total: 3, byStage: { training_booked: 1, not_started: 2 }, rows } }, NOW)!;
+      expect(s.kind).toBe("setup");
+      expect(s.milestones.map((x) => [x.key, x.done])).toEqual([["practice-roster", true], ["doctor-roster", false], ["exec-kickoff", false], ["internal-announcement", false]]);
+      expect(s.kits).toEqual({ sent: 2, total: 3, thisWeek: 2 });
+      expect(s.doneThisWeek).toEqual(["Practice list uploaded", "Welcome kits sent to 2 practices"]);
+      expect(s.otherDone).toBe(1);
+      const email = renderDigestEmail(s, { roomUrl: "https://x.test/r", senderName: "Dandy" });
+      expect(email.subject).toBe("Acme Group × Dandy: weekly update · 1 of 4 setup milestones done");
+      expect(email.html).toContain("Getting set up");
+      expect(email.html).toContain("Practice list uploaded");
+      expect(email.html).toContain("Welcome kits sent to 2 of 3 practices");
+      expect(email.html).toContain("Doctor roster uploaded · next");
+      expect(email.html).toContain("First training: Oak Dental");
+      expect(email.html).not.toContain("Confirm your billing contact");
+      expect(email.html).not.toContain(">Rollout<");
+      const slack = JSON.stringify(renderDigestSlack(s, "https://x.test/r").blocks);
+      expect(slack).toContain("Getting set up* (1 of 4 milestones)");
+      expect(slack).toContain("Next: Doctor roster uploaded, then Executive kickoff held");
+      expect(slack).not.toContain("Orders");
+    });
+
+    it("rollout: leads with the numbers and what moved this week; orders go to Slack only", () => {
+      const rows = [
+        P("Oak Dental", "live", { liveDate: "2026-11-13", trainingDate: "11/10/2026", ordersAllTime: 12, ordersThisMonth: 7, ordersLastMonth: 5, lastOrderDay: "2026-11-14", tenthOrderDay: "2026-11-12" }),
+        P("Elm Dental", "live", { liveDate: "2026-10-01", ordersAllTime: 0 }),
+        P("Ash Dental", "trained", { trainingDate: "Nov 12, 2026", ordersAllTime: 3, ordersThisMonth: 0, ordersLastMonth: 3, lastOrderDay: "2026-10-01" }),
+        P("Fir Dental", "training_booked", { trainingDate: "2026-11-20" }),
+        P("Yew Dental", "not_started"),
+      ];
+      const r = collectDigest(plan, { ...base, tasks: [], practices: { total: 5, byStage: { live: 2, trained: 1, training_booked: 1, not_started: 1 }, rows, trend: [{ day: "2026-11-02", total: 4, byStage: { live: 1 } }, { day: "2026-11-15", total: 5, byStage: { live: 2, trained: 1 } }], byRegion: [{ region: "West", total: 3, live: 2, trained: 2 }, { region: "East", total: 2, live: 0, trained: 1 }] } }, NOW)!;
+      expect(r.kind).toBe("rollout");
+      expect(r.rollout).toMatchObject({ total: 5, live: 2, trained: 3, booked: 1, notStarted: 1, liveChange: 1, trainedChange: 2, addedChange: 1, wentLive: ["Oak Dental"], trainedThisWeek: ["Ash Dental", "Oak Dental"], upcoming: [{ name: "Fir Dental", day: "2026-11-20" }] });
+      expect(r.orders).toEqual({ ordering: 2, thisMonth: 7, lastMonth: 8, liveNoOrders: ["Elm Dental"], lapsed: ["Ash Dental"], tenth: ["Oak Dental"], top: [{ name: "Oak Dental", orders: 7 }] });
+      expect(digestIsEmpty(r)).toBe(false);
+      const email = renderDigestEmail(r, { roomUrl: "https://x.test/r", senderName: "Dandy" });
+      expect(email.subject).toBe("Acme Group × Dandy: weekly update · 2 of 5 practices live (+1 this week)");
+      expect(email.html).toContain("Went live this week");
+      expect(email.html).toContain("Fir Dental");
+      expect(email.html).toContain("By region");
+      expect(email.html).not.toContain("Getting set up");
+      // What a practice orders is ours to see, not the customer's.
+      expect(email.html).not.toMatch(/\borders?\b/i);
+      const slack = JSON.stringify(renderDigestSlack(r, "https://x.test/r").blocks);
+      expect(slack).toContain("*2 of 5* practices live (40%) (+1 this week)");
+      expect(slack).toContain("*Orders* (team only)");
+      expect(slack).toContain("7 orders so far this month (8 last month) · 2 practices ordering");
+      expect(slack).toContain("Live but no order yet (1): Elm Dental");
+      expect(slack).toContain("No order in 30+ days (1): Ash Dental");
+    });
+
+    it("expansion: a hub past its rollout is an expansion update even before anything changed this week", () => {
+      const moved = [{ ...plan[0], props: { ...plan[0].props, stage: "expansion" } }];
+      const e = collectDigest(moved, { ...base, tasks: [], practices: { total: 2, byStage: { live: 2 }, rows: [P("Oak Dental", "live"), P("Elm Dental", "live")] } }, NOW)!;
+      expect(e.kind).toBe("expansion");
+      expect(renderDigestEmail(e, { roomUrl: "https://x.test/r", senderName: "Dandy" }).html).not.toContain("Getting set up");
+    });
+
+    it("reads dates the way sources write them", () => {
+      expect(digestDay("2026-11-12")).toBe("2026-11-12");
+      expect(digestDay("2026-11-12T08:00:00Z")).toBe("2026-11-12");
+      expect(digestDay("11/2/2026")).toBe("2026-11-02");
+      expect(digestDay("1/5/26")).toBe("2026-01-05");
+      expect(digestDay("Nov 12, 2026")).toBe("2026-11-12");
+      expect(digestDay("soon")).toBeNull();
+      expect(digestDay(null)).toBeNull();
+    });
+  });
+
   it("counts the rollout day in UTC and only sends on Monday mornings (UTC afternoon)", () => {
     expect(digestRolloutDay("2026-10-04", NOW)).toBe(44);
     expect(digestRolloutDay("2026-12-01", NOW)).toBeNull();
