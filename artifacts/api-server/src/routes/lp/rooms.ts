@@ -77,6 +77,10 @@ import {
   normalizePracticeStage,
   parsePracticeCsv,
   parsePracticeRow,
+  ORDER_RECENCY,
+  type OrderRecency,
+  orderRecencySummary,
+  recencyCutoffs,
   PRODUCT_LINES,
   productLineSummary,
   ROOM_PRACTICE_STAGES,
@@ -775,6 +779,10 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     // Team only: practices that order a product line, or (among those with orders on record) that don't.
     const product = viewer.team && typeof req.body?.product === "string" ? (PRODUCT_LINES.find(([, label]) => label === req.body.product)?.[1] ?? null) : null;
     const productLacks = req.body?.productMode === "lacks";
+    // Team only: practices by how long since their last order.
+    const recency = viewer.team && (ORDER_RECENCY as readonly unknown[]).includes(req.body?.recency) ? (req.body.recency as OrderRecency) : null;
+    const cut = recencyCutoffs();
+    const day = lpRoomPracticesTable.lastOrderDay;
     const pageNo = Math.max(0, Math.min(1000, Math.floor(Number(req.body?.page) || 0)));
     // Sorting: one of a fixed set of columns (never a name from the request), blanks last.
     const SORTS = {
@@ -809,6 +817,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       wave ? eq(lpRoomPracticesTable.wave, wave) : undefined,
       stages ? inArray(lpRoomPracticesTable.stage, stages) : undefined,
       scanner === "yes" ? sql`${lpRoomPracticesTable.scannerCount} > 0` : scanner === "no" ? sql`COALESCE(${lpRoomPracticesTable.scannerCount}, 0) = 0` : undefined,
+      recency === "week" ? sql`${day} >= ${cut.week}` : recency === "month" ? sql`${day} < ${cut.week} AND ${day} >= ${cut.month}` : recency === "quarter" ? sql`${day} < ${cut.month} AND ${day} >= ${cut.quarter}` : recency === "lapsed" ? sql`${day} < ${cut.quarter}` : undefined,
       product ? (productLacks ? sql`COALESCE(${lpRoomPracticesTable.products}, '') <> '' AND (', ' || ${lpRoomPracticesTable.products} || ', ') NOT LIKE ${`%, ${product}, %`}` : sql`(', ' || COALESCE(${lpRoomPracticesTable.products}, '') || ', ') LIKE ${`%, ${product}, %`}`) : undefined,
       q ? or(ilike(lpRoomPracticesTable.name, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.city, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.regionalManager, `%${q.replace(/[%_\\]/g, "")}%`)) : undefined,
     );
@@ -840,6 +849,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       // The account owner and last sales activity are ours: only the team's own view gets them.
       columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, officeType: !!extra?.officeType, kit: !!viewer.team && !!extra?.kit, products: !!viewer.team && !!extra?.products, orders: !!viewer.team && !!extra?.orders, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
       ...(productSummary ? { productSummary } : {}),
+      ...(viewer.team && extra?.orders ? { orderRecency: orderRecencySummary((await db.select({ day: lpRoomPracticesTable.lastOrderDay }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, page.id), sql`${lpRoomPracticesTable.lastOrderDay} IS NOT NULL`)).limit(5000)).map((r) => r.day)) } : {}),
       rows: rows.map((p) => ({
         id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels,
         scannerBrand: p.scannerBrand, contractSigned: p.contractSigned,

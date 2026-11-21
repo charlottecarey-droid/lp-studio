@@ -541,6 +541,27 @@ export const PRODUCT_LINES: [string, string][] = [
   ["surgical guide", "Surgical guide"],
   ["other", "Other"],
 ];
+/** How long since a practice last ordered, in the groups the scorecard charts. */
+export const ORDER_RECENCY = ["week", "month", "quarter", "lapsed"] as const;
+export type OrderRecency = (typeof ORDER_RECENCY)[number];
+
+/** The first day of each group, counting back from today (YYYY-MM-DD): within 7 days, 8–30, 31–90, more than 90. */
+export function recencyCutoffs(now: Date = new Date()): { week: string; month: string; quarter: string } {
+  const back = (n: number) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - n)).toISOString().slice(0, 10);
+  return { week: back(7), month: back(30), quarter: back(90) };
+}
+
+export function recencyOf(day: string, now: Date = new Date()): OrderRecency {
+  const c = recencyCutoffs(now);
+  return day >= c.week ? "week" : day >= c.month ? "month" : day >= c.quarter ? "quarter" : "lapsed";
+}
+
+/** How many practices last ordered in each group, out of those whose last order is known. */
+export function orderRecencySummary(days: (string | null)[], now: Date = new Date()): { known: number; buckets: { key: OrderRecency; practices: number }[] } {
+  const known = days.filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  return { known: known.length, buckets: ORDER_RECENCY.map((key) => ({ key, practices: known.filter((d) => recencyOf(d, now) === key).length })) };
+}
+
 const productColumn = (line: string) => `01st ${line} order placed`;
 
 /**

@@ -1348,6 +1348,12 @@ const CSS = `
 .prw-sc-prod .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prw-sc-prod .track{display:block;height:8px;border-radius:999px;background:#F1F2EE;overflow:hidden}
 .prw-sc-prod .track span{display:block;height:100%;min-width:2px;background:var(--dark);border-radius:999px}
+.prw-sc-prod .track span.week{background:var(--green)}
+.prw-sc-prod .track span.quarter{background:var(--amber)}
+.prw-sc-prod .track span.lapsed{background:var(--red)}
+.prw-sc-orders{align-items:start;margin-bottom:18px}
+.prw-sc-orders .prw-sc-prod{margin-bottom:0}
+.prw-sc-orders .prw-sc-prod>button{grid-template-columns:148px minmax(0,1fr) minmax(64px,auto);gap:12px}
 .prw-sc-prod .v{font-size:12.5px;font-weight:600;color:var(--ink);text-align:right;white-space:nowrap}
 .prw-sc-prod .v i{font-style:normal;font-weight:400;color:var(--body)}
 .prw-sc-kit{margin:0 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:13px;color:var(--body)}

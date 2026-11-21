@@ -265,6 +265,36 @@ function ProductLines({ summary, noun, picked, mode, onPick, onMode }: { summary
   );
 }
 
+type RecencyKey = "week" | "month" | "quarter" | "lapsed";
+const RECENCY_LABEL: Record<RecencyKey, string> = { week: "Last 7 days", month: "8 to 30 days ago", quarter: "31 to 90 days ago", lapsed: "Over 90 days ago" };
+
+/**
+ * Team only: how recently the account's practices last ordered. One bar per
+ * group, most recent first, out of the practices whose last order is known.
+ * The two groups past a month are coloured as the warning they are. Click a
+ * bar to list those practices.
+ */
+function OrderRecencyChart({ summary, noun, picked, onPick }: { summary: NonNullable<RoomPracticePage["orderRecency"]>; noun: string; picked: string; onPick: (k: RecencyKey) => void }) {
+  return (
+    <div className="prw-card prw-sc-prod" data-room-recency={summary.known}>
+      <div className="hd">
+        <h4>Last order</h4>
+        <span>{summary.known} {noun} with a last order on record</span>
+      </div>
+      {summary.buckets.map((b) => {
+        const pct = Math.round((b.practices / summary.known) * 100);
+        return (
+          <button type="button" key={b.key} className={picked === b.key ? "on" : ""} aria-pressed={picked === b.key} onClick={() => onPick(b.key)} title={`${b.practices} of ${summary.known}: last order ${b.key === "week" ? "in the last 7 days" : RECENCY_LABEL[b.key].toLowerCase()}`} data-room-recency-bucket={b.key}>
+            <span className="n">{RECENCY_LABEL[b.key]}</span>
+            <span className="track"><span className={b.key} style={{ width: `${pct}%` }} /></span>
+            <span className="v prw-num">{b.practices} <i>· {pct}%</i></span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const COLS_KEY = "lp_room_scorecard_cols";
 function savedColumns(): Record<string, boolean> {
   try {
@@ -302,6 +332,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   // Team only: one product line, and whether to list the practices that order it or the ones that don't.
   const [product, setProduct] = useState("");
   const [productMode, setProductMode] = useState<"has" | "lacks">("has");
+  const [recency, setRecency] = useState<"" | RecencyKey>("");
   const [pageNo, setPageNo] = useState(0);
   const [sort, setSort] = useState<{ key: RoomPracticeSort; dir: "asc" | "desc" } | null>(null);
   const [data, setData] = useState<RoomPracticePage | null>(null);
@@ -366,7 +397,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     let cancelled = false;
     setLoading(true);
     const t = window.setTimeout(() => {
-      void store.loadPractices({ region, q, page: pageNo, ...(stage ? { stage } : {}), ...(wave ? { wave } : {}), ...(scanner ? { scanner } : {}), ...(product ? { product, productMode } : {}), ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
+      void store.loadPractices({ region, q, page: pageNo, ...(stage ? { stage } : {}), ...(wave ? { wave } : {}), ...(scanner ? { scanner } : {}), ...(product ? { product, productMode } : {}), ...(recency ? { recency } : {}), ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
         if (cancelled) return;
         setLoading(false);
         if (r && r !== "identity") setData(r);
@@ -376,7 +407,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [store, viewerKey, region, q, pageNo, pr.total, sort, stage, wave, scanner, reload, product, productMode]);
+  }, [store, viewerKey, region, q, pageNo, pr.total, sort, stage, wave, scanner, reload, product, productMode, recency]);
 
   // Team only: does Salesforce match the customer's rosters? Asked once per visit.
   useEffect(() => {
@@ -411,9 +442,10 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const colCount = shown.length + 2 + (isTeam ? 1 : 0);
   const pageIds = (data?.rows ?? []).map((p) => p.id);
   const pageAllTicked = pageIds.length > 0 && pageIds.every((id) => ticked.has(id));
-  const filtered = !!(stage || region || wave || scanner || q || product);
+  const filtered = !!(stage || region || wave || scanner || q || product || recency);
   const clear = () => {
     setProduct("");
+    setRecency("");
     setStage("");
     setRegion("");
     setWave("");
@@ -620,15 +652,22 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         </div>
       ) : (
         <>
-          {isTeam && data?.productSummary && data.productSummary.ordering > 0 && (
-            <ProductLines
-              summary={data.productSummary}
-              noun={noun}
-              picked={product}
-              mode={productMode}
-              onMode={(m) => { setProductMode(m); setPageNo(0); }}
-              onPick={(line) => { setPageNo(0); setProduct((cur) => (cur === line ? "" : line)); }}
-            />
+          {isTeam && ((data?.productSummary?.ordering ?? 0) > 0 || (data?.orderRecency?.known ?? 0) > 0) && (
+            <div className="prw-sc-grid prw-sc-orders" style={(data?.productSummary?.ordering ?? 0) > 0 && (data?.orderRecency?.known ?? 0) > 0 ? undefined : { gridTemplateColumns: "1fr" }}>
+              {data?.productSummary && data.productSummary.ordering > 0 && (
+                <ProductLines
+                  summary={data.productSummary}
+                  noun={noun}
+                  picked={product}
+                  mode={productMode}
+                  onMode={(m) => { setProductMode(m); setPageNo(0); }}
+                  onPick={(line) => { setPageNo(0); setProduct((cur) => (cur === line ? "" : line)); }}
+                />
+              )}
+              {data?.orderRecency && data.orderRecency.known > 0 && (
+                <OrderRecencyChart summary={data.orderRecency} noun={noun} picked={recency} onPick={(k) => { setPageNo(0); setRecency((cur) => (cur === k ? "" : k)); }} />
+              )}
+            </div>
           )}
           <div className="prw-tools prw-sc-tools">
             <label className="prw-sc-search">

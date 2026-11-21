@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePracticeRow, productLineSummary, roomSharesMap } from "./partnerRoom";
+import { orderRecencySummary, parsePracticeRow, productLineSummary, recencyOf, roomSharesMap } from "./partnerRoom";
 import { splitAddress, usingDandyStage, zip5 } from "./partnerRoomGeo";
 import { parseRoster } from "./partnerRoomRoster";
 import { zipCentroid } from "./zipCentroids";
@@ -103,5 +103,20 @@ describe("product lines across a hub", () => {
     expect(got.lines.find((l) => l.line === "Simple restorative")!.practices).toBe(2);
     expect(got.lines.find((l) => l.line === "Aligner")!.practices).toBe(0);
     expect(got.lines).toHaveLength(9);
+  });
+});
+
+describe("how recently practices ordered", () => {
+  const now = new Date("2026-11-20T12:00:00Z");
+  it("groups by the last order: this week, this month, the last 90 days, longer", () => {
+    expect(recencyOf("2026-11-20", now)).toBe("week");
+    expect(recencyOf("2026-11-13", now)).toBe("week");
+    expect(recencyOf("2026-11-12", now)).toBe("month");
+    expect(recencyOf("2026-10-21", now)).toBe("month");
+    expect(recencyOf("2026-10-20", now)).toBe("quarter");
+    expect(recencyOf("2026-08-22", now)).toBe("quarter");
+    expect(recencyOf("2026-08-21", now)).toBe("lapsed");
+    const got = orderRecencySummary(["2026-11-19", "2026-11-17", "2026-10-05", "2026-06-10", null, "soon"], now);
+    expect(got).toEqual({ known: 4, buckets: [{ key: "week", practices: 2 }, { key: "month", practices: 0 }, { key: "quarter", practices: 1 }, { key: "lapsed", practices: 1 }] });
   });
 });
