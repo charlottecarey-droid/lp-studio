@@ -349,7 +349,7 @@ router.get("/lp/partner-hub-accounts", async (req: Request, res: Response): Prom
       const a = accountOf({ accountId: p.accountId, sfdcAccountId: p.sfdcAccountId, name: roomPartnerName(p.blocks) || p.title }, settings.find((s) => s.pageId === p.id)?.sfdcAccountId ?? null, accounts);
       if (a && !hubOf.has(a.id)) hubOf.set(a.id, p.id);
     }
-    res.json({ accounts: accounts.map((a) => ({ id: a.id, name: a.displayName || a.name, owner: a.owner, locations: a.numLocations, hubPageId: hubOf.get(a.id) ?? null })) });
+    res.json({ accounts: accounts.map((a) => ({ id: a.id, name: a.displayName || a.name, owner: a.owner, locations: a.numLocations, salesforceId: a.salesforceId, hubPageId: hubOf.get(a.id) ?? null })) });
   } catch (err) {
     req.log.error({ err }, "partner hub accounts failed");
     res.status(500).json({ error: "Could not search accounts" });

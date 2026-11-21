@@ -1714,7 +1714,23 @@ export function AutomaticRoomsSection() {
   };
 
   // A test run: the same room a new signed account gets, for a name typed here, then its launch kit.
-  const [testName, setTestName] = useState("Test Dental Group");
+  // The test runs for an account picked from Accounts, so it exercises the same matching a real hub gets (practices, team, owner).
+  const [testAccount, setTestAccount] = useState<{ id: number; name: string; owner: string | null; salesforceId: string | null } | null>(null);
+  const [testQuery, setTestQuery] = useState("");
+  const [testTerm, setTestTerm] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setTestTerm(testQuery.trim()), 250);
+    return () => clearTimeout(t);
+  }, [testQuery]);
+  const { data: testHits, isFetching: testSearching } = useQuery({
+    queryKey: ["partner-hub-accounts", "test", testTerm],
+    enabled: !testAccount && testTerm.length >= 2,
+    queryFn: async () => {
+      const r = await fetch(`/api/lp/partner-hub-accounts?q=${encodeURIComponent(testTerm)}`);
+      if (!r.ok) return [];
+      return (((await r.json().catch(() => ({}))) as { accounts?: { id: number; name: string; owner: string | null; locations: number | null; salesforceId: string | null }[] }).accounts ?? []).slice(0, 8);
+    },
+  });
   const [testSteps, setTestSteps] = useState<{ label: string; state: "working" | "done" | "failed"; detail?: string }[]>([]);
   const [testPage, setTestPage] = useState<number | null>(null);
   const runTest = async () => {
@@ -1732,7 +1748,7 @@ export function AutomaticRoomsSection() {
     };
     try {
       const made = step("Create the draft hub");
-      const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(/^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(testName.trim()) && /\d/.test(testName) ? { sfdcId: testName.trim() } : { name: testName.trim() }) });
+      const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: testAccount?.name ?? "", ...(testAccount?.salesforceId && /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(testAccount.salesforceId) ? { sfdcId: testAccount.salesforceId } : {}), ...(testAccount?.owner ? { owner: testAccount.owner } : {}) }) });
       const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; practices?: number; practicesNote?: string | null; practiceSite?: { title: string; existing: boolean; url: string; status: string } | null; teamFilled?: number; contacts?: number; domain?: string | null; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
       if (!r.ok || !j.pageId) {
         made("failed", j.error ?? "Could not create the hub");
@@ -1856,8 +1872,37 @@ export function AutomaticRoomsSection() {
         <summary className="cursor-pointer text-sm font-medium">Run a test</summary>
         <div className="mt-3 space-y-2">
         <div className="flex flex-wrap items-end gap-2">
-          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Account ID or name</span><Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} aria-label="Salesforce account ID or account name" /></label>
-          <Button size="sm" variant="brand" disabled={busy || testName.trim().length < 2} onClick={runTest}>{busy && testSteps.length ? "Running…" : "Run a test"}</Button>
+          <div className="w-full max-w-sm space-y-1 text-xs" data-room-autotest-account>
+            <span className="font-medium text-muted-foreground">Account</span>
+            {testAccount ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{testAccount.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{[testAccount.owner, testAccount.salesforceId ? "Linked to Salesforce" : "No Salesforce ID: practices can’t be matched"].filter(Boolean).join(" · ")}</span>
+                </span>
+                <Button size="sm" variant="ghost" className="h-7 shrink-0 text-muted-foreground" disabled={busy} onClick={() => { setTestAccount(null); setTestQuery(""); }}>Change</Button>
+              </div>
+            ) : (
+              <>
+                <Input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} placeholder="Search accounts" aria-label="Search accounts to test with" />
+                {testTerm.length >= 2 && (
+                  <ul className="max-h-56 divide-y overflow-y-auto rounded-md border">
+                    {(testHits ?? []).map((a) => (
+                      <li key={a.id}>
+                        <button type="button" className="flex w-full flex-col px-3 py-1.5 text-left text-sm hover:bg-muted/50" onClick={() => setTestAccount({ id: a.id, name: a.name, owner: a.owner, salesforceId: a.salesforceId })} data-room-autotest-pick={a.id}>
+                          <span className="font-medium">{a.name}</span>
+                          <span className="text-xs text-muted-foreground">{[a.owner, a.locations ? `${a.locations} locations` : ""].filter(Boolean).join(" · ") || "No owner listed"}</span>
+                        </button>
+                      </li>
+                    ))}
+                    {testHits && testHits.length === 0 && !testSearching && <li className="px-3 py-2 text-sm text-muted-foreground">No account by that name. Add it under Accounts first.</li>}
+                    {!testHits && <li className="px-3 py-2 text-sm text-muted-foreground">Searching…</li>}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+          <Button size="sm" variant="brand" disabled={busy || !testAccount} onClick={runTest}>{busy && testSteps.length ? "Running…" : "Run a test"}</Button>
           {testPage && <a className="text-sm underline" href={`/builder/${testPage}`}>Open the test hub</a>}
         </div>
         {testSteps.length > 0 && (
