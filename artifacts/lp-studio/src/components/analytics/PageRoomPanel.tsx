@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Download, DoorOpen, RotateCcw, Upload, UserCheck, UserX, X } from "lucide-react";
+import { Check, ChevronDown, Download, DoorOpen, RotateCcw, Trash2, Upload, UserCheck, UserX, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -815,6 +815,22 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                     )}
                     <Button asChild size="sm" variant="outline" className="h-8 gap-1">
                       <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      aria-label={`Delete ${u.fileName}`}
+                      title="Delete this file"
+                      data-room-upload-delete={u.id}
+                      onClick={async () => {
+                        const last = data.uploads.filter((x) => x.taskKey === u.taskKey).length === 1;
+                        if (!window.confirm(`Delete “${u.fileName}”? This can’t be undone.${last ? ` “${u.taskTitle}” will be open again for the customer.` : ""}`)) return;
+                        if (compare?.uploadId === u.id) setCompare(null);
+                        await run(send(`${base}/uploads/${u.id}`, "DELETE"));
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </span>
                 </div>

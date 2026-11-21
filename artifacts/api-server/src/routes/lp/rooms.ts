@@ -2924,6 +2924,38 @@ router.delete("/lp/partner-rooms/:pageId/tasks/:taskKey", async (req: Request, r
 });
 
 /** The only way to read an uploaded file: signed in, same tenant, as an attachment. */
+/**
+ * Delete a file a customer uploaded: the record and the stored file. When it
+ * was the only file for its step, the step is open again, so the customer is
+ * asked for it again instead of the hub saying "received" with nothing behind
+ * it. Practices or doctors already read from the file stay as they are.
+ */
+router.delete("/lp/partner-rooms/:pageId/uploads/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const id = Number(req.params.id);
+    const [row] = Number.isFinite(id)
+      ? await db.select().from(lpRoomUploadsTable).where(and(eq(lpRoomUploadsTable.id, id), eq(lpRoomUploadsTable.pageId, page.id), eq(lpRoomUploadsTable.tenantId, page.tenantId))).limit(1)
+      : [];
+    if (!row) {
+      res.status(404).json({ error: "That file is already gone." });
+      return;
+    }
+    await db.delete(lpRoomUploadsTable).where(and(eq(lpRoomUploadsTable.id, row.id), eq(lpRoomUploadsTable.tenantId, page.tenantId)));
+    // The record is what the hub goes by; a stored file that won't delete is logged, not shown as a failure.
+    await objectStorage.deleteObjectEntity(row.objectPath).catch((err) => req.log.warn({ err, uploadId: row.id }, "room upload file could not be removed from storage"));
+    const [{ n }] = (await db.execute(sql`SELECT COUNT(*)::int AS n FROM lp_room_uploads WHERE page_id = ${page.id} AND task_key = ${row.taskKey}`)).rows as Array<{ n: number }>;
+    const reopened = n === 0 && page.tasks.get(row.taskKey)?.action === "upload";
+    if (reopened) await db.delete(lpRoomTaskStateTable).where(and(eq(lpRoomTaskStateTable.pageId, page.id), eq(lpRoomTaskStateTable.taskKey, row.taskKey)));
+    req.log.info({ pageId: page.id, uploadId: row.id, fileName: row.fileName, by: req.authUser?.email }, "room upload deleted");
+    res.json({ ok: true, reopened });
+  } catch (err) {
+    req.log.error({ err }, "room upload delete failed");
+    res.status(500).json({ error: "Could not delete the file" });
+  }
+});
+
 router.get("/lp/partner-rooms/uploads/:id/download", async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res);
