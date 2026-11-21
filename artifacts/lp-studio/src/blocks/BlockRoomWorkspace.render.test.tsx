@@ -29,6 +29,7 @@ import {
   resolveRoomStatus,
   rolloutDay,
   roomMilestoneKey,
+  roomLinkAsset,
   roomNextUp,
   requestFormFor,
   isGiftStep,
@@ -58,6 +59,20 @@ describe("room-workspace — registry + default render", () => {
     const def = BLOCK_REGISTRY.find((d) => d.type === "room-workspace");
     expect(def?.category).toBe("Full Page Templates");
     expect(JSON.stringify(def?.defaultProps())).not.toMatch(/dandy|mb2|dental|#003a30/i);
+  });
+  it("shows an uploaded resource among the Important links as a file, keyed by its name", () => {
+    const html = render({
+      hiddenModules: ["overview", "wins", "goals", "plan", "practices", "calendar", "meetings", "requests", "team"] as never,
+      links: [
+        { title: "Sign-up page", url: "https://x.example/signup" },
+        { title: "Launch playbook", url: "/api/storage/objects/uploads/abc", fileUrl: "/api/storage/objects/uploads/abc", kind: "pdf" },
+      ],
+    });
+    expect((html.match(/data-room-link="link"/g) ?? []).length).toBe(1);
+    expect((html.match(/data-room-link="file"/g) ?? []).length).toBe(1);
+    expect(html).toContain("Launch playbook");
+    expect(roomLinkAsset({ title: "Launch playbook", url: "/x", fileUrl: "/x", kind: "pdf" })).toEqual({ key: "launch-playbook", kind: "pdf", title: "Launch playbook", fileUrl: "/x" });
+    expect(roomLinkAsset({ title: "Sign-up page", url: "https://x.example/signup" })).toEqual({ key: "sign-up-page", kind: "link", title: "Sign-up page", externalUrl: "https://x.example/signup" });
   });
   it("leaves out the Overview sections a rep switched off", () => {
     const all = render();

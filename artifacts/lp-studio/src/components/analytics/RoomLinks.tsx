@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
-import { ExternalLink, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ExternalLink, Eye, EyeOff, FileText, Image as ImageIcon, Link2, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { MAX_PDF_BYTES, uploadPdf } from "@/components/PdfUploadButton";
+import { uploadImage } from "@/components/ImagePicker";
+import { roomLinkAsset } from "@/blocks/BlockRoomWorkspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -10,14 +13,32 @@ export interface HubLink {
   description?: string;
   url: string;
   hidden?: boolean;
+  /** An uploaded file instead of a web page: it opens in the hub's viewer. */
+  fileUrl?: string;
+  kind?: "pdf" | "image";
 }
 
+/** How often one resource was opened, from the hub's asset events (last 90 days). */
+export interface HubLinkViews {
+  key: string;
+  views: number;
+  seconds: number;
+  people: string[];
+  anonymous: number;
+}
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const minutes = (s: number) => (s < 60 ? `${s}s` : `${Math.round(s / 60)} min`);
+
 /**
- * Important links, in the team's pop-up: add a resource (a name and a web
- * address), hide one from the customer, or remove it. The links live on the
- * hub page, under Launch & marketing, so a change here shows straight away.
+ * Important links, in the team's pop-up: add a resource (a web address, or an
+ * uploaded PDF or image), hide one from the customer, or remove it. They live
+ * on the hub page, under Launch & marketing, so a change shows straight away.
+ * Each row says how often the customer has opened it.
  */
-export function RoomLinksSection({ pageId, links, onSaved }: { pageId: number; links: HubLink[]; onSaved: (links: HubLink[]) => void | Promise<void> }) {
+export function RoomLinksSection({ pageId, links, views = [], onSaved }: { pageId: number; links: HubLink[]; views?: HubLinkViews[]; onSaved: (links: HubLink[]) => void | Promise<void> }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const [list, setList] = useState<HubLink[]>(links);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -46,22 +67,51 @@ export function RoomLinksSection({ pageId, links, onSaved }: { pageId: number; l
     }
   };
 
+  /** Upload a PDF or an image and add it as a resource. The Name box names it; left empty, the file's own name does. */
+  const upload = async (file: File) => {
+    const image = file.type.startsWith("image/");
+    const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (!image && !pdf) return setErr("Upload a PDF or an image.");
+    if (file.size > (image ? MAX_IMAGE_BYTES : MAX_PDF_BYTES)) return setErr(image ? "That image is over 10 MB." : "That file is over 50 MB.");
+    setUploading(true);
+    setErr("");
+    try {
+      const fileUrl = image ? await uploadImage(file) : (await uploadPdf(file)).url;
+      const name = title.trim() || file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ").trim() || "Resource";
+      if (await save([...list, { title: name.slice(0, 120), url: fileUrl, fileUrl, kind: image ? "image" : "pdf" }])) setTitle("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <section className="space-y-2" data-room-links>
       <div>
         <h4 className="text-sm font-semibold">Important links</h4>
-        <p className="text-sm text-muted-foreground">Resources the customer sees at the top of Launch &amp; marketing.</p>
+        <p className="text-sm text-muted-foreground">Resources the customer sees at the top of Launch &amp; marketing. Files open in the hub’s viewer.</p>
       </div>
       {list.length > 0 && (
         <div className="divide-y rounded-md border">
-          {list.map((l, i) => (
-            <div key={`${l.url}-${i}`} className={`flex items-center gap-2 px-3 py-2 ${l.hidden ? "opacity-60" : ""}`} data-room-link-row>
+          {list.map((l, i) => {
+            const seen = views.find((v) => v.key === roomLinkAsset(l).key);
+            const who = seen ? [...seen.people, ...(seen.anonymous > 0 ? [`${seen.anonymous} not identified`] : [])].join(", ") : "";
+            return (
+            <div key={`${l.url}-${i}`} className={`flex items-center gap-2 px-3 py-2 ${l.hidden ? "opacity-60" : ""}`} data-room-link-row={l.fileUrl ? "file" : "link"}>
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden>
+                {l.fileUrl ? l.kind === "image" ? <ImageIcon className="h-4 w-4" /> : <FileText className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
                   {l.title}
                   {l.hidden && <span className="ml-2 text-xs font-normal text-muted-foreground">Hidden from the customer</span>}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">{l.url.replace(/^https?:\/\//, "")}</p>
+                <p className="truncate text-xs text-muted-foreground" data-room-link-views={seen?.views ?? 0}>
+                  {l.fileUrl ? (l.kind === "image" ? "Image" : "PDF") : l.url.replace(/^https?:\/\//, "")}
+                  {" · "}
+                  {seen?.views ? `Opened ${seen.views} time${seen.views === 1 ? "" : "s"}${seen.seconds > 0 ? ` · ${minutes(seen.seconds)}` : ""}${who ? ` · ${who}` : ""}` : "Not opened yet"}
+                </p>
               </div>
               <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
                 <a href={l.url} target="_blank" rel="noreferrer" aria-label={`Open ${l.title}`}><ExternalLink className="h-3.5 w-3.5" /></a>
@@ -73,7 +123,8 @@ export function RoomLinksSection({ pageId, links, onSaved }: { pageId: number; l
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <form
@@ -89,8 +140,26 @@ export function RoomLinksSection({ pageId, links, onSaved }: { pageId: number; l
       >
         <label className="block min-w-[180px] flex-1 space-y-1 text-xs"><span className="font-medium text-muted-foreground">Name</span><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="e.g. Brand folder" data-room-link-title /></label>
         <label className="block min-w-[220px] flex-[2] space-y-1 text-xs"><span className="font-medium text-muted-foreground">Link</span><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" data-room-link-url /></label>
-        <Button type="submit" size="sm" variant="brand" className="gap-1" disabled={busy || !title.trim() || !url.trim()} data-room-link-add><Plus className="h-3.5 w-3.5" /> Add link</Button>
+        <Button type="submit" size="sm" variant="brand" className="gap-1" disabled={busy || uploading || !title.trim() || !url.trim()} data-room-link-add><Plus className="h-3.5 w-3.5" /> Add link</Button>
+        <span className="pb-2 text-xs text-muted-foreground">or</span>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/pdf,.pdf,image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void upload(file);
+          }}
+          data-room-link-file
+        />
+        <Button type="button" size="sm" variant="outline" className="gap-1" disabled={busy || uploading} onClick={() => fileRef.current?.click()} data-room-link-upload>
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          {uploading ? "Uploading…" : "Upload a file"}
+        </Button>
       </form>
+      <p className="text-xs text-muted-foreground">Upload a PDF or an image. Type a name first, or the file’s own name is used.</p>
       {err && <p role="alert" className="text-sm text-destructive">{err}</p>}
     </section>
   );

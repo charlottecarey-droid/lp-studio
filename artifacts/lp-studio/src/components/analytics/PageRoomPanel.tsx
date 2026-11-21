@@ -502,6 +502,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           <RoomLinksSection
             pageId={pageId}
             links={data.links}
+            views={data.engagement?.assets}
             onSaved={async (l) => {
               onLinks?.(l);
               await refresh();

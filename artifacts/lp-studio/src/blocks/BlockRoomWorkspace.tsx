@@ -475,7 +475,8 @@ export interface RoomWorkspaceBlockProps {
   planGroups?: RoomPlanGroup[];
   kitIntro?: string;
   assets?: RoomAsset[];
-  links?: { title: string; description?: string; url: string; hidden?: boolean }[];
+  /** Important links. One with a `fileUrl` is an uploaded file (PDF or image) and opens in the viewer. */
+  links?: { key?: string; title: string; description?: string; url: string; hidden?: boolean; fileUrl?: string; kind?: "pdf" | "image" }[];
   /** The getting-started checklist on the overview, shown until every step is done. */
   onboarding?: { hidden?: boolean; title?: string; intro?: string; steps: RoomOnboardingStep[] };
   marketing?: { intro?: string; groups: RoomProgramGroup[] };
@@ -607,6 +608,13 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
 /* ── Pure helpers (exported for tests + the panel) ───────────────────────── */
 
 /** Must match the server (api-server lib/partnerRoom.ts `planTaskKey`). */
+/** An Important link as the asset the viewer and the view counts know it by. The key comes from its name, as it always has. */
+export function roomLinkAsset(l: { title: string; url: string; fileUrl?: string; kind?: "pdf" | "image" }): RoomAsset {
+  const key = roomMilestoneKey({ task: l.title });
+  const file = (l.fileUrl ?? "").trim();
+  return file ? { key, kind: l.kind === "image" ? "image" : "pdf", title: l.title, fileUrl: file } : { key, kind: "link", title: l.title, externalUrl: l.url };
+}
+
 export function roomMilestoneKey(row: { key?: string; task?: string }): string {
   const explicit = (row.key ?? "").trim();
   if (explicit) return explicit.slice(0, 80);
@@ -2567,15 +2575,19 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <section className="prw-lk" data-room-launch="links">
                     <h3>Important links</h3>
                     <div className="prw-card">
-                      {links.map((l, i) => (
-                        <div className="prw-li prw-lk-link" key={i} data-room-link>
-                          <span className="prw-ft ic" aria-hidden><Link2 /></span>
+                      {links.map((l, i) => {
+                        // An uploaded file opens in the viewer (and its views and time are counted); a web page opens in a new tab and is counted as opened.
+                        const asAsset = roomLinkAsset(l);
+                        const file = asAsset.kind !== "link";
+                        return (
+                        <div className="prw-li prw-lk-link" key={i} data-room-link={file ? "file" : "link"}>
+                          <span className="prw-ft ic" aria-hidden>{asAsset.kind === "image" ? <ImageIcon /> : file ? <FileText /> : <Link2 />}</span>
                           <div>
                             <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
-                            <div className="m">{l.description || l.url}</div>
+                            <div className="m">{l.description || (file ? (asAsset.kind === "image" ? "Image" : "PDF") : l.url)}</div>
                           </div>
                           <div className="a">
-                            <CopyButton text={l.url} label="Copy link" />
+                            {!file && <CopyButton text={l.url} label="Copy link" />}
                             <a
                               className="prw-ib"
                               href={isEditor ? undefined : l.url}
@@ -2584,14 +2596,15 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                               title="Open"
                               aria-label={`Open ${l.title}`}
                               onClick={(e) => {
-                                if (openAsset({ key: roomMilestoneKey({ task: l.title }), kind: "link", title: l.title, externalUrl: l.url })) e.preventDefault();
+                                if (openAsset(asAsset)) e.preventDefault();
                               }}
                             >
                               <ExternalLink aria-hidden />
                             </a>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </section>
                 )}

@@ -788,11 +788,12 @@ export function roomKitInfo(blocks: unknown): RoomKitInfo | null {
     partnerName: str(props.partnerName),
     partnerLogoUrl: str(props.partnerLogoUrl),
     heroImageUrl: str(props.heroImageUrl),
-    signupUrl: str(links.find((l) => l && !l.hidden && /^https?:\/\//.test(str(l.url)))?.url),
+    // An uploaded file among the links is a resource, never the sign-up page.
+    signupUrl: str(links.find((l) => l && !l.hidden && !str(l.fileUrl) && /^https?:\/\//.test(str(l.url)))?.url),
     assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true, url: str(a.fileUrl) || str(a.videoUrl) })),
     texts: assets.filter((a) => a && !a.hidden && a.kind === "text" && str(a.body)).map((a) => ({ title: str(a.title), description: str(a.description), body: typeof a.body === "string" ? a.body.trim().slice(0, 8000) : "" })).slice(0, 20),
     links: [
-      ...links.filter((l) => l && !l.hidden && /^https?:\/\//.test(str(l.url))).map((l) => ({ title: str(l.title), url: str(l.url) })),
+      ...links.filter((l) => l && !l.hidden && !str(l.fileUrl) && /^https?:\/\//.test(str(l.url))).map((l) => ({ title: str(l.title), url: str(l.url) })),
       ...assets.filter((a) => a && !a.hidden && a.kind === "link" && /^https?:\/\//.test(str(a.externalUrl))).map((a) => ({ title: str(a.title), url: str(a.externalUrl) })),
     ].slice(0, 20),
   };
@@ -1025,8 +1026,13 @@ export interface RoomLinkInput {
   description?: string;
   url: string;
   hidden?: boolean;
+  /** An uploaded file (PDF or image) instead of a web page. It opens in the hub's viewer. `url` is then the same address. */
+  fileUrl?: string;
+  kind?: "pdf" | "image";
 }
 export const ROOM_LINKS_MAX = 30;
+/** Where an uploaded resource may live: our own storage, or an https address the upload route handed back. */
+const isStoredFileUrl = (u: string) => u.length <= 2000 && (/^\/api\/storage\/[\w\-./%]+$/.test(u) || /^https:\/\/[^\s]+$/.test(u));
 
 /** Check a list of links from the pop-up: each needs a name and a web address. */
 export function parseRoomLinks(raw: unknown): { ok: true; links: RoomLinkInput[] } | { ok: false; error: string } {
@@ -1043,6 +1049,12 @@ export function parseRoomLinks(raw: unknown): { ok: true; links: RoomLinkInput[]
     if (!title) return { ok: false, error: "Give each link a name." };
     if (title.length > 120) return { ok: false, error: "Keep link names under 120 characters." };
     if (description.length > 200) return { ok: false, error: "Keep link descriptions under 200 characters." };
+    const fileUrl = typeof r.fileUrl === "string" ? r.fileUrl.trim() : "";
+    if (fileUrl) {
+      if (!isStoredFileUrl(fileUrl)) return { ok: false, error: `“${title}” isn't a file this hub can show. Upload it again.` };
+      links.push({ ...(typeof r.key === "string" && r.key.trim() ? { key: r.key.trim().slice(0, 80) } : {}), title, ...(description ? { description } : {}), url: fileUrl, fileUrl, kind: r.kind === "image" ? "image" : "pdf", ...(r.hidden === true ? { hidden: true } : {}) });
+      continue;
+    }
     let parsed: URL | null = null;
     try {
       parsed = new URL(url);
@@ -1062,7 +1074,7 @@ export function roomLinksInfo(blocks: unknown): RoomLinkInput[] | null {
   const stored = Array.isArray(props.links) ? (props.links as Record<string, unknown>[]) : [];
   return stored
     .filter((l) => l && typeof l === "object")
-    .map((l) => ({ ...(typeof l.key === "string" && l.key ? { key: l.key } : {}), title: coverText(l.title), ...(coverText(l.description) ? { description: coverText(l.description) } : {}), url: typeof l.url === "string" ? l.url : "", ...(l.hidden === true ? { hidden: true } : {}) }));
+    .map((l) => ({ ...(typeof l.key === "string" && l.key ? { key: l.key } : {}), title: coverText(l.title), ...(coverText(l.description) ? { description: coverText(l.description) } : {}), url: typeof l.url === "string" ? l.url : "", ...(typeof l.fileUrl === "string" && l.fileUrl ? { fileUrl: l.fileUrl, kind: l.kind === "image" ? ("image" as const) : ("pdf" as const) } : {}), ...(l.hidden === true ? { hidden: true } : {}) }));
 }
 
 /** Replace the hub's links. Returns new blocks, or null when the page has no workspace block. */
