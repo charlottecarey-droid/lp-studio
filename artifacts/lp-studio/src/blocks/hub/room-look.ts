@@ -78,6 +78,7 @@ export const ROOM_LOOK_CSS = `
 .prw.v2 .prw-sc-tile[data-room-tile=live].on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .prw.v2 .prw-sc-bar{margin-bottom:26px}
 .prw.v2 .prw-chip{padding:3px 11px;font-size:12px}
+.prw.v2 .prw-hl{border-radius:16px}
 .prw.v2 .prw-map-zoom{border-radius:12px}
 .prw.v2 .prw-sc-cols .menu{border-radius:14px}
 `;

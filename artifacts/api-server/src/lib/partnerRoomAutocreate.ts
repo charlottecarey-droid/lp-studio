@@ -14,11 +14,12 @@
  * instances reading at the same moment cannot both create it).
  */
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
-import { appUsersTable, db, lpPagesTable, lpRoomPracticesTable, salesAccountsTable, salesContactsTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
+import { appUsersTable, db, lpBrandSettingsTable, lpPagesTable, lpRoomWinsTable, lpRoomPracticesTable, salesAccountsTable, salesContactsTable, lpRoomAutocreateAccountsTable, lpRoomAutocreateTable, lpRoomSettingsTable, lpRoomStandardAssetsTable, tenantMembersTable, tenantsTable } from "@workspace/db";
 import { sendRoomDigestEmail } from "./notifications";
 import { sfdcService } from "./sfdc-service";
 import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 import { logger } from "./logger";
+import { welcomePost } from "./partnerRoomFeed";
 import { ROOM_STANDARD_ASSETS, setRoomKitAsset } from "./partnerRoom";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
@@ -255,6 +256,17 @@ export async function createRoomForAccount(tenantId: number, account: SignedAcco
   return (await createRoom(tenantId, account, opts))?.pageId ?? null;
 }
 
+/** Put the brand's welcome at the top of a new hub's News Feed. */
+export async function postWelcome(tenantId: number, pageId: number, partnerName: string): Promise<void> {
+  const [[tenant], [brand]] = await Promise.all([
+    db.select({ name: tenantsTable.name }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1),
+    db.select({ config: lpBrandSettingsTable.config }).from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1),
+  ]);
+  const named = (brand?.config as { brandName?: unknown } | null | undefined)?.brandName;
+  const post = welcomePost((typeof named === "string" && named.trim()) || tenant?.name || "", partnerName);
+  await db.insert(lpRoomWinsTable).values({ tenantId, pageId, ...post });
+}
+
 /** Make the draft room for an account that has none yet. Returns the page id, or null when another reader already made it. */
 export async function createRoom(tenantId: number, account: SignedAccount, opts: { claimed?: boolean; test?: boolean } = {}): Promise<{ pageId: number; facts: RoomSetupFacts } | null> {
   if (!opts.claimed) {
@@ -288,6 +300,8 @@ export async function createRoom(tenantId: number, account: SignedAccount, opts:
       .values({ tenantId, title: `${account.name} Partner Hub${opts.test ? " (test)" : ""}`, slug, blocks: blocks as never, status: "draft", createdBy: "automatic rooms" })
       .returning({ id: lpPagesTable.id });
     await db.update(lpRoomAutocreateAccountsTable).set({ pageId: page.id }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, account.key)));
+    // The News Feed opens with a welcome from the brand. Best effort: the hub exists either way.
+    await postWelcome(tenantId, page.id, account.name).catch((err) => logger.warn({ err, pageId: page.id }, "welcome post for a new hub failed"));
     // Its practices come from the workbook's locations tab, by the account's Salesforce id. Best effort: the room exists either way.
     const [cfg] = await db.select({ sheetId: lpRoomAutocreateTable.sheetId, practicesTab: lpRoomAutocreateTable.practicesTab }).from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
     const filled = await fillRoomFromAccount(tenantId, page.id, account, blocks, people).catch((err) => {

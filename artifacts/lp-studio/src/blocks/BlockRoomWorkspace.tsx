@@ -16,7 +16,7 @@ import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
 import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
 import { resolveHubPalette } from "@/lib/hub-theme";
 import { getAutoplayEmbedUrl, isNativeVideoUrl } from "@/lib/video-utils";
-import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomPracticePage, type RoomPracticeSort, type RoomSyncedEvent, type RoomSyncedMinutes } from "./hub/room-client";
+import { ROOM_UPLOAD_ACCEPT, useRoom, type RoomRequest, type RoomSnapshot, type RoomStoreHandle, type RoomPractice, type RoomPracticePage, type RoomPracticeSort, type RoomSyncedEvent, type RoomSyncedMinutes, type RoomWin } from "./hub/room-client";
 
 /* ----------------------------------------------------------------------------
  * Partner Room — Workspace — type "room-workspace"
@@ -884,6 +884,32 @@ export function partnerSince(kickoffDate: string | undefined): string {
   return m && month ? `${month} ${m[1]}` : "";
 }
 
+/** What the Overview quotes from the newest post: its headline, else its words, cut at a word. "" when there is nothing to quote. */
+export function feedHighlightText(win: { headline?: string | null; body?: string | null } | undefined, max = 150): string {
+  const text = ((win?.headline ?? "").trim() || (win?.body ?? "").trim()).replace(/\s+/g, " ");
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), max - 30)).replace(/[\s.,;:!?]+$/, "")}…`;
+}
+
+/** The newest News Feed post, shown on the Overview. Opens the feed. Its photo is the post's own, else the hub's cover photo. */
+function FeedHighlight({ wins, photo, onOpen }: { wins: RoomWin[]; photo: string; onOpen: () => void }) {
+  const win = wins[0];
+  const text = feedHighlightText(win);
+  if (!win || !text) return null;
+  const image = (win.images ?? [])[0] || photo;
+  return (
+    <button type="button" className={`prw-hl prw-sec${image ? "" : " solo"}`} onClick={onOpen} data-room-feed-highlight>
+      <span className="t">
+        <span className="prw-eyebrow">From the News Feed</span>
+        <span className="q" style={{ fontFamily: BRAND_DISPLAY_STACK }}>{text}</span>
+        <span className="by">{[win.by, fmtDate(win.createdAt)].filter(Boolean).join(" · ")}</span>
+      </span>
+      {image && <span className="im" style={{ backgroundImage: `url(${JSON.stringify(image).slice(1, -1)})` }} aria-hidden />}
+    </button>
+  );
+}
+
 const fmtDate = (iso: string | undefined) => {
   if (!iso) return "";
   const d = new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
@@ -1554,6 +1580,15 @@ button.prw-o-main:hover .t{color:var(--dark);text-decoration:underline;text-unde
 .prw-sum div:first-child{border-left:0}
 .prw-sum b{display:block;font-size:18px;color:var(--dark);letter-spacing:-.02em}
 .prw-av{width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--dark) 9%,#fff);color:var(--dark);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none;object-fit:cover}
+.prw .prw-hl{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);width:100%;min-height:190px;padding:0;border:0;border-radius:12px;overflow:hidden;background:var(--dark);color:var(--on-dark);text-align:left}
+.prw .prw-hl.solo{grid-template-columns:1fr;min-height:0}
+.prw-hl .t{display:flex;flex-direction:column;justify-content:center;gap:12px;padding:28px 30px;min-width:0}
+.prw-hl .prw-eyebrow{color:var(--accent)}
+.prw-hl .q{font-size:22px;line-height:1.28;letter-spacing:-.01em;max-width:34ch;overflow-wrap:anywhere}
+.prw-hl .by{font-size:12.5px;opacity:.7}
+.prw-hl .im{display:block;background-size:cover;background-position:center;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34%);mask-image:linear-gradient(90deg,transparent 0,#000 34%)}
+.prw-hl:focus-visible{outline:2px solid var(--dark);outline-offset:3px}
+@media (max-width:900px){.prw .prw-hl{grid-template-columns:1fr}.prw-hl .im{min-height:150px;-webkit-mask-image:none;mask-image:none}}
 .prw-foot{text-align:center;padding:26px 0 48px;font-size:12px;color:var(--faint)}
 .prw-modal{position:fixed;inset:0;background:rgba(0,20,16,.5);z-index:1000;display:grid;place-items:center;padding:16px}
 .prw-modal .box{width:100%;max-width:480px;background:#fff;border-radius:14px;padding:24px;color:#0E1A16;position:relative;font-size:14px;line-height:1.55;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto}
@@ -2257,6 +2292,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     ))}
                   </div>
                 )}
+                <FeedHighlight wins={modules.some((m) => m.key === "wins") ? snapshot.wins : []} photo={heroImage} onOpen={() => setView("wins")} />
               </>
             )}
 

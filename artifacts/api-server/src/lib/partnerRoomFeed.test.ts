@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoomPeople, countReactions, feedAlertEmail, feedAlertsFor, parseReaction, parseWinImages, personKey, resolveMentions, teamPeopleFromBlocks } from "./partnerRoomFeed";
+import { buildRoomPeople, countReactions, feedAlertEmail, feedAlertsFor, parseReaction, parseWinImages, personKey, resolveMentions, teamPeopleFromBlocks, welcomePost } from "./partnerRoomFeed";
 
 const IMG = (n: number) => `/api/storage/objects/uploads/0000000${n}-aaaa-bbbb-cccc-0123456789ab`;
 
@@ -96,5 +96,16 @@ describe("wins feed: alerts", () => {
     expect(e.html).toContain("MB2 &amp; Dandy");
     expect(e.html).toContain('href="https://rooms.example.com/mb2?a=1&amp;b=2"');
     expect(feedAlertEmail({ kind: "comment_on_yours", byName: "", room: "R", text: "t", url: "u" }).subject).toBe("Someone commented on your win · R");
+  });
+
+  it("opens a new hub with a welcome from the brand", () => {
+    const w = welcomePost("Dandy", "Southeast Dental Partners");
+    expect(w.headline).toBe("Welcome, Southeast Dental Partners");
+    expect(w.authorName).toBe("Dandy");
+    expect(w.authorSide).toBe("team");
+    expect(w.authorEmail).toBe("");
+    expect(w.body).not.toMatch(/\{|\[/);
+    expect(welcomePost("  ", "").authorName).toBe("The team");
+    expect(welcomePost("Dandy", " ").headline).toBe("Welcome");
   });
 });

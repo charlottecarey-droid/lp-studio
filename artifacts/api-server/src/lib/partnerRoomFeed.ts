@@ -166,3 +166,19 @@ export function feedAlertsFor(input: { authorEmail: string; mentioned: RoomPerso
   if (input.comment && owner && owner !== self && !out.has(owner)) out.set(owner, { email: owner, kind: "comment_on_yours" });
   return [...out.values()];
 }
+
+/**
+ * The post every new hub opens with, from the brand itself rather than a person, so the News Feed is never empty on
+ * day one. The author email is blank on purpose: nobody is alerted when someone comments on it.
+ */
+export function welcomePost(brandName: string, partnerName: string): { headline: string; body: string; authorSide: "team"; authorEmail: string; authorName: string } {
+  const brand = brandName.trim() || "The team";
+  const partner = partnerName.trim();
+  return {
+    headline: partner ? `Welcome, ${partner}` : "Welcome",
+    body: "This is your News Feed. Share an update, a win, or news for the team here. We will post ours as we go.",
+    authorSide: "team",
+    authorEmail: "",
+    authorName: brand,
+  };
+}
