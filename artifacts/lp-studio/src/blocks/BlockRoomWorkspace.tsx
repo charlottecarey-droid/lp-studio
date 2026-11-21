@@ -1657,7 +1657,12 @@ ${whenTight(MAP_STACK_RULES)}
 .prw-edit .b{margin-left:0;width:100%}
 .prw-lk-link{flex-wrap:nowrap}
 .prw table:not(.prw-plan):not(.prw-team){display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.prw-ph{padding:0 0 14px!important;border:0!important}
+.prw-ph{padding:16px 0!important;border:0!important}
+.prw-ph:first-child{padding-top:0!important}
+.prw-ph+.prw-ph{border-top:1px solid var(--line)!important}
+.prw.v2 .prw-phases{gap:10px}
+.prw.v2 .prw-ph,.prw.v2 .prw-ph:first-child{padding:18px 20px!important}
+.prw.v2 .prw-ph+.prw-ph{border:0!important}
 .prw-phases{grid-template-columns:1fr}
 ${STACK_RULES}
 .prw-step{flex-wrap:wrap}
