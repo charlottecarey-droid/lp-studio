@@ -392,6 +392,21 @@ export interface RoomProgram {
   links?: { label: string; url: string }[];
   hidden?: boolean;
 }
+/**
+ * Programs the customer always decides on, even on a hub saved before they
+ * carried choices: the partnership announcement and the welcome kits used to
+ * be fixed ("in plan") on every hub. Mirrors the server's ROOM_PROGRAM_DEFAULT_OPTIONS.
+ */
+export const ROOM_PROGRAM_DEFAULT_OPTIONS: Record<string, string[]> = {
+  "mk-announcement": ["Include", "Not now"],
+  "mk-welcome-kits": ["Include", "Not now"],
+};
+/** A program's choices: its own, or the standing ones for the two programs above when it has none. */
+export function roomProgramOptions(p: { key?: string; options?: string[] }): string[] {
+  const own = (p.options ?? []).filter((o) => typeof o === "string" && o.trim());
+  return own.length >= 2 ? own : (ROOM_PROGRAM_DEFAULT_OPTIONS[(p.key ?? "").trim()] ?? own);
+}
+
 export interface RoomProgramGroup {
   title: string;
   note?: string;
@@ -554,8 +569,8 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
         title: "Standard launch package",
         note: "Included",
         programs: [
-          { key: "mk-announcement", title: "Partnership announcement", description: "Email, social posts and a one-pager for your network.", audience: "Leadership, locations", when: "Week 1" },
-          { key: "mk-welcome-kits", title: "Welcome kits to every location", description: "Shipped to each location on your list.", audience: "Locations", when: "Week 2" },
+          { key: "mk-announcement", title: "Partnership announcement", description: "Email, social posts and a one-pager for your network.", audience: "Leadership, locations", when: "Week 1", options: ["Include", "Not now"] },
+          { key: "mk-welcome-kits", title: "Welcome kits to every location", description: "Shipped to each location on your list.", audience: "Locations", when: "Week 2", options: ["Include", "Not now"] },
         ],
       },
       {
@@ -853,7 +868,7 @@ const linksLast = (assets: RoomAsset[]) => [...assets.filter((a) => a.kind !== "
  */
 export function groupLaunch(assets: RoomAsset[], programs: RoomProgram[], choices: Record<string, { value: string }>) {
   const choice = (p: RoomProgram) => choices[roomMilestoneKey({ key: p.key, task: p.title })];
-  const hasChoice = (p: RoomProgram) => (p.options ?? []).filter((o) => o.trim()).length >= 2;
+  const hasChoice = (p: RoomProgram) => roomProgramOptions(p).length >= 2;
   // Our own brand material sits in its own group at the foot of the tab. One with nothing to open (a logo folder with no link yet) is left out of the customer's view altogether rather than listed as "in progress".
   const own = assets.filter(isBrandCollateral);
   const theirs = assets.filter((a) => !isBrandCollateral(a));
@@ -1818,7 +1833,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const assets = (props.assets ?? []).filter((a) => !a.hidden);
   const links = (props.links ?? []).filter((l) => !l.hidden);
   const team = (props.team ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, members: (g.members ?? []).filter((m) => !m.hidden) }));
-  const programGroups = (props.marketing?.groups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, programs: (g.programs ?? []).filter((x) => !x.hidden) }));
+  // Every program carries the choices the customer is offered (see roomProgramOptions), so nothing below has to know about the standing ones.
+  const programGroups = (props.marketing?.groups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, programs: (g.programs ?? []).filter((x) => !x.hidden).map((x) => ({ ...x, options: roomProgramOptions(x) })) }));
   const undecided = programGroups.flatMap((g) => g.programs).filter((x) => (x.options ?? []).length >= 2 && !snapshot.choices[roomMilestoneKey({ key: x.key, task: x.title })]);
   // Onboarding: a step is done when the team ticked it in the builder or the customer completed it.
   const steps = props.onboarding?.hidden ? [] : (props.onboarding?.steps ?? []).filter((x) => !x.hidden).map((x) => ({ step: x, key: roomMilestoneKey({ key: x.key, task: x.title }) })).map((x) => ({ ...x, saved: snapshot.tasks[x.key], done: !!x.step.done || !!snapshot.tasks[x.key]?.done }));
@@ -3641,7 +3657,7 @@ function ContactDialog({ store, partnerName, existing, confirmKey, onClose, onNe
  */
 function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot, onAsk }: { program: RoomProgram; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; /** Some program on the page has a picture: ones without get a quiet placeholder so the text lines up. */ slot: boolean; /** Ask the team about this program (opens a request). */ onAsk?: () => void }) {
   const key = roomMilestoneKey({ key: program.key, task: program.title });
-  const options = (program.options ?? []).filter((o) => o.trim());
+  const options = roomProgramOptions(program);
   const chosen = snapshot.choices[key];
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");

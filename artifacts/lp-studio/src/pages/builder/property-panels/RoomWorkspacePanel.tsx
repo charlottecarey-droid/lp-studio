@@ -10,6 +10,7 @@ import { ROOM_LOOKS, roomLook } from "@/blocks/hub/room-look";
 import {
   ROOM_ASSET_ICONS,
   ROOM_MODULES,
+  roomProgramOptions,
   orderedModules,
   ROOM_STATUS_LABEL,
   resolveRoomStatus,
@@ -744,7 +745,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 </div>
                 <div className="grid grid-cols-[1fr_auto] items-center gap-1">
                   <Input
-                    value={(x.options ?? []).join(", ")}
+                    value={roomProgramOptions(x).join(", ")}
                     onChange={(e) => setProgram(gi, pi, { options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean) })}
                     className="h-7 text-xs"
                     placeholder="Choices, comma-separated (Include, Not now). Blank = fixed"

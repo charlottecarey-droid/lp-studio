@@ -30,6 +30,7 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomLinkAsset,
+  roomProgramOptions,
   roomNextUp,
   requestFormFor,
   isGiftStep,
@@ -197,14 +198,24 @@ describe("room-workspace — setup items on the home screen", () => {
 });
 
 describe("room-workspace — marketing plan, launch kit, hide anything", () => {
-  it("marketing: fixed programs read as in plan, programs with options offer each choice", () => {
+  it("marketing: every standard program is the customer's to decide; a program with no choices still reads as in plan", () => {
     const html = only("marketing");
     expect(html).toContain('data-room-view="marketing"');
-    expect((html.match(/data-room-program="fixed"/g) ?? []).length).toBe(2);
-    expect((html.match(/data-room-program="open"/g) ?? []).length).toBe(2);
-    expect(html).toContain('aria-label="Included: '); // a standard program is ticked green and can't be un-ticked
-    expect(html).toContain('title="Add to the plan"'); // an optional one has a grey tick to add it
+    // The announcement and the welcome kits are no longer ticked for the customer: they are offered like the add-ons.
+    expect((html.match(/data-room-program="fixed"/g) ?? []).length).toBe(0);
+    expect((html.match(/data-room-program="open"/g) ?? []).length).toBe(4);
+    expect(html).not.toContain('aria-label="Included: ');
+    expect(html).toContain('title="Add to the plan"'); // a grey tick to add it
     expect(html).not.toContain('title="Not now"'); // saying no lives inside the opened row
+    // A hub saved before those two carried choices gets them anyway; any other program without choices stays fixed.
+    expect(roomProgramOptions({ key: "mk-welcome-kits" })).toEqual(["Include", "Not now"]);
+    expect(roomProgramOptions({ key: "mk-announcement", options: [] })).toEqual(["Include", "Not now"]);
+    expect(roomProgramOptions({ key: "mk-announcement", options: ["Yes", "Later", "No"] })).toEqual(["Yes", "Later", "No"]);
+    expect(roomProgramOptions({ key: "mk-something-else" })).toEqual([]);
+    const saved = only("marketing", { marketing: { groups: [{ title: "Standard", programs: [{ key: "mk-welcome-kits", title: "Welcome kits" }, { key: "mk-fixed", title: "Kickoff call" }] }] } });
+    expect((saved.match(/data-room-program="open"/g) ?? []).length).toBe(1);
+    expect((saved.match(/data-room-program="fixed"/g) ?? []).length).toBe(1);
+    expect(saved).toContain('aria-label="Included: ');
   });
   it("launch kit: links come first, and actions are icon buttons with accessible names", () => {
     const html = only("kit", { links: [{ title: "Sign-up page", url: "https://example.com/signup" }], assets: [{ key: "a", kind: "pdf", title: "One-pager", fileUrl: "/files/one.pdf" }] });

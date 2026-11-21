@@ -515,8 +515,8 @@ export const DEFAULT_WORKSPACE_MARKETING = {
       title: "Standard launch package",
       note: "Included in every partnership",
       programs: [
-        P("mk-announcement", "Partnership announcement", "Email, social posts and one-pager for your network, in your brand.", "Leadership, practices", "Day 5"),
-        P("mk-welcome-kits", "Welcome kits to every practice", "Shipped to each practice on your list, with gifts for regional managers.", "Practices, regional managers", "Day 15"),
+        P("mk-announcement", "Partnership announcement", "Email, social posts and one-pager for your network, in your brand.", "Leadership, practices", "Day 5", ["Include", "Not now"]),
+        P("mk-welcome-kits", "Welcome kits to every practice", "Shipped to each practice on your list, with gifts for regional managers.", "Practices, regional managers", "Day 15", ["Include", "Not now"]),
         P("mk-lunch-learn", "Lunch & Learn program", "In-practice introductions led by Dandy, booked with your office managers.", "Practices", "Days 15–45", ["Include", "Not now"]),
         P("mk-video-mailer", "Video mailer and lab-credit offer", "A video mailer to every practice with a lab credit toward first cases.", "Practices", "Days 30–45", ["Include", "Not now"]),
         P("mk-welcome-event", "Welcome event for your team", "We plan, host and cover it. You bring the guest list.", "Leadership, regional managers", "By Day 60", ["Dinner", "Onsite training", "Not now"]),

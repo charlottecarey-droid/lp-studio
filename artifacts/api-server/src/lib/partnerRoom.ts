@@ -423,6 +423,16 @@ export interface RoomChoiceSpec {
  * (Include / Not now, an amount, an event format). A program without options
  * is fixed ("in plan") and takes no choice.
  */
+/**
+ * Programs the customer always decides on, even on a hub saved before they
+ * carried choices (the announcement and the welcome kits used to be fixed on
+ * every hub). Mirrors the block's ROOM_PROGRAM_DEFAULT_OPTIONS.
+ */
+export const ROOM_PROGRAM_DEFAULT_OPTIONS: Record<string, string[]> = {
+  "mk-announcement": ["Include", "Not now"],
+  "mk-welcome-kits": ["Include", "Not now"],
+};
+
 export function extractRoomChoices(blocks: unknown): Map<string, RoomChoiceSpec> {
   const out = new Map<string, RoomChoiceSpec>();
   if (!Array.isArray(blocks)) return out;
@@ -436,8 +446,10 @@ export function extractRoomChoices(blocks: unknown): Map<string, RoomChoiceSpec>
       for (const p of programs) {
         if (!p || typeof p !== "object") continue;
         const rawOptions = (p as { options?: unknown }).options;
-        const options = Array.isArray(rawOptions) ? rawOptions.filter((o): o is string => typeof o === "string" && !!o.trim()).map((o) => o.trim()) : [];
+        const own = Array.isArray(rawOptions) ? rawOptions.filter((o): o is string => typeof o === "string" && !!o.trim()).map((o) => o.trim()) : [];
         const key = planTaskKey({ key: (p as { key?: unknown }).key, task: (p as { title?: unknown }).title });
+        const rawKey = (p as { key?: unknown }).key;
+        const options = own.length >= 2 ? own : (ROOM_PROGRAM_DEFAULT_OPTIONS[typeof rawKey === "string" ? rawKey.trim() : ""] ?? own);
         if (!key || options.length < 2 || out.has(key)) continue;
         out.set(key, { key, title: String((p as { title?: unknown }).title ?? key), options });
       }

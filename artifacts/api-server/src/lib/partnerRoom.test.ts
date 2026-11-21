@@ -192,7 +192,9 @@ describe("onboarding, choices, contacts, wins", () => {
   });
   it("only programs with two or more options take a choice", () => {
     const choices = extractRoomChoices(blocks);
-    expect([...choices.keys()]).toEqual(["mk-event", "mk-press"]);
+    // The announcement is saved here without choices: the customer is still asked (it used to be fixed on every hub).
+    expect([...choices.keys()]).toEqual(["mk-announcement", "mk-event", "mk-press"]);
+    expect(choices.get("mk-announcement")?.options).toEqual(["Include", "Not now"]);
     expect(choices.get("mk-press")?.options).toEqual(["Include", "Not now"]);
     expect(extractRoomChoices(null).size).toBe(0);
   });
