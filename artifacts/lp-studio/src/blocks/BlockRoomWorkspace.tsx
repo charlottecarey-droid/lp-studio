@@ -11,7 +11,7 @@ import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed, opensInViewer, resolveAssetHref, type HubAsset, type HubAssetAction } from "./hub/hub-assets";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
-import { ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
+import { OrdersAtAGlance, ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
 import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
 import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
 import { resolveHubPalette } from "@/lib/hub-theme";
@@ -886,6 +886,19 @@ export function partnerSince(kickoffDate: string | undefined): string {
   return m && month ? `${month} ${m[1]}` : "";
 }
 
+/** Share of practices live, as a whole percent. */
+export function liveShare(live: number, total: number): number {
+  return total > 0 ? Math.max(0, Math.min(100, Math.round((live / total) * 100))) : 0;
+}
+
+/** The line under "Partnership progress": how far along the account is, in plain words. */
+export function progressLine(live: number, total: number, noun: string): string {
+  const left = Math.max(0, total - live);
+  if (total <= 0) return "";
+  if (left === 0) return `All ${total} ${noun} are live.`;
+  return `${live} of ${total} ${noun} are live, with ${left} still to launch.`;
+}
+
 /** What the Overview quotes from the newest post: its headline, else its words, cut at a word. "" when there is nothing to quote. */
 export function feedHighlightText(win: { headline?: string | null; body?: string | null } | undefined, max = 150): string {
   const text = ((win?.headline ?? "").trim() || (win?.body ?? "").trim()).replace(/\s+/g, " ");
@@ -1232,6 +1245,9 @@ const CSS = `
 .prw-chip.marketing{background:color-mix(in srgb,var(--green) 14%,#fff);color:#0B6B3A}
 .prw-chip.milestone{background:#FBF3D9;color:#7A6100}
 .prw-tl{margin-bottom:8px}
+.prw-tl-top{margin:36px 0 16px}
+.prw-tl-top h3{margin:0 0 4px;font-size:16px;font-weight:600;color:var(--dark)}
+.prw-tl-top p{margin:0;font-size:13.5px;color:var(--body)}
 .prw-tl-hd{display:flex;justify-content:flex-end;margin-bottom:14px}
 .prw-tl-waves{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:12px}
 .prw-tl-wave{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:#fff;min-width:0}
@@ -2120,7 +2136,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <span>Day</span>
                   </div>
                 )}
-                {rows.length > 0 && (
+                {/* The plan count is a rollout measure; after it the cover leads with how much of the account is live. */}
+                {rows.length > 0 && !expansion && (
                   <div>
                     <b className="prw-num">{doneCount}<i>/{rows.length}</i></b>
                     <span>Plan items done</span>
@@ -2130,6 +2147,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <div data-room-kpi="live">
                     <b className="prw-num">{pr.byStage.live ?? 0}<i>/{pr.total}</i></b>
                     <span>{noun.charAt(0).toUpperCase() + noun.slice(1)} live</span>
+                  </div>
+                )}
+                {expansion && pr.total > 0 && (
+                  <div data-room-kpi="share">
+                    <b className="prw-num">{liveShare(pr.byStage.live ?? 0, pr.total)}<i>%</i></b>
+                    <span>Of {noun} live</span>
                   </div>
                 )}
                 {mine.length + reviewRequests.length + stepsOpen.length + undecided.length > 0 && (
@@ -2177,6 +2200,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   )}
                 </div>
+                {expansion && pr.total > 0 && (
+                  <div className="prw-tl-top" data-room-progress-heading>
+                    <h3>Partnership progress</h3>
+                    <p>{progressLine(pr.byStage.live ?? 0, pr.total, noun)}</p>
+                  </div>
+                )}
                 {expansion && pr.total > 0 && (
                   <PartnershipTimeline waves={timelineWaves(props.waves, pr.byWave)} total={pr.total} live={pr.byStage.live ?? 0} goal={liveGoal ? { target: liveGoal.targetValue as number, text: liveGoal.target } : null} defaultView={props.timelineView === "waves" ? "waves" : "practices"} noun={noun} fmtDate={(d) => fmtDate(d)} />
                 )}
@@ -2305,6 +2334,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                       </div>
                     ))}
                   </div>
+                )}
+                {expansion && !!snapshot.viewer?.team && modules.some((m) => m.key === "practices") && (
+                  <OrdersAtAGlance store={store ?? room.reader} viewerKey={snapshot.viewer?.email ?? ""} noun={noun} onOpen={() => setView("practices")} />
                 )}
                 <FeedHighlight wins={modules.some((m) => m.key === "wins") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />
               </>

@@ -295,6 +295,34 @@ function OrderRecencyChart({ summary, noun, picked, onPick }: { summary: NonNull
   );
 }
 
+/**
+ * Team only, on the Overview once the rollout is behind the account: the product-line and last-order charts from the
+ * Scorecard. A click on any bar opens the Scorecard, where the list can be filtered. Nothing is drawn until there is
+ * order data to show.
+ */
+export function OrdersAtAGlance({ store, viewerKey, noun, onOpen }: { store: RoomStoreHandle | null; viewerKey: string; noun: string; onOpen: () => void }) {
+  const [data, setData] = useState<RoomPracticePage | null>(null);
+  useEffect(() => {
+    if (!store || !viewerKey) return;
+    let cancelled = false;
+    void store.loadPractices({ page: 0 }).then((r) => {
+      if (!cancelled && r && r !== "identity") setData(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, viewerKey]);
+  const products = data?.productSummary && data.productSummary.ordering > 0 ? data.productSummary : null;
+  const recency = data?.orderRecency && data.orderRecency.known > 0 ? data.orderRecency : null;
+  if (!products && !recency) return null;
+  return (
+    <div className="prw-sc-grid prw-sc-orders prw-sec" style={products && recency ? undefined : { gridTemplateColumns: "1fr" }} data-room-orders-glance>
+      {products && <ProductLines summary={products} noun={noun} picked="" mode="has" onPick={onOpen} onMode={() => undefined} />}
+      {recency && <OrderRecencyChart summary={recency} noun={noun} picked="" onPick={onOpen} />}
+    </div>
+  );
+}
+
 const COLS_KEY = "lp_room_scorecard_cols";
 function savedColumns(): Record<string, boolean> {
   try {
