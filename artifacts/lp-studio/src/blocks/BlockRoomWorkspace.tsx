@@ -58,7 +58,6 @@ export type RoomModuleKey = "overview" | "wins" | "goals" | "plan" | "practices"
 export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "practices", label: "Scorecard" },
-  { key: "wins", label: "Feed" },
   { key: "goals", label: "Goals" },
   { key: "plan", label: "Action plan" },
   { key: "marketing", label: "Marketing plan" },
@@ -67,6 +66,8 @@ export const ROOM_MODULES: { key: RoomModuleKey; label: string }[] = [
   { key: "meetings", label: "Meetings" },
   { key: "requests", label: "Outstanding" },
   { key: "team", label: "Our Team" },
+  // The News Feed closes the list: it is where people come back to, not a step in the rollout.
+  { key: "wins", label: "News Feed" },
 ];
 
 export type RoomMilestoneStatus = "done" | "on-track" | "pending" | "blocking" | "not-started";

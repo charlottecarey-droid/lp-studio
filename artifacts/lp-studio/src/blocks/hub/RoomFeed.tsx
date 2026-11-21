@@ -363,7 +363,8 @@ export function WinsView({ snapshot, store, isEditor, onNeedEmail, display }: Fe
     <>
       <div className="prw-hd">
         <div>
-          <h2 style={{ fontFamily: display }}>Feed</h2>
+          <h2 style={{ fontFamily: display }}>News Feed</h2>
+          <p>Share an update, a win, or news for the team.</p>
         </div>
       </div>
       <form

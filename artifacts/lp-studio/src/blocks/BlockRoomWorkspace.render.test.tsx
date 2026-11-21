@@ -93,7 +93,10 @@ describe("room-workspace — modules can be hidden per account", () => {
     expect(visibleModules(["overview", "wins", "goals", "plan", "practices", "marketing", "kit", "calendar", "meetings", "requests", "team"]).map((m) => m.key)).toEqual(["overview"]);
     expect(visibleModules(undefined)).toHaveLength(9);
     // Scorecard sits right under Overview, and a hub can set its own order.
-    expect(visibleModules(undefined).map((m) => m.key).slice(0, 3)).toEqual(["overview", "practices", "wins"]);
+    expect(visibleModules(undefined).map((m) => m.key).slice(0, 3)).toEqual(["overview", "practices", "goals"]);
+    // The News Feed closes the list.
+    expect(visibleModules(undefined).map((m) => m.key).at(-1)).toBe("wins");
+    expect(visibleModules(undefined).find((m) => m.key === "wins")!.label).toBe("News Feed");
     expect(visibleModules(["calendar"]).map((m) => m.key)).toContain("calendar"); // meeting notes still show there
     expect(visibleModules(["wins"], ["team", "plan"]).map((m) => m.key).slice(0, 4)).toEqual(["team", "plan", "overview", "practices"]);
     expect(render({ moduleOrder: ["plan"] as never })).toContain('data-room-view="plan"');
@@ -204,7 +207,7 @@ describe("room-workspace — marketing plan, launch kit, hide anything", () => {
     expect(only("marketing", { marketing: d.marketing })).not.toContain("Your own case study");
   });
   it("wins: the feed renders a composer and an empty state before anything is posted", () => {
-    const html = only("wins");
+    const html = only("wins", { moduleOrder: ["wins"] });
     expect(html).toContain("data-room-win-compose");
     expect(html).toContain("No posts yet");
   });
