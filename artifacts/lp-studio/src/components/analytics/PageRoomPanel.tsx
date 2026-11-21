@@ -1485,8 +1485,10 @@ export function AutomaticRoomsSection() {
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
         <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Practices tab</span><Input value={practicesTab} onChange={(e) => setPracticesTab(e.target.value)} aria-label="Practices tab name" /></label>
       </div>
-      <div className="space-y-3 rounded-md border p-3" data-room-followups>
-        <p className="text-sm font-medium">When a room is created</p>
+      {/* Closed by default: the sheet link above is the one thing most people set. */}
+      <details className="rounded-md border p-3" data-room-followups>
+        <summary className="cursor-pointer text-sm font-medium">When a room is created</summary>
+        <div className="mt-3 space-y-3">
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Email</p>
           <label className="flex items-center gap-2 text-sm">
@@ -1535,7 +1537,8 @@ export function AutomaticRoomsSection() {
           <p className="text-xs font-medium text-muted-foreground">Salesforce</p>
           <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Salesforce account field (API name)</span><Input className="max-w-sm" value={sfdcField} onChange={(e) => setSfdcField(e.target.value)} aria-label="Salesforce field" /></label>
         </div>
-      </div>
+        </div>
+      </details>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="brand" disabled={busy || !sheet.trim()} onClick={() => save(true)}>{data?.enabled ? "Save and check now" : "Turn on"}</Button>
         {data?.enabled && <Button size="sm" variant="ghost" disabled={busy} onClick={() => save(false)}>Turn off</Button>}
@@ -1543,8 +1546,9 @@ export function AutomaticRoomsSection() {
       </div>
       {note && <p className="text-sm text-muted-foreground">{note}</p>}
       {err && <p className="text-sm text-destructive">{err}</p>}
-      <div className="space-y-2 rounded-md border p-3" data-room-autotest>
-        <p className="text-sm font-medium">Run a test</p>
+      <details className="rounded-md border p-3" data-room-autotest>
+        <summary className="cursor-pointer text-sm font-medium">Run a test</summary>
+        <div className="mt-3 space-y-2">
         <div className="flex flex-wrap items-end gap-2">
           <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Account ID or name</span><Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} aria-label="Salesforce account ID or account name" /></label>
           <Button size="sm" variant="brand" disabled={busy || testName.trim().length < 2} onClick={runTest}>{busy && testSteps.length ? "Running…" : "Run a test"}</Button>
@@ -1560,7 +1564,8 @@ export function AutomaticRoomsSection() {
             ))}
           </ul>
         )}
-      </div>
+        </div>
+      </details>
       {accounts.length > 0 && (
         <details className="text-sm" open={showAll} onToggle={(e) => setShowAll((e.currentTarget as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer text-xs text-muted-foreground">{accounts.length} accounts on the list · {withRoom.length} with a room made here</summary>

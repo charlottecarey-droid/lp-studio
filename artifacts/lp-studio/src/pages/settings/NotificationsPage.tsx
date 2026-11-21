@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { SettingRow } from "./SettingsUi";
 import { useToast } from "@/hooks/use-toast";
 
 interface PrefGroup {
@@ -68,72 +69,38 @@ export function NotificationsContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Email preferences</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Choose which emails you'd like to receive from LP Studio.
-          {recipientEmail ? (
-            <>
-              {" "}
-              These settings apply to your account,{" "}
-              <span className="font-medium text-foreground">{recipientEmail}</span>.
-            </>
-          ) : (
-            " These settings apply to your account."
-          )}
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Emails sent to{" "}
+        {recipientEmail ? (
+          <span className="font-medium text-foreground">{recipientEmail}</span>
+        ) : (
+          "your account"
+        )}
+        . Sign-in, security and billing emails are always sent.
+      </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
+      ) : groups.length === 0 ? (
+        <Card className="p-5">
+          <p className="text-sm text-muted-foreground">No optional emails right now.</p>
+        </Card>
       ) : (
-        <>
-          {groups.length === 0 ? (
-            <Card className="p-5">
-              <p className="text-sm text-muted-foreground">
-                There are no optional emails to manage right now.
-              </p>
-            </Card>
-          ) : (
-            <Card className="divide-y divide-border/60">
-              {groups.map((g) => (
-                <div key={g.id} className="flex items-start justify-between gap-6 p-5">
-                  <div className="min-w-0">
-                    <h2 className="text-sm font-semibold">{g.name}</h2>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                      {g.description}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={g.subscribed}
-                    onCheckedChange={(v) => handleToggle(g.id, v)}
-                    disabled={saving === g.id}
-                    data-testid={`email-pref-${g.id}`}
-                    className="shrink-0 mt-0.5"
-                  />
-                </div>
-              ))}
-            </Card>
-          )}
-
-          <Card className="p-5 bg-muted/40 border-dashed">
-            <div className="flex items-start gap-4">
-              <div className="w-9 h-9 rounded-lg bg-background flex items-center justify-center shrink-0 border">
-                <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold">Account, security &amp; billing</h2>
-                <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                  Essential emails like sign-in links, password resets, invoices, and
-                  payment alerts are always sent and can't be turned off.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </>
+        <Card className="divide-y divide-border/60">
+          {groups.map((g) => (
+            <SettingRow key={g.id} title={g.name} description={g.description}>
+              <Switch
+                checked={g.subscribed}
+                onCheckedChange={(v) => handleToggle(g.id, v)}
+                disabled={saving === g.id}
+                data-testid={`email-pref-${g.id}`}
+              />
+            </SettingRow>
+          ))}
+        </Card>
       )}
     </div>
   );

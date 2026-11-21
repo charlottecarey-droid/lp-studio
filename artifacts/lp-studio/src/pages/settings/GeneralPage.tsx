@@ -5,7 +5,8 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings as SettingsIcon, Sparkles, Lock } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
+import { SettingRow, AdminOnlyNote } from "./SettingsUi";
 import { useToast } from "@/hooks/use-toast";
 
 // The workspace login-URL / slug / redirect cards moved to the Domains tab
@@ -124,97 +125,49 @@ export function GeneralContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">General settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Workspace-level toggles that apply to every member of this tenant.
-        </p>
-      </div>
-
+    <div className="space-y-4">
+      <h2 className="sr-only">General settings</h2>
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <Card className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <SettingsIcon className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-sm font-semibold">Require review before publishing pages</h2>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                    When ON, editors must submit pages for review and a reviewer
-                    approves before they go live. When OFF, anyone with the
-                    Pages permission can publish directly and the
-                    Submit / Approve / Reject controls are hidden.
+        <>
+          <Card className="divide-y divide-border/60">
+            <SettingRow
+              title="Require review before publishing"
+              description="Pages need a reviewer's approval before they go live."
+            >
+              <Switch
+                checked={requireReview}
+                onCheckedChange={handleToggle}
+                disabled={!isAdmin || saving}
+                data-testid="require-review-toggle"
+              />
+            </SettingRow>
+            <SettingRow
+              title="AI image generation"
+              description="Let the page builder create on-brand images. Uses image credits."
+              note={
+                !aiImageGenAvailable ? (
+                  <p className="text-[11px] text-amber-600 mt-1 inline-flex items-center gap-1.5">
+                    <Lock className="w-3 h-3" />
+                    Requires the Pro or Enterprise plan
+                    {tenantPlan ? <span className="text-muted-foreground">(your plan: {tenantPlan})</span> : null}
                   </p>
-                </div>
-                <Switch
-                  checked={requireReview}
-                  onCheckedChange={handleToggle}
-                  disabled={!isAdmin || saving}
-                  data-testid="require-review-toggle"
-                />
-              </div>
-              {!isAdmin && (
-                <p className="text-[11px] text-muted-foreground mt-3 italic">
-                  Only workspace admins can change this setting.
-                </p>
-              )}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {!loading && (
-        <Card className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              {aiImageGenAvailable ? (
-                <Sparkles className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <Lock className="w-4 h-4 text-muted-foreground" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-sm font-semibold">AI image generation</h2>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                    When ON, the Generate-block dialog can fill image fields
-                    with on-brand AI-generated images and editors can
-                    regenerate any single image inline. When OFF, image
-                    fields keep their stock placeholder and image URLs can
-                    still be swapped manually — no image-API credits are
-                    spent.
-                  </p>
-                  {!aiImageGenAvailable && (
-                    <p className="text-[11px] text-amber-600 mt-2 inline-flex items-center gap-1.5">
-                      <Lock className="w-3 h-3" />
-                      Requires the Pro or Enterprise plan
-                      {tenantPlan ? <span className="text-muted-foreground">(your plan: {tenantPlan})</span> : null}
-                    </p>
-                  )}
-                </div>
-                <Switch
-                  checked={aiImageGenEnabled}
-                  onCheckedChange={handleAiImageGenToggle}
-                  disabled={!isAdmin || !aiImageGenAvailable || savingAiImageGen}
-                  data-testid="ai-image-gen-toggle"
-                />
-              </div>
-              {!isAdmin && (
-                <p className="text-[11px] text-muted-foreground mt-3 italic">
-                  Only workspace admins can change this setting.
-                </p>
-              )}
-            </div>
-          </div>
-        </Card>
+                ) : null
+              }
+            >
+              <Switch
+                checked={aiImageGenEnabled}
+                onCheckedChange={handleAiImageGenToggle}
+                disabled={!isAdmin || !aiImageGenAvailable || savingAiImageGen}
+                data-testid="ai-image-gen-toggle"
+              />
+            </SettingRow>
+          </Card>
+          {!isAdmin && <AdminOnlyNote />}
+        </>
       )}
     </div>
   );

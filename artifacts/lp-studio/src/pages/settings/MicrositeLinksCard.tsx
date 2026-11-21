@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Globe, Loader2, Save } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface VanityLinkRow { slug: string; targetUrl: string }
@@ -91,7 +91,7 @@ export function MicrositeLinksCard() {
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         toast({
-          title: "Couldn't save vanity links",
+          title: "Couldn't save",
           description: err?.error ?? `HTTP ${r.status}`,
           variant: "destructive",
         });
@@ -105,10 +105,10 @@ export function MicrositeLinksCard() {
       setRootRedirectUrl(data.rootRedirectUrl ?? "");
       setRootPageSlug(data.rootPageSlug ?? "");
       setLinks(Array.isArray(data.vanityLinks) ? data.vanityLinks : []);
-      toast({ title: "Vanity links saved" });
+      toast({ title: "Saved" });
     } catch (err) {
       toast({
-        title: "Couldn't save vanity links",
+        title: "Couldn't save",
         description: err instanceof Error ? err.message : "Network error",
         variant: "destructive",
       });
@@ -118,18 +118,11 @@ export function MicrositeLinksCard() {
   };
 
   return (
-    <Card className="p-6 space-y-5">
-      <div>
-        <h3 className="text-base font-semibold flex items-center gap-2">
-          <Globe className="w-4 h-4 text-primary" /> Vanity links
-        </h3>
-        <p className="text-xs text-muted-foreground mt-1">
-          Controls what the public landing pages host (your custom domain, or the <span className="font-mono">.lpstudio.ai</span> subdomain) does with the root URL, plus any short vanity links you want to publish.
-        </p>
-      </div>
+    <Card className="p-5 space-y-4">
+      <h3 className="text-sm font-semibold">Home page and vanity links</h3>
 
       <div className="space-y-1.5">
-        <Label className="text-sm">Home page (slug of one of your pages)</Label>
+        <Label className="text-sm">Home page</Label>
         <Input
           value={rootPageSlug}
           onChange={e => setRootPageSlug(e.target.value)}
@@ -137,21 +130,19 @@ export function MicrositeLinksCard() {
           disabled={loading}
         />
         <p className="text-xs text-muted-foreground">
-          Renders that page at the site root (<span className="font-mono">/</span>) — a real home page on your domain. When set, it takes precedence over the redirect below.
+          The slug of the page to show at your domain's root.
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-sm">Root redirect URL</Label>
+        <Label className="text-sm">Or send the root to another site</Label>
         <Input
           value={rootRedirectUrl}
           onChange={e => setRootRedirectUrl(e.target.value)}
           placeholder="e.g. https://www.yourcompany.com"
           disabled={loading}
         />
-        <p className="text-xs text-muted-foreground">
-          Visitors who land on the site root (<span className="font-mono">/</span>) are sent here. Leave blank to use the default landing page.
-        </p>
+        <p className="text-xs text-muted-foreground">Used only when no home page is set.</p>
       </div>
 
       <div className="space-y-2 pt-2 border-t border-border">
@@ -159,7 +150,7 @@ export function MicrositeLinksCard() {
           <div>
             <Label className="text-sm">Vanity links</Label>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Short paths your visitors can type. Each slug redirects to its target URL. Supports <span className="font-mono">https://</span>, <span className="font-mono">mailto:</span>, <span className="font-mono">tel:</span>, and <span className="font-mono">urn:</span>.
+              A short path on your domain that redirects anywhere.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={addLink} disabled={loading} className="gap-1 shrink-0">
@@ -167,7 +158,7 @@ export function MicrositeLinksCard() {
           </Button>
         </div>
         {links.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic py-3">No vanity links yet. Click "Add link" to create one.</p>
+          <p className="text-xs text-muted-foreground py-1">None yet.</p>
         ) : (
           <div className="space-y-2">
             {links.map((link, idx) => (
@@ -185,7 +176,7 @@ export function MicrositeLinksCard() {
                 <Input
                   value={link.targetUrl}
                   onChange={e => updateLink(idx, { targetUrl: e.target.value })}
-                  placeholder="https://… or mailto:… or urn:…"
+                  placeholder="https://…"
                   className="flex-[2] text-sm"
                 />
                 <Button
@@ -201,15 +192,12 @@ export function MicrositeLinksCard() {
             ))}
           </div>
         )}
-        <p className="text-xs text-muted-foreground pt-1">
-          Slugs use lowercase letters, numbers, and hyphens. Reserved paths (<span className="font-mono">p</span>, <span className="font-mono">preview</span>, <span className="font-mono">review</span>, <span className="font-mono">lp</span>, <span className="font-mono">thank-you</span>) can't be used. Vanity slugs take precedence over landing-page slugs.
-        </p>
       </div>
 
-      <div className="flex justify-end pt-2 border-t border-border">
-        <Button onClick={handleSave} disabled={saving || loading} className="gap-2">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save vanity links
+      <div className="flex justify-end">
+        <Button size="sm" onClick={handleSave} disabled={saving || loading} className="gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          Save
         </Button>
       </div>
     </Card>

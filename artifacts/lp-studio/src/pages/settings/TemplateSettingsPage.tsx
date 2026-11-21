@@ -11,10 +11,8 @@ import {
 import {
   Loader2,
   LayoutTemplate,
-  CheckCircle2,
   AlertTriangle,
   ChevronDown,
-  ShieldCheck,
   Target,
   Pencil,
   Check,
@@ -36,6 +34,7 @@ import {
   type TemplateEligibility,
 } from "@/lib/templateEligibility";
 import { cn } from "@/lib/utils";
+import { SettingsSectionHeader } from "./SettingsUi";
 
 const API_BASE = "/api";
 
@@ -332,17 +331,10 @@ export function TemplateSettingsContent() {
     <div className="space-y-8">
       {/* ── AI-behavior governance ─────────────────────────────────────────── */}
       <section className="space-y-3">
-        <div className="flex items-start gap-2">
-          <ShieldCheck className="w-5 h-5 text-primary mt-0.5 shrink-0" aria-hidden />
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">AI generation behavior</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              Controls how aggressively the New Microsite flow auto-picks a template versus
-              letting AI build a custom page. Reps can always pick a template manually — this
-              only governs what AI does by default.
-            </p>
-          </div>
-        </div>
+        <SettingsSectionHeader
+          title="New microsites"
+          description="What AI does when a rep doesn't pick a template."
+        />
 
         {!aiBehaviorLoaded ? (
           <Card className="p-4 flex items-center gap-2 text-sm text-muted-foreground">
@@ -361,7 +353,7 @@ export function TemplateSettingsContent() {
                   disabled={savingBehavior}
                   onClick={() => { if (!active) void handleSaveBehavior(o.value); }}
                   className={cn(
-                    "text-left p-3.5 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+                    "text-left px-3.5 py-2.5 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
                     active
                       ? "border-primary bg-primary/5 ring-1 ring-primary"
                       : "border-border hover:border-primary/40 hover:bg-muted/40",
@@ -381,14 +373,14 @@ export function TemplateSettingsContent() {
                         variant="secondary"
                         className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
                       >
-                        Recommended default
+                        Recommended
                       </Badge>
                     )}
                     {savingBehavior && active && (
                       <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-hidden />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 pl-5.5 leading-relaxed">
+                  <p className="text-xs text-muted-foreground mt-0.5 pl-[22px]">
                     {o.description}
                   </p>
                 </button>
@@ -400,16 +392,10 @@ export function TemplateSettingsContent() {
 
       {/* ── Templates ──────────────────────────────────────────────────────── */}
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Templates</h2>
-          <p className="text-muted-foreground text-sm mt-1">
-            Choose which templates appear in the “New microsite” dropdown and rename them to
-            whatever your reps should see. This covers both your own saved templates and the
-            built-in ones. For your own templates you can also set eligibility — the audiences
-            and funnel stages they can be auto-recommended for. Compatible templates are
-            enabled by default. Leave an eligibility axis empty to allow any value.
-          </p>
-        </div>
+        <SettingsSectionHeader
+          title="Templates"
+          description="Switch on the templates reps can choose. Click the pencil to rename one."
+        />
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -420,8 +406,7 @@ export function TemplateSettingsContent() {
             <LayoutTemplate className="w-8 h-8 mx-auto text-muted-foreground/60" aria-hidden />
             <p className="text-sm font-medium text-foreground mt-3">No saved templates yet</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Save any page as a template from the Builder, then enable it here to offer it in
-              the create-microsite dropdown.
+              Save a page as a template in the builder and it shows up here.
             </p>
           </Card>
         ) : (
@@ -437,7 +422,7 @@ export function TemplateSettingsContent() {
               return (
                 <Card
                   key={t.id}
-                  className="p-4"
+                  className="px-4 py-3"
                   data-testid={`template-setting-row-${t.id}`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -509,15 +494,7 @@ export function TemplateSettingsContent() {
                             Built-in
                           </Badge>
                         )}
-                        {t.compatible ? (
-                          <Badge
-                            variant="secondary"
-                            className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                          >
-                            <CheckCircle2 className="w-3 h-3" aria-hidden />
-                            Compatible
-                          </Badge>
-                        ) : (
+                        {!t.compatible && (
                           <Badge
                             variant="secondary"
                             className="gap-1 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50"
@@ -526,12 +503,9 @@ export function TemplateSettingsContent() {
                             Incompatible
                           </Badge>
                         )}
-                        {t.micrositeEnabled === null && (
-                          <span className="text-[11px] text-muted-foreground">(auto)</span>
-                        )}
                       </div>
                       {t.templateDescription && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                           {t.templateDescription}
                         </p>
                       )}
@@ -539,18 +513,7 @@ export function TemplateSettingsContent() {
                         <p className="text-[11px] text-amber-700 mt-1.5">
                           {t.compatibilityReason}
                           {t.effectiveEnabled &&
-                            " You've enabled it anyway — it may not generate correctly."}
-                        </p>
-                      )}
-                      {t.isGlobal ? (
-                        <p className="text-[11px] text-muted-foreground mt-1.5">
-                          Built-in template — controlled by the program. You can show,
-                          hide, or rename it for your reps.
-                        </p>
-                      ) : (
-                        <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1.5">
-                          <Target className="w-3 h-3 shrink-0" aria-hidden />
-                          Eligibility: {formatEligibilitySummary(elig, segmentNames, personaNames)}
+                            " It's switched on anyway and may not generate correctly."}
                         </p>
                       )}
                     </div>
@@ -574,14 +537,14 @@ export function TemplateSettingsContent() {
                     <Collapsible
                       open={open}
                       onOpenChange={(o) => setExpandedId(o ? t.id : null)}
-                      className="mt-3 border-t border-border/60 pt-2"
+                      className="mt-1.5"
                     >
                       <CollapsibleTrigger
-                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-1"
+                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded py-0.5"
                         data-testid={`template-eligibility-toggle-${t.id}`}
                       >
-                        <Target className="w-3.5 h-3.5" aria-hidden />
-                        Edit eligibility
+                        <Target className="w-3 h-3 shrink-0" aria-hidden />
+                        For: {formatEligibilitySummary(elig, segmentNames, personaNames)}
                         <ChevronDown
                           className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")}
                           aria-hidden
@@ -652,7 +615,7 @@ function EligibilityForm({
         </Button>
         <Button size="sm" className="gap-1.5" onClick={() => onSave(draft)} disabled={saving}>
           {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />}
-          Save eligibility
+          Save
         </Button>
       </div>
     </div>

@@ -7,11 +7,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  RefreshCw,
   Eye,
   Layers,
   RotateCcw,
-  Mail,
 } from "lucide-react";
 import type { VariableDefinition } from "@workspace/notification-variables";
 import {
@@ -202,20 +200,12 @@ function TemplateDetail({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold">{tpl.name}</h3>
-            <code className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {tpl.key}
-            </code>
-          </div>
+          <h3 className="text-base font-semibold">{tpl.name}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">{tpl.description}</p>
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-3">
-        <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-          <Mail className="h-3 w-3" /> Email
-        </p>
+      <div>
         <EmailTemplateEditor
           value={emailValue}
           onChange={onEmailChange}
@@ -368,7 +358,7 @@ function ShellEditor() {
         <span className="text-[11px] font-medium">{label}</span>
         {usingDefault(k) ? (
           <Badge variant="secondary" className="text-[9px]">
-            Using brand default
+            Brand default
           </Badge>
         ) : (
           <button
@@ -376,7 +366,7 @@ function ShellEditor() {
             className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
             onClick={() => restoreField(k)}
           >
-            <RotateCcw className="h-3 w-3" /> Restore brand default
+            <RotateCcw className="h-3 w-3" /> Reset
           </button>
         )}
       </div>
@@ -394,14 +384,9 @@ function ShellEditor() {
   return (
     <div className="space-y-4">
       <div>
-        <div className="flex items-center gap-2">
-          <Layers className="h-4 w-4" />
-          <h3 className="text-base font-semibold">Branded email shell</h3>
-        </div>
+        <h3 className="text-base font-semibold">Header and footer</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          The wrapper every shell-wrapped email renders into. Leave a field on
-          its brand default to keep the look derived from your brand settings; an
-          edit overrides only that piece.
+          The frame around every email. It follows your brand settings unless you change it here.
         </p>
       </div>
 
@@ -419,58 +404,47 @@ function ShellEditor() {
             spellCheck={false}
           />
           <p className="mt-1 text-[10px] text-muted-foreground">
-            Your business postal address, shown in the footer of every email for
-            CAN-SPAM compliance. Leave blank to omit the address line.
+            Shown in the footer of every email.
           </p>
         </div>
-        {renderField(
-          "headerBg",
-          "Header background",
-          "CSS color / gradient for the header band (e.g. #0f172a).",
-          1,
-        )}
-        {renderField(
-          "logoHtml",
-          "Logo HTML",
-          "HTML injected into the header logo slot ({{logoHtml}}).",
-          3,
-        )}
-        {renderField(
-          "footerHtml",
-          "Footer HTML",
-          "HTML injected into the footer slot ({{footerHtml}}).",
-          4,
-        )}
-        {renderField(
-          "shellHtml",
-          "Full shell HTML (advanced)",
-          "Raw frame with {{logoHtml}}, {{headerBg}}, {{headline}}, {{body}}, {{footerHtml}} slots. Restore to use the brand-derived default.",
-          8,
-        )}
+        {renderField("headerBg", "Header color", "A color like #0f172a.", 1)}
+        {/* Raw HTML is rarely needed: closed by default so the common case is
+            two fields, not five. */}
+        <details className="group">
+          <summary className="cursor-pointer select-none text-[11px] font-medium text-muted-foreground hover:text-foreground">
+            Advanced: edit the HTML
+          </summary>
+          <div className="mt-3 space-y-3">
+            {renderField("logoHtml", "Logo HTML", "Goes in the {{logoHtml}} slot.", 3)}
+            {renderField("footerHtml", "Footer HTML", "Goes in the {{footerHtml}} slot.", 4)}
+            {renderField(
+              "shellHtml",
+              "Full frame HTML",
+              "Slots: {{logoHtml}}, {{headerBg}}, {{headline}}, {{body}}, {{footerHtml}}.",
+              8,
+            )}
+          </div>
+        </details>
       </div>
 
       <div className="flex items-start justify-between gap-3 rounded-lg border bg-card p-3">
         <div>
-          <span className="text-[11px] font-medium">
-            Use this shell for seat-activation emails
-          </span>
+          <span className="text-[11px] font-medium">Use it for team invites too</span>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            When on, the "you've been added to this workspace" invitation email
-            sent to new members renders in your branded shell instead of the
-            default LP Studio one. Off by default.
+            New teammates get their invite in your branding.
           </p>
         </div>
         <Switch
           checked={brandInvite}
           onCheckedChange={setBrandInvite}
-          aria-label="Use this shell for seat-activation emails"
+          aria-label="Use it for team invites too"
         />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         <Button size="sm" onClick={() => void save()} disabled={saving}>
           {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-          Save shell
+          Save
         </Button>
         <Button
           size="sm"
@@ -501,7 +475,7 @@ function ShellEditor() {
         <div className="rounded-lg border">
           <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-1.5">
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Shell preview (sample email)
+              Preview
             </span>
             <button
               type="button"
@@ -590,26 +564,10 @@ export function EmailTemplatesContent() {
   const selectedTpl = templates?.find((t) => t.key === selected) ?? null;
 
   return (
-    <div className="py-4">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold">Email templates</h2>
-          <p className="text-xs text-muted-foreground">
-            Author the emails your workspace sends (lead alerts, comments,
-            reviews, form follow-ups) and the branded shell wrapping them.
-            Changes go live within a minute.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+    <div>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Edit the emails your workspace sends. Changes go live within a minute.
+      </p>
 
       {err && (
         <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -634,7 +592,7 @@ export function EmailTemplatesContent() {
                   : "hover:bg-accent"
               }`}
             >
-              <Layers className="h-4 w-4" /> Branded shell
+              <Layers className="h-4 w-4" /> Header and footer
             </button>
 
             {grouped.map(([category, items]) => (

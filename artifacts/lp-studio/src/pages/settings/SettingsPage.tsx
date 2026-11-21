@@ -1,7 +1,6 @@
 import { useLocation, Redirect } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/context/AuthContext";
-import { Settings as SettingsIcon, Globe, Search, Mail, LayoutTemplate, Flame, Plug, DoorOpen } from "lucide-react";
 import { GeneralContent } from "./GeneralPage";
 import { DomainContent } from "./DomainPage";
 import { SeoContent } from "./SeoPage";
@@ -17,19 +16,19 @@ import { AutomaticRoomsSection, StandardFilesManager } from "@/components/analyt
 type TabId = "general" | "domain" | "seo" | "scoring" | "templates" | "integrations" | "hubs" | "email";
 type EmailSubTab = "templates" | "sending" | "recipients" | "preferences";
 
-const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string; adminOnly: boolean }[] = [
-  { id: "general", label: "General", icon: SettingsIcon, path: "/settings/general", adminOnly: true },
+const TABS: { id: TabId; label: string; path: string; adminOnly: boolean }[] = [
+  { id: "general", label: "General", path: "/settings/general", adminOnly: true },
   // "Domains" (Phase 3): landing-page domain + workspace URL + email-sending
   // pointer, one page. Path stays /settings/domain — the userGuide appPath,
   // poller CTA, and welcome email all link it.
-  { id: "domain", label: "Domains", icon: Globe, path: "/settings/domain", adminOnly: true },
-  { id: "seo", label: "SEO", icon: Search, path: "/settings/seo", adminOnly: true },
-  { id: "scoring", label: "Lead scoring", icon: Flame, path: "/settings/scoring", adminOnly: true },
-  { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/settings/templates", adminOnly: true },
-  { id: "integrations", label: "Integrations", icon: Plug, path: "/settings/integrations", adminOnly: true },
+  { id: "domain", label: "Domains", path: "/settings/domain", adminOnly: true },
+  { id: "seo", label: "SEO", path: "/settings/seo", adminOnly: true },
+  { id: "scoring", label: "Lead scoring", path: "/settings/scoring", adminOnly: true },
+  { id: "templates", label: "Templates", path: "/settings/templates", adminOnly: true },
+  { id: "integrations", label: "Integrations", path: "/settings/integrations", adminOnly: true },
   // Partner Hubs: automatic creation from the signed-accounts sheet and the files every hub gets.
-  { id: "hubs", label: "Partner Hubs", icon: DoorOpen, path: "/settings/partner-hubs", adminOnly: true },
-  { id: "email", label: "Email", icon: Mail, path: "/settings/email", adminOnly: false },
+  { id: "hubs", label: "Partner Hubs", path: "/settings/partner-hubs", adminOnly: true },
+  { id: "email", label: "Email", path: "/settings/email", adminOnly: false },
 ];
 
 // Map a settings URL to the active tab + (for Email) sub-tab. Old, separate
@@ -83,19 +82,13 @@ export default function SettingsPage() {
   return (
     <AppLayout>
       <div className="p-6 max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage your workspace configuration and personal preferences.
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight mb-4">Settings</h1>
 
         {/* Top-level tabs */}
         <div className="border-b border-border mb-6">
           <nav className="-mb-px flex gap-1 overflow-x-auto" role="tablist">
             {visibleTabs.map((t) => {
               const active = t.id === tab;
-              const Icon = t.icon;
               return (
                 <button
                   key={t.id}
@@ -104,13 +97,12 @@ export default function SettingsPage() {
                   aria-selected={active}
                   onClick={() => go(t.path)}
                   data-testid={`settings-tab-${t.id}`}
-                  className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                  className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
                     active
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
                   {t.label}
                 </button>
               );
@@ -127,10 +119,9 @@ export default function SettingsPage() {
         {tab === "integrations" && canManage && <IntegrationsSettingsContent />}
         {tab === "hubs" && canManage && (
           <div className="space-y-8" data-testid="settings-partner-hubs">
-            <div>
-              <h2 className="text-lg font-semibold">Partner Hubs</h2>
-              <p className="text-sm text-muted-foreground">Settings that apply to every Partner Hub in this workspace: creating one automatically for each newly signed account, and the files every hub starts with. Each hub's own settings are under Manage on its page.</p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Applies to every Partner Hub. A hub's own settings are under Manage on its page.
+            </p>
             <AutomaticRoomsSection />
             <StandardFilesManager />
           </div>

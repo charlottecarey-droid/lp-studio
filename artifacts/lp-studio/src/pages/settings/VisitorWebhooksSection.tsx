@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { SettingsSectionHeader } from "@/pages/settings/SettingsUi";
 import { Check, CheckCircle2, Copy, Loader2, Lock, RefreshCw, Trash2, Webhook } from "lucide-react";
 
 const API_BASE = "/api";
@@ -37,19 +38,19 @@ const PROVIDERS: Array<{ key: Integration; name: string; description: string; ac
   {
     key: "rb2b",
     name: "RB2B",
-    description: "Identifies LinkedIn users visiting your landing pages.",
+    description: "People visiting your pages.",
     accent: "#0A66C2",
   },
   {
     key: "apollo",
     name: "Apollo",
-    description: "Identifies companies (and sometimes people) visiting your pages via the Apollo website tracker.",
+    description: "Companies visiting your pages.",
     accent: "#FBBF24",
   },
   {
     key: "letterdrop",
     name: "Letterdrop",
-    description: "Sends leads who engaged with your LinkedIn content or visited your pages.",
+    description: "Leads from your LinkedIn content.",
     accent: "#7C3AED",
   },
 ];
@@ -142,18 +143,16 @@ export function VisitorWebhooksSection() {
 
   return (
     <section>
-      <h2 className="text-lg font-semibold">Visitor identification</h2>
-      <p className="text-sm text-muted-foreground mt-0.5 mb-4">
-        De-anonymization providers POST visitor and lead events to a webhook URL unique to your
-        workspace. Paste the URL into the provider's dashboard; identified visitors appear as
-        signals in the Sales Console. Rotating a URL immediately invalidates the old one.
-      </p>
+      <SettingsSectionHeader
+        title="Visitor identification"
+        description="Paste each URL into the provider's dashboard. Identified visitors show up as signals."
+      />
+      <div className="mt-3" />
       {planLocked ? (
         <Card className="p-4 border border-border/40 flex items-center gap-3">
           <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
           <p className="text-sm text-muted-foreground">
-            Visitor identification webhooks are part of the Sales Console, which isn't included in
-            your current plan.
+            Not included in your plan.
           </p>
         </Card>
       ) : loadError ? (
@@ -161,20 +160,20 @@ export function VisitorWebhooksSection() {
           <p className="text-sm text-muted-foreground">Couldn't load webhook settings. Refresh to try again.</p>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {PROVIDERS.map((p) => {
             const entry = entries[p.key];
             const secret = entry?.secret ?? null;
             const isBusy = busy === p.key;
             return (
-              <Card key={p.key} className="p-4 border border-border/40" data-testid={`webhook-card-${p.key}`}>
+              <Card key={p.key} className="px-4 py-3" data-testid={`webhook-card-${p.key}`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${p.accent}1A` }}>
-                    <Webhook className="w-5 h-5" style={{ color: p.accent }} />
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${p.accent}1A` }}>
+                    <Webhook className="w-4 h-4" style={{ color: p.accent }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold leading-tight">{p.name}</h3>
+                      <h3 className="text-sm font-medium leading-tight">{p.name}</h3>
                       {loading ? (
                         <Skeleton className="h-5 w-20" />
                       ) : secret ? (

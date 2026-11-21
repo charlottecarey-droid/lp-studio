@@ -5,7 +5,8 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { SettingRow, AdminOnlyNote } from "./SettingsUi";
 import { useToast } from "@/hooks/use-toast";
 
 interface TenantSeoPayload {
@@ -76,15 +77,11 @@ export function SeoContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">SEO &amp; discoverability</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Workspace defaults for whether search engines and AI crawlers can
-          index your published pages. Individual pages can override these from
-          the page&rsquo;s Settings tab.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <h2 className="sr-only">SEO</h2>
+      <p className="text-sm text-muted-foreground">
+        Defaults for every published page. A page can override these in its own settings.
+      </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -92,67 +89,31 @@ export function SeoContent() {
         </div>
       ) : (
         <>
-          <Card className="p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <Search className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-sm font-semibold">Allow search engine indexing</h2>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                      When ON, published pages can appear in Google, Bing, and
-                      AI search results. When OFF, pages carry a
-                      <span className="font-mono"> noindex</span> directive so
-                      they stay out of search — useful for private 1:1
-                      prospect pages.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={allowIndexing}
-                    onCheckedChange={(v) => patchAxis("seoAllowIndexing", v)}
-                    disabled={!canManage || savingIndexing}
-                    data-testid="seo-indexing-toggle"
-                  />
-                </div>
-              </div>
-            </div>
+          <Card className="divide-y divide-border/60">
+            <SettingRow
+              title="Show pages in search results"
+              description="Turn off to keep pages out of Google and AI search, e.g. private prospect pages."
+            >
+              <Switch
+                checked={allowIndexing}
+                onCheckedChange={(v) => patchAxis("seoAllowIndexing", v)}
+                disabled={!canManage || savingIndexing}
+                data-testid="seo-indexing-toggle"
+              />
+            </SettingRow>
+            <SettingRow
+              title="Let search engines follow links"
+              description="Turn off to mark every link on your pages as nofollow."
+            >
+              <Switch
+                checked={allowFollowing}
+                onCheckedChange={(v) => patchAxis("seoAllowFollowing", v)}
+                disabled={!canManage || savingFollowing}
+                data-testid="seo-following-toggle"
+              />
+            </SettingRow>
           </Card>
-
-          <Card className="p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <Search className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-sm font-semibold">Allow link following</h2>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                      When ON, crawlers may follow links on your pages. When
-                      OFF, pages carry a
-                      <span className="font-mono"> nofollow</span> directive so
-                      crawlers don&rsquo;t pass authority through outbound
-                      links.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={allowFollowing}
-                    onCheckedChange={(v) => patchAxis("seoAllowFollowing", v)}
-                    disabled={!canManage || savingFollowing}
-                    data-testid="seo-following-toggle"
-                  />
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {!canManage && (
-            <p className="text-[11px] text-muted-foreground italic">
-              Only workspace admins can change these settings.
-            </p>
-          )}
+          {!canManage && <AdminOnlyNote />}
         </>
       )}
     </div>

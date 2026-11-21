@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Globe, Copy, Check, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
+import { Loader2, Copy, Check, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 /**
@@ -55,18 +55,9 @@ export function WorkspaceLoginUrlCard() {
 
   return (
     <Card className="p-5">
-      <div className="flex items-start gap-4">
-        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-          <Globe className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0 space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold">Workspace login URL</h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-              Bookmark and share this URL with teammates. It's the canonical
-              sign-in page for this workspace.
-            </p>
-          </div>
+      <div>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Sign-in link</h3>
           <div className="flex items-center gap-2">
             <div
               className="flex-1 min-w-0 font-mono text-sm text-foreground bg-muted/40 border border-border/60 rounded-md px-3 h-9 inline-flex items-center truncate select-all"
@@ -203,16 +194,12 @@ export function WorkspaceSlugCard() {
 
   return (
     <Card className="p-5">
-      <div className="flex items-start gap-4">
-        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-          <Globe className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0 space-y-3">
+      <div>
+        <div className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold">Workspace URL</h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-              Choose the subdomain teammates use to sign in. Old URLs keep
-              working for {info.redirectTtlDays} days after a rename.
+            <h3 className="text-sm font-semibold">Workspace URL</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              After a rename, the old URL keeps working for {info.redirectTtlDays} days.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -242,15 +229,13 @@ export function WorkspaceSlugCard() {
           </div>
           <div className="min-h-[20px] text-xs">
             {!isAdmin ? (
-              <span className="text-muted-foreground italic">Only admins can change the workspace URL.</span>
+              <span className="text-muted-foreground">Only admins can change this.</span>
             ) : checking ? (
               <span className="text-muted-foreground inline-flex items-center gap-1.5">
                 <Loader2 className="w-3 h-3 animate-spin" /> Checking availability…
               </span>
             ) : unchanged ? (
-              <span className="text-muted-foreground">
-                Current URL: <span className="font-mono">{info.canonicalHost}</span>
-              </span>
+              null
             ) : check?.error ? (
               <span className="text-destructive inline-flex items-center gap-1.5">
                 <AlertCircle className="w-3 h-3" /> {check.error}
@@ -258,7 +243,7 @@ export function WorkspaceSlugCard() {
             ) : check?.available && previewHost ? (
               <span className="text-emerald-600 inline-flex items-center gap-1.5">
                 <CheckCircle2 className="w-3 h-3" />
-                Available — your workspace will be at <span className="font-mono">{previewHost}</span>
+                Available: <span className="font-mono">{previewHost}</span>
               </span>
             ) : null}
           </div>
@@ -362,16 +347,12 @@ export function ActiveRedirectsCard() {
 
   return (
     <Card className="p-5">
-      <div className="flex items-start gap-4">
-        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-          <Globe className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0 space-y-3">
+      <div>
+        <div className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold">Active URL redirects</h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-              These old workspace URLs still redirect to <span className="font-mono">{data.currentSlug}</span>.
-              Release one to free that URL for reuse — bookmarks pointing at it will stop working immediately.
+            <h3 className="text-sm font-semibold">Old URLs still redirecting</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Releasing one stops it working right away.
             </p>
           </div>
           <ul className="divide-y divide-border/60 border border-border/60 rounded-md">
@@ -409,11 +390,6 @@ export function ActiveRedirectsCard() {
               </li>
             ))}
           </ul>
-          {!canManage && (
-            <p className="text-[11px] text-muted-foreground italic">
-              Only admins can release a redirect early.
-            </p>
-          )}
         </div>
       </div>
     </Card>

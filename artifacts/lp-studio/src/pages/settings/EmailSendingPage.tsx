@@ -11,7 +11,7 @@ import { DEFAULT_OUTREACH_SUBJECT, DEFAULT_OUTREACH_INTRO } from "@/lib/email-pr
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Loader2, Save, Users, Globe, Plus, Trash2, RotateCcw, CheckCircle2, AlertTriangle, Mail,
+  Loader2, Save, Plus, Trash2, RotateCcw, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { fetchBrandConfig, saveBrandConfig } from "@/lib/brand-config";
 import type { SalesConsoleConfig } from "@/lib/brand-config";
@@ -166,13 +166,13 @@ function EmailDomainWizard({
   const pillClass = domainVerificationPillClass(pill.tone);
 
   return (
-    <Card id="sales-console-custom-email-domain" className="p-6 space-y-5">
+    <Card id="sales-console-custom-email-domain" className="p-5 space-y-4">
       <div>
         <h3 className="text-base font-semibold flex items-center gap-2">
-          <Globe className="w-4 h-4 text-primary" /> Custom Email Domain
+          Your own sending domain
         </h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Send sales and notification email from your own domain. We register it with Resend and give you the DNS records to publish. Until it's verified, email keeps sending from the shared default — no broken sends.
+          Send email from your own domain. Until it's verified, email keeps sending from the shared default.
         </p>
       </div>
 
@@ -199,7 +199,7 @@ function EmailDomainWizard({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Use a subdomain dedicated to sending (e.g. <code>mail.yourbrand.com</code>) so it doesn't collide with your main MX records.
+              Use a subdomain just for sending, like <code>mail.yourbrand.com</code>.
             </p>
           </div>
         </div>
@@ -236,7 +236,7 @@ function EmailDomainWizard({
             <>
               <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{pill.detail} Add the records below to your DNS provider, then click <strong>Check verification</strong>. Email keeps sending from the shared default until this is verified.</span>
+                <span>{pill.detail} Add the records below at your DNS provider, then click <strong>Check verification</strong>.</span>
               </div>
               {state.records.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border">
@@ -264,9 +264,7 @@ function EmailDomainWizard({
               )}
               {state.records.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  The <code>MX</code> record above is for bounce and complaint handling on your sending subdomain
-                  (<code>{state.domain}</code>) only. It does <strong>not</strong> turn on email receiving for your
-                  primary domain — your existing inbox and MX records are untouched.
+                  The <code>MX</code> record only handles bounces for <code>{state.domain}</code>. Your normal inbox isn't affected.
                 </p>
               )}
             </>
@@ -420,13 +418,13 @@ function BrandedSubdomainCard() {
   const pillClass = domainVerificationPillClass(pill.tone);
 
   return (
-    <Card id="sales-console-branded-email-subdomain" className="p-6 space-y-5">
+    <Card id="sales-console-branded-email-subdomain" className="p-5 space-y-4">
       <div>
         <h3 className="text-base font-semibold flex items-center gap-2">
-          <Globe className="w-4 h-4 text-primary" /> Branded Email Subdomain
+          Branded sending address
         </h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Send sales and notification email from a branded subdomain instead of the shared default — better deliverability, no DNS work. We provision and verify it for you. Until it's verified, email keeps sending from the shared default.
+          Send email from your own branded address. We set it up for you.
         </p>
       </div>
 
@@ -436,10 +434,10 @@ function BrandedSubdomainCard() {
         </div>
       ) : !state?.provisioned ? (
         <div className="space-y-3">
-          <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-            Your branded subdomain will be{" "}
+          <p className="text-sm">
+            Your address will be{" "}
             <code className="font-mono text-xs">{state?.subdomain ?? "mail.yourbrand.lpstudio.ai"}</code>.
-          </div>
+          </p>
           <Button onClick={() => void doProvision()} disabled={provisioning} className="gap-2">
             {provisioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Set up branded subdomain
@@ -626,13 +624,13 @@ export function EmailSendingContent() {
 
   return (
     <div className="space-y-6">
-      <Card id="sales-console-sender-identity" className="p-6 space-y-5">
+      <Card id="sales-console-sender-identity" className="p-5 space-y-4">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary" /> Sender Identity
+            Sender
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Used as the From header on every outbound sales email, the visit-alert sender, and the brand name interpolated into AI-drafted copy. The sending domain must be verified in Resend.
+            Who your emails come from.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -643,7 +641,7 @@ export function EmailSendingContent() {
               onChange={e => patch({ senderName: e.target.value })}
               placeholder="e.g. Acme"
             />
-            <p className="text-xs text-muted-foreground">Shown as the From name. Also used as the brand name in AI-generated copy.</p>
+            <p className="text-xs text-muted-foreground">The From name. Also your brand name in AI-written copy.</p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Sender local part</Label>
@@ -652,7 +650,7 @@ export function EmailSendingContent() {
               onChange={e => patch({ senderLocalPart: e.target.value })}
               placeholder="e.g. partnerships"
             />
-            <p className="text-xs text-muted-foreground">Part before the @. Combined with the sending domain to form the From address.</p>
+            <p className="text-xs text-muted-foreground">The part before the @ in your From address.</p>
           </div>
           {/* The free-text sending-domain field is only for tiers WITHOUT a
               self-serve email-domain feature. Enterprise uses the custom-domain
@@ -678,7 +676,6 @@ export function EmailSendingContent() {
               placeholder="e.g. ent.example.com"
             />
             <p className="text-xs text-muted-foreground">
-              Must be a verified domain in Resend.{" "}
               {currentDomain.length > 0 && domainMatchesServer && pill.tone !== "verified" && (
                 <>
                   {pill.detail}{" "}
@@ -705,7 +702,7 @@ export function EmailSendingContent() {
               onChange={e => patch({ replyTo: e.target.value })}
               placeholder="e.g. sales@example.com"
             />
-            <p className="text-xs text-muted-foreground">Where recipient replies land. Typically a monitored inbox.</p>
+            <p className="text-xs text-muted-foreground">Where replies go.</p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Notifications local part</Label>
@@ -714,7 +711,7 @@ export function EmailSendingContent() {
               onChange={e => patch({ notificationsLocalPart: e.target.value })}
               placeholder="notifications"
             />
-            <p className="text-xs text-muted-foreground">From local part for visit-alert emails. Defaults to "notifications".</p>
+            <p className="text-xs text-muted-foreground">The part before the @ on alert emails.</p>
           </div>
         </div>
       </Card>
@@ -735,13 +732,13 @@ export function EmailSendingContent() {
       {/* Defaults for the draft a rep opens from Pages → Copy email preview →
           Gmail / Mail. Workspace-level so the whole team isn't shipping one
           identical opener — and so it can be fixed in one place. */}
-      <Card id="sales-console-outreach-defaults" className="p-6 space-y-5">
+      <Card id="sales-console-outreach-defaults" className="p-5 space-y-4">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">
-            <Mail className="w-4 h-4 text-primary" /> Outreach draft defaults
+            Outreach email draft
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Prefills the email a rep opens from <span className="font-medium text-foreground">Pages → Copy email preview</span>. They can edit anything before sending. Leave blank to use the built-in wording.
+            The starting draft a rep gets from <span className="font-medium text-foreground">Pages → Copy email preview</span>. Blank fields use the built-in wording.
           </p>
         </div>
         {/* One client, not both. The console shows a single "open a draft"
@@ -749,7 +746,7 @@ export function EmailSendingContent() {
             mailto everywhere meant two near-identical icons beside a copy
             button that already uses an envelope. */}
         <div className="space-y-1.5">
-          <Label className="text-sm">Mail client</Label>
+          <Label className="text-sm">Open drafts in</Label>
           <Select
             value={draft.outreachMailClient}
             onValueChange={(v) => patch({ outreachMailClient: v as "gmail" | "default" })}
@@ -759,13 +756,9 @@ export function EmailSendingContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="gmail">Gmail</SelectItem>
-              <SelectItem value="default">Everything else (default mail app)</SelectItem>
+              <SelectItem value="default">Default mail app</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
-            Where the draft buttons in the console open. Gmail uses its web composer; everything
-            else hands off to whatever mail app the rep's machine is set to.
-          </p>
         </div>
         <div className="space-y-1.5">
           <Label className="text-sm">Subject</Label>
@@ -774,9 +767,7 @@ export function EmailSendingContent() {
             onChange={e => patch({ outreachSubject: e.target.value })}
             placeholder={DEFAULT_OUTREACH_SUBJECT}
           />
-          <p className="text-xs text-muted-foreground">
-            Defaults to the page's own title.
-          </p>
+          <p className="text-xs text-muted-foreground">Blank uses the page title.</p>
         </div>
         <div className="space-y-1.5">
           <Label className="text-sm">Opening lines</Label>
@@ -788,15 +779,13 @@ export function EmailSendingContent() {
           />
           <p className="text-xs text-muted-foreground">
             Tokens: <code className="text-[11px]">{"{{first_name}}"}</code> ·{" "}
-            <code className="text-[11px]">{"{{page_title}}"}</code>. The page link is appended
-            automatically, so a draft still works if the rep forgets to paste the card.
+            <code className="text-[11px]">{"{{page_title}}"}</code>. The page link is added automatically.
           </p>
         </div>
       </Card>
 
       <div className="sticky bottom-4 flex justify-end">
-        <div className="bg-background/90 backdrop-blur-md border border-border rounded-2xl px-6 py-3 shadow-lg flex items-center gap-4">
-          <p className="text-sm text-muted-foreground">Applies to all outbound email — sales sends, visit alerts and lead notifications.</p>
+        <div className="bg-background/90 backdrop-blur-md border border-border rounded-xl p-2 shadow-lg">
           <Button variant="brand" onClick={handleSave} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Save Changes

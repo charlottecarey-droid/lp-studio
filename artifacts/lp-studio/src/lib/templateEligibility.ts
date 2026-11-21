@@ -191,21 +191,18 @@ export interface AiBehaviorOption {
 export const AI_BEHAVIOR_OPTIONS: readonly AiBehaviorOption[] = [
   {
     value: "ai-from-scratch-only",
-    label: "AI from scratch only",
-    description:
-      "Safest: AI builds a custom page unless you manually pick a template. Reps can always choose a template themselves; AI never auto-picks one.",
+    label: "Build a custom page",
+    description: "AI writes a new page unless the rep picks a template.",
     recommended: true,
   },
   {
     value: "template-preferred",
-    label: "Template preferred",
-    description:
-      "AI auto-picks a template only when an eligible one confidently matches the audience and stage; otherwise it builds from scratch.",
+    label: "Use a template when one fits",
+    description: "AI picks a template on a clear match, and writes a new page otherwise.",
   },
   {
     value: "template-required",
-    label: "Template required",
-    description:
-      "AI always prefers an eligible template, picking the best match. If none is eligible it still builds from scratch (safer than the wrong page).",
+    label: "Always use a template",
+    description: "AI picks the best matching template, and writes a new page only if none fits.",
   },
 ] as const;

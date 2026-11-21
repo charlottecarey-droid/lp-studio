@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
-import { Loader2, Globe, AlertCircle, CheckCircle2, RefreshCw, Trash2, Mail, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, RefreshCw, Trash2, ArrowRight } from "lucide-react";
+import { SettingsSectionHeader } from "./SettingsUi";
 import { useToast } from "@/hooks/use-toast";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { MicrositeLinksCard } from "./MicrositeLinksCard";
@@ -240,22 +241,10 @@ export function DomainContent() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Domains</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Every address this workspace lives at: where published landing pages are
-          served, where teammates sign in, and the domain your emails send from.
-        </p>
-      </div>
+      <h2 className="sr-only">Domains</h2>
 
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Landing pages</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            The address visitors see when viewing your published landing pages. Every
-            workspace gets a free LP Studio address, or you can connect your own domain.
-          </p>
-        </div>
+        <SettingsSectionHeader title="Landing pages" description="Where your published pages live." />
 
       {loading ? (
         <Card className="p-5">
@@ -268,18 +257,9 @@ export function DomainContent() {
       ) : showCustom ? (
         <>
           <Card className="p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <Globe className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0 space-y-3">
-                <div>
-                  <h2 className="text-sm font-semibold">Your own domain</h2>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                    Serve your landing pages from your own subdomain (e.g.{" "}
-                    <span className="font-mono">pages.acme.com</span>).
-                  </p>
-                </div>
+            <div>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Your own domain</h3>
 
                 {hasCustomDomain ? (
                   <>
@@ -359,7 +339,7 @@ export function DomainContent() {
                       className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
                       data-testid="use-lpstudio-address"
                     >
-                      ← Use my free LP Studio address instead
+                      ← Use the free LP Studio address
                     </button>
                   </>
                 ) : (
@@ -386,9 +366,7 @@ export function DomainContent() {
                       </Button>
                     </div>
                     {!isAdmin && (
-                      <p className="text-[11px] text-muted-foreground italic">
-                        Only workspace admins can attach a custom domain.
-                      </p>
+                      <p className="text-[11px] text-muted-foreground">Only admins can change this.</p>
                     )}
                     {attachError && (
                       <p className="text-xs text-destructive inline-flex items-center gap-1.5">
@@ -401,7 +379,7 @@ export function DomainContent() {
                       className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
                       data-testid="use-lpstudio-address"
                     >
-                      ← Use my free LP Studio address instead
+                      ← Use the free LP Studio address
                     </button>
                   </>
                 )}
@@ -412,11 +390,9 @@ export function DomainContent() {
           {hasCustomDomain && !isReady(state) && (
             <Card className="p-5">
               <div className="space-y-3">
-                <h2 className="text-sm font-semibold">DNS setup</h2>
+                <h3 className="text-sm font-semibold">DNS setup</h3>
                 <p className="text-xs text-muted-foreground max-w-prose">
-                  Add this CNAME record at your DNS provider so traffic for{" "}
-                  <span className="font-mono">{state!.hostname}</span> reaches LP Studio. SSL
-                  activates automatically once the record propagates (usually within minutes).
+                  Add this record at your DNS provider. Your domain goes live a few minutes later.
                 </p>
                 <div className="border border-border/60 rounded-md overflow-hidden">
                   <table className="w-full text-xs font-mono">
@@ -468,17 +444,9 @@ export function DomainContent() {
       ) : (
         // Managed LP Studio address — always live, editable label, no DNS.
         <Card className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <Globe className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0 space-y-3">
-              <div>
-                <h2 className="text-sm font-semibold">LP Studio address</h2>
-                <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                  Your free landing-page address. Always on — no DNS setup required.
-                </p>
-              </div>
+          <div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">LP Studio address</h3>
 
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0 flex items-stretch">
@@ -514,7 +482,7 @@ export function DomainContent() {
 
               <div className="text-xs inline-flex items-center gap-1.5 text-emerald-600" data-testid="domain-status">
                 <CheckCircle2 className="w-3 h-3" />
-                Active — your pages are live
+                Live
               </div>
 
               {labelError && (
@@ -523,9 +491,7 @@ export function DomainContent() {
                 </p>
               )}
               {!isAdmin && (
-                <p className="text-[11px] text-muted-foreground italic">
-                  Only workspace admins can change the landing page address.
-                </p>
+                <p className="text-[11px] text-muted-foreground">Only admins can change this.</p>
               )}
               {isAdmin && (
                 <button
@@ -534,7 +500,7 @@ export function DomainContent() {
                   className="block text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
                   data-testid="use-custom-domain"
                 >
-                  Use your own domain instead →
+                  Use your own domain →
                 </button>
               )}
             </div>
@@ -546,41 +512,20 @@ export function DomainContent() {
       </section>
 
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Workspace URL</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            The subdomain teammates use to sign in to this workspace.
-          </p>
-        </div>
+        <SettingsSectionHeader title="Workspace URL" description="Where your team signs in." />
         <WorkspaceLoginUrlCard />
         <WorkspaceSlugCard />
         <ActiveRedirectsCard />
       </section>
 
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Email sending</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            The domain your notification and campaign emails send from.
-          </p>
-        </div>
-        {/* Link, don't duplicate: the sender identity + sending-domain wizards
-            live under Settings → Email → Sending (Phase 1b home). */}
+        <SettingsSectionHeader title="Email sending" />
         <Link href="/settings/email/sending">
           <Card
-            className="p-5 border border-border/40 cursor-pointer hover:border-border transition-colors flex items-center gap-4"
+            className="px-5 py-3.5 cursor-pointer hover:border-foreground/30 transition-colors flex items-center justify-between gap-4"
             data-testid="email-sending-domain-link"
           >
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <Mail className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold">Email sending domain</h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                Sender identity, custom sending domains, and DNS verification are
-                managed in Settings → Email → Sending.
-              </p>
-            </div>
+            <span className="text-sm">Set the domain your emails send from</span>
             <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
           </Card>
         </Link>

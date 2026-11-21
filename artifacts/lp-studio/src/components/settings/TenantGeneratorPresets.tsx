@@ -329,25 +329,20 @@ export function TenantGeneratorPresets() {
   return (
     <section className="space-y-5">
       <div>
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-          Generator presets
-        </h3>
-        <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
-          The quick-start options your team sees inside the generators. The list
-          starts from the platform GLOBAL defaults; here you can enable/disable or
-          reorder them for your workspace, or add your own. Global = default;
-          your changes override it just for this workspace.
+        <h2 className="text-base font-semibold">Quick starts</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          The shortcuts your team sees when creating a page. Switch them on or off, reorder, or add your own.
         </p>
       </div>
       <SurfaceSection
         surface="marketing"
-        title="Marketing — starter chips"
-        helper="Prefill chips above the landing-page prompt box (hidden until enabled)."
+        title="Landing pages"
+        helper="Suggested prompts above the prompt box."
       />
       <SurfaceSection
         surface="sales"
-        title="Sales — objective cards"
-        helper="The goal cards in the New Microsite flow."
+        title="Microsites"
+        helper="The goal cards when a rep starts a new microsite."
       />
     </section>
   );

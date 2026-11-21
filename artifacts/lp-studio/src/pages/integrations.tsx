@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Cloud, ClipboardCheck, Webhook } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Cloud, ClipboardCheck, Webhook, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const MASKED = "••••••••";
@@ -47,8 +47,70 @@ function TestBanner({ result }: { result: TestResult | null }) {
   );
 }
 
+/** The numbered "how to set this up" note inside an open card. */
+function SetupSteps({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground space-y-1 leading-relaxed">
+      {children}
+    </div>
+  );
+}
+
+type CardKey = "sheets" | "salesforce" | "asana" | "webhook";
+
+/**
+ * One lead-delivery destination. Closed by default so the tab reads as a short
+ * list — name, one line, and whether it's on; the setup form opens on click.
+ */
+function DeliveryCard({
+  name, summary, icon, status, open, onToggleOpen, control, testId, children,
+}: {
+  name: string;
+  summary: string;
+  icon: React.ReactNode;
+  status: "on" | "off" | "connected";
+  open: boolean;
+  onToggleOpen: () => void;
+  /** The on/off switch, when the destination has one. */
+  control?: React.ReactNode;
+  testId?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card" data-testid={testId}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          type="button"
+          onClick={onToggleOpen}
+          aria-expanded={open}
+          className="flex flex-1 min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+        >
+          <span className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">{icon}</span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2">
+              <span className="font-medium text-sm">{name}</span>
+              {status !== "off" && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3 h-3" /> {status === "connected" ? "Connected" : "On"}
+                </span>
+              )}
+            </span>
+            <span className="block text-xs text-muted-foreground truncate">{summary}</span>
+          </span>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+        {control}
+      </div>
+      {open && <div className="border-t border-border px-4 py-4 space-y-4">{children}</div>}
+    </div>
+  );
+}
+
 export function IntegrationsContent() {
   const [loading, setLoading] = useState(true);
+  // Which destination's setup form is open (one at a time).
+  const [openCard, setOpenCard] = useState<CardKey | null>(null);
+  const toggleCard = (key: CardKey) => setOpenCard(prev => (prev === key ? null : key));
 
   // Google Sheets state
   const [sheets, setSheets] = useState({ enabled: false, config: { sheetId: "", serviceAccountEmail: "", privateKey: "", tabName: "Leads" } as SheetsConfig });
@@ -102,6 +164,7 @@ export function IntegrationsContent() {
     const params = new URLSearchParams(window.location.search);
     const sfResult = params.get("salesforce");
     if (!sfResult) return;
+    setOpenCard("salesforce");
     if (sfResult === "connected") {
       setSfBanner({ ok: true, title: "Salesforce" });
       fetch("/api/lp/integrations/salesforce")
@@ -202,231 +265,181 @@ export function IntegrationsContent() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 sm:space-y-10">
-        {/* ── Google Sheets ── */}
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
-            <div className="w-10 h-10 rounded-xl bg-[#0F9D58]/10 flex items-center justify-center shrink-0">
-              <TableProperties className="w-5 h-5 text-[#0F9D58]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Google Sheets</p>
-              <p className="text-xs text-muted-foreground">Append a row to a spreadsheet for each new lead</p>
-            </div>
-            <Toggle checked={sheets.enabled} onChange={v => { setSheets(s => ({ ...s, enabled: v })); setSheetsSaved(false); }} />
-          </div>
-          <div className="px-6 py-6 space-y-5">
-            <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">Setup steps</p>
-              <p>1. Create a <strong>Service Account</strong> in <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" className="underline text-foreground inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a> and enable the <strong>Google Sheets API</strong>.</p>
-              <p>2. Download the <strong>JSON key</strong> for the service account.</p>
-              <p>3. <strong>Share your Google Sheet</strong> with the service account email (Editor access).</p>
-              <p>4. Paste the Sheet ID (from the URL), service account email, and private key below.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Sheet ID</Label>
-              <Input value={sheets.config.sheetId} onChange={e => updateSheets("sheetId", e.target.value)} placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" className="font-mono text-sm h-9" />
-              <p className="text-[11px] text-muted-foreground">Found in the spreadsheet URL: .../spreadsheets/d/<strong>ID</strong>/edit</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Service Account Email</Label>
-              <Input value={sheets.config.serviceAccountEmail} onChange={e => updateSheets("serviceAccountEmail", e.target.value)} placeholder="my-bot@my-project.iam.gserviceaccount.com" className="font-mono text-sm h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Private Key</Label>
-              <Textarea value={sheets.config.privateKey} onChange={e => updateSheets("privateKey", e.target.value)} placeholder={"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"} className="font-mono text-[14px] sm:text-xs h-40 sm:h-28 resize-none" />
-              <p className="text-[11px] text-muted-foreground">Paste the <code className="bg-muted px-1 rounded">private_key</code> value from the downloaded JSON key file.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Tab / Sheet name</Label>
-              <Input value={sheets.config.tabName} onChange={e => updateSheets("tabName", e.target.value)} placeholder="Leads" className="text-sm h-9 max-w-48" />
-              <p className="text-[11px] text-muted-foreground">The tab will be created automatically if it doesn't exist.</p>
-            </div>
-            <TestBanner result={sheetsResult} />
-            <SaveRow saving={sheetsSaving} saved={sheetsSaved} onSave={saveSheets} testEl={
-              <Button variant="outline" size="sm" className="gap-2" disabled={sheetsTesting || !sheetsReady} onClick={testSheets}>
-                {sheetsTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                Test connection
-              </Button>
-            } />
-          </div>
+    <div className="space-y-3">
+      {/* ── Google Sheets ── */}
+      <DeliveryCard
+        name="Google Sheets"
+        summary="Add a row for each new lead."
+        icon={<TableProperties className="w-4 h-4 text-[#0F9D58]" />}
+        status={sheets.enabled ? "on" : "off"}
+        open={openCard === "sheets"}
+        onToggleOpen={() => toggleCard("sheets")}
+        control={<Toggle checked={sheets.enabled} onChange={v => { setSheets(s => ({ ...s, enabled: v })); setSheetsSaved(false); setOpenCard("sheets"); }} />}
+      >
+        <SetupSteps>
+          <p>1. Create a service account in <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" className="underline text-foreground inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a>, turn on the Google Sheets API, and download its JSON key.</p>
+          <p>2. Share your sheet with the service account email as an Editor.</p>
+          <p>3. Fill in the fields below.</p>
+        </SetupSteps>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Sheet ID</Label>
+          <Input value={sheets.config.sheetId} onChange={e => updateSheets("sheetId", e.target.value)} placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" className="font-mono text-sm h-9" />
+          <p className="text-[11px] text-muted-foreground">In the sheet's URL: .../spreadsheets/d/<strong>ID</strong>/edit</p>
         </div>
-
-        {/* Marketo moved: the connection (credentials + endpoints) lives on the
-            Marketo card in Settings → Integrations → Connections, which opens
-            /sales/marketo. Form-lead sync follows that single connection;
-            per-form field mappings stay in Forms → Lead routing. */}
-
-        {/* ── Salesforce (one-click OAuth) ── */}
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
-            <div className="w-10 h-10 rounded-xl bg-[#00A1E0]/10 flex items-center justify-center shrink-0">
-              <Cloud className="w-5 h-5 text-[#00A1E0]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Salesforce</p>
-              <p className="text-xs text-muted-foreground">Create Lead records in Salesforce for each form submission. Field mappings are configured per-form.</p>
-            </div>
-            {sf.connected ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-2.5 py-1 text-xs font-medium text-green-700">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Connected
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                Not connected
-              </span>
-            )}
-          </div>
-          <div className="px-6 py-6 space-y-5">
-            {sf.connected ? (
-              <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-                <p className="text-foreground">Your Salesforce org is connected. New form submissions create Lead records automatically.</p>
-                {sf.instanceUrl && <p>Org: <code className="bg-muted px-1 rounded">{sf.instanceUrl}</code></p>}
-                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Lead routing</a>.</p>
-              </div>
-            ) : (
-              <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-                <p>Click <strong>Connect Salesforce</strong> to authorize LP Studio against your Salesforce org. No Connected App setup or API keys required — you'll sign in to Salesforce and approve access.</p>
-                <p>Already connected from the sales console? Your connection is shared — no need to reconnect here.</p>
-                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Lead routing</a>.</p>
-              </div>
-            )}
-            <TestBanner result={sfBanner} />
-            <div className="flex items-center gap-3 pt-1">
-              {sf.connected ? (
-                <Button variant="outline" size="sm" className="gap-2" disabled={sfDisconnecting} onClick={disconnectSf}>
-                  {sfDisconnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                  Disconnect
-                </Button>
-              ) : (
-                <Button size="sm" className="gap-2" disabled={sfConnecting} onClick={connectSf}>
-                  {sfConnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />}
-                  Connect Salesforce
-                </Button>
-              )}
-            </div>
-          </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Service account email</Label>
+          <Input value={sheets.config.serviceAccountEmail} onChange={e => updateSheets("serviceAccountEmail", e.target.value)} placeholder="my-bot@my-project.iam.gserviceaccount.com" className="font-mono text-sm h-9" />
         </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Private key</Label>
+          <Textarea value={sheets.config.privateKey} onChange={e => updateSheets("privateKey", e.target.value)} placeholder={"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"} className="font-mono text-[14px] sm:text-xs h-28 resize-none" />
+          <p className="text-[11px] text-muted-foreground">The <code className="bg-muted px-1 rounded">private_key</code> value from the JSON key.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Tab name</Label>
+          <Input value={sheets.config.tabName} onChange={e => updateSheets("tabName", e.target.value)} placeholder="Leads" className="text-sm h-9 max-w-48" />
+        </div>
+        <TestBanner result={sheetsResult} />
+        <SaveRow saving={sheetsSaving} saved={sheetsSaved} onSave={saveSheets} testEl={
+          <Button variant="outline" size="sm" className="gap-2" disabled={sheetsTesting || !sheetsReady} onClick={testSheets}>
+            {sheetsTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+            Test connection
+          </Button>
+        } />
+      </DeliveryCard>
 
-        {/* ── Asana (page-review workflow) ── */}
-        {isAdmin && (
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden" data-testid="asana-integration-card">
-          <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
-            <div className="w-10 h-10 rounded-xl bg-[#F06A6A]/10 flex items-center justify-center shrink-0">
-              <ClipboardCheck className="w-5 h-5 text-[#F06A6A]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Asana <span className="text-[10px] font-normal text-muted-foreground ml-1">Page review</span></p>
-              <p className="text-xs text-muted-foreground">Create an Asana task whenever a page is submitted for review. Approving or rejecting comments and completes the task.</p>
-            </div>
-            <Toggle checked={asana.enabled} onChange={v => { setAsana(s => ({ ...s, enabled: v })); setAsanaSaved(false); }} />
+      {/* Marketo moved: the connection (credentials + endpoints) lives on the
+          Marketo card in Settings → Integrations → Connections, which opens
+          /sales/marketo. Form-lead sync follows that single connection;
+          per-form field mappings stay in Forms → Lead routing. */}
+
+      {/* ── Salesforce (one-click OAuth) ── */}
+      <DeliveryCard
+        name="Salesforce leads"
+        summary="Create a Lead for each form submission."
+        icon={<Cloud className="w-4 h-4 text-[#00A1E0]" />}
+        status={sf.connected ? "connected" : "off"}
+        open={openCard === "salesforce"}
+        onToggleOpen={() => toggleCard("salesforce")}
+      >
+        <p className="text-xs text-muted-foreground">
+          {sf.connected ? (
+            <>Connected{sf.instanceUrl ? <> to <code className="bg-muted px-1 rounded">{sf.instanceUrl}</code></> : null}. </>
+          ) : (
+            <>Sign in to Salesforce and approve access. No API keys needed. </>
+          )}
+          Choose which fields to send on each form, under <a href="/forms" className="underline text-foreground">Forms → Lead routing</a>.
+        </p>
+        <TestBanner result={sfBanner} />
+        <div className="flex items-center gap-3">
+          {sf.connected ? (
+            <Button variant="outline" size="sm" className="gap-2" disabled={sfDisconnecting} onClick={disconnectSf}>
+              {sfDisconnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              Disconnect
+            </Button>
+          ) : (
+            <Button size="sm" className="gap-2" disabled={sfConnecting} onClick={connectSf}>
+              {sfConnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />}
+              Connect Salesforce
+            </Button>
+          )}
+        </div>
+      </DeliveryCard>
+
+      {/* ── Asana (page-review workflow) ── */}
+      {isAdmin && (
+        <DeliveryCard
+          name="Asana"
+          summary="Create a task when a page is submitted for review."
+          icon={<ClipboardCheck className="w-4 h-4 text-[#F06A6A]" />}
+          status={asana.enabled ? "on" : "off"}
+          open={openCard === "asana"}
+          onToggleOpen={() => toggleCard("asana")}
+          testId="asana-integration-card"
+          control={<Toggle checked={asana.enabled} onChange={v => { setAsana(s => ({ ...s, enabled: v })); setAsanaSaved(false); setOpenCard("asana"); }} />}
+        >
+          <SetupSteps>
+            <p>1. In Asana, go to My Settings → Apps → Manage Developer Apps and create a Personal Access Token.</p>
+            <p>2. Project ID: the long number in the project's URL after <code className="bg-muted px-1 rounded">/0/</code>.</p>
+            <p>3. Workspace ID: in Admin Console → Settings.</p>
+          </SetupSteps>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Personal Access Token</Label>
+            <Input
+              type={asana.config.pat === MASKED ? "text" : "password"}
+              value={asana.config.pat}
+              onChange={e => updateAsana("pat", e.target.value)}
+              placeholder="0/abc123..."
+              className="font-mono text-sm h-9"
+              data-testid="asana-pat-input"
+            />
           </div>
-          <div className="px-6 py-6 space-y-5">
-            <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">Setup steps</p>
-              <p>1. In Asana, open <strong>My Settings → Apps → Manage Developer Apps</strong> and create a <strong>Personal Access Token</strong>.</p>
-              <p>2. Open the project tasks should be created in. The <strong>Project ID</strong> is the long number in the URL after <code className="bg-muted px-1 rounded">/0/</code>.</p>
-              <p>3. The <strong>Workspace ID</strong> is shown in <strong>Admin Console → Settings</strong> (or the URL after <code className="bg-muted px-1 rounded">/0/home/</code>).</p>
-              <p>4. (Optional) Default assignee: paste a user's <strong>Asana user GID</strong> to auto-assign every page-review task.</p>
-              <p className="pt-1 text-[11px]"><strong className="text-foreground">Graceful degradation:</strong> if Asana is unreachable or this section is empty, page submissions still succeed — the response includes a warning instead of an Asana task ID.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Workspace ID</Label>
+              <Input value={asana.config.workspaceId} onChange={e => updateAsana("workspaceId", e.target.value)} placeholder="1199876543210" className="font-mono text-sm h-9" data-testid="asana-workspace-input" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Personal Access Token</Label>
-              <Input
-                type={asana.config.pat === MASKED ? "text" : "password"}
-                value={asana.config.pat}
-                onChange={e => updateAsana("pat", e.target.value)}
-                placeholder="0/abc123..."
-                className="font-mono text-sm h-9"
-                data-testid="asana-pat-input"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Workspace ID</Label>
-                <Input value={asana.config.workspaceId} onChange={e => updateAsana("workspaceId", e.target.value)} placeholder="1199876543210" className="font-mono text-sm h-9" data-testid="asana-workspace-input" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Project ID</Label>
-                <Input value={asana.config.projectId} onChange={e => updateAsana("projectId", e.target.value)} placeholder="1209876543210" className="font-mono text-sm h-9" data-testid="asana-project-input" />
-              </div>
+              <Label className="text-xs font-medium">Project ID</Label>
+              <Input value={asana.config.projectId} onChange={e => updateAsana("projectId", e.target.value)} placeholder="1209876543210" className="font-mono text-sm h-9" data-testid="asana-project-input" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Default assignee GID <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label className="text-xs font-medium">Assignee ID <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input value={asana.config.defaultAssigneeGid} onChange={e => updateAsana("defaultAssigneeGid", e.target.value)} placeholder="1188888888888" className="font-mono text-sm h-9" data-testid="asana-assignee-input" />
             </div>
-            <TestBanner result={asanaResult} />
-            <SaveRow saving={asanaSaving} saved={asanaSaved} onSave={saveAsana} testEl={
-              <Button variant="outline" size="sm" className="gap-2" disabled={asanaTesting || !asanaReady} onClick={testAsana} data-testid="asana-test-button">
-                {asanaTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                Test connection
-              </Button>
-            } />
           </div>
-        </div>
-        )}
+          <TestBanner result={asanaResult} />
+          <SaveRow saving={asanaSaving} saved={asanaSaved} onSave={saveAsana} testEl={
+            <Button variant="outline" size="sm" className="gap-2" disabled={asanaTesting || !asanaReady} onClick={testAsana} data-testid="asana-test-button">
+              {asanaTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              Test connection
+            </Button>
+          } />
+        </DeliveryCard>
+      )}
 
-        {/* ── Webhook (campaign link export) ── */}
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden" data-testid="webhook-integration-card">
-          <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
-            <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center shrink-0">
-              <Webhook className="w-5 h-5 text-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Webhook <span className="text-[10px] font-normal text-muted-foreground ml-1">Campaign link export</span></p>
-              <p className="text-xs text-muted-foreground">Push campaign recipients and their tokenized identity-reveal links to any HTTPS endpoint as a signed JSON POST.</p>
-            </div>
-            <Toggle checked={webhook.enabled} onChange={v => { setWebhook(s => ({ ...s, enabled: v })); setWebhookSaved(false); }} />
-          </div>
-          <div className="px-6 py-6 space-y-5">
-            <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">How it works</p>
-              <p>1. Enter the <strong>HTTPS endpoint</strong> that should receive the export. Internal / private hosts are rejected.</p>
-              <p>2. (Optional) Add a <strong>signing secret</strong>. We sign each request body with HMAC-SHA256 and send it as the <code className="bg-muted px-1 rounded">X-LPStudio-Signature</code> header so you can verify authenticity.</p>
-              <p>3. Pick <strong>Webhook</strong> as the destination when exporting campaign links.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Endpoint URL</Label>
-              <Input
-                value={webhook.config.url}
-                onChange={e => updateWebhook("url", e.target.value)}
-                placeholder="https://example.com/hooks/lp-studio"
-                className="font-mono text-sm h-9"
-                data-testid="webhook-url-input"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Signing secret <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Input
-                type={webhook.config.signingSecret === MASKED ? "text" : "password"}
-                value={webhook.config.signingSecret}
-                onChange={e => updateWebhook("signingSecret", e.target.value)}
-                placeholder="whsec_..."
-                className="font-mono text-sm h-9"
-                data-testid="webhook-secret-input"
-              />
-            </div>
-            <TestBanner result={webhookResult} />
-            <SaveRow saving={webhookSaving} saved={webhookSaved} onSave={saveWebhook} testEl={
-              <Button variant="outline" size="sm" className="gap-2" disabled={webhookTesting || !webhookReady} onClick={testWebhook} data-testid="webhook-test-button">
-                {webhookTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                Send test
-              </Button>
-            } />
-          </div>
+      {/* ── Webhook (campaign link export) ── */}
+      <DeliveryCard
+        name="Webhook"
+        summary="Send exported campaign links to your own endpoint."
+        icon={<Webhook className="w-4 h-4 text-foreground" />}
+        status={webhook.enabled ? "on" : "off"}
+        open={openCard === "webhook"}
+        onToggleOpen={() => toggleCard("webhook")}
+        testId="webhook-integration-card"
+        control={<Toggle checked={webhook.enabled} onChange={v => { setWebhook(s => ({ ...s, enabled: v })); setWebhookSaved(false); setOpenCard("webhook"); }} />}
+      >
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Endpoint URL</Label>
+          <Input
+            value={webhook.config.url}
+            onChange={e => updateWebhook("url", e.target.value)}
+            placeholder="https://example.com/hooks/lp-studio"
+            className="font-mono text-sm h-9"
+            data-testid="webhook-url-input"
+          />
+          <p className="text-[11px] text-muted-foreground">Must be a public HTTPS address.</p>
         </div>
-
-        {/* This block used to read "More integrations coming soon — HubSpot,
-            Slack notifications". Both shipped, and since the settings
-            consolidation this content renders directly BELOW live HubSpot and
-            Slack connection cards, so it was advertising as forthcoming the
-            two things immediately above it. */}
-        <div className="rounded-2xl border border-dashed border-border px-6 py-6 text-center">
-          <p className="text-sm font-medium text-muted-foreground">Looking for Salesforce, Marketo, HubSpot, or Slack?</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">
-            Those are workspace connections — set them up under Connections above.
-          </p>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Signing secret <span className="text-muted-foreground font-normal">(optional)</span></Label>
+          <Input
+            type={webhook.config.signingSecret === MASKED ? "text" : "password"}
+            value={webhook.config.signingSecret}
+            onChange={e => updateWebhook("signingSecret", e.target.value)}
+            placeholder="whsec_..."
+            className="font-mono text-sm h-9"
+            data-testid="webhook-secret-input"
+          />
+          <p className="text-[11px] text-muted-foreground">Each request is signed in the <code className="bg-muted px-1 rounded">X-LPStudio-Signature</code> header (HMAC-SHA256).</p>
         </div>
+        <TestBanner result={webhookResult} />
+        <SaveRow saving={webhookSaving} saved={webhookSaved} onSave={saveWebhook} testEl={
+          <Button variant="outline" size="sm" className="gap-2" disabled={webhookTesting || !webhookReady} onClick={testWebhook} data-testid="webhook-test-button">
+            {webhookTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+            Send test
+          </Button>
+        } />
+      </DeliveryCard>
     </div>
   );
 }

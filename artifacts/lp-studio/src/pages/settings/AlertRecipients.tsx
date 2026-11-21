@@ -7,12 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2,
-  Users,
-  ShieldCheck,
+  ChevronDown,
   X,
   Plus,
   CheckCircle2,
-  UsersRound,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -72,16 +70,11 @@ interface RecipientsPayload {
   customGroups: CustomGroup[];
 }
 
-const CATEGORY_META: Record<AlertCategory, { label: string; defaultHint: string }> = {
-  collaboration: {
-    label: "Collaboration",
-    defaultHint: "Default: every workspace member.",
-  },
-  account_billing: {
-    label: "Account & billing",
-    defaultHint:
-      "Default: every workspace admin. If you select recipients but none can be reached, these still fall back to all admins so critical alerts are never dropped.",
-  },
+const CATEGORY_META: Record<AlertCategory, { label: string; defaultSummary: string }> = {
+  collaboration: { label: "Collaboration", defaultSummary: "Everyone" },
+  // If none of the chosen recipients can be reached, these still go to all
+  // admins (server-side) so a critical alert is never dropped.
+  account_billing: { label: "Account & billing", defaultSummary: "All admins" },
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -107,6 +100,8 @@ function AlertCard({
   const [emailErr, setEmailErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  // Closed by default: the tab is a short list of alerts, not a wall of checkboxes.
+  const [open, setOpen] = useState(false);
 
   // Re-sync when the parent reloads (e.g. after a refresh).
   useEffect(() => {
@@ -226,48 +221,41 @@ function AlertCard({
     }
   }
 
-  const Icon = alert.category === "collaboration" ? Users : ShieldCheck;
+  const selectedCount = groups.size + memberIds.size + extraEmails.length;
+  const summary = isDefault
+    ? CATEGORY_META[alert.category].defaultSummary
+    : `${selectedCount} selected`;
 
   return (
-    <Card className="p-5">
-      <div className="flex items-start gap-4">
-        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0 space-y-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">{alert.name}</h3>
-              {isDefault ? (
-                <Badge variant="secondary" className="text-[9px]">Using default</Badge>
-              ) : (
-                <Badge className="text-[9px]">Custom</Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-              {alert.description}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1 italic">
-              {CATEGORY_META[alert.category].defaultHint}
-            </p>
-          </div>
-
+    <div data-testid={`recip-${alert.type}-card`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-medium">{alert.name}</span>
+          <span className="block text-xs text-muted-foreground truncate">{alert.description}</span>
+        </span>
+        <span className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
+          {summary}
+          <ChevronDown className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-border/60 px-5 py-4 space-y-4">
           {(alert.applicableGroups.length > 0 || customGroups.length > 0) && (
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                Quick-pick groups
-              </p>
-              <p className="text-[11px] text-muted-foreground mb-2">
-                Groups update themselves as the team changes — pick one and you
-                won't have to re-edit this list later.
-              </p>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Groups</p>
               <div className="grid gap-1.5 sm:grid-cols-2">
                 {alert.applicableGroups.map((token) => {
                   const checked = groups.has(token);
                   return (
                     <label
                       key={token}
-                      className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs cursor-pointer ${
+                      title={GROUP_META[token].hint}
+                      className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs cursor-pointer ${
                         checked ? "border-primary bg-primary/5" : "border-border/60 hover:bg-accent"
                       } ${!canManage ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
@@ -276,19 +264,8 @@ function AlertCard({
                         disabled={!canManage}
                         onCheckedChange={(v) => toggleGroup(token, v === true)}
                         data-testid={`recip-${alert.type}-group-${token}`}
-                        className="mt-0.5"
                       />
-                      <span className="min-w-0 flex-1">
-                        <span className="font-medium flex items-center gap-1.5">
-                          {GROUP_META[token].label}
-                          {checked && (
-                            <Badge className="text-[8px] shrink-0">on</Badge>
-                          )}
-                        </span>
-                        <span className="block text-muted-foreground mt-0.5 leading-snug">
-                          {GROUP_META[token].hint}
-                        </span>
-                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{GROUP_META[token].label}</span>
                     </label>
                   );
                 })}
@@ -298,7 +275,7 @@ function AlertCard({
                   return (
                     <label
                       key={g.token}
-                      className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs cursor-pointer ${
+                      className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs cursor-pointer ${
                         checked ? "border-primary bg-primary/5" : "border-border/60 hover:bg-accent"
                       } ${!canManage ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
@@ -307,20 +284,9 @@ function AlertCard({
                         disabled={!canManage}
                         onCheckedChange={(v) => toggleGroup(g.token, v === true)}
                         data-testid={`recip-${alert.type}-customgroup-${g.id}`}
-                        className="mt-0.5"
                       />
-                      <span className="min-w-0 flex-1">
-                        <span className="font-medium flex items-center gap-1.5">
-                          <UsersRound className="w-3 h-3 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{g.label}</span>
-                          {checked && (
-                            <Badge className="text-[8px] shrink-0">on</Badge>
-                          )}
-                        </span>
-                        <span className="block text-muted-foreground mt-0.5 leading-snug">
-                          Custom group · {count} {count === 1 ? "recipient" : "recipients"}
-                        </span>
-                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{g.label}</span>
+                      <span className="shrink-0 text-muted-foreground">{count}</span>
                     </label>
                   );
                 })}
@@ -329,9 +295,7 @@ function AlertCard({
           )}
 
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Workspace members
-            </p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">People</p>
             {members.length === 0 ? (
               <p className="text-xs text-muted-foreground">No members found.</p>
             ) : (
@@ -368,9 +332,7 @@ function AlertCard({
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Extra email addresses
-            </p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Other emails</p>
             {extraEmails.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {extraEmails.map((e) => (
@@ -421,7 +383,7 @@ function AlertCard({
           </div>
 
           {canManage && (
-            <div className="flex items-center gap-3 border-t pt-3">
+            <div className="flex items-center gap-3">
               <Button
                 size="sm"
                 onClick={() => void save()}
@@ -429,7 +391,7 @@ function AlertCard({
                 data-testid={`recip-${alert.type}-save`}
               >
                 {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-                Save recipients
+                Save
               </Button>
               {!isDefault && (
                 <Button
@@ -450,8 +412,8 @@ function AlertCard({
             </div>
           )}
         </div>
-      </div>
-    </Card>
+      )}
+    </div>
   );
 }
 
@@ -540,7 +502,7 @@ function CustomGroupEditor({
   return (
     <Card className="p-4 border-primary/40 space-y-4">
       <div>
-        <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <label className="text-xs font-medium text-muted-foreground">
           Group name
         </label>
         <Input
@@ -554,8 +516,8 @@ function CustomGroupEditor({
       </div>
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Workspace members
+        <p className="text-xs font-medium text-muted-foreground mb-2">
+          People
         </p>
         {members.length === 0 ? (
           <p className="text-xs text-muted-foreground">No members found.</p>
@@ -590,8 +552,8 @@ function CustomGroupEditor({
       </div>
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Extra email addresses
+        <p className="text-xs font-medium text-muted-foreground mb-2">
+          Other emails
         </p>
         {extraEmails.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
@@ -702,14 +664,9 @@ function CustomGroupsManager({
     <Card className="p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <UsersRound className="w-4 h-4 text-muted-foreground" /> Custom groups
-          </h3>
-          <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-            Define your own named groups (like "Billing contacts" or "Design
-            reviewers") once, then quick-pick them on any alert below. Groups
-            resolve to their current members at send time, so you won't need to
-            re-edit alerts when the group changes.
+          <h3 className="text-sm font-semibold">Your groups</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            A saved list of people you can pick on any alert.
           </p>
         </div>
         {canManage && !creating && editingId === null && (
@@ -727,9 +684,7 @@ function CustomGroupsManager({
 
       <div className="mt-4 space-y-3">
         {customGroups.length === 0 && !creating && (
-          <p className="text-xs text-muted-foreground italic">
-            No custom groups yet.
-          </p>
+          <p className="text-xs text-muted-foreground">None yet.</p>
         )}
 
         {customGroups.map((g) => {
@@ -859,17 +814,29 @@ export function AlertRecipientsContent() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-base font-semibold">Alert recipients</h2>
-        <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-          Choose who receives each workspace alert email. Pick a self-updating
-          group (like All admins or one of your custom groups), select individual
-          members, add extra addresses — or combine them. Groups always resolve
-          to the current team at send time, so you won't need to re-edit a list
-          when people join or leave. Leave an alert on its default to keep
-          sending to the whole audience.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Who gets each alert email. Click an alert to change it.
+      </p>
+
+      {(["collaboration", "account_billing"] as AlertCategory[]).map((cat) =>
+        byCategory[cat].length === 0 ? null : (
+          <div key={cat} className="space-y-2">
+            <h3 className="text-sm font-semibold">{CATEGORY_META[cat].label}</h3>
+            <Card className="divide-y divide-border/60 overflow-hidden">
+              {byCategory[cat].map((alert) => (
+                <AlertCard
+                  key={alert.type}
+                  alert={alert}
+                  members={data.members}
+                  customGroups={customGroups}
+                  canManage={canManage}
+                  onSaved={handleSaved}
+                />
+              ))}
+            </Card>
+          </div>
+        ),
+      )}
 
       <CustomGroupsManager
         customGroups={customGroups}
@@ -877,26 +844,6 @@ export function AlertRecipientsContent() {
         canManage={canManage}
         onChanged={() => void load()}
       />
-
-      {(["collaboration", "account_billing"] as AlertCategory[]).map((cat) =>
-        byCategory[cat].length === 0 ? null : (
-          <div key={cat} className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {CATEGORY_META[cat].label}
-            </p>
-            {byCategory[cat].map((alert) => (
-              <AlertCard
-                key={alert.type}
-                alert={alert}
-                members={data.members}
-                customGroups={customGroups}
-                canManage={canManage}
-                onSaved={handleSaved}
-              />
-            ))}
-          </div>
-        ),
-      )}
     </div>
   );
 }
