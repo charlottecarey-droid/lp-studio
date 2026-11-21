@@ -72,30 +72,51 @@ export function fmtWhen(iso: string | null, now: Date = new Date()): string {
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded-md border px-4 py-3">
+    <div className="min-w-0 px-4 py-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
-      {note && <div className="mt-0.5 text-xs text-muted-foreground">{note}</div>}
+      <div className="mt-0.5 truncate text-xl font-semibold tabular-nums">{value}</div>
+      {note && <div className="truncate text-xs text-muted-foreground">{note}</div>}
     </div>
   );
 }
 
-/** Visits per day as plain bars. One series, so no legend; the day and count are on each bar's title. */
+/** The first letters of a name (or of an email's name part), for the round badge beside a visitor. */
+export function initials(name: string | null, email: string | null): string {
+  const from = (name ?? "").trim() || (email ?? "").split("@")[0].replace(/[._-]+/g, " ");
+  const parts = from.split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?";
+}
+
+function Avatar({ name, email }: { name: string | null; email: string | null }) {
+  return <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground" aria-hidden>{email || name ? initials(name, email) : "?"}</span>;
+}
+
+/**
+ * Visits per day. One series, so no legend. Bars keep a sensible width however
+ * few days have visits (two visits used to draw two slabs), the busiest day is
+ * labelled, and each bar's day and count are on its title.
+ */
 function DayBars({ days }: { days: RoomPerformanceData["days"] }) {
   const max = Math.max(1, ...days.map((d) => d.visits));
   const label = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const mid = days[Math.floor(days.length / 2)];
   return (
-    <div>
-      <div className="flex h-24 items-end gap-[3px]" role="img" aria-label={`Visits per day over the last ${days.length} days`}>
-        {days.map((d) => (
-          <div key={d.date} className="flex h-full flex-1 items-end" title={`${label(d.date)}: ${d.visits} visit${d.visits === 1 ? "" : "s"}`}>
-            <div className={`w-full rounded-sm ${d.visits ? "bg-foreground/70" : "bg-muted"}`} style={{ height: d.visits ? `${Math.max(8, (d.visits / max) * 100)}%` : 2 }} />
-          </div>
-        ))}
+    <div className="rounded-md border px-4 pb-3 pt-4">
+      <div className="relative">
+        <div className="absolute inset-x-0 top-0 border-t border-dashed" aria-hidden />
+        <span className="absolute -top-2 right-0 bg-background pl-1.5 text-[11px] tabular-nums text-muted-foreground">{max} {max === 1 ? "visit" : "visits"}</span>
+        <div className="flex h-20 items-end gap-[3px] border-b" role="img" aria-label={`Visits per day over the last ${days.length} days`}>
+          {days.map((d) => (
+            <div key={d.date} className="flex h-full flex-1 items-end justify-center" title={`${label(d.date)}: ${d.visits} visit${d.visits === 1 ? "" : "s"}`}>
+              {d.visits > 0 && <div className="w-full max-w-[14px] rounded-t-sm bg-indigo-500" style={{ height: `${Math.max(10, (d.visits / max) * 100)}%` }} />}
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+      <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
         <span>{label(days[0].date)}</span>
-        <span>{label(days[days.length - 1].date)}</span>
+        {days.length > 10 && <span>{label(mid.date)}</span>}
+        <span>Today</span>
       </div>
     </div>
   );
@@ -104,43 +125,36 @@ function DayBars({ days }: { days: RoomPerformanceData["days"] }) {
 function PersonRow({ p, stage }: { p: PersonStat; stage?: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <>
-      <tr className="cursor-pointer border-t hover:bg-muted/40" onClick={() => setOpen((v) => !v)} data-room-perf-person={p.email}>
-        <td className="py-2 pr-3">
-          <span className="flex items-center gap-1.5">
-            {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-            <span className="min-w-0">
-              <span className="block truncate font-medium">{p.name || p.email}</span>
-              {p.name && <span className="block truncate text-xs text-muted-foreground">{p.email}</span>}
-            </span>
+    <li data-room-perf-person={p.email}>
+      <button type="button" className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <Avatar name={p.name} email={p.email} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{p.name || p.email}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {p.visits} visit{p.visits === 1 ? "" : "s"} · {fmtDuration(p.seconds)} · last {fmtWhen(p.lastAt).toLowerCase()}
           </span>
-        </td>
-        <td className="py-2 pr-3 tabular-nums">{p.visits}</td>
-        <td className="py-2 pr-3 tabular-nums">{fmtDuration(p.seconds)}</td>
-        <td className="py-2 text-muted-foreground">{fmtWhen(p.lastAt)}</td>
-      </tr>
+        </span>
+        {open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      </button>
       {open && (
-        <tr>
-          <td colSpan={4} className="pb-3 pl-5">
-            <ul className="space-y-1 text-sm">
-              {p.modules.map((m) => (
-                <li key={m.module} className="flex justify-between gap-4 text-muted-foreground">
-                  <span className="text-foreground">{sectionLabel(m.module, stage)}</span>
-                  <span className="tabular-nums">
-                    opened {m.opens} time{m.opens === 1 ? "" : "s"} · {fmtDuration(m.seconds)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </td>
-        </tr>
+        <ul className="space-y-1 border-t bg-muted/20 px-3 py-2.5 pl-[52px] text-sm">
+          {p.name && <li className="text-xs text-muted-foreground">{p.email}</li>}
+          {p.modules.map((m) => (
+            <li key={m.module} className="flex justify-between gap-4">
+              <span>{sectionLabel(m.module, stage)}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {m.opens} time{m.opens === 1 ? "" : "s"} · {fmtDuration(m.seconds)}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
-    </>
+    </li>
   );
 }
 
 export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expansion" once the hub is past its rollout: the launch sections are then called Marketing. */ stage?: string }) {
-  const names = roomMarketingNames(stage);
+  const [allVisits, setAllVisits] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["page-room-performance", pageId],
     queryFn: async () => {
@@ -151,13 +165,14 @@ export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expans
   if (isLoading) return <Skeleton className="h-40 w-full" />;
   if (!data) return <p className="text-sm text-muted-foreground">Could not load how this hub is doing.</p>;
   const maxOpens = Math.max(1, ...data.modules.map((m) => m.opens));
+  const recent = allVisits ? data.recent : data.recent.slice(0, 5);
   return (
-    <div className="space-y-6" data-room-performance>
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Stat label="Visits" value={String(data.visits)} note={`Last ${data.windowDays} days`} />
-        <Stat label="People" value={String(data.named)} note={data.anonymous ? `plus ${data.anonymous} not signed in` : "Signed in with their email"} />
-        <Stat label="Time in the hub" value={data.seconds ? fmtDuration(data.seconds) : "0 min"} />
+    <div className="space-y-5" data-room-performance>
+      <div className="grid grid-cols-2 divide-x divide-y rounded-md border sm:grid-cols-4 sm:divide-y-0 [&>*:nth-child(2n+1)]:border-l-0 sm:[&>*:nth-child(2n+1)]:border-l sm:[&>*:first-child]:border-l-0">
         <Stat label="Last visit" value={fmtWhen(data.lastAt)} />
+        <Stat label={`Visits, last ${data.windowDays} days`} value={String(data.visits)} />
+        <Stat label="People" value={String(data.named)} note={data.anonymous ? `plus ${data.anonymous} not signed in` : undefined} />
+        <Stat label="Time in the hub" value={data.seconds ? fmtDuration(data.seconds) : "None yet"} />
       </div>
 
       {data.visits === 0 ? (
@@ -175,44 +190,32 @@ export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expans
             <DayBars days={data.days} />
           </section>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
             <section className="space-y-2">
               <h4 className="text-sm font-semibold">Who visited</h4>
               {data.people.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nobody has signed in with their email yet, so visitors can't be named.</p>
+                <p className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">Nobody has signed in with their email yet, so visitors can’t be named.</p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-muted-foreground">
-                      <th className="pb-1 pr-3 font-normal">Person</th>
-                      <th className="pb-1 pr-3 font-normal">Visits</th>
-                      <th className="pb-1 pr-3 font-normal">Time</th>
-                      <th className="pb-1 font-normal">Last visit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.people.map((p) => (
-                      <PersonRow key={p.email} p={p} stage={stage} />
-                    ))}
-                  </tbody>
-                </table>
+                <ul className="divide-y rounded-md border">
+                  {data.people.map((p) => (
+                    <PersonRow key={p.email} p={p} stage={stage} />
+                  ))}
+                </ul>
               )}
             </section>
 
             <section className="space-y-2">
-              <h4 className="text-sm font-semibold">Sections opened</h4>
-              <ul className="space-y-2">
+              <h4 className="text-sm font-semibold">What they looked at</h4>
+              <ul className="rounded-md border px-3 py-1.5">
                 {data.modules.map((m) => (
-                  <li key={m.module} className="text-sm" data-room-perf-section={m.module}>
-                    <div className="flex justify-between gap-3">
-                      <span>{sectionLabel(m.module, stage)}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {m.opens} · {fmtDuration(m.seconds)}
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1.5 rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-foreground/70" style={{ width: `${(m.opens / maxOpens) * 100}%` }} />
-                    </div>
+                  <li key={m.module} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 py-1.5 text-sm" data-room-perf-section={m.module}>
+                    <span className="truncate">{sectionLabel(m.module, stage)}</span>
+                    <span className="h-1.5 rounded-full bg-muted" aria-hidden>
+                      <span className="block h-full rounded-full bg-indigo-500" style={{ width: `${Math.max(4, (m.opens / maxOpens) * 100)}%` }} />
+                    </span>
+                    <span className="whitespace-nowrap text-right text-xs tabular-nums text-muted-foreground">
+                      {m.opens} {m.opens === 1 ? "open" : "opens"} · {fmtDuration(m.seconds)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -222,21 +225,35 @@ export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expans
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Recent visits</h4>
             <ul className="divide-y rounded-md border text-sm">
-              {data.recent.slice(0, 12).map((v, i) => (
-                <li key={`${v.startedAt}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-3 py-2">
-                  <span className="font-medium">{v.name || v.email || "Someone not signed in"}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {fmtWhen(v.startedAt)} · {fmtDuration(v.seconds)}
+              {recent.map((v, i) => (
+                <li key={`${v.startedAt}-${i}`} className="flex items-start gap-3 px-3 py-2.5">
+                  <Avatar name={v.name} email={v.email} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline justify-between gap-x-4">
+                      <span className="font-medium">{v.name || v.email || "Someone not signed in"}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {fmtWhen(v.startedAt)} · {fmtDuration(v.seconds)}
+                      </span>
+                    </span>
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {v.modules.map((k, j) => (
+                        <span key={`${k}-${j}`} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{sectionLabel(k, stage)}</span>
+                      ))}
+                    </span>
                   </span>
-                  <span className="w-full text-xs text-muted-foreground">{v.modules.map((k) => sectionLabel(k, stage)).join(" → ")}</span>
                 </li>
               ))}
             </ul>
+            {data.recent.length > 5 && (
+              <button type="button" className="text-xs font-medium text-muted-foreground underline-offset-2 hover:underline" onClick={() => setAllVisits((v) => !v)}>
+                {allVisits ? "Show fewer" : `Show all ${data.recent.length}`}
+              </button>
+            )}
           </section>
         </>
       )}
       <p className="text-xs text-muted-foreground">
-        Files opened and downloaded are under {names.kit}. Uploads, completed tasks and requests are under Activity.
+        Your own team’s visits are never counted.
         {data.trackedSince ? ` Visits by person and section have been recorded since ${new Date(data.trackedSince).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.` : ""}
       </p>
     </div>

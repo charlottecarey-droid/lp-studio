@@ -261,6 +261,121 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   const allowedPeople = others.filter((m) => m.status === "allowed").length;
   const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
 
+  // Files the customer sent. New ones (the last week) are work for To do; the whole list lives under Engagement.
+  const recentUploads = data.uploads.filter((u) => Date.now() - new Date(u.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000);
+  const filesSection = (list: RoomDetail["uploads"], title: string) => (
+        <section className="space-y-2" data-room-files>
+          {title && <h4 className="text-sm font-semibold">{title} <span className="font-normal text-muted-foreground">· {list.length}</span></h4>}
+          {(
+            <div className="divide-y rounded-md border">
+              {list.map((u) => (
+                <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{u.fileName}</p>
+                    <p className="text-xs text-muted-foreground">{u.taskTitle} · {u.uploadedBy} · {fmtDate(u.createdAt)} · {fmtSize(u.sizeBytes)}</p>
+                  </div>
+                  <span className="flex gap-2">
+                    {data.isWorkspace && /\.(xlsx|csv|tsv|txt)$/i.test(u.fileName) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8"
+                        onClick={async () => {
+                          setRevops("");
+                          const r = await post(`${base}/uploads/${u.id}/compare`);
+                          if (r.ok) setCompare({ uploadId: u.id, ...(r.json as unknown as Omit<NonNullable<typeof compare>, "uploadId">) });
+                        }}
+                      >
+                        Compare with practices
+                      </Button>
+                    )}
+                    <Button asChild size="sm" variant="outline" className="h-8 gap-1">
+                      <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      aria-label={`Delete ${u.fileName}`}
+                      title="Delete this file"
+                      data-room-upload-delete={u.id}
+                      onClick={async () => {
+                        const last = data.uploads.filter((x) => x.taskKey === u.taskKey).length === 1;
+                        if (!window.confirm(`Delete “${u.fileName}”? This can’t be undone.${last ? ` “${u.taskTitle}” will be open again for the customer.` : ""}`)) return;
+                        if (compare?.uploadId === u.id) setCompare(null);
+                        await run(send(`${base}/uploads/${u.id}`, "DELETE"));
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+  );
+  const comparePanel = compare && (
+<section className="space-y-2 rounded-md border p-3" data-testid="room-compare">
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="text-sm font-semibold">Comparison: {compare.fileName}</h4>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close comparison" onClick={() => setCompare(null)}><X className="h-4 w-4" /></Button>
+            </div>
+            {compare.practices ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Their list ({compare.practices.sheet}) has {compare.practices.uploaded} practices; we hold {compare.practices.inRoom}. {compare.practices.matched} match.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-medium">On their list, not in ours ({compare.practices.missingFromRoom.length})</p>
+                    <p className="text-xs text-muted-foreground">Salesforce is missing these.</p>
+                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.missingFromRoom.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">In ours, not on their list ({compare.practices.notOnUpload.length})</p>
+                    <p className="text-xs text-muted-foreground">Closed, renamed, or not in the rollout.</p>
+                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.notOnUpload.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No practice column found in this file.</p>
+            )}
+            {compare.doctors && <p className="text-sm text-muted-foreground">The roster ({compare.doctors.sheet}) lists {compare.doctors.count} doctors. Doctors can't be compared yet: LP Studio has no doctor records to compare against.</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="brand"
+                disabled={!(compare.practices?.missingFromRoom.length || compare.doctors?.count)}
+                onClick={async () => {
+                  const r = await post(`${base}/revops-task`, { missing: compare.practices?.missingFromRoom ?? [], doctors: compare.practices ? 0 : compare.doctors?.count ?? 0, fileName: compare.fileName });
+                  if (r.ok) setRevops(r.json.mentioned ? "Posted to the hub’s Slack channel, with RevOps mentioned. It also rides in the weekly Slack digest until the gap closes." : "Posted to the hub’s Slack channel. Nobody was mentioned: add a RevOps Slack mention under Settings.");
+                }}
+              >
+                Post to Slack for RevOps
+              </Button>
+              {!!compare.practices?.missingFromRoom.length && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([["practice name", ...compare.practices!.missingFromRoom.map((n) => `"${n.replace(/"/g, '""')}"`)].join("\n")], { type: "text/csv" });
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "missing-from-salesforce.csv";
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                  }}
+                >
+                  Download the missing list
+                </Button>
+              )}
+              {revops && <span className="text-sm text-muted-foreground">{revops}</span>}
+            </div>
+          </section>
+  );
+
   return (
     <Card data-testid="page-room-panel" className={embedded ? "border-0 bg-transparent shadow-none" : undefined}>
       <CardHeader className={embedded ? "space-y-1 p-0 pb-4" : "space-y-1"}>
@@ -381,6 +496,53 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} stage={data.stage?.stage} />}
+        {/* Everything the customer has done, in one place: what they opened, ticked off, sent and asked for. */}
+        {tab === "performance" && (
+          <div className="space-y-2" data-room-engagement-history>
+            {data.isWorkspace && (
+              <Fold title="Files and links they opened" hint={(data.engagement?.assets ?? []).length ? `${(data.engagement?.assets ?? []).length} opened in the last 90 days` : "Nothing opened yet"}>
+                <EngagementSection engagement={data.engagement} kitName={kitNames.kit === "Marketing" ? "Marketing" : "the launch kit"} />
+              </Fold>
+            )}
+              {data.tasks.length > 0 && (
+                <Fold title="Steps they have completed" hint={`${data.tasks.filter((t) => t.done).length} of ${data.tasks.length} steps`}>
+                  <div className="divide-y rounded-md border">
+                    {data.tasks.map((t) => (
+                      <div key={t.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{t.title}</p>
+                          {t.done && <p className="text-xs text-muted-foreground">{[t.completedBy, fmtDate(t.completedAt)].filter(Boolean).join(" · ")}</p>}
+                        </div>
+                        {t.done ? (
+                          <span className="flex items-center gap-2">
+                            <Badge variant="secondary" className="gap-1"><Check className="h-3 w-3" /> Done</Badge>
+                            <Button size="sm" variant="ghost" className="h-8 gap-1 text-muted-foreground" onClick={() => run(send(`${base}/tasks/${encodeURIComponent(t.key)}`, "DELETE"))}><RotateCcw className="h-3.5 w-3.5" /> Reopen</Button>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{t.action === "upload" ? "Needs a file" : "Open"}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Fold>
+              )}
+            {data.uploads.length > 0 && (
+              <Fold title="Files they sent" hint={`${data.uploads.length}${recentUploads.length ? ` · ${recentUploads.length} new this week` : ""}`} data-room-files-fold>
+                {filesSection(data.uploads, "")}
+                {comparePanel}
+              </Fold>
+            )}
+              {doneRequests.length > 0 && (
+                <Fold title="Finished requests" hint={String(doneRequests.length)}>
+                  <div className="divide-y rounded-md border">
+                    {doneRequests.map((q) => (
+                      <RequestRow key={q.id} q={q} onSave={(patch) => run(send(`${base}/requests/${q.id}`, "PATCH", patch))} />
+                    ))}
+                  </div>
+                </Fold>
+              )}
+          </div>
+        )}
         {tab === "activity" && (
           <div className="space-y-6" data-room-todo>
             {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
@@ -416,119 +578,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               </section>
             )}
 
-            {data.uploads.length > 0 && (
-        <section className="space-y-2" data-room-files>
-          <h4 className="text-sm font-semibold">Files the customer sent <span className="font-normal text-muted-foreground">· {data.uploads.length}</span></h4>
-          {(
-            <div className="divide-y rounded-md border">
-              {data.uploads.map((u) => (
-                <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{u.fileName}</p>
-                    <p className="text-xs text-muted-foreground">{u.taskTitle} · {u.uploadedBy} · {fmtDate(u.createdAt)} · {fmtSize(u.sizeBytes)}</p>
-                  </div>
-                  <span className="flex gap-2">
-                    {data.isWorkspace && /\.(xlsx|csv|tsv|txt)$/i.test(u.fileName) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8"
-                        onClick={async () => {
-                          setRevops("");
-                          const r = await post(`${base}/uploads/${u.id}/compare`);
-                          if (r.ok) setCompare({ uploadId: u.id, ...(r.json as unknown as Omit<NonNullable<typeof compare>, "uploadId">) });
-                        }}
-                      >
-                        Compare with practices
-                      </Button>
-                    )}
-                    <Button asChild size="sm" variant="outline" className="h-8 gap-1">
-                      <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      aria-label={`Delete ${u.fileName}`}
-                      title="Delete this file"
-                      data-room-upload-delete={u.id}
-                      onClick={async () => {
-                        const last = data.uploads.filter((x) => x.taskKey === u.taskKey).length === 1;
-                        if (!window.confirm(`Delete “${u.fileName}”? This can’t be undone.${last ? ` “${u.taskTitle}” will be open again for the customer.` : ""}`)) return;
-                        if (compare?.uploadId === u.id) setCompare(null);
-                        await run(send(`${base}/uploads/${u.id}`, "DELETE"));
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-            )}
-
-            {compare && (
-          <section className="space-y-2 rounded-md border p-3" data-testid="room-compare">
-            <div className="flex items-start justify-between gap-2">
-              <h4 className="text-sm font-semibold">Comparison: {compare.fileName}</h4>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close comparison" onClick={() => setCompare(null)}><X className="h-4 w-4" /></Button>
-            </div>
-            {compare.practices ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Their list ({compare.practices.sheet}) has {compare.practices.uploaded} practices; we hold {compare.practices.inRoom}. {compare.practices.matched} match.
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-sm font-medium">On their list, not in ours ({compare.practices.missingFromRoom.length})</p>
-                    <p className="text-xs text-muted-foreground">Salesforce is missing these.</p>
-                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.missingFromRoom.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">In ours, not on their list ({compare.practices.notOnUpload.length})</p>
-                    <p className="text-xs text-muted-foreground">Closed, renamed, or not in the rollout.</p>
-                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.notOnUpload.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">No practice column found in this file.</p>
-            )}
-            {compare.doctors && <p className="text-sm text-muted-foreground">The roster ({compare.doctors.sheet}) lists {compare.doctors.count} doctors. Doctors can't be compared yet: LP Studio has no doctor records to compare against.</p>}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="brand"
-                disabled={!(compare.practices?.missingFromRoom.length || compare.doctors?.count)}
-                onClick={async () => {
-                  const r = await post(`${base}/revops-task`, { missing: compare.practices?.missingFromRoom ?? [], doctors: compare.practices ? 0 : compare.doctors?.count ?? 0, fileName: compare.fileName });
-                  if (r.ok) setRevops(r.json.mentioned ? "Posted to the hub’s Slack channel, with RevOps mentioned. It also rides in the weekly Slack digest until the gap closes." : "Posted to the hub’s Slack channel. Nobody was mentioned: add a RevOps Slack mention under Settings.");
-                }}
-              >
-                Post to Slack for RevOps
-              </Button>
-              {!!compare.practices?.missingFromRoom.length && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const blob = new Blob([["practice name", ...compare.practices!.missingFromRoom.map((n) => `"${n.replace(/"/g, '""')}"`)].join("\n")], { type: "text/csv" });
-                    const a = document.createElement("a");
-                    a.href = URL.createObjectURL(blob);
-                    a.download = "missing-from-salesforce.csv";
-                    a.click();
-                    URL.revokeObjectURL(a.href);
-                  }}
-                >
-                  Download the missing list
-                </Button>
-              )}
-              {revops && <span className="text-sm text-muted-foreground">{revops}</span>}
-            </div>
-          </section>
-        )}
+            {recentUploads.length > 0 && filesSection(recentUploads, "New files from the customer")}
+            {comparePanel}
 
             {data.isWorkspace && (
               <RoomReminderSection
@@ -552,54 +603,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               {data.isWorkspace && (data.planQueue ?? []).length > 0 && (
                 <Fold title="Marketing plan" hint={planQueueHint(data.planQueue!)} data-room-plan-fold>
                   <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} bare />
-                </Fold>
-              )}
-              {data.tasks.length > 0 && (
-                <Fold title="What the customer has done" hint={`${data.tasks.filter((t) => t.done).length} of ${data.tasks.length} steps`}>
-                  <div className="divide-y rounded-md border">
-                    {data.tasks.map((t) => (
-                      <div key={t.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{t.title}</p>
-                          {t.done && <p className="text-xs text-muted-foreground">{[t.completedBy, fmtDate(t.completedAt)].filter(Boolean).join(" · ")}</p>}
-                        </div>
-                        {t.done ? (
-                          <span className="flex items-center gap-2">
-                            <Badge variant="secondary" className="gap-1"><Check className="h-3 w-3" /> Done</Badge>
-                            <Button size="sm" variant="ghost" className="h-8 gap-1 text-muted-foreground" onClick={() => run(send(`${base}/tasks/${encodeURIComponent(t.key)}`, "DELETE"))}><RotateCcw className="h-3.5 w-3.5" /> Reopen</Button>
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{t.action === "upload" ? "Needs a file" : "Open"}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </Fold>
-              )}
-              {doneRequests.length > 0 && (
-                <Fold title="Finished requests" hint={String(doneRequests.length)}>
-                  <div className="divide-y rounded-md border">
-                    {doneRequests.map((q) => (
-                      <RequestRow key={q.id} q={q} onSave={(patch) => run(send(`${base}/requests/${q.id}`, "PATCH", patch))} />
-                    ))}
-                  </div>
-                </Fold>
-              )}
-              {data.isWorkspace && (
-                <Fold title="Wins" hint={(data.wins ?? []).length ? `${(data.wins ?? []).length} posted` : "Post one to the hub’s News Feed"}>
-                  <WinsSection base={base} wins={data.wins ?? []} run={run} />
-                </Fold>
-              )}
-              {(data.contacts ?? []).length > 0 && (
-                <Fold title="People the customer added" hint={String(data.contacts!.length)}>
-                  <div className="divide-y rounded-md border">
-                    {data.contacts!.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                        <span className="text-sm">{c.name}{c.role ? ` · ${c.role}` : ""}{c.email ? ` · ${c.email}` : ""} <span className="text-xs text-muted-foreground">added by {c.addedBy}</span></span>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${c.name}`} onClick={() => run(send(`${base}/contacts/${c.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ))}
-                  </div>
                 </Fold>
               )}
             </div>
@@ -760,9 +763,11 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection expansion={data.stage?.stage === "expansion"} pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} onKitLink={onKitLink} />}
 
         {tab === "kit" && data.isWorkspace && (
-          <Fold title="Who opened what" hint={(data.engagement?.assets ?? []).length ? `${(data.engagement?.assets ?? []).length} opened in the last 90 days` : "Nothing opened yet"}>
-            <EngagementSection engagement={data.engagement} kitName={kitNames.kit === "Marketing" ? "Marketing" : "the launch kit"} />
-          </Fold>
+          <>
+                <Fold title="News Feed posts" hint={(data.wins ?? []).length ? `${(data.wins ?? []).length} posted` : "Post a win or an update to the hub’s News Feed"} data-room-wins-fold>
+                  <WinsSection base={base} wins={data.wins ?? []} run={run} />
+                </Fold>
+          </>
         )}
 
 
@@ -795,6 +800,19 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 />
               </Fold>
             )}
+              {(data.contacts ?? []).length > 0 && (
+                <Fold title="People the customer added" hint={`${data.contacts!.length} · added from their side of the hub`}>
+                  <div className="divide-y rounded-md border">
+                    {data.contacts!.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="text-sm">{c.name}{c.role ? ` · ${c.role}` : ""}{c.email ? ` · ${c.email}` : ""} <span className="text-xs text-muted-foreground">added by {c.addedBy}</span></span>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${c.name}`} onClick={() => run(send(`${base}/contacts/${c.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
+                      </div>
+                    ))}
+                  </div>
+                </Fold>
+              )}
+
             <Fold title="Who has access" hint={noAccessYet ? "No one yet" : [data.settings.allowedDomains.join(", "), allowedPeople ? `${allowedPeople} ${allowedPeople === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")} defaultOpen>
               <p className="text-xs text-muted-foreground">Anyone with the link can view. These people can also upload, comment and mark tasks done.</p>
               {noAccessYet && (
