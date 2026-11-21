@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Download, DoorOpen, RotateCcw, UserCheck, UserX, X } from "lucide-react";
+import { Check, ChevronDown, Download, DoorOpen, RotateCcw, UserCheck, UserX, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import { RoomCoverSection, type HubCover } from "./RoomCover";
-import { RoomStagePrompt, RoomStageSection, type HubStage } from "./RoomStage";
+import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
 import { RoomPlays } from "./RoomPlays";
 
 /**
@@ -92,6 +92,25 @@ async function send(url: string, method: string, body?: unknown): Promise<string
   }
 }
 
+type PracticeSource = "sheet" | "salesforce" | "paste";
+const PRACTICE_COLUMNS = "name, region, wave, stage, training date, live date";
+
+/** A settings group that opens on click, so the Settings tab reads as a short list. */
+function Fold({ title, hint, defaultOpen = false, children, ...rest }: { title: string; hint?: string; defaultOpen?: boolean; children: React.ReactNode } & Record<`data-${string}`, string | boolean | undefined>) {
+  return (
+    <details className="group rounded-md border" open={defaultOpen || undefined} {...rest}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">{title}</span>
+          {hint && <span className="block truncate text-xs text-muted-foreground">{hint}</span>}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-3 border-t p-3">{children}</div>
+    </details>
+  );
+}
+
 export type RoomPanelTab = "performance" | "plays" | "goals" | "activity" | "kit" | "practices" | "calendar" | "settings";
 /** A file the Room panel just put in the launch kit. The builder applies it to its own copy of the page too, so its next save keeps it. */
 /** A link added to the launch kit from the Room panel (the practice microsite). */
@@ -121,6 +140,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const [asanaProject, setAsanaProject] = useState("");
   const [csv, setCsv] = useState("");
   const [fromCustomer, setFromCustomer] = useState(false);
+  const [source, setSource] = useState<PracticeSource>("sheet");
   const [note, setNote] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetTab, setSheetTab] = useState("");
@@ -135,7 +155,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const [revops, setRevops] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<"" | "access" | "connections">("");
   const [openNote, setOpenNote] = useState("");
 
   useEffect(() => {
@@ -159,16 +179,16 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const base = `/api/lp/partner-rooms/${pageId}`;
   const refresh = () => qc.invalidateQueries({ queryKey: ["page-room", pageId] });
   const run = async (p: Promise<string | null>) => {
-    setSaved(false);
+    setSaved("");
     const err = await p;
     setError(err ?? "");
     if (!err) await refresh();
     return !err;
   };
 
-  const saveSettings = async () => {
+  const saveSettings = async (from: "access" | "connections") => {
     const list = domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean);
-    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim(), revopsSlackMention: revopsMention.trim() }))) setSaved(true);
+    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim(), revopsSlackMention: revopsMention.trim() }))) setSaved(from);
   };
   const baseSettings = () => ({ allowedDomains: domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean), slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim() });
   const post = async (url: string, body?: unknown): Promise<{ ok: boolean; json: Record<string, unknown> }> => {
@@ -177,10 +197,23 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
     setError(r.ok ? "" : String(json.error ?? "Something went wrong"));
     return { ok: r.ok, json };
   };
+  /** Save which sheet the practice list comes from ("" disconnects it), then read it. */
+  const saveSheet = async (url: string) => {
+    setNote("");
+    const err = await send(`${base}/settings`, "PATCH", { ...baseSettings(), practicesSheet: url, practicesSheetTab: sheetTab.trim(), practicesSheetFilterColumn: filterCol.trim(), practicesSheetFilterValue: filterVal.trim() });
+    setError(err ?? "");
+    if (err) return;
+    if (url) {
+      const r = await post(`${base}/practices/sync-sheet`);
+      if (r.ok) setNote(String(r.json.note ?? "Sheet read."));
+    } else setNote("Sheet disconnected. The practices already loaded stay.");
+    await refresh();
+  };
   const setMember = (email: string, status: "allowed" | "denied" | null) => run(send(`${base}/members`, "POST", { email, status }));
 
   const requests = data.members.filter((m) => m.status === "requested");
   const others = data.members.filter((m) => m.status !== "requested");
+  const allowedPeople = others.filter((m) => m.status === "allowed").length;
   const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
 
   return (
@@ -193,7 +226,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
               Room
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Who can upload files and mark tasks done on this page, and what they have sent. Anyone with the link can view the page.
+              What the customer has done and sent, and who has access.
             </p>
           </>
         )}
@@ -299,7 +332,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                 <RequestRow key={q.id} q={q} onSave={(patch) => run(send(`${base}/requests/${q.id}`, "PATCH", patch))} />
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">The customer sees the status, owner and due date in the room’s Requests module.</p>
+            <p className="text-xs text-muted-foreground">The customer sees the status, owner and due date.</p>
           </section>
         )}
 
@@ -322,130 +355,140 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
         )}
 
         {tab === "practices" && data.isWorkspace && (
-          <section className="space-y-2">
-            <h4 className="text-sm font-semibold">Practices</h4>
-            <p className="text-sm text-muted-foreground">
-              {data.practices?.total
-                ? `${data.practices.total} in the room · ${data.practices.byStage.live ?? 0} live · ${(data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0)} trained · ${data.practices.regions.length} regions`
-                : "No practices loaded yet."}
-            </p>
-            <div className="space-y-2 rounded-md border p-3">
-              <p className="text-sm font-medium">Live Google Sheet</p>
-              <p className="text-xs text-muted-foreground">Columns: name, region, wave, stage, training date, live date. Re-read about every hour.</p>
-              <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
-                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Sheet link</span><Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} /></label>
-                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Tab name</span><Input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} /></label>
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-semibold">Practices</h4>
+                <p className="text-sm text-muted-foreground">
+                  {data.practices?.total
+                    ? `${data.practices.total} in the hub · ${data.practices.byStage.live ?? 0} live · ${(data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0)} trained · ${data.practices.regions.length} regions`
+                    : "None yet. Pick one way to add them."}
+                </p>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Only rows where this column</span><Input value={filterCol} onChange={(e) => setFilterCol(e.target.value)} aria-label="Filter column" /></label>
-                <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Text it must contain</span><Input value={filterVal} onChange={(e) => setFilterVal(e.target.value)} aria-label="Filter value" /></label>
+              {!!data.practices?.total && (
+                <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => window.confirm("Remove every practice from this hub?") && run(send(`${base}/practices`, "DELETE"))}>Clear list</Button>
+              )}
+            </div>
+            {/* One way of loading the list at a time, instead of all three stacked. */}
+            <div className="flex w-fit gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="How to add practices">
+              {([["sheet", data.sheet?.id ? "Google Sheet · connected" : "Google Sheet"], ["salesforce", "Salesforce"], ["paste", "Paste or upload"]] as [PracticeSource, string][]).map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={source === id} onClick={() => { setSource(id); setNote(""); }} className={`rounded-md px-3 py-1.5 text-sm font-medium ${source === id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} data-room-practice-source={id}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {source === "sheet" && (
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">Kept up to date from a sheet, checked about every hour. Columns: {PRACTICE_COLUMNS}.</p>
+                <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
+                  <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Sheet link</span><Input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" /></label>
+                  <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Tab name</span><Input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder="Sheet1" /></label>
+                </div>
+                <details className="text-xs" open={!!(data.sheet?.filterColumn || data.sheet?.filterValue) || undefined}>
+                  <summary className="cursor-pointer text-muted-foreground">The sheet lists other customers too</summary>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Column to check</span><Input value={filterCol} onChange={(e) => setFilterCol(e.target.value)} aria-label="Filter column" placeholder="Account" /></label>
+                    <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Keep rows containing</span><Input value={filterVal} onChange={(e) => setFilterVal(e.target.value)} aria-label="Filter value" placeholder="This customer’s name" /></label>
+                  </div>
+                </details>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="brand" disabled={!sheetUrl.trim()} onClick={() => saveSheet(sheetUrl.trim())}>
+                    {data.sheet?.id ? "Save and read again" : "Connect the sheet"}
+                  </Button>
+                  {data.sheet?.id && <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => { setSheetUrl(""); void saveSheet(""); }}>Disconnect</Button>}
+                  {data.sheet?.id && (
+                    <span className="text-xs text-muted-foreground">
+                      Last read {fmtDate(data.sheet.syncedAt) || "never"}{data.sheet.note ? ` · ${data.sheet.note}` : ""}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+            )}
+            {source === "salesforce" && (
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">Adds this account’s practices from Salesforce and updates the ones already here.</p>
                 <Button
                   size="sm"
                   variant="brand"
                   onClick={async () => {
                     setNote("");
-                    const err = await send(`${base}/settings`, "PATCH", { ...baseSettings(), practicesSheet: sheetUrl.trim(), practicesSheetTab: sheetTab.trim(), practicesSheetFilterColumn: filterCol.trim(), practicesSheetFilterValue: filterVal.trim() });
-                    setError(err ?? "");
-                    if (err) return;
-                    if (sheetUrl.trim()) {
-                      const r = await post(`${base}/practices/sync-sheet`);
-                      if (r.ok) setNote(String(r.json.note ?? "Sheet read."));
-                    } else setNote("Sheet disconnected. The practices already loaded stay.");
-                    await refresh();
-                  }}
-                >
-                  {sheetUrl.trim() ? "Save and read the sheet" : "Disconnect"}
-                </Button>
-                {data.sheet?.id && (
-                  <span className="text-xs text-muted-foreground">
-                    Last read {fmtDate(data.sheet.syncedAt) || "never"}{data.sheet.note ? ` · ${data.sheet.note}` : ""}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  setNote("");
-                  const r = await fetch(`${base}/practices/sync-salesforce`, { method: "POST", headers: { "Content-Type": "application/json" } });
-                  const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number; note?: string };
-                  setError(r.ok ? "" : j.error ?? "Sync failed");
-                  if (r.ok) {
-                    setNote(j.note ?? `${j.added ?? 0} added, ${j.updated ?? 0} updated from Salesforce.`);
-                    await refresh();
-                  }
-                }}
-              >
-                Pull practices from Salesforce
-              </Button>
-              {!!data.practices?.total && (
-                <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => window.confirm("Remove every practice from this room?") && run(send(`${base}/practices`, "DELETE"))}>Clear list</Button>
-              )}
-              {note && <span className="text-sm text-muted-foreground">{note}</span>}
-            </div>
-            <p className="text-xs font-medium text-muted-foreground">Or paste a list. First line: name, region, wave, stage, training date, live date</p>
-            <textarea
-              className="min-h-[88px] w-full rounded-md border bg-background p-2 font-mono text-xs"
-              value={csv}
-              onChange={(e) => setCsv(e.target.value)}
-             
-              aria-label="Paste a practice list"
-            />
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={fromCustomer} onChange={(e) => setFromCustomer(e.target.checked)} data-room-import-from-customer />
-              This list came from the customer (it wins over the synced sheet)
-            </label>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="brand"
-                disabled={!csv.trim()}
-                onClick={async () => {
-                  setNote("");
-                  const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv, fromCustomer }) });
-                  const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number };
-                  setError(r.ok ? "" : j.error ?? "Import failed");
-                  if (r.ok) {
-                    setNote(`${j.added ?? 0} added, ${j.updated ?? 0} updated.`);
-                    setCsv("");
-                    await refresh();
-                  }
-                }}
-              >
-                Import list
-              </Button>
-              <label className="inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50">
-                Upload a file (.xlsx or .csv)
-                <input
-                  type="file"
-                  accept=".xlsx,.csv"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (!file) return;
-                    setNote("");
-                    if (file.size > 7 * 1024 * 1024) return setError("That file is over 7 MB.");
-                    const bytes = new Uint8Array(await file.arrayBuffer());
-                    let bin = "";
-                    for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
-                    const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileBase64: btoa(bin), fromCustomer }) });
-                    const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number; sheet?: string };
-                    setError(r.ok ? "" : j.error ?? "Import failed");
+                    const r = await fetch(`${base}/practices/sync-salesforce`, { method: "POST", headers: { "Content-Type": "application/json" } });
+                    const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number; note?: string };
+                    setError(r.ok ? "" : j.error ?? "Sync failed");
                     if (r.ok) {
-                      setNote(`${j.added ?? 0} added, ${j.updated ?? 0} updated${j.sheet ? ` from “${j.sheet}”` : ""}.`);
+                      setNote(j.note ?? `${j.added ?? 0} added, ${j.updated ?? 0} updated from Salesforce.`);
                       await refresh();
                     }
                   }}
+                >
+                  Pull practices from Salesforce
+                </Button>
+              </div>
+            )}
+            {source === "paste" && (
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">Updates practices by name and leaves the rest alone. First line: {PRACTICE_COLUMNS}.</p>
+                <textarea
+                  className="min-h-[88px] w-full rounded-md border bg-background p-2 font-mono text-xs"
+                  value={csv}
+                  onChange={(e) => setCsv(e.target.value)}
+                  placeholder={"name, region, wave, stage, training date, live date\nMain Street Clinic, West, 1, trained, 2026-01-12, 2026-01-20"}
+                  aria-label="Paste a practice list"
                 />
-              </label>
-              <span className="text-xs text-muted-foreground">A file fills in what it carries and leaves the rest. The scanner tracker’s Excel export adds scanner counts and models to the practices it names.</span>
-              <span className="text-xs text-muted-foreground">Stages: not started, scheduling, training booked, trained, live. Pasting again updates practices by name.</span>
-            </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={fromCustomer} onChange={(e) => setFromCustomer(e.target.checked)} data-room-import-from-customer />
+                  The customer sent this list <span className="text-xs text-muted-foreground">(it then wins over the Google Sheet)</span>
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="brand"
+                    disabled={!csv.trim()}
+                    onClick={async () => {
+                      setNote("");
+                      const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv, fromCustomer }) });
+                      const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number };
+                      setError(r.ok ? "" : j.error ?? "Import failed");
+                      if (r.ok) {
+                        setNote(`${j.added ?? 0} added, ${j.updated ?? 0} updated.`);
+                        setCsv("");
+                        await refresh();
+                      }
+                    }}
+                  >
+                    Import pasted list
+                  </Button>
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <label className="inline-flex h-8 cursor-pointer items-center whitespace-nowrap rounded-md border px-3 text-sm hover:bg-muted/50">
+                    Upload .xlsx or .csv
+                    <input
+                      type="file"
+                      accept=".xlsx,.csv"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        setNote("");
+                        if (file.size > 7 * 1024 * 1024) return setError("That file is over 7 MB.");
+                        const bytes = new Uint8Array(await file.arrayBuffer());
+                        let bin = "";
+                        for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
+                        const r = await fetch(`${base}/practices/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileBase64: btoa(bin), fromCustomer }) });
+                        const j = (await r.json().catch(() => ({}))) as { error?: string; added?: number; updated?: number; sheet?: string };
+                        setError(r.ok ? "" : j.error ?? "Import failed");
+                        if (r.ok) {
+                          setNote(`${j.added ?? 0} added, ${j.updated ?? 0} updated${j.sheet ? ` from “${j.sheet}”` : ""}.`);
+                          await refresh();
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">Stages: not started, scheduling, training booked, trained, live. A scanner tracker export also adds scanner counts and models.</p>
+              </div>
+            )}
+            {note && <p className="text-sm text-muted-foreground" role="status">{note}</p>}
           </section>
         )}
 
@@ -456,38 +499,88 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
 
         {tab === "calendar" && data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
 
-        {tab === "settings" && data.isWorkspace && data.stage && (
-          <RoomStageSection
-            pageId={pageId}
-            stage={data.stage}
-            onSaved={async (st) => {
-              onStage?.(st);
-              await refresh();
-            }}
-          />
-        )}
-        {tab === "settings" && data.isWorkspace && data.cover && (
-          <RoomCoverSection
-            pageId={pageId}
-            cover={data.cover}
-            onSaved={async (c) => {
-              onCover?.(c);
-              await refresh();
-            }}
-          />
-        )}
-        {tab === "settings" && data.isWorkspace && (
-          <section className="space-y-2">
-            <h4 className="text-sm font-semibold">Weekly digest</h4>
-            <p className="text-sm text-muted-foreground">
-              Mondays: an email to the customer and a Slack post.
-              {data.digest?.lastSentAt ? ` Last sent ${fmtDate(data.digest.lastSentAt)}.` : ""}
-            </p>
+        {tab === "settings" && (
+          <div className="space-y-2" data-room-settings>
+            <Fold title="Who has access" hint={noAccessYet ? "No one yet" : [data.settings.allowedDomains.join(", "), allowedPeople ? `${allowedPeople} ${allowedPeople === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")} defaultOpen>
+              <p className="text-xs text-muted-foreground">Anyone with the link can view. These people can also upload, comment and mark tasks done.</p>
+              {noAccessYet && (
+                <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  No one is allowed yet. Add the customer’s email domain, or people one by one.
+                </p>
+              )}
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="block min-w-[240px] flex-1 space-y-1 text-xs">
+                  <span className="font-medium text-muted-foreground">Everyone at these email domains</span>
+                  <Input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="customer.com, customergroup.com" />
+                </label>
+                <Button size="sm" variant="brand" onClick={() => saveSettings("access")}>Save</Button>
+                {saved === "access" && <span className="pb-2 text-sm text-muted-foreground">Saved</span>}
+              </div>
+            <form
+              className="flex items-end gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (newEmail.trim() && (await setMember(newEmail.trim(), "allowed"))) setNewEmail("");
+              }}
+            >
+              <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Or allow one person</span><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-64" placeholder="dana@customer.com" /></label>
+              <Button type="submit" size="sm" variant="outline">Allow</Button>
+            </form>
+            {others.length > 0 && (
+              <div className="divide-y rounded-md border">
+                {others.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="text-sm">{m.email}</span>
+                    <span className="flex items-center gap-2">
+                      <Badge variant={m.status === "allowed" ? "secondary" : "outline"}>{m.status === "allowed" ? "Allowed" : "Declined"}</Badge>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${m.email}`} onClick={() => setMember(m.email, null)}><X className="h-4 w-4" /></Button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            </Fold>
+
+            {data.isWorkspace && (
+              <Fold title="Invite the customer’s team" hint="Email each person their own link">
+                <RoomInviteSection pageId={pageId} onInvited={refresh} />
+              </Fold>
+            )}
+
+            {data.isWorkspace && data.stage && (
+              <Fold title="Stage and waves" hint={`${STAGE_LABEL[data.stage.stage]} · ${data.stage.waves.length} wave${data.stage.waves.length === 1 ? "" : "s"}`}>
+                <RoomStageSection
+                  pageId={pageId}
+                  stage={data.stage}
+                  onSaved={async (st) => {
+                    onStage?.(st);
+                    await refresh();
+                  }}
+                />
+              </Fold>
+            )}
+
+            {data.isWorkspace && data.cover && (
+              <Fold title="Cover" hint="Headline and photo style at the top of the hub">
+                <RoomCoverSection
+                  pageId={pageId}
+                  cover={data.cover}
+                  onSaved={async (c) => {
+                    onCover?.(c);
+                    await refresh();
+                  }}
+                />
+              </Fold>
+            )}
+
+            {data.isWorkspace && (
+              <Fold title="Weekly digest" hint={data.digest?.enabled ? `On${data.digest.lastSentAt ? ` · last sent ${fmtDate(data.digest.lastSentAt)}` : ""}` : "Off"}>
+                <p className="text-xs text-muted-foreground">Every Monday: an email to the customer and a Slack post.</p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={digestOn} onChange={(e) => setDigestOn(e.target.checked)} />
-              Send the weekly digest for this room
+              Send it for this hub
             </label>
-            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Customer emails</span><Input value={digestTo} onChange={(e) => setDigestTo(e.target.value)} /></label>
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Customer emails</span><Input value={digestTo} onChange={(e) => setDigestTo(e.target.value)} placeholder="dana@customer.com, kai@customer.com" /></label>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
@@ -502,7 +595,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                   }
                 }}
               >
-                Save digest settings
+                Save
               </Button>
               <Button size="sm" variant="outline" onClick={async () => { const r = await post(`${base}/digest/preview`); if (r.ok) setPreview(r.json as never); }}>Preview</Button>
               <Button
@@ -530,7 +623,54 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                 <pre className="whitespace-pre-wrap rounded bg-muted p-2 text-xs">{preview.slackText}</pre>
               </div>
             )}
-          </section>
+              </Fold>
+            )}
+
+            <Fold title="Slack and connections" hint={data.isWorkspace ? "Slack channel, Salesforce, Asana" : "Slack channel"}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1 text-xs">
+                  <span className="font-medium text-muted-foreground">Slack channel ID</span>
+                  <Input value={channel} onChange={(e) => setChannel(e.target.value)} placeholder="C0123ABCD" />
+                </label>
+                {data.isWorkspace && (
+                  <>
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Who to mention for RevOps</span>
+                      <Input value={revopsMention} onChange={(e) => setRevopsMention(e.target.value)} placeholder="A Slack @mention" />
+                    </label>
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Salesforce account ID</span>
+                      <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} placeholder="001…" />
+                    </label>
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Asana project ID</span>
+                      <Input value={asanaProject} onChange={(e) => setAsanaProject(e.target.value)} placeholder="The long number in the project’s URL" />
+                    </label>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <Button size="sm" variant="brand" onClick={() => saveSettings("connections")}>Save</Button>
+                {saved === "connections" && <span className="text-sm text-muted-foreground">Saved</span>}
+              </div>
+              {data.isWorkspace && (
+                <label className="flex items-start gap-2 text-sm" data-room-visit-alert>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4"
+                    checked={!!data.visitAlert}
+                    onChange={async (e) => {
+                      await run(send(`${base}/settings`, "PATCH", { visitAlert: e.target.checked }));
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium">Post in Slack when the customer visits</span>
+                    <span className="block text-xs text-muted-foreground">At most once per person every six hours. Your own team never triggers it.</span>
+                  </span>
+                </label>
+              )}
+            </Fold>
+          </div>
         )}
 
         {tab === "activity" && data.isWorkspace && <WinsSection base={base} wins={data.wins ?? []} run={run} />}
@@ -676,91 +816,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
         </section>
         )}
 
-        {tab === "settings" && (
-        <section className="space-y-3">
-          <h4 className="text-sm font-semibold">Who can act</h4>
-          {noAccessYet && (
-            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              No one is allowed yet. Add the customer's email domain, or people one by one. Personal links from the Sales console always work.
-            </p>
-          )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Allowed email domains</span>
-              <Input value={domains} onChange={(e) => setDomains(e.target.value)} />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Slack channel ID</span>
-              <Input value={channel} onChange={(e) => setChannel(e.target.value)} />
-            </label>
-            {data.isWorkspace && (
-              <>
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium">Salesforce account ID</span>
-                  <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium">RevOps Slack mention</span>
-                  <Input value={revopsMention} onChange={(e) => setRevopsMention(e.target.value)} />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium">Asana project ID</span>
-                  <Input value={asanaProject} onChange={(e) => setAsanaProject(e.target.value)} />
-                </label>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button size="sm" variant="brand" onClick={saveSettings}>Save</Button>
-            {saved && <span className="text-sm text-muted-foreground">Saved</span>}
-          </div>
-          {data.isWorkspace && (
-            <label className="flex items-start gap-2 text-sm" data-room-visit-alert>
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4"
-                checked={!!data.visitAlert}
-                onChange={async (e) => {
-                  await run(send(`${base}/settings`, "PATCH", { visitAlert: e.target.checked }));
-                }}
-              />
-              <span>
-                <span className="font-medium">Tell us in Slack when the customer visits</span>
-                <span className="block text-xs text-muted-foreground">One post per person, at most every six hours, in the channel above. Only people who signed in with their email are named; your own team never triggers it.</span>
-              </span>
-            </label>
-          )}
-
-          {data.isWorkspace && <RoomInviteSection pageId={pageId} onInvited={refresh} />}
-
-          <div className="space-y-2 pt-2">
-            <span className="text-sm font-medium">People</span>
-            <form
-              className="flex items-end gap-2"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (newEmail.trim() && (await setMember(newEmail.trim(), "allowed"))) setNewEmail("");
-              }}
-            >
-              <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Email</span><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="max-w-xs" /></label>
-              <Button type="submit" size="sm" variant="outline">Allow this person</Button>
-            </form>
-            {others.length > 0 && (
-              <div className="divide-y rounded-md border">
-                {others.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                    <span className="text-sm">{m.email}</span>
-                    <span className="flex items-center gap-2">
-                      <Badge variant={m.status === "allowed" ? "secondary" : "outline"}>{m.status === "allowed" ? "Allowed" : "Declined"}</Badge>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${m.email}`} onClick={() => setMember(m.email, null)}><X className="h-4 w-4" /></Button>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-        )}
       </CardContent>
     </Card>
   );
@@ -1075,7 +1130,7 @@ function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"
   return (
     <section className="space-y-2">
       <h4 className="text-sm font-semibold">Asset engagement</h4>
-      <p className="text-sm text-muted-foreground">Who opened what in the launch kit, for how long, and when. PDFs, images and videos open in a viewer on the page, which is how time and watch progress are measured. Last 90 days.</p>
+      <p className="text-sm text-muted-foreground">Who opened what in the launch kit, and for how long. Last 90 days.</p>
       {assets.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nothing has been opened yet.</p>
       ) : (

@@ -58,18 +58,17 @@ export function RoomCoverSection({ pageId, cover, onSaved }: { pageId: number; c
 
   return (
     <section className="space-y-2" data-room-cover-settings>
-      <h4 className="text-sm font-semibold">Cover</h4>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-sm sm:col-span-2">
-          <span className="font-medium">Headline</span>
+        <label className="block space-y-1 text-xs sm:col-span-2">
+          <span className="font-medium text-muted-foreground">Headline</span>
           <Input value={shownHeadline} onChange={(e) => setDraft({ ...draft, headline: e.target.value })} maxLength={160} />
         </label>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium">Label above the headline</span>
+        <label className="block space-y-1 text-xs">
+          <span className="font-medium text-muted-foreground">Small label above it</span>
           <Input value={draft.eyebrow} onChange={(e) => setDraft({ ...draft, eyebrow: e.target.value })} maxLength={80} />
         </label>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium">Cover style</span>
+        <label className="block space-y-1 text-xs">
+          <span className="font-medium text-muted-foreground">Style</span>
           <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={draft.coverStyle} onChange={(e) => setDraft({ ...draft, coverStyle: e.target.value as HubCover["coverStyle"] })}>
             {STYLES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
@@ -82,7 +81,8 @@ export function RoomCoverSection({ pageId, cover, onSaved }: { pageId: number; c
         </label>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="brand" disabled={busy || !changed} onClick={save}>Save cover</Button>
+        <Button size="sm" variant="brand" disabled={busy || !changed} onClick={save}>Save</Button>
+        <span className="text-xs text-muted-foreground">Change the photo in the page builder.</span>
         {note && <span className="text-sm text-muted-foreground">{note}</span>}
         {err && <span className="text-sm text-destructive">{err}</span>}
       </div>

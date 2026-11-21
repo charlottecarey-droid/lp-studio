@@ -90,31 +90,41 @@ export function RoomStageSection({ pageId, stage, onSaved }: { pageId: number; s
 
   return (
     <section className="space-y-3" data-room-stage-settings>
-      <h4 className="text-sm font-semibold">Stage</h4>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-sm">
-          <span className="font-medium">Stage (the customer sees “Partnership”)</span>
+        <label className="block space-y-1 text-xs">
+          <span className="font-medium text-muted-foreground">Stage</span>
           <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={draft.stage} onChange={(e) => setDraft({ ...draft, stage: e.target.value as HubStage["stage"] })} data-room-stage-select>
             <option value="rollout">Rollout</option>
             <option value="expansion">Expansion</option>
           </select>
         </label>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium">Timeline on the Overview</span>
+        <label className="block space-y-1 text-xs">
+          <span className="font-medium text-muted-foreground">Timeline the customer sees{draft.stage === "rollout" ? " (after rollout)" : ""}</span>
           <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={draft.timelineView} onChange={(e) => setDraft({ ...draft, timelineView: e.target.value as HubStage["timelineView"] })} disabled={draft.stage === "rollout"}>
-            <option value="practices">All practices against the goal</option>
-            <option value="waves">Waves</option>
+            <option value="practices">All practices vs. the goal</option>
+            <option value="waves">Wave by wave</option>
           </select>
         </label>
       </div>
+      <p className="text-xs text-muted-foreground">Only your team sees the stage name. The customer’s hub always says “Partnership”.</p>
       <div className="space-y-2">
         <p className="text-sm font-medium">Waves</p>
+        {/* Column names once, not above every row. */}
+        {draft.waves.length > 0 && (
+          <div className="hidden gap-2 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_150px_150px_36px]" aria-hidden>
+            <span>Name</span>
+            <span title="What this wave is called in the practice list’s wave column">Wave column value</span>
+            <span>Starts</span>
+            <span>Target date</span>
+            <span />
+          </div>
+        )}
         {draft.waves.map((w, i) => (
-          <div key={i} className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_150px_150px_auto]" data-room-wave-row>
-            <label className="space-y-1 text-xs"><span className="font-medium text-muted-foreground">Name</span><Input value={w.name} onChange={(e) => wave(i, { name: e.target.value })} maxLength={60} /></label>
-            <label className="space-y-1 text-xs"><span className="font-medium text-muted-foreground">Called in the practice list</span><Input value={w.key} onChange={(e) => wave(i, { key: e.target.value })} maxLength={60} /></label>
-            <label className="space-y-1 text-xs"><span className="font-medium text-muted-foreground">Starts</span><Input type="date" value={w.start} onChange={(e) => wave(i, { start: e.target.value })} /></label>
-            <label className="space-y-1 text-xs"><span className="font-medium text-muted-foreground">Target date</span><Input type="date" value={w.target} onChange={(e) => wave(i, { target: e.target.value })} /></label>
+          <div key={i} className="grid items-center gap-2 sm:grid-cols-[1fr_1fr_150px_150px_36px]" data-room-wave-row>
+            <Input aria-label="Wave name" value={w.name} onChange={(e) => wave(i, { name: e.target.value })} maxLength={60} />
+            <Input aria-label="Wave column value in the practice list" value={w.key} onChange={(e) => wave(i, { key: e.target.value })} maxLength={60} />
+            <Input aria-label="Starts" type="date" value={w.start} onChange={(e) => wave(i, { start: e.target.value })} />
+            <Input aria-label="Target date" type="date" value={w.target} onChange={(e) => wave(i, { target: e.target.value })} />
             <Button size="sm" variant="ghost" className="text-muted-foreground" aria-label={`Remove ${w.name || "wave"}`} onClick={() => setDraft({ ...draft, waves: draft.waves.filter((_, k) => k !== i) })}><Trash2 className="h-4 w-4" /></Button>
           </div>
         ))}

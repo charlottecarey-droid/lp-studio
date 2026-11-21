@@ -84,15 +84,12 @@ export function RoomInviteSection({ pageId, onInvited }: { pageId: number; onInv
   };
 
   return (
-    <div className="space-y-3 rounded-md border p-3" data-room-invite>
-      <div>
-        <span className="text-sm font-medium">Invite the customer's team</span>
-        <p className="text-xs text-muted-foreground">Each person gets an email with their own link, and can upload, comment and mark tasks done as themselves. The room must be published.</p>
-      </div>
+    <div className="space-y-3" data-room-invite>
+      <p className="text-xs text-muted-foreground">Each person gets an email with their own link. The hub must be published first.</p>
       {contacts === null ? (
         <p className="text-sm text-muted-foreground">Loading the account's contacts…</p>
       ) : contacts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{found ? "This account has no contacts with a work email yet." : "No matching account was found under Accounts, so there are no contacts to pick from. Add addresses below, or save the Salesforce account ID above."}</p>
+        <p className="text-sm text-muted-foreground">{found ? "This account has no contacts with a work email yet." : "No matching account found, so there are no contacts to pick from. Add addresses below, or set the Salesforce account ID under Slack and connections."}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -117,12 +114,12 @@ export function RoomInviteSection({ pageId, onInvited }: { pageId: number; onInv
         </>
       )}
       <label className="block space-y-1 text-sm">
-        <span className="font-medium">Anyone else</span>
+        <span className="font-medium">Add people by email</span>
         <Textarea value={extra} onChange={(e) => setExtra(e.target.value)} rows={2} placeholder={"Dana Ruiz, dana@customer.com\nkai@customer.com"} className="text-sm" />
-        <span className="block text-xs text-muted-foreground">One person per line: a name and an address, or just the address.</span>
+        <span className="block text-xs text-muted-foreground">One per line.</span>
       </label>
       <label className="block space-y-1 text-sm">
-        <span className="font-medium">A note to include (optional)</span>
+        <span className="font-medium">Note in the email (optional)</span>
         <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={600} className="text-sm" />
       </label>
       <div className="flex flex-wrap items-center gap-3">

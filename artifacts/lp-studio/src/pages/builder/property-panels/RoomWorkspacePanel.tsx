@@ -213,13 +213,14 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
       <DialogContent className="max-w-5xl" data-room-manager>
         <DialogHeader>
           <DialogTitle>Manage room</DialogTitle>
-          <DialogDescription>What the customer has done and sent, the launch kit, practices, calendar and who has access. Changes here save straight away.</DialogDescription>
+          <DialogDescription>What the customer has done and sent, and who has access.</DialogDescription>
         </DialogHeader>
         {roomTab !== null && (
           <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
             <PageRoomPanel
               pageId={pageId}
               initialTab={roomTab}
+              embedded
               onKitAssets={applyKitAssets}
               onGoals={(g) => {
                 // Goals were saved on the page from here: keep the builder's copy the same, or its next save would put the old ones back.
