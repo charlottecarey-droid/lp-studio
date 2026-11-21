@@ -30,6 +30,7 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomLinkAsset,
+  absoluteLink,
   roomProgramOptions,
   roomNextUp,
   requestFormFor,
@@ -76,6 +77,13 @@ describe("room-workspace — registry + default render", () => {
     // Renamed by a rep: the name changes, the key its opens are counted under does not.
     expect(roomLinkAsset({ title: "Fusion one-pager", url: "/x", fileUrl: "/x", kind: "pdf", viewKey: "digital-fusion-sales-one-pager" }).key).toBe("digital-fusion-sales-one-pager");
     expect(roomLinkAsset({ title: "Sign-up page", url: "https://x.example/signup" })).toEqual({ key: "sign-up-page", kind: "link", title: "Sign-up page", externalUrl: "https://x.example/signup" });
+  });
+  it("copies a link in full: a file saved as a path gets the site in front of it", () => {
+    expect(absoluteLink("/api/storage/objects/uploads/5b20", "https://partners.example.com")).toBe("https://partners.example.com/api/storage/objects/uploads/5b20");
+    expect(absoluteLink("/api/storage/objects/x", "https://partners.example.com/")).toBe("https://partners.example.com/api/storage/objects/x");
+    expect(absoluteLink("https://drive.example.com/folder", "https://partners.example.com")).toBe("https://drive.example.com/folder");
+    expect(absoluteLink("mailto:a@b.example", "https://partners.example.com")).toBe("mailto:a@b.example");
+    expect(absoluteLink("", "https://partners.example.com")).toBe("");
   });
   it("leaves out the Overview sections a rep switched off", () => {
     const all = render();

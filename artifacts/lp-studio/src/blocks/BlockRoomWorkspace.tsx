@@ -2604,7 +2604,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                             <div className="m">{l.description || (file ? (asAsset.kind === "image" ? "Image" : "PDF") : l.url)}</div>
                           </div>
                           <div className="a">
-                            {!file && <CopyButton text={l.url} label="Copy link" />}
+                            <CopyButton text={l.url} label="Copy link" link />
                             <a
                               className="prw-ib"
                               href={isEditor ? undefined : l.url}
@@ -3061,7 +3061,14 @@ export const isRosterTask = (key: string) => /roster|practice-list|doctor/.test(
 
 /* ── Launch kit ──────────────────────────────────────────────────────────── */
 
-function CopyButton({ text, label }: { text: string; label: string }) {
+/** A link as someone outside the hub can open it: a file in our own storage is saved as a path ("/api/storage/…"), which is no use pasted into an email. */
+export function absoluteLink(url: string, origin: string): string {
+  const u = url.trim();
+  if (!u || /^[a-z][a-z0-9+.-]*:/i.test(u) || u.startsWith("//")) return u;
+  return `${origin.replace(/\/+$/, "")}${u.startsWith("/") ? "" : "/"}${u}`;
+}
+
+function CopyButton({ text, label, link = false }: { text: string; label: string; /** The text is a web address: copy it in full, with the site in front of a path. */ link?: boolean }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -3070,7 +3077,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       title={copied ? "Copied" : label}
       aria-label={label}
       onClick={() => {
-        void navigator.clipboard?.writeText(text).then(() => {
+        void navigator.clipboard?.writeText(link ? absoluteLink(text, window.location.origin) : text).then(() => {
           setCopied(true);
           window.setTimeout(() => setCopied(false), 1600);
         });
@@ -3128,7 +3135,7 @@ function AssetRow({ asset, isEditor, onTrack, onOpen, onRequest, canRequest }: {
             )
           )}
           {asset.kind === "text" && body && <CopyButton text={body} label="Copy text" />}
-          {asset.kind === "link" && viewHref && <CopyButton text={viewHref} label="Copy link" />}
+          {asset.kind === "link" && viewHref && <CopyButton text={viewHref} label="Copy link" link />}
           {asset.kind !== "text" && asset.kind !== "link" && file && (
             <a className="prw-ib" title="Download" aria-label={`Download ${asset.title}`} href={isEditor ? undefined : file} download onClick={() => onTrack(asset, "download")}>
               <Download aria-hidden />
