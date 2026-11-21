@@ -125,6 +125,14 @@ export interface RoomAsset {
   /** Which icon sits beside it. Blank = chosen from what the item is; "tag" = the small file-type tag (PDF, TXT). */
   icon?: string;
   hidden?: boolean;
+  /** Our own brand material (logos, guidelines, the approved description): shown together at the foot of the launch tab. */
+  collateral?: boolean;
+}
+
+/** Our own brand material: marked so, or one of the kit's standard brand items. */
+const BRAND_COLLATERAL_KEYS = new Set(["dandy-description", "dandy-logos", "dandy-brand-guidelines", "brand-description", "brand-logos", "brand-guidelines"]);
+export function isBrandCollateral(a: RoomAsset): boolean {
+  return !!a.collateral || BRAND_COLLATERAL_KEYS.has(a.key ?? "");
 }
 
 /* ── The account name as a variable ──────────────────────────────────────── */
@@ -820,9 +828,14 @@ const linksLast = (assets: RoomAsset[]) => [...assets.filter((a) => a.kind !== "
 export function groupLaunch(assets: RoomAsset[], programs: RoomProgram[], choices: Record<string, { value: string }>) {
   const choice = (p: RoomProgram) => choices[roomMilestoneKey({ key: p.key, task: p.title })];
   const hasChoice = (p: RoomProgram) => (p.options ?? []).filter((o) => o.trim()).length >= 2;
+  // Our own brand material sits in its own group at the foot of the tab. One with nothing to open (a logo folder with no link yet) is left out of the customer's view altogether rather than listed as "in progress".
+  const own = assets.filter(isBrandCollateral);
+  const theirs = assets.filter((a) => !isBrandCollateral(a));
   return {
-    ready: linksLast(assets.filter(assetReady)),
-    preparing: linksLast(assets.filter((a) => !assetReady(a))),
+    ready: linksLast(theirs.filter(assetReady)),
+    preparing: linksLast(theirs.filter((a) => !assetReady(a))),
+    collateral: linksLast(own.filter(assetReady)),
+    collateralEmpty: own.filter((a) => !assetReady(a)),
     toDecide: programs.filter((p) => hasChoice(p) && !choice(p)),
     inProgress: programs.filter((p) => !hasChoice(p) || (!!choice(p) && !programDeclined(p, choices))),
     later: programs.filter((p) => hasChoice(p) && programDeclined(p, choices)),
@@ -2458,23 +2471,23 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   </section>
                 )}
 
-                {showMarketing && launch.toDecide.length > 0 && (
-                  <section className="prw-lk" data-room-launch="decide">
-                    <h3>To decide<span className="prw-num">{launch.toDecide.length}</span></h3>
-                    <div className="prw-progs">
-                      {launch.toDecide.map((x) => (
-                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
                 {showKit && launch.ready.length > 0 && (
                   <section className="prw-lk" data-room-launch="ready">
                     <h3>Ready for launch<span className="prw-num">{launch.ready.length}</span></h3>
                     <div className="prw-docs">
                       {launch.ready.map((a, i) => (
                         <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {showMarketing && launch.toDecide.length > 0 && (
+                  <section className="prw-lk" data-room-launch="decide">
+                    <h3>To decide<span className="prw-num">{launch.toDecide.length}</span></h3>
+                    <div className="prw-progs">
+                      {launch.toDecide.map((x) => (
+                        <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
                       ))}
                     </div>
                   </section>
@@ -2504,6 +2517,18 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <div className="prw-progs">
                       {launch.later.map((x) => (
                         <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Our own brand material, last. In the builder the ones still missing a link or file are shown too, so they can be filled in. */}
+                {showKit && (launch.collateral.length > 0 || (isEditor && launch.collateralEmpty.length > 0)) && (
+                  <section className="prw-lk" data-room-launch="collateral">
+                    <h3>{brand.brandName ? `${brand.brandName} collateral` : "Brand collateral"}</h3>
+                    <div className="prw-docs">
+                      {[...launch.collateral, ...(isEditor ? launch.collateralEmpty : [])].map((a, i) => (
+                        <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={false} onRequest={() => {}} />
                       ))}
                     </div>
                   </section>

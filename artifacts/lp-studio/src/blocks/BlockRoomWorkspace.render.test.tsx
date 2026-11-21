@@ -546,10 +546,26 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     const html = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "calendar", "meetings", "requests", "team"] as never, assets, links: [{ title: "Sign-up page", url: "https://x.example/signup" }], marketing: { groups: [{ title: "G", programs }] } });
     expect(html).toContain(">Launch &amp; marketing<");
     expect(html).not.toContain('data-room-nav="kit"');
-    const order = ["links", "decide", "ready", "progress"].map((k) => html.indexOf(`data-room-launch="${k}"`));
+    // What is ready to use comes before what still needs a decision.
+    const order = ["links", "ready", "decide", "progress"].map((k) => html.indexOf(`data-room-launch="${k}"`));
     expect(order.every((at) => at > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(html).not.toContain('data-room-launch="later"'); // nothing has been declined
+    // Our own brand material has its own group at the foot of the tab; one with no link is left out for the customer.
+    const own = [
+      { key: "dandy-description", kind: "text" as const, title: "Approved Dandy description", body: "Dandy is…" },
+      { key: "dandy-logos", kind: "link" as const, title: "Dandy logos", externalUrl: "https://drive.example/logos" },
+      { key: "dandy-brand-guidelines", kind: "link" as const, title: "Dandy brand guidelines", externalUrl: "" },
+    ];
+    const withOwn = groupLaunch([...assets, ...own], programs, {});
+    expect(withOwn.collateral.map((a) => a.title)).toEqual(["Approved Dandy description", "Dandy logos"]);
+    expect(withOwn.collateralEmpty.map((a) => a.title)).toEqual(["Dandy brand guidelines"]);
+    expect(withOwn.ready.map((a) => a.title)).toEqual(g.ready.map((a) => a.title));
+    expect(withOwn.preparing.map((a) => a.title)).toEqual(["Welcome guide"]);
+    const page = render({ hiddenModules: ["overview", "wins", "goals", "plan", "practices", "calendar", "meetings", "requests", "team"] as never, assets: [...assets, ...own] });
+    expect(page.indexOf('data-room-launch="collateral"')).toBeGreaterThan(page.indexOf('data-room-launch="ready"'));
+    expect(page).toContain("Dandy logos");
+    expect(page).not.toContain("Dandy brand guidelines");
     expect(html).toContain("Important links");
     expect(html).toContain("Ready for launch");
     expect(html.indexOf("Brand guidelines")).toBeGreaterThan(html.indexOf('data-room-launch="ready"'));

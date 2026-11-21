@@ -82,8 +82,20 @@ export function roomBlocksForAccount(name: string, slug: string, standard: { ass
     const next = file ? setRoomKitAsset(blocks, { key: spec.key, kind: "pdf", title: spec.title, description: spec.description, fileUrl: file.fileUrl }) : null;
     if (next) blocks = next;
   }
+  // The workspace's own brand folders (logos, guidelines): links saved once per workspace, filled into every new hub's kit.
+  const links = new Map(standard.filter((x) => BRAND_LINK_KEYS.has(x.assetKey) && /^https:\/\//.test(x.fileUrl)).map((x) => [x.assetKey, x.fileUrl]));
+  if (links.size) {
+    blocks = blocks.map((b) => {
+      const block = b as { type?: string; props?: { assets?: { key?: string; externalUrl?: string }[] } };
+      if (block.type !== "room-workspace" || !Array.isArray(block.props?.assets)) return b;
+      return { ...block, props: { ...block.props, assets: block.props.assets.map((a) => (a.key && links.has(a.key) ? { ...a, externalUrl: links.get(a.key) } : a)) } };
+    });
+  }
   return blocks;
 }
+
+/** Kit items that are a link to one of the workspace's own brand folders. */
+export const BRAND_LINK_KEYS = new Set(["dandy-logos", "dandy-brand-guidelines"]);
 
 async function freeSlug(tenantId: number, base: string): Promise<string> {
   for (let i = 0; i < 20; i++) {
