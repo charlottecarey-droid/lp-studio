@@ -1208,3 +1208,117 @@ export function roomOgCardCopy(blocks: unknown, brandName: string): { headline: 
     subheadline: text(props.lede),
   };
 }
+
+/* ── Account and team, edited from the team's pop-up ─────────────────────── */
+
+/** The page props the pop-up's Account settings may change. Mirrors the client's ROOM_ACCOUNT_KEYS. */
+export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
+export const ROOM_TEAM_MAX_GROUPS = 8;
+export const ROOM_TEAM_MAX_MEMBERS = 200;
+
+type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
+
+/** A picture's address: this app's own storage, another path on this site, or a web address. Never a script. */
+function imageAddress(v: unknown): string | null {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (!s) return "";
+  if (s.length > 1000 || /\s/.test(s) || s.includes("..")) return null;
+  return /^https?:\/\//i.test(s) || /^\/[A-Za-z0-9]/.test(s) ? s : null;
+}
+const webAddress = (v: unknown): string | null => {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (!s) return "";
+  return s.length <= 500 && !/\s/.test(s) && /^https?:\/\/[^/]+/i.test(s) ? s : null;
+};
+const percent = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? Math.min(300, Math.max(50, Math.round(v))) : 100);
+
+/**
+ * The Account settings as sent by the pop-up. Only the keys that were sent
+ * are returned, so a caller that sends a few changes only those.
+ */
+export function parseRoomAccount(raw: unknown): Parsed<Record<string, unknown>> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  const has = (k: (typeof ROOM_ACCOUNT_KEYS)[number]) => r[k] !== undefined;
+  if (has("partnerName")) {
+    const name = cleanText(r.partnerName, 120);
+    if (!name) return { ok: false, error: "Add the customer's name." };
+    out.partnerName = name;
+  }
+  if (has("partnerShort")) out.partnerShort = cleanText(r.partnerShort, 60);
+  for (const k of ["partnerLogoUrl", "heroImageUrl", "feedPhotoUrl"] as const) {
+    if (!has(k)) continue;
+    const url = imageAddress(r[k]);
+    if (url === null) return { ok: false, error: "One of the pictures has an address that can't be used. Upload it again." };
+    out[k] = url;
+  }
+  for (const k of ["partnerLogoOriginal", "requireEmail", "shareMap", "coverPhotoScrolls"] as const) if (has(k)) out[k] = r[k] === true;
+  for (const k of ["partnerLogoScale", "brandLogoScale"] as const) if (has(k)) out[k] = percent(r[k]);
+  if (has("look")) out.look = r.look === "polished" ? "polished" : "classic";
+  if (has("scheduleUrl")) {
+    const url = webAddress(r.scheduleUrl);
+    if (url === null) return { ok: false, error: "The booking link needs to start with https://" };
+    out.scheduleUrl = url;
+  }
+  if (has("scheduleRep")) out.scheduleRep = cleanText(r.scheduleRep, 120);
+  if (has("scheduleLabel")) out.scheduleLabel = cleanText(r.scheduleLabel, 40);
+  if (has("kickoffDate")) {
+    const d = typeof r.kickoffDate === "string" ? r.kickoffDate.trim() : "";
+    if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) return { ok: false, error: "Pick the kickoff date from the calendar." };
+    out.kickoffDate = d;
+  }
+  if (has("rolloutDays")) out.rolloutDays = Math.min(730, Math.max(1, Math.round(Number(r.rolloutDays)) || 90));
+  if (has("headline") || has("eyebrow") || has("coverStyle")) {
+    const cover = parseRoomCover(r);
+    if (!cover.ok) return cover;
+    if (has("headline")) out.headline = cover.cover.headline;
+    if (has("eyebrow")) out.eyebrow = cover.cover.eyebrow;
+    if (has("coverStyle")) out.coverStyle = cover.cover.coverStyle;
+  }
+  return { ok: true, value: out };
+}
+
+/** The team list as sent by the pop-up: the note beside the heading and the groups of named people. */
+export function parseRoomTeam(raw: unknown): Parsed<{ teamNote: string; team: Record<string, unknown>[] }> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const groups = Array.isArray(r.team) ? r.team : [];
+  if (groups.length > ROOM_TEAM_MAX_GROUPS) return { ok: false, error: `Keep the team to ${ROOM_TEAM_MAX_GROUPS} groups.` };
+  const team: Record<string, unknown>[] = [];
+  for (const g of groups) {
+    const group = (g && typeof g === "object" ? g : {}) as Record<string, unknown>;
+    const list = Array.isArray(group.members) ? group.members : [];
+    if (list.length > ROOM_TEAM_MAX_MEMBERS) return { ok: false, error: `A group can hold ${ROOM_TEAM_MAX_MEMBERS} people.` };
+    const members: Record<string, unknown>[] = [];
+    for (const m of list) {
+      const person = (m && typeof m === "object" ? m : {}) as Record<string, unknown>;
+      const name = cleanText(person.name, 120);
+      if (!name) continue;
+      const photoUrl = imageAddress(person.photoUrl);
+      const bookingUrl = webAddress(person.bookingUrl);
+      if (photoUrl === null) return { ok: false, error: `${name}'s photo has an address that can't be used. Upload it again.` };
+      if (bookingUrl === null) return { ok: false, error: `${name}'s booking link needs to start with https://` };
+      const email = cleanText(person.email, 200);
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: `${name}'s email doesn't look right.` };
+      const text = { role: cleanText(person.role, 120), owns: cleanText(person.owns, 200), when: cleanText(person.when, 200), email, phone: cleanText(person.phone, 40), bookingUrl, photoUrl };
+      members.push({ name, ...Object.fromEntries(Object.entries(text).filter(([, v]) => v)), ...(person.hidden === true ? { hidden: true } : {}) });
+    }
+    team.push({ title: cleanText(group.title, 80) || "Team", members, ...(group.hidden === true ? { hidden: true } : {}) });
+  }
+  return { ok: true, value: { teamNote: cleanText(r.teamNote, 200), team } };
+}
+
+/** The Account settings and team list as stored (account-name variables left as typed), or null when the page has no workspace block. */
+export function roomAccountInfo(blocks: unknown): { account: Record<string, unknown>; team: { teamNote: string; team: unknown[] } } | null {
+  const props = workspaceBlock(blocks)?.props;
+  if (!props) return null;
+  const account: Record<string, unknown> = {};
+  for (const k of ROOM_ACCOUNT_KEYS) if (props[k] !== undefined) account[k] = props[k];
+  return { account, team: { teamNote: typeof props.teamNote === "string" ? props.teamNote : "", team: Array.isArray(props.team) ? props.team : [] } };
+}
+
+/** Lay parsed settings over the hub block's props. Returns new blocks, or null when the page has no workspace block. Everything else is untouched. */
+export function setRoomProps(blocks: unknown, patch: Record<string, unknown>): unknown[] | null {
+  const block = workspaceBlock(blocks);
+  if (!block || !Array.isArray(blocks)) return null;
+  return blocks.map((b) => (b === block ? { ...(b as object), props: { ...(block.props ?? {}), ...patch } } : b));
+}

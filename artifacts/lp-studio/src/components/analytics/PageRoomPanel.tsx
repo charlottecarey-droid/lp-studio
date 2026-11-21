@@ -10,7 +10,10 @@ import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
-import { RoomCoverSection, type HubCover } from "./RoomCover";
+import type { HubCover } from "./RoomCover";
+import { RoomAccountSettings, RoomTeamSettings, teamHint } from "./RoomAccountSettings";
+import type { RoomAccountProps, RoomTeamProps } from "./RoomAccountEditor";
+import type { RoomTeamGroup } from "@/blocks/BlockRoomWorkspace";
 import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
 import { OutreachSetting, RoomPlays } from "./RoomPlays";
 import { RoomLinksSection, type HubLink } from "./RoomLinks";
@@ -45,6 +48,9 @@ interface RoomDetail {
   goals?: HubGoals | null;
   /** The hub's cover text and style as stored on the page (workspace hubs only). */
   cover?: HubCover | null;
+  /** The hub's account settings and team list, as stored on the page. */
+  account?: Partial<RoomAccountProps> | null;
+  team?: RoomTeamProps | null;
   /** Parts of the hub's Overview that are switched off (workspace hubs only). */
   overviewHidden?: RoomOverviewSection[] | null;
   /** The hub's Important links as stored on the page (workspace hubs only). */
@@ -140,7 +146,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string; /** What a generated file was made from; absent for an upload. */ madeFrom?: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, onOverview, onLinks, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps, onOverview, onLinks, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onProps?: (patch: Record<string, unknown>) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   // Plays used to be a tab of their own; they are part of To do now, so an old link to them lands there.
   // Goals are set once and rarely touched: they live in Settings now, so an old link to them lands there with Goals open.
   const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab === "goals" ? "settings" : initialTab);
@@ -764,6 +770,31 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
 
         {tab === "settings" && (
           <div className="space-y-2" data-room-settings>
+            {data.isWorkspace && data.account && (
+              <Fold title="Account" hint={[data.account.partnerName, data.account.kickoffDate ? `kickoff ${data.account.kickoffDate}` : "", "logos, cover, Schedule button"].filter(Boolean).join(" · ")} data-room-account-fold>
+                <RoomAccountSettings
+                  pageId={pageId}
+                  account={data.account}
+                  team={(data.team?.team ?? []) as RoomTeamGroup[]}
+                  onSaved={async (patch) => {
+                    onProps?.(patch);
+                    await refresh();
+                  }}
+                />
+              </Fold>
+            )}
+            {data.isWorkspace && data.team && (
+              <Fold title="Team" hint={teamHint(data.team.team ?? [])} data-room-team-fold>
+                <RoomTeamSettings
+                  pageId={pageId}
+                  team={data.team}
+                  onSaved={async (patch) => {
+                    onProps?.(patch);
+                    await refresh();
+                  }}
+                />
+              </Fold>
+            )}
             <Fold title="Who has access" hint={noAccessYet ? "No one yet" : [data.settings.allowedDomains.join(", "), allowedPeople ? `${allowedPeople} ${allowedPeople === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")} defaultOpen>
               <p className="text-xs text-muted-foreground">Anyone with the link can view. These people can also upload, comment and mark tasks done.</p>
               {noAccessYet && (
@@ -841,18 +872,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
               </Fold>
             )}
 
-            {data.isWorkspace && data.cover && (
-              <Fold title="Cover" hint="Headline and photo style at the top of the hub">
-                <RoomCoverSection
-                  pageId={pageId}
-                  cover={data.cover}
-                  onSaved={async (c) => {
-                    onCover?.(c);
-                    await refresh();
-                  }}
-                />
-              </Fold>
-            )}
+
 
             {data.isWorkspace && data.overviewHidden && (
               <Fold title="Overview sections" hint={data.overviewHidden.length ? `${data.overviewHidden.length} hidden` : "All shown"} data-room-overview-settings>

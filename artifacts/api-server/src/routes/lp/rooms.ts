@@ -100,6 +100,10 @@ import {
   setRoomCover,
   parseRoomCover,
   roomCoverInfo,
+  roomAccountInfo,
+  parseRoomAccount,
+  parseRoomTeam,
+  setRoomProps,
   parseRoomOverviewHidden,
   parseRoomLinks,
   roomLinksInfo,
@@ -1594,6 +1598,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       goals: page.isWorkspace ? await roomGoalsFor(page.id) : null,
       cover: page.isWorkspace ? await roomCoverFor(page.id) : null,
+      ...(page.isWorkspace ? await roomAccountFor(page.id) : { account: null, team: null }),
       overviewHidden: page.isWorkspace ? await roomOverviewHiddenFor(page.id) : null,
       links: page.isWorkspace ? await roomLinksFor(page.id) : null,
       stage: page.isWorkspace ? await roomStageFor(page.id) : null,
@@ -2496,6 +2501,46 @@ router.put("/lp/partner-rooms/:pageId/cover", async (req: Request, res: Response
 });
 
 /**
+ * Account settings and the team list, saved from the hub's manage pop-up (the
+ * same fields the page builder has): send `account`, `team`, or both. Only
+ * what is sent is changed; the rest of the page is untouched.
+ */
+router.put("/lp/partner-rooms/:pageId/account", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const patch: Record<string, unknown> = {};
+    if (req.body?.account !== undefined) {
+      const parsed = parseRoomAccount(req.body.account);
+      if (!parsed.ok) {
+        res.status(400).json({ error: parsed.error });
+        return;
+      }
+      Object.assign(patch, parsed.value);
+    }
+    if (req.body?.team !== undefined) {
+      const parsed = parseRoomTeam(req.body.team);
+      if (!parsed.ok) {
+        res.status(400).json({ error: parsed.error });
+        return;
+      }
+      Object.assign(patch, parsed.value);
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomProps(row.blocks, patch) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, patch, ...roomAccountInfo(next) });
+  } catch (err) {
+    req.log.error({ err }, "room account save failed");
+    res.status(500).json({ error: "Could not save the settings" });
+  }
+});
+
+/**
  * Remind the customer what is waiting on them: one short email to the people
  * the rep picked, listing the next few things and linking to the hub. Only
  * goes to addresses that already have access or get the digest.
@@ -2770,6 +2815,11 @@ async function roomLinksFor(pageId: number) {
 async function roomOverviewHiddenFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomOverviewHidden(row.blocks) : null;
+}
+
+async function roomAccountFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return (row ? roomAccountInfo(row.blocks) : null) ?? { account: null, team: null };
 }
 
 async function roomCoverFor(pageId: number) {
