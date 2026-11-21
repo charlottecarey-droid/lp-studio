@@ -213,7 +213,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
     <Dialog open={roomTab !== null} onOpenChange={(open) => !open && setRoomTab(null)}>
       <DialogContent className="max-w-5xl" data-room-manager>
         <DialogHeader>
-          <DialogTitle>Manage room</DialogTitle>
+          <DialogTitle>Manage hub</DialogTitle>
           <DialogDescription>What the customer has done and sent, and who has access.</DialogDescription>
         </DialogHeader>
         {roomTab !== null && (
@@ -401,9 +401,9 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 [
                   { tab: "kit", label: "Launch kit", hint: "Create the one-pager, graphics and media kit; see who opened what" },
                   { tab: "activity", label: "To do", hint: "Access requests, the marketing plan to send, customer requests" },
-                  { tab: "practices", label: "Practices & files", hint: "The practice list and files the customer uploaded" },
+                  { tab: "practices", label: "Practices", hint: "Load and update the practice list" },
                   { tab: "calendar", label: "Calendar", hint: "Connect a calendar, review minutes drafts" },
-                  { tab: "settings", label: "Room settings", hint: "Who has access, Slack channel, weekly digest" },
+                  { tab: "settings", label: "Hub settings", hint: "Who has access, Slack channel, weekly digest" },
                 ] as { tab: RoomPanelTab; label: string; hint: string }[]
               ).map((m) => (
                 <button key={m.tab} type="button" onClick={() => setRoomTab(m.tab)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50" data-room-manage={m.tab}>
@@ -437,7 +437,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
         <ChevronLeft className="h-3.5 w-3.5" /> All modules
       </button>
       {active === "account" && (
-      <SectionBody title="Account" hint="Who the room is for, the kickoff date and the cover">
+      <SectionBody title="Account" hint="Who the hub is for, the kickoff date and the cover">
         <Field label="Customer name"><Input value={props.partnerName ?? ""} onChange={(e) => update({ partnerName: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
         <Field label="Short name (optional)"><Input value={props.partnerShort ?? ""} onChange={(e) => update({ partnerShort: e.target.value })} className="h-8 text-xs" /></Field>
         <div className="flex items-center gap-2">

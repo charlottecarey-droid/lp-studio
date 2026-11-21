@@ -137,7 +137,6 @@ export function RoomGoalsSection({
   return (
     <section className="space-y-4" data-room-goals>
       <div className="space-y-1">
-        <h4 className="text-sm font-semibold">Goals</h4>
         <p className="text-sm text-muted-foreground">The customer sees these in the hub. Goals with a number also show on the Scorecard.</p>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

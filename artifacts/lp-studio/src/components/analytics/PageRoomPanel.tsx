@@ -12,7 +12,7 @@ import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import { RoomCoverSection, type HubCover } from "./RoomCover";
 import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
-import { RoomPlays } from "./RoomPlays";
+import { OutreachSetting, RoomPlays } from "./RoomPlays";
 import { RoomLinksSection, type HubLink } from "./RoomLinks";
 import { RoomPlanQueueSection, type PlanQueueItem } from "./RoomPlanQueue";
 import { RoomReminderSection } from "./RoomReminder";
@@ -141,7 +141,8 @@ export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title:
 
 export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, onOverview, onLinks, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   // Plays used to be a tab of their own; they are part of To do now, so an old link to them lands there.
-  const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab);
+  // Goals are set once and rarely touched: they live in Settings now, so an old link to them lands there with Goals open.
+  const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab === "goals" ? "settings" : initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["page-room", pageId],
@@ -165,6 +166,17 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const [filterVal, setFilterVal] = useState("");
   const [revopsMention, setRevopsMention] = useState("");
   const [notifyVia, setNotifyVia] = useState<"slack" | "email" | "both">("slack");
+  // The workspace's Slack channels, so a rep picks one by name instead of pasting an ID. Empty = Slack isn't connected.
+  const { data: slackChannels } = useQuery({
+    queryKey: ["slack-channels"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await fetch("/api/sales/slack/channels");
+      if (!r.ok) return [] as { id: string; name: string }[];
+      const j = (await r.json().catch(() => ({}))) as { channels?: { id: string; name: string }[] };
+      return Array.isArray(j.channels) ? j.channels : [];
+    },
+  });
   const [digestOn, setDigestOn] = useState(false);
   const [digestTo, setDigestTo] = useState("");
   const [preview, setPreview] = useState<{ subject: string; html: string; recipients: string[]; slackText: string; empty: boolean } | null>(null);
@@ -236,6 +248,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const doneRequests = (data.requests ?? []).filter((q) => q.status === "done");
   // What the To do tab is for: people asking to get in, programs to send to marketing, and requests nobody has picked up.
   const needsYou = requests.length + (data.planQueue ?? []).filter((i) => i.state === "queued").length + openRequests.filter((q) => q.status === "new").length;
+  const goalAgreed = !!data.tasks.find((x) => x.key === "goals-agreed")?.done;
   const allowedPeople = others.filter((m) => m.status === "allowed").length;
   const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
 
@@ -246,7 +259,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           <>
             <CardTitle className="text-base flex items-center gap-2">
               <DoorOpen className="w-4 h-4 text-muted-foreground" />
-              Room
+              Hub
             </CardTitle>
             <p className="text-sm text-muted-foreground">
               What the customer has done and sent, and who has access.
@@ -320,14 +333,25 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             ))}
           </div>
         )}
+        {data.isWorkspace && (data.goals?.items ?? []).filter((g) => !g.hidden).length > 0 && (
+          <p className="-mt-3 text-xs text-muted-foreground" data-room-goal-line>
+            Goals:{" "}
+            {(["on-track", "pending", "done"] as const)
+              .map((st) => [st, data.goals!.items.filter((g) => !g.hidden && g.status === st).length] as const)
+              .filter(([, n]) => n > 0)
+              .map(([st, n]) => `${n} ${st === "on-track" ? "on track" : st === "pending" ? (n === 1 ? "needs attention" : "need attention") : "achieved"}`)
+              .join(" · ")}
+            {" · "}
+            <button type="button" className="underline" onClick={() => setTab("settings")}>Edit in Settings</button>
+          </p>
+        )}
         <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Hub sections">
           {(
             [
               { id: "activity", label: "To do", count: needsYou },
               ...(data.isWorkspace ? [{ id: "performance", label: "Engagement", count: 0 }] : []),
-              ...(data.isWorkspace && data.goals ? [{ id: "goals", label: "Goals", count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
-              { id: "practices", label: data.isWorkspace ? "Practices & files" : "Files", count: 0 },
+              ...(data.isWorkspace ? [{ id: "practices" as const, label: "Practices", count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "calendar", label: "Calendar", count: (data.events ?? []).filter((e) => e.minutesStatus === "draft").length }] : []),
               { id: "settings", label: "Settings", count: 0 },
             ] as { id: RoomPanelTab; label: string; count: number }[]
@@ -348,21 +372,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} />}
-        {tab === "goals" && data.isWorkspace && data.goals && (
-          <RoomGoalsSection
-            pageId={pageId}
-            goals={data.goals}
-            byStage={data.practices?.total ? data.practices.byStage : undefined}
-            agreement={(() => {
-              const t = data.tasks.find((x) => x.key === "goals-agreed");
-              return t ? { done: t.done, by: t.completedBy, at: t.completedAt } : null;
-            })()}
-            onSaved={async (g) => {
-              onGoals?.(g);
-              await refresh();
-            }}
-          />
-        )}
         {tab === "activity" && (
           <div className="space-y-6" data-room-todo>
             {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
@@ -397,6 +406,120 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                 </div>
               </section>
             )}
+
+            {data.uploads.length > 0 && (
+        <section className="space-y-2" data-room-files>
+          <h4 className="text-sm font-semibold">Files the customer sent <span className="font-normal text-muted-foreground">· {data.uploads.length}</span></h4>
+          {(
+            <div className="divide-y rounded-md border">
+              {data.uploads.map((u) => (
+                <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{u.fileName}</p>
+                    <p className="text-xs text-muted-foreground">{u.taskTitle} · {u.uploadedBy} · {fmtDate(u.createdAt)} · {fmtSize(u.sizeBytes)}</p>
+                  </div>
+                  <span className="flex gap-2">
+                    {data.isWorkspace && /\.(xlsx|csv|tsv|txt)$/i.test(u.fileName) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8"
+                        onClick={async () => {
+                          setRevops("");
+                          const r = await post(`${base}/uploads/${u.id}/compare`);
+                          if (r.ok) setCompare({ uploadId: u.id, ...(r.json as unknown as Omit<NonNullable<typeof compare>, "uploadId">) });
+                        }}
+                      >
+                        Compare with practices
+                      </Button>
+                    )}
+                    <Button asChild size="sm" variant="outline" className="h-8 gap-1">
+                      <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      aria-label={`Delete ${u.fileName}`}
+                      title="Delete this file"
+                      data-room-upload-delete={u.id}
+                      onClick={async () => {
+                        const last = data.uploads.filter((x) => x.taskKey === u.taskKey).length === 1;
+                        if (!window.confirm(`Delete “${u.fileName}”? This can’t be undone.${last ? ` “${u.taskTitle}” will be open again for the customer.` : ""}`)) return;
+                        if (compare?.uploadId === u.id) setCompare(null);
+                        await run(send(`${base}/uploads/${u.id}`, "DELETE"));
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+            )}
+
+            {compare && (
+          <section className="space-y-2 rounded-md border p-3" data-testid="room-compare">
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="text-sm font-semibold">Comparison: {compare.fileName}</h4>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close comparison" onClick={() => setCompare(null)}><X className="h-4 w-4" /></Button>
+            </div>
+            {compare.practices ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Their list ({compare.practices.sheet}) has {compare.practices.uploaded} practices; we hold {compare.practices.inRoom}. {compare.practices.matched} match.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-medium">On their list, not in ours ({compare.practices.missingFromRoom.length})</p>
+                    <p className="text-xs text-muted-foreground">Salesforce is missing these.</p>
+                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.missingFromRoom.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">In ours, not on their list ({compare.practices.notOnUpload.length})</p>
+                    <p className="text-xs text-muted-foreground">Closed, renamed, or not in the rollout.</p>
+                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.notOnUpload.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No practice column found in this file.</p>
+            )}
+            {compare.doctors && <p className="text-sm text-muted-foreground">The roster ({compare.doctors.sheet}) lists {compare.doctors.count} doctors. Doctors can't be compared yet: LP Studio has no doctor records to compare against.</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="brand"
+                disabled={!(compare.practices?.missingFromRoom.length || compare.doctors?.count)}
+                onClick={async () => {
+                  const r = await post(`${base}/revops-task`, { missing: compare.practices?.missingFromRoom ?? [], doctors: compare.practices ? 0 : compare.doctors?.count ?? 0, fileName: compare.fileName });
+                  if (r.ok) setRevops(r.json.mentioned ? "Posted to the hub’s Slack channel, with RevOps mentioned. It also rides in the weekly Slack digest until the gap closes." : "Posted to the hub’s Slack channel. Nobody was mentioned: add a RevOps Slack mention under Settings.");
+                }}
+              >
+                Post to Slack for RevOps
+              </Button>
+              {!!compare.practices?.missingFromRoom.length && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([["practice name", ...compare.practices!.missingFromRoom.map((n) => `"${n.replace(/"/g, '""')}"`)].join("\n")], { type: "text/csv" });
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "missing-from-salesforce.csv";
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                  }}
+                >
+                  Download the missing list
+                </Button>
+              )}
+              {revops && <span className="text-sm text-muted-foreground">{revops}</span>}
+            </div>
+          </section>
+        )}
 
             {data.isWorkspace && (
               <RoomReminderSection
@@ -625,7 +748,11 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
 
         {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} onKitLink={onKitLink} />}
 
-        {tab === "kit" && data.isWorkspace && <EngagementSection engagement={data.engagement} />}
+        {tab === "kit" && data.isWorkspace && (
+          <Fold title="Who opened what" hint={(data.engagement?.assets ?? []).length ? `${(data.engagement?.assets ?? []).length} opened in the last 90 days` : "Nothing opened yet"}>
+            <EngagementSection engagement={data.engagement} />
+          </Fold>
+        )}
 
 
         {tab === "calendar" && data.isWorkspace && <CalendarSection base={base} calendar={data.calendar} events={data.events ?? []} hasDomain={data.settings.allowedDomains.length > 0} refresh={refresh} />}
@@ -675,6 +802,24 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             {data.isWorkspace && (
               <Fold title="Invite the customer’s team" hint="Email each person their own link">
                 <RoomInviteSection pageId={pageId} onInvited={refresh} />
+              </Fold>
+            )}
+
+            {data.isWorkspace && data.goals && (
+              <Fold title="Goals" hint={data.goals.items.length ? `${data.goals.items.length} set${goalAgreed ? " · agreed by the customer" : ""}` : "None set yet"} defaultOpen={initialTab === "goals"} data-room-goals-fold>
+              <RoomGoalsSection
+                pageId={pageId}
+                goals={data.goals}
+                byStage={data.practices?.total ? data.practices.byStage : undefined}
+                agreement={(() => {
+                  const t = data.tasks.find((x) => x.key === "goals-agreed");
+                  return t ? { done: t.done, by: t.completedBy, at: t.completedAt } : null;
+                })()}
+                onSaved={async (g) => {
+                  onGoals?.(g);
+                  await refresh();
+                }}
+              />
               </Fold>
             )}
 
@@ -810,32 +955,44 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                 )}
                 {notifyVia !== "email" && !channel.trim() && <p className="text-xs text-muted-foreground">With no channel ID below, posts go to your workspace’s default Slack channel.</p>}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block space-y-1 text-xs">
-                  <span className="font-medium text-muted-foreground">Slack channel ID</span>
-                  <Input value={channel} onChange={(e) => setChannel(e.target.value)} placeholder="C0123ABCD" />
-                </label>
-                {data.isWorkspace && (
-                  <>
+              <label className="block max-w-sm space-y-1 text-xs">
+                <span className="font-medium text-muted-foreground">Slack channel</span>
+                {slackChannels && slackChannels.length > 0 ? (
+                  <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={channel} onChange={(e) => setChannel(e.target.value)} data-room-slack-channel>
+                    <option value="">The workspace’s default channel</option>
+                    {/* A channel saved before, that the list no longer shows (archived, or the app was removed from it). */}
+                    {channel && !slackChannels.some((c) => c.id === channel) && <option value={channel}>{channel}</option>}
+                    {slackChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                  </select>
+                ) : (
+                  <Input value={channel} onChange={(e) => setChannel(e.target.value)} placeholder="Channel ID, e.g. C0123ABCD" />
+                )}
+              </label>
+              {slackChannels && slackChannels.length === 0 && <p className="text-xs text-muted-foreground">Slack isn’t connected, or it has no channels to list. Connect it under Settings → Integrations, or paste a channel ID.</p>}
+              {data.isWorkspace && (
+                <details className="text-xs" open={!!(revopsMention || asanaProject) || undefined}>
+                  <summary className="cursor-pointer font-medium text-muted-foreground">Advanced: Salesforce, Asana and RevOps</summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Salesforce account ID</span>
+                      <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} placeholder="Filled in from the account" />
+                    </label>
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Asana project ID, if not the workspace’s</span>
+                      <Input value={asanaProject} onChange={(e) => setAsanaProject(e.target.value)} placeholder="The long number in the project’s URL" />
+                    </label>
                     <label className="block space-y-1 text-xs">
                       <span className="font-medium text-muted-foreground">Who to mention for RevOps</span>
                       <Input value={revopsMention} onChange={(e) => setRevopsMention(e.target.value)} placeholder="A Slack @mention" />
                     </label>
-                    <label className="block space-y-1 text-xs">
-                      <span className="font-medium text-muted-foreground">Salesforce account ID</span>
-                      <Input value={sfdcId} onChange={(e) => setSfdcId(e.target.value)} placeholder="001…" />
-                    </label>
-                    <label className="block space-y-1 text-xs">
-                      <span className="font-medium text-muted-foreground">Asana project ID</span>
-                      <Input value={asanaProject} onChange={(e) => setAsanaProject(e.target.value)} placeholder="The long number in the project’s URL" />
-                    </label>
-                  </>
-                )}
-              </div>
+                  </div>
+                </details>
+              )}
               <div className="flex items-center gap-3">
                 <Button size="sm" variant="brand" onClick={() => saveSettings("connections")}>Save</Button>
                 {saved === "connections" && <span className="text-sm text-muted-foreground">Saved</span>}
               </div>
+              {data.isWorkspace && <OutreachSetting pageId={pageId} />}
               {data.isWorkspace && (
                 <label className="flex items-start gap-2 text-sm" data-room-visit-alert>
                   <input
@@ -856,121 +1013,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           </div>
         )}
 
-        {tab === "practices" && (
-        <section className="space-y-2">
-          <h4 className="text-sm font-semibold">Files received</h4>
-          {data.uploads.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing uploaded yet.</p>
-          ) : (
-            <div className="divide-y rounded-md border">
-              {data.uploads.map((u) => (
-                <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{u.fileName}</p>
-                    <p className="text-xs text-muted-foreground">{u.taskTitle} · {u.uploadedBy} · {fmtDate(u.createdAt)} · {fmtSize(u.sizeBytes)}</p>
-                  </div>
-                  <span className="flex gap-2">
-                    {data.isWorkspace && /\.(xlsx|csv|tsv|txt)$/i.test(u.fileName) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8"
-                        onClick={async () => {
-                          setRevops("");
-                          const r = await post(`${base}/uploads/${u.id}/compare`);
-                          if (r.ok) setCompare({ uploadId: u.id, ...(r.json as unknown as Omit<NonNullable<typeof compare>, "uploadId">) });
-                        }}
-                      >
-                        Compare with practices
-                      </Button>
-                    )}
-                    <Button asChild size="sm" variant="outline" className="h-8 gap-1">
-                      <a href={`/api/lp/partner-rooms/uploads/${u.id}/download`}><Download className="h-3.5 w-3.5" /> Download</a>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      aria-label={`Delete ${u.fileName}`}
-                      title="Delete this file"
-                      data-room-upload-delete={u.id}
-                      onClick={async () => {
-                        const last = data.uploads.filter((x) => x.taskKey === u.taskKey).length === 1;
-                        if (!window.confirm(`Delete “${u.fileName}”? This can’t be undone.${last ? ` “${u.taskTitle}” will be open again for the customer.` : ""}`)) return;
-                        if (compare?.uploadId === u.id) setCompare(null);
-                        await run(send(`${base}/uploads/${u.id}`, "DELETE"));
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-        )}
-
-        {tab === "practices" && compare && (
-          <section className="space-y-2 rounded-md border p-3" data-testid="room-compare">
-            <div className="flex items-start justify-between gap-2">
-              <h4 className="text-sm font-semibold">Comparison: {compare.fileName}</h4>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close comparison" onClick={() => setCompare(null)}><X className="h-4 w-4" /></Button>
-            </div>
-            {compare.practices ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Their list ({compare.practices.sheet}) has {compare.practices.uploaded} practices; we hold {compare.practices.inRoom}. {compare.practices.matched} match.
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-sm font-medium">On their list, not in ours ({compare.practices.missingFromRoom.length})</p>
-                    <p className="text-xs text-muted-foreground">Salesforce is missing these.</p>
-                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.missingFromRoom.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">In ours, not on their list ({compare.practices.notOnUpload.length})</p>
-                    <p className="text-xs text-muted-foreground">Closed, renamed, or not in the rollout.</p>
-                    <ul className="mt-1 max-h-40 overflow-auto text-xs">{compare.practices.notOnUpload.slice(0, 200).map((n) => <li key={n}>{n}</li>)}</ul>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">No practice column found in this file.</p>
-            )}
-            {compare.doctors && <p className="text-sm text-muted-foreground">The roster ({compare.doctors.sheet}) lists {compare.doctors.count} doctors. Doctors can't be compared yet: LP Studio has no doctor records to compare against.</p>}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="brand"
-                disabled={!(compare.practices?.missingFromRoom.length || compare.doctors?.count)}
-                onClick={async () => {
-                  const r = await post(`${base}/revops-task`, { missing: compare.practices?.missingFromRoom ?? [], doctors: compare.practices ? 0 : compare.doctors?.count ?? 0, fileName: compare.fileName });
-                  if (r.ok) setRevops(r.json.mentioned ? "Posted to the room’s Slack channel, with RevOps mentioned. It also rides in the weekly Slack digest until the gap closes." : "Posted to the room’s Slack channel. Nobody was mentioned: add a RevOps Slack mention under Settings.");
-                }}
-              >
-                Post to Slack for RevOps
-              </Button>
-              {!!compare.practices?.missingFromRoom.length && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const blob = new Blob([["practice name", ...compare.practices!.missingFromRoom.map((n) => `"${n.replace(/"/g, '""')}"`)].join("\n")], { type: "text/csv" });
-                    const a = document.createElement("a");
-                    a.href = URL.createObjectURL(blob);
-                    a.download = "missing-from-salesforce.csv";
-                    a.click();
-                    URL.revokeObjectURL(a.href);
-                  }}
-                >
-                  Download the missing list
-                </Button>
-              )}
-              {revops && <span className="text-sm text-muted-foreground">{revops}</span>}
-            </div>
-          </section>
-        )}
       </CardContent>
     </Card>
   );
@@ -1035,7 +1077,7 @@ function WinsSection({ base, wins, run }: { base: string; wins: NonNullable<Room
       >
         <label className="block space-y-1 text-xs flex-1"><span className="font-medium text-muted-foreground">Headline (optional)</span><Input value={headline} onChange={(e) => setHeadline(e.target.value)} className="h-8 text-sm" /></label>
         <label className="block space-y-1 text-xs flex-1"><span className="font-medium text-muted-foreground">Win</span><Input value={body} onChange={(e) => setBody(e.target.value)} className="h-8 text-sm" /></label>
-        <Button type="submit" size="sm" variant="brand" disabled={!body.trim()}>Post to the room</Button>
+        <Button type="submit" size="sm" variant="brand" disabled={!body.trim()}>Post to the hub</Button>
       </form>
       {wins.length > 0 && (
         <div className="divide-y rounded-md border">
@@ -1088,7 +1130,7 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
     const outcome = u.searchParams.get("google");
     if (!outcome) return;
     const msg: Record<string, string> = {
-      connected: "Google is connected. Choose “Use my calendar for this room” to start.",
+      connected: "Google is connected. Choose “Use my calendar for this hub” to start.",
       declined: "Google wasn’t connected: the request was cancelled.",
       missing_access: "Google wasn’t connected: both permissions (calendar and docs, read-only) need to stay ticked.",
       failed: "Google couldn’t be connected. Try again.",
@@ -1112,7 +1154,7 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
   const disconnectGoogle = async () => {
     setBusy(true);
     setErr((await send("/api/lp/google/connection", "DELETE")) ?? "");
-    setNote("Google disconnected. Rooms that were reading your calendar have stopped; meetings already in them stay.");
+    setNote("Google disconnected. Hubs that were reading your calendar have stopped; meetings already in them stay.");
     setBusy(false);
     await Promise.all([refetchGoogle(), refresh()]);
   };
@@ -1128,7 +1170,7 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
       const j = (await r.json().catch(() => ({}))) as { note?: string; error?: string };
       if (r.ok) setNote(j.note ?? "Calendar read.");
       else e = j.error ?? "Could not read the calendar";
-    } else if (!e) setNote("This room stopped reading the calendar. Meetings already in the room stay.");
+    } else if (!e) setNote("This hub stopped reading the calendar. Meetings already in the hub stay.");
     setErr(e ?? "");
     setBusy(false);
     await refresh();
@@ -1182,7 +1224,7 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
               {google.connection.status !== "connected" && <span className="text-amber-700"> · needs reconnecting</span>}
             </span>
             {google.connection.status === "connected" ? (
-              <Button size="sm" variant="brand" disabled={busy} onClick={() => connect("mine")}>{calendar?.connection?.mine ? "Read my calendar now" : "Use my calendar for this room"}</Button>
+              <Button size="sm" variant="brand" disabled={busy} onClick={() => connect("mine")}>{calendar?.connection?.mine ? "Read my calendar now" : "Use my calendar for this hub"}</Button>
             ) : (
               <Button size="sm" variant="brand" disabled={busy} onClick={connectGoogle}>Reconnect Google</Button>
             )}
@@ -1200,7 +1242,7 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
         {calendar?.connection && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>
-              This room reads {calendar.connection.mine ? "your" : `${calendar.connection.googleEmail}’s`} calendar{calendar.id && calendar.id !== "primary" ? ` (${calendar.id})` : ""}. Last read {fmtDate(calendar.syncedAt) || "never"}{calendar.note && !domainFirst(calendar.note) ? ` · ${calendar.note}` : ""}
+              This hub reads {calendar.connection.mine ? "your" : `${calendar.connection.googleEmail}’s`} calendar{calendar.id && calendar.id !== "primary" ? ` (${calendar.id})` : ""}. Last read {fmtDate(calendar.syncedAt) || "never"}{calendar.note && !domainFirst(calendar.note) ? ` · ${calendar.note}` : ""}
             </span>
             <button type="button" className="underline" disabled={busy} onClick={() => connect(null)}>Stop reading</button>
           </div>
@@ -1286,7 +1328,6 @@ function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"
   const recent = engagement?.recent ?? [];
   return (
     <section className="space-y-2">
-      <h4 className="text-sm font-semibold">Asset engagement</h4>
       <p className="text-sm text-muted-foreground">Who opened what in the launch kit, and for how long. Last 90 days.</p>
       {assets.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nothing has been opened yet.</p>
@@ -1402,7 +1443,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
     setStdNote(
       !r.ok
         ? (j.error ?? "Could not add the standard files")
-        : [j.added?.length ? `Added: ${j.added.join(", ")}.` : "", j.kept?.length ? `Kept this room’s own file: ${j.kept.join(", ")}.` : "", j.missing?.length ? `Not uploaded yet: ${j.missing.join(", ")}.` : ""].filter(Boolean).join(" ") || "Nothing to add.",
+        : [j.added?.length ? `Added: ${j.added.join(", ")}.` : "", j.kept?.length ? `Kept this hub’s own file: ${j.kept.join(", ")}.` : "", j.missing?.length ? `Not uploaded yet: ${j.missing.join(", ")}.` : ""].filter(Boolean).join(" ") || "Nothing to add.",
     );
     // Tell the builder (when this panel is open inside it) which files just went into the kit.
     const added = (standard ?? []).filter((a) => a.fileUrl && (j.added ?? []).includes(a.title));
@@ -1532,24 +1573,18 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
           );
         })}
       </div>
-      <div className="space-y-2 rounded-md border p-3">
-        <p className="text-sm font-medium">Standard files</p>
-        <p className="text-xs text-muted-foreground">
-          The same for every customer, uploaded once under <a className="underline" href="/settings/partner-hubs">Settings → Partner Hubs</a>. A room with its own version keeps it.
+      {/* Standard files are managed once for the workspace; here there is only the button that brings them into this hub. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2" data-room-standard-files>
+        <p className="min-w-0 text-sm">
+          <span className="font-medium">Standard files</span>{" "}
+          <span className="text-xs text-muted-foreground">
+            {(standard ?? []).filter((a) => has(a.key)).length} of {(standard ?? []).length} in this hub · managed under <a className="underline" href="/settings/partner-hubs">Settings → Partner Hubs</a>
+          </span>
         </p>
-        {(standard ?? []).map((a) => (
-          <p key={a.key} className="text-sm">
-            {a.title}
-            <span className="text-xs text-muted-foreground"> · {a.fileUrl ? "uploaded" : "not uploaded yet"}{has(a.key) ? " · in this room’s kit" : ""}</span>
-          </p>
-        ))}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} onClick={() => addStandard(false)}>Add to this room</Button>
-          {stdNote && <span className="text-xs text-muted-foreground">{stdNote}</span>}
-        </div>
+        <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} onClick={() => addStandard(false)}>Add standard files</Button>
       </div>
-      <div className="space-y-1.5 rounded-md border p-3" data-room-practice-site>
-        <p className="text-sm font-medium">Practice microsite</p>
+      {stdNote && <p className="text-xs text-muted-foreground">{stdNote}</p>}
+      <Fold title="Practice microsite" hint={site ? `${site.existing ? "Found" : "Drafted"}: ${site.title}` : "The page this customer’s practices sign up on"} data-room-practice-site>
         <p className="text-xs text-muted-foreground">The page this customer’s practices sign up on. If the account already has one it is linked here; if not, a draft is made from your practice-microsite template with their name filled in.</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" disabled={busy || !kit.partnerName} onClick={async () => { setBusy(true); try { await ensureSite(); await refresh(); } finally { setBusy(false); } }}>Find or create it</Button>
@@ -1560,7 +1595,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
           )}
           {siteNote && <span className="text-xs text-destructive">{siteNote}</span>}
         </div>
-      </div>
+      </Fold>
       <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
         {busy ? "Creating…" : "Create launch kit"}
       </Button>
@@ -1586,13 +1621,13 @@ export function StandardFilesManager() {
   const [note, setNote] = useState("");
   const save = async (key: string, fileUrl: string) => {
     const e = await send(`/api/lp/room-standard-assets/${key}`, "PUT", { fileUrl });
-    setNote(e ?? "Saved. New rooms get this file; add it to an existing room from that room’s Launch kit tab.");
+    setNote(e ?? "Saved. New hubs get this file; add it to an existing hub from that hub’s Launch kit tab.");
     await refetch();
   };
   return (
     <section className="space-y-2">
       <h4 className="text-sm font-semibold">Standard launch files</h4>
-      <p className="text-sm text-muted-foreground">Files that are the same for every customer. Upload each one once; it is attached to every new room, and can be added to any existing room.</p>
+      <p className="text-sm text-muted-foreground">Files that are the same for every customer. Upload each one once; it is attached to every new hub, and can be added to any existing room.</p>
       <div className="divide-y rounded-md border">
         {(standard ?? []).map((a) => (
           <div key={a.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
@@ -1663,7 +1698,7 @@ export function AutomaticRoomsSection() {
       const j = (await r.json().catch(() => ({}))) as { note?: string; error?: string };
       if (r.ok) setNote(j.note ?? "Sheet read.");
       else e = j.error ?? "Could not read the sheet";
-    } else if (!e) setNote("Automatic rooms are off. Rooms already created stay.");
+    } else if (!e) setNote("Automatic hubs are off. Hubs already created stay.");
     setErr(e ?? "");
     setBusy(false);
     await refetch();
@@ -1672,7 +1707,7 @@ export function AutomaticRoomsSection() {
     setBusy(true);
     const r = await fetch("/api/lp/room-autocreate/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
     const j = (await r.json().catch(() => ({}))) as { error?: string };
-    setErr(r.ok ? "" : (j.error ?? "Could not create the room"));
+    setErr(r.ok ? "" : (j.error ?? "Could not create the hub"));
     setBusy(false);
     await refetch();
   };
@@ -1695,11 +1730,11 @@ export function AutomaticRoomsSection() {
       };
     };
     try {
-      const made = step("Create the draft room");
+      const made = step("Create the draft hub");
       const r = await fetch("/api/lp/room-autocreate/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(/^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(testName.trim()) && /\d/.test(testName) ? { sfdcId: testName.trim() } : { name: testName.trim() }) });
       const j = (await r.json().catch(() => ({}))) as { pageId?: number; name?: string; standardFiles?: number; practicesLinked?: boolean; practices?: number; practicesNote?: string | null; practiceSite?: { title: string; existing: boolean; url: string; status: string } | null; teamFilled?: number; contacts?: number; domain?: string | null; error?: string; followUps?: { alerts: { sent: string[]; ownerMatched: boolean | null } | null; sheet: { ok: boolean; note: string } | null; sfdc: { ok: boolean; note: string } | null } };
       if (!r.ok || !j.pageId) {
-        made("failed", j.error ?? "Could not create the room");
+        made("failed", j.error ?? "Could not create the hub");
         return;
       }
       made("done", `“${j.name} Partner Hub (test)”, a draft`);
@@ -1708,7 +1743,7 @@ export function AutomaticRoomsSection() {
       steps.push({ label: "Read the account's practices from the locations sheet", state: j.practices ? "done" : "failed", detail: j.practices ? `${j.practices} practices loaded into the Scorecard` : j.practicesNote || "No locations tab is set above, or no Salesforce ID was given to match on" });
       steps.push({ label: "Find or draft the practice microsite", state: j.practiceSite ? "done" : "failed", detail: j.practiceSite ? `${j.practiceSite.existing ? "Found" : "Drafted from your template"}: ${j.practiceSite.title} · ${j.practiceSite.url.replace(/^https?:\/\//, "")}` : "None exists for this account and no practice-microsite template was found" });
       steps.push({ label: "Fill the customer's team from the account", state: j.teamFilled ? "done" : "failed", detail: j.teamFilled ? `${j.teamFilled} people added to the Team module; ${j.contacts ?? 0} contacts can be invited` : "No account with that name (or Salesforce ID) and contacts was found under Accounts" });
-      steps.push({ label: "Set the customer's email domain", state: j.domain ? "done" : "failed", detail: j.domain ?? "Couldn't work it out; add it under the room's Settings" });
+      steps.push({ label: "Set the customer's email domain", state: j.domain ? "done" : "failed", detail: j.domain ?? "Couldn't work it out; add it under the hub's Settings" });
       steps.push({ label: "Tell the team in Slack", state: "done", detail: "Sent to your workspace channel with the setup checklist, marked as a test" });
       const f = j.followUps;
       if (f?.alerts) steps.push({ label: "Email alerts", state: f.alerts.sent.length ? "done" : "failed", detail: f.alerts.sent.length ? `Sent to ${f.alerts.sent.join(", ")}` : "Nobody to send to (a test has no account owner; add an email above)" });
@@ -1739,7 +1774,7 @@ export function AutomaticRoomsSection() {
   const withRoom = accounts.filter((a) => a.pageId);
   return (
     <section className="space-y-2">
-      <h4 className="text-sm font-semibold">Automatic rooms</h4>
+      <h4 className="text-sm font-semibold">Automatic hubs</h4>
       <p className="text-sm text-muted-foreground">Each account added to the sheet gets a draft hub.</p>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
         <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Signed accounts sheet link</span><Input value={sheet} onChange={(e) => setSheet(e.target.value)} aria-label="Signed accounts sheet" /></label>
@@ -1757,7 +1792,7 @@ export function AutomaticRoomsSection() {
       </div>
       {/* Closed by default: the sheet link above is the one thing most people set. */}
       <details className="rounded-md border p-3" data-room-followups>
-        <summary className="cursor-pointer text-sm font-medium">When a room is created</summary>
+        <summary className="cursor-pointer text-sm font-medium">When a hub is created</summary>
         <div className="mt-3 space-y-3">
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Email</p>
@@ -1771,7 +1806,7 @@ export function AutomaticRoomsSection() {
           <p className="text-xs font-medium text-muted-foreground">Spreadsheet</p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={logEnabled} onChange={(e) => setLogEnabled(e.target.checked)} />
-            Add a row for each new room
+            Add a row for each new hub
           </label>
           <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
             <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Log sheet link</span><Input value={logSheet} onChange={(e) => setLogSheet(e.target.value)} aria-label="Log sheet" disabled={!logEnabled} /></label>
@@ -1822,7 +1857,7 @@ export function AutomaticRoomsSection() {
         <div className="flex flex-wrap items-end gap-2">
           <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Account ID or name</span><Input className="max-w-xs" value={testName} onChange={(e) => setTestName(e.target.value)} aria-label="Salesforce account ID or account name" /></label>
           <Button size="sm" variant="brand" disabled={busy || testName.trim().length < 2} onClick={runTest}>{busy && testSteps.length ? "Running…" : "Run a test"}</Button>
-          {testPage && <a className="text-sm underline" href={`/builder/${testPage}`}>Open the test room</a>}
+          {testPage && <a className="text-sm underline" href={`/builder/${testPage}`}>Open the test hub</a>}
         </div>
         {testSteps.length > 0 && (
           <ul className="space-y-1 text-sm">
@@ -1838,15 +1873,15 @@ export function AutomaticRoomsSection() {
       </details>
       {accounts.length > 0 && (
         <details className="text-sm" open={showAll} onToggle={(e) => setShowAll((e.currentTarget as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer text-xs text-muted-foreground">{accounts.length} accounts on the list · {withRoom.length} with a room made here</summary>
+          <summary className="cursor-pointer text-xs text-muted-foreground">{accounts.length} accounts on the list · {withRoom.length} with a hub made here</summary>
           <div className="mt-2 max-h-72 divide-y overflow-y-auto rounded-md border">
             {accounts.map((a) => (
               <div key={a.key} className="flex items-center justify-between gap-2 px-3 py-1.5">
                 <span className="min-w-0 truncate">{a.name}{a.signedDate ? <span className="text-xs text-muted-foreground"> · signed {a.signedDate}</span> : null}{a.sfdcId ? null : <span className="text-xs text-amber-700"> · no Salesforce ID</span>}</span>
                 {a.pageId ? (
-                  <a className="text-xs underline" href={`/builder/${a.pageId}`}>Open room</a>
+                  <a className="text-xs underline" href={`/builder/${a.pageId}`}>Open hub</a>
                 ) : (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => createFor(a.key)}>Create room</Button>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => createFor(a.key)}>Create hub</Button>
                 )}
               </div>
             ))}

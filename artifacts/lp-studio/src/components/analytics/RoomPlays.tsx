@@ -118,18 +118,47 @@ export function RoomPlays({ pageId }: { pageId: number }) {
       })}
       {data.plays.length > 3 && <Button size="sm" variant="ghost" onClick={() => setAll((a) => !a)}>{all ? "Show fewer" : `Show all ${data.plays.length}`}</Button>}
       {data.quiet > 0 && <p className="text-xs text-muted-foreground">{data.quiet} more {data.quiet === 1 ? "is" : "are"} quiet for 30 days after being asked for, done or set aside.</p>}
-      <label className="flex items-center gap-2 border-t pt-3 text-sm">
-        <input
-          type="checkbox"
-          checked={data.noDirectOutreach}
-          onChange={async (e) => {
-            await post(`${base}/settings`, "PUT", { noDirectOutreach: e.target.checked });
-            await load();
-          }}
-          data-room-no-outreach
-        />
-        This account doesn't allow direct outreach to its practices
-      </label>
     </section>
+  );
+}
+
+/**
+ * Whether the account allows direct outreach to its practices. An account
+ * rule, so it lives in the hub's Settings rather than under the list of
+ * suggested moves it switches off.
+ */
+export function OutreachSetting({ pageId }: { pageId: number }) {
+  const base = `/api/lp/partner-rooms/${pageId}/plays`;
+  const [value, setValue] = useState<boolean | null>(null);
+  useEffect(() => {
+    let gone = false;
+    fetch(base)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { noDirectOutreach?: boolean } | null) => !gone && j && setValue(!!j.noDirectOutreach))
+      .catch(() => {});
+    return () => {
+      gone = true;
+    };
+  }, [base]);
+  if (value === null) return null;
+  return (
+    <label className="flex items-start gap-2 text-sm">
+      <input
+        type="checkbox"
+        className="mt-0.5 h-4 w-4"
+        checked={value}
+        onChange={async (e) => {
+          const next = e.target.checked;
+          setValue(next);
+          const r = await post(`${base}/settings`, "PUT", { noDirectOutreach: next });
+          if (!r.ok) setValue(!next);
+        }}
+        data-room-no-outreach
+      />
+      <span>
+        <span className="font-medium">This account doesn’t allow direct outreach to its practices</span>
+        <span className="block text-xs text-muted-foreground">No welcome kits or mail go out from the hub, and moves that need them aren’t suggested.</span>
+      </span>
+    </label>
   );
 }
