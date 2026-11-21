@@ -182,8 +182,11 @@ const s = (v: string | null | undefined): string => (typeof v === "string" ? v.t
  *
  *  v3 — card copy is stripped of the inline-editor markup that used to print
  *  onto the image as literal tags. Every card captured before this carries the
- *  raw text, so they all need re-capturing, not just newly-created pages. */
-export const CURRENT_OG_CARD_VERSION = 3;
+ *  raw text, so they all need re-capturing, not just newly-created pages.
+ *
+ *  v4 — Partner Hub cards say the hub's cover headline with no second logo
+ *  (they used to read "launch plan" beside the customer's logo). */
+export const CURRENT_OG_CARD_VERSION = 4;
 
 /** Legacy thum.io capture URLs (pre-Aug-2026 URL-as-storage era). These
  *  routinely rendered with fallback fonts and third-party caching, so every

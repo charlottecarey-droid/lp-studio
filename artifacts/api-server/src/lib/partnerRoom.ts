@@ -1173,3 +1173,29 @@ export function resolveRoomBlocks<T>(blocks: T): T {
     return next === props ? b : { ...b, props: next };
   }) as unknown as T;
 }
+
+/**
+ * What a hub's share card says. A hub page is one big block whose props hold
+ * an internal `title` ("launch plan") and the customer's logo, so the general
+ * card walk printed "launch plan" beside a second logo. The card shows what the
+ * cover shows instead: the typed headline, else "Customer × Us Partnership
+ * Hub", with no second logo (the headline already names the customer).
+ * Null when the page is not a hub.
+ */
+export function roomOgCardCopy(blocks: unknown, brandName: string): { headline: string; subheadline: string } | null {
+  const resolved = resolveRoomBlocks(blocks);
+  const block = Array.isArray(resolved)
+    ? (resolved as unknown[]).find((b) => !!b && typeof b === "object" && (b as { type?: unknown }).type === "room-workspace")
+    : null;
+  if (!block) return null;
+  const props = (block as { props?: Record<string, unknown> }).props ?? {};
+  const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const named = text(props.partnerName);
+  const partner = !named || /^\[partner/i.test(named) || /\{\{/.test(named) ? "" : named;
+  const brand = brandName.trim();
+  const fallback = [partner, brand].filter(Boolean).join(" × ");
+  return {
+    headline: text(props.headline) || `${fallback} Partnership Hub`.trim(),
+    subheadline: text(props.lede),
+  };
+}

@@ -1,7 +1,7 @@
-import { gateRoomBlocks } from "../../lib/partnerRoom";
+import { gateRoomBlocks, roomOgCardCopy } from "../../lib/partnerRoom";
 import { Router } from "express";
 import { randomBytes } from "crypto";
-import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
+import { db, pool, tenantsTable, salesAccountsTable, lpBrandSettingsTable } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable, salesHotlinksTable, lpAssetEventsTable, lpLeadsTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
 import { resolvePageOG, resolveOGFields, substitutePageTitleToken, deriveOgCardCopy, deriveHeroImage, toPlainCardText, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
@@ -1231,8 +1231,17 @@ router.get("/lp/og-card-data/:slug", async (req, res): Promise<void> => {
     .where(eq(tenantsTable.id, page.tenantId))
     .limit(1);
 
-  const copy = deriveOgCardCopy(page.blocks);
   const trim = (v: string | null | undefined) => (typeof v === "string" ? v.trim() : "");
+  // A hub's card says what its cover says, with no second logo. The general
+  // walk reads the hub block's internal `title` ("launch plan") otherwise.
+  const [brandRow] = await db
+    .select({ config: lpBrandSettingsTable.config })
+    .from(lpBrandSettingsTable)
+    .where(eq(lpBrandSettingsTable.tenantId, page.tenantId))
+    .limit(1);
+  const brandNamed = (brandRow?.config as { brandName?: unknown } | null | undefined)?.brandName;
+  const hub = roomOgCardCopy(page.blocks, (typeof brandNamed === "string" && brandNamed.trim()) || trim(tenant?.name));
+  const copy = hub ? { ...hub, accountName: "", accountLogo: "" } : deriveOgCardCopy(page.blocks);
   // Partner mark: 'none' suppresses it entirely, an explicit URL wins, blank
   // falls back to the content guess. Auto-detection reads block content and
   // WILL pick the wrong mark on a page carrying several logos, so the explicit
