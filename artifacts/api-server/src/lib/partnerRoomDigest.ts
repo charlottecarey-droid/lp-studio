@@ -283,7 +283,9 @@ export function collectDigest(blocks: unknown, state: DigestState, now: Date): D
   const rowByKey = new Map(rows.map((r) => [planTaskKey(r), r]));
   const milestones: DigestMilestone[] = DIGEST_MILESTONES.filter(([key]) => rowByKey.has(key)).map(([key, label]) => {
     const t = doneKeys.get(key);
-    return { key, label, done: !!t || rowByKey.get(key)?.status === "done", at: t?.at ?? null, thisWeek: !!t && t.at.getTime() >= weekAgo };
+    // The practice list is in once we hold their practices, however it reached us (their upload, Salesforce, a sheet).
+    const held = key === "practice-roster" && state.practices.total > 0;
+    return { key, label, done: !!t || held || rowByKey.get(key)?.status === "done", at: t?.at ?? null, thisWeek: !!t && t.at.getTime() >= weekAgo };
   });
   const named = new Set(DIGEST_MILESTONES.map(([key]) => key));
   const kitRows = state.practices.rows ?? [];
@@ -352,84 +354,158 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 /** "Main St, Oak Ave and 3 more". */
 const someNames = (names: string[], max = 4) => (names.length <= max ? names.join(", ") : `${names.slice(0, max).join(", ")} and ${names.length - max} more`);
 
-/** The customer email. `brandColor` is a hex for the header band; `senderName` is who it is from ("Dandy"). */
-export function renderDigestEmail(d: DigestData, opts: { roomUrl: string; senderName: string; brandColor?: string }): { subject: string; html: string } {
+/** A hex colour mixed toward white: `amount` 0 = the colour, 1 = white. For tints that sit behind text in the email. */
+function tint(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount).toString(16).padStart(2, "0");
+  return `#${mix((n >> 16) & 255)}${mix((n >> 8) & 255)}${mix(n & 255)}`;
+}
+
+/**
+ * The customer email. Built like a marketing email, not a report: one big
+ * number up top, a row of figures, short sections with room to breathe, and a
+ * single button. Tables and inline styles throughout, so it holds up in
+ * Outlook and Gmail. `brandColor` is a hex for the header and the button;
+ * `senderName` is who it is from ("Dandy").
+ */
+export function renderDigestEmail(d: DigestData, opts: { roomUrl: string; senderName: string; brandColor?: string; now?: Date }): { subject: string; html: string } {
   const color = /^#[0-9a-f]{6}$/i.test(opts.brandColor ?? "") ? (opts.brandColor as string) : "#0E1A16";
-  const list = (items: string[], max = 6) =>
-    `<ul style="margin:8px 0 0;padding:0 0 0 18px;color:#0E1A16;font-size:14px;line-height:1.6">${items.slice(0, max).map((i) => `<li>${esc(i)}</li>`).join("")}${items.length > max ? `<li style="color:#5C6B61">and ${items.length - max} more</li>` : ""}</ul>`;
-  const section = (title: string, body: string) => `<tr><td style="padding:18px 28px 0"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#1AA35A">${esc(title)}</div>${body}</td></tr>`;
-  // Work we finished and are holding for their review comes first: it is the one thing only they can unblock.
-  const waiting = [...d.reviewRequests.map((r) => `Review: ${r}`), ...d.waitingOnCustomer, ...d.undecided.map((u) => `Decide: ${u}`)];
-  const stats = [d.day !== null ? `Day ${d.day} of ${d.totalDays}${d.phase ? ` · ${d.phase}` : ""}` : null, d.planTotal ? `${d.planDone} of ${d.planTotal} plan items complete` : null].filter(Boolean) as string[];
+  const ink = "#0E1A16";
+  const soft = "#5C6B61";
+  const line = "#E7E7E0";
+  const good = "#1AA35A";
+  const wash = tint(color, 0.94);
+  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
   const r = d.rollout;
-  const muted = "color:#5C6B61";
-  const line = (label: string, value: string) => `<tr><td style="padding:5px 0;font-size:14px;${muted};vertical-align:top;width:150px">${esc(label)}</td><td style="padding:5px 0;font-size:14px;color:#0E1A16;line-height:1.5">${value}</td></tr>`;
-  const tile = (n: number, label: string, change: number | null) =>
-    `<td style="padding:0 6px 0 0;vertical-align:top"><div style="border:1px solid #E7E7E0;border-radius:10px;padding:12px 14px"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em;color:#0E1A16">${n}</div><div style="font-size:12px;${muted};margin-top:2px">${esc(label)}</div>${change ? `<div style="font-size:12px;font-weight:600;color:${change > 0 ? "#1AA35A" : "#B4541A"};margin-top:4px">${signed(change)} this week</div>` : ""}</div></td>`;
+  const url = esc(opts.roomUrl);
+  const week = digestDayLabel(isoDay(opts.now ?? new Date()));
+
+  // Work we finished and are holding for their review comes first: it is the one thing only they can unblock.
+  // The practice list is not "waiting" once we hold their practices, however it reached us.
+  const waiting = [...d.reviewRequests.map((x) => `Review: ${x}`), ...d.waitingOnCustomer.filter((x) => !(r && /^upload your practice list$/i.test(x.trim()))), ...d.undecided.map((u) => `Decide: ${u}`)];
   const otherLine = d.otherDone > 0 ? [`${d.otherDone} other step${d.otherDone === 1 ? "" : "s"} completed`] : [];
   const doneLines = [...d.doneThisWeek, ...otherLine];
-  const when = (at: Date | null) => (at ? ` <span style="${muted}">· ${esc(digestDayLabel(isoDay(at)))}</span>` : "");
-  const mark = (done: boolean) => `<td style="padding:5px 10px 5px 0;vertical-align:top;font-size:14px;color:${done ? "#1AA35A" : "#B7BDB4"};width:16px">${done ? "&#10003;" : "&#9675;"}</td>`;
-  // Before any practice is trained: the big setup milestones, done or still to come. Not every tick.
+
+  const row = (inner: string, pad = "0 32px") => `<tr><td style="padding:${pad}">${inner}</td></tr>`;
+  const heading = (title: string, sub = "") =>
+    row(`<div style="font-size:19px;line-height:1.3;font-weight:700;letter-spacing:-.01em;color:${ink}">${esc(title)}</div>${sub ? `<div style="font-size:14px;line-height:1.5;color:${soft};margin-top:4px">${sub}</div>` : ""}`, "36px 32px 0");
+  const rule = row(`<div style="height:1px;line-height:1px;font-size:0;background:${line}">&nbsp;</div>`, "32px 32px 0");
+  const pill = (text: string, bg: string, fg: string) => `<span style="display:inline-block;padding:4px 10px;border-radius:99px;background:${bg};color:${fg};font-size:12px;font-weight:600;line-height:1.3">${esc(text)}</span>`;
+  const bar = (percent: number, height = 10) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate"><tr><td style="background:${line};border-radius:99px;height:${height}px;line-height:${height}px;font-size:0"><table role="presentation" cellpadding="0" cellspacing="0" width="${Math.max(percent > 0 ? 3 : 0, Math.min(100, percent))}%" style="border-collapse:separate"><tr><td style="background:${good};border-radius:99px;height:${height}px;line-height:${height}px;font-size:0">&nbsp;</td></tr></table></td></tr></table>`;
+  const tile = (n: number, label: string, change: number | null, last = false) =>
+    `<td width="25%" valign="top" style="padding:0 ${last ? 0 : 8}px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${line};border-radius:12px"><tr><td align="center" style="padding:16px 6px 14px"><div style="font-size:28px;line-height:1;font-weight:700;letter-spacing:-.02em;color:${ink}">${n}</div><div style="font-size:11px;line-height:1.3;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${soft};margin-top:8px">${esc(label)}</div><div style="font-size:12px;line-height:1.3;font-weight:600;color:${change && change < 0 ? "#B4541A" : good};margin-top:6px">${change ? `${signed(change)} this week` : "&nbsp;"}</div></td></tr></table></td>`;
+  const fact = (label: string, value: string) =>
+    `<tr><td valign="top" style="padding:12px 0;border-bottom:1px solid ${line};font-size:13px;line-height:1.5;font-weight:600;color:${soft};width:38%">${esc(label)}</td><td valign="top" style="padding:12px 0;border-bottom:1px solid ${line};font-size:15px;line-height:1.5;color:${ink}">${value}</td></tr>`;
+  const check = (label: string, done: boolean, note = "") =>
+    `<tr><td valign="top" width="34" style="padding:9px 0"><div style="width:22px;height:22px;line-height:22px;border-radius:99px;text-align:center;font-size:13px;font-weight:700;${done ? `background:${good};color:#ffffff` : `border:1.5px solid #C9CEC5;color:#C9CEC5;line-height:19px`}">${done ? "&#10003;" : "&nbsp;"}</div></td><td valign="top" style="padding:10px 0;font-size:15px;line-height:1.45;color:${done ? ink : soft}">${esc(label)}${note}</td></tr>`;
+
+  // ── The opening: one number that says where things stand. ──
+  const reached = d.milestones.filter((x) => x.done).length;
+  const showRollout = d.kind !== "setup" && !!r;
+  const hero = showRollout
+    ? `<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${soft}">Rollout</div>
+<div style="margin-top:10px;font-size:64px;line-height:1;font-weight:700;letter-spacing:-.03em;color:${ink}">${r!.live}<span style="font-size:24px;font-weight:600;letter-spacing:-.01em;color:${soft}"> of ${r!.total}</span></div>
+<div style="margin-top:10px;font-size:17px;line-height:1.4;color:${ink}">practices live <span style="color:${soft}">· ${pct(r!.live, r!.total)}% of the way</span></div>
+${r!.liveChange && r!.liveChange > 0 ? `<div style="margin-top:12px">${pill(`${signed(r!.liveChange)} this week`, tint(good, 0.86), "#0F7A42")}</div>` : ""}
+<div style="margin-top:20px">${bar(pct(r!.live, r!.total))}</div>`
+    : d.milestones.length
+      ? `<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${soft}">Getting set up</div>
+<div style="margin-top:10px;font-size:64px;line-height:1;font-weight:700;letter-spacing:-.03em;color:${ink}">${reached}<span style="font-size:24px;font-weight:600;letter-spacing:-.01em;color:${soft}"> of ${d.milestones.length}</span></div>
+<div style="margin-top:10px;font-size:17px;line-height:1.4;color:${ink}">setup milestones done</div>
+<div style="margin-top:20px">${bar(pct(reached, d.milestones.length))}</div>`
+      : `<div style="font-size:22px;line-height:1.3;font-weight:700;color:${ink}">Here is where things stand this week.</div>`;
+
+  // ── Setup: the big milestones, done and next. Not every tick. ──
   const openMilestones = d.milestones.filter((x) => !x.done);
+  const when = (at: Date | null) => (at ? ` <span style="color:${soft}">· ${esc(digestDayLabel(isoDay(at)))}</span>` : "");
   const setupRows = [
-    ...d.milestones.filter((x) => x.done).map((x) => `<tr>${mark(true)}<td style="padding:5px 0;font-size:14px;color:#0E1A16">${esc(x.label)}${when(x.at)}</td></tr>`),
-    ...(d.kits && d.kits.sent > 0 ? [`<tr>${mark(true)}<td style="padding:5px 0;font-size:14px;color:#0E1A16">Welcome kits sent to ${d.kits.sent} of ${d.kits.total} practices</td></tr>`] : []),
-    ...openMilestones.slice(0, 2).map((x, i) => `<tr>${mark(false)}<td style="padding:5px 0;font-size:14px;${muted}">${esc(x.label)}${i === 0 ? " · next" : ""}</td></tr>`),
+    ...d.milestones.filter((x) => x.done).map((x) => check(x.label, true, when(x.at))),
+    ...(d.kits && d.kits.sent > 0 ? [check(`Welcome kits sent to ${d.kits.sent} of ${d.kits.total} practices`, true)] : []),
+    ...openMilestones.slice(0, 2).map((x, i) => check(`${x.label}${i === 0 ? " · next" : ""}`, false)),
   ];
   const setupHtml =
-    (setupRows.length ? section("Getting set up", `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:8px;width:100%">${setupRows.join("")}</table>${otherLine.length ? `<div style="margin-top:6px;font-size:13px;${muted}">${esc(otherLine[0])} this week</div>` : ""}`) : "") +
-    (r ? section("Your practices", `<div style="margin-top:8px;font-size:14px;color:#0E1A16;line-height:1.6"><b>${r.total}</b> on the list${r.regions.length > 1 ? ` across ${r.regions.length} regions` : ""}${r.booked + r.scheduling > 0 ? ` · ${r.booked + r.scheduling} being scheduled for training` : ""}${r.upcoming.length ? `<br>First training: ${esc(r.upcoming[0].name)} <span style="${muted}">· ${esc(digestDayLabel(r.upcoming[0].day))}</span>` : ""}</div>`) : "");
-  // Once practices are trained: the rollout as numbers. Where every practice stands, what moved this week, what is next.
+    (setupRows.length ? heading("Milestones") + row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px">${setupRows.join("")}</table>${otherLine.length ? `<div style="margin-top:8px;font-size:13px;color:${soft}">${esc(otherLine[0])} this week</div>` : ""}`) : "") +
+    (r
+      ? heading("Your practices") +
+        row(
+          `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;background:${wash};border-radius:12px"><tr><td style="padding:18px 20px;font-size:15px;line-height:1.6;color:${ink}"><b>${r.total}</b> on the list${r.regions.length > 1 ? ` across ${r.regions.length} regions` : ""}${r.booked + r.scheduling > 0 ? ` · ${r.booked + r.scheduling} being scheduled for training` : ""}${r.upcoming.length ? `<br>First training: ${esc(r.upcoming[0].name)} <span style="color:${soft}">· ${esc(digestDayLabel(r.upcoming[0].day))}</span>` : ""}</td></tr></table>`,
+        )
+      : "");
+
+  // ── Rollout: the figures, what moved this week, what is next, and where. ──
+  const facts = !r
+    ? []
+    : [
+        r.wentLive.length ? fact("Went live this week", esc(someNames(r.wentLive, 6))) : "",
+        r.trainedThisWeek.length ? fact("Trained this week", esc(someNames(r.trainedThisWeek, 6))) : "",
+        r.upcoming.length ? fact("Training next", r.upcoming.slice(0, 5).map((u) => `${esc(u.name)} <span style="color:${soft}">· ${esc(digestDayLabel(u.day))}</span>`).join("<br>") + (r.upcoming.length > 5 ? `<br><span style="color:${soft}">and ${r.upcoming.length - 5} more</span>` : "")) : "",
+        r.addedChange ? fact("Practices on the list", `${r.total} <span style="color:${soft}">(${signed(r.addedChange)} this week)</span>`) : "",
+        r.scanners ? fact("Scanners", `${r.scanners.total} across ${r.scanners.practices} practice${r.scanners.practices === 1 ? "" : "s"}`) : "",
+        r.doctors ? fact("Doctors on your roster", String(r.doctors.total)) : "",
+      ].filter(Boolean);
+  const groups = !r ? [] : r.regions.length > 1 ? r.regions.slice(0, 6).map((g) => ({ name: g.region, live: g.live, total: g.total })) : r.waves.length > 1 ? r.waves.slice(0, 6).map((w) => ({ name: /^\d+$/.test(w.wave) ? `Wave ${w.wave}` : w.wave, live: w.live, total: w.total })) : [];
+  const groupTitle = r && r.regions.length > 1 ? "By region" : "By wave";
   const rolloutHtml = !r
     ? ""
-    : section(
-        "Rollout",
-        `<div style="margin-top:8px;font-size:15px;color:#0E1A16"><b>${r.live} of ${r.total}</b> practices live (${pct(r.live, r.total)}%)</div>
-<div style="margin-top:8px;height:8px;border-radius:99px;background:#E7E7E0;overflow:hidden"><div style="height:8px;border-radius:99px;background:#1AA35A;width:${Math.max(r.live > 0 ? 2 : 0, pct(r.live, r.total))}%"></div></div>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:14px;width:100%"><tr>${tile(r.live, "Live", r.liveChange)}${tile(r.trained, "Trained", r.trainedChange)}${tile(r.booked + r.scheduling, "Being scheduled", null)}${tile(r.notStarted, "Not started", null)}</tr></table>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:12px;width:100%">${[
-          r.wentLive.length ? line("Went live this week", esc(someNames(r.wentLive, 6))) : "",
-          r.trainedThisWeek.length ? line("Trained this week", esc(someNames(r.trainedThisWeek, 6))) : "",
-          r.upcoming.length ? line("Training next", r.upcoming.slice(0, 6).map((u) => `${esc(u.name)} <span style="${muted}">· ${esc(digestDayLabel(u.day))}</span>`).join("<br>") + (r.upcoming.length > 6 ? `<br><span style="${muted}">and ${r.upcoming.length - 6} more</span>` : "")) : "",
-          r.addedChange ? line("Practices on the list", `${r.total} <span style="${muted}">(${signed(r.addedChange)} this week)</span>`) : "",
-          r.scanners ? line("Scanners", `${r.scanners.total} across ${r.scanners.practices} practice${r.scanners.practices === 1 ? "" : "s"}`) : "",
-          r.doctors ? line("Doctors on your roster", String(r.doctors.total)) : "",
-        ].join("")}</table>
-${
-  r.regions.length > 1
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:12px;width:100%;border-top:1px solid #E7E7E0"><tr><td style="padding:8px 0 4px;font-size:12px;font-weight:600;${muted}">By region</td><td style="padding:8px 0 4px;font-size:12px;font-weight:600;${muted};text-align:right">Live</td><td style="padding:8px 0 4px;font-size:12px;font-weight:600;${muted};text-align:right">Trained</td></tr>${r.regions.slice(0, 6).map((g) => `<tr><td style="padding:4px 0;font-size:14px;color:#0E1A16">${esc(g.region)}</td><td style="padding:4px 0;font-size:14px;color:#0E1A16;text-align:right">${g.live} of ${g.total}</td><td style="padding:4px 0;font-size:14px;color:#0E1A16;text-align:right">${g.trained}</td></tr>`).join("")}</table>`
-    : r.waves.length > 1
-      ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:12px;width:100%;border-top:1px solid #E7E7E0"><tr><td style="padding:8px 0 4px;font-size:12px;font-weight:600;${muted}">By wave</td><td style="padding:8px 0 4px;font-size:12px;font-weight:600;${muted};text-align:right">Live</td></tr>${r.waves.slice(0, 6).map((w) => `<tr><td style="padding:4px 0;font-size:14px;color:#0E1A16">${esc(/^\d+$/.test(w.wave) ? `Wave ${w.wave}` : w.wave)}</td><td style="padding:4px 0;font-size:14px;color:#0E1A16;text-align:right">${w.live} of ${w.total}</td></tr>`).join("")}</table>`
-      : ""
-}`,
-      );
-  const html = `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#F3F4EF;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4EF;padding:24px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #E7E7E0;border-radius:12px;overflow:hidden">
-<tr><td style="background:${color};padding:24px 28px;color:#ffffff">
-<div style="font-size:12px;opacity:.75">${esc(d.partnerName)} × ${esc(opts.senderName)}</div>
-<div style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-top:4px">Your weekly update</div>
-${stats.length ? `<div style="font-size:13px;opacity:.85;margin-top:8px">${stats.map(esc).join(" &nbsp;·&nbsp; ")}</div>` : ""}
+    : row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${tile(r.live, "Live", r.liveChange)}${tile(r.trained, "Trained", r.trainedChange)}${tile(r.booked + r.scheduling, "Scheduling", null)}${tile(r.notStarted, "Not started", null, true)}</tr></table>`, "24px 32px 0") +
+      (facts.length ? heading("This week") + row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px">${facts.join("")}</table>`) : "") +
+      (groups.length
+        ? heading(groupTitle, "Practices live in each") +
+          row(
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px">${groups
+              .map((g) => `<tr><td valign="middle" width="30%" style="padding:9px 12px 9px 0;font-size:15px;color:${ink}">${esc(g.name)}</td><td valign="middle" style="padding:9px 0">${bar(pct(g.live, g.total), 8)}</td><td valign="middle" width="84" align="right" style="padding:9px 0 9px 12px;font-size:14px;color:${soft};white-space:nowrap"><b style="color:${ink}">${g.live}</b> of ${g.total}</td></tr>`)
+              .join("")}</table>`,
+          )
+        : "");
+
+  const alsoHtml = showRollout && doneLines.length ? heading("Also this week") + row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px">${doneLines.slice(0, 4).map((x) => check(x, true)).join("")}</table>`) : "";
+
+  // ── What we need from them: the first three, then one link for the rest. Never a wall of chores. ──
+  const shown = waiting.slice(0, 3);
+  const waitingHtml = waiting.length
+    ? rule +
+      heading("Waiting on you", waiting.length > shown.length ? `The next ${shown.length} of ${waiting.length}` : "") +
+      row(
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px">${shown
+          .map((x) => `<tr><td style="padding:0 0 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${line};border-radius:10px"><tr><td style="padding:13px 16px;font-size:15px;line-height:1.4;color:${ink}">${esc(x)}</td><td width="34" align="right" style="padding:13px 16px 13px 0;font-size:16px;color:${soft}">&rarr;</td></tr></table></td></tr>`)
+          .join("")}</table>${waiting.length > shown.length ? `<div style="margin-top:6px;font-size:14px"><a href="${url}" style="color:${color};font-weight:600;text-decoration:underline">See all ${waiting.length} in your hub</a></div>` : ""}`,
+      )
+    : "";
+
+  const winHtml = d.topWin
+    ? heading("Win of the week") + row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;background:${wash};border-radius:12px"><tr><td style="padding:20px 22px;font-size:17px;line-height:1.5;color:${ink}">&ldquo;${esc(d.topWin.text)}&rdquo;<div style="margin-top:8px;font-size:13px;color:${soft}">${esc(d.topWin.by)}</div></td></tr></table>`)
+    : "";
+  const nextHtml = d.nextMilestone ? heading("Coming up") + row(`<div style="margin-top:8px;font-size:15px;line-height:1.5;color:${ink}">${esc(d.nextMilestone)}</div>`) : "";
+
+  const headline = showRollout
+    ? `${r!.live} of ${r!.total} practices live${r!.liveChange && r!.liveChange > 0 ? ` (${signed(r!.liveChange)} this week)` : ""}`
+    : d.milestones.length
+      ? `${reached} of ${d.milestones.length} setup milestones done`
+      : waiting.length
+        ? `${waiting.length} waiting on you`
+        : "";
+  const preheader = [headline, waiting.length ? `${waiting.length} thing${waiting.length === 1 ? "" : "s"} waiting on you` : "Nothing is waiting on you"].filter(Boolean).join(" · ");
+  const meta = [d.day !== null ? `Day ${d.day} of ${d.totalDays}` : null, d.phase, d.planTotal ? `${d.planDone} of ${d.planTotal} plan items complete` : null].filter(Boolean) as string[];
+
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Your weekly update</title></head><body style="margin:0;padding:0;background:#F3F4EF;font-family:${font};-webkit-font-smoothing:antialiased">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;font-size:1px;line-height:1px">${esc(preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4EF"><tr><td align="center" style="padding:32px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;font-family:${font}">
+<tr><td style="background:${color};padding:30px 32px 28px;color:#ffffff">
+<div style="font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.7">Weekly update · ${esc(week)}</div>
+<div style="font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.02em;margin-top:10px">${esc(d.partnerName)} × ${esc(opts.senderName)}</div>
+${meta.length ? `<div style="font-size:14px;line-height:1.5;opacity:.82;margin-top:8px">${meta.map(esc).join(" &nbsp;·&nbsp; ")}</div>` : ""}
 </td></tr>
-${d.kind === "setup" ? setupHtml : rolloutHtml}
-${d.kind !== "setup" && doneLines.length ? section("Also this week", list(doneLines, 4)) : ""}
-${waiting.length ? section("Waiting on you", list(waiting, 4)) : ""}
-${d.nextMilestone ? section("Coming up", `<div style="margin-top:8px;font-size:14px;color:#0E1A16">${esc(d.nextMilestone)}</div>`) : ""}
-${d.topWin ? section("Win of the week", `<div style="margin-top:8px;font-size:14px;line-height:1.6;color:#0E1A16">${esc(d.topWin.text)}<div style="color:#5C6B61;font-size:12.5px;margin-top:2px">${esc(d.topWin.by)}</div></div>`) : ""}
-<tr><td style="padding:24px 28px 28px"><a href="${esc(opts.roomUrl)}" style="display:inline-block;background:${color};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:8px">Open the workspace</a></td></tr>
-<tr><td style="padding:14px 28px;border-top:1px solid #E7E7E0;font-size:12px;color:#5C6B61">You're receiving this weekly update as part of the ${esc(d.partnerName)} and ${esc(opts.senderName)} partnership. Reply to this email to change who receives it.</td></tr>
+<tr><td align="center" style="padding:36px 32px 0">${hero}</td></tr>
+${showRollout ? rolloutHtml : setupHtml}
+${alsoHtml}
+${winHtml}
+${nextHtml}
+${waitingHtml}
+<tr><td align="center" style="padding:36px 32px 40px"><a href="${url}" style="display:inline-block;background:${color};color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;line-height:1;padding:17px 34px;border-radius:12px">Open your Partner Hub</a></td></tr>
+<tr><td style="padding:22px 32px 26px;background:#FAFAF7;border-top:1px solid ${line};font-size:12px;line-height:1.6;color:${soft}">You're getting this weekly update as part of the ${esc(d.partnerName)} and ${esc(opts.senderName)} partnership. Reply to this email to change who receives it.</td></tr>
 </table></td></tr></table></body></html>`;
-  // The subject leads with what matters at this point: setup milestones early on, practices live after that.
-  const reached = d.milestones.filter((x) => x.done).length;
-  const headline =
-    d.kind !== "setup" && r
-      ? `${r.live} of ${r.total} practices live${r.liveChange && r.liveChange > 0 ? ` (${signed(r.liveChange)} this week)` : ""}`
-      : d.milestones.length
-        ? `${reached} of ${d.milestones.length} setup milestones done`
-        : waiting.length
-          ? `${waiting.length} waiting on you`
-          : "";
   const subject = `${d.partnerName} × ${opts.senderName}: weekly update${headline ? ` · ${headline}` : ""}`;
   return { subject, html };
 }

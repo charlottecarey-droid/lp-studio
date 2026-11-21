@@ -571,7 +571,7 @@ export async function buildRoomDigest(pageId: number, now: Date = new Date()): P
   const revops = revopsSlackLines(gap, slackMention(settingsRows[0]?.revopsSlackMention), data.partnerName);
   return {
     data,
-    email: renderDigestEmail(data, { roomUrl, senderName, brandColor: typeof brand.primaryColor === "string" ? brand.primaryColor : undefined }),
+    email: renderDigestEmail(data, { roomUrl, senderName, brandColor: typeof brand.primaryColor === "string" ? brand.primaryColor : undefined, now }),
     slack: renderDigestSlack(data, roomUrl, revops),
     recipients,
     roomUrl,

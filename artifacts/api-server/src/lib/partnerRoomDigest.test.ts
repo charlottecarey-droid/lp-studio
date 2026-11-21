@@ -73,9 +73,13 @@ describe("weekly digest", () => {
     const email = renderDigestEmail(d, { roomUrl: "https://partners.example.com/mb2", senderName: "Dandy", brandColor: "#003A30" });
     expect(email.subject).toBe("MB2 Dental × Dandy: weekly update · 36 of 122 practices live");
     expect(email.html).toContain("Rollout");
-    expect(email.html).toContain("<b>36 of 122</b> practices live (30%)");
+    expect(email.html).toContain("practices live");
+    expect(email.html).toContain("30% of the way");
     expect(email.html).toContain("1 other step completed");
-    expect(email.html).toContain("Upload your practice list");
+    // We already hold their 122 practices, so the practice list is not something we are waiting for.
+    expect(email.html).not.toContain("Upload your practice list");
+    expect(email.html).toContain("Add your team");
+    expect(email.html).toContain("Open your Partner Hub");
     expect(email.html).toContain("Decide: Press release");
     expect(email.html).toContain("Review: Square graphic");
     expect(email.html).toContain("#003A30");
