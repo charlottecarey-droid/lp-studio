@@ -26,6 +26,8 @@ export interface RoomRequest {
   id: number;
   kind: string;
   subject: string;
+  /** What was asked, in the asker's words. Absent on a server that predates it. */
+  details?: string | null;
   status: "new" | "in_progress" | "review" | "done" | string;
   owner: string | null;
   due: string | null;

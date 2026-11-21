@@ -535,6 +535,8 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
           id: r.id,
           kind: r.kind,
           subject: r.subject,
+          // What was asked, in the asker's words (for a marketing plan request: the programs it covers).
+          details: r.details ? r.details.slice(0, 600) : null,
           status: r.status,
           owner: r.owner,
           due: r.due,

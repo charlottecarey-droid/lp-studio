@@ -30,6 +30,7 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomLinkAsset,
+  roomProgramStatus,
   roomRowAction,
   absoluteLink,
   roomProgramOptions,
@@ -109,6 +110,32 @@ describe("room-workspace — registry + default render", () => {
     expect((html.match(/data-room-action="check"/g) ?? []).length).toBe(2);
     expect(html).toContain('data-room-step-go="marketing"');
     expect(html).toContain("Get the copy");
+  });
+  it("says where a program the customer said yes to has got to", () => {
+    const yes = { value: "Include", at: "2026-11-10T12:00:00Z" };
+    const req = (status: string, createdAt = "2026-11-12T12:00:00Z") => [{ assetKey: "mk-plan:mk-a,mk-b", status, owner: "Marketing", due: "Dec 5", createdAt }];
+    expect(roomProgramStatus("mk-a", undefined, [])).toBeNull();
+    expect(roomProgramStatus("mk-a", { value: "Not now", at: yes.at }, [])).toBeNull();
+    expect(roomProgramStatus("mk-a", yes, [])).toMatchObject({ state: "team", label: "With your account team" });
+    expect(roomProgramStatus("mk-a", yes, req("new"))).toMatchObject({ state: "new", label: "With marketing", owner: "Marketing", due: "Dec 5" });
+    expect(roomProgramStatus("mk-b", yes, req("in_progress"))?.label).toBe("In progress");
+    expect(roomProgramStatus("mk-a", yes, req("review"))?.label).toBe("Ready for your review");
+    expect(roomProgramStatus("mk-a", yes, req("done"))?.label).toBe("Done");
+    // A different program, and a choice changed after it was sent, are both back with the account team.
+    expect(roomProgramStatus("mk-c", yes, req("new"))?.state).toBe("team");
+    expect(roomProgramStatus("mk-a", { value: "Dinner", at: "2026-11-15T12:00:00Z" }, req("in_progress"))).toMatchObject({ state: "team" });
+  });
+  it("gives each outstanding item a line of context", () => {
+    const html = render({
+      hiddenModules: ["wins", "goals", "practices", "calendar", "meetings", "team"] as never,
+      moduleOrder: ["requests"] as never,
+      onboarding: { steps: [{ key: "onboard-logo", title: "Upload your logo", description: "So everything we make for you carries your brand.", action: "upload" }] } as never,
+      planGroups: [{ title: "P", rows: [{ key: "doctor-roster", task: "Upload your doctor roster", customerAction: "upload", note: "Doctors by practice, so training reaches the right people" }] }] as never,
+      marketing: { groups: [{ title: "G", programs: [{ key: "mk-press", title: "Press release", description: "A joint announcement for trade press.", audience: "Leadership", when: "Day 30", options: ["Include", "Not now"] }] }] } as never,
+    });
+    expect(html).toContain("So everything we make for you carries your brand.");
+    expect(html).toContain("Doctors by practice, so training reaches the right people");
+    expect(html).toContain("A joint announcement for trade press.");
   });
   it("leaves out the Overview sections a rep switched off", () => {
     const all = render();

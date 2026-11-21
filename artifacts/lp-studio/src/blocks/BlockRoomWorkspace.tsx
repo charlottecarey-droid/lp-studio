@@ -855,6 +855,34 @@ export function eventIcs(e: RoomEvent, calendarName: string): string {
 }
 
 /** An option that means "no" ("Not now", "Skip", "No thanks"). Shown as a thumbs-down. */
+/**
+ * Where a program the customer said yes to has got to, as they should read
+ * it. It is "with your account team" until a rep sends it to marketing; after
+ * that it follows the request it was sent in. A choice changed after sending
+ * is with the account team again. Requests carry the programs they cover in
+ * `assetKey` ("mk-plan:<key>,<key>").
+ */
+export interface RoomProgramStatus {
+  state: "team" | "new" | "in_progress" | "review" | "done";
+  label: string;
+  /** The same thing as a sentence, for a list that has room for one. */
+  line: string;
+  owner?: string | null;
+  due?: string | null;
+}
+export function roomProgramStatus(key: string, chosen: { value: string; at: string } | undefined, requests: { assetKey: string | null; status: string; owner: string | null; due: string | null; createdAt: string }[]): RoomProgramStatus | null {
+  if (!chosen || isDeclineOption(chosen.value)) return null;
+  const sent = requests
+    .filter((r) => (r.assetKey ?? "").startsWith("mk-plan:") && (r.assetKey as string).slice(8).split(",").includes(key))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+  if (!sent || chosen.at > sent.createdAt) return { state: "team", label: "With your account team", line: sent ? "You changed this after it went to marketing. Your account team is passing the change on." : "Your account team is passing this to marketing." };
+  const who = { owner: sent.owner, due: sent.due };
+  if (sent.status === "done") return { state: "done", label: "Done", line: "Marketing has finished this.", ...who };
+  if (sent.status === "review") return { state: "review", label: "Ready for your review", line: "Marketing has something for you to look at.", ...who };
+  if (sent.status === "in_progress") return { state: "in_progress", label: "In progress", line: "Marketing is working on this.", ...who };
+  return { state: "new", label: "With marketing", line: "Marketing has this and will pick it up.", ...who };
+}
+
 export const isDeclineOption = (o: string) => /^(not now|no|no thanks|skip|pass|not for us|decline|later)$/i.test(o.trim());
 const programKey = (p: RoomProgram) => roomMilestoneKey({ key: p.key, task: p.title });
 export function programDeclined(p: RoomProgram, choices: Record<string, { value: string }>): boolean {
@@ -1636,6 +1664,9 @@ input.prw-pick{display:block;width:100%;margin-top:5px}
 .prw .prw-o-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left;background:none;border:0;padding:0;color:inherit}
 .prw-o-main .t{font-size:13.5px;font-weight:600;color:var(--ink)}
 .prw-o-main .m{font-size:12px;color:var(--body)}
+.prw-o-main .d{font-size:12.5px;line-height:1.45;color:var(--body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;margin:1px 0 2px}
+.prw-plan-sum{margin:0 0 12px;font-size:13.5px;color:var(--body)}
+.prw-prog .meta .prw-chip{margin-left:8px;vertical-align:1px}
 button.prw-o-main:hover .t{color:var(--dark);text-decoration:underline;text-underline-offset:2px}
 .prw-o-end{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
 .prw-o-end .go{width:15px;height:15px;color:#B7BDB2}
@@ -2019,6 +2050,11 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     setView(m);
     return true;
   };
+  // The programs the customer said yes to, each with where it has got to.
+  const planned = programGroups
+    .flatMap((g) => g.programs)
+    .map((x) => ({ x, st: roomProgramStatus(roomMilestoneKey({ key: x.key, task: x.title }), snapshot.choices[roomMilestoneKey({ key: x.key, task: x.title })], snapshot.requests) }))
+    .filter((p): p is { x: (typeof p)["x"]; st: RoomProgramStatus } => !!p.st);
   // Outstanding: every open item from every module, with whose move it is.
   const brandLabel = brand.brandName || "Us";
   const partnerLabel = (props.partnerShort ?? "").trim() || props.partnerName || "You";
@@ -2031,6 +2067,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
       source: "Setup",
       side: "you",
       module: "overview",
+      detail: (x.step.description ?? "").trim() || undefined,
       action: (
         <OnboardingStep
           bare
@@ -2048,7 +2085,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         />
       ),
     })),
-    ...(needsAgreement ? [{ id: "goals", title: "Agree the goals for the partnership", source: "Goals", side: "you", module: "goals" } satisfies OutstandingItem] : []),
+    ...(needsAgreement ? [{ id: "goals", title: "Agree the goals for the partnership", source: "Goals", side: "you", module: "goals", detail: "Read the goals we set together and confirm they look right, or tell us what to change." } satisfies OutstandingItem] : []),
     ...rows
       .filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && x.status !== "done" && (x.action || blocked.includes(x)))
       .map((x): OutstandingItem => ({
@@ -2060,14 +2097,22 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         side: x.action ? "you" : ownerSide(x.r.partnerOwner && x.r.partnerOwner !== "—" && (!x.r.ourOwner || x.r.ourOwner === "—") ? partnerLabel : x.r.ourOwner && x.r.ourOwner !== "—" && (!x.r.partnerOwner || x.r.partnerOwner === "—") ? brandLabel : "", [brandLabel], [partnerLabel]),
         overdue: blocked.includes(x),
         module: "plan",
+        detail: (x.r.note ?? "").trim() || (ROOM_STEP_SHORTCUTS[x.key]?.hint ?? undefined),
         ...(x.action ? { action: <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} /> } : {}),
       })),
-    ...undecided.map((x): OutstandingItem => ({ id: `mk-${x.key}`, title: `Decide: ${x.title}`, source: "Marketing plan", from: x.when, side: "you", module: "marketing" })),
+    ...undecided.map((x): OutstandingItem => ({ id: `mk-${x.key}`, title: `Decide: ${x.title}`, source: "Marketing plan", from: [x.audience, x.when].filter(Boolean).join(" · ") || undefined, side: "you", module: "marketing", detail: (x.description ?? "").trim() || undefined })),
+    // What they said yes to and are waiting on: with the account team until it goes to marketing (after that, the request below carries it).
+    ...programGroups
+      .flatMap((g) => g.programs)
+      .map((x) => ({ x, st: roomProgramStatus(roomMilestoneKey({ key: x.key, task: x.title }), snapshot.choices[roomMilestoneKey({ key: x.key, task: x.title })], snapshot.requests) }))
+      .filter((p) => p.st?.state === "team")
+      .map(({ x, st }): OutstandingItem => ({ id: `mkw-${x.key}`, title: x.title, source: "Marketing plan", from: x.when, side: "us", module: "marketing", detail: st!.line })),
     ...snapshot.requests
       .filter((q) => q.status !== "done")
       .map((q): OutstandingItem => ({
         id: `req-${q.id}`,
         title: q.subject,
+        detail: (q.details ?? "").trim() ? (q.assetKey ?? "").startsWith("mk-plan:") ? (q.details as string).split("\n").filter(Boolean).join(" · ") : (q.details as string).trim() : undefined,
         source: "Request",
         from: [ROOM_REQUEST_KIND_LABEL[q.kind] ?? "Request", `asked by ${q.by}`, fmtDate(q.createdAt)].filter(Boolean).join(" · "),
         owner: q.owner ?? undefined,
@@ -2704,7 +2749,19 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
 
                 {(launch.inProgress.length > 0 || launch.preparing.length > 0) && (
                   <section className="prw-lk" data-room-launch="progress">
-                    <h3>In progress<span className="prw-num">{launch.inProgress.length + launch.preparing.length}</span></h3>
+                    <h3>{planned.length > 0 ? "Your marketing plan" : "In progress"}<span className="prw-num">{launch.inProgress.length + launch.preparing.length}</span></h3>
+                    {planned.length > 0 && (
+                      <p className="prw-plan-sum" data-room-plan-summary>
+                        {[
+                          `${planned.length} ${planned.length === 1 ? "program" : "programs"} you said yes to`,
+                          planned.filter((p) => p.st.state === "team").length ? `${planned.filter((p) => p.st.state === "team").length} with your account team` : "",
+                          planned.filter((p) => p.st.state === "new" || p.st.state === "in_progress").length ? `${planned.filter((p) => p.st.state === "new" || p.st.state === "in_progress").length} with marketing` : "",
+                          planned.filter((p) => p.st.state === "review").length ? `${planned.filter((p) => p.st.state === "review").length} ready for your review` : "",
+                          planned.filter((p) => p.st.state === "done").length ? `${planned.filter((p) => p.st.state === "done").length} done` : "",
+                        ].filter(Boolean).join(" · ")}
+                        . You can change a choice any time.
+                      </p>
+                    )}
                     <div className="prw-progs">
                       {launch.inProgress.map((x) => (
                         <div key={x.key || x.title}><ProgramRow program={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} slot={programGroups.some((g) => g.programs.some((y) => (y.imageUrl ?? "").trim()))} onAsk={canRequest ? () => openRequest({ subject: `Question about: ${x.title}`, kind: "marketing" }) : undefined} /></div>
@@ -3767,6 +3824,8 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot, onA
     setOpen(true);
   };
   const state = !canChoose ? "fixed" : declined ? "declined" : chosen ? "chosen" : "open";
+  // Where a yes has got to: with the account team, with marketing, ready for review, done.
+  const status = roomProgramStatus(key, chosen, snapshot.requests);
   return (
     <div className={`prw-prog${included ? " in" : ""}${open ? " open" : ""}`} data-room-program={state}>
       <div className="hd">
@@ -3774,7 +3833,7 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot, onA
         <div className="tx" onClick={isEditor ? undefined : () => setOpen((o) => !o)} style={isEditor ? undefined : { cursor: "pointer" }}>
           <h3><E item={program} field="title" placeholder="Program" /></h3>
           {(program.description || isEditor) && <p><E item={program} field="description" multiline placeholder="What it is" /></p>}
-          {(program.audience || program.when) && <div className="meta">{[program.audience, program.when].filter(Boolean).join(" · ")}{chosen && !declined && yes.length > 1 ? ` · ${chosen.value}` : ""}</div>}
+          {(program.audience || program.when) && <div className="meta">{[program.audience, program.when].filter(Boolean).join(" · ")}{chosen && !declined && yes.length > 1 ? ` · ${chosen.value}` : ""}{status && <span className={`prw-chip ${status.state === "team" ? "new" : status.state}`} data-room-program-status={status.state}>{status.label}</span>}</div>}
         </div>
         <button type="button" className="prw-more" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} details: ${program.title}`} onClick={() => setOpen((o) => !o)} data-room-program-more>
           <ChevronDown aria-hidden />
@@ -3800,6 +3859,7 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot, onA
             {program.when && (<><dt>When</dt><dd>{program.when}</dd></>)}
             {!canChoose && (<><dt>Status</dt><dd>{program.fixedLabel || "Included in every partnership"}</dd></>)}
             {chosen?.by && (<><dt>{declined ? "Saved for later by" : "Added by"}</dt><dd>{chosen.by} · {fmtDate(chosen.at)}</dd></>)}
+            {status && (<><dt>Where it is</dt><dd>{status.line}{status.owner ? ` Owner: ${status.owner}.` : ""}{status.due ? ` Due ${status.due}.` : ""}</dd></>)}
           </dl>
           {links.length > 0 && (
             <div className="links">

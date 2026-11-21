@@ -39,6 +39,8 @@ export interface OutstandingItem {
   source: OutstandingSource;
   /** Where it came from in words ("Weekly sync · Nov 10"). */
   from?: string;
+  /** A line of context under the title: what the item is or why it matters, so nobody has to open it to find out. */
+  detail?: string;
   owner?: string;
   due?: string;
   side: OutstandingSide;
@@ -150,6 +152,7 @@ export function OutstandingView({
     const body = (
       <>
         <span className="t">{i.title}</span>
+        {i.detail && <span className="d">{i.detail}</span>}
         {meta && <span className="m">{meta}</span>}
       </>
     );
