@@ -416,6 +416,10 @@ export interface RoomChoiceSpec {
   key: string;
   title: string;
   options: string[];
+  /** What the program is, who it reaches and when, as the plan says: carried into the brief marketing gets. */
+  description?: string;
+  audience?: string;
+  when?: string;
 }
 
 /**
@@ -451,7 +455,9 @@ export function extractRoomChoices(blocks: unknown): Map<string, RoomChoiceSpec>
         const rawKey = (p as { key?: unknown }).key;
         const options = own.length >= 2 ? own : (ROOM_PROGRAM_DEFAULT_OPTIONS[typeof rawKey === "string" ? rawKey.trim() : ""] ?? own);
         if (!key || options.length < 2 || out.has(key)) continue;
-        out.set(key, { key, title: String((p as { title?: unknown }).title ?? key), options });
+        const txt = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 300) : undefined);
+        const info = p as { description?: unknown; audience?: unknown; when?: unknown };
+        out.set(key, { key, title: String((p as { title?: unknown }).title ?? key), options, ...(txt(info.description) ? { description: txt(info.description) } : {}), ...(txt(info.audience) ? { audience: txt(info.audience) } : {}), ...(txt(info.when) ? { when: txt(info.when) } : {}) });
       }
     }
   }

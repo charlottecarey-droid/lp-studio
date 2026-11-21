@@ -67,6 +67,7 @@ import { hubPlays, hubRestrictsOutreach, setNoDirectOutreach, setPlayState } fro
 import { extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage } from "../../lib/partnerRoomStage";
 import { kitAsanaTask, kitNotice } from "../../lib/partnerRoomKit";
 import { ASANA_GID_RE, hubAsanaTarget } from "../../lib/partnerRoomAsana";
+import { buildPlanQueue, isDeclineChoice, planRequest } from "../../lib/partnerRoomPlanQueue";
 import { sendWelcomeKits } from "../../lib/partnerRoomKitService";
 import { practicesExportCsv } from "../../lib/partnerRoomRoster";
 import { applyRoster, buildRoomDigest, practiceTrainingEvents, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
@@ -1321,7 +1322,7 @@ router.post("/lp/room/choice", actionLimiter, async (req: Request, res: Response
       .values({ tenantId: page.tenantId, pageId: page.id, choiceKey: spec.key, value, chosenByEmail: viewer.email, chosenByName: viewer.name })
       .onConflictDoUpdate({ target: [lpRoomChoicesTable.pageId, lpRoomChoicesTable.choiceKey], set: { value, chosenByEmail: viewer.email, chosenByName: viewer.name, chosenAt: sql`now()` } });
     const settings = await loadSettings(page.id);
-    postToSlack(page, settings.slackChannelId, "🗳️ Marketing plan decision", [`*${mrk(viewer.name || viewer.email)}* chose *${mrk(value)}* for *${mrk(spec.title)}*.`], await roomPageUrl(req, page, req.body?.path));
+    postToSlack(page, settings.slackChannelId, "🗳️ Marketing plan decision", [`*${mrk(viewer.name || viewer.email)}* chose *${mrk(value)}* for *${mrk(spec.title)}*.`, ...(isDeclineChoice(value) ? [] : ["It is waiting in the hub's marketing plan queue: send it to marketing from Manage → Activity."])], await roomPageUrl(req, page, req.body?.path));
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "room choice failed");
@@ -1544,6 +1545,8 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email, addedBy: c.addedByEmail, createdAt: c.createdAt.toISOString() })),
       wins,
       isRoom: page.tasks.size > 0 || page.isWorkspace,
+      // The marketing plan as a queue: what the customer said yes to and whether marketing has it yet.
+      planQueue: page.isWorkspace ? planQueueFor(page, choiceRows, requests) : [],
       requests: requests.map((r) => ({
         id: r.id,
         kind: r.kind,
@@ -2414,6 +2417,51 @@ router.put("/lp/partner-rooms/:pageId/cover", async (req: Request, res: Response
   }
 });
 
+/**
+ * Send the programs a rep ticked in the marketing plan queue to marketing's
+ * request intake, as ONE request: an intake task in Asana with the brief, and
+ * a request on the hub the customer can follow. Nothing is recorded as sent
+ * unless the intake took it.
+ */
+router.post("/lp/partner-rooms/:pageId/plan-queue/send", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const keys = new Set((Array.isArray(req.body?.keys) ? req.body.keys : []).filter((k: unknown): k is string => typeof k === "string").map((k: string) => k.trim()));
+    const note = typeof req.body?.note === "string" ? req.body.note.replace(/\s+/g, " ").trim().slice(0, 600) : "";
+    const [choiceRows, requests] = await Promise.all([
+      db.select().from(lpRoomChoicesTable).where(eq(lpRoomChoicesTable.pageId, page.id)),
+      db.select().from(lpRoomRequestsTable).where(eq(lpRoomRequestsTable.pageId, page.id)),
+    ]);
+    // Only what is actually waiting can be sent: a stale tab can't send a program twice or one the customer has since declined.
+    const items = planQueueFor(page, choiceRows, requests).filter((i) => i.state === "queued" && keys.has(i.key));
+    if (items.length === 0) {
+      res.status(400).json({ error: "Nothing to send: those programs were already sent, or the customer changed their answer. Refresh and try again." });
+      return;
+    }
+    const by = req.authUser?.name || req.authUser?.email || "A team member";
+    const customer = page.partnerName || page.title;
+    const settings = await loadSettings(page.id);
+    const hubUrl = await roomPageUrl(req, page, undefined).catch(() => "");
+    const brief = planRequest(customer, items, by, new Date().toISOString().slice(0, 10), hubUrl, note);
+    const asana = await hubAsanaTarget(page.tenantId, settings.asanaProjectGid);
+    const result = await createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name: asanaRequestTaskName(customer, brief.subject), notes: brief.notes, projectGid: asana.projectGid, assigneeGid: asana.assigneeGid });
+    if (!result.ok) {
+      res.status(502).json({ error: result.warning ?? "Marketing's request intake didn't take it. Nothing was sent." });
+      return;
+    }
+    const [row] = await db
+      .insert(lpRoomRequestsTable)
+      .values({ tenantId: page.tenantId, pageId: page.id, kind: "marketing", subject: brief.subject, details: brief.details, assetKey: brief.assetKey, requestedByEmail: req.authUser?.email ?? "team", requestedByName: req.authUser?.name ?? null, asanaTaskGid: result.taskId ?? null })
+      .returning({ id: lpRoomRequestsTable.id });
+    postToSlack(page, settings.slackChannelId, "📣 Marketing plan sent to marketing", [`*${mrk(by)}* sent ${items.length === 1 ? "1 program" : `${items.length} programs`} to marketing's request intake:`, ...items.map((i) => `• ${mrk(i.title)}${i.value ? ` (${mrk(i.value)})` : ""}`), ...(note ? [mrk(note)] : [])], hubUrl || undefined);
+    res.json({ ok: true, requestId: row.id, taskId: result.taskId ?? null, sent: items.map((i) => i.key), warning: result.warning ?? null });
+  } catch (err) {
+    req.log.error({ err }, "room plan queue send failed");
+    res.status(500).json({ error: "Could not send to marketing" });
+  }
+});
+
 /** Save the hub's Important links from the manage pop-up. They live on the page, so only that part of it changes. */
 router.put("/lp/partner-rooms/:pageId/links", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -2561,6 +2609,17 @@ async function roomKitFor(pageId: number) {
 async function roomStageFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomStageInfo(row.blocks) : null;
+}
+
+/** The hub's marketing plan as a queue, from its decisions and the requests already sent for them. */
+function planQueueFor(page: RoomPage, choiceRows: { choiceKey: string; value: string; chosenByName: string | null; chosenByEmail: string; chosenAt: Date }[], requests: { id: number; assetKey: string | null; status: string; asanaTaskGid: string | null; createdAt: Date }[]) {
+  const programs = [...page.choices.values()];
+  return buildPlanQueue(
+    programs.map((p) => ({ key: p.key, title: p.title, description: p.description, audience: p.audience, when: p.when })),
+    // A choice the plan no longer offers is not a decision.
+    choiceRows.filter((c) => page.choices.get(c.choiceKey)?.options.includes(c.value)).map((c) => ({ key: c.choiceKey, value: c.value, by: c.chosenByName || c.chosenByEmail, at: c.chosenAt })),
+    requests,
+  );
 }
 
 async function roomLinksFor(pageId: number) {

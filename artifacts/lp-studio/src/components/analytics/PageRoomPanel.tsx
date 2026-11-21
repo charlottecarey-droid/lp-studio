@@ -14,6 +14,7 @@ import { RoomCoverSection, type HubCover } from "./RoomCover";
 import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
 import { RoomPlays } from "./RoomPlays";
 import { RoomLinksSection, type HubLink } from "./RoomLinks";
+import { RoomPlanQueueSection, type PlanQueueItem } from "./RoomPlanQueue";
 import { ROOM_OVERVIEW_SECTIONS, type RoomOverviewSection } from "@/blocks/BlockRoomWorkspace";
 
 /**
@@ -51,6 +52,8 @@ interface RoomDetail {
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
   isWorkspace?: boolean;
+  /** The marketing plan as a queue: what the customer said yes to, and whether marketing has it yet. */
+  planQueue?: PlanQueueItem[];
   choices?: { key: string; title: string; options: string[]; value: string | null; chosenBy: string | null; chosenAt: string | null }[];
   contacts?: { id: number; name: string; role: string | null; email: string | null; addedBy: string; createdAt: string }[];
   wins?: { id: number; body: string; headline: string | null; side: string; by: string; createdAt: string; likes: number; comments: { id: number; body: string; by: string }[] }[];
@@ -274,7 +277,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
               ...(data.isWorkspace ? [{ id: "performance", label: "Performance", count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "plays", label: "Plays", count: 0 }] : []),
               ...(data.isWorkspace && data.goals ? [{ id: "goals", label: "Goals", count: 0 }] : []),
-              { id: "activity", label: "Activity", count: requests.length + (data.requests ?? []).filter((q) => q.status === "new").length },
+              { id: "activity", label: "Activity", count: requests.length + (data.requests ?? []).filter((q) => q.status === "new").length + (data.planQueue ?? []).filter((i) => i.state === "queued").length },
               ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
               { id: "practices", label: data.isWorkspace ? "Practices & files" : "Files", count: 0 },
               ...(data.isWorkspace ? [{ id: "calendar", label: "Calendar & minutes", count: (data.events ?? []).filter((e) => e.minutesStatus === "draft").length }] : []),
@@ -313,7 +316,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             }}
           />
         )}
-        {tab === "activity" && requests.length === 0 && (data.requests ?? []).length === 0 && (data.choices ?? []).length === 0 && !data.isWorkspace && data.tasks.length === 0 && <p className="text-sm text-muted-foreground">Nothing has happened in this room yet.</p>}
+        {tab === "activity" && requests.length === 0 && (data.requests ?? []).length === 0 && (data.planQueue ?? []).length === 0 && !data.isWorkspace && data.tasks.length === 0 && <p className="text-sm text-muted-foreground">Nothing has happened in this room yet.</p>}
 
         {tab === "activity" && requests.length > 0 && (
           <section className="space-y-2">
@@ -342,23 +345,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           </section>
         )}
 
-        {tab === "activity" && (data.choices ?? []).length > 0 && (
-          <section className="space-y-2">
-            <h4 className="text-sm font-semibold">Marketing plan decisions</h4>
-            <div className="divide-y rounded-md border">
-              {data.choices!.map((c) => (
-                <div key={c.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                  <span className="text-sm">{c.title}</span>
-                  {c.value ? (
-                    <span className="text-sm"><Badge variant="secondary">{c.value}</Badge> <span className="text-xs text-muted-foreground">{c.chosenBy} · {fmtDate(c.chosenAt)}</span></span>
-                  ) : (
-                    <Badge variant="outline">No decision yet</Badge>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {tab === "activity" && data.isWorkspace && (data.planQueue ?? []).length > 0 && <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} />}
 
         {tab === "practices" && data.isWorkspace && (
           <section className="space-y-3">
