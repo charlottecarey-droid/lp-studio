@@ -418,7 +418,7 @@ export const DEFAULT_WORKSPACE_PLAN: WorkspaceGroup[] = [
       D("practice-roster", "Upload your practice list", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload practice list", note: "Practice names, addresses, regional managers and an office contact for each" }),
       D("doctor-roster", "Upload your doctor roster", "Operations Lead", { customerAction: "upload", uploadLabel: "Upload doctor roster", note: "Doctors by practice, so training and support reach the right people" }),
       D("accounts-confirmed", "Confirm your billing contact and each practice's mailing address", "Procurement"),
-      D("brand-guidelines", "Share your brand guidelines", "Communications", { note: "So everything we make for you carries your brand" }),
+      D("brand-guidelines", "Share your brand guidelines", "Communications", { customerAction: "upload", uploadLabel: "Upload brand guidelines", note: "So everything we make for you carries your brand" }),
     ],
   },
   {

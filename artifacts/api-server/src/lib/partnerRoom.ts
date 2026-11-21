@@ -240,6 +240,13 @@ export function pageIsRoom(blocks: unknown): boolean {
 }
 
 /** Every task on the page a customer may act on, keyed. Later duplicates of a key are ignored. */
+/**
+ * Plan steps completed by handing over a file, even on a hub saved when they
+ * were only a tick ("Share your brand guidelines" had nothing to share with).
+ * Mirrors the block's ROOM_UPLOAD_STEP_KEYS.
+ */
+export const ROOM_UPLOAD_STEP_KEYS = new Set(["brand-guidelines"]);
+
 export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
   const out = new Map<string, RoomTask>();
   if (!Array.isArray(blocks)) return out;
@@ -286,7 +293,7 @@ export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
         if (action !== "check" && action !== "upload") continue;
         const key = planTaskKey(row as { key?: unknown; task?: unknown });
         if (!key || out.has(key)) continue;
-        out.set(key, { key, title: String((row as { task?: unknown }).task ?? key), action });
+        out.set(key, { key, title: String((row as { task?: unknown }).task ?? key), action: ROOM_UPLOAD_STEP_KEYS.has(key) ? "upload" : action });
       }
     }
   }

@@ -198,6 +198,12 @@ describe("onboarding, choices, contacts, wins", () => {
     expect(choices.get("mk-press")?.options).toEqual(["Include", "Not now"]);
     expect(extractRoomChoices(null).size).toBe(0);
   });
+  it("a step that needs a file is an upload, even on a hub saved when it was a tick", () => {
+    const saved = [{ type: "room-workspace", props: { planGroups: [{ title: "P", rows: [{ key: "brand-guidelines", task: "Share your brand guidelines", customerAction: "check" }, { key: "exec-kickoff", task: "Join the kickoff", customerAction: "check" }] }] } }];
+    const tasks = extractRoomTasks(saved);
+    expect(tasks.get("brand-guidelines")?.action).toBe("upload");
+    expect(tasks.get("exec-kickoff")?.action).toBe("check");
+  });
   it("validates contacts, wins and comments", () => {
     expect(parseRoomContact({ name: " Dana Ruiz ", role: "Operations", email: "Dana@MB2Dental.com" })).toEqual({ ok: true, name: "Dana Ruiz", role: "Operations", email: "dana@mb2dental.com" });
     expect(parseRoomContact({ name: "Dana" })).toEqual({ ok: true, name: "Dana", role: null, email: null });

@@ -468,7 +468,7 @@ ${r!.liveChange && r!.liveChange > 0 ? `<div style="margin-top:12px">${pill(`${s
       heading("Waiting on you", waiting.length > shown.length ? `The next ${shown.length} of ${waiting.length}` : "") +
       row(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px">${shown
-          .map((x) => `<tr><td style="padding:0 0 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${line};border-radius:10px"><tr><td style="padding:13px 16px;font-size:15px;line-height:1.4;color:${ink}">${esc(x)}</td><td width="34" align="right" style="padding:13px 16px 13px 0;font-size:16px;color:${soft}">&rarr;</td></tr></table></td></tr>`)
+          .map((x) => `<tr><td style="padding:0 0 8px"><a href="${url}" style="display:block;text-decoration:none;color:${ink}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${line};border-radius:10px"><tr><td style="padding:13px 16px;font-size:15px;line-height:1.4;color:${ink}">${esc(x)}</td><td width="34" align="right" style="padding:13px 16px 13px 0;font-size:16px;color:${soft}">&rarr;</td></tr></table></a></td></tr>`)
           .join("")}</table>${waiting.length > shown.length ? `<div style="margin-top:6px;font-size:14px"><a href="${url}" style="color:${color};font-weight:600;text-decoration:underline">See all ${waiting.length} in your hub</a></div>` : ""}`,
       )
     : "";

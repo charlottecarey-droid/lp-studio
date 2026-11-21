@@ -13,13 +13,14 @@
  * This module gathers the open ones so nobody has to visit six tabs to know
  * what is waiting. The layout is deliberately plain: a heading per side, one
  * line per item, and the whole line is the button. A meeting action is
- * ticked in place; a request shows its status (and Approve, when it is ready
- * for the customer); everything else opens the module where it is done.
+ * ticked in place; a setup step or a plan step carries its own button
+ * (Upload, Complete, Add); a request shows its status (and Approve, when it
+ * is ready for the customer); everything else opens the module where it is done.
  * Finished requests fold away at the bottom.
  *
  * Styles live in the room block's CSS string (`.prw-o-*`).
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, ChevronRight, PencilLine } from "lucide-react";
 
 export type OutstandingSide = "you" | "us" | "both";
@@ -50,6 +51,8 @@ export interface OutstandingItem {
   approveRequestId?: number;
   /** The request behind a "Request" item: its status shows on the line, and the team can edit it. */
   request?: OutstandingRequest;
+  /** The item's own button (Upload, Complete, Add…), so it is done right here instead of sending the reader to another tab to look for it. */
+  action?: ReactNode;
 }
 
 export interface DoneRequest {
@@ -160,7 +163,7 @@ export function OutstandingView({
         ) : (
           <span className="prw-o-dot" aria-hidden />
         )}
-        {i.request || tickable ? (
+        {i.request || tickable || (i.action && i.source === "Setup") ? (
           <div className="prw-o-main">{body}</div>
         ) : (
           <button type="button" className="prw-o-main" onClick={() => onOpen(i.module)}>{body}</button>
@@ -176,7 +179,8 @@ export function OutstandingView({
               <PencilLine aria-hidden />
             </button>
           )}
-          {!i.request && !tickable && <ChevronRight className="go" aria-hidden />}
+          {i.action}
+          {!i.request && !tickable && !i.action && <ChevronRight className="go" aria-hidden />}
         </span>
         {i.request && onEditRequest && editing === i.id && <RequestEditor request={i.request} people={people} onClose={() => setEditing(null)} onSave={(patch) => onEditRequest(i.request!.id, patch)} />}
       </div>

@@ -30,6 +30,7 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomLinkAsset,
+  roomRowAction,
   absoluteLink,
   roomProgramOptions,
   roomNextUp,
@@ -84,6 +85,30 @@ describe("room-workspace — registry + default render", () => {
     expect(absoluteLink("https://drive.example.com/folder", "https://partners.example.com")).toBe("https://drive.example.com/folder");
     expect(absoluteLink("mailto:a@b.example", "https://partners.example.com")).toBe("mailto:a@b.example");
     expect(absoluteLink("", "https://partners.example.com")).toBe("");
+  });
+  it("every outstanding step carries its own button, and steps that need a file ask for one", () => {
+    // "Share your brand guidelines" was saved as a tick on older hubs: it is an upload now.
+    expect(roomRowAction({ key: "brand-guidelines", task: "Share your brand guidelines", customerAction: "check" })).toBe("upload");
+    expect(roomRowAction({ key: "exec-kickoff", task: "Join the kickoff", customerAction: "check" })).toBe("check");
+    expect(roomRowAction({ key: "ours", task: "Our step" })).toBeNull();
+    const html = render({
+      hiddenModules: ["wins", "goals", "practices", "calendar", "meetings", "team"] as never,
+      moduleOrder: ["requests"] as never,
+      onboarding: { steps: [{ key: "onboard-logo", title: "Upload your logo", action: "upload" }] } as never,
+      planGroups: [{ title: "P", rows: [
+        { key: "brand-guidelines", task: "Share your brand guidelines", customerAction: "check" },
+        { key: "internal-announcement", task: "Send the partnership announcement", customerAction: "check" },
+        { key: "exec-kickoff", task: "Join the executive kickoff", customerAction: "check" },
+      ] }] as never,
+    });
+    expect(html).toContain('data-room-view="requests"');
+    // The logo step: an Upload button in the list itself, not a link to the Overview.
+    expect(html).toContain('data-room-step-inline="upload"');
+    // Brand guidelines takes a file; the kickoff is a tick; the announcement also points at where its copy lives.
+    expect((html.match(/data-room-action="upload"/g) ?? []).length).toBe(1);
+    expect((html.match(/data-room-action="check"/g) ?? []).length).toBe(2);
+    expect(html).toContain('data-room-step-go="marketing"');
+    expect(html).toContain("Get the copy");
   });
   it("leaves out the Overview sections a rep switched off", () => {
     const all = render();

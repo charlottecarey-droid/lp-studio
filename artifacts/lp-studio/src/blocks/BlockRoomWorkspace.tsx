@@ -631,6 +631,23 @@ export function roomLinkAsset(l: { title: string; url: string; fileUrl?: string;
   return file ? { key, kind: l.kind === "image" ? "image" : "pdf", title: l.title, fileUrl: file } : { key, kind: "link", title: l.title, externalUrl: l.url };
 }
 
+/**
+ * Plan steps that are done by handing over a file, even on a hub saved when
+ * they were only a tick: "Share your brand guidelines" had no way to share
+ * anything. Mirrors the server's ROOM_UPLOAD_STEP_KEYS.
+ */
+export const ROOM_UPLOAD_STEP_KEYS: Record<string, string> = { "brand-guidelines": "Upload brand guidelines" };
+/** What the customer does to complete a plan step: tick it, upload a file, or nothing (it is ours). */
+export function roomRowAction(row: { key?: string; task?: string; customerAction?: string }): "check" | "upload" | null {
+  if (row.customerAction !== "check" && row.customerAction !== "upload") return null;
+  return ROOM_UPLOAD_STEP_KEYS[roomMilestoneKey(row)] ? "upload" : row.customerAction;
+}
+/** Plan steps that are really done somewhere else in the hub: the step gets a button that goes there. */
+export const ROOM_STEP_SHORTCUTS: Record<string, { module: RoomModuleKey; label: string; hint: string }> = {
+  "internal-announcement": { module: "marketing", label: "Get the copy", hint: "The announcement email and social posts are in Launch & marketing" },
+  "welcome-event": { module: "marketing", label: "Choose", hint: "Pick your welcome event in the marketing plan" },
+};
+
 export function roomMilestoneKey(row: { key?: string; task?: string }): string {
   const explicit = (row.key ?? "").trim();
   if (explicit) return explicit.slice(0, 80);
@@ -1621,6 +1638,7 @@ input.prw-pick{display:block;width:100%;margin-top:5px}
 button.prw-o-main:hover .t{color:var(--dark);text-decoration:underline;text-underline-offset:2px}
 .prw-o-end{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
 .prw-o-end .go{width:15px;height:15px;color:#B7BDB2}
+.prw-o-act,.prw-o-act .a{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .prw-o-late{font-size:11px;font-weight:700;color:var(--red)}
 .prw .prw-o-more{display:block;width:100%;padding:10px 16px;border:0;border-top:1px solid var(--line);background:none;text-align:left;font-size:12.5px;font-weight:600;color:var(--dark)}
 .prw-o-row>.prw-edit{flex-basis:100%;margin-top:4px}
@@ -1876,7 +1894,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         (g.rows ?? []).map((row, ri) => {
           const key = roomMilestoneKey(row);
           const r = planEdits[key] ? { ...row, ...planEdits[key] } : row;
-          const action = r.customerAction === "check" || r.customerAction === "upload" ? r.customerAction : null;
+          const action = roomRowAction(r);
           const saved = action ? snapshot.tasks[key] : undefined;
           return { gi, ri, r, action, key, saved, status: saved?.done ? ("done" as RoomMilestoneStatus) : resolveRoomStatus(r.status) };
         }),
@@ -1994,12 +2012,41 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     ];
     return [...first, ...rest].slice(0, ROOM_NEXT_UP);
   })();
+  /** Open another part of the hub, when this account shows it. */
+  const goTo = (m: RoomModuleKey): boolean => {
+    if (!modules.some((x) => x.key === m)) return false;
+    setView(m);
+    return true;
+  };
   // Outstanding: every open item from every module, with whose move it is.
   const brandLabel = brand.brandName || "Us";
   const partnerLabel = (props.partnerShort ?? "").trim() || props.partnerName || "You";
   const actionDone = (m: RoomMeeting, a: RoomMeetingAction) => !!a.done || !!snapshot.tasks[roomMeetingActionKey(m.key, a.text)]?.done;
   const outstandingAll: OutstandingItem[] = [
-    ...stepsOpen.map((x): OutstandingItem => ({ id: `step-${x.key}`, title: x.step.title, source: "Setup", side: "you", module: "overview" })),
+    // A setup step and a plan step are done right here in the list: the same button they have where they live.
+    ...stepsOpen.map((x): OutstandingItem => ({
+      id: `step-${x.key}`,
+      title: x.step.title,
+      source: "Setup",
+      side: "you",
+      module: "overview",
+      action: (
+        <OnboardingStep
+          bare
+          step={x.step}
+          stepKey={x.key}
+          done={x.done}
+          saved={x.saved}
+          snapshot={snapshot}
+          store={store}
+          isEditor={isEditor}
+          teamCount={theirPeople.length}
+          onNeedEmail={() => setAsk({ kind: "email" })}
+          onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
+          onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key, form: isGiftStep(x.step) ? "shipping" : undefined })}
+        />
+      ),
+    })),
     ...(needsAgreement ? [{ id: "goals", title: "Agree the goals for the partnership", source: "Goals", side: "you", module: "goals" } satisfies OutstandingItem] : []),
     ...rows
       .filter((x) => !x.r.hidden && !groups[x.gi]?.hidden && x.status !== "done" && (x.action || blocked.includes(x)))
@@ -2012,6 +2059,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         side: x.action ? "you" : ownerSide(x.r.partnerOwner && x.r.partnerOwner !== "—" && (!x.r.ourOwner || x.r.ourOwner === "—") ? partnerLabel : x.r.ourOwner && x.r.ourOwner !== "—" && (!x.r.partnerOwner || x.r.partnerOwner === "—") ? brandLabel : "", [brandLabel], [partnerLabel]),
         overdue: blocked.includes(x),
         module: "plan",
+        ...(x.action ? { action: <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} /> } : {}),
       })),
     ...undecided.map((x): OutstandingItem => ({ id: `mk-${x.key}`, title: `Decide: ${x.title}`, source: "Marketing plan", from: x.when, side: "you", module: "marketing" })),
     ...snapshot.requests
@@ -2339,7 +2387,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                           {x.action === "upload" && isRosterTask(x.key) && <RosterTemplateLink store={store} show={!isEditor && !!snapshot.viewer} />}
                         </div>
                         <div className="a">
-                          <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} />
+                          <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} />
                         </div>
                       </div>
                         );
@@ -2481,7 +2529,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <tbody>
                     {groups.map((g, gi) => (expansion && planGroupDone(gi) ? null : (
 
-                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
+                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
                     )))}
                   </tbody>
                 </table>
@@ -2504,7 +2552,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <tbody>
                     {groups.map((g, gi) => (!planGroupDone(gi) ? null : (
 
-                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
+                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
                     )))}
                   </tbody>
                 </table>
@@ -2852,7 +2900,7 @@ export function planCell(v: string | undefined): string {
   return /^(—|–|-|n\/a)$/i.test(t) ? "" : t;
 }
 
-function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit, cols }: { cols: { target: boolean; ours: boolean }; group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null }) {
+function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit, cols, onGo }: { onGo?: (module: RoomModuleKey) => boolean; cols: { target: boolean; ours: boolean }; group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null }) {
   // The account team edits one row at a time: the table stays plain text, and a pencil opens that row's fields.
   const [editing, setEditing] = useState<string | null>(null);
   const span = 4 + Number(cols.target) + Number(cols.ours);
@@ -2883,7 +2931,7 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit, 
             </td>
             <td className="r">
               <span className="prw-rowact">
-                {x.action && <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={onNeedEmail} />}
+                {x.action && <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={onNeedEmail} onGo={onGo} />}
                 {edit && (
                   <button type="button" className={`prw-ib${editing === x.key ? " on" : ""}`} title="Edit this milestone" aria-label={`Edit: ${x.r.task}`} aria-expanded={editing === x.key} onClick={() => setEditing((k) => (k === x.key ? null : x.key))} data-room-edit-row>
                     <PencilLine aria-hidden />
@@ -2996,7 +3044,7 @@ function RosterTemplateLink({ store, show }: { store: RoomStoreHandle | null; sh
   );
 }
 
-function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row: PlanRow; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void }) {
+function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail, onGo }: { row: PlanRow; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; /** Open another part of the hub, for a step that is really done there. Returns false when that part is hidden. */ onGo?: (module: RoomModuleKey) => boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -3022,10 +3070,16 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail }: { row:
   };
   // Short labels so every action fits its column; the longer wording is the tooltip.
   const label = row.action === "upload" ? (done ? "Replace" : "Upload") : done ? "Undo" : "Complete";
-  const hint = row.action === "upload" ? (done ? "Replace the file" : (row.r.uploadLabel ?? "").trim() || "Upload a file") : done ? "Mark as not done" : "Mark complete";
+  const hint = row.action === "upload" ? (done ? "Replace the file" : (row.r.uploadLabel ?? "").trim() || ROOM_UPLOAD_STEP_KEYS[row.key] || "Upload a file") : done ? "Mark as not done" : "Mark complete";
+  const shortcut = !done && onGo ? ROOM_STEP_SHORTCUTS[row.key] : undefined;
   return (
     <span className="prw-act">
-      <button type="button" className={`prw-btn${done ? "" : " pri"}`} onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
+      {shortcut && (
+        <button type="button" className="prw-btn pri" onClick={() => !isEditor && onGo!(shortcut.module)} title={shortcut.hint} data-room-step-go={shortcut.module}>
+          {shortcut.label}
+        </button>
+      )}
+      <button type="button" className={`prw-btn${done || shortcut ? "" : " pri"}`} onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
         {busy ? <Loader2 className="animate-spin" aria-hidden /> : row.action === "upload" ? <Upload aria-hidden /> : <Check aria-hidden />}
         {busy ? "Saving" : label}
       </button>
@@ -3513,7 +3567,7 @@ function TeamGroup({ group, isEditor, invite }: { group: RoomTeamGroup; isEditor
 
 /* ── Onboarding ──────────────────────────────────────────────────────────── */
 
-function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor, onNeedEmail, onAddTeam, onRequest, teamCount = 0 }: { /** How many of the customer's people are already on the team list. */ teamCount?: number; step: RoomOnboardingStep; stepKey: string; done: boolean; saved: RoomSnapshot["tasks"][string] | undefined; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; onAddTeam: () => void; onRequest: () => void }) {
+function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor, onNeedEmail, onAddTeam, onRequest, teamCount = 0, bare = false }: { /** Only the step's buttons, for a list that already names the step (Outstanding). */ bare?: boolean; /** How many of the customer's people are already on the team list. */ teamCount?: number; step: RoomOnboardingStep; stepKey: string; done: boolean; saved: RoomSnapshot["tasks"][string] | undefined; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; onAddTeam: () => void; onRequest: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -3537,15 +3591,7 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
   // People are already listed (from the account, or added earlier): say so, so nobody adds them twice.
   const already = step.action === "team" && teamCount > 0;
   const summary = saved?.done ? [saved.fileName ? `Received ${saved.fileName}` : "Done", saved.by, fmtDate(saved.at)].filter(Boolean).join(" · ") : step.done ? "Done" : already ? `${teamCount} ${teamCount === 1 ? "person is" : "people are"} already listed. Check the list and add anyone who is missing.` : step.description;
-  return (
-    <div className={`prw-step${done ? " done" : ""}`} data-room-step={step.action}>
-      <span className="dot">{done ? <Check style={{ width: 12, height: 12 }} aria-hidden /> : null}</span>
-      <div style={{ minWidth: 0 }}>
-        <div className="t">{step.title}</div>
-        {summary && <div className="m">{summary}</div>}
-        {error && <div className="prw-err" role="alert">{error}</div>}
-      </div>
-      {!done && (
+  const buttons = !done && (
         <div className="a">
           {step.action === "upload" && (
             <>
@@ -3578,7 +3624,24 @@ function OnboardingStep({ step, stepKey, done, saved, snapshot, store, isEditor,
             </button>
           )}
         </div>
-      )}
+  );
+  if (bare) {
+    return (
+      <span className="prw-act prw-o-act" data-room-step-inline={step.action}>
+        {buttons}
+        {error && <span className="prw-err" role="alert" style={{ whiteSpace: "normal" }}>{error}</span>}
+      </span>
+    );
+  }
+  return (
+    <div className={`prw-step${done ? " done" : ""}`} data-room-step={step.action}>
+      <span className="dot">{done ? <Check style={{ width: 12, height: 12 }} aria-hidden /> : null}</span>
+      <div style={{ minWidth: 0 }}>
+        <div className="t">{step.title}</div>
+        {summary && <div className="m">{summary}</div>}
+        {error && <div className="prw-err" role="alert">{error}</div>}
+      </div>
+      {buttons}
     </div>
   );
 }
