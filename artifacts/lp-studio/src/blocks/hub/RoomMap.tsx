@@ -219,6 +219,16 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
     setZoomed("");
     setView({ k: 1, x: 0, y: 0 });
   };
+  /** Picking a region or manager in the list shows only its pins and zooms to them; picking it again shows everything. */
+  const pickGroup = (name: string) => {
+    const next = group === name ? "" : name;
+    setGroup(next);
+    setZoomed("");
+    const own = next ? pins.filter((q) => of(q.p) === next && (!stages || stages.includes(q.p.stage))) : [];
+    const v = own.length ? zoomToBox(stateBox({ x0: 0, x1: W, y0: 0, y1: H }, own)) : null;
+    // A group spread across the whole map has nothing to zoom to: stay on the full view.
+    setView(v && v.k > 1.05 ? v : { k: 1, x: 0, y: 0 });
+  };
   const zoom = (factor: number) =>
     setView((v) => {
       const k = Math.max(1, Math.min(12, v.k * factor));
@@ -339,7 +349,7 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
         <h4>{by === "manager" ? "Regional managers" : "Regions"}</h4>
         <div className="prw-map-groups">
           {groups.map((g) => (
-            <button type="button" key={g.name} className={group === g.name ? "on" : ""} aria-pressed={group === g.name} onClick={() => setGroup((cur) => (cur === g.name ? "" : g.name))} data-room-map-group={g.name}>
+            <button type="button" key={g.name} className={group === g.name ? "on" : ""} aria-pressed={group === g.name} onClick={() => pickGroup(g.name)} data-room-map-group={g.name}>
               <i style={{ background: g.color }} />
               <span className="n">{g.name}</span>
               <span className="v prw-num">{g.live} of {g.total}</span>
