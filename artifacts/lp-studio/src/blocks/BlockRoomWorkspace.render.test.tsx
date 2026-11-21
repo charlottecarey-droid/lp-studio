@@ -592,7 +592,7 @@ describe("room-workspace — welcome banner and needs your attention", () => {
     expect(isGiftStep({ title: "Question about: Video mailer and lab-credit offer" })).toBe(false);
     expect(isGiftStep({ title: "Add your team" })).toBe(false);
     // The answers become the request's details, one line each, blanks left out.
-    expect(requestDetails(gift, { recipient: "Dana Ruiz", street: "100 Main St", suite: " ", city: "Dallas", state: "TX", zip: "75201" })).toBe("Recipient name: Dana Ruiz\nStreet address: 100 Main St\nCity: Dallas\nState: TX\nZIP code: 75201");
+    expect(requestDetails(gift, { recipient: "Dana Ruiz", street: "100 Main St", suite: " ", city: "Dallas", state: "TX", zip: "75201" })).toBe("Name: Dana Ruiz\nStreet address: 100 Main St\nCity: Dallas\nState: TX\nZIP code: 75201");
   });
   it("add your team: says how many people are already listed instead of asking to add them again", () => {
     const steps = { onboarding: { steps: [{ key: "onboard-team", title: "Add your team", description: "Who we should work with on your side.", action: "team" as const }] } };

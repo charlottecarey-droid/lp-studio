@@ -500,7 +500,7 @@ export const DEFAULT_WORKSPACE_ONBOARDING = {
   intro: "Three quick things to get started. The practice list and doctor roster are waiting for you below.",
   steps: [
     { key: "onboard-logo", title: "Upload your logo", description: "So everything we make for you carries your brand. Brand guidelines welcome too.", action: "upload", buttonLabel: "Upload logo" },
-    { key: "onboard-gift", title: "Accept your welcome gift", description: "Tell us where to send it and who it's for.", action: "request", buttonLabel: "Accept gift", requestKind: "marketing" },
+    { key: "onboard-gift", title: "Accept your welcome gift", description: "Tell us where to send it.", action: "request", buttonLabel: "Accept gift", requestKind: "marketing" },
     { key: "onboard-team", title: "Add your team", description: "Your executive sponsor, operations lead, clinical champion and marketing contact.", action: "team", buttonLabel: "Add people" },
   ],
 };

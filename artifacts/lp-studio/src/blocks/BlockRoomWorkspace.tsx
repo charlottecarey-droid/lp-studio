@@ -2999,10 +2999,10 @@ export interface RequestForm {
 
 const SHIPPING_FORM: RequestForm = {
   title: "Where should we send it?",
-  intro: "Tell us who it’s for and where it should go. We’ll confirm before it ships.",
+  intro: "We’ll confirm before it ships.",
   submit: "Send details",
   fields: [
-    { key: "recipient", label: "Recipient name", required: true, autoComplete: "name" },
+    { key: "recipient", label: "Name", required: true, autoComplete: "name" },
     { key: "company", label: "Company or office", autoComplete: "organization" },
     { key: "street", label: "Street address", required: true, autoComplete: "address-line1" },
     { key: "suite", label: "Suite, floor or unit", autoComplete: "address-line2" },
