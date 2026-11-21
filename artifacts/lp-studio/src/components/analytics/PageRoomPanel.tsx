@@ -16,6 +16,7 @@ import { OutreachSetting, RoomPlays } from "./RoomPlays";
 import { RoomLinksSection, type HubLink } from "./RoomLinks";
 import { RoomPlanQueueSection, type PlanQueueItem } from "./RoomPlanQueue";
 import { RoomReminderSection } from "./RoomReminder";
+import { RoomSlackPreview } from "./RoomSlackPreview";
 import { ROOM_OVERVIEW_SECTIONS, type RoomOverviewSection } from "@/blocks/BlockRoomWorkspace";
 
 /**
@@ -179,7 +180,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   });
   const [digestOn, setDigestOn] = useState(false);
   const [digestTo, setDigestTo] = useState("");
-  const [preview, setPreview] = useState<{ subject: string; html: string; recipients: string[]; slackText: string; empty: boolean } | null>(null);
+  const [preview, setPreview] = useState<{ subject: string; html: string; recipients: string[]; slackText: string; slackHeader?: string; slackContext?: string; empty: boolean } | null>(null);
   const [digestNote, setDigestNote] = useState("");
   const [compare, setCompare] = useState<{ uploadId: number; fileName: string; practices: { uploaded: number; inRoom: number; matched: number; missingFromRoom: string[]; notOnUpload: string[]; sheet: string } | null; doctors: { count: number; sheet: string } | null } | null>(null);
   const [revops, setRevops] = useState("");
@@ -931,8 +932,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                   <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close preview" onClick={() => setPreview(null)}><X className="h-4 w-4" /></Button>
                 </div>
                 <iframe title="Digest email preview" sandbox="" srcDoc={preview.html} className="h-[420px] w-full rounded border bg-white" />
-                <p className="text-xs font-medium">Slack post</p>
-                <pre className="whitespace-pre-wrap rounded bg-muted p-2 text-xs">{preview.slackText}</pre>
+                <p className="text-xs font-medium">Slack post, as your team will see it</p>
+                <RoomSlackPreview header={preview.slackHeader || "Weekly digest"} text={preview.slackText} context={preview.slackContext} channel={slackChannels?.find((c) => c.id === channel)?.name} />
               </div>
             )}
               </Fold>

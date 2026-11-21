@@ -2839,7 +2839,7 @@ router.post("/lp/partner-rooms/:pageId/digest/preview", async (req: Request, res
       res.status(400).json({ error: "This page isn't a workspace room." });
       return;
     }
-    res.json({ subject: digest.email.subject, html: digest.email.html, recipients: digest.recipients, slackText: (digest.slack.blocks[1] as { text?: { text?: string } })?.text?.text ?? "", empty: digest.empty });
+    res.json({ subject: digest.email.subject, html: digest.email.html, recipients: digest.recipients, slackText: (digest.slack.blocks[1] as { text?: { text?: string } })?.text?.text ?? "", slackHeader: (digest.slack.blocks[0] as { text?: { text?: string } })?.text?.text ?? "", slackContext: (digest.slack.blocks[2] as { elements?: { text?: string }[] })?.elements?.[0]?.text ?? "", empty: digest.empty });
   } catch (err) {
     req.log.error({ err }, "room digest preview failed");
     res.status(500).json({ error: "Could not build the digest" });
