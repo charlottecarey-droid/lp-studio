@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown,
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import { ROOM_LOOK_CSS, roomLook, roomLookClass } from "./hub/room-look";
 import { useBuilderPageId, usePageContext } from "@/lib/page-context";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
@@ -417,6 +418,8 @@ export interface RoomWorkspaceBlockProps {
   requireEmail?: boolean;
   /** Show the Scorecard's map to anyone who opens the hub. Off = the map is for the team's own view only (it shows which offices are not ordering). */
   shareMap?: boolean;
+  /** Which look the hub wears. Unset = "classic". */
+  look?: "classic" | "polished";
   /** Set by the server on what it sends a stranger to a hub that asks for an email: this is the cover, the rest is withheld. */
   gated?: boolean;
   /** "Schedule" in the top bar: where it books (a rep's booking page). Blank = no button. */
@@ -1712,7 +1715,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const dark = isValidHex(brand.primaryColor) ? brand.primaryColor : "#0f172a";
   const accentRaw = (props.accentColor ?? "").trim();
   const accent = isValidHex(accentRaw) ? accentRaw : isValidHex(brand.accentColor) ? brand.accentColor : "#C7E738";
-  const vars = { "--dark": dark, "--on-dark": contrastTextColor(dark), "--accent": accent, "--on-accent": contrastTextColor(accent), fontFamily: BRAND_BODY_STACK } as React.CSSProperties;
+  const vars = { "--dark": dark, "--on-dark": contrastTextColor(dark), "--accent": accent, "--on-accent": contrastTextColor(accent), "--disp": BRAND_DISPLAY_STACK, fontFamily: BRAND_BODY_STACK } as React.CSSProperties;
 
   const total = Math.max(1, props.rolloutDays ?? 90);
   const day = now ? rolloutDay(props.kickoffDate, now) : null;
@@ -1960,8 +1963,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   // A hub that asks for an email shows a stranger the cover and one question. Nothing else is on the page to find.
   if (!isEditor && !!props.requireEmail && !snapshot.viewer) {
     return (
-      <section className="prw" style={vars} data-room-workspace data-room-gate>
+      <section className={`prw${roomLookClass(props.look)}`} style={vars} data-room-workspace data-room-gate data-room-look={roomLook(props.look)}>
         <style>{CSS}</style>
+        {roomLook(props.look) === "polished" && <style>{ROOM_LOOK_CSS}</style>}
         <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? (props.coverPhotoScrolls || isEditor ? " fd" : " fd fx") : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
           {fadePhoto}
           <div className="prw-wrap">
@@ -2011,8 +2015,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
 
   return (
     <RoomEditContext.Provider value={editItem}>
-    <section ref={rootRef} className={`prw${tight ? " tight" : ""}`} style={vars} data-room-workspace>
+    <section ref={rootRef} className={`prw${tight ? " tight" : ""}${roomLookClass(props.look)}`} style={vars} data-room-workspace data-room-look={roomLook(props.look)}>
       <style>{CSS}</style>
+      {roomLook(props.look) === "polished" && <style>{ROOM_LOOK_CSS}</style>}
       <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? (props.coverPhotoScrolls || isEditor ? " fd" : " fd fx") : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
           {fadePhoto}
         <div className="prw-wrap">

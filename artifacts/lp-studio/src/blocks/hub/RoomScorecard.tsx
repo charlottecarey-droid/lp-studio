@@ -739,7 +739,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
             </div>
           )}
           <TwoWayScroll>
-            <table style={{ minWidth: colCount > 6 ? 980 : undefined }}>
+            <table className="prw-sc-table" style={{ minWidth: colCount > 6 ? 980 : undefined }}>
               <thead>
                 <tr>
                   {isTeam && (
@@ -761,7 +761,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                       </td>
                     )}
                     <td>
-                      <div className="t">{p.name}</div>
+                      <div className="t" title={p.name}>{p.name}</div>
                       {(p.city || p.state) && <div className="m">{[p.city, p.state].filter(Boolean).join(", ")}</div>}
                     </td>
                     {shown.map((c) => <td key={c.key} className="c">{c.cell(p)}</td>)}

@@ -6,6 +6,7 @@
  * launch kit → the team. Who may act in the room, uploaded files and requests
  * live on the page's analytics screen, under Room.
  */
+import { ROOM_LOOKS, roomLook } from "@/blocks/hub/room-look";
 import {
   ROOM_ASSET_ICONS,
   ROOM_MODULES,
@@ -440,6 +441,19 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
             <Switch checked={!!props.shareMap} onCheckedChange={(v) => update({ shareMap: v })} aria-label="Show the practice map to anyone who opens the hub" />
             Show the practice map to anyone who opens the hub
           </label>
+        </div>
+        <div className="space-y-1.5 rounded border p-2" data-room-look-setting>
+          <div className="text-xs font-semibold">Look</div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {ROOM_LOOKS.map((l) => {
+              const on = roomLook(props.look) === l.id;
+              return (
+                <button key={l.id} type="button" onClick={() => update({ look: l.id })} aria-pressed={on} title={l.hint} className={`rounded-md border px-2 py-1.5 text-[11px] font-medium ${on ? "border-foreground bg-muted" : "text-muted-foreground hover:bg-muted/50"}`} data-room-look-option={l.id}>
+                  {l.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <Switch checked={!!props.partnerLogoOriginal} onCheckedChange={(v) => update({ partnerLogoOriginal: v })} aria-label="Keep the logo's own colours" />
