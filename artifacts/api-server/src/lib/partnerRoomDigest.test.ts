@@ -67,6 +67,9 @@ describe("weekly digest", () => {
     expect(d.undecided).toEqual(["Press release"]);
     expect(d.reviewRequests).toEqual(["Square graphic"]);
     expect(d.topWin).toEqual({ text: "1,000 cases. Passed 1,000 cases", by: "The team" });
+    // Team updates: this week's posts, most liked first. The 30-day-old one is not news.
+    expect(d.updates).toEqual([{ text: "1,000 cases. Passed 1,000 cases", by: "The team" }, { text: "First crown seated", by: "J. Smith" }]);
+    expect(d.updatesMore).toBe(0);
     expect(digestIsEmpty(d)).toBe(false);
   });
   it("the customer email carries what they can see and never the blockers; the Slack post carries the blockers", () => {
@@ -187,6 +190,30 @@ describe("weekly digest", () => {
       expect(digestDay("soon")).toBeNull();
       expect(digestDay(null)).toBeNull();
     });
+  });
+
+  it("calls the section Team updates, and leaves it out when the only post is the hub's own welcome", () => {
+    const welcome = { body: "This is your News Feed.", headline: "Welcome, MB2 Dental", by: "Dandy", likes: 0, createdAt: daysAgo(1), system: true };
+    const only = collectDigest(blocks, { ...state, wins: [welcome] }, NOW)!;
+    expect(only.updates).toEqual([]);
+    expect(only.topWin).toBeNull();
+    const email = renderDigestEmail(only, { roomUrl: "https://x.test/r", senderName: "Dandy" }).html;
+    expect(email).not.toContain("Team updates");
+    expect(email).not.toContain("Welcome, MB2 Dental");
+    expect(JSON.stringify(renderDigestSlack(only, "https://x.test/r").blocks)).not.toContain("Team updates");
+    // A hub whose only "news" is its welcome post, with nothing else going on, has nothing to send.
+    const quietHub = collectDigest([{ type: "room-workspace", props: { partnerName: "Quiet Co" } }], { tasks: [], requests: [], choices: [], wins: [welcome], practices: { total: 0, byStage: {} } }, NOW)!;
+    expect(digestIsEmpty(quietHub)).toBe(true);
+    // With real posts: the section is there, by its new name, and the welcome post still is not.
+    const withPosts = collectDigest(blocks, { ...state, wins: [...state.wins, welcome] }, NOW)!;
+    const html = renderDigestEmail(withPosts, { roomUrl: "https://x.test/r", senderName: "Dandy" }).html;
+    expect(html).toContain("Team updates");
+    expect(html).not.toContain("Win of the week");
+    expect(html).toContain("First crown seated");
+    expect(html).not.toContain("Welcome, MB2 Dental");
+    const slack = JSON.stringify(renderDigestSlack(withPosts, "https://x.test/r").blocks);
+    expect(slack).toContain("*Team updates*");
+    expect(slack).not.toContain("Win of the week");
   });
 
   it("counts the rollout day in UTC and only sends on Monday mornings (UTC afternoon)", () => {

@@ -16,7 +16,7 @@ export interface DigestState {
   tasks: { key: string; at: Date; by: string }[];
   requests: { subject: string; status: string; updatedAt: Date; createdAt: Date }[];
   choices: { key: string; value: string }[];
-  wins: { body: string; headline: string | null; by: string; likes: number; createdAt: Date }[];
+  wins: { body: string; headline: string | null; by: string; likes: number; createdAt: Date; /** The automatic welcome post a hub is created with (no author). Never reported as news. */ system?: boolean }[];
   practices: {
     total: number;
     byStage: Record<string, number>;
@@ -127,7 +127,12 @@ export interface DigestData {
   undecided: string[];
   reviewRequests: string[];
   newRequests: number;
+  /** The most liked post of the week. Kept for callers that want one line; `updates` is what the digest shows. */
   topWin: { text: string; by: string } | null;
+  /** What people posted to the News Feed this week, most liked first (up to three). The hub's automatic welcome post is never one of them. */
+  updates: { text: string; by: string }[];
+  /** How many more posts there were this week than `updates` shows. */
+  updatesMore: number;
   practicesLive: number;
   practicesTotal: number;
   nextMilestone: string | null;
@@ -309,7 +314,8 @@ export function collectDigest(blocks: unknown, state: DigestState, now: Date): D
   }
 
   const rollout = collectRollout(state.practices, now);
-  const recentWins = state.wins.filter((w) => w.createdAt.getTime() >= weekAgo).sort((a, b) => b.likes - a.likes || b.createdAt.getTime() - a.createdAt.getTime());
+  // The welcome post every hub opens with is ours, written by nobody: it is not news.
+  const recentWins = state.wins.filter((w) => !w.system && w.createdAt.getTime() >= weekAgo).sort((a, b) => b.likes - a.likes || b.createdAt.getTime() - a.createdAt.getTime());
   const top = recentWins[0];
   const nextLabel = str(props.nextMilestoneLabel);
   const nextDate = str(props.nextMilestoneDate);
@@ -328,6 +334,8 @@ export function collectDigest(blocks: unknown, state: DigestState, now: Date): D
     reviewRequests: state.requests.filter((q) => q.status === "review").map((q) => q.subject),
     newRequests: state.requests.filter((q) => q.createdAt.getTime() >= weekAgo).length,
     topWin: top ? { text: [top.headline, top.body].filter(Boolean).join(". "), by: top.by } : null,
+    updates: recentWins.slice(0, 3).map((w) => ({ text: [w.headline, w.body].filter(Boolean).join(". "), by: w.by })),
+    updatesMore: Math.max(0, recentWins.length - 3),
     practicesLive: state.practices.byStage.live ?? 0,
     practicesTotal: state.practices.total,
     nextMilestone: nextLabel ? (nextDate ? `${nextLabel} · ${nextDate}` : nextLabel) : null,
@@ -473,8 +481,14 @@ ${r!.liveChange && r!.liveChange > 0 ? `<div style="margin-top:12px">${pill(`${s
       )
     : "";
 
-  const winHtml = d.topWin
-    ? heading("Win of the week") + row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;background:${wash};border-radius:12px"><tr><td style="padding:20px 22px;font-size:17px;line-height:1.5;color:${ink}">&ldquo;${esc(d.topWin.text)}&rdquo;<div style="margin-top:8px;font-size:13px;color:${soft}">${esc(d.topWin.by)}</div></td></tr></table>`)
+  // Team updates: what people actually posted to the News Feed this week. No posts, no section.
+  const winHtml = d.updates.length
+    ? heading("Team updates") +
+      row(
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px">${d.updates
+          .map((u) => `<tr><td style="padding:0 0 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${wash};border-radius:12px"><tr><td style="padding:16px 20px;font-size:15px;line-height:1.5;color:${ink}">${esc(u.text)}<div style="margin-top:6px;font-size:13px;color:${soft}">${esc(u.by)}</div></td></tr></table></td></tr>`)
+          .join("")}</table>${d.updatesMore > 0 ? `<div style="font-size:14px"><a href="${url}" style="color:${color};font-weight:600;text-decoration:underline">See ${d.updatesMore} more in your News Feed</a></div>` : ""}`,
+      )
     : "";
   const nextHtml = d.nextMilestone ? heading("Coming up") + row(`<div style="margin-top:8px;font-size:15px;line-height:1.5;color:${ink}">${esc(d.nextMilestone)}</div>`) : "";
 
@@ -566,7 +580,7 @@ export function renderDigestSlack(d: DigestData, roomUrl: string, extraSections:
   const doneNow = [...(d.kind === "setup" ? d.doneThisWeek.filter((x) => !d.milestones.some((ms) => ms.label === x)) : d.doneThisWeek), ...(d.otherDone > 0 ? [`${d.otherDone} other step${d.otherDone === 1 ? "" : "s"} completed`] : [])];
   if (doneNow.length) lines.push(`*This week*\n${bullets(doneNow)}`);
   if (d.newRequests) lines.push(`${d.newRequests} new request${d.newRequests === 1 ? "" : "s"} this week.`);
-  if (d.topWin) lines.push(`*Win of the week*\n${m(d.topWin.text)} — ${m(d.topWin.by)}`);
+  if (d.updates.length) lines.push(`*Team updates*\n${d.updates.map((u) => `• ${m(u.text)} — ${m(u.by)}`).join("\n")}${d.updatesMore > 0 ? `\n• and ${d.updatesMore} more in the News Feed` : ""}`);
   const text = `Weekly digest: ${d.partnerName}`;
   return {
     text,

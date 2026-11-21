@@ -554,7 +554,7 @@ export async function buildRoomDigest(pageId: number, now: Date = new Date()): P
       tasks: tasks.map((t) => ({ key: t.taskKey, at: t.completedAt, by: t.completedByName || t.completedByEmail })),
       requests: requests.map((q) => ({ subject: q.subject, status: q.status, updatedAt: q.updatedAt, createdAt: q.createdAt })),
       choices: choices.map((c) => ({ key: c.choiceKey, value: c.value })),
-      wins: wins.map((w) => ({ body: w.body, headline: w.headline, by: w.authorName || (w.authorSide === "team" ? "The team" : "A team member"), likes: likeRows.filter((l) => l.winId === w.id).length, createdAt: w.createdAt })),
+      wins: wins.map((w) => ({ body: w.body, headline: w.headline, by: w.authorName || (w.authorSide === "team" ? "The team" : "A team member"), likes: likeRows.filter((l) => l.winId === w.id).length, createdAt: w.createdAt, system: w.authorSide === "team" && !w.authorEmail.trim() })),
       practices: { total: practices.total, byStage: practices.byStage, rows: practiceRows, trend: practices.trend, byRegion: practices.byRegion, byWave: practices.byWave, scanners: practices.scanners, doctors: practices.doctors },
     },
     now,
