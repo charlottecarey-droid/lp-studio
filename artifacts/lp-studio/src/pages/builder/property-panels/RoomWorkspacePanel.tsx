@@ -400,9 +400,9 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
               {(
                 [
                   { tab: "kit", label: "Launch kit", hint: "Create the one-pager, graphics and media kit; see who opened what" },
-                  { tab: "activity", label: "Activity", hint: "Access requests, customer requests, wins, tasks" },
+                  { tab: "activity", label: "To do", hint: "Access requests, the marketing plan to send, customer requests" },
                   { tab: "practices", label: "Practices & files", hint: "The practice list and files the customer uploaded" },
-                  { tab: "calendar", label: "Calendar & minutes", hint: "Connect a calendar, review minutes drafts" },
+                  { tab: "calendar", label: "Calendar", hint: "Connect a calendar, review minutes drafts" },
                   { tab: "settings", label: "Room settings", hint: "Who has access, Slack channel, weekly digest" },
                 ] as { tab: RoomPanelTab; label: string; hint: string }[]
               ).map((m) => (

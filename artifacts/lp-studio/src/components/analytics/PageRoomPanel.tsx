@@ -133,7 +133,8 @@ export interface RoomKitLinkChange {
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
 
 export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, onOverview, onLinks, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
-  const [tab, setTab] = useState<RoomPanelTab>(initialTab);
+  // Plays used to be a tab of their own; they are part of To do now, so an old link to them lands there.
+  const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["page-room", pageId],
@@ -222,6 +223,10 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
 
   const requests = data.members.filter((m) => m.status === "requested");
   const others = data.members.filter((m) => m.status !== "requested");
+  const openRequests = (data.requests ?? []).filter((q) => q.status !== "done");
+  const doneRequests = (data.requests ?? []).filter((q) => q.status === "done");
+  // What the To do tab is for: people asking to get in, programs to send to marketing, and requests nobody has picked up.
+  const needsYou = requests.length + (data.planQueue ?? []).filter((i) => i.state === "queued").length + openRequests.filter((q) => q.status === "new").length;
   const allowedPeople = others.filter((m) => m.status === "allowed").length;
   const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
 
@@ -274,13 +279,12 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
         <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Room sections">
           {(
             [
+              { id: "activity", label: "To do", count: needsYou },
               ...(data.isWorkspace ? [{ id: "performance", label: "Performance", count: 0 }] : []),
-              ...(data.isWorkspace ? [{ id: "plays", label: "Plays", count: 0 }] : []),
               ...(data.isWorkspace && data.goals ? [{ id: "goals", label: "Goals", count: 0 }] : []),
-              { id: "activity", label: "Activity", count: requests.length + (data.requests ?? []).filter((q) => q.status === "new").length + (data.planQueue ?? []).filter((i) => i.state === "queued").length },
               ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
               { id: "practices", label: data.isWorkspace ? "Practices & files" : "Files", count: 0 },
-              ...(data.isWorkspace ? [{ id: "calendar", label: "Calendar & minutes", count: (data.events ?? []).filter((e) => e.minutesStatus === "draft").length }] : []),
+              ...(data.isWorkspace ? [{ id: "calendar", label: "Calendar", count: (data.events ?? []).filter((e) => e.minutesStatus === "draft").length }] : []),
               { id: "settings", label: "Settings", count: 0 },
             ] as { id: RoomPanelTab; label: string; count: number }[]
           ).map((t) => (
@@ -300,7 +304,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} />}
-        {tab === "plays" && data.isWorkspace && <RoomPlays pageId={pageId} />}
         {tab === "goals" && data.isWorkspace && data.goals && (
           <RoomGoalsSection
             pageId={pageId}
@@ -316,11 +319,13 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             }}
           />
         )}
-        {tab === "activity" && requests.length === 0 && (data.requests ?? []).length === 0 && (data.planQueue ?? []).length === 0 && !data.isWorkspace && data.tasks.length === 0 && <p className="text-sm text-muted-foreground">Nothing has happened in this room yet.</p>}
+        {tab === "activity" && (
+          <div className="space-y-6" data-room-todo>
+            {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
 
-        {tab === "activity" && requests.length > 0 && (
-          <section className="space-y-2">
-            <h4 className="text-sm font-semibold">Waiting for approval</h4>
+            {requests.length > 0 && (
+              <section className="space-y-2">
+                <h4 className="text-sm font-semibold">Asking for access</h4>
             {requests.map((m) => (
               <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
                 <span className="text-sm">{m.email} <span className="text-muted-foreground">· asked {fmtDate(m.updatedAt)}</span></span>
@@ -330,22 +335,88 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                 </span>
               </div>
             ))}
-          </section>
-        )}
+              </section>
+            )}
 
-        {tab === "activity" && (data.requests ?? []).length > 0 && (
-          <section className="space-y-2">
-            <h4 className="text-sm font-semibold">Requests</h4>
-            <div className="divide-y rounded-md border">
-              {data.requests.map((q) => (
-                <RequestRow key={q.id} q={q} onSave={(patch) => run(send(`${base}/requests/${q.id}`, "PATCH", patch))} />
-              ))}
+            {data.isWorkspace && (data.planQueue ?? []).length > 0 && <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} />}
+
+            {openRequests.length > 0 && (
+              <section className="space-y-2">
+                <div>
+                  <h4 className="text-sm font-semibold">Requests from the customer</h4>
+                  <p className="text-sm text-muted-foreground">They see the status, owner and due date you set.</p>
+                </div>
+                <div className="divide-y rounded-md border">
+                  {openRequests.map((q) => (
+                    <RequestRow key={q.id} q={q} onSave={(patch) => run(send(`${base}/requests/${q.id}`, "PATCH", patch))} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {data.isWorkspace && (
+              <section className="space-y-2">
+                <div>
+                  <h4 className="text-sm font-semibold">Suggested next moves</h4>
+                  <p className="text-sm text-muted-foreground">Worked out from this hub’s practices and what has already been sent.</p>
+                </div>
+                <RoomPlays pageId={pageId} />
+              </section>
+            )}
+
+            {/* Reference, not work: closed until someone wants it. */}
+            <div className="space-y-2">
+              {data.tasks.length > 0 && (
+                <Fold title="What the customer has done" hint={`${data.tasks.filter((t) => t.done).length} of ${data.tasks.length} steps`}>
+                  <div className="divide-y rounded-md border">
+                    {data.tasks.map((t) => (
+                      <div key={t.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{t.title}</p>
+                          {t.done && <p className="text-xs text-muted-foreground">{[t.completedBy, fmtDate(t.completedAt)].filter(Boolean).join(" · ")}</p>}
+                        </div>
+                        {t.done ? (
+                          <span className="flex items-center gap-2">
+                            <Badge variant="secondary" className="gap-1"><Check className="h-3 w-3" /> Done</Badge>
+                            <Button size="sm" variant="ghost" className="h-8 gap-1 text-muted-foreground" onClick={() => run(send(`${base}/tasks/${encodeURIComponent(t.key)}`, "DELETE"))}><RotateCcw className="h-3.5 w-3.5" /> Reopen</Button>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{t.action === "upload" ? "Needs a file" : "Open"}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Fold>
+              )}
+              {doneRequests.length > 0 && (
+                <Fold title="Finished requests" hint={String(doneRequests.length)}>
+                  <div className="divide-y rounded-md border">
+                    {doneRequests.map((q) => (
+                      <RequestRow key={q.id} q={q} onSave={(patch) => run(send(`${base}/requests/${q.id}`, "PATCH", patch))} />
+                    ))}
+                  </div>
+                </Fold>
+              )}
+              {data.isWorkspace && (
+                <Fold title="Wins" hint={(data.wins ?? []).length ? `${(data.wins ?? []).length} posted` : "Post one to the hub’s News Feed"}>
+                  <WinsSection base={base} wins={data.wins ?? []} run={run} />
+                </Fold>
+              )}
+              {(data.contacts ?? []).length > 0 && (
+                <Fold title="People the customer added" hint={String(data.contacts!.length)}>
+                  <div className="divide-y rounded-md border">
+                    {data.contacts!.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="text-sm">{c.name}{c.role ? ` · ${c.role}` : ""}{c.email ? ` · ${c.email}` : ""} <span className="text-xs text-muted-foreground">added by {c.addedBy}</span></span>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${c.name}`} onClick={() => run(send(`${base}/contacts/${c.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
+                      </div>
+                    ))}
+                  </div>
+                </Fold>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">The customer sees the status, owner and due date.</p>
-          </section>
+          </div>
         )}
-
-        {tab === "activity" && data.isWorkspace && (data.planQueue ?? []).length > 0 && <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} />}
 
         {tab === "practices" && data.isWorkspace && (
           <section className="space-y-3">
@@ -714,22 +785,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           </div>
         )}
 
-        {tab === "activity" && data.isWorkspace && <WinsSection base={base} wins={data.wins ?? []} run={run} />}
-
-        {tab === "activity" && (data.contacts ?? []).length > 0 && (
-          <section className="space-y-2">
-            <h4 className="text-sm font-semibold">Contacts the customer added</h4>
-            <div className="divide-y rounded-md border">
-              {data.contacts!.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                  <span className="text-sm">{c.name}{c.role ? ` · ${c.role}` : ""}{c.email ? ` · ${c.email}` : ""} <span className="text-xs text-muted-foreground">added by {c.addedBy}</span></span>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${c.name}`} onClick={() => run(send(`${base}/contacts/${c.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
         {tab === "practices" && (
         <section className="space-y-2">
           <h4 className="text-sm font-semibold">Files received</h4>
@@ -829,34 +884,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             </div>
           </section>
         )}
-
-        {tab === "activity" && (
-        <section className="space-y-2">
-          <h4 className="text-sm font-semibold">Customer tasks</h4>
-          <div className="divide-y rounded-md border">
-            {data.tasks.map((t) => (
-              <div key={t.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t.action === "upload" ? "Upload a file" : "Mark done"}
-                    {t.done ? ` · ${t.completedBy} · ${fmtDate(t.completedAt)}` : ""}
-                  </p>
-                </div>
-                {t.done ? (
-                  <span className="flex items-center gap-2">
-                    <Badge variant="secondary" className="gap-1"><Check className="h-3 w-3" /> Done</Badge>
-                    <Button size="sm" variant="ghost" className="h-8 gap-1 text-muted-foreground" onClick={() => run(send(`${base}/tasks/${encodeURIComponent(t.key)}`, "DELETE"))}><RotateCcw className="h-3.5 w-3.5" /> Reopen</Button>
-                  </span>
-                ) : (
-                  <Badge variant="outline">Open</Badge>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-        )}
-
       </CardContent>
     </Card>
   );
@@ -868,35 +895,38 @@ const REQUEST_KIND: Record<string, string> = { asset_change: "Asset change", mar
 function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: (patch: { status?: string; owner?: string; due?: string }) => void }) {
   const [owner, setOwner] = useState(q.owner ?? "");
   const [due, setDue] = useState(q.due ?? "");
+  // Owner and due date stay out of the way until someone wants to set them.
+  const [editing, setEditing] = useState(false);
+  const meta = [REQUEST_KIND[q.kind] ?? "Other", q.requestedBy, fmtDate(q.createdAt), q.owner ? `Owner: ${q.owner}` : "", q.due ? `Due: ${q.due}` : ""].filter(Boolean).join(" · ");
   return (
-    <div className="space-y-2 px-3 py-2.5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">{q.subject}</p>
-          <p className="text-xs text-muted-foreground">
-            {REQUEST_KIND[q.kind] ?? "Other"} · {q.requestedBy} · {fmtDate(q.createdAt)}
-            {q.asanaTaskGid && (
+    <div className="px-3 py-2.5" data-room-request-row={q.status}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{q.subject}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {meta}
+            {q.asanaTaskGid && !q.asanaTaskGid.startsWith("fake-") && (
               <>
                 {" · "}
                 <a className="underline" href={`https://app.asana.com/0/0/${q.asanaTaskGid}`} target="_blank" rel="noreferrer">In Asana</a>
               </>
             )}
           </p>
-          {q.details && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{q.details}</p>}
         </div>
-        <select
-          className="h-8 rounded-md border bg-background px-2 text-sm"
-          value={q.status}
-          onChange={(e) => onSave({ status: e.target.value })}
-          aria-label={`Status of ${q.subject}`}
-        >
+        <select className="h-8 rounded-md border bg-background px-2 text-sm" value={q.status} onChange={(e) => onSave({ status: e.target.value })} aria-label={`Status of ${q.subject}`}>
           {REQUEST_STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
+        <Button size="sm" variant="ghost" className="h-8 text-muted-foreground" aria-expanded={editing} onClick={() => setEditing((v) => !v)} data-room-request-edit>
+          {editing ? "Close" : q.owner || q.due ? "Edit" : "Assign"}
+        </Button>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Owner</span><Input value={owner} onChange={(e) => setOwner(e.target.value)} onBlur={() => owner !== (q.owner ?? "") && onSave({ owner })} className="h-8 max-w-[220px] text-sm" /></label>
-        <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Due</span><Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} className="h-8 max-w-[140px] text-sm" /></label>
-      </div>
+      {q.details && <p className={`mt-1 whitespace-pre-wrap text-sm text-muted-foreground ${editing ? "" : "line-clamp-2"}`}>{q.details}</p>}
+      {editing && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Owner</span><Input value={owner} onChange={(e) => setOwner(e.target.value)} onBlur={() => owner !== (q.owner ?? "") && onSave({ owner })} className="h-8 w-56 text-sm" placeholder="Who is handling it" /></label>
+          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Due</span><Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} className="h-8 w-36 text-sm" placeholder="e.g. Dec 5" /></label>
+        </div>
+      )}
     </div>
   );
 }
@@ -906,7 +936,6 @@ function WinsSection({ base, wins, run }: { base: string; wins: NonNullable<Room
   const [body, setBody] = useState("");
   return (
     <section className="space-y-2">
-      <h4 className="text-sm font-semibold">Wins</h4>
       <form
         className="space-y-2 rounded-md border p-3"
         onSubmit={async (e) => {
