@@ -97,6 +97,27 @@ export function fitMap(points: { lat: number; lng: number }[], width = W, height
   return { x: (lng) => width / 2 + (mx(lng) - cx) * k, y: (lat) => height / 2 + (my(lat) - cy) * k };
 }
 
+/** The zoom and offset that fill the drawing with one box (a state's outline), with room around it. */
+export function zoomToBox(box: { x0: number; x1: number; y0: number; y1: number }, width = W, height = H, maxK = 12, minK = 1): { k: number; x: number; y: number } {
+  const pad = 0.12;
+  const w = Math.max(box.x1 - box.x0, 1), h = Math.max(box.y1 - box.y0, 1);
+  const k = Math.max(minK, Math.min(maxK, (width * (1 - 2 * pad)) / w, (height * (1 - 2 * pad)) / h));
+  return { k, x: width / 2 - ((box.x0 + box.x1) / 2) * k, y: height / 2 - ((box.y0 + box.y1) / 2) * k };
+}
+
+/**
+ * What a click on a state zooms to: its pins when it has any (so a few offices in one corner of a big state fill the
+ * view), else its outline. The pins' box is never smaller than a sixth of the drawing, so one office is not zoomed to a dot.
+ */
+export function stateBox(outline: { x0: number; x1: number; y0: number; y1: number }, pins: { x: number; y: number }[], width = W, height = H): { x0: number; x1: number; y0: number; y1: number } {
+  if (pins.length === 0) return outline;
+  let x0 = Math.min(...pins.map((p) => p.x)), x1 = Math.max(...pins.map((p) => p.x)), y0 = Math.min(...pins.map((p) => p.y)), y1 = Math.max(...pins.map((p) => p.y));
+  const minW = width / 6, minH = height / 6;
+  if (x1 - x0 < minW) [x0, x1] = [(x0 + x1) / 2 - minW / 2, (x0 + x1) / 2 + minW / 2];
+  if (y1 - y0 < minH) [y0, y1] = [(y0 + y1) / 2 - minH / 2, (y0 + y1) / 2 + minH / 2];
+  return { x0, x1, y0, y1 };
+}
+
 /**
  * Pins that land on the same spot (one ZIP code, several offices) are fanned
  * out in a small ring so each can be seen and pointed at. Offsets are in
@@ -150,6 +171,9 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
   const [picked, setPicked] = useState<RoomMapPoint | null>(null);
   const [view, setView] = useState({ k: 1, x: 0, y: 0 });
   const drag = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
+  /** True when the press that just ended was a pan, so the click that follows it is not taken as a pick. */
+  const panned = useRef(false);
+  const [zoomed, setZoomed] = useState("");
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -172,7 +196,7 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
     () =>
       states.map((s) => {
         let d = "";
-        let big = { area: 0, cx: 0, cy: 0 };
+        let big = { area: 0, cx: 0, cy: 0, x0: 0, x1: 0, y0: 0, y1: 0 };
         for (const ring of s.rings) {
           let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
           for (let i = 0; i < ring.length; i += 2) {
@@ -182,15 +206,19 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
           }
           d += "Z";
           const area = (x1 - x0) * (y1 - y0);
-          if (area > big.area) big = { area, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+          if (area > big.area) big = { area, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, x0, x1, y0, y1 };
         }
-        return { id: s.id, d, cx: big.cx, cy: big.cy };
+        return { id: s.id, name: s.name, d, cx: big.cx, cy: big.cy, box: { x0: big.x0, x1: big.x1, y0: big.y0, y1: big.y1 } };
       }),
     [states, fit],
   );
 
   const stages = stage ? STAGE_GROUPS[stage] : null;
   const shows = (p: RoomMapPoint) => (!group || of(p) === group) && (!stages || stages.includes(p.stage));
+  const reset = () => {
+    setZoomed("");
+    setView({ k: 1, x: 0, y: 0 });
+  };
   const zoom = (factor: number) =>
     setView((v) => {
       const k = Math.max(1, Math.min(12, v.k * factor));
@@ -212,6 +240,7 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
         ref={box}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
+          panned.current = false;
           drag.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y, moved: false };
         }}
         onPointerMove={(e) => {
@@ -221,15 +250,32 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
           if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) > 3) d.moved = true;
           if (d.moved) setView((v) => ({ ...v, x: d.ox + (e.clientX - d.sx) * scale, y: d.oy + (e.clientY - d.sy) * scale }));
         }}
-        onPointerUp={() => (drag.current = null)}
+        onPointerUp={() => {
+          panned.current = !!drag.current?.moved;
+          drag.current = null;
+        }}
         onPointerLeave={() => {
           drag.current = null;
           setHover(null);
         }}
       >
-        <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Map of ${placed.length} ${noun}`} className={view.k > 1 ? "pan" : ""} onDoubleClick={() => zoom(1.8)}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Map of ${placed.length} ${noun}`} className={view.k > 1 ? "pan" : ""} onDoubleClick={(e) => !(e.target as Element).closest?.("[data-room-map-state]") && zoom(1.8)}>
           <g transform={`translate(${view.x.toFixed(1)} ${view.y.toFixed(1)}) scale(${view.k})`}>
-            {outlines.map((s) => <path key={s.id} className="st" d={s.d} />)}
+            {outlines.map((s) => (
+              <path
+                key={s.id}
+                className={`st${zoomed === s.id ? " on" : ""}`}
+                d={s.d}
+                data-room-map-state={s.id}
+                onClick={() => {
+                  if (panned.current) return;
+                  setZoomed(s.id);
+                  setView(zoomToBox(stateBox(s.box, pins.filter((q) => (q.p.state ?? "").trim().toUpperCase() === s.id)), W, H, 12, 1.25));
+                }}
+              >
+                <title>{s.name}</title>
+              </path>
+            ))}
             {outlines.map((s) => <text key={s.id} className="sl" x={s.cx} y={s.cy} fontSize={11 / view.k}>{s.id}</text>)}
             {pins.map(({ p, x, y, dx, dy }) => {
               const color = colorOf.get(of(p)) ?? MAP_OTHER_COLOR;
@@ -250,7 +296,7 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
                   }}
                   onPointerLeave={() => setHover(null)}
                   onFocus={() => setPicked(p)}
-                  onClick={() => !drag.current?.moved && setPicked(p)}
+                  onClick={() => !panned.current && setPicked(p)}
                 >
                   {/* A larger, invisible target so a small pin is easy to point at. */}
                   <circle cx={cx} cy={cy} r={r * 2} fill="transparent" />
@@ -263,8 +309,8 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
         </svg>
         <div className="prw-map-zoom">
           <button type="button" onClick={() => zoom(1.6)} aria-label="Zoom in" data-room-map-zoom="in"><Plus aria-hidden /></button>
-          <button type="button" onClick={() => zoom(1 / 1.6)} disabled={view.k === 1} aria-label="Zoom out"><Minus aria-hidden /></button>
-          <button type="button" onClick={() => setView({ k: 1, x: 0, y: 0 })} disabled={view.k === 1} aria-label="Reset the map"><RotateCcw aria-hidden /></button>
+          <button type="button" onClick={() => { if (view.k / 1.6 <= 1) setZoomed(""); zoom(1 / 1.6); }} disabled={view.k === 1} aria-label="Zoom out"><Minus aria-hidden /></button>
+          <button type="button" onClick={reset} disabled={view.k === 1} aria-label="Reset the map"><RotateCcw aria-hidden /></button>
         </div>
         {hover && (
           <div className="prw-map-tip" style={{ left: hover.left, top: hover.top }} role="status">
