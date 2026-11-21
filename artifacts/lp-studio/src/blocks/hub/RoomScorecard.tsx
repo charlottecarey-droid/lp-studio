@@ -382,6 +382,20 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       for (const id of ids) on ? next.add(id) : next.delete(id);
       return next;
     });
+  // Select a whole wave at once, across every page of the list: a customer who wants welcome kits to go out wave by wave.
+  const [waveNote, setWaveNote] = useState("");
+  const [pickingWave, setPickingWave] = useState(false);
+  const pickWave = async (w: string) => {
+    if (!store || !w) return;
+    setPickingWave(true);
+    setWaveNote("");
+    const r = await store.wavePracticeIds(w);
+    setPickingWave(false);
+    if (!r.ok) return setWaveNote(r.error ?? "Couldn't load that wave.");
+    if (r.ids.length === 0) return setWaveNote(`No ${noun} in Wave ${w}.`);
+    tick(r.ids, true);
+    setWaveNote(`Wave ${w}: ${r.ids.length} selected${r.kitSent ? ` (${r.kitSent} already sent a welcome kit; they are skipped when you send)` : ""}.`);
+  };
   const exportNow = async () => {
     if (!store || exporting) return;
     setExporting(true);
@@ -743,9 +757,16 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
           {isTeam && (
             <div className="prw-sc-picked" data-room-picked={ticked.size}>
               <span className="prw-num">{ticked.size ? `${ticked.size} selected` : ""}</span>
-              {ticked.size > 0 && <button type="button" className="prw-btn" onClick={() => setTicked(new Set())} data-room-unpick><X aria-hidden /> Clear</button>}
+              {ticked.size > 0 && <button type="button" className="prw-btn" onClick={() => { setTicked(new Set()); setWaveNote(""); }} data-room-unpick><X aria-hidden /> Clear</button>}
+              {waves.length > 0 && (
+                <select value="" disabled={pickingWave} onChange={(e) => void pickWave(e.target.value)} aria-label="Select every practice in a wave" title="Select every practice in a wave, for example to send the whole wave a welcome kit" data-room-pick-wave>
+                  <option value="">{pickingWave ? "Selecting…" : "Select a wave"}</option>
+                  {(pr.byWave ?? waves.map((w) => ({ wave: w, total: 0, live: 0 }))).map((w) => <option key={w.wave} value={w.wave}>Wave {w.wave}{w.total ? ` (${w.total})` : ""}</option>)}
+                </select>
+              )}
               <button type="button" className="prw-btn" disabled={exporting} onClick={() => void exportNow()} data-room-export><Download aria-hidden /> {ticked.size ? "Export" : "Export all"}</button>
               {ticked.size > 0 && <button type="button" className="prw-btn pri" disabled={kit?.state === "asking" || kit?.state === "sending"} onClick={() => void askKit()} data-room-kit><Package aria-hidden /> Send welcome kit</button>}
+              {waveNote && <span role="status" data-room-wave-note>{waveNote}</span>}
               {exportNote && <span role="status">{exportNote}</span>}
             </div>
           )}

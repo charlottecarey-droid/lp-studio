@@ -1489,6 +1489,7 @@ const CSS = `
 .prw-sc-hd{display:flex;align-items:flex-end;gap:18px}
 .prw-sc-picked{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:-8px 0 12px;font-size:12.5px;color:var(--body);min-height:32px}
 .prw-sc-picked>span:first-child{margin-right:auto;font-weight:600;color:var(--ink)}
+.prw-sc-picked select{height:32px;border:1px solid #D4D8D0;border-radius:7px;padding:0 8px;font:inherit;font-size:12.5px;color:var(--ink);background:#fff}
 .prw-sc-late{color:var(--red);font-weight:600}
 .prw-sc-prod{padding:18px 20px 12px;margin-bottom:18px}
 .prw-sc-prod .hd{display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}

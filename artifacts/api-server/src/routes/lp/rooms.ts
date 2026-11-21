@@ -937,6 +937,33 @@ router.post("/lp/room/practices-export", stateLimiter, async (req: Request, res:
  * or with no full mailing address, is left out and named. Marketing is told
  * in Slack and with an intake task when practices were added.
  */
+/**
+ * Team only: every practice in one wave, as ids, so a rep can select a whole
+ * wave at once (the list itself is a page at a time). A customer who wants
+ * welcome kits to go out wave by wave is the usual reason.
+ */
+router.post("/lp/room/practice-ids", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    if (!viewer.team) {
+      res.status(403).json({ error: "Not available" });
+      return;
+    }
+    const wave = typeof req.body?.wave === "string" ? req.body.wave.trim().slice(0, 80) : "";
+    if (!wave) {
+      res.status(400).json({ error: "Pick a wave" });
+      return;
+    }
+    const rows = await db.select({ id: lpRoomPracticesTable.id, kitSentAt: lpRoomPracticesTable.kitSentAt }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, page.id), eq(lpRoomPracticesTable.wave, wave))).limit(2000);
+    res.json({ wave, ids: rows.map((r) => r.id), kitSent: rows.filter((r) => r.kitSentAt).length });
+  } catch (err) {
+    req.log.error({ err }, "room practice ids failed");
+    res.status(500).json({ error: "Could not load that wave" });
+  }
+});
+
 router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const ctx = await requireWorkspaceViewer(req, res);
