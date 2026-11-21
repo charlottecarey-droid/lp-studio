@@ -258,6 +258,8 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
       name: roomPartnerName(blocks) || page.title,
       status: published ? "live" : "draft",
       url: published ? await publicPageUrl(tenantId, page.slug).catch(() => "") : "",
+      // Internal: rollout or expansion. The pop-up names the launch sections by it ("Launch kit" / "Marketing").
+      stage: roomStageFromProps(roomWorkspaceProps(blocks) ?? {}, new Date()).stage,
       setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0 }),
     });
   } catch (err) {

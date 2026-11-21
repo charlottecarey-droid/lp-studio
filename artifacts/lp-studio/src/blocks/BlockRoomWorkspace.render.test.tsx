@@ -30,6 +30,7 @@ import {
   rolloutDay,
   roomMilestoneKey,
   roomLinkAsset,
+  roomMarketingNames,
   roomProgramStatus,
   roomRowAction,
   absoluteLink,
@@ -136,6 +137,22 @@ describe("room-workspace — registry + default render", () => {
     expect(html).toContain("So everything we make for you carries your brand.");
     expect(html).toContain("Doctors by practice, so training reaches the right people");
     expect(html).toContain("A joint announcement for trade press.");
+  });
+  it("calls the launch sections Marketing once the hub is past its rollout", () => {
+    expect(roomMarketingNames(undefined)).toEqual({ module: "Launch & marketing", kit: "Launch kit", ready: "Ready for launch" });
+    expect(roomMarketingNames("rollout").kit).toBe("Launch kit");
+    expect(roomMarketingNames("expansion")).toEqual({ module: "Marketing", kit: "Marketing", ready: "Ready to use" });
+    const assets = [{ key: "a", kind: "pdf" as const, title: "One-pager", fileUrl: "/files/one.pdf" }];
+    // Everything but the marketing tab (which carries the kit) is switched off.
+    const others = ["overview", "wins", "goals", "plan", "practices", "calendar", "meetings", "requests", "team"] as never;
+    const rollout = render({ hiddenModules: others, assets });
+    expect(rollout).toContain("Launch &amp; marketing");
+    expect(rollout).toContain("Ready for launch");
+    const expansion = render({ hiddenModules: others, assets, stage: "expansion" });
+    expect(expansion).not.toContain("Launch &amp; marketing");
+    expect(expansion).not.toContain("Ready for launch");
+    expect(expansion).toContain(">Marketing<");
+    expect(expansion).toContain("Ready to use");
   });
   it("leaves out the Overview sections a rep switched off", () => {
     const all = render();

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ROOM_MODULES } from "@/blocks/BlockRoomWorkspace";
+import { ROOM_MODULES, roomMarketingNames } from "@/blocks/BlockRoomWorkspace";
 
 /**
  * How a Partner Hub is doing: who came, when, for how long, and which
@@ -44,7 +44,8 @@ export interface RoomPerformanceData {
 }
 
 const LABEL = new Map<string, string>([...ROOM_MODULES.map((m) => [m.key, m.label] as [string, string]), ["marketing", "Launch & marketing"]]);
-export const sectionLabel = (key: string) => LABEL.get(key) ?? key;
+/** A hub section by the name the customer sees. Past the rollout the launch sections are "Marketing". */
+export const sectionLabel = (key: string, stage?: string) => (key === "marketing" || key === "kit" ? (key === "kit" ? roomMarketingNames(stage).kit : roomMarketingNames(stage).module) : (LABEL.get(key) ?? key));
 
 /** "45 sec", "12 min", "1 hr 5 min". Under a few seconds reads as a glance. */
 export function fmtDuration(seconds: number): string {
@@ -100,7 +101,7 @@ function DayBars({ days }: { days: RoomPerformanceData["days"] }) {
   );
 }
 
-function PersonRow({ p }: { p: PersonStat }) {
+function PersonRow({ p, stage }: { p: PersonStat; stage?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -124,7 +125,7 @@ function PersonRow({ p }: { p: PersonStat }) {
             <ul className="space-y-1 text-sm">
               {p.modules.map((m) => (
                 <li key={m.module} className="flex justify-between gap-4 text-muted-foreground">
-                  <span className="text-foreground">{sectionLabel(m.module)}</span>
+                  <span className="text-foreground">{sectionLabel(m.module, stage)}</span>
                   <span className="tabular-nums">
                     opened {m.opens} time{m.opens === 1 ? "" : "s"} · {fmtDuration(m.seconds)}
                   </span>
@@ -138,7 +139,8 @@ function PersonRow({ p }: { p: PersonStat }) {
   );
 }
 
-export function RoomPerformance({ pageId }: { pageId: number }) {
+export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expansion" once the hub is past its rollout: the launch sections are then called Marketing. */ stage?: string }) {
+  const names = roomMarketingNames(stage);
   const { data, isLoading } = useQuery({
     queryKey: ["page-room-performance", pageId],
     queryFn: async () => {
@@ -190,7 +192,7 @@ export function RoomPerformance({ pageId }: { pageId: number }) {
                   </thead>
                   <tbody>
                     {data.people.map((p) => (
-                      <PersonRow key={p.email} p={p} />
+                      <PersonRow key={p.email} p={p} stage={stage} />
                     ))}
                   </tbody>
                 </table>
@@ -203,7 +205,7 @@ export function RoomPerformance({ pageId }: { pageId: number }) {
                 {data.modules.map((m) => (
                   <li key={m.module} className="text-sm" data-room-perf-section={m.module}>
                     <div className="flex justify-between gap-3">
-                      <span>{sectionLabel(m.module)}</span>
+                      <span>{sectionLabel(m.module, stage)}</span>
                       <span className="tabular-nums text-muted-foreground">
                         {m.opens} · {fmtDuration(m.seconds)}
                       </span>
@@ -226,7 +228,7 @@ export function RoomPerformance({ pageId }: { pageId: number }) {
                   <span className="text-xs text-muted-foreground">
                     {fmtWhen(v.startedAt)} · {fmtDuration(v.seconds)}
                   </span>
-                  <span className="w-full text-xs text-muted-foreground">{v.modules.map(sectionLabel).join(" → ")}</span>
+                  <span className="w-full text-xs text-muted-foreground">{v.modules.map((k) => sectionLabel(k, stage)).join(" → ")}</span>
                 </li>
               ))}
             </ul>
@@ -234,7 +236,7 @@ export function RoomPerformance({ pageId }: { pageId: number }) {
         </>
       )}
       <p className="text-xs text-muted-foreground">
-        Files opened and downloaded are under Launch kit. Uploads, completed tasks and requests are under Activity.
+        Files opened and downloaded are under {names.kit}. Uploads, completed tasks and requests are under Activity.
         {data.trackedSince ? ` Visits by person and section have been recorded since ${new Date(data.trackedSince).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.` : ""}
       </p>
     </div>

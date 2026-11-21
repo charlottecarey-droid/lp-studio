@@ -221,7 +221,7 @@ export function hubSetupItems(props: Record<string, unknown> | null, facts: { pu
   return [
     { key: "logo", title: "Add the customer's logo", done: !!str(p.partnerLogoUrl), where: "builder" },
     { key: "team", title: customers.length ? `Check the customer's team (${customers.length} listed)` : "Add the customer's team", done: customers.length > 0, where: "builder" },
-    { key: "kit", title: "Create the launch kit", done: files.length >= 2, where: "kit" },
+    { key: "kit", title: str(p.stage) === "expansion" ? "Create the marketing assets" : "Create the launch kit", done: files.length >= 2, where: "kit" },
     { key: "publish", title: "Publish the hub", done: facts.published, where: "builder" },
     { key: "invite", title: facts.invited ? `Invite the customer (${facts.invited} invited)` : "Invite the customer", done: facts.invited > 0, where: "settings" },
   ];

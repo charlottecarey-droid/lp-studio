@@ -38,7 +38,7 @@ const minutes = (s: number) => (s < 60 ? `${s}s` : `${Math.round(s / 60)} min`);
  * on the hub page, under Launch & marketing, so a change shows straight away.
  * Each row says how often the customer has opened it.
  */
-export function RoomLinksSection({ pageId, links, views = [], onSaved }: { pageId: number; links: HubLink[]; views?: HubLinkViews[]; onSaved: (links: HubLink[]) => void | Promise<void> }) {
+export function RoomLinksSection({ pageId, links, views = [], onSaved, moduleName = "Launch & marketing" }: { /** What the hub calls the section these sit in: "Launch & marketing", or "Marketing" past the rollout. */ moduleName?: string; pageId: number; links: HubLink[]; views?: HubLinkViews[]; onSaved: (links: HubLink[]) => void | Promise<void> }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   /** The row being edited, and what is typed for its name and description. */
@@ -107,7 +107,7 @@ export function RoomLinksSection({ pageId, links, views = [], onSaved }: { pageI
     <section className="space-y-2" data-room-links>
       <div>
         <h4 className="text-sm font-semibold">Important links</h4>
-        <p className="text-sm text-muted-foreground">Resources the customer sees at the top of Launch &amp; marketing. Files open in the hub’s viewer.</p>
+        <p className="text-sm text-muted-foreground">Resources the customer sees at the top of {moduleName}. Files open in the hub’s viewer.</p>
       </div>
       {list.length > 0 && (
         <div className="divide-y rounded-md border">

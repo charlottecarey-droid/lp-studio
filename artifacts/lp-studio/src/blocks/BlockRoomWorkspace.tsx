@@ -644,9 +644,18 @@ export function roomRowAction(row: { key?: string; task?: string; customerAction
 }
 /** Plan steps that are really done somewhere else in the hub: the step gets a button that goes there. */
 export const ROOM_STEP_SHORTCUTS: Record<string, { module: RoomModuleKey; label: string; hint: string }> = {
-  "internal-announcement": { module: "marketing", label: "Get the copy", hint: "The announcement email and social posts are in Launch & marketing" },
+  "internal-announcement": { module: "marketing", label: "Get the copy", hint: "The announcement email and social posts are in the marketing section" },
   "welcome-event": { module: "marketing", label: "Choose", hint: "Pick your welcome event in the marketing plan" },
 };
+
+/**
+ * What the launch material is called. During the rollout it is the launch
+ * (the "Launch kit", "Launch & marketing"); once a hub has moved past its
+ * rollout there is no launch left, so it is plainly "Marketing".
+ */
+export function roomMarketingNames(stage: string | undefined): { module: string; kit: string; ready: string } {
+  return stage === "expansion" ? { module: "Marketing", kit: "Marketing", ready: "Ready to use" } : { module: "Launch & marketing", kit: "Launch kit", ready: "Ready for launch" };
+}
 
 export function roomMilestoneKey(row: { key?: string; task?: string }): string {
   const explicit = (row.key ?? "").trim();
@@ -2316,7 +2325,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
             <div className="in">
               {modules.map((m, i) => (
                 <button key={m.key} type="button" className={m.key === active ? "on" : ""} onClick={() => setView(m.key)} data-room-nav={m.key}>
-                  {m.key === "marketing" ? "Launch & marketing" : m.key === "calendar" && hiddenSet.has("calendar") ? "Meetings" : m.label}
+                  {m.key === "marketing" ? roomMarketingNames(props.stage).module : m.key === "calendar" && hiddenSet.has("calendar") ? "Meetings" : m.label}
                   {badge[m.key] && <em className="prw-num" aria-label={`${badge[m.key]} waiting on you`}>{badge[m.key]}</em>}
                 </button>
               ))}
@@ -2684,7 +2693,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               <>
                 <div className="prw-hd">
                   <div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Launch &amp; marketing</h2>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>{roomMarketingNames(props.stage).module}</h2>
                   </div>
                 </div>
 
@@ -2728,7 +2737,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
 
                 {showKit && launch.ready.length > 0 && (
                   <section className="prw-lk" data-room-launch="ready">
-                    <h3>Ready for launch<span className="prw-num">{launch.ready.length}</span></h3>
+                    <h3>{roomMarketingNames(props.stage).ready}<span className="prw-num">{launch.ready.length}</span></h3>
                     <div className="prw-docs">
                       {launch.ready.map((a, i) => (
                         <AssetRow key={i} asset={a} isEditor={isEditor} onTrack={track} onOpen={openAsset} canRequest={canRequest} onRequest={() => openRequest({ subject: `Change to: ${a.title}`, kind: "asset_change", assetKey: a.key || roomMilestoneKey({ task: a.title }) })} />

@@ -29,6 +29,7 @@ interface HubSetup {
   name: string;
   status: "live" | "draft";
   url: string;
+  stage?: "rollout" | "expansion";
   setup: { key: string; title: string; done: boolean; where: "builder" | "kit" | "settings" }[];
 }
 
@@ -223,7 +224,7 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
                           <a href={`/builder/${pageId}`} target="_blank" rel="noopener">Open editor</a>
                         </Button>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={() => onTab(s.where === "kit" ? "kit" : "settings")}>{s.where === "kit" ? "Launch kit" : "Invite"}</Button>
+                        <Button size="sm" variant="outline" onClick={() => onTab(s.where === "kit" ? "kit" : "settings")}>{s.where === "kit" ? (data?.stage === "expansion" ? "Marketing" : "Launch kit") : "Invite"}</Button>
                       )}
                     </li>
                   ))}
@@ -306,7 +307,7 @@ export default function SalesPartnerHubs() {
       <div className="space-y-6">
         <SalesPageHeader
           title="Partner Hubs"
-          description="The shared workspace each new partner gets: their plan, launch kit, practices and requests in one place."
+          description="The shared workspace each partner gets: their plan, marketing, practices and requests in one place."
           actions={
             <Button variant="brand" className="gap-1.5" onClick={() => setCreating(true)} data-hub-new>
               <Plus className="h-4 w-4" /> New hub

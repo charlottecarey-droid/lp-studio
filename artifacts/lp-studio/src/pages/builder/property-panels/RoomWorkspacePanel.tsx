@@ -399,7 +399,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
             <div className="divide-y rounded-lg border">
               {(
                 [
-                  { tab: "kit", label: "Launch kit", hint: "Create the one-pager, graphics and media kit; see who opened what" },
+                  { tab: "kit", label: props.stage === "expansion" ? "Marketing" : "Launch kit", hint: "Create the one-pager, graphics and media kit; see who opened what" },
                   { tab: "activity", label: "To do", hint: "Access requests, the marketing plan to send, customer requests" },
                   { tab: "practices", label: "Practices", hint: "Load and update the practice list" },
                   { tab: "calendar", label: "Calendar", hint: "Connect a calendar, review minutes drafts" },
@@ -843,7 +843,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
       )}
 
       {active === "kit" && (
-      <SectionBody title={`Launch kit (${assets.length})`} hint="Assets with View, Download and Request changes">
+      <SectionBody title={`${props.stage === "expansion" ? "Marketing" : "Launch kit"} (${assets.length})`} hint="Assets with View, Download and Request changes">
         {assets.map((a, i) => (
           <CollapseItem key={i} startOpen={String(a.title || `Asset ${i + 1}`).startsWith("New ")} header={<ItemHeader label={a.title || `Asset ${i + 1}`} index={i} total={assets.length} onMove={(dir) => update({ assets: moveItem(assets, i, dir) })} onRemove={() => update({ assets: assets.filter((_, idx) => idx !== i) })} />}>
             <div className="grid grid-cols-[1fr_120px] gap-2">

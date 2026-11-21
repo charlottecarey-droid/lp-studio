@@ -17,7 +17,7 @@ import { RoomLinksSection, type HubLink } from "./RoomLinks";
 import { RoomPlanQueueSection, type PlanQueueItem } from "./RoomPlanQueue";
 import { RoomReminderSection } from "./RoomReminder";
 import { RoomSlackPreview } from "./RoomSlackPreview";
-import { ROOM_OVERVIEW_SECTIONS, type RoomOverviewSection } from "@/blocks/BlockRoomWorkspace";
+import { ROOM_OVERVIEW_SECTIONS, roomMarketingNames, type RoomOverviewSection } from "@/blocks/BlockRoomWorkspace";
 
 /**
  * Partner room — the team's side of a room page (a page whose plan has tasks
@@ -249,6 +249,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const doneRequests = (data.requests ?? []).filter((q) => q.status === "done");
   // What the To do tab is for: people asking to get in, programs to send to marketing, and requests nobody has picked up.
   const needsYou = requests.length + (data.planQueue ?? []).filter((i) => i.state === "queued").length + openRequests.filter((q) => q.status === "new").length;
+  // "Launch kit" during the rollout, "Marketing" once the hub is past it.
+  const kitNames = roomMarketingNames(data.stage?.stage);
   const goalAgreed = !!data.tasks.find((x) => x.key === "goals-agreed")?.done;
   const allowedPeople = others.filter((m) => m.status === "allowed").length;
   const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
@@ -351,7 +353,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             [
               { id: "activity", label: "To do", count: needsYou },
               ...(data.isWorkspace ? [{ id: "performance", label: "Engagement", count: 0 }] : []),
-              ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
+              ...(data.isWorkspace ? [{ id: "kit", label: kitNames.kit, count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "practices" as const, label: "Practices", count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "calendar", label: "Calendar", count: (data.events ?? []).filter((e) => e.minutesStatus === "draft").length }] : []),
               { id: "settings", label: "Settings", count: 0 },
@@ -372,7 +374,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           ))}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} />}
+        {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} stage={data.stage?.stage} />}
         {tab === "activity" && (
           <div className="space-y-6" data-room-todo>
             {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
@@ -739,6 +741,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           <RoomLinksSection
             pageId={pageId}
             links={data.links}
+            moduleName={kitNames.module}
             views={data.engagement?.assets}
             onSaved={async (l) => {
               onLinks?.(l);
@@ -747,11 +750,11 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           />
         )}
 
-        {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} onKitLink={onKitLink} />}
+        {tab === "kit" && data.isWorkspace && data.kit && <LaunchAssetsSection expansion={data.stage?.stage === "expansion"} pageId={pageId} kit={data.kit} refresh={refresh} onKitAssets={onKitAssets} onKitLink={onKitLink} />}
 
         {tab === "kit" && data.isWorkspace && (
           <Fold title="Who opened what" hint={(data.engagement?.assets ?? []).length ? `${(data.engagement?.assets ?? []).length} opened in the last 90 days` : "Nothing opened yet"}>
-            <EngagementSection engagement={data.engagement} />
+            <EngagementSection engagement={data.engagement} kitName={kitNames.kit === "Marketing" ? "Marketing" : "the launch kit"} />
           </Fold>
         )}
 
@@ -1323,13 +1326,13 @@ const fmtDuration = (seconds: number) => (seconds < 60 ? `${seconds}s` : seconds
 const ACTION_LABEL: Record<string, string> = { view: "viewed", open: "opened", download: "downloaded", time: "spent time on" };
 
 /** Who opened which launch-kit item, for how long, and when. Last 90 days. */
-function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"] }) {
+function EngagementSection({ engagement, kitName = "the launch kit" }: { engagement: RoomDetail["engagement"]; kitName?: string }) {
   const [showAll, setShowAll] = useState(false);
   const assets = engagement?.assets ?? [];
   const recent = engagement?.recent ?? [];
   return (
     <section className="space-y-2">
-      <p className="text-sm text-muted-foreground">Who opened what in the launch kit, and for how long. Last 90 days.</p>
+      <p className="text-sm text-muted-foreground">Who opened what in {kitName}, and for how long. Last 90 days.</p>
       {assets.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nothing has been opened yet.</p>
       ) : (
@@ -1386,7 +1389,7 @@ function EngagementSection({ engagement }: { engagement: RoomDetail["engagement"
  * the cover photo): the partnership one-pager and two social graphics. Each is
  * generated here, uploaded, and filed into the room's launch kit.
  */
-function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: { pageId: number; kit: NonNullable<RoomDetail["kit"]>; refresh: () => Promise<void>; onKitAssets?: (assets: RoomKitAssetChange[]) => void; onKitLink?: (link: RoomKitLinkChange) => void }) {
+function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, expansion = false }: { /** Past the rollout: these are marketing assets, not a launch. */ expansion?: boolean; pageId: number; kit: NonNullable<RoomDetail["kit"]>; refresh: () => Promise<void>; onKitAssets?: (assets: RoomKitAssetChange[]) => void; onKitLink?: (link: RoomKitLinkChange) => void }) {
   const [state, setState] = useState<Record<string, "working" | "done" | string>>({});
   const [busy, setBusy] = useState(false);
   const [previews, setPreviews] = useState<Record<string, string>>({});
@@ -1415,7 +1418,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
       const asset = { key: spec.key, kind: spec.kind, title: meta?.title ?? spec.title, description: meta?.description, fileUrl };
       const r = await fetch(`/api/lp/partner-rooms/${pageId}/kit-asset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(asset) });
       const j = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) throw new Error(j.error ?? "Could not add it to the launch kit");
+      if (!r.ok) throw new Error(j.error ?? "Could not add it to the hub");
       onKitAssets?.([asset]);
       setPreviews((p) => ({ ...p, [spec.key]: fileUrl }));
       setOwn((o) => ({ ...o, [spec.key]: true }));
@@ -1519,7 +1522,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
   const missing = [!kit.partnerName && "the customer’s name", !kit.partnerLogoUrl && "the customer’s logo (their name is used instead)", !kit.heroImageUrl && "a cover photo (the link-preview graphic is made without one)"].filter(Boolean) as string[];
   return (
     <section className="space-y-2">
-      <h4 className="text-sm font-semibold">Launch assets</h4>
+      <h4 className="text-sm font-semibold">{expansion ? "Marketing assets" : "Launch assets"}</h4>
       <p className="text-sm text-muted-foreground">
         Made for {kit.partnerName || "this customer"} from the hub’s names, logos and cover photo. Have your own version? Upload it in its place.
       </p>
@@ -1598,7 +1601,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
         </div>
       </Fold>
       <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
-        {busy ? "Creating…" : "Create launch kit"}
+        {busy ? "Creating…" : expansion ? "Create marketing assets" : "Create launch kit"}
       </Button>
       <p className="text-xs text-muted-foreground">Finds or drafts the practice microsite, creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
     </section>
@@ -1622,7 +1625,7 @@ export function StandardFilesManager() {
   const [note, setNote] = useState("");
   const save = async (key: string, fileUrl: string) => {
     const e = await send(`/api/lp/room-standard-assets/${key}`, "PUT", { fileUrl });
-    setNote(e ?? "Saved. New hubs get this file; add it to an existing hub from that hub’s Launch kit tab.");
+    setNote(e ?? "Saved. New hubs get this file; add it to an existing hub from that hub’s Launch kit tab (Marketing, once it is past its rollout).");
     await refetch();
   };
   return (
