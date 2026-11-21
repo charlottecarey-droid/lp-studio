@@ -379,6 +379,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
           <div className="space-y-6" data-room-todo>
             {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
 
+            {/* Most pressing first: someone locked out, then what the customer asked us for, then what we owe marketing,
+                then what they sent, then what we are waiting on them for. Reference and ideas come last. */}
             {requests.length > 0 && (
               <section className="space-y-2">
                 <h4 className="text-sm font-semibold">Asking for access</h4>
@@ -394,8 +396,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
               </section>
             )}
 
-            {data.isWorkspace && (data.planQueue ?? []).length > 0 && <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} />}
-
             {openRequests.length > 0 && (
               <section className="space-y-2">
                 <div>
@@ -409,6 +409,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                 </div>
               </section>
             )}
+
+            {data.isWorkspace && (data.planQueue ?? []).length > 0 && <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} />}
 
             {data.uploads.length > 0 && (
         <section className="space-y-2" data-room-files>
@@ -535,16 +537,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
               />
             )}
 
-            {data.isWorkspace && (
-              <section className="space-y-2">
-                <div>
-                  <h4 className="text-sm font-semibold">Suggested next moves</h4>
-                  <p className="text-sm text-muted-foreground">Worked out from this hub’s practices and what has already been sent.</p>
-                </div>
-                <RoomPlays pageId={pageId} />
-              </section>
-            )}
-
             {/* Reference, not work: closed until someone wants it. */}
             <div className="space-y-2">
               {data.tasks.length > 0 && (
@@ -593,6 +585,12 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                       </div>
                     ))}
                   </div>
+                </Fold>
+              )}
+              {/* Ideas, not obligations: last, and closed. */}
+              {data.isWorkspace && (
+                <Fold title="Suggested next moves" hint="Ideas worked out from this hub’s practices and what has already been sent" data-room-plays-fold>
+                  <RoomPlays pageId={pageId} />
                 </Fold>
               )}
             </div>
