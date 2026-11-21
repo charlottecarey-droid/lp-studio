@@ -543,6 +543,17 @@ export const PRODUCT_LINES: [string, string][] = [
 ];
 const productColumn = (line: string) => `01st ${line} order placed`;
 
+/**
+ * How many practices order each product line, from each practice's saved
+ * list ("Implant, Aligner"). `ordering` = practices with at least one line on
+ * record: the fair denominator, since a practice with no product dates may
+ * simply be missing them in the report. Lines in the standard order.
+ */
+export function productLineSummary(saved: string[]): { ordering: number; lines: { line: string; practices: number }[] } {
+  const lists = saved.map((v) => v.split(", ").filter(Boolean)).filter((l) => l.length > 0);
+  return { ordering: lists.length, lines: PRODUCT_LINES.map(([, label]) => ({ line: label, practices: lists.filter((l) => l.includes(label)).length })) };
+}
+
 const SCANNER_MODEL_COLUMNS: [string, string][] = [["trios 3", "Trios 3"], ["trios 5", "Trios 5"], ["dandy vision", "Dandy Vision"], ["medit", "Medit"], ["itero", "iTero"]];
 
 /** Salesforce writes "None" for an empty picklist. */

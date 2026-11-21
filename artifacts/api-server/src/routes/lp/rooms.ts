@@ -77,6 +77,8 @@ import {
   normalizePracticeStage,
   parsePracticeCsv,
   parsePracticeRow,
+  PRODUCT_LINES,
+  productLineSummary,
   ROOM_PRACTICE_STAGES,
   roomCalendarIcs,
   roomRequiresEmail,
@@ -770,6 +772,9 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const stages = typeof req.body?.stage === "string" ? STAGE_GROUPS[req.body.stage] : undefined;
     const scanner = req.body?.scanner === "yes" || req.body?.scanner === "no" ? (req.body.scanner as "yes" | "no") : null;
     const q = typeof req.body?.q === "string" ? req.body.q.trim().slice(0, 80) : "";
+    // Team only: practices that order a product line, or (among those with orders on record) that don't.
+    const product = viewer.team && typeof req.body?.product === "string" ? (PRODUCT_LINES.find(([, label]) => label === req.body.product)?.[1] ?? null) : null;
+    const productLacks = req.body?.productMode === "lacks";
     const pageNo = Math.max(0, Math.min(1000, Math.floor(Number(req.body?.page) || 0)));
     // Sorting: one of a fixed set of columns (never a name from the request), blanks last.
     const SORTS = {
@@ -804,6 +809,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       wave ? eq(lpRoomPracticesTable.wave, wave) : undefined,
       stages ? inArray(lpRoomPracticesTable.stage, stages) : undefined,
       scanner === "yes" ? sql`${lpRoomPracticesTable.scannerCount} > 0` : scanner === "no" ? sql`COALESCE(${lpRoomPracticesTable.scannerCount}, 0) = 0` : undefined,
+      product ? (productLacks ? sql`COALESCE(${lpRoomPracticesTable.products}, '') <> '' AND (', ' || ${lpRoomPracticesTable.products} || ', ') NOT LIKE ${`%, ${product}, %`}` : sql`(', ' || COALESCE(${lpRoomPracticesTable.products}, '') || ', ') LIKE ${`%, ${product}, %`}`) : undefined,
       q ? or(ilike(lpRoomPracticesTable.name, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.city, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.regionalManager, `%${q.replace(/[%_\\]/g, "")}%`)) : undefined,
     );
     const [rows, [{ n }], [has]] = await Promise.all([
@@ -825,12 +831,15 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
       .from(lpRoomPracticesTable)
       .where(eq(lpRoomPracticesTable.pageId, page.id));
     const [anyDoctor] = await db.select({ id: lpRoomDoctorsTable.id }).from(lpRoomDoctorsTable).where(eq(lpRoomDoctorsTable.pageId, page.id)).limit(1);
+    // Team only: how many practices order each product line, across the whole hub (not just this page of the list).
+    const productSummary = viewer.team && extra?.products ? productLineSummary((await db.select({ products: lpRoomPracticesTable.products }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, page.id), sql`COALESCE(${lpRoomPracticesTable.products}, '') <> ''`)).limit(5000)).map((r) => r.products ?? "")) : null;
     res.json({
       total: n,
       page: pageNo,
       pageSize: 50,
       // The account owner and last sales activity are ours: only the team's own view gets them.
       columns: { scanner: !!has?.scanner, scannerCount: !!has?.scannerCount, manager: !!has?.manager, wave: !!has?.wave, brand: !!has?.brand, contract: !!has?.contract, address: !!extra?.address, office: !!extra?.office, officeType: !!extra?.officeType, kit: !!viewer.team && !!extra?.kit, products: !!viewer.team && !!extra?.products, orders: !!viewer.team && !!extra?.orders, doctors: !!anyDoctor, owner: !!viewer.team && !!has?.owner, activity: !!viewer.team && !!has?.activity },
+      ...(productSummary ? { productSummary } : {}),
       rows: rows.map((p) => ({
         id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, scannerSent: p.scannerSent, scannerActivated: p.scannerActivated, regionalManager: p.regionalManager, scannerCount: p.scannerCount, scannerModels: p.scannerModels,
         scannerBrand: p.scannerBrand, contractSigned: p.contractSigned,

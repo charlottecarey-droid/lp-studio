@@ -243,6 +243,8 @@ export interface RoomPracticePage {
   pageSize: number;
   /** Which optional columns this room has any data for. */
   columns?: { scanner: boolean; scannerCount: boolean; manager: boolean; wave: boolean; brand?: boolean; contract?: boolean; owner?: boolean; activity?: boolean; address?: boolean; office?: boolean; officeType?: boolean; kit?: boolean; products?: boolean; orders?: boolean; doctors?: boolean };
+  /** Team viewers only: how many practices order each product line, across the hub. `ordering` = practices with any line on record. */
+  productSummary?: { ordering: number; lines: { line: string; practices: number }[] };
   rows: RoomPractice[];
 }
 
@@ -483,7 +485,7 @@ class RoomStore {
     }
   }
 
-  async loadPractices(filter: { region?: string; q?: string; page?: number; sort?: RoomPracticeSort; dir?: "asc" | "desc"; stage?: RoomPracticeStageFilter; wave?: string; scanner?: "yes" | "no" }): Promise<RoomPracticePage | "identity" | null> {
+  async loadPractices(filter: { region?: string; q?: string; page?: number; sort?: RoomPracticeSort; dir?: "asc" | "desc"; stage?: RoomPracticeStageFilter; wave?: string; scanner?: "yes" | "no"; product?: string; productMode?: "has" | "lacks" }): Promise<RoomPracticePage | "identity" | null> {
     try {
       const { status, json } = await this.post("practices", filter);
       if (status === 200) return json as unknown as RoomPracticePage;

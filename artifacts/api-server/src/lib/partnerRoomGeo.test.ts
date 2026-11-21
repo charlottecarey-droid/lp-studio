@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePracticeRow, roomSharesMap } from "./partnerRoom";
+import { parsePracticeRow, productLineSummary, roomSharesMap } from "./partnerRoom";
 import { splitAddress, usingDandyStage, zip5 } from "./partnerRoomGeo";
 import { parseRoster } from "./partnerRoomRoster";
 import { zipCentroid } from "./zipCentroids";
@@ -92,5 +92,16 @@ describe("order columns on the locations report", () => {
     const plain = parsePracticeRow(base, now)!;
     expect("products" in plain).toBe(false);
     expect("lastOrderDay" in plain).toBe(false);
+  });
+});
+
+describe("product lines across a hub", () => {
+  it("counts the practices ordering each line, out of those with any line on record", () => {
+    const got = productLineSummary(["Simple restorative, Implant", "Simple restorative", "", "Full denture, Partial denture, Implant"]);
+    expect(got.ordering).toBe(3);
+    expect(got.lines.find((l) => l.line === "Implant")).toEqual({ line: "Implant", practices: 2 });
+    expect(got.lines.find((l) => l.line === "Simple restorative")!.practices).toBe(2);
+    expect(got.lines.find((l) => l.line === "Aligner")!.practices).toBe(0);
+    expect(got.lines).toHaveLength(9);
   });
 });

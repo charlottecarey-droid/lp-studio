@@ -230,6 +230,41 @@ const COLUMNS: ColumnDef[] = [
   { key: "activity", label: "Last activity", sort: "lastActivity", on: false, has: "activity", teamOnly: true, cell: (p) => p.lastActivity },
 ];
 
+/**
+ * Team only: which product lines the account's practices order. One bar per
+ * line, longest first, out of the practices with any line on record (a
+ * practice with no product dates in the report is left out rather than
+ * counted as ordering nothing). Click a bar to list those practices; the
+ * switch turns the list to the ones that don't order it yet.
+ */
+function ProductLines({ summary, noun, picked, mode, onPick, onMode }: { summary: NonNullable<RoomPracticePage["productSummary"]>; noun: string; picked: string; mode: "has" | "lacks"; onPick: (line: string) => void; onMode: (m: "has" | "lacks") => void }) {
+  const lines = [...summary.lines].sort((a, b) => b.practices - a.practices || a.line.localeCompare(b.line));
+  return (
+    <div className="prw-card prw-sc-prod" data-room-products={summary.ordering}>
+      <div className="hd">
+        <h4>Product lines</h4>
+        <span>{summary.ordering} {noun} with orders on record</span>
+        {picked && (
+          <span className="prw-seg" role="group" aria-label="Show">
+            <button type="button" className={mode === "has" ? "on" : ""} aria-pressed={mode === "has"} onClick={() => onMode("has")}>Ordering</button>
+            <button type="button" className={mode === "lacks" ? "on" : ""} aria-pressed={mode === "lacks"} onClick={() => onMode("lacks")} data-room-product-lacks>Not yet</button>
+          </span>
+        )}
+      </div>
+      {lines.map((l) => {
+        const pct = Math.round((l.practices / summary.ordering) * 100);
+        return (
+          <button type="button" key={l.line} className={picked === l.line ? "on" : ""} aria-pressed={picked === l.line} onClick={() => onPick(l.line)} title={`${l.practices} of ${summary.ordering} order ${l.line.toLowerCase()}; ${summary.ordering - l.practices} don't yet`} data-room-product={l.line}>
+            <span className="n">{l.line}</span>
+            <span className="track"><span style={{ width: `${pct}%` }} /></span>
+            <span className="v prw-num">{l.practices} <i>· {pct}%</i></span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const COLS_KEY = "lp_room_scorecard_cols";
 function savedColumns(): Record<string, boolean> {
   try {
@@ -264,6 +299,9 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const [wave, setWave] = useState("");
   const [scanner, setScanner] = useState<"" | "yes" | "no">("");
   const [q, setQ] = useState("");
+  // Team only: one product line, and whether to list the practices that order it or the ones that don't.
+  const [product, setProduct] = useState("");
+  const [productMode, setProductMode] = useState<"has" | "lacks">("has");
   const [pageNo, setPageNo] = useState(0);
   const [sort, setSort] = useState<{ key: RoomPracticeSort; dir: "asc" | "desc" } | null>(null);
   const [data, setData] = useState<RoomPracticePage | null>(null);
@@ -328,7 +366,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     let cancelled = false;
     setLoading(true);
     const t = window.setTimeout(() => {
-      void store.loadPractices({ region, q, page: pageNo, ...(stage ? { stage } : {}), ...(wave ? { wave } : {}), ...(scanner ? { scanner } : {}), ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
+      void store.loadPractices({ region, q, page: pageNo, ...(stage ? { stage } : {}), ...(wave ? { wave } : {}), ...(scanner ? { scanner } : {}), ...(product ? { product, productMode } : {}), ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
         if (cancelled) return;
         setLoading(false);
         if (r && r !== "identity") setData(r);
@@ -338,7 +376,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [store, viewerKey, region, q, pageNo, pr.total, sort, stage, wave, scanner, reload]);
+  }, [store, viewerKey, region, q, pageNo, pr.total, sort, stage, wave, scanner, reload, product, productMode]);
 
   // Team only: does Salesforce match the customer's rosters? Asked once per visit.
   useEffect(() => {
@@ -373,8 +411,9 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const colCount = shown.length + 2 + (isTeam ? 1 : 0);
   const pageIds = (data?.rows ?? []).map((p) => p.id);
   const pageAllTicked = pageIds.length > 0 && pageIds.every((id) => ticked.has(id));
-  const filtered = !!(stage || region || wave || scanner || q);
+  const filtered = !!(stage || region || wave || scanner || q || product);
   const clear = () => {
+    setProduct("");
     setStage("");
     setRegion("");
     setWave("");
@@ -581,6 +620,16 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         </div>
       ) : (
         <>
+          {isTeam && data?.productSummary && data.productSummary.ordering > 0 && (
+            <ProductLines
+              summary={data.productSummary}
+              noun={noun}
+              picked={product}
+              mode={productMode}
+              onMode={(m) => { setProductMode(m); setPageNo(0); }}
+              onPick={(line) => { setPageNo(0); setProduct((cur) => (cur === line ? "" : line)); }}
+            />
+          )}
           <div className="prw-tools prw-sc-tools">
             <label className="prw-sc-search">
               <Search aria-hidden />

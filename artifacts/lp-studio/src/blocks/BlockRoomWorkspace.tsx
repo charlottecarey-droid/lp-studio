@@ -1338,6 +1338,18 @@ const CSS = `
 .prw-sc-picked{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:-8px 0 12px;font-size:12.5px;color:var(--body);min-height:32px}
 .prw-sc-picked>span:first-child{margin-right:auto;font-weight:600;color:var(--ink)}
 .prw-sc-late{color:var(--red);font-weight:600}
+.prw-sc-prod{padding:18px 20px 12px;margin-bottom:18px}
+.prw-sc-prod .hd{display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.prw-sc-prod .hd h4{font-size:13px;font-weight:700;color:var(--dark);margin:0}
+.prw-sc-prod .hd>span:nth-child(2){font-size:12px;color:var(--body);margin-right:auto}
+.prw-sc-prod>button{display:grid;grid-template-columns:minmax(130px,1.1fr) 3fr minmax(84px,auto);gap:14px;align-items:center;width:calc(100% + 16px);margin:0 -8px;padding:6px 8px;border:0;border-radius:8px;background:none;text-align:left;font-size:13px;color:var(--ink)}
+.prw-sc-prod>button:hover{background:#F7F8F5}
+.prw-sc-prod>button.on{background:color-mix(in srgb,var(--dark) 7%,#fff)}
+.prw-sc-prod .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prw-sc-prod .track{display:block;height:8px;border-radius:999px;background:#F1F2EE;overflow:hidden}
+.prw-sc-prod .track span{display:block;height:100%;min-width:2px;background:var(--dark);border-radius:999px}
+.prw-sc-prod .v{font-size:12.5px;font-weight:600;color:var(--ink);text-align:right;white-space:nowrap}
+.prw-sc-prod .v i{font-style:normal;font-weight:400;color:var(--body)}
 .prw-sc-kit{margin:0 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:13px;color:var(--body)}
 .prw-sc-kit.warn{border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
 .prw-sc-kit p{margin:0 0 4px}
