@@ -17,13 +17,56 @@ export interface HubRow {
   /** Practices in the hub and how many are live. Null when the hub has none loaded. */
   practices?: { total: number; live: number } | null;
   waitingOnCustomer: number;
+  /** Everything that needs the account team: the sum of `needs`. */
   waitingOnUs: number;
+  /** What that is made of. Mirrors the server's HubNeeds. */
+  needs?: HubNeeds;
+  /** Retired by a rep: off the list, its page offline. */
+  archived?: boolean;
   views30: number;
   people30: number;
   lastVisitAt: string | null;
   mine: boolean;
   test: boolean;
   updatedAt: string;
+}
+
+export interface HubNeeds {
+  access: number;
+  marketing: number;
+  requests: number;
+  minutes: number;
+}
+
+const some = (n: number, one: string, many: string) => (n > 0 ? `${n} ${n === 1 ? one : many}` : "");
+/** "2 asking for access · 3 programs to send to marketing · 1 new request". */
+export function needsLine(n: HubNeeds | undefined): string {
+  if (!n) return "";
+  return [some(n.access, "person asking for access", "people asking for access"), some(n.marketing, "program to send to marketing", "programs to send to marketing"), some(n.requests, "new request", "new requests"), some(n.minutes, "set of minutes to review", "sets of minutes to review")].filter(Boolean).join(" · ");
+}
+
+/** Where a hub opens: on what needs the rep when something does, otherwise on how it is being used. */
+export function hubLandingTab(h: Pick<HubRow, "needs">): "activity" | "calendar" | "performance" {
+  const n = h.needs;
+  if (n && n.access + n.marketing + n.requests > 0) return "activity";
+  if (n && n.minutes > 0) return "calendar";
+  return "performance";
+}
+
+const DAY_MS = 86_400_000;
+/**
+ * Signs a hub is going quiet, worked out from what the list already knows: a
+ * live hub nobody has visited in two weeks (or ever), and a live hub with no
+ * practices loaded. Test hubs and drafts are never flagged.
+ */
+export function hubFlags(h: Pick<HubRow, "status" | "lastVisitAt" | "practices" | "test" | "archived">, now: Date = new Date()): string[] {
+  if (h.status !== "live" || h.test || h.archived) return [];
+  const flags: string[] = [];
+  const last = h.lastVisitAt ? new Date(h.lastVisitAt).getTime() : null;
+  if (last === null) flags.push("Never visited");
+  else if (now.getTime() - last > 14 * DAY_MS) flags.push(`No visit in ${Math.floor((now.getTime() - last) / DAY_MS)} days`);
+  if (!h.practices || h.practices.total === 0) flags.push("No practices loaded");
+  return flags;
 }
 
 /** The rep's own hubs first, then whichever was touched last. Test hubs sink to the bottom. */

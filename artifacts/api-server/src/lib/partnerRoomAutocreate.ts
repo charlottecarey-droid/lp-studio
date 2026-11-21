@@ -240,6 +240,23 @@ async function fillRoomFromAccount(tenantId: number, pageId: number, account: Si
 }
 
 /** The active team member whose name is exactly the account owner's (the sheet gives a name, not an address). */
+/**
+ * Who to email about a hub's activity: the owner of the account the hub
+ * belongs to (matched to a team member by name), else the rep who made or
+ * last edited the hub. Null when neither is known.
+ */
+export async function hubOwnerEmail(tenantId: number, pageId: number): Promise<string | null> {
+  const [page] = await db.select({ accountId: lpPagesTable.accountId, updatedBy: lpPagesTable.updatedBy, createdBy: lpPagesTable.createdBy }).from(lpPagesTable).where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId))).limit(1);
+  if (!page) return null;
+  if (page.accountId) {
+    const [account] = await db.select({ owner: salesAccountsTable.owner }).from(salesAccountsTable).where(and(eq(salesAccountsTable.id, page.accountId), eq(salesAccountsTable.tenantId, tenantId))).limit(1);
+    const match = account?.owner ? await ownerUser(tenantId, account.owner) : null;
+    if (match) return match.email.toLowerCase();
+  }
+  const isEmail = (v: string | null) => !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  return isEmail(page.updatedBy) ? page.updatedBy!.toLowerCase() : isEmail(page.createdBy) ? page.createdBy!.toLowerCase() : null;
+}
+
 async function ownerUser(tenantId: number, ownerName: string): Promise<{ email: string } | null> {
   const users = await db.select({ id: appUsersTable.id, email: appUsersTable.email, tenantId: appUsersTable.tenantId }).from(appUsersTable).where(and(sql`lower(${appUsersTable.name}) = ${ownerName.trim().toLowerCase()}`, eq(appUsersTable.status, "active")));
   const own = users.find((u) => u.tenantId === tenantId);

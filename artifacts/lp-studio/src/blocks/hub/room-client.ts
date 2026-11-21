@@ -89,6 +89,8 @@ export interface RoomSnapshot {
   invited?: string[];
   /** The hub's own contents, handed to a recognised visitor of a hub that asks for an email first. */
   props?: Record<string, unknown>;
+  /** A team member is looking at the hub as the customer sees it ("View as the customer"). */
+  asCustomer?: boolean;
   /** `team` is set when the viewer is one of the page owner's own team. */
   viewer: { email: string; name: string | null; team?: boolean } | null;
   tasks: Record<string, RoomTaskState>;
@@ -331,9 +333,12 @@ class RoomStore {
     try {
       const { status, json } = await this.post("state", {});
       if (status !== 200) throw new Error("state");
+      const asCustomer = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "customer" && (json.viewer as { team?: boolean } | null)?.team === true;
       this.set({
         status: "ready",
-        viewer: (json.viewer as RoomSnapshot["viewer"]) ?? null,
+        // "View as the customer": a team member looking at the hub without what is the team's only (orders, editing, the map).
+        viewer: asCustomer && json.viewer ? { ...(json.viewer as NonNullable<RoomSnapshot["viewer"]>), team: false } : ((json.viewer as RoomSnapshot["viewer"]) ?? null),
+        ...(asCustomer ? { asCustomer: true } : {}),
         gated: json.gated === true,
         ...(Array.isArray(json.invited) ? { invited: json.invited as string[] } : {}),
         ...(json.props && typeof json.props === "object" ? { props: json.props as Record<string, unknown> } : {}),

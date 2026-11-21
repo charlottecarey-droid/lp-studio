@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, ExternalLink, Pencil, Plus, Search, Settings } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, ExternalLink, Pencil, Plus, Search, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { toast } from "@/hooks/use-toast";
 import { fmtWhen } from "@/components/analytics/RoomPerformance";
 import type { RoomPanelTab } from "@/components/analytics/PageRoomPanel";
-import { filterHubs, hubStageText, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
+import { filterHubs, hubFlags, hubLandingTab, hubStageText, needsLine, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
 
 /* ----------------------------------------------------------------------------
  * Sales Console → Partner Hubs. Where a rep finds their hubs, makes one for an
@@ -158,7 +158,8 @@ function NewHubDialog({ open, onClose, onOpenHub }: { open: boolean; onClose: ()
 /* ── One hub: the pop-up ──────────────────────────────────────────────────── */
 
 function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab: RoomPanelTab; onTab: (t: RoomPanelTab) => void; onClose: () => void }) {
-  const { data } = useQuery({
+  const qc = useQueryClient();
+  const { data, refetch } = useQuery({
     queryKey: ["partner-hub-setup", pageId],
     enabled: pageId !== null,
     queryFn: async () => {
@@ -167,6 +168,18 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
     },
   });
   const todo = (data?.setup ?? []).filter((s) => !s.done);
+  const [publishing, setPublishing] = useState(false);
+  /** Publish the hub (or take it offline) from here, by the same rules as publishing any page. */
+  const setLive = async (publish: boolean) => {
+    if (pageId === null) return;
+    if (!publish && !window.confirm("Unpublish this hub? The customer’s link stops working until you publish it again.")) return;
+    setPublishing(true);
+    const r = await json<{ code?: string }>(`/api/lp/partner-rooms/${pageId}/publish`, { method: "POST", body: JSON.stringify({ publish }) });
+    setPublishing(false);
+    if (!r.ok) return void toast({ title: publish ? "Couldn't publish the hub" : "Couldn't unpublish the hub", description: r.data.code === "fact_flags_pending" ? "Some facts on the page need a review first. Open Edit content to check them." : r.data.error, variant: "destructive" });
+    toast({ title: publish ? "The hub is live" : "The hub is a draft again", description: publish ? "Copy the link, or invite the customer's team from Settings." : undefined });
+    await Promise.all([refetch(), qc.invalidateQueries({ queryKey: ["partner-hubs"] }), qc.invalidateQueries({ queryKey: ["page-room", pageId] })]);
+  };
   return (
     <Dialog open={pageId !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto" data-hub-dialog>
@@ -188,6 +201,11 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
               {data?.url && (
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => copyLink(data.url)}>
                   <Copy className="h-3.5 w-3.5" /> Copy link
+                </Button>
+              )}
+              {data && (
+                <Button size="sm" variant={data.status === "live" ? "ghost" : "brand"} className={data.status === "live" ? "text-muted-foreground" : ""} disabled={publishing} onClick={() => void setLive(data.status !== "live")} data-hub-publish={data.status}>
+                  {publishing ? "Working…" : data.status === "live" ? "Unpublish" : "Publish"}
                 </Button>
               )}
             </div>
@@ -238,23 +256,40 @@ export default function SalesPartnerHubs() {
   const qc = useQueryClient();
   // The list and an open hub are two routes, so opening one remounts this page: the tab to land on rides in the URL.
   const [tab, setTab] = useState<RoomPanelTab>(() => tabFromSearch(typeof window === "undefined" ? "" : window.location.search));
-  const [scope, setScope] = useState<"mine" | "all">("mine");
+  const [scope, setScope] = useState<"mine" | "all" | "archived">("mine");
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data: loaded, isLoading, isError } = useQuery({
     queryKey: ["partner-hubs"],
     queryFn: async () => {
-      const r = await json<{ hubs?: HubRow[] }>("/api/lp/partner-rooms");
+      const r = await json<{ hubs?: HubRow[]; archived?: number }>("/api/lp/partner-rooms");
       if (!r.ok) throw new Error(r.data.error ?? "Could not load");
-      return r.data.hubs ?? [];
+      return { hubs: r.data.hubs ?? [], archived: r.data.archived ?? 0 };
     },
   });
-  const hubs = data ?? [];
+  // Retired hubs are fetched only when the rep opens the archive.
+  const { data: archivedHubs } = useQuery({
+    queryKey: ["partner-hubs", "archived"],
+    enabled: scope === "archived",
+    queryFn: async () => (await json<{ hubs?: HubRow[] }>("/api/lp/partner-rooms?archived=1")).data.hubs ?? [],
+  });
+  const hubs = loaded?.hubs ?? [];
+  const archivedCount = loaded?.archived ?? 0;
   const anyMine = hubs.some((h) => h.mine);
   // A rep with no hubs of their own starts on everyone's rather than an empty table.
   const effectiveScope = scope === "mine" && !anyMine ? "all" : scope;
-  const rows = useMemo(() => sortHubs(filterHubs(hubs, { scope: effectiveScope, q })), [hubs, effectiveScope, q]);
+  const rows = useMemo(() => (effectiveScope === "archived" ? sortHubs(filterHubs(archivedHubs ?? [], { scope: "all", q })) : sortHubs(filterHubs(hubs, { scope: effectiveScope, q }))), [hubs, archivedHubs, effectiveScope, q]);
+  // Needs you: every hub in view with something waiting on the account team, most waiting first.
+  const inbox = useMemo(() => (effectiveScope === "archived" ? [] : filterHubs(hubs, { scope: effectiveScope, q: "" }).filter((h) => h.waitingOnUs > 0 && !h.test).sort((a, b) => b.waitingOnUs - a.waitingOnUs)), [hubs, effectiveScope]);
+
+  const setArchived = async (h: HubRow, archived: boolean) => {
+    if (archived && !window.confirm(`Archive the ${h.name} hub? It leaves this list, the customer’s link stops working and its weekly digest stops. Nothing is deleted, and you can bring it back from Archived.`)) return;
+    const r = await json(`/api/lp/partner-rooms/${h.pageId}/archive`, { method: "POST", body: JSON.stringify({ archived }) });
+    if (!r.ok) return void toast({ title: archived ? "Couldn't archive the hub" : "Couldn't bring the hub back", description: r.data.error, variant: "destructive" });
+    toast({ title: archived ? "Hub archived" : "Hub is back on your list", description: archived ? undefined : "It's a draft: publish it when you're ready." });
+    await qc.invalidateQueries({ queryKey: ["partner-hubs"] });
+  };
 
   const open = (pageId: number, t: RoomPanelTab) => {
     setTab(t);
@@ -295,7 +330,7 @@ export default function SalesPartnerHubs() {
           <>
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex rounded-md border p-0.5 text-sm" role="tablist" aria-label="Which hubs">
-                {(["mine", "all"] as const).map((s) => (
+                {(["mine", "all", ...(archivedCount > 0 || scope === "archived" ? (["archived"] as const) : [])] as const).map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -306,7 +341,7 @@ export default function SalesPartnerHubs() {
                     className={`rounded px-3 py-1 disabled:opacity-40 ${effectiveScope === s ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
                     data-hub-scope={s}
                   >
-                    {s === "mine" ? "My hubs" : "All hubs"}
+                    {s === "mine" ? "My hubs" : s === "all" ? "All hubs" : `Archived${archivedCount ? ` (${archivedCount})` : ""}`}
                   </button>
                 ))}
               </div>
@@ -315,6 +350,28 @@ export default function SalesPartnerHubs() {
                 <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search hubs" className="pl-9" aria-label="Search hubs" />
               </div>
             </div>
+
+            {inbox.length > 0 && (
+              <section className="rounded-lg border border-amber-200 bg-amber-50/60 p-4" data-hub-inbox={inbox.length}>
+                <h2 className="text-sm font-semibold">
+                  Needs you <span className="font-normal text-muted-foreground">· {inbox.reduce((n, h) => n + h.waitingOnUs, 0)} across {inbox.length} {inbox.length === 1 ? "hub" : "hubs"}</span>
+                </h2>
+                <ul className="mt-2 divide-y divide-amber-200/70">
+                  {inbox.slice(0, 8).map((h) => (
+                    <li key={h.pageId}>
+                      <button type="button" className="flex w-full items-center justify-between gap-3 py-2 text-left text-sm hover:underline" onClick={() => open(h.pageId, hubLandingTab(h))} data-hub-inbox-row={h.pageId}>
+                        <span className="min-w-0">
+                          <span className="font-medium">{h.name}</span>
+                          <span className="text-muted-foreground"> · {needsLine(h.needs)}</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-medium text-amber-800">Open</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {inbox.length > 8 && <p className="mt-1 text-xs text-muted-foreground">and {inbox.length - 8} more hubs, marked in the list below.</p>}
+              </section>
+            )}
 
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full min-w-[820px] text-sm" data-hub-table>
@@ -331,13 +388,14 @@ export default function SalesPartnerHubs() {
                 </thead>
                 <tbody>
                   {rows.map((h) => (
-                    <tr key={h.pageId} className="cursor-pointer border-b last:border-0 hover:bg-muted/40" onClick={() => open(h.pageId, "performance")} data-hub-row={h.pageId}>
+                    <tr key={h.pageId} className="cursor-pointer border-b last:border-0 hover:bg-muted/40" onClick={() => open(h.pageId, hubLandingTab(h))} data-hub-row={h.pageId}>
                       <td className="px-4 py-3">
                         <span className="block font-medium">{h.name}{h.test ? " (test)" : ""}</span>
                         <span className="block text-xs text-muted-foreground">
                           <span className={h.status === "live" ? "text-emerald-700" : ""}>{h.status === "live" ? "Live" : "Draft"}</span>
                           {h.account?.owner ? ` · ${h.account.owner}` : ""}
                         </span>
+                        {hubFlags(h).length > 0 && <span className="mt-0.5 block text-xs font-medium text-amber-700" data-hub-flags>{hubFlags(h).join(" · ")}</span>}
                       </td>
                       <td className="px-3 py-3 tabular-nums" data-hub-stage={h.stage ?? "rollout"}>
                         <span className={`block ${h.stage !== "expansion" && h.day === null ? "text-muted-foreground" : ""}`}>{hubStageText(h)}</span>
@@ -347,7 +405,7 @@ export default function SalesPartnerHubs() {
                         </span>
                       </td>
                       <td className="px-3 py-3 tabular-nums">{h.waitingOnCustomer || <span className="text-muted-foreground">0</span>}</td>
-                      <td className="px-3 py-3 tabular-nums">{h.waitingOnUs ? <span className="font-medium text-amber-700">{h.waitingOnUs}</span> : <span className="text-muted-foreground">0</span>}</td>
+                      <td className="px-3 py-3 tabular-nums" title={needsLine(h.needs) || undefined}>{h.waitingOnUs ? <span className="font-medium text-amber-700">{h.waitingOnUs}</span> : <span className="text-muted-foreground">0</span>}</td>
                       <td className="px-3 py-3 tabular-nums">
                         {h.views30}
                         {h.people30 > 0 && <span className="text-muted-foreground"> · {h.people30} {h.people30 === 1 ? "person" : "people"}</span>}
@@ -367,13 +425,22 @@ export default function SalesPartnerHubs() {
                           <IconButton label="Settings" onClick={() => open(h.pageId, "settings")} data-hub-settings={String(h.pageId)}>
                             <Settings className="h-4 w-4" />
                           </IconButton>
+                          {h.archived ? (
+                            <IconButton label="Bring this hub back" onClick={() => void setArchived(h, false)} data-hub-restore={String(h.pageId)}>
+                              <ArchiveRestore className="h-4 w-4" />
+                            </IconButton>
+                          ) : (
+                            <IconButton label="Archive this hub" onClick={() => void setArchived(h, true)} data-hub-archive={String(h.pageId)}>
+                              <Archive className="h-4 w-4" />
+                            </IconButton>
+                          )}
                         </span>
                       </td>
                     </tr>
                   ))}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">No hubs match "{q}".</td>
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? `No hubs match "${q}".` : effectiveScope === "archived" ? "No archived hubs." : "No hubs here."}</td>
                     </tr>
                   )}
                 </tbody>
@@ -390,7 +457,7 @@ export default function SalesPartnerHubs() {
           setCreating(false);
           void qc.invalidateQueries({ queryKey: ["partner-hubs"] });
           if (created) toast({ title: "Hub created", description: "It's a draft. The checklist shows what's left." });
-          open(pageId, created ? "kit" : "performance");
+          open(pageId, created ? "kit" : hubLandingTab(hubs.find((h) => h.pageId === pageId) ?? {}));
         }}
       />
       <HubDialog pageId={openId} tab={tab} onTab={setTab} onClose={close} />

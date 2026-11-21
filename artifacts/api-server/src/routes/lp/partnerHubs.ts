@@ -6,10 +6,14 @@
  * and the visitor routes live in ./rooms.ts.
  */
 import { Router, type Request, type Response } from "express";
-import { db, lpPagesTable, lpPageVisitsTable, lpRoomAutocreateAccountsTable, lpRoomMembersTable, lpRoomRequestsTable, lpRoomSettingsTable, lpRoomTaskStateTable, lpRoomViewsTable, salesAccountsTable } from "@workspace/db";
+import { db, lpPagesTable, lpPageVisitsTable, lpRoomAutocreateAccountsTable, lpRoomChoicesTable, lpRoomEventsTable, lpRoomMembersTable, lpRoomRequestsTable, lpRoomSettingsTable, lpRoomTaskStateTable, lpRoomViewsTable, salesAccountsTable } from "@workspace/db";
 import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
-import { extractRoomTasks, pageIsRoom, resolveRoomBlocks, roomPartnerName, roomWorkspaceProps } from "../../lib/partnerRoom";
+import { extractRoomChoices, extractRoomTasks, pageIsRoom, resolveRoomBlocks, roomPartnerName, roomWorkspaceProps } from "../../lib/partnerRoom";
+import { buildPlanQueue } from "../../lib/partnerRoomPlanQueue";
+import { needsTotal, type HubNeeds } from "../../lib/partnerRoomNotify";
+import { userCanPublish } from "./pages";
+import { enforceFactFlagPublishGate } from "./fact-flags";
 import { teamPeopleFromBlocks } from "../../lib/partnerRoomFeed";
 import { digestRolloutDay } from "../../lib/partnerRoomDigest";
 import { roomStageFromProps } from "../../lib/partnerRoomStage";
@@ -51,13 +55,35 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
   try {
     const tenantId = getTenantId(req, res);
     if (tenantId == null) return;
-    const pages = (await hubPages(tenantId)).filter((p) => pageIsRoom(p.blocks));
+    const everyPage = (await hubPages(tenantId)).filter((p) => pageIsRoom(p.blocks));
+    // A retired hub is off the list unless the rep asks for the archive.
+    const wantArchived = req.query.archived === "1";
+    const archivedRows = everyPage.length ? await db.select({ pageId: lpRoomSettingsTable.pageId, archivedAt: lpRoomSettingsTable.archivedAt }).from(lpRoomSettingsTable).where(inArray(lpRoomSettingsTable.pageId, everyPage.map((p) => p.id))) : [];
+    const archivedIds = new Set(archivedRows.filter((r) => r.archivedAt).map((r) => r.pageId));
+    const pages = everyPage.filter((p) => archivedIds.has(p.id) === wantArchived);
     if (pages.length === 0) {
-      res.json({ hubs: [] });
+      res.json({ hubs: [], archived: archivedIds.size });
       return;
     }
     const ids = pages.map((p) => p.id);
     const since = new Date(Date.now() - 30 * DAY);
+    // What needs the account team, per hub: the same things the pop-up's To do tab counts, plus minutes to review.
+    const [asking, choiceRows, requestRows, minuteDrafts] = await Promise.all([
+      db.select({ pageId: lpRoomMembersTable.pageId, n: sql<number>`count(*)::int` }).from(lpRoomMembersTable).where(and(inArray(lpRoomMembersTable.pageId, ids), eq(lpRoomMembersTable.status, "requested"))).groupBy(lpRoomMembersTable.pageId),
+      db.select().from(lpRoomChoicesTable).where(inArray(lpRoomChoicesTable.pageId, ids)),
+      db.select({ id: lpRoomRequestsTable.id, pageId: lpRoomRequestsTable.pageId, assetKey: lpRoomRequestsTable.assetKey, status: lpRoomRequestsTable.status, asanaTaskGid: lpRoomRequestsTable.asanaTaskGid, createdAt: lpRoomRequestsTable.createdAt }).from(lpRoomRequestsTable).where(inArray(lpRoomRequestsTable.pageId, ids)),
+      db.select({ pageId: lpRoomEventsTable.pageId, n: sql<number>`count(*)::int` }).from(lpRoomEventsTable).where(and(inArray(lpRoomEventsTable.pageId, ids), eq(lpRoomEventsTable.minutesStatus, "draft"))).groupBy(lpRoomEventsTable.pageId),
+    ]);
+    const needsOf = (pageId: number, blocks: unknown): HubNeeds => {
+      const specs = extractRoomChoices(blocks);
+      const reqs = requestRows.filter((r) => r.pageId === pageId);
+      const queue = buildPlanQueue(
+        [...specs.values()].map((p) => ({ key: p.key, title: p.title })),
+        choiceRows.filter((c) => c.pageId === pageId && specs.get(c.choiceKey)?.options.includes(c.value)).map((c) => ({ key: c.choiceKey, value: c.value, by: c.chosenByName || c.chosenByEmail, at: c.chosenAt })),
+        reqs,
+      );
+      return { access: asking.find((a) => a.pageId === pageId)?.n ?? 0, marketing: queue.filter((i) => i.state === "queued").length, requests: reqs.filter((r) => r.status === "new").length, minutes: minuteDrafts.find((m) => m.pageId === pageId)?.n ?? 0 };
+    };
     const [accounts, settings, doneTasks, openRequests, visits, lastVisits, people] = await Promise.all([
       db.select({ id: salesAccountsTable.id, name: salesAccountsTable.name, displayName: salesAccountsTable.displayName, owner: salesAccountsTable.owner, salesforceId: salesAccountsTable.salesforceId }).from(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId)).limit(5000),
       db.select({ pageId: lpRoomSettingsTable.pageId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId }).from(lpRoomSettingsTable).where(inArray(lpRoomSettingsTable.pageId, ids)),
@@ -80,6 +106,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
         const done = new Set(doneTasks.filter((t) => t.pageId === p.id).map((t) => t.taskKey));
         const lastPage = iso(lastVisits.find((v) => v.pageId === p.id)?.at);
         const lastRoom = iso(people.find((v) => v.pageId === p.id)?.at);
+        const needs = needsOf(p.id, blocks);
         return {
           pageId: p.id,
           title: p.title,
@@ -94,7 +121,12 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
           stagePrompt: roomStageFromProps(props, now).prompt,
           practices: practiceCounts.find((c) => c.pageId === p.id) ?? null,
           waitingOnCustomer: [...tasks.keys()].filter((k) => !done.has(k)).length,
-          waitingOnUs: openRequests.find((r) => r.pageId === p.id)?.n ?? 0,
+          // Everything that needs the team: what the pop-up's To do tab counts, plus minutes to review. (It used to be open requests only.)
+          waitingOnUs: needsTotal(needs),
+          needs,
+          // Requests someone has already picked up: in hand, not waiting.
+          requestsInHand: Math.max(0, (openRequests.find((r) => r.pageId === p.id)?.n ?? 0) - needs.requests),
+          archived: archivedIds.has(p.id),
           views30: visits.find((v) => v.pageId === p.id)?.views ?? 0,
           people30: people.find((v) => v.pageId === p.id)?.n ?? 0,
           lastVisitAt: [lastPage, lastRoom].filter((v): v is string => !!v).sort().pop() ?? null,
@@ -104,7 +136,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
         };
       }),
     );
-    res.json({ hubs });
+    res.json({ hubs, archived: archivedIds.size });
   } catch (err) {
     req.log.error({ err }, "partner hubs list failed");
     res.status(500).json({ error: "Could not load your Partner Hubs" });
@@ -231,6 +263,66 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
   } catch (err) {
     req.log.error({ err }, "partner hub setup failed");
     res.status(500).json({ error: "Could not load the hub" });
+  }
+});
+
+/** The hub page behind a Sales Console action, or null (and a 404) when it isn't one of this workspace's hubs. */
+async function hubPage(req: Request, res: Response): Promise<{ id: number; tenantId: number; status: string; slug: string } | null> {
+  const tenantId = getTenantId(req, res);
+  if (tenantId == null) return null;
+  const pageId = Number(req.params.pageId);
+  const [page] = Number.isInteger(pageId) && pageId > 0 ? await db.select({ id: lpPagesTable.id, status: lpPagesTable.status, slug: lpPagesTable.slug, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId))).limit(1) : [];
+  if (!page || !pageIsRoom(page.blocks)) {
+    res.status(404).json({ error: "Not found" });
+    return null;
+  }
+  return { id: page.id, tenantId, status: page.status, slug: page.slug };
+}
+
+/**
+ * Publish a hub (or take it offline) from the Sales Console, without a trip
+ * to the page builder. The same rules as publishing any page: the rep needs
+ * to be allowed to publish in this workspace, and pending fact flags stop it.
+ */
+router.post("/lp/partner-rooms/:pageId/publish", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await hubPage(req, res);
+    if (!page) return;
+    const publish = req.body?.publish !== false;
+    if (!(await userCanPublish(req.authUser, page.tenantId))) {
+      res.status(403).json({ error: publish ? "You can't publish pages in this workspace. Open the editor and submit it for review, or ask an admin." : "You can't unpublish pages in this workspace. Ask an admin." });
+      return;
+    }
+    if (publish && (await enforceFactFlagPublishGate(page.tenantId, page.id, req, res)).blocked) return;
+    await db.update(lpPagesTable).set({ status: publish ? "published" : "draft", updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId)));
+    res.json({ ok: true, status: publish ? "live" : "draft", url: publish ? await publicPageUrl(page.tenantId, page.slug).catch(() => "") : "" });
+  } catch (err) {
+    req.log.error({ err }, "partner hub publish failed");
+    if (!res.headersSent) res.status(500).json({ error: "Could not change the hub's status" });
+  }
+});
+
+/**
+ * Retire a hub, or bring it back. Retiring takes it off the list, takes the
+ * customer's page offline and stops its weekly digest; nothing is deleted.
+ * Bringing it back leaves it a draft for the rep to publish again.
+ */
+router.post("/lp/partner-rooms/:pageId/archive", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await hubPage(req, res);
+    if (!page) return;
+    const archive = req.body?.archived !== false;
+    const at = archive ? new Date() : null;
+    await db
+      .insert(lpRoomSettingsTable)
+      .values({ pageId: page.id, tenantId: page.tenantId, allowedDomains: [], archivedAt: at, ...(archive ? { digestEnabled: false } : {}) })
+      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { archivedAt: at, ...(archive ? { digestEnabled: false } : {}), updatedAt: sql`now()` } });
+    if (archive && page.status === "published") await db.update(lpPagesTable).set({ status: "draft", updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId)));
+    req.log.info({ pageId: page.id, archive, by: req.authUser?.email }, "partner hub archive changed");
+    res.json({ ok: true, archived: archive });
+  } catch (err) {
+    req.log.error({ err }, "partner hub archive failed");
+    res.status(500).json({ error: "Could not change the hub" });
   }
 });
 

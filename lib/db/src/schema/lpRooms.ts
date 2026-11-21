@@ -53,6 +53,12 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   visitAlert: boolean("visit_alert").notNull().default(false),
   /** The account doesn't allow direct outreach to its practices: no welcome kits or mail from the hub, and plays that need it are not suggested. */
   noDirectOutreach: boolean("no_direct_outreach").notNull().default(false),
+  /** How the hub tells the account team about activity: "slack" (the channel above), "email" (the account owner), or "both". */
+  notifyVia: text("notify_via").notNull().default("slack"),
+  /** Set when a rep retired the hub: it leaves the list, its page is unpublished and its digest stops. Null = in use. */
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  /** When the customer was last sent a reminder of what is waiting on them. */
+  lastReminderAt: timestamp("last_reminder_at", { withTimezone: true }),
   /** Recommended plays the team acted on or set aside: play key → { state, until, by }. A play stays quiet until `until`. */
   playsState: jsonb("plays_state").$type<Record<string, { state: string; until: string; by?: string }>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

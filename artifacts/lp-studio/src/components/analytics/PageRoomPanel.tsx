@@ -15,6 +15,7 @@ import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from ".
 import { RoomPlays } from "./RoomPlays";
 import { RoomLinksSection, type HubLink } from "./RoomLinks";
 import { RoomPlanQueueSection, type PlanQueueItem } from "./RoomPlanQueue";
+import { RoomReminderSection } from "./RoomReminder";
 import { ROOM_OVERVIEW_SECTIONS, type RoomOverviewSection } from "@/blocks/BlockRoomWorkspace";
 
 /**
@@ -33,6 +34,10 @@ interface RoomDetail {
   revopsSlackMention?: string | null;
   /** Post to Slack when someone from the customer opens the hub. */
   visitAlert?: boolean;
+  /** How the hub tells the team about activity, and who an email goes to (null = no account owner we can match). */
+  notify?: { via: "slack" | "email" | "both"; owner: string | null };
+  /** Who a reminder can go to, and when the last one went. */
+  reminder?: { lastAt: string | null; people: string[] };
   calendar?: { id: string | null; syncedAt: string | null; note: string | null; connection?: { googleEmail: string; status: string; mine: boolean } | null };
   events?: RoomEventRow[];
   /** The hub's goals as stored on the page (workspace hubs only). */
@@ -52,6 +57,8 @@ interface RoomDetail {
   tasks: { key: string; title: string; action: "check" | "upload"; done: boolean; completedBy: string | null; completedAt: string | null }[];
   members: { id: number; email: string; status: "allowed" | "requested" | "denied"; updatedAt: string }[];
   isWorkspace?: boolean;
+  /** False while the hub is a draft (the customer's link does not work yet). */
+  published?: boolean;
   /** The marketing plan as a queue: what the customer said yes to, and whether marketing has it yet. */
   planQueue?: PlanQueueItem[];
   choices?: { key: string; title: string; options: string[]; value: string | null; chosenBy: string | null; chosenAt: string | null }[];
@@ -157,6 +164,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
   const [filterCol, setFilterCol] = useState("");
   const [filterVal, setFilterVal] = useState("");
   const [revopsMention, setRevopsMention] = useState("");
+  const [notifyVia, setNotifyVia] = useState<"slack" | "email" | "both">("slack");
   const [digestOn, setDigestOn] = useState(false);
   const [digestTo, setDigestTo] = useState("");
   const [preview, setPreview] = useState<{ subject: string; html: string; recipients: string[]; slackText: string; empty: boolean } | null>(null);
@@ -179,6 +187,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
     setFilterCol(data.sheet?.filterColumn ?? "");
     setFilterVal(data.sheet?.filterValue ?? "");
     setRevopsMention(data.revopsSlackMention ?? "");
+    setNotifyVia(data.notify?.via ?? "slack");
     setDigestOn(!!data.digest?.enabled);
     setDigestTo((data.digest?.recipients ?? []).join(", "));
   }, [data]);
@@ -198,7 +207,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
 
   const saveSettings = async (from: "access" | "connections") => {
     const list = domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean);
-    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim(), revopsSlackMention: revopsMention.trim() }))) setSaved(from);
+    if (await run(send(`${base}/settings`, "PATCH", { allowedDomains: list, slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim(), revopsSlackMention: revopsMention.trim(), notifyVia }))) setSaved(from);
   };
   const baseSettings = () => ({ allowedDomains: domains.split(/[\s,]+/).map((d) => d.trim()).filter(Boolean), slackChannelId: channel.trim(), sfdcAccountId: sfdcId.trim(), asanaProjectGid: asanaProject.trim() });
   const post = async (url: string, body?: unknown): Promise<{ ok: boolean; json: Record<string, unknown> }> => {
@@ -261,6 +270,22 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             >
               Open the hub as me
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              title="Opens the hub without anything that is your team's only"
+              data-room-open-as-customer
+              onClick={async () => {
+                setOpenNote("");
+                const r = await fetch(`${base}/my-link?as=customer`);
+                const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
+                if (r.ok && j.url) window.open(j.url, "_blank", "noopener");
+                else setOpenNote(j.error ?? "Could not make the link");
+              }}
+            >
+              View as the customer
+            </Button>
             {openNote && <span className="text-xs text-muted-foreground">{openNote}</span>}
           </div>
         )}
@@ -276,11 +301,30 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
             }}
           />
         )}
-        <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Room sections">
+        {/* How the partnership is going, on every tab: these numbers used to be a trip to the customer's Scorecard. */}
+        {data.isWorkspace && !!data.practices?.total && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-room-rollout-strip>
+            {(
+              [
+                ["Live", data.practices.byStage.live ?? 0, `of ${data.practices.total} practices`],
+                ["Trained", (data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0), "trained or live"],
+                ["Being scheduled", (data.practices.byStage.training_booked ?? 0) + (data.practices.byStage.scheduling ?? 0), "training booked or in progress"],
+                ["Not started", data.practices.byStage.not_started ?? 0, data.stage?.day ? `Day ${data.stage.day} of ${data.stage.rolloutDays}` : ""],
+              ] as [string, number, string][]
+            ).map(([label, n, note]) => (
+              <div key={label} className="rounded-md border px-3 py-2">
+                <div className="text-xs text-muted-foreground">{label}</div>
+                <div className="text-xl font-semibold tabular-nums">{n}</div>
+                {note && <div className="truncate text-xs text-muted-foreground">{note}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Hub sections">
           {(
             [
               { id: "activity", label: "To do", count: needsYou },
-              ...(data.isWorkspace ? [{ id: "performance", label: "Performance", count: 0 }] : []),
+              ...(data.isWorkspace ? [{ id: "performance", label: "Engagement", count: 0 }] : []),
               ...(data.isWorkspace && data.goals ? [{ id: "goals", label: "Goals", count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "kit", label: "Launch kit", count: 0 }] : []),
               { id: "practices", label: data.isWorkspace ? "Practices & files" : "Files", count: 0 },
@@ -352,6 +396,17 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
                   ))}
                 </div>
               </section>
+            )}
+
+            {data.isWorkspace && (
+              <RoomReminderSection
+                pageId={pageId}
+                waiting={[...data.tasks.filter((t) => !t.done).map((t) => t.title), ...(data.planQueue ?? []).filter((i) => i.state === "undecided").map((i) => `Decide: ${i.title}`)]}
+                people={data.reminder?.people ?? []}
+                lastAt={data.reminder?.lastAt ?? null}
+                published={data.published !== false}
+                onSent={refresh}
+              />
             )}
 
             {data.isWorkspace && (
@@ -738,7 +793,23 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover
               </Fold>
             )}
 
-            <Fold title="Slack and connections" hint={data.isWorkspace ? "Slack channel, Salesforce, Asana" : "Slack channel"}>
+            <Fold title="Notifications and connections" hint={[notifyVia === "slack" ? "Slack" : notifyVia === "email" ? "Email to the account owner" : "Slack and email", ...(data.isWorkspace ? ["Salesforce, Asana"] : [])].join(" · ")}>
+              <div className="space-y-1" data-room-notify>
+                <label className="block max-w-sm space-y-1 text-xs">
+                  <span className="font-medium text-muted-foreground">Tell us about activity in this hub by</span>
+                  <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={notifyVia} onChange={(e) => setNotifyVia(e.target.value as "slack" | "email" | "both")} data-room-notify-via>
+                    <option value="slack">Slack</option>
+                    <option value="email">Email to the account owner</option>
+                    <option value="both">Both</option>
+                  </select>
+                </label>
+                {notifyVia !== "slack" && (
+                  <p className={`text-xs ${data.notify?.owner ? "text-muted-foreground" : "text-amber-700"}`}>
+                    {data.notify?.owner ? `Emails go to ${data.notify.owner}.` : "No account owner could be matched to someone on your team, so no email would be sent. Set the owner on the account, or keep Slack on."}
+                  </p>
+                )}
+                {notifyVia !== "email" && !channel.trim() && <p className="text-xs text-muted-foreground">With no channel ID below, posts go to your workspace’s default Slack channel.</p>}
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block space-y-1 text-xs">
                   <span className="font-medium text-muted-foreground">Slack channel ID</span>

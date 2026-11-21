@@ -1302,6 +1302,7 @@ const CSS = `
 .prw-tl-top{margin:36px 0 16px}
 .prw-tl-top h3{margin:0 0 4px;font-size:16px;font-weight:600;color:var(--dark)}
 .prw-tl-top p{margin:0;font-size:13.5px;color:var(--body)}
+.prw-preview{margin:0 0 18px;padding:10px 14px;border-radius:10px;border:1px solid #F1D38A;background:#FFF8E6;color:#6B4E00;font-size:13px;font-weight:500}
 .prw-tl-top.link{display:block;width:100%;padding:0;border:0;background:none;text-align:left;font:inherit;cursor:pointer}
 .prw-tl-top .go{margin-left:10px;font-size:12.5px;font-weight:500;color:var(--body);opacity:.75;white-space:nowrap}
 .prw-tl-top.link:hover .go,.prw-tl-top.link:focus-visible .go{opacity:1;text-decoration:underline}
@@ -2277,6 +2278,11 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
           </aside>
 
           <div className="prw-mod" data-room-view={active}>
+            {snapshot.asCustomer && (
+              <div className="prw-preview" role="status" data-room-as-customer>
+                You are seeing this hub as the customer does. Anything you tick or upload here is saved.
+              </div>
+            )}
             {active === "overview" && (() => {
               // What a rep switched off on this hub's Overview, and what is left to lay out.
               const ovHidden = new Set(props.hiddenOverview ?? []);

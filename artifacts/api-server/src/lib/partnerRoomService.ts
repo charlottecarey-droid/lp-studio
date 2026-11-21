@@ -614,7 +614,9 @@ export async function sendRoomDigest(pageId: number, opts: { scheduled: boolean;
 export async function roomsDueForWork(): Promise<{ digest: number[]; sheets: number[] }> {
   const rows = await db
     .select({ pageId: lpRoomSettingsTable.pageId, digestEnabled: lpRoomSettingsTable.digestEnabled, lastDigestAt: lpRoomSettingsTable.lastDigestAt, sheetId: lpRoomSettingsTable.practicesSheetId, syncedAt: lpRoomSettingsTable.practicesSyncedAt })
-    .from(lpRoomSettingsTable);
+    .from(lpRoomSettingsTable)
+    // A retired hub does no background work.
+    .where(sql`${lpRoomSettingsTable.archivedAt} IS NULL`);
   const now = Date.now();
   return {
     digest: rows.filter((r) => r.digestEnabled && (!r.lastDigestAt || now - r.lastDigestAt.getTime() > 6 * 86_400_000)).map((r) => r.pageId),

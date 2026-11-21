@@ -25,6 +25,7 @@ import {
   tenantMembersTable,
   lpAssetEventsTable,
   lpGoogleConnectionsTable,
+  lpBrandSettingsTable,
   lpRoomEventsTable,
   lpRoomChoicesTable,
   lpRoomContactsTable,
@@ -55,7 +56,7 @@ import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
 import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
 import { ensurePracticeSite, setRoomPracticeLink } from "../../lib/partnerRoomPracticeSite";
-import { accountPeople, publicPageUrl, createRoomForAccount, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { unlistedPeople } from "../../lib/partnerRoomTeam";
 import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
@@ -68,6 +69,7 @@ import { extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage } from "..
 import { kitAsanaTask, kitNotice } from "../../lib/partnerRoomKit";
 import { ASANA_GID_RE, hubAsanaTarget } from "../../lib/partnerRoomAsana";
 import { buildPlanQueue, isDeclineChoice, planRequest } from "../../lib/partnerRoomPlanQueue";
+import { parseNotifyVia, reminderEmail, teamNotifyEmail, type NotifyVia } from "../../lib/partnerRoomNotify";
 import { sendWelcomeKits } from "../../lib/partnerRoomKitService";
 import { practicesExportCsv } from "../../lib/partnerRoomRoster";
 import { applyRoster, buildRoomDigest, practiceTrainingEvents, latestRosterResult, loadSalesforceGap, practiceSummary, roomRosterTemplate, revopsSlackLines, sendRoomDigest, sheetIdFrom, SHEET_TAB_RE, slackMention, syncPracticesFromSheet, upsertPractices } from "../../lib/partnerRoomService";
@@ -183,13 +185,13 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
   return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks), gated: roomRequiresEmail(page.blocks), mapShared: roomSharesMap(page.blocks) };
 }
 
-async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null; asanaProjectGid: string | null }> {
+async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null; asanaProjectGid: string | null; notifyVia: NotifyVia }> {
   const [row] = await db
-    .select({ allowedDomains: lpRoomSettingsTable.allowedDomains, slackChannelId: lpRoomSettingsTable.slackChannelId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId, asanaProjectGid: lpRoomSettingsTable.asanaProjectGid })
+    .select({ allowedDomains: lpRoomSettingsTable.allowedDomains, slackChannelId: lpRoomSettingsTable.slackChannelId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId, asanaProjectGid: lpRoomSettingsTable.asanaProjectGid, notifyVia: lpRoomSettingsTable.notifyVia })
     .from(lpRoomSettingsTable)
     .where(eq(lpRoomSettingsTable.pageId, pageId))
     .limit(1);
-  return { allowedDomains: Array.isArray(row?.allowedDomains) ? row.allowedDomains : [], slackChannelId: row?.slackChannelId ?? null, sfdcAccountId: row?.sfdcAccountId ?? null, asanaProjectGid: row?.asanaProjectGid ?? null };
+  return { allowedDomains: Array.isArray(row?.allowedDomains) ? row.allowedDomains : [], slackChannelId: row?.slackChannelId ?? null, sfdcAccountId: row?.sfdcAccountId ?? null, asanaProjectGid: row?.asanaProjectGid ?? null, notifyVia: parseNotifyVia(row?.notifyVia) };
 }
 
 async function memberStatus(pageId: number, email: string): Promise<RoomMemberStatus | null> {
@@ -324,6 +326,25 @@ function postToSlack(page: RoomPage, channelId: string | null, headline: string,
     { type: "context", elements: [{ type: "mrkdwn", text: `${page.title}${pageUrl ? ` · <${pageUrl}|Open the room>` : ""}` }] },
   ];
   void slackService.postMessage(page.tenantId, { blocks, text, channelId: channelId ?? undefined }).catch(() => {});
+}
+
+/**
+ * Tell the account team something happened in a hub, the way the hub is set
+ * to: its Slack channel (the default), an email to the account owner, or
+ * both. Never blocks the request, and a failure to tell is not the visitor's
+ * problem.
+ */
+function notifyTeam(page: RoomPage, settings: { slackChannelId: string | null; notifyVia: NotifyVia }, headline: string, lines: string[], pageUrl?: string): void {
+  if (settings.notifyVia !== "email") postToSlack(page, settings.slackChannelId, headline, lines, pageUrl);
+  if (settings.notifyVia === "slack") return;
+  void (async () => {
+    const to = await hubOwnerEmail(page.tenantId, page.id);
+    if (!to) return;
+    const [brand] = await db.select({ config: lpBrandSettingsTable.config }).from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, page.tenantId)).limit(1);
+    const color = (brand?.config as { primaryColor?: unknown } | undefined)?.primaryColor;
+    const mail = teamNotifyEmail({ hubTitle: page.title, headline, lines, hubUrl: pageUrl, brandColor: typeof color === "string" ? color : undefined });
+    await sendRoomDigestEmail({ recipientEmail: to, subject: mail.subject, html: mail.html, tenantId: page.tenantId });
+  })().catch(() => {});
 }
 
 const mrk = (s: string) => s.replace(/[<>&*_~`]/g, " ");
@@ -577,7 +598,7 @@ router.post("/lp/room/access", accessLimiter, async (req: Request, res: Response
         .insert(lpRoomMembersTable)
         .values({ tenantId: page.tenantId, pageId: page.id, email, status: "requested" })
         .onConflictDoNothing();
-      postToSlack(page, settings.slackChannelId, "🔑 Room access requested", [`*${mrk(email)}* asked for access to upload files and mark tasks done.`, "Approve or decline from the page's Room panel in LP Studio."], url);
+      notifyTeam(page, settings, "🔑 Room access requested", [`*${mrk(email)}* asked for access to upload files and mark tasks done.`, "Approve or decline from the page's Room panel in LP Studio."], url);
     }
     res.json({ status: "requested" });
   } catch (err) {
@@ -641,7 +662,7 @@ router.post("/lp/room/task", actionLimiter, async (req: Request, res: Response):
     if (done) {
       await markDone(page, task.key, viewer);
       const settings = await loadSettings(page.id);
-      postToSlack(page, settings.slackChannelId, "✅ Task marked done", [`*${mrk(viewer.name || viewer.email)}* marked *${mrk(task.title)}* as done.`], await roomPageUrl(req, page, req.body?.path));
+      notifyTeam(page, settings, "✅ Task marked done", [`*${mrk(viewer.name || viewer.email)}* marked *${mrk(task.title)}* as done.`], await roomPageUrl(req, page, req.body?.path));
     } else {
       await db.delete(lpRoomTaskStateTable).where(and(eq(lpRoomTaskStateTable.pageId, page.id), eq(lpRoomTaskStateTable.taskKey, task.key)));
     }
@@ -688,9 +709,9 @@ router.post("/lp/room/upload", actionLimiter, async (req: Request, res: Response
     // A roster (a list with a practice column) is read straight away: doctors are tied to practices, and regionals and addresses fill in.
     const roster = page.isWorkspace ? await applyRoster(page, { id: saved.id, fileName: parsed.fileName }, parsed.buffer).catch((err) => (req.log.warn({ err }, "room roster read failed"), null)) : null;
     const settings = await loadSettings(page.id);
-    postToSlack(
+    notifyTeam(
       page,
-      settings.slackChannelId,
+      settings,
       "📎 File received",
       [`*${mrk(viewer.name || viewer.email)}* uploaded *${mrk(parsed.fileName)}* for *${mrk(task.title)}*.`, "Download it from the page's Room panel in LP Studio."],
       await roomPageUrl(req, page, req.body?.path),
@@ -739,9 +760,9 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
       })
       .returning({ id: lpRoomRequestsTable.id });
     const settings = await loadSettings(page.id);
-    postToSlack(
+    notifyTeam(
       page,
-      settings.slackChannelId,
+      settings,
       "📝 New request",
       [`*${mrk(viewer.name || viewer.email)}* asked: *${mrk(parsed.subject)}* (${ROOM_REQUEST_KIND_LABEL[parsed.kind as RoomRequestKind]})`, ...(parsed.details ? [mrk(parsed.details).slice(0, 500)] : []), "Set an owner and status from the page's Room panel in LP Studio."],
       await roomPageUrl(req, page, req.body?.path),
@@ -946,7 +967,7 @@ router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Resp
     // Tell marketing (after the response; never blocks it): the hub's Slack channel, and the marketing intake in Asana.
     const notice = kitNotice(customer, result.sent, by, result.sheetUrl ?? "");
     // The sheet's link goes in as a link: `mrk` would break the underscores in its id.
-    postToSlack(page, settings.slackChannelId, `📦 ${notice.title}`, [...notice.lines.slice(0, -1).map(mrk), ...(result.sheetUrl ? [`<${result.sheetUrl}|Open the welcome kit list>`] : [])], await roomPageUrl(req, page, req.body?.path));
+    notifyTeam(page, settings, `📦 ${notice.title}`, [...notice.lines.slice(0, -1).map(mrk), ...(result.sheetUrl ? [`<${result.sheetUrl}|Open the welcome kit list>`] : [])], await roomPageUrl(req, page, req.body?.path));
     // The request to actually send the kits: marketing's intake in Asana, with the day it was asked and the list.
     const kitTask = kitAsanaTask(customer, result.sent, by, result.sheetUrl ?? "", new Date().toISOString().slice(0, 10));
     const asana = await hubAsanaTarget(page.tenantId, settings.asanaProjectGid);
@@ -1322,7 +1343,7 @@ router.post("/lp/room/choice", actionLimiter, async (req: Request, res: Response
       .values({ tenantId: page.tenantId, pageId: page.id, choiceKey: spec.key, value, chosenByEmail: viewer.email, chosenByName: viewer.name })
       .onConflictDoUpdate({ target: [lpRoomChoicesTable.pageId, lpRoomChoicesTable.choiceKey], set: { value, chosenByEmail: viewer.email, chosenByName: viewer.name, chosenAt: sql`now()` } });
     const settings = await loadSettings(page.id);
-    postToSlack(page, settings.slackChannelId, "🗳️ Marketing plan decision", [`*${mrk(viewer.name || viewer.email)}* chose *${mrk(value)}* for *${mrk(spec.title)}*.`, ...(isDeclineChoice(value) ? [] : ["It is waiting in the hub's marketing plan queue: send it to marketing from Manage → Activity."])], await roomPageUrl(req, page, req.body?.path));
+    notifyTeam(page, settings, "🗳️ Marketing plan decision", [`*${mrk(viewer.name || viewer.email)}* chose *${mrk(value)}* for *${mrk(spec.title)}*.`, ...(isDeclineChoice(value) ? [] : ["It is waiting in the hub's marketing plan queue: send it to marketing from Manage → Activity."])], await roomPageUrl(req, page, req.body?.path));
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "room choice failed");
@@ -1349,7 +1370,7 @@ router.post("/lp/room/contact", actionLimiter, async (req: Request, res: Respons
     await db.insert(lpRoomContactsTable).values({ tenantId: page.tenantId, pageId: page.id, name: parsed.name, role: parsed.role, email: parsed.email, addedByEmail: viewer.email });
     if (page.teamStepKey) await markDone(page, page.teamStepKey, viewer);
     const settings = await loadSettings(page.id);
-    postToSlack(page, settings.slackChannelId, "👤 Team contact added", [`*${mrk(viewer.name || viewer.email)}* added *${mrk(parsed.name)}*${parsed.role ? ` (${mrk(parsed.role)})` : ""}${parsed.email ? ` · ${mrk(parsed.email)}` : ""}.`], await roomPageUrl(req, page, req.body?.path));
+    notifyTeam(page, settings, "👤 Team contact added", [`*${mrk(viewer.name || viewer.email)}* added *${mrk(parsed.name)}*${parsed.role ? ` (${mrk(parsed.role)})` : ""}${parsed.email ? ` · ${mrk(parsed.email)}` : ""}.`], await roomPageUrl(req, page, req.body?.path));
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "room contact failed");
@@ -1385,7 +1406,7 @@ router.post("/lp/room/win", actionLimiter, async (req: Request, res: Response): 
     });
     const [settings, url] = await Promise.all([loadSettings(page.id), roomPageUrl(req, page, req.body?.path)]);
     const photos = images.length > 0 ? ` _(${images.length} ${images.length === 1 ? "photo" : "photos"})_` : "";
-    postToSlack(page, settings.slackChannelId, "🏆 New win posted", [`*${mrk(viewer.name || viewer.email)}*: ${mrk(body).slice(0, 500)}${photos}`], url);
+    notifyTeam(page, settings, "🏆 New win posted", [`*${mrk(viewer.name || viewer.email)}*: ${mrk(body).slice(0, 500)}${photos}`], url);
     sendFeedAlerts(page, feedAlertsFor({ authorEmail: viewer.email, mentioned, comment: false }), viewer.name || "Someone", body, url);
     res.json({ ok: true });
   } catch (err) {
@@ -1516,6 +1537,14 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
       visitAlert: !!fullSettings?.visitAlert,
+      // How the hub tells the team about activity, and who an email would go to (null = no account owner we can match to a team member).
+      notify: { via: parseNotifyVia(fullSettings?.notifyVia), owner: page.isWorkspace ? await hubOwnerEmail(page.tenantId, page.id).catch(() => null) : null },
+      archivedAt: fullSettings?.archivedAt?.toISOString() ?? null,
+      // Who a reminder can go to: everyone let in by name, and whoever gets the weekly digest.
+      reminder: {
+        lastAt: fullSettings?.lastReminderAt?.toISOString() ?? null,
+        people: [...new Set([...members.filter((m) => m.status === "allowed").map((m) => m.email.toLowerCase()), ...(Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients.map((e) => String(e).toLowerCase()) : [])])].slice(0, 100),
+      },
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       goals: page.isWorkspace ? await roomGoalsFor(page.id) : null,
@@ -1545,6 +1574,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email, addedBy: c.addedByEmail, createdAt: c.createdAt.toISOString() })),
       wins,
       isRoom: page.tasks.size > 0 || page.isWorkspace,
+      published: (await db.select({ status: lpPagesTable.status }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.status === "published",
       // The marketing plan as a queue: what the customer said yes to and whether marketing has it yet.
       planQueue: page.isWorkspace ? planQueueFor(page, choiceRows, requests) : [],
       requests: requests.map((r) => ({
@@ -1687,7 +1717,8 @@ router.patch("/lp/partner-rooms/:pageId/settings", async (req: Request, res: Res
     }
     // Every key is optional: a save that doesn't mention a setting leaves it alone. (Saving the
     // calendar used to send only the calendar and wipe the customer's domain, Slack channel and IDs.)
-    const base: { allowedDomains?: string[]; slackChannelId?: string | null; sfdcAccountId?: string | null; asanaProjectGid?: string | null } = {};
+    const base: { allowedDomains?: string[]; slackChannelId?: string | null; sfdcAccountId?: string | null; asanaProjectGid?: string | null; notifyVia?: NotifyVia } = {};
+    if (req.body?.notifyVia !== undefined) base.notifyVia = parseNotifyVia(req.body.notifyVia);
     if (req.body?.allowedDomains !== undefined) base.allowedDomains = domains;
     if (req.body?.slackChannelId !== undefined) base.slackChannelId = channelRaw || null;
     if (req.body?.sfdcAccountId !== undefined) base.sfdcAccountId = sfdcRaw || null;
@@ -1754,7 +1785,9 @@ router.get("/lp/partner-rooms/:pageId/my-link", async (req: Request, res: Respon
       res.status(400).json({ error: "This hub isn't published yet, so it has no public page. Use Preview in the builder: you're recognised there automatically." });
       return;
     }
-    res.json({ url: `${await roomPageUrl(req, page, undefined)}?rt=${encodeURIComponent(signRoomToken(page.id, email))}` });
+    // "As the customer sees it": the same signed-in link, with a flag the hub reads to leave out everything that is the team's only.
+    const asCustomer = req.query.as === "customer";
+    res.json({ url: `${await roomPageUrl(req, page, undefined)}?rt=${encodeURIComponent(signRoomToken(page.id, email))}${asCustomer ? "&preview=customer" : ""}` });
   } catch (err) {
     req.log.error({ err }, "room my-link failed");
     res.status(500).json({ error: "Could not make your link" });
@@ -2322,7 +2355,7 @@ router.post("/lp/partner-rooms/:pageId/plays/act", async (req: Request, res: Res
       return;
     }
     await setPlayState(page, key, "requested", by);
-    postToSlack(page, settings.slackChannelId, `🎯 Play requested: ${mrk(play.title)}`, [`*${mrk(by)}* asked marketing for this play.`, mrk(play.why)], hubUrl || undefined);
+    notifyTeam(page, settings, `🎯 Play requested: ${mrk(play.title)}`, [`*${mrk(by)}* asked marketing for this play.`, mrk(play.why)], hubUrl || undefined);
     res.json({ ok: true, taskId: result.taskId ?? null, warning: result.warning ?? null });
   } catch (err) {
     req.log.error({ err }, "room play action failed");
@@ -2418,6 +2451,68 @@ router.put("/lp/partner-rooms/:pageId/cover", async (req: Request, res: Response
 });
 
 /**
+ * Remind the customer what is waiting on them: one short email to the people
+ * the rep picked, listing the next few things and linking to the hub. Only
+ * goes to addresses that already have access or get the digest.
+ */
+router.post("/lp/partner-rooms/:pageId/remind", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const digest = await buildRoomDigest(page.id);
+    if (!digest) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    const [row] = await db.select({ status: lpPagesTable.status }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1);
+    if (row?.status !== "published") {
+      res.status(400).json({ error: "Publish the hub first: the reminder links to it." });
+      return;
+    }
+    const d = digest.data;
+    const items = [...d.reviewRequests.map((x) => `Review: ${x}`), ...d.waitingOnCustomer.filter((x) => !(d.rollout && /^upload your practice list$/i.test(x.trim()))), ...d.undecided.map((x) => `Decide: ${x}`)];
+    if (items.length === 0) {
+      res.status(400).json({ error: "Nothing is waiting on the customer." });
+      return;
+    }
+    const [settingsRow, members] = await Promise.all([
+      db.select({ digestRecipients: lpRoomSettingsTable.digestRecipients }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1),
+      db.select({ email: lpRoomMembersTable.email, status: lpRoomMembersTable.status }).from(lpRoomMembersTable).where(eq(lpRoomMembersTable.pageId, page.id)),
+    ]);
+    const allowed = new Set([...members.filter((m) => m.status === "allowed").map((m) => m.email.toLowerCase()), ...(Array.isArray(settingsRow[0]?.digestRecipients) ? settingsRow[0].digestRecipients.map((e) => String(e).toLowerCase()) : [])]);
+    const asked: string[] = (Array.isArray(req.body?.emails) ? (req.body.emails as unknown[]) : []).filter((e): e is string => typeof e === "string").map((e) => e.trim().toLowerCase());
+    const to = [...new Set(asked)].filter((e) => allowed.has(e)).slice(0, 50);
+    if (to.length === 0) {
+      res.status(400).json({ error: "Pick at least one person who has access to the hub." });
+      return;
+    }
+    const by = req.authUser?.name || req.authUser?.email || "Your account team";
+    const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 600) : "";
+    const [tenant] = await db.select({ name: tenantsTable.name }).from(tenantsTable).where(eq(tenantsTable.id, page.tenantId)).limit(1);
+    const [brand] = await db.select({ config: lpBrandSettingsTable.config }).from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, page.tenantId)).limit(1);
+    const cfg = (brand?.config ?? {}) as { primaryColor?: unknown; brandName?: unknown };
+    const mail = reminderEmail({ partnerName: d.partnerName, senderName: (typeof cfg.brandName === "string" && cfg.brandName.trim()) || tenant?.name || "Your partner", by, items, hubUrl: digest.roomUrl, note, brandColor: typeof cfg.primaryColor === "string" ? cfg.primaryColor : undefined });
+    const sent: string[] = [];
+    for (const email of to) {
+      if (await sendRoomDigestEmail({ recipientEmail: email, subject: mail.subject, html: mail.html, tenantId: page.tenantId }).catch(() => false)) sent.push(email);
+    }
+    if (sent.length === 0) {
+      res.status(502).json({ error: "The reminder couldn't be sent. Try again in a moment." });
+      return;
+    }
+    await db
+      .insert(lpRoomSettingsTable)
+      .values({ pageId: page.id, tenantId: page.tenantId, allowedDomains: [], lastReminderAt: new Date() })
+      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { lastReminderAt: new Date() } });
+    req.log.info({ pageId: page.id, sent: sent.length, by: req.authUser?.email }, "room reminder sent");
+    res.json({ ok: true, sent, items: items.length });
+  } catch (err) {
+    req.log.error({ err }, "room reminder failed");
+    res.status(500).json({ error: "Could not send the reminder" });
+  }
+});
+
+/**
  * Send the programs a rep ticked in the marketing plan queue to marketing's
  * request intake, as ONE request: an intake task in Asana with the brief, and
  * a request on the hub the customer can follow. Nothing is recorded as sent
@@ -2454,7 +2549,7 @@ router.post("/lp/partner-rooms/:pageId/plan-queue/send", async (req: Request, re
       .insert(lpRoomRequestsTable)
       .values({ tenantId: page.tenantId, pageId: page.id, kind: "marketing", subject: brief.subject, details: brief.details, assetKey: brief.assetKey, requestedByEmail: req.authUser?.email ?? "team", requestedByName: req.authUser?.name ?? null, asanaTaskGid: result.taskId ?? null })
       .returning({ id: lpRoomRequestsTable.id });
-    postToSlack(page, settings.slackChannelId, "📣 Marketing plan sent to marketing", [`*${mrk(by)}* sent ${items.length === 1 ? "1 program" : `${items.length} programs`} to marketing's request intake:`, ...items.map((i) => `• ${mrk(i.title)}${i.value ? ` (${mrk(i.value)})` : ""}`), ...(note ? [mrk(note)] : [])], hubUrl || undefined);
+    notifyTeam(page, settings, "📣 Marketing plan sent to marketing", [`*${mrk(by)}* sent ${items.length === 1 ? "1 program" : `${items.length} programs`} to marketing's request intake:`, ...items.map((i) => `• ${mrk(i.title)}${i.value ? ` (${mrk(i.value)})` : ""}`), ...(note ? [mrk(note)] : [])], hubUrl || undefined);
     res.json({ ok: true, requestId: row.id, taskId: result.taskId ?? null, sent: items.map((i) => i.key), warning: result.warning ?? null });
   } catch (err) {
     req.log.error({ err }, "room plan queue send failed");
