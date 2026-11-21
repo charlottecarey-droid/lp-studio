@@ -11,7 +11,7 @@ import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
-import { RoomAccountSettings, RoomTeamSettings, teamHint } from "./RoomAccountSettings";
+import { RoomAccountSettings, RoomTeamSettings, accountHint, teamHint } from "./RoomAccountSettings";
 import type { RoomAccountProps, RoomTeamProps } from "./RoomAccountEditor";
 import type { RoomTeamGroup } from "@/blocks/BlockRoomWorkspace";
 import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
@@ -771,7 +771,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         {tab === "settings" && (
           <div className="space-y-2" data-room-settings>
             {data.isWorkspace && data.account && (
-              <Fold title="Account" hint={[data.account.partnerName, data.account.kickoffDate ? `kickoff ${data.account.kickoffDate}` : "", "logos, cover, Schedule button"].filter(Boolean).join(" · ")} data-room-account-fold>
+              <Fold title="Account" hint={accountHint(data.account)} data-room-account-fold>
                 <RoomAccountSettings
                   pageId={pageId}
                   account={data.account}

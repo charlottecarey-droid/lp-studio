@@ -118,58 +118,125 @@ export function HideToggle({ hidden, onChange }: { hidden?: boolean; onChange: (
   );
 }
 
-/** Who the hub is for, how it opens, the logos, the "Schedule" button, the kickoff date and the cover. */
+/** A named cluster of settings, so a long form reads as a few short ones. */
+function Group({ title, hint, children, ...rest }: { title: string; hint?: string; children: ReactNode } & Record<`data-${string}`, string | undefined>) {
+  return (
+    <div className="space-y-2.5 rounded-md border p-3" {...rest}>
+      <div>
+        <div className="text-xs font-semibold">{title}</div>
+        {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** A switch with its name and one line saying what it does. */
+function Toggle({ checked, onChange, title, help, ...rest }: { checked: boolean; onChange: (v: boolean) => void; title: string; help?: string } & Record<`data-${string}`, string | undefined>) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5" {...rest}>
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={title} className="mt-0.5" />
+      <span className="min-w-0">
+        <span className="block text-xs font-medium">{title}</span>
+        {help && <span className="block text-[11px] text-muted-foreground">{help}</span>}
+      </span>
+    </label>
+  );
+}
+
+/** One choice out of a few, as a row of buttons. The chosen one says what it is underneath. */
+function Choice<T extends string>({ value, options, onChange, name }: { value: T; options: readonly { id: T; label: string; hint: string }[]; onChange: (id: T) => void; name: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => {
+          const on = value === o.id;
+          return (
+            <button key={o.id} type="button" onClick={() => onChange(o.id)} aria-pressed={on} title={o.hint} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-medium ${on ? "border-foreground bg-muted" : "text-muted-foreground hover:bg-muted/50"}`} {...{ [`data-room-${name}-option`]: o.id }}>
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground">{options.find((o) => o.id === value)?.hint}</p>
+    </div>
+  );
+}
+
+const COVER_STYLES = [
+  { id: "fade", label: "Fading photo", hint: "The photo runs off the right edge and fades into the cover." },
+  { id: "split", label: "Photo card", hint: "The headline sits beside a framed photo." },
+  { id: "fullbleed", label: "Full-bleed", hint: "The photo fills the whole cover." },
+  { id: "light", label: "Light", hint: "A pale cover with dark text." },
+] as const;
+
+/** Who the hub is for, who can open it, the rollout dates, the cover, and the "Schedule" button. */
 export function RoomAccountFields({ props, update, team, brandName, note }: { props: Partial<RoomAccountProps>; update: (patch: Partial<RoomAccountProps>) => void; /** For the "Schedule" button: our people who have a booking link. */ team: RoomTeamGroup[]; brandName?: string; /** Said under the logo sizes (the builder reports the launch assets being remade). */ note?: string }) {
-  const kitNote = note ?? "";
   const bookable = (team[0]?.members ?? []).filter((m) => /^https?:\/\//i.test((m.bookingUrl ?? "").trim()) && (m.name ?? "").trim()).map((m) => ({ name: m.name.trim(), role: m.role, bookingUrl: (m.bookingUrl ?? "").trim() }));
+  const hasLogo = !!(props.partnerLogoUrl ?? "").trim();
+  const coverStyle = props.coverStyle ?? "fade";
   return (
     <>
-      <Field label="Customer name"><Input value={props.partnerName ?? ""} onChange={(e) => update({ partnerName: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
-      <Field label="Short name (optional)"><Input value={props.partnerShort ?? ""} onChange={(e) => update({ partnerShort: e.target.value })} className="h-8 text-xs" /></Field>
-      <div className="flex items-center gap-2">
-        <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo (for the dark cover)" />
-        <span className="text-[11px] text-muted-foreground">Customer logo</span>
-      </div>
-      <div className="space-y-1 rounded border p-2" data-room-require-email>
-        <label className="flex items-center gap-2 text-xs font-semibold">
-          <Switch checked={!!props.requireEmail} onCheckedChange={(v) => update({ requireEmail: v })} aria-label="Ask for an email before showing the hub" />
-          Ask for a work email before showing the hub
-        </label>
-      </div>
-      <div className="space-y-1 rounded border p-2" data-room-share-map>
-        <label className="flex items-center gap-2 text-xs font-semibold">
-          <Switch checked={!!props.shareMap} onCheckedChange={(v) => update({ shareMap: v })} aria-label="Show the practice map to anyone who opens the hub" />
-          Show the practice map to anyone who opens the hub
-        </label>
-      </div>
-      <div className="space-y-1.5 rounded border p-2" data-room-look-setting>
-        <div className="text-xs font-semibold">Look</div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {ROOM_LOOKS.map((l) => {
-            const on = roomLook(props.look) === l.id;
-            return (
-              <button key={l.id} type="button" onClick={() => update({ look: l.id })} aria-pressed={on} title={l.hint} className={`rounded-md border px-2 py-1.5 text-[11px] font-medium ${on ? "border-foreground bg-muted" : "text-muted-foreground hover:bg-muted/50"}`} data-room-look-option={l.id}>
-                {l.label}
-              </button>
-            );
-          })}
+      <Group title="Customer" data-room-account-customer="">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field label="Customer name"><Input value={props.partnerName ?? ""} onChange={(e) => update({ partnerName: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
+          <Field label="Short name (optional)"><Input value={props.partnerShort ?? ""} onChange={(e) => update({ partnerShort: e.target.value })} className="h-8 text-xs" placeholder="Used where space is tight" /></Field>
         </div>
-      </div>
-      <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-        <Switch checked={!!props.partnerLogoOriginal} onCheckedChange={(v) => update({ partnerLogoOriginal: v })} aria-label="Keep the logo's own colours" />
-        Keep the logo’s own colours
-      </label>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label={`Customer logo size · ${Math.round(props.partnerLogoScale ?? 100)}%`}>
-          <input type="range" min={50} max={300} step={5} value={props.partnerLogoScale ?? 100} onChange={(e) => update({ partnerLogoScale: Number(e.target.value) })} className="w-full" aria-label="Customer logo size" data-room-logo-size="partner" />
-        </Field>
-        <Field label={`Your logo size · ${Math.round(props.brandLogoScale ?? 100)}%`}>
-          <input type="range" min={50} max={300} step={5} value={props.brandLogoScale ?? 100} onChange={(e) => update({ brandLogoScale: Number(e.target.value) })} className="w-full" aria-label="Your logo size" data-room-logo-size="brand" />
-        </Field>
-      </div>
-      <p className="text-[11px] text-muted-foreground" data-room-kit-follows>{kitNote || "The social graphics, one-pager and media kit follow these logo sizes."}</p>
-      <div className="space-y-1.5 rounded border p-2" data-room-schedule-settings>
-        <span className="text-xs font-semibold">“Schedule” button (top bar)</span>
+        <div className="flex items-start gap-3">
+          <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div>
+              <div className="text-xs font-medium">Customer logo</div>
+              <div className="text-[11px] text-muted-foreground">{hasLogo ? "Shown in white on the cover, beside yours." : "No logo yet: their name is shown instead."}</div>
+            </div>
+            {hasLogo && <Toggle checked={!!props.partnerLogoOriginal} onChange={(v) => update({ partnerLogoOriginal: v })} title="Keep the logo’s own colours" help="Turn on if the logo should not be turned white." />}
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field label={`Customer logo size · ${Math.round(props.partnerLogoScale ?? 100)}%`}>
+            <input type="range" min={50} max={300} step={5} value={props.partnerLogoScale ?? 100} onChange={(e) => update({ partnerLogoScale: Number(e.target.value) })} className="w-full" aria-label="Customer logo size" data-room-logo-size="partner" />
+          </Field>
+          <Field label={`Your logo size · ${Math.round(props.brandLogoScale ?? 100)}%`}>
+            <input type="range" min={50} max={300} step={5} value={props.brandLogoScale ?? 100} onChange={(e) => update({ brandLogoScale: Number(e.target.value) })} className="w-full" aria-label="Your logo size" data-room-logo-size="brand" />
+          </Field>
+        </div>
+        <p className="text-[11px] text-muted-foreground" data-room-kit-follows>{note || "The social graphics, one-pager and media kit follow these logo sizes."}</p>
+      </Group>
+
+      <Group title="Who can open it">
+        <Toggle checked={!!props.requireEmail} onChange={(v) => update({ requireEmail: v })} title="Ask for a work email first" help="Visitors confirm their email before they see the hub, so you know who was in it." data-room-require-email="" />
+        <Toggle checked={!!props.shareMap} onChange={(v) => update({ shareMap: v })} title="Show the practice map to everyone" help="Off: only people with access see where the practices are." data-room-share-map="" />
+      </Group>
+
+      <Group title="Rollout dates" hint="The day count and the rollout track on the Overview run from these.">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Kickoff date"><Input type="date" value={props.kickoffDate ?? ""} onChange={(e) => update({ kickoffDate: e.target.value })} className="h-8 text-xs" /></Field>
+          <Field label="Rollout length (days)"><Input type="number" min={1} value={props.rolloutDays ?? 90} onChange={(e) => update({ rolloutDays: Math.max(1, Number(e.target.value) || 90) })} className="h-8 text-xs" /></Field>
+        </div>
+      </Group>
+
+      <Group title="Cover" hint="The top of the hub.">
+        <Field label="Headline"><Input value={props.headline?.trim() ? props.headline : roomHeadlineDefault(brandName)} onChange={(e) => update({ headline: e.target.value })} className="h-8 text-xs" /></Field>
+        <p className="-mt-1.5 text-[11px] text-muted-foreground">{"{{account}}"} is replaced with the customer’s name.</p>
+        <Field label="Small label above the headline"><Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} className="h-8 text-xs" placeholder="Leave blank for none" /></Field>
+        <div className="flex flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <ThumbButton value={props.heroImageUrl ?? ""} onChange={(url) => update({ heroImageUrl: url })} label="Cover photo" />
+            <span className="text-xs font-medium">Cover photo</span>
+          </div>
+          <div className="flex items-center gap-2" data-room-feed-photo>
+            <ThumbButton value={props.feedPhotoUrl ?? ""} onChange={(url) => update({ feedPhotoUrl: url })} label="News Feed photo" />
+            <span className="text-xs font-medium">News Feed photo<span className="block text-[11px] font-normal text-muted-foreground">On the Overview</span></span>
+          </div>
+        </div>
+        <Field label="Cover style"><Choice name="cover" value={coverStyle} options={COVER_STYLES} onChange={(id) => update({ coverStyle: id })} /></Field>
+        {coverStyle === "fade" && <Toggle checked={!props.coverPhotoScrolls} onChange={(v) => update({ coverPhotoScrolls: !v })} title="Photo stays in place while the page scrolls" />}
+        <div data-room-look-setting>
+          <Field label="Look of the whole hub"><Choice name="look" value={roomLook(props.look)} options={ROOM_LOOKS} onChange={(id) => update({ look: id })} /></Field>
+        </div>
+      </Group>
+
+      <Group title="“Schedule” button" hint="A button in the hub’s top bar that books time with one of your team." data-room-schedule-settings="">
         <Field label="Whose calendar it books">
           <Select
             value={!props.scheduleUrl ? "off" : bookable.find((m) => m.bookingUrl === props.scheduleUrl)?.name ?? "custom"}
@@ -187,53 +254,52 @@ export function RoomAccountFields({ props, update, team, brandName, note }: { pr
             </SelectContent>
           </Select>
         </Field>
+        {bookable.length === 0 && !props.scheduleUrl && <p className="text-[11px] text-muted-foreground">Nobody on your team has a booking link yet. Add one under Team, or paste a link here.</p>}
         {!!props.scheduleUrl && (
-          <>
-            <Input value={props.scheduleUrl} onChange={(e) => update({ scheduleUrl: e.target.value.trim(), scheduleRep: "" })} className="h-7 text-xs" placeholder="https://calendly.com/…" aria-label="Booking link" />
-            <Input value={props.scheduleLabel ?? ""} onChange={(e) => update({ scheduleLabel: e.target.value })} className="h-7 text-xs" aria-label="Button text" />
-          </>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="Booking link"><Input value={props.scheduleUrl} onChange={(e) => update({ scheduleUrl: e.target.value.trim(), scheduleRep: "" })} className="h-8 text-xs" placeholder="https://calendly.com/…" aria-label="Booking link" /></Field>
+            <Field label="Button text"><Input value={props.scheduleLabel ?? ""} onChange={(e) => update({ scheduleLabel: e.target.value })} className="h-8 text-xs" placeholder="Schedule" aria-label="Button text" /></Field>
+          </div>
         )}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Kickoff date"><Input type="date" value={props.kickoffDate ?? ""} onChange={(e) => update({ kickoffDate: e.target.value })} className="h-8 text-xs" /></Field>
-        <Field label="Rollout length (days)"><Input type="number" min={1} value={props.rolloutDays ?? 90} onChange={(e) => update({ rolloutDays: Math.max(1, Number(e.target.value) || 90) })} className="h-8 text-xs" /></Field>
-      </div>
-      <Field label="Headline"><Input value={props.headline?.trim() ? props.headline : roomHeadlineDefault(brandName)} onChange={(e) => update({ headline: e.target.value })} className="h-8 text-xs" /></Field>
-      <Field label="Label above the headline"><Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} className="h-8 text-xs" /></Field>
-      <Field label="Cover style">
-        <div className="grid grid-cols-2 gap-1">
-          {(
-            [
-              { id: "fade", label: "Fading photo", hint: "The photo runs off the right edge and fades into the cover" },
-              { id: "split", label: "Photo card", hint: "Text beside a framed photo" },
-              { id: "fullbleed", label: "Full-bleed", hint: "The photo fills the cover" },
-              { id: "light", label: "Light", hint: "Pale, editorial" },
-            ] as const
-          ).map((c) => {
-            const on = (props.coverStyle ?? "fade") === c.id;
-            return (
-              <button key={c.id} type="button" onClick={() => update({ coverStyle: c.id })} aria-pressed={on} title={c.hint} className={`rounded-md border px-2 py-1.5 text-[11px] font-medium ${on ? "border-foreground bg-muted" : "text-muted-foreground hover:bg-muted/50"}`} data-room-cover-option={c.id}>
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
-      </Field>
-      {(props.coverStyle ?? "fade") === "fade" && (
-        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <Switch checked={!props.coverPhotoScrolls} onCheckedChange={(v) => update({ coverPhotoScrolls: !v })} aria-label="Photo stays in place while the page scrolls" />
-          Photo stays in place while the page scrolls
-        </label>
-      )}
-      <div className="flex items-center gap-2">
-        <ThumbButton value={props.heroImageUrl ?? ""} onChange={(url) => update({ heroImageUrl: url })} label="Cover photo" />
-        <span className="text-[11px] text-muted-foreground">Cover photo</span>
-      </div>
-      <div className="flex items-center gap-2" data-room-feed-photo>
-        <ThumbButton value={props.feedPhotoUrl ?? ""} onChange={(url) => update({ feedPhotoUrl: url })} label="News Feed photo" />
-        <span className="text-[11px] text-muted-foreground">News Feed photo (Overview)</span>
-      </div>
+      </Group>
     </>
+  );
+}
+
+/**
+ * One person: photo, name and role on a line, the rest (contact details, what
+ * they own) behind "Details" so a team reads as a list of names. Someone just
+ * added opens ready to fill in.
+ */
+function MemberRow({ member: m, onChange, onRemove }: { member: RoomTeamMember; onChange: (patch: Partial<RoomTeamMember>) => void; onRemove: () => void }) {
+  const [open, setOpen] = useState(!(m.name ?? "").trim());
+  const filled = [m.email, m.phone, m.bookingUrl, m.owns, m.when].filter((v) => (v ?? "").trim()).length;
+  return (
+    <div className={`space-y-2 rounded-md border p-2 ${m.hidden ? "opacity-60" : ""}`} data-room-team-member>
+      <div className="flex items-center gap-2">
+        <ThumbButton value={m.photoUrl ?? ""} onChange={(url) => onChange({ photoUrl: url })} label="Photo" size="sm" />
+        <Input value={m.name ?? ""} onChange={(e) => onChange({ name: e.target.value })} className="h-8 min-w-0 flex-1 text-xs font-medium" placeholder="Name" aria-label="Name" autoFocus={!(m.name ?? "").trim()} />
+        <Input value={m.role ?? ""} onChange={(e) => onChange({ role: e.target.value })} className="h-8 min-w-0 flex-1 text-xs" placeholder="Role" aria-label="Role" />
+        <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-[11px]" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? "Hide details" : filled ? "Details" : "Add details"}
+        </Button>
+      </div>
+      {open && (
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="Email"><Input type="email" value={m.email ?? ""} onChange={(e) => onChange({ email: e.target.value })} className="h-8 text-xs" /></Field>
+            <Field label="Phone"><Input value={m.phone ?? ""} onChange={(e) => onChange({ phone: e.target.value })} className="h-8 text-xs" /></Field>
+            <Field label="Booking link"><Input value={m.bookingUrl ?? ""} onChange={(e) => onChange({ bookingUrl: e.target.value.trim() })} className="h-8 text-xs" placeholder="https://calendly.com/…" /></Field>
+            <Field label="What they own"><Input value={m.owns ?? ""} onChange={(e) => onChange({ owns: e.target.value })} className="h-8 text-xs" placeholder="e.g. Training and onboarding" /></Field>
+            <Field label="When to reach them"><Input value={m.when ?? ""} onChange={(e) => onChange({ when: e.target.value })} className="h-8 text-xs" placeholder="e.g. Questions about a case" /></Field>
+          </div>
+          <div className="flex items-center justify-between">
+            <HideToggle hidden={m.hidden} onChange={(h) => onChange({ hidden: h })} />
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-destructive hover:text-destructive" onClick={onRemove}>Remove</Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -245,7 +311,6 @@ export function RoomTeamFields({ props, update, pageId }: { props: RoomTeamProps
   const setMember = (gi: number, mi: number, patch: Partial<RoomTeamMember>) => setTeam(gi, { members: team[gi].members.map((m, idx) => (idx === mi ? { ...m, ...patch } : m)) });
   return (
     <>
-      <Field label="Note beside the heading"><Input value={props.teamNote ?? ""} onChange={(e) => update({ teamNote: e.target.value })} className="h-8 text-xs" /></Field>
       <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setRepsOpen(true)} data-room-team-library>
         <Plus className="h-3 w-3" /> Add from the Sales Reps library
       </Button>
@@ -290,42 +355,33 @@ export function RoomTeamFields({ props, update, pageId }: { props: RoomTeamProps
           return added;
         }}
       />
-      {team.map((g, gi) => (
-        <CollapseItem key={gi} startOpen={String(g.title || `Group ${gi + 1}`).startsWith("New ")} header={<ItemHeader label={g.title || `Group ${gi + 1}`} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={() => update({ team: team.filter((_, idx) => idx !== gi) })} />}>
-          <div className="flex items-center gap-2">
-            <Input value={g.title ?? ""} onChange={(e) => setTeam(gi, { title: e.target.value })} className="h-8 flex-1 text-xs font-semibold" />
-            <HideToggle hidden={g.hidden} onChange={(h) => setTeam(gi, { hidden: h })} />
-          </div>
-          {(g.members ?? []).map((m, mi) => (
-            <div key={mi} className="space-y-1 rounded border border-dashed p-1.5">
-              <div className="flex items-center gap-2">
-                <ThumbButton value={m.photoUrl ?? ""} onChange={(url) => setMember(gi, mi, { photoUrl: url })} label="Photo" size="sm" />
-                <Input value={m.name ?? ""} onChange={(e) => setMember(gi, mi, { name: e.target.value })} className="h-7 flex-1 text-xs font-medium" placeholder="Name" />
-                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => setTeam(gi, { members: g.members.filter((_, idx) => idx !== mi) })}>Remove</Button>
-              </div>
-              <div className="grid grid-cols-2 gap-1">
-                <Input value={m.role ?? ""} onChange={(e) => setMember(gi, mi, { role: e.target.value })} className="h-7 text-xs" placeholder="Role" />
-                <Input value={m.email ?? ""} onChange={(e) => setMember(gi, mi, { email: e.target.value })} className="h-7 text-xs" placeholder="Email" />
-              </div>
-              <div className="grid grid-cols-2 gap-1">
-                <Input value={m.phone ?? ""} onChange={(e) => setMember(gi, mi, { phone: e.target.value })} className="h-7 text-xs" placeholder="Phone (optional)" />
-                <Input value={m.bookingUrl ?? ""} onChange={(e) => setMember(gi, mi, { bookingUrl: e.target.value.trim() })} className="h-7 text-xs" placeholder="Booking link (optional)" />
-              </div>
-              <div className="grid grid-cols-2 gap-1">
-                <Input value={m.owns ?? ""} onChange={(e) => setMember(gi, mi, { owns: e.target.value })} className="h-7 text-xs" placeholder="What they own" />
-                <Input value={m.when ?? ""} onChange={(e) => setMember(gi, mi, { when: e.target.value })} className="h-7 text-xs" placeholder="When they engage" />
-              </div>
-              <div className="flex justify-end"><HideToggle hidden={m.hidden} onChange={(h) => setMember(gi, mi, { hidden: h })} /></div>
+      {team.map((g, gi) => {
+        const count = (g.members ?? []).length;
+        const label = `${g.title || `Group ${gi + 1}`} · ${count} ${count === 1 ? "person" : "people"}${g.hidden ? " · hidden" : ""}`;
+        const remove = () => {
+          if (count > 0 && typeof window !== "undefined" && !window.confirm(`Remove "${g.title || "this group"}" and the ${count} ${count === 1 ? "person" : "people"} in it?`)) return;
+          update({ team: team.filter((_, idx) => idx !== gi) });
+        };
+        return (
+          <CollapseItem key={gi} startOpen={gi === 0 || count === 0} header={<ItemHeader label={label} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={remove} />}>
+            <div className="flex items-end gap-3">
+              <div className="min-w-0 flex-1"><Field label="Group name"><Input value={g.title ?? ""} onChange={(e) => setTeam(gi, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field></div>
+              <div className="pb-1.5"><HideToggle hidden={g.hidden} onChange={(h) => setTeam(gi, { hidden: h })} /></div>
             </div>
-          ))}
-          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setTeam(gi, { members: [...(g.members ?? []), { name: "New person", role: "" }] })}>
-            <Plus className="h-3 w-3" /> Add person
-          </Button>
-        </CollapseItem>
-      ))}
-      <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ team: [...team, { title: "New group", members: [] }] })}>
-        <Plus className="h-3 w-3" /> Add group
+            {(g.members ?? []).map((m, mi) => (
+              <MemberRow key={mi} member={m} onChange={(patch) => setMember(gi, mi, patch)} onRemove={() => setTeam(gi, { members: g.members.filter((_, idx) => idx !== mi) })} />
+            ))}
+            {count === 0 && <p className="text-[11px] text-muted-foreground">Nobody here yet.</p>}
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setTeam(gi, { members: [...(g.members ?? []), { name: "", role: "" }] })} data-room-team-add-person>
+              <Plus className="h-3 w-3" /> Add person
+            </Button>
+          </CollapseItem>
+        );
+      })}
+      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground" onClick={() => update({ team: [...team, { title: "New group", members: [] }] })}>
+        <Plus className="h-3 w-3" /> Add another group
       </Button>
+      <Field label="Line under the Team heading (optional)"><Input value={props.teamNote ?? ""} onChange={(e) => update({ teamNote: e.target.value })} className="h-8 text-xs" placeholder="e.g. Who to call for what" /></Field>
     </>
   );
 }

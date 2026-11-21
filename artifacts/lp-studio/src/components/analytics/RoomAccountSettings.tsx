@@ -34,12 +34,14 @@ function useDraft<T extends object>(pageId: number, stored: T, body: (draft: T) 
       setBusy(false);
     }
   };
+  // Stays in view at the foot of the pop-up while there is something to save, so a long form never hides the button.
   const bar = (
-    <div className="flex flex-wrap items-center gap-2 pt-1">
-      <Button size="sm" variant="brand" disabled={busy || !changed} onClick={save}>{busy ? "Saving…" : "Save"}</Button>
-      {changed && !busy && <Button size="sm" variant="ghost" onClick={() => setDraft(stored)}>Undo changes</Button>}
+    <div className={`flex flex-wrap items-center gap-2 py-2 ${changed ? "sticky bottom-0 z-10 -mx-3 border-t bg-background px-3" : ""}`} data-room-settings-save>
+      <Button size="sm" variant="brand" disabled={busy || !changed} onClick={save}>{busy ? "Saving…" : "Save changes"}</Button>
+      {changed && !busy && <Button size="sm" variant="ghost" onClick={() => setDraft(stored)}>Discard</Button>}
+      {changed && !busy && !err && <span className="text-xs text-muted-foreground">You have unsaved changes.</span>}
       {note && !changed && <span className="text-sm text-muted-foreground">{note}</span>}
-      {err && <span className="text-sm text-destructive">{err}</span>}
+      {err && <span className="text-sm text-destructive" role="alert">{err}</span>}
     </div>
   );
   return { draft, setDraft, bar };
@@ -52,7 +54,7 @@ export function RoomAccountSettings({ pageId, account, team, onSaved }: { pageId
   // A headline left as the default is stored blank, so it keeps following the brand name.
   const { draft, setDraft, bar } = useDraft(pageId, account, (d) => ({ account: { ...d, headline: (d.headline ?? "").trim() === fallback ? "" : (d.headline ?? "") } }), onSaved);
   return (
-    <section className="max-w-xl space-y-2.5" data-room-account-settings>
+    <section className="max-w-2xl space-y-3" data-room-account-settings>
       <RoomAccountFields props={draft} update={(patch) => setDraft((d) => ({ ...d, ...patch }))} team={team} brandName={brand?.brandName} note="The social graphics, one-pager and media kit follow these logo sizes. After you save, they are remade when the marketing tab is next opened." />
       {bar}
     </section>
@@ -63,7 +65,7 @@ export function RoomAccountSettings({ pageId, account, team, onSaved }: { pageId
 export function RoomTeamSettings({ pageId, team, onSaved }: { pageId: number; team: RoomTeamProps; onSaved: (patch: Record<string, unknown>) => void | Promise<void> }) {
   const { draft, setDraft, bar } = useDraft(pageId, team, (d) => ({ team: d }), onSaved);
   return (
-    <section className="max-w-xl space-y-2.5" data-room-team-settings>
+    <section className="max-w-2xl space-y-3" data-room-team-settings>
       <RoomTeamFields props={draft} update={(patch) => setDraft((d) => ({ ...d, ...patch }))} pageId={pageId} />
       {bar}
     </section>
@@ -72,6 +74,12 @@ export function RoomTeamSettings({ pageId, team, onSaved }: { pageId: number; te
 
 /** What the folded "Team" row says while closed. */
 export function teamHint(team: RoomTeamGroup[]): string {
-  const parts = team.filter((g) => !g.hidden).map((g) => `${g.title || "Group"}: ${(g.members ?? []).filter((m) => !m.hidden).length}`);
+  const parts = team.map((g) => `${g.title || "Group"}: ${(g.members ?? []).length}${g.hidden ? " (hidden)" : ""}`);
   return parts.join(" · ") || "Nobody added yet";
+}
+
+/** What the folded "Account" row says while closed: who it is for and when it kicked off. */
+export function accountHint(account: Partial<RoomAccountProps>): string {
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(account.kickoffDate ?? "") ? new Date(`${account.kickoffDate}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+  return [account.partnerName, day ? `Kickoff ${day}` : "No kickoff date yet"].filter(Boolean).join(" · ");
 }
