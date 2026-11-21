@@ -203,12 +203,43 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
     let assets = current.assets ?? [];
     for (const c of changes) {
       const at = assets.findIndex((a) => (a.key || roomMilestoneKey({ task: a.title })) === c.key);
-      assets = at >= 0 ? assets.map((a, i) => (i === at ? { ...a, kind: c.kind, fileUrl: c.fileUrl, hidden: false } : a)) : [...assets, { key: c.key, kind: c.kind, title: c.title, description: c.description, fileUrl: c.fileUrl }];
+      assets = at >= 0 ? assets.map((a, i) => (i === at ? { ...a, kind: c.kind, fileUrl: c.fileUrl, hidden: false, madeFrom: c.madeFrom ?? "" } : a)) : [...assets, { key: c.key, kind: c.kind, title: c.title, description: c.description, fileUrl: c.fileUrl, ...(c.madeFrom ? { madeFrom: c.madeFrom } : {}) }];
     }
     const next = { ...current, assets };
     propsRef.current = next;
     onChange(next);
   };
+  // Changing the customer's name, a logo, a logo size or the cover photo here makes the launch kit's generated
+  // files again in the background, so the social graphics, one-pager and media kit match the cover. It waits
+  // for the edits to settle (a size slider fires many), and leaves a rep's own uploads alone.
+  const remaking = useRef(false);
+  const [kitNote, setKitNote] = useState("");
+  useEffect(() => {
+    if (!Number.isFinite(pageId) || pageId <= 0 || roomTab !== null) return;
+    const timer = setTimeout(async () => {
+      if (remaking.current) return;
+      const p = propsRef.current;
+      const basis = { partnerName: (p.partnerName ?? "").trim(), partnerLogoUrl: (p.partnerLogoUrl ?? "").trim(), heroImageUrl: (p.heroImageUrl ?? "").trim(), partnerLogoScale: p.partnerLogoScale, brandLogoScale: p.brandLogoScale };
+      const mine = (p.assets ?? []).map((a) => ({ key: a.key || roomMilestoneKey({ task: a.title }), title: a.title, kind: a.kind, hasFile: !!(a.fileUrl ?? "").trim(), hidden: a.hidden, url: a.fileUrl, madeFrom: a.madeFrom }));
+      const { staleLaunchAssets, remakeStaleLaunchAssets } = await import("@/lib/room-launch-assets");
+      if (!staleLaunchAssets(mine, basis).length) return;
+      remaking.current = true;
+      setKitNote("Updating the launch assets to match…");
+      try {
+        const [{ fetchBrandConfig }, detail] = await Promise.all([import("@/lib/brand-config"), fetch(`/api/lp/partner-rooms/${pageId}`).then((r) => (r.ok ? (r.json() as Promise<{ kit?: { signupUrl?: string; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[] } | null }>) : null))]);
+        const brand = await fetchBrandConfig();
+        const changed = await remakeStaleLaunchAssets({ ...basis, pageId, signupUrl: detail?.kit?.signupUrl ?? "", brand, texts: detail?.kit?.texts ?? [], links: detail?.kit?.links ?? [] }, mine);
+        if (changed.length) applyKitAssets(changed);
+        setKitNote(changed.length ? `Launch assets updated to match (${changed.length}).` : "");
+      } catch {
+        setKitNote("");
+      } finally {
+        remaking.current = false;
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.partnerName, props.partnerLogoUrl, props.heroImageUrl, props.partnerLogoScale, props.brandLogoScale, pageId, roomTab]);
   const roomDialog = Number.isFinite(pageId) && pageId > 0 && (
     <Dialog open={roomTab !== null} onOpenChange={(open) => !open && setRoomTab(null)}>
       <DialogContent className="max-w-5xl" data-room-manager>
@@ -481,6 +512,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
             <input type="range" min={50} max={300} step={5} value={props.brandLogoScale ?? 100} onChange={(e) => update({ brandLogoScale: Number(e.target.value) })} className="w-full" aria-label="Your logo size" data-room-logo-size="brand" />
           </Field>
         </div>
+        <p className="text-[11px] text-muted-foreground" data-room-kit-follows>{kitNote || "The social graphics, one-pager and media kit follow these logo sizes."}</p>
         <div className="space-y-1.5 rounded border p-2" data-room-schedule-settings>
           <span className="text-xs font-semibold">“Schedule” button (top bar)</span>
           <Field label="Whose calendar it books">

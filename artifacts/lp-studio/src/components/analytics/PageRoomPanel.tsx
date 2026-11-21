@@ -50,7 +50,7 @@ interface RoomDetail {
   /** The hub's Important links as stored on the page (workspace hubs only). */
   links?: HubLink[] | null;
   stage?: HubStage | null;
-  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; partnerLogoScale?: number; brandLogoScale?: number; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string; madeFrom?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -138,7 +138,7 @@ export interface RoomKitLinkChange {
   url: string;
 }
 
-export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string }
+export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string; /** What a generated file was made from; absent for an upload. */ madeFrom?: string }
 
 export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onCover, onOverview, onLinks, onStage, initialTab = "activity", embedded = false }: { pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onCover?: (cover: HubCover) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   // Plays used to be a tab of their own; they are part of To do now, so an old link to them lands there.
@@ -1469,6 +1469,8 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
     return j.url;
   };
 
+  /** What the generated files are drawn from: both names' worth of cover settings, as the hub has them now. */
+  const basis = { partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale };
   const create = async (keys: readonly string[]) => {
     setBusy(true);
     try {
@@ -1481,11 +1483,12 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
       for (const key of keys) {
         setState((s) => ({ ...s, [key]: "working" }));
         try {
-          const url = await createLaunchAsset(key as "partnership-one-pager", { pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: siteUrl || site?.url || kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => ({ title: x.title, url: made[x.key] ?? x.url ?? "" })) });
+          const url = await createLaunchAsset(key as "partnership-one-pager", { ...basis, pageId, signupUrl: siteUrl || site?.url || kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => ({ title: x.title, url: made[x.key] ?? x.url ?? "" })) });
           made[key] = url;
           setPreviews((p) => ({ ...p, [key]: url }));
-          const spec = (await import("@/lib/room-launch-assets")).LAUNCH_ASSETS.find((x) => x.key === key);
-          if (spec) onKitAssets?.([{ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl: url }]);
+          const { LAUNCH_ASSETS, launchAssetSignature } = await import("@/lib/room-launch-assets");
+          const spec = LAUNCH_ASSETS.find((x) => x.key === key);
+          if (spec) onKitAssets?.([{ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl: url, madeFrom: launchAssetSignature(spec.key, basis) }]);
           setState((s) => ({ ...s, [key]: "done" }));
         } catch (e) {
           setState((s) => ({ ...s, [key]: e instanceof Error ? e.message : "Could not create it" }));
@@ -1516,6 +1519,25 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
     void create(SPECS.map((a) => a.key));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kit.automatic, kit.partnerName, pageId]);
+
+  // A generated file made from an older name, logo, logo size or cover photo is made again here, on its own.
+  // (A rep's own upload carries no record of what it was made from, so it is never touched.)
+  const remadeFor = useRef("");
+  useEffect(() => {
+    if (busy || !kit.partnerName) return;
+    let cancelled = false;
+    void import("@/lib/room-launch-assets").then(({ staleLaunchAssets }) => {
+      const stale = staleLaunchAssets(kit.assets, basis);
+      const mark = `${stale.join(",")}|${JSON.stringify(basis)}`;
+      if (cancelled || !stale.length || remadeFor.current === mark) return;
+      remadeFor.current = mark;
+      void create(stale);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kit.assets, kit.partnerName, kit.partnerLogoUrl, kit.heroImageUrl, kit.partnerLogoScale, kit.brandLogoScale, busy]);
 
   const missing = [!kit.partnerName && "the customer’s name", !kit.partnerLogoUrl && "the customer’s logo (their name is used instead)", !kit.heroImageUrl && "a cover photo (the link-preview graphic is made without one)"].filter(Boolean) as string[];
   return (
@@ -1777,7 +1799,7 @@ export function AutomaticRoomsSection() {
       for (const a of LAUNCH_ASSETS) {
         const done = step(`Create: ${a.title}`);
         try {
-          madeUrls[a.key] = await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => ({ title: x.title, url: madeUrls[x.key] ?? "" })), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => ({ title: x.title, url: x.url ?? "" }))] });
+          madeUrls[a.key] = await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => ({ title: x.title, url: madeUrls[x.key] ?? "" })), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => ({ title: x.title, url: x.url ?? "" }))] });
           done("done");
         } catch (e) {
           done("failed", e instanceof Error ? e.message : "Could not create it");

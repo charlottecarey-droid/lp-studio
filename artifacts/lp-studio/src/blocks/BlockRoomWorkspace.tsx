@@ -129,6 +129,8 @@ export interface RoomAsset {
   title: string;
   description?: string;
   fileUrl?: string;
+  /** What a generated launch asset was made from (names, logos, sizes), so it is made again when those change. Blank for an uploaded file. */
+  madeFrom?: string;
   /** Kind "video": a video file, or a YouTube / Vimeo / Wistia / Loom link. Plays in the page. */
   videoUrl?: string;
   externalUrl?: string;

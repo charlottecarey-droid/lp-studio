@@ -790,9 +790,12 @@ export interface RoomKitInfo {
   partnerName: string;
   partnerLogoUrl: string;
   heroImageUrl: string;
+  /** The cover's logo sizes in percent (100 when unset), so the generated assets size the logos the same way. */
+  partnerLogoScale: number;
+  brandLogoScale: number;
   /** The first launch-kit link (the sign-up page), for the one-pager's QR code. */
   signupUrl: string;
-  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; /** Where the item's file is (a hosted path or an address), when it has one. */ url: string }[];
+  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; /** What a generated file was made from; blank for a file someone uploaded. */ madeFrom: string; /** Where the item's file is (a hosted path or an address), when it has one. */ url: string }[];
   /** The kit's written pieces (announcement email, social posts, approved description), for the media kit document. */
   texts: { title: string; description: string; body: string }[];
   /** The kit's links, for the media kit document. */
@@ -813,9 +816,11 @@ export function roomKitInfo(blocks: unknown): RoomKitInfo | null {
     partnerName: str(props.partnerName),
     partnerLogoUrl: str(props.partnerLogoUrl),
     heroImageUrl: str(props.heroImageUrl),
+    partnerLogoScale: typeof props.partnerLogoScale === "number" && props.partnerLogoScale > 0 ? props.partnerLogoScale : 100,
+    brandLogoScale: typeof props.brandLogoScale === "number" && props.brandLogoScale > 0 ? props.brandLogoScale : 100,
     // An uploaded file among the links is a resource, never the sign-up page.
     signupUrl: str(links.find((l) => l && !l.hidden && !str(l.fileUrl) && /^https?:\/\//.test(str(l.url)))?.url),
-    assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true, url: str(a.fileUrl) || str(a.videoUrl) })),
+    assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), madeFrom: str(a.madeFrom), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true, url: str(a.fileUrl) || str(a.videoUrl) })),
     texts: assets.filter((a) => a && !a.hidden && a.kind === "text" && str(a.body)).map((a) => ({ title: str(a.title), description: str(a.description), body: typeof a.body === "string" ? a.body.trim().slice(0, 8000) : "" })).slice(0, 20),
     links: [
       ...links.filter((l) => l && !l.hidden && !str(l.fileUrl) && /^https?:\/\//.test(str(l.url))).map((l) => ({ title: str(l.title), url: str(l.url) })),
@@ -830,6 +835,8 @@ export interface RoomKitAssetInput {
   title: string;
   description?: string;
   fileUrl: string;
+  /** What a generated file was made from (names, logos, sizes). Absent for a file someone uploaded. */
+  madeFrom?: string;
 }
 
 /** A generated file's address must be this app's own storage: never an outside URL. */
@@ -840,7 +847,8 @@ export function parseRoomKitAsset(raw: unknown): RoomKitAssetInput | null {
   const title = cleanText(b.title, 120);
   if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(key) || (b.kind !== "pdf" && b.kind !== "image") || !title) return null;
   if (!/^\/api\/storage\/[A-Za-z0-9/_.-]{1,300}$/.test(fileUrl) || fileUrl.includes("..")) return null;
-  return { key, kind: b.kind, title, description: cleanText(b.description, 200) || undefined, fileUrl };
+  const madeFrom = typeof b.madeFrom === "string" ? b.madeFrom.trim().slice(0, 600) : "";
+  return { key, kind: b.kind, title, description: cleanText(b.description, 200) || undefined, fileUrl, ...(madeFrom ? { madeFrom } : {}) };
 }
 
 /**
@@ -857,8 +865,9 @@ export function setRoomKitAsset(blocks: unknown, asset: RoomKitAssetInput): unkn
   const at = assets.findIndex((a) => a && keyOf(a) === asset.key);
   const next =
     at >= 0
-      ? assets.map((a, i) => (i === at ? { ...a, kind: asset.kind, fileUrl: asset.fileUrl, hidden: false } : a))
-      : [...assets, { key: asset.key, kind: asset.kind, title: asset.title, ...(asset.description ? { description: asset.description } : {}), fileUrl: asset.fileUrl }];
+      ? // An uploaded file drops the record of what the old one was made from, so it is never made again over the upload.
+        assets.map((a, i) => (i === at ? { ...a, kind: asset.kind, fileUrl: asset.fileUrl, hidden: false, madeFrom: asset.madeFrom ?? "" } : a))
+      : [...assets, { key: asset.key, kind: asset.kind, title: asset.title, ...(asset.description ? { description: asset.description } : {}), fileUrl: asset.fileUrl, ...(asset.madeFrom ? { madeFrom: asset.madeFrom } : {}) }];
   return blocks.map((b) => (b === block ? { ...(b as object), props: { ...props, assets: next } } : b));
 }
 

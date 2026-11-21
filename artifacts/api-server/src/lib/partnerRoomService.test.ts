@@ -101,7 +101,8 @@ describe("launch kit: generated assets", () => {
   ];
   it("reads what the generator needs from the page", () => {
     expect(roomKitInfo(blocks)).toMatchObject({ partnerName: "MB2 Dental", partnerLogoUrl: "/api/storage/objects/uploads/logo", heroImageUrl: "", signupUrl: "https://partners.example.com/mb2" });
-    expect(roomKitInfo(blocks)!.assets).toEqual([{ key: "partnership-one-pager", title: "Partnership one-pager", kind: "pdf", hasFile: false, hidden: true, url: "" }, { key: "announcement-email", title: "Announcement email", kind: "text", hasFile: true, hidden: false, url: "" }]);
+    expect(roomKitInfo(blocks)!.assets).toEqual([{ key: "partnership-one-pager", title: "Partnership one-pager", kind: "pdf", madeFrom: "", hasFile: false, hidden: true, url: "" }, { key: "announcement-email", title: "Announcement email", kind: "text", madeFrom: "", hasFile: true, hidden: false, url: "" }]);
+    expect(roomKitInfo(blocks)).toMatchObject({ partnerLogoScale: 100, brandLogoScale: 100 });
     expect(roomKitInfo([{ type: "hero" }])).toBeNull();
   });
   it("only accepts a file in this app's own storage", () => {
@@ -123,6 +124,14 @@ describe("launch kit: generated assets", () => {
     const added = setRoomKitAsset(blocks, { key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" }) as typeof blocks;
     expect((added[1].props as { assets: Record<string, unknown>[] }).assets[2]).toEqual({ key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" });
     expect(setRoomKitAsset([{ type: "hero" }], { key: "x-y", kind: "pdf", title: "X", fileUrl: "/api/storage/a" })).toBeNull();
+  });
+  it("remembers what a generated file was made from, and forgets it when a file is uploaded in its place", () => {
+    const asset = { key: "partnership-one-pager", kind: "pdf" as const, title: "Partnership one-pager", fileUrl: "/api/storage/objects/uploads/pdf1" };
+    expect(parseRoomKitAsset({ ...asset, madeFrom: "2|MB2 Dental|/logo|150|100" })).toMatchObject({ madeFrom: "2|MB2 Dental|/logo|150|100" });
+    const made = setRoomKitAsset(blocks, { ...asset, madeFrom: "2|MB2 Dental|/logo|150|100" })!;
+    expect(roomKitInfo(made)!.assets[0].madeFrom).toBe("2|MB2 Dental|/logo|150|100");
+    const uploaded = setRoomKitAsset(made, { ...asset, fileUrl: "/api/storage/objects/uploads/own" })!;
+    expect(roomKitInfo(uploaded)!.assets[0]).toMatchObject({ madeFrom: "", hasFile: true });
   });
 });
 

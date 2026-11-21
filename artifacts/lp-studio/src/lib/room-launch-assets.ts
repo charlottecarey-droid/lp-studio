@@ -20,6 +20,9 @@ export interface LaunchAssetInput {
   heroImageUrl: string;
   signupUrl: string;
   brand: BrandConfig;
+  /** The hub cover's logo sizes, in percent (100 = as fitted). The same setting sizes the logos here. */
+  partnerLogoScale?: number;
+  brandLogoScale?: number;
   /** The kit's written pieces and links, for the media kit document. */
   texts?: { title: string; description: string; body: string }[];
   links?: { title: string; url: string }[];
@@ -71,6 +74,97 @@ export function containBox(iw: number, ih: number, box: Box): Box {
   return { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
 }
 
+/** The hub cover's logo size setting as a multiplier: 50% to 300%, 100% when unset. */
+export function logoSizeFactor(percent: number | undefined): number {
+  const n = typeof percent === "number" && Number.isFinite(percent) && percent > 0 ? percent : 100;
+  return Math.min(300, Math.max(50, n)) / 100;
+}
+
+/**
+ * Where a logo's ink is inside its file: the bounds of every pixel that is
+ * not background. A file with transparency uses its alpha; a flat file takes
+ * its corner colour as the background. Logo files often carry blank margins,
+ * which made the logo small and off centre once fitted. Null when the file is
+ * blank (or all one colour).
+ */
+export function inkBounds(data: ArrayLike<number>, w: number, h: number): Box | null {
+  if (!(w > 0) || !(h > 0) || data.length < w * h * 4) return null;
+  let transparent = false;
+  for (let i = 3; i < w * h * 4; i += 4) {
+    if (data[i] < 250) {
+      transparent = true;
+      break;
+    }
+  }
+  const [br, bg, bb] = [data[0], data[1], data[2]];
+  const ink = (i: number) => (transparent ? data[i + 3] > 24 : Math.abs(data[i] - br) + Math.abs(data[i + 1] - bg) + Math.abs(data[i + 2] - bb) > 36);
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!ink((y * w + x) * 4)) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+/**
+ * Size a logo for its slot by how heavy it looks, not by the slot's shape.
+ * Fitting inside a wide, short slot leaves a stacked or square logo tiny
+ * beside a wordmark, so a logo is given the same AREA whatever its shape (a
+ * squarer logo comes out taller than the slot, a long one stays inside it),
+ * then the hub's size setting is applied. `grow` says which way a logo taller
+ * than its slot extends, so the gap to the "×" between the logos holds.
+ */
+export function fitLogo(iw: number, ih: number, slot: Box, opts: { scale?: number; grow?: "down" | "up" | "both"; byWeight?: boolean } = {}): Box {
+  if (!(iw > 0) || !(ih > 0)) return slot;
+  const scale = opts.scale ?? 1;
+  const ratio = iw / ih;
+  let w: number, h: number;
+  if (opts.byWeight === false) {
+    const k = Math.min(slot.w / iw, slot.h / ih);
+    w = iw * k;
+    h = ih * k;
+  } else {
+    const area = slot.w * slot.h * 0.75;
+    w = Math.sqrt(area * ratio);
+    h = Math.sqrt(area / ratio);
+    const k = Math.min(1, slot.w / w, (slot.h * 2) / h);
+    w *= k;
+    h *= k;
+  }
+  // The size setting, held inside what the graphic has room for.
+  const k = Math.min(scale, (slot.w * 1.4) / w, (slot.h * (opts.byWeight === false ? 1.6 : 2.6)) / h);
+  w *= k;
+  h *= k;
+  const grow = opts.grow ?? "both";
+  const y = h <= slot.h || grow === "both" ? slot.y + (slot.h - h) / 2 : grow === "down" ? slot.y : slot.y + slot.h - h;
+  return { x: slot.x + (slot.w - w) / 2, y, w, h };
+}
+
+/**
+ * What a generated asset was made from. Stored with the file, so a change to
+ * the name, a logo, a logo size or the cover photo shows the file is out of
+ * date and it is made again. The leading number changes when the drawing does.
+ */
+export function launchAssetSignature(key: LaunchAssetKey, input: Pick<LaunchAssetInput, "partnerName" | "partnerLogoUrl" | "heroImageUrl" | "partnerLogoScale" | "brandLogoScale">): string {
+  const parts = ["2", input.partnerName.trim(), input.partnerLogoUrl.trim(), String(Math.round(logoSizeFactor(input.partnerLogoScale) * 100)), String(Math.round(logoSizeFactor(input.brandLogoScale) * 100))];
+  if (key === "social-image-1") parts.push(input.heroImageUrl.trim());
+  return parts.join("|").slice(0, 600);
+}
+
+/** The generated files that no longer match the hub. A file with no record of what it was made from (a rep's own upload, or one made before this) is left alone. */
+export function staleLaunchAssets(assets: { key: string; hasFile: boolean; madeFrom?: string }[], input: Parameters<typeof launchAssetSignature>[1]): LaunchAssetKey[] {
+  if (!input.partnerName.trim()) return [];
+  return LAUNCH_ASSETS.filter((spec) => {
+    const a = assets.find((x) => x.key === spec.key);
+    return !!a && a.hasFile && !!a.madeFrom && a.madeFrom !== launchAssetSignature(spec.key, input);
+  }).map((spec) => spec.key);
+}
+
 export interface SocialLayout {
   w: number;
   h: number;
@@ -94,7 +188,38 @@ export function socialLayout(variant: "wide" | "square"): SocialLayout {
 
 /* ── Drawing ─────────────────────────────────────────────────────────────── */
 
-interface Drawable { image: CanvasImageSource; w: number; h: number }
+interface Drawable { image: CanvasImageSource; w: number; h: number; /** The part of the file that has ink, when it could be measured. */ ink?: Box }
+
+/** Measure a logo's ink. Null for an image from another site (its pixels can't be read) or a blank one. */
+function measureInk(img: Drawable): Box | null {
+  try {
+    const k = Math.min(1, 320 / Math.max(img.w, img.h));
+    const w = Math.max(1, Math.round(img.w * k));
+    const h = Math.max(1, Math.round(img.h * k));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img.image, 0, 0, w, h);
+    const b = inkBounds(ctx.getImageData(0, 0, w, h).data, w, h);
+    if (!b) return null;
+    // Back to the file's own pixels, a pixel wider all round so soft edges are not shaved.
+    const x = Math.max(0, Math.floor(b.x / k) - 1);
+    const y = Math.max(0, Math.floor(b.y / k) - 1);
+    return { x, y, w: Math.min(img.w - x, Math.ceil(b.w / k) + 2), h: Math.min(img.h - y, Math.ceil(b.h / k) + 2) };
+  } catch {
+    return null;
+  }
+}
+
+/** A logo with its blank margins measured, so it is sized and centred on what is really there. */
+async function loadLogo(url: string): Promise<Drawable | null> {
+  const img = await loadImage(url);
+  if (!img) return null;
+  const ink = measureInk(img);
+  return ink ? { ...img, ink } : img;
+}
 
 async function loadImage(url: string): Promise<Drawable | null> {
   if (!url) return null;
@@ -107,10 +232,11 @@ async function loadImage(url: string): Promise<Drawable | null> {
   });
 }
 
-function drawLogoOrName(ctx: CanvasRenderingContext2D, logo: Drawable | null, name: string, box: Box, font: string): void {
+function drawLogoOrName(ctx: CanvasRenderingContext2D, logo: Drawable | null, name: string, box: Box, font: string, fit: Parameters<typeof fitLogo>[3] = {}): void {
   if (logo) {
-    const b = containBox(logo.w, logo.h, box);
-    ctx.drawImage(logo.image, b.x, b.y, b.w, b.h);
+    const src = logo.ink ?? { x: 0, y: 0, w: logo.w, h: logo.h };
+    const b = fitLogo(src.w, src.h, box, fit);
+    ctx.drawImage(logo.image, src.x, src.y, src.w, src.h, b.x, b.y, b.w, b.h);
     return;
   }
   // No usable logo: set the name in the display face, sized to fit the box.
@@ -133,6 +259,9 @@ export interface SocialGraphicParts {
   brandName: string;
   partnerName: string;
   font: string;
+  /** The hub cover's logo sizes, as multipliers. */
+  brandLogoScale?: number;
+  partnerLogoScale?: number;
 }
 
 export function drawSocialGraphic(ctx: CanvasRenderingContext2D, variant: "wide" | "square", parts: SocialGraphicParts): void {
@@ -179,7 +308,8 @@ export function drawSocialGraphic(ctx: CanvasRenderingContext2D, variant: "wide"
     ctx.fill();
   }
 
-  drawLogoOrName(ctx, parts.brandLogo, parts.brandName, L.brandLogo, parts.font);
+  // Our own logo keeps its designed slot and grows up, away from the "×"; the customer's is sized by weight and grows down.
+  drawLogoOrName(ctx, parts.brandLogo, parts.brandName, L.brandLogo, parts.font, { byWeight: false, grow: "up", scale: parts.brandLogoScale });
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = variant === "square" ? 3 : 2.5;
   ctx.lineCap = "round";
@@ -189,7 +319,7 @@ export function drawSocialGraphic(ctx: CanvasRenderingContext2D, variant: "wide"
   ctx.moveTo(L.cross.cx + L.cross.r, L.cross.cy - L.cross.r);
   ctx.lineTo(L.cross.cx - L.cross.r, L.cross.cy + L.cross.r);
   ctx.stroke();
-  drawLogoOrName(ctx, parts.partnerLogo, parts.partnerName, L.partnerLogo, parts.font);
+  drawLogoOrName(ctx, parts.partnerLogo, parts.partnerName, L.partnerLogo, parts.font, { grow: "down", scale: parts.partnerLogoScale });
 }
 
 const DISPLAY_FONT = `"Bagoss Standard", "Bagoss", Inter, system-ui, sans-serif`;
@@ -203,12 +333,12 @@ export async function buildSocialGraphic(variant: "wide" | "square", input: Laun
   if (!ctx) throw new Error("This browser can't draw the graphic.");
   const { brand } = input;
   const [brandLogo, partnerLogo, photo] = await Promise.all([
-    loadImage((brand.logoUrlDark ?? "").trim() || (brand.logoUrl ?? "").trim()),
-    loadImage(input.partnerLogoUrl),
+    loadLogo((brand.logoUrlDark ?? "").trim() || (brand.logoUrl ?? "").trim()),
+    loadLogo(input.partnerLogoUrl),
     variant === "wide" ? loadImage(input.heroImageUrl) : Promise.resolve(null),
   ]);
   await document.fonts?.ready.catch(() => undefined);
-  const parts: SocialGraphicParts = { surface: graphicSurface(brand), brandLogo, partnerLogo, photo, brandName: brand.brandName || "", partnerName: input.partnerName, font: DISPLAY_FONT };
+  const parts: SocialGraphicParts = { surface: graphicSurface(brand), brandLogo, partnerLogo, photo, brandName: brand.brandName || "", partnerName: input.partnerName, font: DISPLAY_FONT, brandLogoScale: logoSizeFactor(input.brandLogoScale), partnerLogoScale: logoSizeFactor(input.partnerLogoScale) };
   drawSocialGraphic(ctx, variant, parts);
   const toBlob = () => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   let blob: Blob | null = null;
@@ -231,16 +361,18 @@ export async function buildSocialGraphic(variant: "wide" | "square", input: Laun
 /* ── One-pager ───────────────────────────────────────────────────────────── */
 
 async function imageAsDataUrl(url: string): Promise<{ data: string; w: number; h: number } | null> {
-  const img = await loadImage(url);
+  const img = await loadLogo(url);
   if (!img) return null;
   try {
+    // Only the part with ink, so the documents size and place the logo itself, not its blank margins.
+    const src = img.ink ?? { x: 0, y: 0, w: img.w, h: img.h };
     // Rasterise at a generous size so a small or vector logo stays crisp in the PDF.
-    const scale = Math.max(1, Math.min(4, 800 / img.w));
+    const scale = Math.max(1, Math.min(4, 800 / src.w));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(img.w * scale);
-    canvas.height = Math.round(img.h * scale);
-    canvas.getContext("2d")!.drawImage(img.image, 0, 0, canvas.width, canvas.height);
-    return { data: canvas.toDataURL("image/png"), w: img.w, h: img.h };
+    canvas.width = Math.round(src.w * scale);
+    canvas.height = Math.round(src.h * scale);
+    canvas.getContext("2d")!.drawImage(img.image, src.x, src.y, src.w, src.h, 0, 0, canvas.width, canvas.height);
+    return { data: canvas.toDataURL("image/png"), w: src.w, h: src.h };
   } catch {
     return null;
   }
@@ -272,7 +404,7 @@ export async function buildPartnerOnePager(input: LaunchAssetInput): Promise<Blo
       };
   const logo = await imageAsDataUrl(input.partnerLogoUrl);
   const link = input.signupUrl || site || (isHome ? "https://meetdandy.com" : "");
-  const doc = await generateNewPartnerOnePager(input.partnerName, logo?.data ?? null, logo ? { w: logo.w, h: logo.h } : { w: 200, h: 100 }, link, [], "", undefined, input.signupUrl || undefined, undefined, undefined, context as never, resolveOnePagerAssets(brand));
+  const doc = await generateNewPartnerOnePager(input.partnerName, logo?.data ?? null, logo ? { w: logo.w, h: logo.h } : { w: 200, h: 100 }, link, [], "", undefined, input.signupUrl || undefined, undefined, logoSizeFactor(input.partnerLogoScale), context as never, resolveOnePagerAssets(brand));
   return doc.output("blob");
 }
 
@@ -359,13 +491,6 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
   };
   // Logos appear once, on the cover. The kit does not reprint anyone's logo as a picture: the links section points to the logo files.
   const [brandLight, partnerLogo] = await Promise.all([imageAsDataUrl((brand.logoUrlDark ?? "").trim() || ""), imageAsDataUrl(input.partnerLogoUrl)]);
-  /** Draw an image fitted inside a box, left-aligned (or centred), and return the width used. */
-  const place = (img: { data: string; w: number; h: number }, x: number, y: number, maxW: number, maxH: number, centre = false): number => {
-    const b = containBox(img.w, img.h, { x, y, w: maxW, h: maxH });
-    const w = b.w;
-    doc.addImage(img.data, "PNG", centre ? b.x : x, b.y, w, b.h);
-    return w;
-  };
 
   /* Cover */
   // The cover is the whole first page: logos at the top, the title in the middle, what is inside at the foot.
@@ -375,7 +500,14 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
   let x = M;
   const logoY = 50;
   const brandMark = brandLight ?? null;
-  if (brandMark) x += place(brandMark, x, logoY, 120, 26);
+  // Both logos sit on one line through the "×": sized like the graphics, with the hub's size settings.
+  const MID = logoY + 13;
+  const mark = (img: { data: string; w: number; h: number }, at: number, slot: { w: number; h: number }, fit: Parameters<typeof fitLogo>[3]): number => {
+    const b = fitLogo(img.w, img.h, { x: at, y: MID - slot.h / 2, w: slot.w, h: slot.h }, { ...fit, grow: "both" });
+    doc.addImage(img.data, "PNG", at, b.y, b.w, b.h);
+    return b.w;
+  };
+  if (brandMark) x += mark(brandMark, x, { w: 120, h: 26 }, { byWeight: false, scale: logoSizeFactor(input.brandLogoScale) });
   else {
     setHead(18, [255, 255, 255]);
     doc.text(brandName || " ", x, logoY + 20);
@@ -386,7 +518,7 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
   doc.line(x + 14, logoY + 8, x + 24, logoY + 18);
   doc.line(x + 24, logoY + 8, x + 14, logoY + 18);
   x += 38;
-  if (partnerLogo) place(partnerLogo, x, logoY - 1, 170, 28);
+  if (partnerLogo) mark(partnerLogo, x, { w: 170, h: 28 }, { scale: logoSizeFactor(input.partnerLogoScale) });
   else {
     setHead(18, [255, 255, 255]);
     doc.text(input.partnerName, x, logoY + 20);
@@ -594,7 +726,34 @@ export async function createLaunchAsset(key: LaunchAssetKey, input: LaunchAssetI
   const base = `${fileSlug(input.brand.brandName || "")}-x-${fileSlug(input.partnerName)}`;
   const blob = key === "partnership-one-pager" ? await buildPartnerOnePager(input) : key === "media-kit" ? await buildMediaKit(input) : await buildSocialGraphic(key === "social-image-1" ? "wide" : "square", input);
   const fileUrl = await upload(blob, key === "partnership-one-pager" ? `${base}-one-pager.pdf` : key === "media-kit" ? `${base}-media-kit.pdf` : `${base}-social-${key === "social-image-1" ? "wide" : "square"}.png`, spec.kind);
-  const res = await fetch(`/api/lp/partner-rooms/${input.pageId}/kit-asset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl }) });
+  const res = await fetch(`/api/lp/partner-rooms/${input.pageId}/kit-asset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl, madeFrom: launchAssetSignature(key, input) }) });
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Could not add it to the launch kit");
   return fileUrl;
+}
+
+/**
+ * Make again the generated files that no longer match the hub (see
+ * {@link staleLaunchAssets}), and say what changed so the caller can keep its
+ * own copy of the page in step. One that fails is left as it was and is tried
+ * again next time.
+ */
+export async function remakeStaleLaunchAssets(
+  input: Omit<LaunchAssetInput, "files">,
+  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden?: boolean; url?: string; madeFrom?: string }[],
+): Promise<{ key: LaunchAssetKey; kind: "pdf" | "image"; title: string; description: string; fileUrl: string; madeFrom: string }[]> {
+  const stale = staleLaunchAssets(assets, input);
+  const made: Record<string, string> = {};
+  const out: Awaited<ReturnType<typeof remakeStaleLaunchAssets>> = [];
+  for (const key of stale) {
+    const spec = LAUNCH_ASSETS.find((a) => a.key === key)!;
+    try {
+      const files = assets.filter((x) => !x.hidden && x.hasFile && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit").map((x) => ({ title: x.title, url: made[x.key] ?? x.url ?? "" }));
+      const fileUrl = await createLaunchAsset(key, { ...input, files });
+      made[key] = fileUrl;
+      out.push({ key, kind: spec.kind, title: spec.title, description: spec.description, fileUrl, madeFrom: launchAssetSignature(key, input) });
+    } catch {
+      /* left as it was */
+    }
+  }
+  return out;
 }
