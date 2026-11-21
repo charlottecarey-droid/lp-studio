@@ -491,7 +491,7 @@ export interface RoomWorkspaceBlockProps {
   kitIntro?: string;
   assets?: RoomAsset[];
   /** Important links. One with a `fileUrl` is an uploaded file (PDF or image) and opens in the viewer. */
-  links?: { key?: string; title: string; description?: string; url: string; hidden?: boolean; fileUrl?: string; kind?: "pdf" | "image" }[];
+  links?: { key?: string; title: string; description?: string; url: string; hidden?: boolean; fileUrl?: string; kind?: "pdf" | "image"; /** The name its opens are counted under, kept when a rep renames it. */ viewKey?: string }[];
   /** The getting-started checklist on the overview, shown until every step is done. */
   onboarding?: { hidden?: boolean; title?: string; intro?: string; steps: RoomOnboardingStep[] };
   marketing?: { intro?: string; groups: RoomProgramGroup[] };
@@ -624,8 +624,9 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
 
 /** Must match the server (api-server lib/partnerRoom.ts `planTaskKey`). */
 /** An Important link as the asset the viewer and the view counts know it by. The key comes from its name, as it always has. */
-export function roomLinkAsset(l: { title: string; url: string; fileUrl?: string; kind?: "pdf" | "image" }): RoomAsset {
-  const key = roomMilestoneKey({ task: l.title });
+export function roomLinkAsset(l: { title: string; url: string; fileUrl?: string; kind?: "pdf" | "image"; viewKey?: string }): RoomAsset {
+  // A renamed link keeps the key it had, so its opens carry over.
+  const key = (l.viewKey ?? "").trim() || roomMilestoneKey({ task: l.title });
   const file = (l.fileUrl ?? "").trim();
   return file ? { key, kind: l.kind === "image" ? "image" : "pdf", title: l.title, fileUrl: file } : { key, kind: "link", title: l.title, externalUrl: l.url };
 }

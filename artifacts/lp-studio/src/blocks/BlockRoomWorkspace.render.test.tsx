@@ -73,6 +73,8 @@ describe("room-workspace — registry + default render", () => {
     expect((html.match(/data-room-link="file"/g) ?? []).length).toBe(1);
     expect(html).toContain("Launch playbook");
     expect(roomLinkAsset({ title: "Launch playbook", url: "/x", fileUrl: "/x", kind: "pdf" })).toEqual({ key: "launch-playbook", kind: "pdf", title: "Launch playbook", fileUrl: "/x" });
+    // Renamed by a rep: the name changes, the key its opens are counted under does not.
+    expect(roomLinkAsset({ title: "Fusion one-pager", url: "/x", fileUrl: "/x", kind: "pdf", viewKey: "digital-fusion-sales-one-pager" }).key).toBe("digital-fusion-sales-one-pager");
     expect(roomLinkAsset({ title: "Sign-up page", url: "https://x.example/signup" })).toEqual({ key: "sign-up-page", kind: "link", title: "Sign-up page", externalUrl: "https://x.example/signup" });
   });
   it("leaves out the Overview sections a rep switched off", () => {

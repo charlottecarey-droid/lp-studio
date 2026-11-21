@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Download, DoorOpen, RotateCcw, UserCheck, UserX, X } from "lucide-react";
+import { Check, ChevronDown, Download, DoorOpen, RotateCcw, Upload, UserCheck, UserX, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -1246,11 +1246,42 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
   const [busy, setBusy] = useState(false);
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const SPECS = [
-    { key: "partnership-one-pager", title: "Partnership one-pager", note: "PDF, from the New partner one-pager template" },
-    { key: "social-image-1", title: "Social graphic, link preview", note: "1200 × 627, with the cover photo" },
-    { key: "social-image-2", title: "Social graphic, square", note: "1080 × 1080" },
-    { key: "media-kit", title: "Media kit", note: "PDF: the announcement copy, social posts and links in one document" },
+    { key: "partnership-one-pager", kind: "pdf", title: "Partnership one-pager", note: "PDF, from the New partner one-pager template" },
+    { key: "social-image-1", kind: "image", title: "Social graphic, link preview", note: "1200 × 627, with the cover photo" },
+    { key: "social-image-2", kind: "image", title: "Social graphic, square", note: "1080 × 1080" },
+    { key: "media-kit", kind: "pdf", title: "Media kit", note: "PDF: the announcement copy, social posts and links in one document" },
   ] as const;
+  /** Which asset the file picker was opened for, and the ones replaced with a rep's own file in this sitting. */
+  const replaceRef = useRef<HTMLInputElement>(null);
+  const [replacing, setReplacing] = useState<(typeof SPECS)[number] | null>(null);
+  const [own, setOwn] = useState<Record<string, true>>({});
+  /** Put the rep's own file in the kit in place of the one we make. Same key, so the customer sees one asset, not two. */
+  const replaceWith = async (spec: (typeof SPECS)[number], file: File) => {
+    const image = file.type.startsWith("image/");
+    const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (spec.kind === "image" ? !image : !pdf) return setState((s) => ({ ...s, [spec.key]: spec.kind === "image" ? "Upload an image (PNG or JPG)" : "Upload a PDF" }));
+    if (file.size > (image ? 10 : 50) * 1024 * 1024) return setState((s) => ({ ...s, [spec.key]: image ? "That image is over 10 MB" : "That file is over 50 MB" }));
+    setBusy(true);
+    setState((s) => ({ ...s, [spec.key]: "working" }));
+    try {
+      const [{ uploadPdf }, { uploadImage }, { LAUNCH_ASSETS }] = await Promise.all([import("@/components/PdfUploadButton"), import("@/components/ImagePicker"), import("@/lib/room-launch-assets")]);
+      const fileUrl = image ? await uploadImage(file) : (await uploadPdf(file)).url;
+      const meta = LAUNCH_ASSETS.find((x) => x.key === spec.key);
+      const asset = { key: spec.key, kind: spec.kind, title: meta?.title ?? spec.title, description: meta?.description, fileUrl };
+      const r = await fetch(`/api/lp/partner-rooms/${pageId}/kit-asset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(asset) });
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) throw new Error(j.error ?? "Could not add it to the launch kit");
+      onKitAssets?.([asset]);
+      setPreviews((p) => ({ ...p, [spec.key]: fileUrl }));
+      setOwn((o) => ({ ...o, [spec.key]: true }));
+      setState((s) => ({ ...s, [spec.key]: "done" }));
+    } catch (e) {
+      setState((s) => ({ ...s, [spec.key]: e instanceof Error ? e.message : "Upload failed" }));
+    } finally {
+      setBusy(false);
+      await refresh();
+    }
+  };
   const has = (key: string) => kit.assets.some((a) => a.key === key && a.hasFile);
   // Files that are the same for every customer: uploaded once for the workspace, added to each room.
   const { data: standard, refetch: refetchStandard } = useQuery({
@@ -1345,9 +1376,21 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
     <section className="space-y-2">
       <h4 className="text-sm font-semibold">Launch assets</h4>
       <p className="text-sm text-muted-foreground">
-        Made for {kit.partnerName || "this customer"} from the room’s names, logos and cover photo, then added to the launch kit. Creating one again replaces the file in the kit; the customer’s “Request changes” still works on it.
+        Made for {kit.partnerName || "this customer"} from the hub’s names, logos and cover photo. Have your own version? Upload it in its place.
       </p>
       {missing.length > 0 && <p className="text-xs text-amber-700">Not set on the page yet: {missing.join("; ")}.</p>}
+      <input
+        ref={replaceRef}
+        type="file"
+        accept={replacing?.kind === "image" ? "image/png,image/jpeg,image/webp" : "application/pdf,.pdf"}
+        className="hidden"
+        data-room-asset-file
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file && replacing) void replaceWith(replacing, file);
+        }}
+      />
       <div className="divide-y rounded-md border">
         {SPECS.map((a) => {
           const st = state[a.key];
@@ -1361,10 +1404,25 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink }: {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {st === "done" || has(a.key) ? <Badge variant="secondary">{st === "done" ? "Created" : "In the kit"}</Badge> : null}
+                {st === "done" || has(a.key) ? <Badge variant="secondary">{own[a.key] ? "Your file" : st === "done" ? "Created" : "In the kit"}</Badge> : null}
                 {previews[a.key] && <a className="text-xs underline" href={previews[a.key]} target="_blank" rel="noreferrer">Open</a>}
                 <Button size="sm" variant="outline" disabled={busy || !kit.partnerName} onClick={() => create([a.key])}>
-                  {st === "working" ? "Creating…" : has(a.key) || st === "done" ? "Create again" : "Create"}
+                  {st === "working" ? "Working…" : has(a.key) || st === "done" ? "Create again" : "Create"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  disabled={busy}
+                  title={`Upload your own ${a.kind === "image" ? "image" : "PDF"} to use in place of this one`}
+                  data-room-asset-replace={a.key}
+                  onClick={() => {
+                    setReplacing(a);
+                    // The accept list follows the asset: let it update before the picker opens.
+                    setTimeout(() => replaceRef.current?.click(), 0);
+                  }}
+                >
+                  <Upload className="h-3.5 w-3.5" /> {has(a.key) || st === "done" ? "Replace" : "Upload your own"}
                 </Button>
               </div>
             </div>

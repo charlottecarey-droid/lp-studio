@@ -31,6 +31,12 @@ describe("hub Important links", () => {
     expect(roomLinksInfo([{ id: "b", type: "room-workspace", props: { links: [{ title: "Playbook", url: "/api/storage/a.pdf", fileUrl: "/api/storage/a.pdf", kind: "pdf" }] } }])).toEqual([{ title: "Playbook", url: "/api/storage/a.pdf", fileUrl: "/api/storage/a.pdf", kind: "pdf" }]);
   });
 
+  it("a renamed link keeps the key its opens were counted under", () => {
+    const r = parseRoomLinks([{ title: "Launch playbook", description: " How the first 90 days run ", fileUrl: "/api/storage/objects/a", viewKey: "digital-fusion-sales-one-pager" }, { title: "B", url: "https://b.example", viewKey: "Not A Key!" }]);
+    expect(r.ok && r.links[0]).toEqual({ title: "Launch playbook", description: "How the first 90 days run", url: "/api/storage/objects/a", fileUrl: "/api/storage/objects/a", kind: "pdf", viewKey: "digital-fusion-sales-one-pager" });
+    expect(r.ok && r.links[1]).toEqual({ title: "B", url: "https://b.example" });
+  });
+
   it("reads and replaces only the links on the hub block", () => {
     expect(roomLinksInfo(blocks)).toEqual([{ key: "practice-site", title: "Sign-up page", url: "https://x.example/signup" }]);
     expect(roomLinksInfo([{ id: "a", type: "hero", props: {} }])).toBeNull();

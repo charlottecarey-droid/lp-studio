@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, Eye, EyeOff, FileText, Image as ImageIcon, Link2, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, FileText, Image as ImageIcon, Link2, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { MAX_PDF_BYTES, uploadPdf } from "@/components/PdfUploadButton";
 import { uploadImage } from "@/components/ImagePicker";
 import { roomLinkAsset } from "@/blocks/BlockRoomWorkspace";
@@ -16,6 +16,8 @@ export interface HubLink {
   /** An uploaded file instead of a web page: it opens in the hub's viewer. */
   fileUrl?: string;
   kind?: "pdf" | "image";
+  /** The name its opens are counted under, kept when it is renamed. */
+  viewKey?: string;
 }
 
 /** How often one resource was opened, from the hub's asset events (last 90 days). */
@@ -39,6 +41,21 @@ const minutes = (s: number) => (s < 60 ? `${s}s` : `${Math.round(s / 60)} min`);
 export function RoomLinksSection({ pageId, links, views = [], onSaved }: { pageId: number; links: HubLink[]; views?: HubLinkViews[]; onSaved: (links: HubLink[]) => void | Promise<void> }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  /** The row being edited, and what is typed for its name and description. */
+  const [editing, setEditing] = useState<number | null>(null);
+  const [draft, setDraft] = useState({ title: "", description: "" });
+  const startEdit = (i: number) => {
+    setDraft({ title: list[i].title, description: list[i].description ?? "" });
+    setEditing(i);
+  };
+  const saveEdit = async (i: number) => {
+    const l = list[i];
+    const title = draft.title.trim();
+    if (!title) return;
+    // Opens are counted under the name it had: keep that key when the name changes, so the count carries over.
+    const next: HubLink = { ...l, title, description: draft.description.trim() || undefined, ...(title !== l.title ? { viewKey: roomLinkAsset(l).key } : {}) };
+    if (await save(list.map((x, k) => (k === i ? next : x)))) setEditing(null);
+  };
   const [list, setList] = useState<HubLink[]>(links);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -97,6 +114,18 @@ export function RoomLinksSection({ pageId, links, views = [], onSaved }: { pageI
           {list.map((l, i) => {
             const seen = views.find((v) => v.key === roomLinkAsset(l).key);
             const who = seen ? [...seen.people, ...(seen.anonymous > 0 ? [`${seen.anonymous} not identified`] : [])].join(", ") : "";
+            if (editing === i) {
+              return (
+                <form key={`${l.url}-${i}`} className="space-y-2 bg-muted/30 px-3 py-3" data-room-link-editor onSubmit={(e) => { e.preventDefault(); void saveEdit(i); }}>
+                  <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Name the customer sees</span><Input autoFocus value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} maxLength={120} data-room-link-edit-title /></label>
+                  <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Description (optional)</span><Input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} maxLength={200} placeholder="One line on what it is and who it is for" data-room-link-edit-description /></label>
+                  <div className="flex items-center gap-2">
+                    <Button type="submit" size="sm" variant="brand" disabled={busy || !draft.title.trim()}>Save</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+                  </div>
+                </form>
+              );
+            }
             return (
             <div key={`${l.url}-${i}`} className={`flex items-center gap-2 px-3 py-2 ${l.hidden ? "opacity-60" : ""}`} data-room-link-row={l.fileUrl ? "file" : "link"}>
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden>
@@ -108,18 +137,21 @@ export function RoomLinksSection({ pageId, links, views = [], onSaved }: { pageI
                   {l.hidden && <span className="ml-2 text-xs font-normal text-muted-foreground">Hidden from the customer</span>}
                 </p>
                 <p className="truncate text-xs text-muted-foreground" data-room-link-views={seen?.views ?? 0}>
-                  {l.fileUrl ? (l.kind === "image" ? "Image" : "PDF") : l.url.replace(/^https?:\/\//, "")}
+                  {l.description || (l.fileUrl ? (l.kind === "image" ? "Image" : "PDF") : l.url.replace(/^https?:\/\//, ""))}
                   {" · "}
                   {seen?.views ? `Opened ${seen.views} time${seen.views === 1 ? "" : "s"}${seen.seconds > 0 ? ` · ${minutes(seen.seconds)}` : ""}${who ? ` · ${who}` : ""}` : "Not opened yet"}
                 </p>
               </div>
-              <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
-                <a href={l.url} target="_blank" rel="noreferrer" aria-label={`Open ${l.title}`}><ExternalLink className="h-3.5 w-3.5" /></a>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" disabled={busy} aria-label={`Edit the name and description of ${l.title}`} title="Edit name and description" onClick={() => startEdit(i)} data-room-link-edit>
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" disabled={busy} aria-label={`${l.hidden ? "Show" : "Hide"} ${l.title}`} onClick={() => save(list.map((x, k) => (k === i ? { ...x, hidden: !x.hidden } : x)))}>
+              <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
+                <a href={l.url} target="_blank" rel="noreferrer" aria-label={`Open ${l.title}`} title="Open"><ExternalLink className="h-3.5 w-3.5" /></a>
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" disabled={busy} aria-label={`${l.hidden ? "Show" : "Hide"} ${l.title}`} title={l.hidden ? "Show to the customer" : "Hide from the customer"} onClick={() => save(list.map((x, k) => (k === i ? { ...x, hidden: !x.hidden } : x)))}>
                 {l.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" disabled={busy} aria-label={`Remove ${l.title}`} onClick={() => window.confirm(`Remove “${l.title}”?`) && save(list.filter((_, k) => k !== i))}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" disabled={busy} aria-label={`Remove ${l.title}`} title="Remove" onClick={() => window.confirm(`Remove “${l.title}”?`) && save(list.filter((_, k) => k !== i))}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -159,7 +191,7 @@ export function RoomLinksSection({ pageId, links, views = [], onSaved }: { pageI
           {uploading ? "Uploading…" : "Upload a file"}
         </Button>
       </form>
-      <p className="text-xs text-muted-foreground">Upload a PDF or an image. Type a name first, or the file’s own name is used.</p>
+      <p className="text-xs text-muted-foreground">Upload a PDF or an image. Use the pencil to give it a proper name and a description.</p>
       {err && <p role="alert" className="text-sm text-destructive">{err}</p>}
     </section>
   );

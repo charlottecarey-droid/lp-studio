@@ -1041,8 +1041,11 @@ export interface RoomLinkInput {
   /** An uploaded file (PDF or image) instead of a web page. It opens in the hub's viewer. `url` is then the same address. */
   fileUrl?: string;
   kind?: "pdf" | "image";
+  /** The name its opens are counted under. Set when a link is renamed, so the count carries over. */
+  viewKey?: string;
 }
 export const ROOM_LINKS_MAX = 30;
+const linkViewKey = (v: unknown): { viewKey?: string } => (typeof v === "string" && /^[a-z0-9][a-z0-9-]{0,79}$/.test(v.trim()) ? { viewKey: v.trim() } : {});
 /** Where an uploaded resource may live: our own storage, or an https address the upload route handed back. */
 const isStoredFileUrl = (u: string) => u.length <= 2000 && (/^\/api\/storage\/[\w\-./%]+$/.test(u) || /^https:\/\/[^\s]+$/.test(u));
 
@@ -1064,7 +1067,7 @@ export function parseRoomLinks(raw: unknown): { ok: true; links: RoomLinkInput[]
     const fileUrl = typeof r.fileUrl === "string" ? r.fileUrl.trim() : "";
     if (fileUrl) {
       if (!isStoredFileUrl(fileUrl)) return { ok: false, error: `“${title}” isn't a file this hub can show. Upload it again.` };
-      links.push({ ...(typeof r.key === "string" && r.key.trim() ? { key: r.key.trim().slice(0, 80) } : {}), title, ...(description ? { description } : {}), url: fileUrl, fileUrl, kind: r.kind === "image" ? "image" : "pdf", ...(r.hidden === true ? { hidden: true } : {}) });
+      links.push({ ...(typeof r.key === "string" && r.key.trim() ? { key: r.key.trim().slice(0, 80) } : {}), title, ...(description ? { description } : {}), url: fileUrl, fileUrl, kind: r.kind === "image" ? "image" : "pdf", ...linkViewKey(r.viewKey), ...(r.hidden === true ? { hidden: true } : {}) });
       continue;
     }
     let parsed: URL | null = null;
@@ -1074,7 +1077,7 @@ export function parseRoomLinks(raw: unknown): { ok: true; links: RoomLinkInput[]
       parsed = null;
     }
     if (!parsed || !/^https?:$/.test(parsed.protocol) || !parsed.hostname.includes(".") || url.length > 2000) return { ok: false, error: `“${title}” needs a web address that starts with https://` };
-    links.push({ ...(typeof r.key === "string" && r.key.trim() ? { key: r.key.trim().slice(0, 80) } : {}), title, ...(description ? { description } : {}), url, ...(r.hidden === true ? { hidden: true } : {}) });
+    links.push({ ...(typeof r.key === "string" && r.key.trim() ? { key: r.key.trim().slice(0, 80) } : {}), title, ...(description ? { description } : {}), url, ...linkViewKey(r.viewKey), ...(r.hidden === true ? { hidden: true } : {}) });
   }
   return { ok: true, links };
 }
@@ -1086,7 +1089,7 @@ export function roomLinksInfo(blocks: unknown): RoomLinkInput[] | null {
   const stored = Array.isArray(props.links) ? (props.links as Record<string, unknown>[]) : [];
   return stored
     .filter((l) => l && typeof l === "object")
-    .map((l) => ({ ...(typeof l.key === "string" && l.key ? { key: l.key } : {}), title: coverText(l.title), ...(coverText(l.description) ? { description: coverText(l.description) } : {}), url: typeof l.url === "string" ? l.url : "", ...(typeof l.fileUrl === "string" && l.fileUrl ? { fileUrl: l.fileUrl, kind: l.kind === "image" ? ("image" as const) : ("pdf" as const) } : {}), ...(l.hidden === true ? { hidden: true } : {}) }));
+    .map((l) => ({ ...(typeof l.key === "string" && l.key ? { key: l.key } : {}), title: coverText(l.title), ...(coverText(l.description) ? { description: coverText(l.description) } : {}), url: typeof l.url === "string" ? l.url : "", ...(typeof l.fileUrl === "string" && l.fileUrl ? { fileUrl: l.fileUrl, kind: l.kind === "image" ? ("image" as const) : ("pdf" as const) } : {}), ...linkViewKey(l.viewKey), ...(l.hidden === true ? { hidden: true } : {}) }));
 }
 
 /** Replace the hub's links. Returns new blocks, or null when the page has no workspace block. */
