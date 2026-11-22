@@ -406,7 +406,9 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
       await Promise.all([refresh(), qc.invalidateQueries({ queryKey: ["partner-hub-setup", pageId] }), qc.invalidateQueries({ queryKey: ["partner-hubs"] })]);
       return;
     }
-    if (item.where === "kit") return setTab("kit");
+    // The sign-up page is its own page: open its editor, where it is published.
+    if (item.href) return void window.open(item.href, "_blank", "noopener");
+    if (item.where === "kit" || item.where === "signup") return setTab("kit");
     setTab("settings");
     if (isPage) return setSection(item.where === "invite" ? "access" : item.where);
     const fold = { account: "account", team: "team", notify: "notify", invite: "invite" }[item.where];
@@ -1059,7 +1061,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             active={sections.includes(section) || sections.length === 0 ? section : sections[0]}
             onPick={setSection}
             sections={sections}
-            todo={new Set((data.setup ?? []).filter((i) => !i.done && i.where !== "kit" && i.where !== "publish").map((i) => (i.where === "invite" ? "access" : i.where)))}
+            todo={new Set((data.setup ?? []).filter((i) => !i.done && i.where !== "kit" && i.where !== "publish" && i.where !== "signup").map((i) => (i.where === "invite" ? "access" : i.where)))}
             unsaved={new Set(unsaved)}
             footer={
               onArchive && (

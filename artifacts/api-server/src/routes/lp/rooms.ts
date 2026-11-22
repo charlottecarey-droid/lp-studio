@@ -55,7 +55,7 @@ import { CALENDAR_ID_RE, cleanMinutes, loadPublicRoomCalendar, minutesAreEmpty, 
 import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
 import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
-import { ensurePracticeSite, setRoomPracticeLink } from "../../lib/partnerRoomPracticeSite";
+import { ensurePracticeSite, setRoomPracticeLink, roomSignupSlug, signupPagesBySlug } from "../../lib/partnerRoomPracticeSite";
 import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { unlistedPeople } from "../../lib/partnerRoomTeam";
@@ -1678,7 +1678,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       // The last digest that went out can be looked at again.
       lastDigest: fullSettings?.lastDigestHtml ? { subject: fullSettings.lastDigestSubject ?? "", html: fullSettings.lastDigestHtml, sentAt: fullSettings.lastDigestAt?.toISOString() ?? null } : null,
       // What is left before the hub can go to the customer, read from the hub as it is now.
-      setup: page.isWorkspace ? hubSetupItems(roomWorkspaceProps(resolveRoomBlocks(pageRow?.blocks)), { published: pageRow?.status === "published", invited: members.filter((m) => m.status === "allowed").length, slackLinked: !!fullSettings?.slackChannelId }) : [],
+      setup: page.isWorkspace ? hubSetupItems(roomWorkspaceProps(resolveRoomBlocks(pageRow?.blocks)), { published: pageRow?.status === "published", invited: members.filter((m) => m.status === "allowed").length, slackLinked: !!fullSettings?.slackChannelId, signup: await signupPageFor(page.tenantId, roomWorkspaceProps(pageRow?.blocks)) }) : [],
       // The marketing plan as a queue: what the customer said yes to and whether marketing has it yet.
       planQueue: page.isWorkspace ? planQueueFor(page, choiceRows, requests) : [],
       requests: requests.map((r) => ({
@@ -2872,6 +2872,12 @@ async function roomLinksFor(pageId: number) {
 async function roomOverviewHiddenFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomOverviewHidden(row.blocks) : null;
+}
+
+/** The practice sign-up page a hub links to, when it is one of this workspace's own pages. */
+async function signupPageFor(tenantId: number, props: Record<string, unknown> | null) {
+  const slug = roomSignupSlug(props);
+  return slug ? ((await signupPagesBySlug(tenantId, [slug])).get(slug) ?? null) : null;
 }
 
 async function roomAccountFor(pageId: number) {

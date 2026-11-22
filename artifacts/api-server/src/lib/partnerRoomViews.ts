@@ -195,13 +195,15 @@ export function hubIsMine(user: { email?: string | null; name?: string | null },
 /* ── Setup checklist ──────────────────────────────────────────────────────── */
 
 export interface HubSetupItem {
-  key: "logo" | "kickoff" | "ourTeam" | "team" | "kit" | "slack" | "publish" | "invite";
+  key: "logo" | "kickoff" | "ourTeam" | "team" | "kit" | "signup" | "slack" | "publish" | "invite";
+  /** A page to open to do it (the sign-up page's editor), when the step is not done in the hub itself. */
+  href?: string;
   title: string;
   /** One line on why it matters, shown under the title while it is still to do. */
   why: string;
   done: boolean;
   /** Where the rep does it: a section of the hub's Settings, the marketing tab, or the Publish button. */
-  where: "account" | "team" | "kit" | "notify" | "publish" | "invite";
+  where: "account" | "team" | "kit" | "signup" | "notify" | "publish" | "invite";
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -212,7 +214,7 @@ const list = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.fi
  * hub as it is now (not from when it was made), so the list is right whoever
  * did the work and wherever.
  */
-export function hubSetupItems(props: Record<string, unknown> | null, facts: { published: boolean; invited: number; slackLinked?: boolean }): HubSetupItem[] {
+export function hubSetupItems(props: Record<string, unknown> | null, facts: { published: boolean; invited: number; slackLinked?: boolean; /** The practice sign-up page the hub links to, when it is one of this workspace's pages. */ signup?: { pageId: number; title: string; published: boolean } | null }): HubSetupItem[] {
   const p = props ?? {};
   // Placeholders like "[Name]" do not count as people.
   const named = (g: Record<string, unknown> | undefined) => list(g?.members).filter((m) => m.hidden !== true && str(m.name) && !/^\[.*\]$/.test(str(m.name)));
@@ -229,6 +231,10 @@ export function hubSetupItems(props: Record<string, unknown> | null, facts: { pu
     { key: "ourTeam", title: ours.length ? `Check your team (${ours.length} listed)` : "Add your team", why: "The customer sees who to call, and the Schedule button books with one of them.", done: ours.length > 0, where: "team" },
     { key: "team", title: customers.length ? `Check the customer's team (${customers.length} listed)` : "Add the customer's team", why: "So both sides can see who owns what.", done: customers.length > 0, where: "team" },
     { key: "kit", title: expansion ? "Create the marketing assets" : "Create the launch kit", why: "The one-pager, social graphics and media kit the customer announces with.", done: files.length >= 2, where: "kit" },
+    // Only when the hub links to one of our own pages: a draft there is a dead link in front of the customer.
+    ...(facts.signup
+      ? [{ key: "signup" as const, title: facts.signup.published ? "Practice sign-up page is published" : "Publish the practice sign-up page", why: `The hub links to “${facts.signup.title}”, which is still a draft, so the link is dead for the customer and on the one-pager’s QR code.`, done: facts.signup.published, where: "signup" as const, href: `/builder/${facts.signup.pageId}` }]
+      : []),
     { key: "slack", title: "Link the hub's Slack channel", why: "Requests, uploads and the weekly digest are posted there. Without it they go to the workspace's default channel.", done: facts.slackLinked === true, where: "notify" },
     { key: "publish", title: "Publish the hub", why: "The customer's link does not work until it is published.", done: facts.published, where: "publish" },
     { key: "invite", title: facts.invited ? `Invite the customer (${facts.invited} invited)` : "Invite the customer", why: "Each person gets their own link by email.", done: facts.invited > 0, where: "invite" },

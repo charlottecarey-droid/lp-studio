@@ -9,7 +9,7 @@
  *
  * Nothing here publishes: a new microsite is a draft for a person to review.
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, lpPagesTable } from "@workspace/db";
 import { logger } from "./logger";
 import { accountKey } from "./partnerRoomNames";
@@ -177,4 +177,41 @@ export async function ensurePracticeSite(tenantId: number, account: { name: stri
     .returning({ id: lpPagesTable.id });
   logger.info({ tenantId, pageId: page.id, templateId: template.id }, "practice microsite drafted from the template");
   return { pageId: page.id, slug, title, status: "draft", existing: false };
+}
+
+/* ── Is the sign-up page the hub links to actually live? ─────────────────── */
+
+/**
+ * The address of the practice sign-up page a hub links to, as a page slug:
+ * the hub's own practice-microsite link when it has one, else its first link
+ * (which is where the one-pager's QR code points). "" when the hub has no
+ * link, or the link is not a page address.
+ */
+export function roomSignupSlug(props: Record<string, unknown> | null | undefined): string {
+  const links = Array.isArray(props?.links) ? (props!.links as Record<string, unknown>[]) : [];
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const usable = links.filter((l) => l && l.hidden !== true && !str(l.fileUrl) && /^https?:\/\//i.test(str(l.url)));
+  const link = usable.find((l) => str(l.key) === PRACTICE_SITE_LINK_KEY) ?? usable[0];
+  if (!link) return "";
+  try {
+    const parts = new URL(str(link.url)).pathname.split("/").filter(Boolean);
+    const slug = decodeURIComponent(parts[parts.length - 1] ?? "");
+    return /^[a-z0-9][a-z0-9-]{0,120}$/i.test(slug) ? slug.toLowerCase() : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Which of these page addresses are this workspace's own pages, and whether
+ * each is published. A slug that is not one of our pages (the customer's own
+ * site, say) is left out: we can't know about it, so nothing is said.
+ */
+export async function signupPagesBySlug(tenantId: number, slugs: string[]): Promise<Map<string, { pageId: number; title: string; published: boolean }>> {
+  const wanted = [...new Set(slugs.filter(Boolean))];
+  const out = new Map<string, { pageId: number; title: string; published: boolean }>();
+  if (wanted.length === 0) return out;
+  const rows = await db.select({ id: lpPagesTable.id, slug: lpPagesTable.slug, title: lpPagesTable.title, status: lpPagesTable.status }).from(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), inArray(lpPagesTable.slug, wanted)));
+  for (const r of rows) out.set(r.slug.toLowerCase(), { pageId: r.id, title: r.title, published: r.status === "published" });
+  return out;
 }

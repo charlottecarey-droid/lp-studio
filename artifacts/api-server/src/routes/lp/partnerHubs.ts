@@ -21,6 +21,7 @@ import { accountKey, cleanAccountName } from "../../lib/partnerRoomNames";
 import { createRoom, publicPageUrl } from "../../lib/partnerRoomAutocreate";
 import { hubIsMine, hubSetupItems, hubSetupState, sameSfdcId, summarizeRoomViews } from "../../lib/partnerRoomViews";
 import { recordHubActivity } from "../../lib/partnerRoomActivity";
+import { roomSignupSlug, signupPagesBySlug } from "../../lib/partnerRoomPracticeSite";
 import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
@@ -77,6 +78,8 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
       db.select({ id: lpRoomRequestsTable.id, pageId: lpRoomRequestsTable.pageId, assetKey: lpRoomRequestsTable.assetKey, status: lpRoomRequestsTable.status, asanaTaskGid: lpRoomRequestsTable.asanaTaskGid, createdAt: lpRoomRequestsTable.createdAt }).from(lpRoomRequestsTable).where(inArray(lpRoomRequestsTable.pageId, ids)),
       db.select({ pageId: lpRoomEventsTable.pageId, n: sql<number>`count(*)::int` }).from(lpRoomEventsTable).where(and(inArray(lpRoomEventsTable.pageId, ids), eq(lpRoomEventsTable.minutesStatus, "draft"))).groupBy(lpRoomEventsTable.pageId),
     ]);
+    // The sign-up pages these hubs link to, looked up once: a draft one is a dead link in front of the customer.
+    const signupPages = await signupPagesBySlug(tenantId, pages.map((p) => roomSignupSlug(roomWorkspaceProps(p.blocks))));
     const needsOf = (pageId: number, blocks: unknown): HubNeeds => {
       const specs = extractRoomChoices(blocks);
       const reqs = requestRows.filter((r) => r.pageId === pageId);
@@ -117,7 +120,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
           slug: p.slug,
           status: p.status === "published" ? "live" : "draft",
           // In setup, ready to share, or shared: from the same checklist the hub's To do shows.
-          setup: hubSetupState(hubSetupItems(props, { published: p.status === "published", invited: allowed.find((a) => a.pageId === p.id)?.n ?? 0, slackLinked: !!settings.find((x) => x.pageId === p.id)?.slackChannelId })),
+          setup: hubSetupState(hubSetupItems(props, { published: p.status === "published", invited: allowed.find((a) => a.pageId === p.id)?.n ?? 0, slackLinked: !!settings.find((x) => x.pageId === p.id)?.slackChannelId, signup: signupPages.get(roomSignupSlug(roomWorkspaceProps(p.blocks))) ?? null })),
           url: p.status === "published" ? await publicPageUrl(tenantId, p.slug).catch(() => "") : "",
           account: account ? { id: account.id, name: account.displayName || account.name, owner: account.owner } : null,
           day: digestRolloutDay(props.kickoffDate, now),
@@ -284,7 +287,7 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
       url: published ? await publicPageUrl(tenantId, page.slug).catch(() => "") : "",
       // Internal: rollout or expansion. The pop-up names the launch sections by it ("Launch kit" / "Marketing").
       stage: roomStageFromProps(roomWorkspaceProps(blocks) ?? {}, new Date()).stage,
-      setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0, slackLinked: !!hubSettings?.slackChannelId }),
+      setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0, slackLinked: !!hubSettings?.slackChannelId, signup: (await signupPagesBySlug(tenantId, [roomSignupSlug(roomWorkspaceProps(page.blocks))])).get(roomSignupSlug(roomWorkspaceProps(page.blocks))) ?? null }),
       account: account ? { id: account.id, owner: account.owner, salesforceUrl: account.salesforceId ? await salesforceRecordUrl(tenantId, account.salesforceId) : null } : null,
     });
   } catch (err) {

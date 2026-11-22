@@ -174,6 +174,28 @@ describe("weekly digest", () => {
       expect(slack).toContain("No order in 30+ days (1): Ash Dental");
     });
 
+    it("expansion: says so, leads with orders, and stops talking about a rollout", () => {
+      const rows = [
+        P("Oak Dental", "live", { liveDate: "2026-11-13", ordersAllTime: 12, ordersThisMonth: 7, ordersLastMonth: 5, lastOrderDay: "2026-11-14" }),
+        P("Elm Dental", "live", { liveDate: "2026-10-01", ordersAllTime: 0 }),
+        P("Fir Dental", "training_booked", { trainingDate: "2026-11-20" }),
+      ];
+      const past = plan.map((b) => ({ ...b, props: { ...(b as { props: Record<string, unknown> }).props, stage: "expansion" } }));
+      const e = collectDigest(past, { ...base, tasks: [], practices: { total: 3, byStage: { live: 2, training_booked: 1 }, rows, trend: [{ day: "2026-11-02", total: 3, byStage: { live: 1 } }, { day: "2026-11-15", total: 3, byStage: { live: 2 } }] } }, NOW)!;
+      expect(e.kind).toBe("expansion");
+      const text = ((renderDigestSlack(e, "https://x.test/r").blocks[1] as { text: { text: string } }).text.text);
+      expect(text.startsWith("Expansion · 2 of 3 practices live (67%)")).toBe(true);
+      // No day count, launch plan tally or rollout heading once the rollout is over.
+      expect(text).not.toMatch(/Day \d+ of \d+/);
+      expect(text).not.toContain("plan items done");
+      expect(text).not.toContain("*Rollout*");
+      expect(text).toContain("*Practices*");
+      expect(text).toContain("1 still to bring on (1 being scheduled)");
+      expect(text.indexOf("*Orders* (team only)")).toBeGreaterThan(-1);
+      expect(text.indexOf("*Orders* (team only)")).toBeLessThan(text.indexOf("*Practices*"));
+      expect(renderDigestEmail(e, { roomUrl: "https://x.test/r", senderName: "Dandy" }).html).not.toContain(">Rollout<");
+    });
+
     it("expansion: a hub past its rollout is an expansion update even before anything changed this week", () => {
       const moved = [{ ...plan[0], props: { ...plan[0].props, stage: "expansion" } }];
       const e = collectDigest(moved, { ...base, tasks: [], practices: { total: 2, byStage: { live: 2 }, rows: [P("Oak Dental", "live"), P("Elm Dental", "live")] } }, NOW)!;

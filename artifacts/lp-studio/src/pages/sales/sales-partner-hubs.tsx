@@ -34,7 +34,7 @@ interface HubSetup {
   status: "live" | "draft";
   url: string;
   stage?: "rollout" | "expansion";
-  setup: { key: string; title: string; done: boolean; where: "account" | "team" | "kit" | "notify" | "publish" | "invite" }[];
+  setup: { key: string; title: string; done: boolean; where: "account" | "team" | "kit" | "signup" | "notify" | "publish" | "invite" }[];
 }
 
 async function json<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: string } }> {

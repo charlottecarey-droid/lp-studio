@@ -89,6 +89,13 @@ describe("setup checklist", () => {
     expect(ready.find((i) => i.key === "team")?.title).toBe("Check the customer's team (1 listed)");
     expect(ready.find((i) => i.key === "invite")?.title).toBe("Invite the customer (3 invited)");
   });
+  it("flags a sign-up page that is still a draft, only when the hub links to one of our pages", () => {
+    const none = hubSetupItems({}, { published: true, invited: 1 });
+    expect(none.some((i) => i.key === "signup")).toBe(false);
+    const draft = hubSetupItems({}, { published: true, invited: 1, signup: { pageId: 9, title: "Acme practices", published: false } }).find((i) => i.key === "signup")!;
+    expect(draft).toMatchObject({ done: false, title: "Publish the practice sign-up page", href: "/builder/9", where: "signup" });
+    expect(hubSetupItems({}, { published: true, invited: 1, signup: { pageId: 9, title: "Acme practices", published: true } }).find((i) => i.key === "signup")?.done).toBe(true);
+  });
   it("says whether a hub is in setup, ready to share, or shared", () => {
     const step = (where: "account" | "publish" | "invite", done: boolean) => ({ where, done });
     expect(hubSetupState([step("account", false), step("publish", false), step("invite", false)])).toEqual({ state: "setup", left: 1, total: 3 });

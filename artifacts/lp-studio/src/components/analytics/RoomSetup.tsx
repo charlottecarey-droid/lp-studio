@@ -8,7 +8,9 @@ export interface HubSetupItem {
   title: string;
   why: string;
   done: boolean;
-  where: "account" | "team" | "kit" | "notify" | "publish" | "invite";
+  where: "account" | "team" | "kit" | "signup" | "notify" | "publish" | "invite";
+  /** A page to open to do it, when the step is not done in the hub itself (the sign-up page's editor). */
+  href?: string;
 }
 
 /** Where a hub stands on the way to the customer. Mirrors the server's hubSetupState. */
@@ -46,6 +48,7 @@ export function HubStatus({ live, setup, compact = false }: { live: boolean; set
 
 /** What the button beside a step says. */
 export function setupAction(where: HubSetupItem["where"], marketingName: string): string {
+  if (where === "signup") return "Open the page";
   return where === "account" ? "Open Account" : where === "team" ? "Open Team" : where === "kit" ? `Open ${marketingName}` : where === "notify" ? "Link channel" : where === "publish" ? "Publish" : "Invite";
 }
 

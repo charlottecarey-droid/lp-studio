@@ -412,7 +412,7 @@ export function renderDigestEmail(d: DigestData, opts: { roomUrl: string; sender
   const reached = d.milestones.filter((x) => x.done).length;
   const showRollout = d.kind !== "setup" && !!r;
   const hero = showRollout
-    ? `<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${soft}">Rollout</div>
+    ? `<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${soft}">${d.kind === "expansion" ? "Practices" : "Rollout"}</div>
 <div style="margin-top:10px;font-size:64px;line-height:1;font-weight:700;letter-spacing:-.03em;color:${ink}">${r!.live}<span style="font-size:24px;font-weight:600;letter-spacing:-.01em;color:${soft}"> of ${r!.total}</span></div>
 <div style="margin-top:10px;font-size:17px;line-height:1.4;color:${ink}">practices live <span style="color:${soft}">· ${pct(r!.live, r!.total)}% of the way</span></div>
 ${r!.liveChange && r!.liveChange > 0 ? `<div style="margin-top:12px">${pill(`${signed(r!.liveChange)} this week`, tint(good, 0.86), "#0F7A42")}</div>` : ""}
@@ -529,8 +529,15 @@ export function renderDigestSlack(d: DigestData, roomUrl: string, extraSections:
   const m = (s: string) => s.replace(/[<>&*_~`]/g, " ");
   const bullets = (items: string[], max = 4) => items.slice(0, max).map((i) => `• ${m(i)}`).join("\n") + (items.length > max ? `\n• and ${items.length - max} more` : "");
   const lines: string[] = [];
-  lines.push([d.day !== null ? `Day ${d.day} of ${d.totalDays}${d.phase ? ` (${m(d.phase)})` : ""}` : null, `${d.planDone}/${d.planTotal} plan items done`].filter(Boolean).join(" · "));
   const r = d.rollout;
+  const expansion = d.kind === "expansion";
+  // The opening line. A hub past its rollout has no day count or launch plan left to report: it says it is in
+  // expansion and how many practices are live. (It used to read "Day 140 of 90", as if still rolling out.)
+  lines.push(
+    expansion
+      ? ["Expansion", r ? `${r.live} of ${r.total} practices live (${pct(r.live, r.total)}%)` : null].filter(Boolean).join(" · ")
+      : [d.day !== null ? `Day ${d.day} of ${d.totalDays}${d.phase ? ` (${m(d.phase)})` : ""}` : null, `${d.planDone}/${d.planTotal} plan items done`].filter(Boolean).join(" · "),
+  );
   // Early on: the setup milestones, done and next. Not every tick.
   if (d.kind === "setup") {
     const done = d.milestones.filter((x) => x.done);
@@ -544,33 +551,50 @@ export function renderDigestSlack(d: DigestData, roomUrl: string, extraSections:
     ];
     if (d.milestones.length || r) lines.push(setup.filter(Boolean).join("\n"));
   }
-  if (r && d.kind !== "setup") {
-    const change = (n: number | null) => (n ? ` (${signed(n)} this week)` : "");
-    const roll = [
-      `*Rollout*`,
-      `*${r.live} of ${r.total}* practices live (${pct(r.live, r.total)}%)${change(r.liveChange)} · ${r.trained} trained${change(r.trainedChange)} · ${r.booked + r.scheduling} being scheduled · ${r.notStarted} not started`,
-      r.wentLive.length ? `Went live this week: ${m(someNames(r.wentLive, 6))}` : "",
-      r.trainedThisWeek.length ? `Trained this week: ${m(someNames(r.trainedThisWeek, 6))}` : "",
-      r.upcoming.length ? `Training next: ${r.upcoming.slice(0, 5).map((u) => `${m(u.name)} (${digestDayLabel(u.day)})`).join(", ")}${r.upcoming.length > 5 ? ` and ${r.upcoming.length - 5} more` : ""}` : "",
-      r.addedChange ? `Practices on the list: ${r.total} (${signed(r.addedChange)} this week)` : "",
-      r.regions.length > 1 ? `By region: ${r.regions.slice(0, 6).map((g) => `${m(g.region)} ${g.live}/${g.total}`).join(" · ")}` : r.waves.length > 1 ? `By wave: ${r.waves.slice(0, 6).map((w) => `${m(/^\d+$/.test(w.wave) ? `Wave ${w.wave}` : w.wave)} ${w.live}/${w.total}`).join(" · ")}` : "",
-    ];
-    lines.push(roll.filter(Boolean).join("\n"));
-  }
+  const change = (n: number | null) => (n ? ` (${signed(n)} this week)` : "");
+  const byGroup = !r ? "" : r.regions.length > 1 ? `By region: ${r.regions.slice(0, 6).map((g) => `${m(g.region)} ${g.live}/${g.total}`).join(" · ")}` : r.waves.length > 1 ? `By wave: ${r.waves.slice(0, 6).map((w) => `${m(/^\d+$/.test(w.wave) ? `Wave ${w.wave}` : w.wave)} ${w.live}/${w.total}`).join(" · ")}` : "";
+  const trainingNext = !r || !r.upcoming.length ? "" : `Training next: ${r.upcoming.slice(0, 5).map((u) => `${m(u.name)} (${digestDayLabel(u.day)})`).join(", ")}${r.upcoming.length > 5 ? ` and ${r.upcoming.length - 5} more` : ""}`;
+  // During the rollout: where every practice stands, and what moved.
+  const rolloutSection =
+    r && d.kind === "rollout"
+      ? [
+          `*Rollout*`,
+          `*${r.live} of ${r.total}* practices live (${pct(r.live, r.total)}%)${change(r.liveChange)} · ${r.trained} trained${change(r.trainedChange)} · ${r.booked + r.scheduling} being scheduled · ${r.notStarted} not started`,
+          r.wentLive.length ? `Went live this week: ${m(someNames(r.wentLive, 6))}` : "",
+          r.trainedThisWeek.length ? `Trained this week: ${m(someNames(r.trainedThisWeek, 6))}` : "",
+          trainingNext,
+          r.addedChange ? `Practices on the list: ${r.total} (${signed(r.addedChange)} this week)` : "",
+          byGroup,
+        ]
+      : null;
+  // After it: who is left to bring on, not a stage-by-stage count of a rollout that is over.
+  const toGo = r ? r.total - r.live : 0;
+  const practicesSection =
+    r && expansion
+      ? [
+          `*Practices*`,
+          `*${r.live} of ${r.total}* live${change(r.liveChange)}${toGo > 0 ? ` · ${toGo} still to bring on${r.booked + r.scheduling > 0 ? ` (${r.booked + r.scheduling} being scheduled)` : ""}` : " · every practice is live"}`,
+          r.wentLive.length ? `Went live this week: ${m(someNames(r.wentLive, 6))}` : "",
+          trainingNext,
+          r.addedChange ? `New on the list this week: ${signed(r.addedChange)}` : "",
+          byGroup,
+        ]
+      : null;
   // Orders are ours to see, not the customer's: Slack only.
   const o = d.orders;
-  if (o && d.kind !== "setup") {
-    const trend = o.lastMonth > 0 ? ` (${o.lastMonth} last month)` : "";
-    const ord = [
-      `*Orders* (team only)`,
-      `${o.thisMonth} order${o.thisMonth === 1 ? "" : "s"} so far this month${trend} · ${o.ordering} practice${o.ordering === 1 ? "" : "s"} ordering`,
-      o.top.length ? `Most this month: ${o.top.map((t) => `${m(t.name)} (${t.orders})`).join(", ")}` : "",
-      o.tenth.length ? `Reached their 10th order this week: ${m(someNames(o.tenth, 5))}` : "",
-      o.liveNoOrders.length ? `Live but no order yet (${o.liveNoOrders.length}): ${m(someNames(o.liveNoOrders, 5))}` : "",
-      o.lapsed.length ? `No order in 30+ days (${o.lapsed.length}): ${m(someNames(o.lapsed, 5))}` : "",
-    ];
-    lines.push(ord.filter(Boolean).join("\n"));
-  }
+  const ordersSection =
+    o && d.kind !== "setup"
+      ? [
+          `*Orders* (team only)`,
+          `${o.thisMonth} order${o.thisMonth === 1 ? "" : "s"} so far this month${o.lastMonth > 0 ? ` (${o.lastMonth} last month)` : ""} · ${o.ordering} practice${o.ordering === 1 ? "" : "s"} ordering`,
+          o.top.length ? `Most this month: ${o.top.map((t) => `${m(t.name)} (${t.orders})`).join(", ")}` : "",
+          o.tenth.length ? `Reached their 10th order this week: ${m(someNames(o.tenth, 5))}` : "",
+          o.liveNoOrders.length ? `Live but no order yet (${o.liveNoOrders.length}): ${m(someNames(o.liveNoOrders, 5))}` : "",
+          o.lapsed.length ? `No order in 30+ days (${o.lapsed.length}): ${m(someNames(o.lapsed, 5))}` : "",
+        ]
+      : null;
+  // In expansion the orders are the story, so they lead; during the rollout the practices do.
+  for (const section of expansion ? [ordersSection, practicesSection] : [rolloutSection, ordersSection]) if (section) lines.push(section.filter(Boolean).join("\n"));
   // Sections the caller composed (already Slack-formatted), e.g. the RevOps item.
   lines.push(...extraSections);
   if (d.blocking.length) lines.push(`*Blocking (${d.blocking.length})*\n${bullets(d.blocking)}`);
