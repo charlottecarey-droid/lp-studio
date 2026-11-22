@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { VideoPicker } from "@/components/VideoPicker";
 import { refreshPageVersion } from "@/lib/page-version";
+import { extraFromSaved, saveRoomNote, useSavedRoomNotes } from "@/lib/room-saved-notes";
 import { insertOverviewUnit, placeOverviewUnit, resolveOverviewOrder } from "@/blocks/hub/roomOverviewLayout";
 import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, OVERVIEW_NOTE_EYEBROW, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, overviewVideos, type RoomOverviewExtra, type RoomOverviewVideo, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "rea
 import { useRoute } from "wouter";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { RoomKitAssetChange, RoomPanelTab } from "@/components/analytics/PageRoomPanel";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, DoorOpen, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bookmark, ChevronLeft, ChevronRight, DoorOpen, Plus, X } from "lucide-react";
 
 // The team's Room panel (uploads, practices, launch kit, calendar, settings). Loaded only when opened.
 const PageRoomPanel = lazy(() => import("@/components/analytics/PageRoomPanel").then((m) => ({ default: m.PageRoomPanel })));
@@ -257,6 +258,9 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
     const other = orderedExtras[at + dir];
     if (other) update({ overviewOrder: placeOverviewUnit(overviewOrder, key, other.x.key, dir === -1 ? "before" : "after") });
   };
+  // The workspace's saved notes: add one to this hub, or save a note of this hub's to the list.
+  const savedNotes = useSavedRoomNotes(true);
+  const [noteSaved, setNoteSaved] = useState<Record<string, string>>({});
   // Who can sign a pinned note: the named people on our side of the Team.
   const signers = (props.team?.[0]?.members ?? []).filter((m) => !m.hidden && (m.name ?? "").trim() && !/^\[.*\]$/.test(m.name.trim()) && m.name.trim() !== "New person");
   const marketing = props.marketing ?? { groups: [] };
@@ -492,6 +496,27 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                     </label>
                   </Field>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 text-[11px]"
+                    data-room-note-save-panel
+                    onClick={async () => {
+                      const name = (x.title ?? "").replace(/\{\s*first[\s_]*name\s*\}/gi, "").replace(/[\s,!]+$/, "").trim() || "Untitled note";
+                      try {
+                        const r = await saveRoomNote(name, x);
+                        setNoteSaved((m) => ({ ...m, [x.key]: r.updated ? `Updated the saved note “${r.note.name}”.` : `Saved as “${r.note.name}”. Add it to any hub from + Add section.` }));
+                      } catch {
+                        setNoteSaved((m) => ({ ...m, [x.key]: "Couldn't save. Try again." }));
+                      }
+                    }}
+                  >
+                    <Bookmark className="h-3 w-3" /> Save to saved notes
+                  </Button>
+                  {noteSaved[x.key] && <span className="text-[11px] text-muted-foreground">{noteSaved[x.key]}</span>}
+                </div>
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-medium text-muted-foreground">Links (shown as buttons under the message)</span>
                   {(x.items ?? []).map((it, j) => (
@@ -542,6 +567,19 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
               <Plus className="h-3 w-3" /> {OVERVIEW_EXTRA_LABEL[k]}
             </Button>
           ))}
+          {savedNotes.length > 0 && (
+            <Select value="" onValueChange={(v) => {
+              const saved = savedNotes.find((n) => String(n.id) === v);
+              if (!saved) return;
+              const x = extraFromSaved(saved, extras);
+              update({ overviewExtras: [...extras, x], overviewOrder: insertOverviewUnit(overviewOrder, x.key, overviewOrder[0] ?? null) });
+            }}>
+              <SelectTrigger className="h-7 w-auto gap-1 text-[11px]" aria-label="Add a saved note" data-room-ov-add-saved-panel><Bookmark className="h-3 w-3" /><SelectValue placeholder="Saved note…" /></SelectTrigger>
+              <SelectContent>
+                {savedNotes.map((n) => <SelectItem key={n.id} value={String(n.id)} className="text-xs">{n.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </SectionBody>
       )}

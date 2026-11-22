@@ -15,7 +15,8 @@ import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
 import { fillRegionalsWord, RegionalsWord } from "./hub/room-words";
-import { OVERVIEW_EXTRA_LABEL, OVERVIEW_EXTRAS_CSS, OverviewAddBar, OverviewEditFrame, OverviewExtraView, OverviewHiddenStrip, OverviewUnitFrame, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, type OverviewSigner, type OverviewTextEditor, type OverviewViewCtx, type RoomOverviewExtra } from "./hub/RoomOverviewExtras";
+import { OVERVIEW_EXTRA_LABEL, OVERVIEW_EXTRAS_CSS, SaveNoteTool, OverviewAddBar, OverviewEditFrame, OverviewExtraView, OverviewHiddenStrip, OverviewUnitFrame, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, type OverviewSigner, type OverviewTextEditor, type OverviewViewCtx, type RoomOverviewExtra } from "./hub/RoomOverviewExtras";
+import { deleteRoomNote, extraFromSaved, saveRoomNote, useSavedRoomNotes } from "@/lib/room-saved-notes";
 import { OVERVIEW_UNIT_LABEL, canSitBeside, insertOverviewUnit, isBuiltinUnit, moveOverviewUnit, overviewRows, placeOverviewUnit, resolveOverviewOrder, type OverviewBuiltinUnit } from "./hub/roomOverviewLayout";
 import { OrdersAtAGlance, ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
 import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
@@ -2176,11 +2177,16 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     signerFor: (x): OverviewSigner | null => {
       if (x.signedBy === "") return null;
       const want = (x.signedBy ?? "").trim().toLowerCase();
-      const m = want ? signerPool.find((p) => realPerson(p) && p.name.trim().toLowerCase() === want) : signerPool.find(realPerson);
-      return m ? { name: m.name.trim(), role: (m.role ?? "").trim() || undefined, photoUrl: (m.photoUrl ?? "").trim() || undefined } : null;
+      // A note from a saved note or the hub template may name someone who isn't on this hub's team: the account owner signs it.
+      const m = (want && signerPool.find((p) => realPerson(p) && p.name.trim().toLowerCase() === want)) || signerPool.find(realPerson);
+      return m ? { name: m.name.trim(), role: (m.role ?? "").trim() || undefined, photoUrl: (m.photoUrl ?? "").trim() || undefined, bookingUrl: (m.bookingUrl ?? "").trim() || undefined } : null;
     },
+    // {booking link} in a note's links: the signer's booking page, else the first person on our team who has one.
+    bookingUrl: signerPool.find((p) => realPerson(p) && /^https?:\/\//i.test((p.bookingUrl ?? "").trim()))?.bookingUrl?.trim(),
     storageKey: `hub:${pageId ?? props.partnerName}`,
   };
+  // The workspace's saved notes, for the builder's Add section menu and each note's Save note (never fetched on the live page).
+  const savedNotes = useSavedRoomNotes(isEditor);
   const ovText: OverviewTextEditor = (p) => <E item={p.item} field={p.field as never} multiline={p.multiline} placeholder={p.placeholder} touch={p.touch} />;
   /** Run something that needs a known visitor; ask for their email first when they are anonymous. */
   const needViewer = (fn: () => void) => {
@@ -2743,6 +2749,20 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 setLayout({ overviewExtras: [...(rawProps.overviewExtras ?? []), x], overviewOrder: insertOverviewUnit(order, x.key, before) });
               };
               const addKinds = (["video", "links", "text"] as const).filter((k) => k !== "links" || !allExtras.some((x) => x.kind === "links"));
+              const addSaved = (id: number, before: string | null) => {
+                const saved = savedNotes.find((n) => n.id === id);
+                if (!saved) return;
+                const x = extraFromSaved(saved, rawProps.overviewExtras ?? []);
+                setLayout({ overviewExtras: [...(rawProps.overviewExtras ?? []), x], overviewOrder: insertOverviewUnit(order, x.key, before) });
+              };
+              const savedChoices = savedNotes.map((n) => ({ id: n.id, name: n.name }));
+              const deleteSaved = (id: number) => void deleteRoomNote(id).catch(() => undefined);
+              // A note's Save note: saves the stored words (with {first name} and the like still in them), not the filled-in copy.
+              const noteTool = (k: string) => {
+                const raw = (rawProps.overviewExtras ?? []).find((x) => x.key === k);
+                if (!raw || raw.kind !== "text") return undefined;
+                return <SaveNoteTool defaultName={(raw.title ?? "").replace(/\{\s*first[\s_]*name\s*\}/gi, "").replace(/[\s,!]+$/, "").trim() || "Untitled note"} existing={savedNotes.map((n) => n.name)} onSave={(name) => saveRoomNote(name, raw)} />;
+              };
               const frameUnit = (k: string, rowIndex: number, inRow: number): React.ReactNode => {
                 const node = unitNode(k);
                 if (!isEditor) return <Fragment key={k}>{node}</Fragment>;
@@ -2764,6 +2784,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     beside={beside}
                     onBeside={canPair ? () => toggleBeside(k) : undefined}
                     onDrop={(dragged, where) => setLayout({ overviewOrder: placeOverviewUnit(order, dragged, k, where) })}
+                    tools={noteTool(k)}
                   >
                     {node}
                   </OverviewUnitFrame>
@@ -2786,7 +2807,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 <OverviewHiddenStrip items={hiddenChips} />
                 {rows.map((row, r) => (
                   <Fragment key={row.join("+")}>
-                    {isEditor && <OverviewAddBar kinds={[...addKinds]} onAdd={(kind) => addSection(kind, row[0])} />}
+                    {isEditor && <OverviewAddBar kinds={[...addKinds]} onAdd={(kind) => addSection(kind, row[0])} saved={savedChoices} onAddSaved={(id) => addSaved(id, row[0])} onDeleteSaved={deleteSaved} />}
                     {row.length === 2 ? (
                       <div className="prw-ovrow" data-room-ov-row>
                         {row.map((k, n) => frameUnit(k, r, n))}
@@ -2796,7 +2817,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     )}
                   </Fragment>
                 ))}
-                {isEditor && <OverviewAddBar kinds={[...addKinds]} onAdd={(kind) => addSection(kind, null)} always />}
+                {isEditor && <OverviewAddBar kinds={[...addKinds]} onAdd={(kind) => addSection(kind, null)} saved={savedChoices} onAddSaved={(id) => addSaved(id, null)} onDeleteSaved={deleteSaved} always />}
               </>
               );
             })()}

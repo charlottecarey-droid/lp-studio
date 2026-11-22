@@ -517,3 +517,28 @@ export type LpRoomMember = typeof lpRoomMembersTable.$inferSelect;
 export type LpRoomTaskState = typeof lpRoomTaskStateTable.$inferSelect;
 export type LpRoomUpload = typeof lpRoomUploadsTable.$inferSelect;
 export type LpRoomEvent = typeof lpRoomEventsTable.$inferSelect;
+
+/**
+ * A workspace's saved Partner Hub notes (Nov 2026): pinned notes a rep saved
+ * from a hub's Overview ("Book your kickoff call", "Lab tour invite") to add
+ * to any hub later. Only the words and links are kept; who signs it and the
+ * date belong to the hub it is added to. Names are unique per workspace
+ * (case-insensitive): saving under an existing name updates that note.
+ */
+export const lpRoomSavedNotesTable = pgTable(
+  "lp_room_saved_notes",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    name: text("name").notNull(),
+    note: jsonb("note")
+      .$type<{ eyebrow?: string; title?: string; body?: string; items?: { title: string; url: string; description?: string }[] }>()
+      .notNull()
+      .default({}),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lp_room_saved_notes_tenant_name_uniq").on(t.tenantId, sql`lower(${t.name})`)],
+);
+export type LpRoomSavedNote = typeof lpRoomSavedNotesTable.$inferSelect;

@@ -75,6 +75,7 @@ import blogProgramRouter from "./blog-program";
 import generatorPresetsRouter from "./generator-presets";
 import roomsRouter from "./rooms";
 import partnerHubsRouter from "./partnerHubs";
+import roomNotesRouter from "./roomNotes";
 import googleConnectRouter from "./googleConnect";
 
 const router = Router();
@@ -87,6 +88,7 @@ router.use(trackingRouter);
 router.use(roomsRouter);
 // The Sales Console's side of the same hubs: the list, create-from-account, performance.
 router.use(partnerHubsRouter);
+router.use(roomNotesRouter);
 router.use(googleConnectRouter);
 // Task #364: serves prerendered published landing-page HTML keyed by
 // (tenant_id, slug). Public — tenant resolved from request host. Falls

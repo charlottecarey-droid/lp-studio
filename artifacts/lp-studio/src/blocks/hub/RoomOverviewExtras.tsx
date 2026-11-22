@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, Check, Columns2, ExternalLink, Eye, EyeOff, GripVertical, Link2, Pin, PlayCircle, Plus, RotateCcw, Square, StickyNote } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, Bookmark, Check, Columns2, ExternalLink, Eye, EyeOff, GripVertical, Link2, Pin, PlayCircle, Plus, RotateCcw, Square, StickyNote, Trash2 } from "lucide-react";
 import { BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { extractWistiaId } from "@/lib/wistia";
 import { isNativeVideoUrl } from "@/lib/video-utils";
@@ -46,6 +46,8 @@ export interface OverviewSigner {
   name: string;
   role?: string;
   photoUrl?: string;
+  /** Their booking page: what {booking link} becomes in a note they sign. */
+  bookingUrl?: string;
 }
 
 /** What a section needs from the hub around it. */
@@ -56,7 +58,13 @@ export interface OverviewViewCtx {
   signerFor: (extra: RoomOverviewExtra) => OverviewSigner | null;
   /** Per-hub key for this visitor's own memory (which videos they have watched). */
   storageKey: string;
+  /** The first booking page on our team, for {booking link} when the signer has none. */
+  bookingUrl?: string;
 }
+
+/** A note link's address that becomes the signer's booking page in each hub (so a saved note works anywhere). */
+export const BOOKING_LINK_TOKEN = "{booking link}";
+const isBookingToken = (url: string) => url.trim().toLowerCase() === BOOKING_LINK_TOKEN;
 
 export interface RoomOverviewExtra {
   /** Stable id (for tracking and editing). */
@@ -155,9 +163,15 @@ export function overviewExtraHasContent(extra: RoomOverviewExtra, hubLinks = 0):
   return !!((extra.title ?? "").trim() || (extra.body ?? "").trim() || noteLinks(extra).length > 0);
 }
 
-/** A note's links that can be shown: a name and a link a browser can open safely. */
-function noteLinks(extra: RoomOverviewExtra): RoomOverviewResource[] {
-  return (extra.items ?? []).filter((i) => (i.title ?? "").trim() && openable(i.url ?? ""));
+/**
+ * A note's links that can be shown: a name and a link a browser can open safely. {booking link} becomes
+ * `booking` (the signer's booking page); without one that link is left out. With no `booking` given at all
+ * (just checking whether the note has content) a {booking link} still counts.
+ */
+function noteLinks(extra: RoomOverviewExtra, booking?: string | null): RoomOverviewResource[] {
+  return (extra.items ?? [])
+    .map((i) => (isBookingToken(i.url ?? "") && booking !== undefined ? { ...i, url: booking ?? "" } : i))
+    .filter((i) => (i.title ?? "").trim() && (openable(i.url ?? "") || (booking === undefined && isBookingToken(i.url ?? ""))));
 }
 
 /** What still needs filling in, for the builder's placeholder. */
@@ -254,8 +268,10 @@ function PinnedNote({ extra, onOpen, ctx, T }: { extra: RoomOverviewExtra; onOpe
   const editing = !!T;
   const title = editing ? (extra.title ?? "") : fillFirstName((extra.title ?? "").trim(), first);
   const body = editing ? (extra.body ?? "") : fillFirstName((extra.body ?? "").trim(), first);
-  const links = noteLinks(extra);
   const signer = ctx?.signerFor(extra) ?? null;
+  const booking = signer?.bookingUrl || ctx?.bookingUrl || null;
+  const links = noteLinks(extra, booking);
+  const waitingForBooking = editing && !booking && (extra.items ?? []).some((i) => isBookingToken(i.url ?? "") && (i.title ?? "").trim());
   if (!editing && !title && !body && links.length === 0) return null;
   const eyebrow = (extra.eyebrow ?? OVERVIEW_NOTE_EYEBROW).trim();
   const date = extra.hideDate ? "" : pinnedLabel(extra.pinnedAt);
@@ -298,6 +314,11 @@ function PinnedNote({ extra, onOpen, ctx, T }: { extra: RoomOverviewExtra; onOpe
             </a>
           ))}
         </div>
+      )}
+      {waitingForBooking && (
+        <p className="prw-note-hint" data-room-note-booking-missing>
+          A {BOOKING_LINK_TOKEN} button shows once someone on your team has a booking link (Our Team).
+        </p>
       )}
       {signer ? (
         <div className="prw-note-sign who" data-room-note-signer={signer.name}>
@@ -532,6 +553,7 @@ export function OverviewUnitFrame({
   beside,
   onBeside,
   onDrop,
+  tools,
   children,
 }: {
   unitKey: string;
@@ -544,6 +566,8 @@ export function OverviewUnitFrame({
   beside?: boolean;
   onBeside?: () => void;
   onDrop: (dragged: string, where: "before" | "after") => void;
+  /** More tools for this kind of section (a note's Save note). */
+  tools?: ReactNode;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -595,6 +619,7 @@ export function OverviewUnitFrame({
             {beside ? <Square aria-hidden /> : <Columns2 aria-hidden />}
           </button>
         )}
+        {tools}
         {onHide && (
           <button type="button" className="hide" onClick={onHide} title={`Hide “${label}” from the customer`} aria-label={`Hide ${label} on the Overview`}>
             <EyeOff aria-hidden /> Hide
@@ -625,17 +650,43 @@ const ADD_KIND_HINT: Record<"video" | "links" | "text", string> = {
   text: "A message from your team, with links",
 };
 
+/** A saved note as the Add section menu lists it. */
+export interface SavedNoteChoice {
+  id: number;
+  name: string;
+}
+
 /**
  * Builder only: "+ Add section" between two sections of the Overview. Opens a
- * short menu of what can go there; the new section lands right at that spot.
+ * short menu of what can go there (and the workspace's saved notes, each with
+ * a delete); the new section lands right at that spot.
  */
-export function OverviewAddBar({ kinds, onAdd, always }: { kinds: ("video" | "links" | "text")[]; onAdd: (kind: "video" | "links" | "text") => void; /** The last bar: always visible, not only on hover. */ always?: boolean }) {
+export function OverviewAddBar({
+  kinds,
+  onAdd,
+  always,
+  saved = [],
+  onAddSaved,
+  onDeleteSaved,
+}: {
+  kinds: ("video" | "links" | "text")[];
+  onAdd: (kind: "video" | "links" | "text") => void;
+  /** The last bar: always visible, not only on hover. */
+  always?: boolean;
+  saved?: SavedNoteChoice[];
+  onAddSaved?: (id: number) => void;
+  onDeleteSaved?: (id: number) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent | globalThis.KeyboardEvent) => {
-      if (e instanceof MouseEvent ? !ref.current?.contains(e.target as Node) : e.key === "Escape") setOpen(false);
+      if (e instanceof MouseEvent ? !ref.current?.contains(e.target as Node) : e.key === "Escape") {
+        setOpen(false);
+        setConfirmId(null);
+      }
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
@@ -645,6 +696,11 @@ export function OverviewAddBar({ kinds, onAdd, always }: { kinds: ("video" | "li
     };
   }, [open]);
   if (kinds.length === 0) return null;
+  const pick = (fn: () => void) => {
+    setOpen(false);
+    setConfirmId(null);
+    fn();
+  };
   return (
     <div ref={ref} className={`prw-ovadd${always || open ? " show" : ""}`} data-room-ov-add-bar>
       <button type="button" className="open" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -653,14 +709,120 @@ export function OverviewAddBar({ kinds, onAdd, always }: { kinds: ("video" | "li
       {open && (
         <div className="menu" role="menu">
           {kinds.map((k) => (
-            <button key={k} type="button" role="menuitem" onClick={() => { setOpen(false); onAdd(k); }} data-room-ov-add-kind={k}>
+            <button key={k} type="button" role="menuitem" onClick={() => pick(() => onAdd(k))} data-room-ov-add-kind={k}>
               {ADD_KIND_ICON[k]}
-              <span><b>{OVERVIEW_EXTRA_LABEL[k]}</b><span>{ADD_KIND_HINT[k]}</span></span>
+              <span><b>{k === "text" && saved.length > 0 ? "Blank pinned note" : OVERVIEW_EXTRA_LABEL[k]}</b><span>{ADD_KIND_HINT[k]}</span></span>
             </button>
           ))}
+          {kinds.includes("text") && saved.length > 0 && onAddSaved && (
+            <>
+              <div className="sep" role="presentation">Saved notes</div>
+              {saved.map((n) => (
+                <div key={n.id} className="saved" data-room-saved-note={n.name}>
+                  {confirmId === n.id ? (
+                    <span className="confirm">
+                      Delete “{n.name}” for everyone?
+                      <button type="button" className="yes" onClick={() => pick(() => onDeleteSaved?.(n.id))}>Delete</button>
+                      <button type="button" onClick={() => setConfirmId(null)}>Keep</button>
+                    </span>
+                  ) : (
+                    <>
+                      <button type="button" role="menuitem" className="use" onClick={() => pick(() => onAddSaved(n.id))} data-room-ov-add-saved={n.id}>
+                        <Bookmark aria-hidden />
+                        <span><b>{n.name}</b></span>
+                      </button>
+                      {onDeleteSaved && (
+                        <button type="button" className="del" title={`Delete the saved note “${n.name}”`} aria-label={`Delete the saved note ${n.name}`} onClick={() => setConfirmId(n.id)}>
+                          <Trash2 aria-hidden />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Builder only: a note's "Save note" tool. Asks for a name (the note's title
+ * to start with), says when that name will update an existing saved note,
+ * and saves the note's words and links to the workspace's saved notes.
+ */
+export function SaveNoteTool({ defaultName, existing, onSave }: { defaultName: string; existing: string[]; onSave: (name: string) => Promise<{ updated: boolean }> }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(defaultName);
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "updated" | "error">("idle");
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const clash = existing.find((n) => n.trim().toLowerCase() === name.trim().toLowerCase());
+  const save = async () => {
+    if (!name.trim()) return;
+    setState("saving");
+    try {
+      const r = await onSave(name.trim());
+      setState(r.updated ? "updated" : "saved");
+      window.setTimeout(() => {
+        setOpen(false);
+        setState("idle");
+      }, 1400);
+    } catch {
+      setState("error");
+    }
+  };
+  return (
+    <span ref={ref} className="prw-savenote">
+      <button
+        type="button"
+        onClick={() => {
+          setName(defaultName);
+          setState("idle");
+          setOpen((o) => !o);
+        }}
+        title="Save this note to use on any hub"
+        aria-label="Save this note to your saved notes"
+        aria-expanded={open}
+        data-room-note-save
+      >
+        <Bookmark aria-hidden /> Save note
+      </button>
+      {open && (
+        <span className="pop" role="dialog" aria-label="Save note">
+          <label>
+            <span>Save as</span>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void save();
+                }
+                if (e.key === "Escape") setOpen(false);
+              }}
+              placeholder="Name"
+              data-room-note-save-name
+            />
+          </label>
+          <span className="m">{state === "saved" ? "Saved. Add it from + Add section on any hub." : state === "updated" ? `Updated “${clash ?? name}”.` : state === "error" ? "Couldn't save. Try again." : clash ? `Replaces the saved note “${clash}”.` : "Its words and links are saved; each hub keeps its own signer and date."}</span>
+          <button type="button" className="go" onClick={() => void save()} disabled={!name.trim() || state === "saving"} data-room-note-save-go>
+            {state === "saving" ? "Saving…" : clash ? "Update" : "Save"}
+          </button>
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -736,6 +898,7 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-note-link:hover{background:color-mix(in srgb,var(--dark) 9%,#fff);border-color:color-mix(in srgb,var(--dark) 32%,transparent)}
 .prw-note-link:hover svg{transform:translate(1px,-1px)}
 .prw-note-link:focus-visible{outline:2px solid var(--dark);outline-offset:2px}
+.prw-note-hint{margin:12px 0 0;font-size:12px;color:var(--body);background:color-mix(in srgb,var(--amber) 10%,#fff);border:1px dashed color-mix(in srgb,var(--amber) 45%,transparent);border-radius:8px;padding:6px 10px}
 .prw-note-sign{display:flex;align-items:center;gap:10px;margin:22px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:14px;font-weight:600;color:var(--dark);white-space:pre-line}
 .prw-note-sign.who{gap:12px}
 .prw-note-av{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--dark) 10%,#fff);color:var(--dark);font-size:13.5px;font-weight:700;letter-spacing:.02em;box-shadow:0 0 0 2px #fff,0 0 0 3px color-mix(in srgb,var(--dark) 14%,transparent)}
@@ -781,6 +944,25 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-ovadd .menu svg{flex:none;width:16px;height:16px;margin-top:2px;color:var(--dark)}
 .prw-ovadd .menu b{display:block;font-size:13px;font-weight:600}
 .prw-ovadd .menu span>span{display:block;font-size:12px;color:var(--body)}
+.prw-ovadd .menu .sep{margin:6px 10px 2px;padding-top:8px;border-top:1px solid var(--line);font-size:11.5px;font-weight:600;color:var(--faint)}
+.prw-ovadd .menu .saved{display:flex;align-items:center;gap:2px}
+.prw-ovadd .menu .saved .use{flex:1;align-items:center}
+.prw-ovadd .menu .saved .use svg{margin-top:0}
+.prw-ovadd .menu .saved .del{flex:none;padding:8px;color:var(--faint)}
+.prw-ovadd .menu .saved .del:hover{color:var(--red);background:color-mix(in srgb,var(--red) 8%,#fff)}
+.prw-ovadd .menu .saved .del svg{width:14px;height:14px;margin:0;color:inherit}
+.prw-ovadd .menu .confirm{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;font-size:12.5px;color:var(--ink)}
+.prw-ovadd .menu .confirm button{padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:600}
+.prw-ovadd .menu .confirm .yes{color:#fff;background:var(--red);border-color:var(--red)}
+.prw-ovadd .menu .confirm .yes:hover{background:var(--red)}
+.prw-savenote{position:relative;display:inline-flex}
+.prw-savenote .pop{position:absolute;top:34px;right:0;z-index:12;display:flex;flex-direction:column;gap:8px;width:280px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px -8px rgba(16,24,40,.22);cursor:default}
+.prw-savenote label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;font-weight:600;color:var(--body)}
+.prw-savenote input{height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--ink);background:#fff}
+.prw-savenote input:focus{outline:2px solid color-mix(in srgb,var(--dark) 35%,transparent);outline-offset:0}
+.prw-savenote .m{font-size:12px;line-height:1.4;color:var(--body)}
+.prw-ovtools .prw-savenote .go{align-self:flex-end;height:30px;padding:0 14px;color:#fff;background:var(--dark);border-radius:8px}
+.prw-ovtools .prw-savenote .go:hover:not(:disabled){color:#fff;background:var(--dark);opacity:.92}
 .prw-ovhidden{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:20px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:#fff}
 .prw-ovhidden .lbl{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--body);margin-right:4px}
 .prw-ovhidden .lbl svg{width:14px;height:14px}

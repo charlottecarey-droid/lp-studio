@@ -104,6 +104,11 @@ export function hubBlocksFromTemplate(template: unknown[], name: string): unknow
     if (p.onboarding && Array.isArray(p.onboarding.steps)) p.onboarding = { ...p.onboarding, steps: p.onboarding.steps.map((st: any) => ({ ...st, done: false })) };
     if (p.calendar) p.calendar = { ...p.calendar, events: [] };
     if (p.meetings) p.meetings = { ...p.meetings, items: [] };
+    // A pinned note on the template is pinned the day this hub is made, not the day the template was edited.
+    if (Array.isArray(p.overviewExtras)) {
+      const now = new Date().toISOString();
+      p.overviewExtras = p.overviewExtras.map((x: any) => (x?.kind === "text" && x.pinnedAt ? { ...x, pinnedAt: now } : x));
+    }
     return { ...b, props: { ...p, partnerName: name, partnerShort: "", requireEmail: p.requireEmail !== false } };
   });
 }

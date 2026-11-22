@@ -309,4 +309,31 @@ describe("the team's own Overview sections", () => {
       expect(out).toContain('aria-label="Video 2 of 3: Ordering"');
     });
   });
+
+  describe("Saved notes and booking links", () => {
+    const kickoff: RoomOverviewExtra = { key: "k1", kind: "text", title: "Let's book your kickoff call", body: "Hi {first name}.", items: [{ title: "Book your kickoff call", url: "{booking link}" }] };
+    const teamWith = (bookingUrl?: string) => [{ title: "Our team", members: [{ name: "Alex Morgan", role: "Account lead", ...(bookingUrl ? { bookingUrl } : {}) }, { name: "Jordan Lee", role: "Account manager", bookingUrl: "https://cal.example.com/jordan" }] }];
+
+    it("{booking link} becomes the signer's booking page, else the first teammate's", () => {
+      expect(html({ team: teamWith("https://cal.example.com/alex"), overviewExtras: [kickoff] })).toContain('href="https://cal.example.com/alex"');
+      expect(html({ team: teamWith(), overviewExtras: [kickoff] })).toContain('href="https://cal.example.com/jordan"');
+    });
+
+    it("with no booking page on the team the button is left off, and the builder says why", () => {
+      const team = [{ title: "Our team", members: [{ name: "Alex Morgan", role: "Account lead" }] }];
+      const live = html({ team, overviewExtras: [kickoff] });
+      expect(live).not.toContain("Book your kickoff call</a>");
+      expect(live).not.toContain("{booking link}");
+      expect(html({ team, overviewExtras: [kickoff] }, true)).toContain("data-room-note-booking-missing");
+    });
+
+    it("a signer who isn't on this hub's team falls back to the account owner", () => {
+      expect(html({ overviewExtras: [{ ...kickoff, signedBy: "Someone From Another Hub" }] })).toContain('data-room-note-signer="Alex Morgan"');
+    });
+
+    it("the builder: each note has Save note", () => {
+      expect(html({ overviewExtras: [kickoff] }, true)).toContain("data-room-note-save");
+      expect(html({ overviewExtras: [kickoff] })).not.toMatch(/data-room-note-save="/);
+    });
+  });
 });

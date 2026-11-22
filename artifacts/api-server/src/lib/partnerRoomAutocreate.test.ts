@@ -113,6 +113,25 @@ describe("a hub made from the workspace's own template", () => {
   });
 });
 
+describe("a pinned note on the hub template", () => {
+  it("comes into every new hub, pinned the day the hub is made; other sections and the order come as they are", () => {
+    const template = [{ type: "room-workspace", props: { partnerName: "Template", overviewOrder: ["n1", "progress"], overviewExtras: [
+      { key: "n1", kind: "text", title: "Book your kickoff call", body: "Hi {first name}", pinnedAt: "2026-01-02T00:00:00.000Z", signedBy: "Someone Else", items: [{ title: "Book", url: "{booking link}" }] },
+      { key: "v1", kind: "video", title: "Welcome", videos: [{ title: "Welcome", url: "https://youtu.be/dQw4w9WgXcQ" }] },
+    ] } }];
+    const before = Date.now();
+    const [b] = hubBlocksFromTemplate(template, "Acme Dental") as { props: Record<string, any> }[];
+    const note = b.props.overviewExtras[0];
+    expect(note.title).toBe("Book your kickoff call");
+    expect(note.items).toEqual([{ title: "Book", url: "{booking link}" }]);
+    expect(Date.parse(note.pinnedAt)).toBeGreaterThanOrEqual(before);
+    expect(b.props.overviewExtras[1]).toEqual(template[0].props.overviewExtras[1]);
+    expect(b.props.overviewOrder).toEqual(["n1", "progress"]);
+    // The template itself is untouched.
+    expect(template[0].props.overviewExtras[0].pinnedAt).toBe("2026-01-02T00:00:00.000Z");
+  });
+});
+
 describe("the room made for an account", () => {
   it("is the template with the account's name everywhere and the workspace's standard guides attached", () => {
     const blocks = roomBlocksForAccount("Southeast Dental Partners", "southeast-dental-partners-hub", [{ assetKey: "practice-welcome-guide", fileUrl: "/api/storage/objects/uploads/welcome" }]);
