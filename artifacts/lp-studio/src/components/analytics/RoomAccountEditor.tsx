@@ -124,10 +124,10 @@ export function HideToggle({ hidden, onChange }: { hidden?: boolean; onChange: (
 /** A named cluster of settings, so a long form reads as a few short ones. */
 function Group({ title, hint, children, ...rest }: { title: string; hint?: string; children: ReactNode } & Record<`data-${string}`, string | undefined>) {
   return (
-    <div className="space-y-2.5 rounded-md border p-3" {...rest}>
+    <div className="space-y-3 border-t pt-5 first:border-t-0 first:pt-0" {...rest}>
       <div>
-        <div className="text-xs font-semibold">{title}</div>
-        {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+        <div className="text-sm font-semibold text-foreground">{title}</div>
+        {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
       </div>
       {children}
     </div>

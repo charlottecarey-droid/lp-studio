@@ -81,7 +81,7 @@ export function RoomSetupChecklist({ items, marketingName, onGo, busy }: { items
   const heading = state === "setup" ? "Finish these before you share the hub" : state === "ready" ? "Ready to share" : "Shared with the customer";
   const sub = state === "setup" ? `${done} of ${items.length} done · ${left.length} to go` : state === "ready" ? `The hub is set up. ${left.map((i) => i.title).join(" and ")} to put it in front of the customer.` : `All ${items.length} setup steps are done`;
   return (
-    <section className={`rounded-md border ${state === "setup" ? "border-amber-200 bg-amber-50/40" : state === "ready" ? "border-emerald-200 bg-emerald-50/40" : ""}`} data-room-setup={state}>
+    <section className={`overflow-hidden rounded-xl border ${state === "setup" ? "border-amber-200 bg-amber-50/40" : state === "ready" ? "border-emerald-200 bg-emerald-50/40" : ""}`} data-room-setup={state}>
       <button type="button" className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <span className="min-w-0">
           <span className="block text-sm font-semibold">{heading}</span>
