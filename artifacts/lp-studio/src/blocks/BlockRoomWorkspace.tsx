@@ -2068,6 +2068,48 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
     trackHub(a, "open");
     return false;
   };
+  /**
+   * The hub's Important links: one section, drawn the same on the Marketing tab and (when a rep adds it) on the Overview,
+   * from the same list (props.links), so a link added once shows in both. Nothing is drawn while the hub has no links.
+   */
+  const importantLinks = (where: "marketing" | "overview") =>
+    links.length === 0 ? null : (
+    <section className={`prw-lk${where === "overview" ? " prw-sec" : ""}`} data-room-launch={where === "marketing" ? "links" : undefined} data-room-ov-links={where === "overview" ? "" : undefined}>
+      <h3>Important links</h3>
+      <div className="prw-card">
+        {links.map((l, i) => {
+          // An uploaded file opens in the viewer (and its views and time are counted); a web page opens in a new tab and is counted as opened.
+          const asAsset = roomLinkAsset(l);
+          const file = asAsset.kind !== "link";
+          return (
+          <div className="prw-li prw-lk-link" key={i} data-room-link={file ? "file" : "link"}>
+            <span className="prw-ft ic" aria-hidden>{asAsset.kind === "image" ? <ImageIcon /> : file ? <FileText /> : <Link2 />}</span>
+            <div>
+              <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
+              <div className="m">{l.description || (file ? (asAsset.kind === "image" ? "Image" : "PDF") : l.url)}</div>
+            </div>
+            <div className="a">
+              <CopyButton text={l.url} label="Copy link" link />
+              <a
+                className="prw-ib"
+                href={isEditor ? undefined : l.url}
+                target="_blank"
+                rel="noreferrer"
+                title="Open"
+                aria-label={`Open ${l.title}`}
+                onClick={(e) => {
+                  if (openAsset(asAsset)) e.preventDefault();
+                }}
+              >
+                <ExternalLink aria-hidden />
+              </a>
+            </div>
+          </div>
+          );
+        })}
+      </div>
+    </section>
+    );
   /** Run something that needs a known visitor; ask for their email first when they are anonymous. */
   const needViewer = (fn: () => void) => {
     if (isEditor) return;
@@ -2427,7 +2469,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               const frame = (k: RoomOverviewSection, node: React.ReactNode) => (isEditor && node ? <OverviewEditFrame label={ovLabel(k)} onHide={() => toggleOv(k)}>{node}</OverviewEditFrame> : node);
               // The team's own sections (a video, resources, a note), at the top or the bottom.
               const allExtras = props.overviewExtras ?? [];
-              const extras = allExtras.filter((x) => !x.hidden && (isEditor || overviewExtraHasContent(x)));
+              const extras = allExtras.filter((x) => !x.hidden && (isEditor || overviewExtraHasContent(x, links.length)));
               const toggleExtra = (key: string) => onFieldChange?.({ ...rawProps, overviewExtras: (rawProps.overviewExtras ?? []).map((x) => (x.key === key ? { ...x, hidden: !x.hidden } : x)) });
               const hiddenChips = isEditor
                 ? [
@@ -2439,12 +2481,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 extras
                   .filter((x) => (x.position === "top" ? "top" : "bottom") === where)
                   .map((x) => {
-                    const view = <OverviewExtraView key={x.key} extra={x} onOpen={(o) => trackHub({ key: o.key, kind: "link", title: o.title, url: o.url } as HubAsset, "open")} />;
+                    const view = x.kind === "links" ? <Fragment key={x.key}>{importantLinks("overview")}</Fragment> : <OverviewExtraView key={x.key} extra={x} onOpen={(o) => trackHub({ key: o.key, kind: "link", title: o.title, url: o.url } as HubAsset, "open")} />;
                     if (!isEditor) return view;
                     const label = x.title?.trim() || OVERVIEW_EXTRA_LABEL[x.kind];
                     return (
                       <OverviewEditFrame key={x.key} label={label} onHide={() => toggleExtra(x.key)}>
-                        {overviewExtraHasContent(x) ? view : <div className="prw-ovedit-empty prw-sec"><b>{OVERVIEW_EXTRA_LABEL[x.kind]}</b> · {overviewExtraMissing(x)}</div>}
+                        {overviewExtraHasContent(x, links.length) ? view : <div className="prw-ovedit-empty prw-sec"><b>{OVERVIEW_EXTRA_LABEL[x.kind]}</b> · {overviewExtraMissing(x)}</div>}
                       </OverviewEditFrame>
                     );
                   });
@@ -2817,43 +2859,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   </div>
                 </div>
 
-                {showKit && links.length > 0 && (
-                  <section className="prw-lk" data-room-launch="links">
-                    <h3>Important links</h3>
-                    <div className="prw-card">
-                      {links.map((l, i) => {
-                        // An uploaded file opens in the viewer (and its views and time are counted); a web page opens in a new tab and is counted as opened.
-                        const asAsset = roomLinkAsset(l);
-                        const file = asAsset.kind !== "link";
-                        return (
-                        <div className="prw-li prw-lk-link" key={i} data-room-link={file ? "file" : "link"}>
-                          <span className="prw-ft ic" aria-hidden>{asAsset.kind === "image" ? <ImageIcon /> : file ? <FileText /> : <Link2 />}</span>
-                          <div>
-                            <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
-                            <div className="m">{l.description || (file ? (asAsset.kind === "image" ? "Image" : "PDF") : l.url)}</div>
-                          </div>
-                          <div className="a">
-                            <CopyButton text={l.url} label="Copy link" link />
-                            <a
-                              className="prw-ib"
-                              href={isEditor ? undefined : l.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Open"
-                              aria-label={`Open ${l.title}`}
-                              onClick={(e) => {
-                                if (openAsset(asAsset)) e.preventDefault();
-                              }}
-                            >
-                              <ExternalLink aria-hidden />
-                            </a>
-                          </div>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
+                {showKit && importantLinks("marketing")}
 
                 {showKit && launch.ready.length > 0 && (
                   <section className="prw-lk" data-room-launch="ready">

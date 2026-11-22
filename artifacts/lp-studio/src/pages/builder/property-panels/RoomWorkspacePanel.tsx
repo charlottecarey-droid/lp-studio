@@ -42,7 +42,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { VideoPicker } from "@/components/VideoPicker";
-import { OVERVIEW_EXTRA_LABEL, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
+import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -233,6 +233,8 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
   const setStep = (i: number, patch: Partial<RoomOnboardingStep>) => setOnboarding({ steps: steps.map((x, idx) => (idx === i ? { ...x, ...patch } : x)) });
   // The team's own Overview sections (a video, resources, a note).
   const extras = props.overviewExtras ?? [];
+  // The hub's Important links the customer sees: an Important links section on the Overview shows exactly these.
+  const shownLinks = (props.links ?? []).filter((l) => !l.hidden).length;
   const setExtras = (next: RoomOverviewExtra[]) => update({ overviewExtras: next });
   const setExtra = (i: number, patch: Partial<RoomOverviewExtra>) => setExtras(extras.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   const setExtraItem = (i: number, j: number, patch: Partial<RoomOverviewResource>) => setExtra(i, { items: (extras[i].items ?? []).map((it, k) => (k === j ? { ...it, ...patch } : it)) });
@@ -392,14 +394,20 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
 
 
       {active === "overview" && (
-      <SectionBody title={`Your own sections (${extras.length})`} hint="Add a video, a list of resources or a note to the Overview. Hide or show any section with the button on it in the preview.">
+      <SectionBody title={`Your own sections (${extras.length})`} hint="Add a video, the hub’s Important links or a note to the Overview. Hide or show any section with the button on it in the preview.">
         {extras.map((x, i) => (
           <CollapseItem
             key={x.key}
-            startOpen={!overviewExtraHasContent(x)}
+            startOpen={!overviewExtraHasContent(x, shownLinks)}
             header={<ItemHeader label={`${OVERVIEW_EXTRA_LABEL[x.kind]} · ${x.title || "Untitled"}${x.hidden ? " (hidden)" : ""}`} index={i} total={extras.length} onMove={(dir) => setExtras(moveItem(extras, i, dir))} onRemove={() => setExtras(extras.filter((_, idx) => idx !== i))} />}
           >
-            <Field label="Title"><Input value={x.title ?? ""} onChange={(e) => setExtra(i, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
+            {x.kind === "links" ? (
+              <p className="text-[11px] text-muted-foreground" data-room-ov-links-note>
+                The same Important links as the Marketing tab ({shownLinks} shown). Add or change them under Marketing → Links and they update in both places.
+              </p>
+            ) : (
+              <Field label="Title"><Input value={x.title ?? ""} onChange={(e) => setExtra(i, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
+            )}
             {x.kind === "video" && (
               <>
                 <VideoPicker label="Video (YouTube, Vimeo, Loom, Wistia, or a file from the library)" value={x.videoUrl ?? ""} onChange={(v) => setExtra(i, { videoUrl: v })} />
@@ -435,11 +443,12 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
               </Select>
               <HideToggle hidden={x.hidden} onChange={(h) => setExtra(i, { hidden: h })} />
             </div>
-            {!overviewExtraHasContent(x) && <p className="text-[11px] text-muted-foreground">{overviewExtraMissing(x)}</p>}
+            {!overviewExtraHasContent(x, shownLinks) && <p className="text-[11px] text-muted-foreground">{overviewExtraMissing(x)}</p>}
           </CollapseItem>
         ))}
         <div className="flex flex-wrap gap-1.5">
-          {(["video", "resources", "text"] as RoomOverviewExtraKind[]).map((k) => (
+          {/* Important links is one shared section: once it is on the Overview there is nothing more to add. */}
+          {OVERVIEW_EXTRA_ADDABLE.filter((k) => k !== "links" || !extras.some((x) => x.kind === "links")).map((k: RoomOverviewExtraKind) => (
             <Button key={k} type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtras([...extras, newOverviewExtra(k, extras)])} data-room-ov-add={k}>
               <Plus className="h-3 w-3" /> {OVERVIEW_EXTRA_LABEL[k]}
             </Button>

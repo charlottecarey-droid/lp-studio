@@ -5,11 +5,20 @@ import { isNativeVideoUrl } from "@/lib/video-utils";
 
 /**
  * The team's own sections on a hub's Overview, beside the built-in ones
- * (progress, next steps, coming up…): a video, a list of resources, or a
- * short note. Each sits at the top (under the welcome) or the bottom, and
+ * (progress, next steps, coming up…): a video, the hub's Important links,
+ * a list of resources (older hubs), or a short note. Each sits at the top (under the welcome) or the bottom, and
  * can be hidden from the customer without deleting it.
  */
-export type RoomOverviewExtraKind = "video" | "resources" | "text";
+/**
+ * "links" is the hub's own Important links (props.links), the very section the
+ * Marketing tab shows: it has no items of its own, so a link added once shows
+ * in both places. "resources" is the older stand-alone list, still drawn for
+ * hubs that have one but no longer offered.
+ */
+export type RoomOverviewExtraKind = "video" | "links" | "resources" | "text";
+
+/** The kinds a rep can add from the builder, in button order. */
+export const OVERVIEW_EXTRA_ADDABLE: RoomOverviewExtraKind[] = ["video", "links", "text"];
 
 export interface RoomOverviewResource {
   title: string;
@@ -33,7 +42,7 @@ export interface RoomOverviewExtra {
   hidden?: boolean;
 }
 
-export const OVERVIEW_EXTRA_LABEL: Record<RoomOverviewExtraKind, string> = { video: "Video", resources: "Resources", text: "Text" };
+export const OVERVIEW_EXTRA_LABEL: Record<RoomOverviewExtraKind, string> = { video: "Video", links: "Important links", resources: "Resources", text: "Text" };
 
 /** A new section of this kind, ready to fill in. */
 export function newOverviewExtra(kind: RoomOverviewExtraKind, existing: RoomOverviewExtra[] = []): RoomOverviewExtra {
@@ -41,6 +50,7 @@ export function newOverviewExtra(kind: RoomOverviewExtraKind, existing: RoomOver
   while (existing.some((x) => x.key === `ov-${kind}-${n}`)) n += 1;
   const key = `ov-${kind}-${n}`;
   if (kind === "video") return { key, kind, title: "Watch: welcome from your Dandy team", videoUrl: "", position: "top" };
+  if (kind === "links") return { key, kind, title: "Important links", position: "bottom" };
   if (kind === "resources") return { key, kind, title: "Resources", items: [{ title: "", url: "" }], position: "bottom" };
   return { key, kind, title: "A note from your team", body: "", position: "bottom" };
 }
@@ -75,9 +85,13 @@ export function overviewVideoEmbed(raw: string | undefined): { kind: "file" | "i
 /** Only links a browser can open safely (no javascript: and the like). */
 const openable = (url: string) => /^(https?:\/\/|mailto:)/i.test(url.trim());
 
-/** Whether the section has anything to show yet (an empty one is left off the customer's page). */
-export function overviewExtraHasContent(extra: RoomOverviewExtra): boolean {
+/**
+ * Whether the section has anything to show yet (an empty one is left off the customer's page).
+ * `hubLinks`: how many Important links the hub shows (an Important links section has none of its own).
+ */
+export function overviewExtraHasContent(extra: RoomOverviewExtra, hubLinks = 0): boolean {
   if (extra.kind === "video") return !!overviewVideoEmbed(extra.videoUrl);
+  if (extra.kind === "links") return hubLinks > 0;
   if (extra.kind === "resources") return (extra.items ?? []).some((i) => (i.title ?? "").trim() && openable(i.url ?? ""));
   return !!((extra.title ?? "").trim() || (extra.body ?? "").trim());
 }
@@ -85,6 +99,7 @@ export function overviewExtraHasContent(extra: RoomOverviewExtra): boolean {
 /** What still needs filling in, for the builder's placeholder. */
 export function overviewExtraMissing(extra: RoomOverviewExtra): string {
   if (extra.kind === "video") return (extra.videoUrl ?? "").trim() ? "This link can’t be played here. Use a YouTube, Vimeo, Loom or Wistia link, or a video file." : "Add a video link in the panel on the right.";
+  if (extra.kind === "links") return "This hub has no Important links yet. Add them under Marketing → Links.";
   if (extra.kind === "resources") return "Add a resource (a name and a link) in the panel on the right.";
   return "Add the text in the panel on the right.";
 }
@@ -112,6 +127,8 @@ export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra;
       </div>
     );
   }
+  // The hub's Important links are drawn by the hub itself (the same section as the Marketing tab).
+  if (extra.kind === "links") return null;
   if (extra.kind === "resources") {
     const items = (extra.items ?? []).filter((i) => (i.title ?? "").trim() && openable(i.url ?? ""));
     if (items.length === 0) return null;

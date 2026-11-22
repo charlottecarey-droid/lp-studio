@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BRAND } from "@/lib/brand-config";
 import { BlockRoomWorkspace, ROOM_WORKSPACE_DEFAULT_PROPS, type RoomWorkspaceBlockProps } from "../BlockRoomWorkspace";
-import { newOverviewExtra, overviewExtraHasContent, overviewVideoEmbed, type RoomOverviewExtra } from "./RoomOverviewExtras";
+import { OVERVIEW_EXTRA_ADDABLE, newOverviewExtra, overviewExtraHasContent, overviewVideoEmbed, type RoomOverviewExtra } from "./RoomOverviewExtras";
 
 const BRAND = { ...DEFAULT_BRAND, brandName: "Acme" };
 const html = (props: Partial<RoomWorkspaceBlockProps>, editing = false) =>
@@ -73,5 +73,44 @@ describe("the team's own Overview sections", () => {
   it("a built-in section hidden by the team stays off the customer's page", () => {
     expect(html({ hiddenOverview: ["next"] })).not.toContain("data-room-attention");
     expect(html({})).toContain("data-room-attention");
+  });
+
+  describe("Important links on the Overview", () => {
+    const hubLinks = [
+      { title: "Practice sign-up page", url: "https://partners.example.com/acme", description: "partners.example.com/acme" },
+      { title: "Retired brand folder", url: "https://example.com/old", hidden: true },
+    ];
+    const linksSection = newOverviewExtra("links");
+
+    it("is offered in place of the stand-alone Resources list, and has no links of its own", () => {
+      expect(OVERVIEW_EXTRA_ADDABLE).toEqual(["video", "links", "text"]);
+      expect(linksSection).toMatchObject({ kind: "links", title: "Important links" });
+      expect(linksSection.items).toBeUndefined();
+      expect(overviewExtraHasContent(linksSection, 0)).toBe(false);
+      expect(overviewExtraHasContent(linksSection, 1)).toBe(true);
+    });
+
+    it("shows the hub's own Important links, drawn like the Marketing tab (copy + open), hidden ones left out", () => {
+      const out = html({ links: hubLinks, overviewExtras: [linksSection] });
+      expect(out).toContain("data-room-ov-links");
+      expect(out).toContain("<h3>Important links</h3>");
+      expect(out).toContain("Practice sign-up page");
+      expect(out).toContain("prw-lk-link");
+      expect(out).toContain("Copy link");
+      expect(out).not.toContain("Retired brand folder");
+      // Bottom by default: after the built-in sections.
+      expect(out.indexOf("data-room-ov-links")).toBeGreaterThan(out.indexOf("data-room-attention"));
+    });
+
+    it("with no links the customer sees nothing, and the builder says where to add them", () => {
+      expect(html({ links: [], overviewExtras: [linksSection] })).not.toContain("data-room-ov-links");
+      const builder = html({ links: [], overviewExtras: [linksSection] }, true);
+      expect(builder).toContain("no Important links yet");
+      expect(builder).toContain('aria-label="Hide Important links on the Overview"');
+    });
+
+    it("an older hub's Resources list still shows", () => {
+      expect(html({ overviewExtras: [resources] })).toContain("Brand guide");
+    });
   });
 });
