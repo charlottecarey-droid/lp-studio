@@ -1597,6 +1597,8 @@ const CSS = `
 .prw-sc-tools .prw-sc-search input{width:100%;max-width:none;padding-left:33px}
 .prw-compose-label{font-size:12.5px;font-weight:600;color:var(--dark);margin-bottom:8px}
 .prw-act{display:inline-flex;flex-direction:column;align-items:center;gap:5px;vertical-align:middle}
+.prw-sub{background:none;border:0;padding:0;font-size:12px;font-weight:500;color:#5F6B64;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+.prw-sub:hover{color:var(--dark)}
 .prw-rowact{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
 .prw-ib.on{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
 .prw-plan tr.on>td,.prw-reqs tr.on>td{background:#FAFBF8}
@@ -3157,10 +3159,22 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail, onGo }: 
     if (row.action === "upload") fileRef.current?.click();
     else void run((s) => s.setTaskDone(row.key, !done));
   };
-  // Short labels so every action fits its column; the longer wording is the tooltip.
-  const label = row.action === "upload" ? (takesLogo ? (done ? "Replace guidelines" : "Upload guidelines") : done ? "Replace" : "Upload") : done ? "Undo" : "Complete";
+  // One button a step, never a stack: the thing to do next. Anything else the step can take (marking it done once you
+  // have been to the other tab, the second file, replacing or undoing) is a quiet link under it.
   const hint = row.action === "upload" ? (done ? "Replace the file" : (row.r.uploadLabel ?? "").trim() || ROOM_UPLOAD_STEP_KEYS[row.key] || "Upload a file") : done ? "Mark as not done" : "Mark complete";
   const shortcut = !done && onGo ? ROOM_STEP_SHORTCUTS[row.key] : undefined;
+  const pickLogo = () => {
+    if (isEditor || busy) return;
+    if (!store || !snapshot.viewer) return onNeedEmail();
+    logoRef.current?.click();
+  };
+  const ownLabel = row.action === "upload" ? (takesLogo ? (done ? "Replace guidelines" : "Upload guidelines") : done ? "Replace" : "Upload") : done ? "Undo" : "Complete";
+  const logoLabel = hasLogo ? "Replace logo" : "Upload logo";
+  // Which of the step's actions is the button. A step that sends you elsewhere leads with that; the brand step leads
+  // with the logo until there is one; a finished step has no button at all.
+  const lead: "shortcut" | "logo" | "own" | null = done ? null : shortcut ? "shortcut" : takesLogo && !hasLogo ? "logo" : "own";
+  const ownAs = lead === "own" ? "button" : "link";
+  const logoAs = lead === "logo" ? "button" : "link";
   return (
     <span className="prw-act">
       {shortcut && (
@@ -3168,45 +3182,43 @@ function MilestoneAction({ row, snapshot, store, isEditor, onNeedEmail, onGo }: 
           {shortcut.label}
         </button>
       )}
-      {takesLogo && (!done || snapshot.viewer || isEditor) && (
-        <>
-          <button
-            type="button"
-            className={`prw-btn${hasLogo ? "" : " pri"}`}
-            onClick={() => {
-              if (isEditor || busy) return;
-              if (!store || !snapshot.viewer) return onNeedEmail();
-              logoRef.current?.click();
-            }}
-            disabled={busy}
-            title={hasLogo ? "Replace your logo (PNG or JPG)" : "Upload your logo (PNG or JPG). It goes on the hub and on everything we make for you."}
-            aria-label={hasLogo ? "Replace your logo" : "Upload your logo"}
-            data-room-action="logo"
-          >
-            <Upload aria-hidden /> {hasLogo ? "Replace logo" : "Upload logo"}
-          </button>
-          {!isEditor && (
-            <input
-              ref={logoRef}
-              type="file"
-              accept={ROOM_LOGO_ACCEPT}
-              hidden
-              aria-label="Upload your logo"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (!file) return;
-                if (!/\.(png|jpe?g)$/i.test(file.name)) return setError("Upload your logo as a PNG or JPG.");
-                void run((s) => s.upload(ROOM_LOGO_TASK_KEY, file));
-              }}
-            />
-          )}
-        </>
+      {takesLogo && logoAs === "button" && (
+        <button type="button" className="prw-btn pri" onClick={pickLogo} disabled={busy} title="Upload your logo (PNG or JPG). It goes on the hub and on everything we make for you." aria-label="Upload your logo" data-room-action="logo">
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Upload aria-hidden />} {busy ? "Saving" : logoLabel}
+        </button>
       )}
-      <button type="button" className={`prw-btn${done || shortcut || (takesLogo && !hasLogo) ? "" : " pri"}`} onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
-        {busy ? <Loader2 className="animate-spin" aria-hidden /> : row.action === "upload" ? <Upload aria-hidden /> : <Check aria-hidden />}
-        {busy ? "Saving" : label}
-      </button>
+      {ownAs === "button" && (
+        <button type="button" className="prw-btn pri" onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : row.action === "upload" ? <Upload aria-hidden /> : <Check aria-hidden />}
+          {busy ? "Saving" : ownLabel}
+        </button>
+      )}
+      {ownAs === "link" && (
+        <button type="button" className="prw-sub" onClick={click} disabled={busy} data-room-action={row.action} title={hint} aria-label={`${hint}: ${row.r.task}`}>
+          {busy ? "Saving…" : shortcut ? "Mark as done" : ownLabel}
+        </button>
+      )}
+      {takesLogo && logoAs === "link" && (
+        <button type="button" className="prw-sub" onClick={pickLogo} disabled={busy} title={hasLogo ? "Replace your logo (PNG or JPG)" : "Upload your logo (PNG or JPG)"} aria-label={hasLogo ? "Replace your logo" : "Upload your logo"} data-room-action="logo">
+          {logoLabel}
+        </button>
+      )}
+      {takesLogo && !isEditor && (
+        <input
+          ref={logoRef}
+          type="file"
+          accept={ROOM_LOGO_ACCEPT}
+          hidden
+          aria-label="Upload your logo"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) return;
+            if (!/\.(png|jpe?g)$/i.test(file.name)) return setError("Upload your logo as a PNG or JPG.");
+            void run((s) => s.upload(ROOM_LOGO_TASK_KEY, file));
+          }}
+        />
+      )}
       {row.action === "upload" && !isEditor && (
         <input
           ref={fileRef}
