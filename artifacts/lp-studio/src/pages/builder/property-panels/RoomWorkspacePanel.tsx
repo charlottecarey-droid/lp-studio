@@ -133,9 +133,9 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
       remaking.current = true;
       setKitNote("Updating the launch assets to match…");
       try {
-        const [{ fetchBrandConfig }, detail] = await Promise.all([import("@/lib/brand-config"), fetch(`/api/lp/partner-rooms/${pageId}`).then((r) => (r.ok ? (r.json() as Promise<{ kit?: { signupUrl?: string; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[] } | null }>) : null))]);
+        const [{ fetchBrandConfig }, detail] = await Promise.all([import("@/lib/brand-config"), fetch(`/api/lp/partner-rooms/${pageId}`).then((r) => (r.ok ? (r.json() as Promise<{ kit?: { signupPublished?: boolean; signupUrl?: string; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[] } | null }>) : null))]);
         const brand = await fetchBrandConfig();
-        const changed = await remakeStaleLaunchAssets({ ...basis, pageId, signupUrl: detail?.kit?.signupUrl ?? "", brand, texts: detail?.kit?.texts ?? [], links: detail?.kit?.links ?? [] }, mine);
+        const changed = await remakeStaleLaunchAssets({ ...basis, pageId, signupUrl: detail?.kit?.signupUrl ?? "", signupPublished: detail?.kit?.signupPublished, brand, texts: detail?.kit?.texts ?? [], links: detail?.kit?.links ?? [] }, mine);
         if (changed.length) applyKitAssets(changed);
         setKitNote(changed.length ? `Launch assets updated to match (${changed.length}).` : "");
       } catch {

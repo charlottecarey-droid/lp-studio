@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LAUNCH_ASSETS, containBox, fitLogo, graphicSurface, hasTransparency, inkBounds, launchAssetSignature, layoutKitCopy, logoSizeFactor, shade, socialLayout, staleLaunchAssets } from "./room-launch-assets";
+import { LAUNCH_ASSETS, containBox, displayUrl, fitLogo, liveSignupUrl, graphicSurface, hasTransparency, inkBounds, launchAssetSignature, layoutKitCopy, logoSizeFactor, shade, socialLayout, staleLaunchAssets } from "./room-launch-assets";
 
 describe("launch asset graphics: layout and colour", () => {
   it("fits a logo inside its box, centred, without stretching", () => {
@@ -163,5 +163,23 @@ describe("recolouring a logo", () => {
   it("remakes the files when the hub switches between white and the logo's own colours", () => {
     const basis = { partnerName: "Acme", partnerLogoUrl: "/api/storage/a.png", heroImageUrl: "", partnerLogoScale: 100, brandLogoScale: 100 };
     expect(launchAssetSignature("social-image-2", basis)).not.toBe(launchAssetSignature("social-image-2", { ...basis, partnerLogoOriginal: true }));
+  });
+});
+
+describe("where the one-pager sends people", () => {
+  it("uses the sign-up page only once it is published", () => {
+    expect(liveSignupUrl({ signupUrl: "https://partners.example.com/acme", signupPublished: true })).toBe("https://partners.example.com/acme");
+    expect(liveSignupUrl({ signupUrl: "https://partners.example.com/acme", signupPublished: false })).toBe("");
+    // A page we cannot check (the customer's own site) is taken as live.
+    expect(liveSignupUrl({ signupUrl: "https://acme.example.com/join" })).toBe("https://acme.example.com/join");
+    expect(liveSignupUrl({ signupUrl: "" })).toBe("");
+  });
+  it("shows the address as a person reads it", () => {
+    expect(displayUrl("https://partners.example.com/acme/")).toBe("partners.example.com/acme");
+  });
+  it("remakes the one-pager when the sign-up page is published, and nothing else", () => {
+    const basis = { partnerName: "Acme", partnerLogoUrl: "", heroImageUrl: "", signupUrl: "https://partners.example.com/acme" };
+    expect(launchAssetSignature("partnership-one-pager", { ...basis, signupPublished: false })).not.toBe(launchAssetSignature("partnership-one-pager", { ...basis, signupPublished: true }));
+    expect(launchAssetSignature("social-image-2", { ...basis, signupPublished: false })).toBe(launchAssetSignature("social-image-2", { ...basis, signupPublished: true }));
   });
 });

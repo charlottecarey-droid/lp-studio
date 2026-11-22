@@ -60,7 +60,7 @@ interface RoomDetail {
   /** The hub's Important links as stored on the page (workspace hubs only). */
   links?: HubLink[] | null;
   stage?: HubStage | null;
-  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; partnerLogoScale?: number; brandLogoScale?: number; partnerLogoOriginal?: boolean; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string; madeFrom?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; partnerLogoScale?: number; brandLogoScale?: number; partnerLogoOriginal?: boolean; signupUrl: string; /** False while the sign-up page is one of our pages and still a draft. */ signupPublished?: boolean; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string; madeFrom?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -1822,6 +1822,8 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
   // The practice microsite: the account's own page if there is one, else a draft from the template; linked in the kit either way.
   const [site, setSite] = useState<{ url: string; title: string; status: string; existing: boolean; pageId: number } | null>(null);
   const [siteNote, setSiteNote] = useState("");
+  /** The sign-up page as just found, for the files made in the same run (state has not caught up yet). */
+  const siteNow = useRef<{ url: string; published: boolean } | null>(null);
   const ensureSite = async (): Promise<string> => {
     setSiteNote("");
     const r = await fetch(`/api/lp/partner-rooms/${pageId}/practice-site`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -1831,12 +1833,13 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
       return "";
     }
     setSite({ url: j.url, title: j.title ?? "", status: j.status ?? "", existing: !!j.existing, pageId: j.pageId });
+    siteNow.current = { url: j.url, published: j.status === "published" };
     if (j.link) onKitLink?.(j.link);
     return j.url;
   };
 
   /** What the generated files are drawn from: both names' worth of cover settings, as the hub has them now. */
-  const basis = { partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, partnerLogoOriginal: kit.partnerLogoOriginal };
+  const basis = { partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, partnerLogoOriginal: kit.partnerLogoOriginal, signupUrl: site?.url || kit.signupUrl, signupPublished: site ? site.status === "published" : kit.signupPublished };
   const create = async (keys: readonly string[]) => {
     setBusy(true);
     try {
@@ -1849,7 +1852,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
       for (const key of keys) {
         setState((s) => ({ ...s, [key]: "working" }));
         try {
-          const url = await createLaunchAsset(key as "partnership-one-pager", { ...basis, pageId, signupUrl: siteUrl || site?.url || kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => ({ title: x.title, url: made[x.key] ?? x.url ?? "" })) });
+          const url = await createLaunchAsset(key as "partnership-one-pager", { ...basis, pageId, signupUrl: siteUrl || basis.signupUrl, signupPublished: siteUrl && siteNow.current?.url === siteUrl ? siteNow.current.published : basis.signupPublished, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: kit.assets.filter((x) => !x.hidden && x.kind !== "text" && x.kind !== "link" && x.key !== "media-kit" && (x.hasFile || keys.includes(x.key))).map((x) => ({ title: x.title, url: made[x.key] ?? x.url ?? "" })) });
           made[key] = url;
           setPreviews((p) => ({ ...p, [key]: url }));
           const { LAUNCH_ASSETS, launchAssetSignature } = await import("@/lib/room-launch-assets");
@@ -1903,7 +1906,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kit.assets, kit.partnerName, kit.partnerLogoUrl, kit.heroImageUrl, kit.partnerLogoScale, kit.brandLogoScale, kit.partnerLogoOriginal, busy]);
+  }, [kit.assets, kit.partnerName, kit.partnerLogoUrl, kit.heroImageUrl, kit.partnerLogoScale, kit.brandLogoScale, kit.partnerLogoOriginal, kit.signupUrl, kit.signupPublished, site?.status, busy]);
 
   const missing = [!kit.partnerName && "the customer’s name", !kit.partnerLogoUrl && "the customer’s logo (their name is used instead)", !kit.heroImageUrl && "a cover photo (the link-preview graphic is made without one)"].filter(Boolean) as string[];
   return (
@@ -1922,6 +1925,9 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
       </div>
       <p className="-mt-1 text-xs text-muted-foreground">Finds or drafts the practice microsite, creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
       {missing.length > 0 && <p className="text-xs text-amber-700">Not set on the page yet: {missing.join("; ")}.</p>}
+      {!!basis.signupUrl && basis.signupPublished === false && (
+        <p className="text-xs text-amber-700" data-room-signup-draft>The practice sign-up page is still a draft, so the one-pager’s QR code and footer point to your own site for now. Publish the page and the one-pager is made again with its address.</p>
+      )}
       <input
         ref={replaceRef}
         type="file"
@@ -2171,7 +2177,7 @@ export function AutomaticRoomsSection() {
       for (const a of LAUNCH_ASSETS) {
         const done = step(`Create: ${a.title}`);
         try {
-          madeUrls[a.key] = await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, partnerLogoOriginal: kit.partnerLogoOriginal, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => ({ title: x.title, url: madeUrls[x.key] ?? "" })), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => ({ title: x.title, url: x.url ?? "" }))] });
+          madeUrls[a.key] = await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, partnerLogoOriginal: kit.partnerLogoOriginal, signupUrl: kit.signupUrl, signupPublished: kit.signupPublished, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => ({ title: x.title, url: madeUrls[x.key] ?? "" })), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => ({ title: x.title, url: x.url ?? "" }))] });
           done("done");
         } catch (e) {
           done("failed", e instanceof Error ? e.message : "Could not create it");

@@ -19,6 +19,8 @@ export interface LaunchAssetInput {
   partnerLogoUrl: string;
   heroImageUrl: string;
   signupUrl: string;
+  /** False while the sign-up page is still a draft: its address would be a dead link, so nothing is pointed at it yet. */
+  signupPublished?: boolean;
   brand: BrandConfig;
   /** The hub cover's logo sizes, in percent (100 = as fitted). The same setting sizes the logos here. */
   partnerLogoScale?: number;
@@ -153,14 +155,27 @@ export function fitLogo(iw: number, ih: number, slot: Box, opts: { scale?: numbe
   return { x: slot.x + (slot.w - w) / 2, y, w, h };
 }
 
+/** The practice sign-up page's address when it can be used: set, and published (a draft is a dead link). */
+export function liveSignupUrl(input: Partial<Pick<LaunchAssetInput, "signupUrl" | "signupPublished">>): string {
+  const url = (input.signupUrl ?? "").trim();
+  return url && input.signupPublished !== false ? url : "";
+}
+
+/** An address as a person reads it: no "https://", no trailing slash. */
+export function displayUrl(url: string): string {
+  return url.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+}
+
 /**
  * What a generated asset was made from. Stored with the file, so a change to
  * the name, a logo, a logo size or the cover photo shows the file is out of
  * date and it is made again. The leading number changes when the drawing does.
  */
-export function launchAssetSignature(key: LaunchAssetKey, input: Pick<LaunchAssetInput, "partnerName" | "partnerLogoUrl" | "heroImageUrl" | "partnerLogoScale" | "brandLogoScale" | "partnerLogoOriginal">): string {
+export function launchAssetSignature(key: LaunchAssetKey, input: Pick<LaunchAssetInput, "partnerName" | "partnerLogoUrl" | "heroImageUrl" | "partnerLogoScale" | "brandLogoScale" | "partnerLogoOriginal"> & Partial<Pick<LaunchAssetInput, "signupUrl" | "signupPublished">>): string {
   const parts = ["3", input.partnerName.trim(), input.partnerLogoUrl.trim(), String(Math.round(logoSizeFactor(input.partnerLogoScale) * 100)), String(Math.round(logoSizeFactor(input.brandLogoScale) * 100)), input.partnerLogoOriginal ? "own" : "white"];
   if (key === "social-image-1") parts.push(input.heroImageUrl.trim());
+  // The one-pager's QR code and footer follow the sign-up page, so it is made again when that page is published.
+  if (key === "partnership-one-pager") parts.push(liveSignupUrl(input));
   return parts.join("|").slice(0, 600);
 }
 
@@ -442,8 +457,11 @@ export async function buildPartnerOnePager(input: LaunchAssetInput): Promise<Blo
         fonts: await resolveBrandPdfFonts(brand),
       };
   const logo = await imageAsDataUrl(input.partnerLogoUrl);
-  const link = input.signupUrl || site || (isHome ? "https://meetdandy.com" : "");
-  const doc = await generateNewPartnerOnePager(input.partnerName, logo?.data ?? null, logo ? { w: logo.w, h: logo.h } : { w: 200, h: 100 }, link, [], "", undefined, input.signupUrl || undefined, undefined, logoSizeFactor(input.partnerLogoScale), context as never, resolveOnePagerAssets(brand));
+  // The practice sign-up page, once it is published, is where the QR code and the footer both send people, and the
+  // footer shows its address. Until then they go where they always did (our own site), never to a draft.
+  const signup = liveSignupUrl(input);
+  const link = signup || site || (isHome ? "https://meetdandy.com" : "");
+  const doc = await generateNewPartnerOnePager(input.partnerName, logo?.data ?? null, logo ? { w: logo.w, h: logo.h } : { w: 200, h: 100 }, link, [], "", undefined, signup || undefined, undefined, logoSizeFactor(input.partnerLogoScale), context as never, resolveOnePagerAssets(brand), undefined, signup ? { text: displayUrl(signup), href: signup } : undefined);
   return doc.output("blob");
 }
 

@@ -388,8 +388,13 @@ export const generateNewPartnerOnePager = async (
   brand?: BrandContext,
   assets?: OnePagerAssets,
   regions?: OnePagerRegions,
+  /** The caller's own destination (a hub's practice sign-up page): the QR code and the footer both go there, whatever the saved layout says. */
+  destination?: { text: string; href: string },
 ) => {
   let saved = layoutOverride ?? await loadLayoutDefault("dandy_partner_template_layout").catch(() => null) ?? {};
+  if (destination) {
+    saved = { ...saved, headerCfg: { ...(saved.headerCfg as Record<string, unknown> ?? {}), partnerQrUrl: destination.href } };
+  }
   if (typeof prospectLogoScale === "number") {
     saved = {
       ...saved,
@@ -422,7 +427,8 @@ export const generateNewPartnerOnePager = async (
     features: saved.partnerFeatures as Array<{ title: string; desc: string }> | undefined,
     stats: saved.partnerStats as Array<{ value: string; desc: string }> | undefined,
     testimonialsHeading: saved.partnerTestimonialsHeading as string | undefined,
-    footerLink: (saved.footerCfg as { link?: string } | undefined)?.link,
+    footerLink: destination?.text ?? (saved.footerCfg as { link?: string } | undefined)?.link,
+    ...(destination ? { footerHref: destination.href } : {}),
   };
 
   const opts: NewPartnerOpts = {

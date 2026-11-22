@@ -1873,6 +1873,8 @@ export interface NewPartnerContent {
   /** Editable heading above the stats row (defaults to "See what <brand> doctors are saying:"). */
   testimonialsHeading?: string;
   footerLink?: string;
+  /** Where the footer's link goes when it is clicked. With it, the footer text is a real link, not only words. */
+  footerHref?: string;
 }
 
 export interface NewPartnerOpts {
@@ -2203,7 +2205,9 @@ export const generateNewPartnerOnePager = async (
     doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : footerLink;
-    if (footerText) doc.text(footerText, w / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, hasCustomLink ? 20 : 28) + oFooter.y, { align: "center" });
+    const footerHref = !phoneNumber.trim() ? (content.footerHref ?? "").trim() : "";
+    if (footerText && footerHref) doc.textWithLink(footerText, w / 2 - doc.getTextWidth(footerText) / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, hasCustomLink ? 20 : 28) + oFooter.y, { url: footerHref });
+    else if (footerText) doc.text(footerText, w / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, hasCustomLink ? 20 : 28) + oFooter.y, { align: "center" });
     if (hasCustomLink) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...pal.onPrimaryMuted);
       doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2 + oFooter.x, footerTextY(footerY, footerH, footerBaseline, 38) + oFooter.y, { url: customLinkUrl! });

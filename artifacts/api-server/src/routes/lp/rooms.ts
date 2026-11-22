@@ -2842,9 +2842,14 @@ async function roomAssetEngagement(pageId: number): Promise<{ assets: RoomAssetS
 
 /** What the launch-asset generator needs, plus whether the room was created automatically (its kit is then made on first open). */
 async function roomKitFor(pageId: number) {
-  const [row] = await db.select({ blocks: lpPagesTable.blocks, createdBy: lpPagesTable.createdBy }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  const [row] = await db.select({ blocks: lpPagesTable.blocks, createdBy: lpPagesTable.createdBy, tenantId: lpPagesTable.tenantId }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   const kit = row ? roomKitInfo(resolveRoomBlocks(row.blocks)) : null;
-  return kit ? { ...kit, automatic: row?.createdBy === "automatic rooms" } : null;
+  if (!kit || !row) return null;
+  // Is the sign-up page the one-pager points at live? One of our own pages still in draft is a dead link; an address we
+  // cannot check (the customer's own site) is taken as live.
+  const slug = kit.signupUrl ? roomSignupSlug({ links: [{ url: kit.signupUrl }] }) : "";
+  const ours = slug ? (await signupPagesBySlug(row.tenantId, [slug])).get(slug) : undefined;
+  return { ...kit, signupPublished: !!kit.signupUrl && (ours ? ours.published : true), automatic: row.createdBy === "automatic rooms" };
 }
 
 /** The hub's goals as stored on the page, for the manage pop-up to edit. */
