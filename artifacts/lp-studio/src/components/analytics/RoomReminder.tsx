@@ -45,10 +45,12 @@ export function RoomReminderSection({ pageId, waiting, people, lastAt, published
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h4 className="text-sm font-semibold">Waiting on the customer <span className="font-normal text-muted-foreground">· {waiting.length}</span></h4>
-          <p className="text-sm text-muted-foreground">
-            {waiting.slice(0, 3).join(" · ")}
-            {waiting.length > 3 ? ` · and ${waiting.length - 3} more` : ""}
-          </p>
+          <ul className="mt-0.5 list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">
+            {waiting.slice(0, 3).map((w) => (
+              <li key={w}>{w.startsWith("Decide: ") ? `A decision on ${w.slice(8)} (marketing plan)` : w}</li>
+            ))}
+            {waiting.length > 3 && <li className="list-none">and {waiting.length - 3} more</li>}
+          </ul>
         </div>
         {!open && (
           <Button size="sm" variant="outline" className="gap-1" onClick={() => setOpen(true)} disabled={!published || people.length === 0} title={!published ? "Publish the hub first: the reminder links to it" : people.length === 0 ? "Nobody has access yet: invite the customer's team under Settings" : undefined} data-room-reminder-open>

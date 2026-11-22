@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { RoomInviteSection } from "./RoomInvite";
-import { RoomPerformance } from "./RoomPerformance";
+import { RoomPerformance, fmtWhen } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
 import { rolloutPace } from "@/lib/room-pace";
@@ -131,19 +131,19 @@ const PRACTICE_COLUMNS = "name, region, wave, stage, training date, live date";
  */
 const SettingsNav = createContext<{ active: string; seen: (key: string) => void } | null>(null);
 
-export const SETTINGS_SECTIONS: { key: string; label: string; group: string }[] = [
-  { key: "account", label: "Account", group: "The hub" },
-  { key: "team", label: "Team", group: "The hub" },
-  { key: "access", label: "Access and invites", group: "The hub" },
-  { key: "goals", label: "Goals", group: "The rollout" },
-  { key: "stage", label: "Stage and waves", group: "The rollout" },
-  { key: "overview", label: "Overview sections", group: "The rollout" },
-  { key: "digest", label: "Weekly digest", group: "Updates" },
-  { key: "notify", label: "Notifications and connections", group: "Updates" },
+export const SETTINGS_SECTIONS: { key: string; label: string }[] = [
+  { key: "account", label: "Account" },
+  { key: "team", label: "Team" },
+  { key: "access", label: "Access and invites" },
+  { key: "goals", label: "Goals" },
+  { key: "stage", label: "Stage and waves" },
+  { key: "overview", label: "Overview sections" },
+  { key: "digest", label: "Weekly digest" },
+  { key: "notify", label: "Notifications" },
 ];
 
 /** A settings group. In the pop-up it opens on click, so Settings reads as a short list; on the hub's page it is one part of the section named by `nav`. */
-function Fold({ title, hint, defaultOpen = false, nav, children, ...rest }: { title: string; hint?: string; defaultOpen?: boolean; /** The Settings section this belongs to on the hub's page. */ nav?: string; children: React.ReactNode } & Record<`data-${string}`, string | boolean | undefined>) {
+function Fold({ title, hint, about, defaultOpen = false, nav, children, ...rest }: { title: string; hint?: string; /** What the section is for, in a sentence (the hub's page shows it under the heading; `hint` is where it stands). */ about?: string; defaultOpen?: boolean; /** The Settings section this belongs to on the hub's page. */ nav?: string; children: React.ReactNode } & Record<`data-${string}`, string | boolean | undefined>) {
   const page = useContext(SettingsNav);
   const seen = page?.seen;
   useEffect(() => {
@@ -153,8 +153,11 @@ function Fold({ title, hint, defaultOpen = false, nav, children, ...rest }: { ti
     return (
       <section hidden={page.active !== nav} className="space-y-3" {...rest}>
         <div>
-          <h3 className="text-base font-semibold">{title}</h3>
-          {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
+          <h3 className="text-base font-semibold">
+            {title}
+            {about && hint && <span className="ml-2 text-sm font-normal text-muted-foreground">{hint}</span>}
+          </h3>
+          {(about || hint) && <p className="text-sm text-muted-foreground">{about || hint}</p>}
         </div>
         {children}
       </section>
@@ -183,36 +186,38 @@ function Fold({ title, hint, defaultOpen = false, nav, children, ...rest }: { ti
 function SettingsShell({ page, active, onPick, sections, todo, unsaved, footer, children }: { page: boolean; active: string; onPick: (key: string) => void; sections: string[]; todo: Set<string>; /** Sections with edits not saved yet. */ unsaved: Set<string>; /** Under the list: what is done to the hub as a whole (archive). */ footer?: React.ReactNode; children: React.ReactNode }) {
   if (!page) return <div className="space-y-2" data-room-settings>{children}</div>;
   const shown = SETTINGS_SECTIONS.filter((x) => sections.includes(x.key));
-  const groups = [...new Set(shown.map((x) => x.group))];
   return (
     <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)]" data-room-settings="page">
       <nav aria-label="Settings sections" className="md:sticky md:top-[120px] md:self-start">
         <select className="h-9 w-full rounded-md border bg-background px-2 text-sm md:hidden" value={active} onChange={(e) => onPick(e.target.value)} aria-label="Settings section">
           {shown.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
         </select>
-        <div className="hidden space-y-4 md:block">
-          {groups.map((g) => (
-            <div key={g}>
-              <div className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">{g}</div>
-              {shown.filter((x) => x.group === g).map((x) => (
-                <button
-                  key={x.key}
-                  type="button"
-                  onClick={() => onPick(x.key)}
-                  aria-current={active === x.key ? "page" : undefined}
-                  className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm ${active === x.key ? "bg-muted font-semibold" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
-                  data-room-settings-nav={x.key}
-                >
-                  <span className="min-w-0 truncate">{x.label}</span>
-                  {unsaved.has(x.key) ? (
-                    <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" data-room-settings-unsaved={x.key}>Unsaved</span>
-                  ) : (
-                    todo.has(x.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" title="A setup step is still to do here" aria-label="Setup step to do" />
-                  )}
-                </button>
-              ))}
-            </div>
-          ))}
+        <div className="hidden space-y-3 md:block">
+          {/* A plain list: eight sections do not need headings over them. */}
+          <div>
+            {shown.map((x) => (
+              <button
+                key={x.key}
+                type="button"
+                onClick={() => onPick(x.key)}
+                aria-current={active === x.key ? "page" : undefined}
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm ${active === x.key ? "bg-muted font-semibold" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                data-room-settings-nav={x.key}
+              >
+                <span className="min-w-0 truncate">{x.label}</span>
+                {unsaved.has(x.key) ? (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800" data-room-settings-unsaved={x.key}>Unsaved</span>
+                ) : (
+                  todo.has(x.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" title="A setup step is still to do here" aria-label="Setup step to do" />
+                )}
+              </button>
+            ))}
+          </div>
+          {todo.size > 0 && (
+            <p className="flex items-center gap-1.5 px-2.5 text-[11px] text-muted-foreground" data-room-settings-legend>
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden /> A setup step is still to do
+            </p>
+          )}
           <p className="px-2.5 text-[11px] leading-snug text-muted-foreground" data-room-settings-how>Switches and tick boxes save as you change them. Anything you type has a Save changes button.</p>
           {footer && <div className="border-t pt-3">{footer}</div>}
         </div>
@@ -523,7 +528,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   );
 
   // On the hub's page the rollout numbers sit where they inform (what to do, how it is going, the practices), not above Settings.
-  const showRollout = !isPage || tab === "activity" || tab === "performance" || tab === "practices";
+  const showRollout = !isPage || tab === "activity" || tab === "practices";
   // Whether the rollout is where it should be today (during the rollout only).
   const pace =
     data.isWorkspace && data.stage?.stage === "rollout" && data.practices?.total
@@ -561,9 +566,9 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
           <p className="-mt-3 text-xs text-muted-foreground" data-room-goal-line>
             Goals:{" "}
             {(["on-track", "pending", "done"] as const)
-              .map((st) => [st, data.goals!.items.filter((g) => !g.hidden && g.status === st).length] as const)
-              .filter(([, n]) => n > 0)
-              .map(([st, n]) => `${n} ${st === "on-track" ? "on track" : st === "pending" ? (n === 1 ? "needs attention" : "need attention") : "achieved"}`)
+              .map((st) => [st, data.goals!.items.filter((g) => !g.hidden && g.status === st)] as const)
+              .filter(([, list]) => list.length > 0)
+              .map(([st, list]) => (st === "pending" ? `${list.length === 1 ? "needs attention" : `${list.length} need attention`}: ${list.map((g) => g.title).join(", ")}` : `${list.length} ${st === "on-track" ? "on track" : "achieved"}`))
               .join(" · ")}
             {" · "}
             <button type="button" className="underline" onClick={() => { setTab("settings"); setSection("goals"); }}>Edit in Settings</button>
@@ -635,7 +640,22 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         )}
         {!isPage && rollout}
         <div ref={tabsTop} aria-hidden />
-        <div className={`flex flex-wrap gap-1 border-b ${isPage ? "sticky top-[57px] z-20 -mx-1 bg-background px-1 pt-2" : ""}`} role="tablist" aria-label="Hub sections">
+        <div
+          className={`flex gap-1 border-b ${isPage ? "sticky top-[57px] z-20 -mx-1 flex-nowrap overflow-x-auto bg-background px-1 pt-2 [scrollbar-width:none]" : "flex-wrap"}`}
+          role="tablist"
+          aria-label="Hub sections"
+          onKeyDown={(e) => {
+            // Left and right move between tabs, as tabs do everywhere else.
+            if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+            const tabs = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+            const at = tabs.findIndex((t) => t === document.activeElement);
+            const next = tabs[(at + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length];
+            if (at < 0 || !next) return;
+            e.preventDefault();
+            next.focus();
+            next.click();
+          }}
+        >
           {(
             [
               { id: "activity", label: "To do", count: needsYou },
@@ -651,8 +671,9 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               type="button"
               role="tab"
               aria-selected={tab === t.id}
+              tabIndex={tab === t.id ? 0 : -1}
               onClick={() => pickTab(t.id)}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t.id ? "border-foreground font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm ${tab === t.id ? "border-foreground font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               data-room-tab={t.id}
             >
               {t.label}
@@ -738,7 +759,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 <h4 className="text-sm font-semibold">Asking for access</h4>
             {requests.map((m) => (
               <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
-                <span className="text-sm">{m.email} <span className="text-muted-foreground">· asked {fmtDate(m.updatedAt)}</span></span>
+                <span className="text-sm">{m.email} <span className="text-muted-foreground">· asked {fmtWhen(m.updatedAt).toLowerCase()}</span></span>
                 <span className="flex gap-2">
                   <Button size="sm" variant="brand" className="h-8 gap-1" onClick={() => setMember(m.email, "allowed")}><UserCheck className="h-3.5 w-3.5" /> Allow</Button>
                   <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => setMember(m.email, "denied")}><UserX className="h-3.5 w-3.5" /> Decline</Button>
@@ -805,7 +826,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 </p>
               </div>
               {!!data.practices?.total && (
-                <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => window.confirm("Remove every practice from this hub?") && run(send(`${base}/practices`, "DELETE"))}>Clear list</Button>
+                <Button size="sm" variant="ghost" className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => window.confirm(`Remove all ${data.practices!.total} practices from this hub? Their stages, waves and welcome kit records go with them. If the list comes from a sheet or Salesforce it will be read in again; otherwise this can’t be undone.`) && run(send(`${base}/practices`, "DELETE"))}>Remove all practices…</Button>
               )}
             </div>
             {/* The practices themselves: find one, move it along, send welcome kits to a wave. */}
@@ -984,7 +1005,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
           >
           <UnsavedSettings.Provider value={reportUnsaved}>
             {data.isWorkspace && data.account && (
-              <Fold nav="account" title="Account" hint={accountHint(data.account)} data-room-account-fold>
+              <Fold nav="account" title="Account" about="Who the hub is for, who can open it, and how its cover looks." hint={accountHint(data.account)} data-room-account-fold>
                 <RoomAccountSettings
                   pageId={pageId}
                   account={data.account}
@@ -998,7 +1019,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               </Fold>
             )}
             {data.isWorkspace && data.team && (
-              <Fold nav="team" title="Team" hint={teamHint(data.team.team ?? [])} data-room-team-fold>
+              <Fold nav="team" title="Team" about="The named people the customer sees, on your side and theirs." hint={teamHint(data.team.team ?? [])} data-room-team-fold>
                 <RoomTeamSettings
                   pageId={pageId}
                   team={data.team}
@@ -1011,7 +1032,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               </Fold>
             )}
               {(data.contacts ?? []).length > 0 && (
-                <Fold nav="team" title="People the customer added" hint={`${data.contacts!.length} · added from their side of the hub`}>
+                <Fold nav="team" title="People the customer added" about="People the customer added themselves, from their side of the hub." hint={`${data.contacts!.length} · added from their side of the hub`}>
                   <div className="divide-y rounded-md border">
                     {data.contacts!.map((c) => (
                       <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
@@ -1023,7 +1044,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 </Fold>
               )}
 
-            <Fold nav="access" title="Who has access" hint={noAccessYet ? "No one yet" : [data.settings.allowedDomains.join(", "), allowedPeople ? `${allowedPeople} ${allowedPeople === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")} defaultOpen>
+            <Fold nav="access" title="Who has access" about="Who can open the hub and act in it." hint={noAccessYet ? "No one yet" : [data.settings.allowedDomains.join(", "), allowedPeople ? `${allowedPeople} ${allowedPeople === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")} defaultOpen>
               <p className="text-xs text-muted-foreground">Anyone with the link can view. These people can also upload, comment and mark tasks done.</p>
               {noAccessYet && (
                 <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -1064,13 +1085,13 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             </Fold>
 
             {data.isWorkspace && (
-              <Fold nav="access" title="Invite the customer’s team" hint="Email each person their own link" data-room-invite-fold>
+              <Fold nav="access" title="Invite the customer’s team" about="Send each person their own link by email." hint="Email each person their own link" data-room-invite-fold>
                 <RoomInviteSection pageId={pageId} onInvited={refresh} />
               </Fold>
             )}
 
             {data.isWorkspace && data.goals && (
-              <Fold nav="goals" title="Goals" hint={data.goals.items.length ? `${data.goals.items.length} set${goalAgreed ? " · agreed by the customer" : ""}` : "None set yet"} defaultOpen={initialTab === "goals"} data-room-goals-fold>
+              <Fold nav="goals" title="Goals" about="What success looks like. The customer sees these in the hub." hint={data.goals.items.length ? `${data.goals.items.length} set${goalAgreed ? " · agreed by the customer" : ""}` : "None set yet"} defaultOpen={initialTab === "goals"} data-room-goals-fold>
               <RoomGoalsSection
                 pageId={pageId}
                 goals={data.goals}
@@ -1088,7 +1109,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             )}
 
             {data.isWorkspace && data.stage && (
-              <Fold nav="stage" title="Stage and waves" hint={`${STAGE_LABEL[data.stage.stage]} · ${data.stage.waves.length} wave${data.stage.waves.length === 1 ? "" : "s"}`}>
+              <Fold nav="stage" title="Stage and waves" about="Where the partnership stands, and the waves the practices roll out in." hint={`${STAGE_LABEL[data.stage.stage]} · ${data.stage.waves.length} wave${data.stage.waves.length === 1 ? "" : "s"}`}>
                 <RoomStageSection
                   pageId={pageId}
                   stage={data.stage}
@@ -1103,7 +1124,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
 
 
             {data.isWorkspace && data.overviewHidden && (
-              <Fold nav="overview" title="Overview sections" hint={data.overviewHidden.length ? `${data.overviewHidden.length} hidden` : "All shown"} data-room-overview-settings>
+              <Fold nav="overview" title="Overview sections" about="Which parts of the hub’s Overview the customer sees." hint={data.overviewHidden.length ? `${data.overviewHidden.length} hidden` : "All shown"} data-room-overview-settings>
                 <p className="text-xs text-muted-foreground">What the customer sees on the hub’s Overview. Changes save straight away.</p>
                 <div className="divide-y rounded-md border">
                   {ROOM_OVERVIEW_SECTIONS.map((sec) => {
@@ -1139,7 +1160,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             )}
 
             {data.isWorkspace && (
-              <Fold nav="digest" title="Weekly digest" hint={data.digest?.enabled ? `On${data.digest.lastSentAt ? ` · last sent ${fmtDate(data.digest.lastSentAt)}` : ""}` : "Off"}>
+              <Fold nav="digest" title="Weekly digest" about="A weekly summary: an email to the customer and a Slack post for your team." hint={data.digest?.enabled ? `On${data.digest.lastSentAt ? ` · last sent ${fmtDate(data.digest.lastSentAt)}` : ""}` : "Off"}>
                 <p className="text-xs text-muted-foreground">Every Monday: an email to the customer and a Slack post.</p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={digestOn} onChange={(e) => setDigestOn(e.target.checked)} />
@@ -1192,7 +1213,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               </Fold>
             )}
 
-            <Fold nav="notify" data-room-notify-fold title="Notifications and connections" hint={[notifyVia === "slack" ? "Slack" : notifyVia === "email" ? "Email to the account owner" : "Slack and email", ...(data.isWorkspace ? ["Salesforce, Asana"] : [])].join(" · ")}>
+            <Fold nav="notify" data-room-notify-fold title="Notifications and connections" about="How your team hears about activity here, and what this hub is connected to." hint={[notifyVia === "slack" ? "Slack" : notifyVia === "email" ? "Email to the account owner" : "Slack and email", ...(data.isWorkspace ? ["Salesforce, Asana"] : [])].join(" · ")}>
               <div className="space-y-1" data-room-notify>
                 <label className="block max-w-sm space-y-1 text-xs">
                   <span className="font-medium text-muted-foreground">Tell us about activity in this hub by</span>
@@ -1807,10 +1828,19 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
   const missing = [!kit.partnerName && "the customer’s name", !kit.partnerLogoUrl && "the customer’s logo (their name is used instead)", !kit.heroImageUrl && "a cover photo (the link-preview graphic is made without one)"].filter(Boolean) as string[];
   return (
     <section className="space-y-2">
-      <h4 className="text-sm font-semibold">{expansion ? "Marketing assets" : "Launch assets"}</h4>
-      <p className="text-sm text-muted-foreground">
-        Made for {kit.partnerName || "this customer"} from the hub’s names, logos and cover photo. Have your own version? Upload it in its place.
-      </p>
+      {/* The one button that makes everything comes first; the rows under it are for making or replacing a single file. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-sm font-semibold">{expansion ? "Marketing assets" : "Launch assets"}</h4>
+          <p className="text-sm text-muted-foreground">
+            Made for {kit.partnerName || "this customer"} from the hub’s names, logos and cover photo. Have your own version? Upload it in its place.
+          </p>
+        </div>
+        <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
+        {busy ? "Creating…" : expansion ? "Create marketing assets" : "Create launch kit"}
+      </Button>
+      </div>
+      <p className="-mt-1 text-xs text-muted-foreground">Finds or drafts the practice microsite, creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
       {missing.length > 0 && <p className="text-xs text-amber-700">Not set on the page yet: {missing.join("; ")}.</p>}
       <input
         ref={replaceRef}
@@ -1870,7 +1900,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
             {(standard ?? []).filter((a) => has(a.key)).length} of {(standard ?? []).length} in this hub · managed under <a className="underline" href="/settings/partner-hubs">Settings → Partner Hubs</a>
           </span>
         </p>
-        <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} onClick={() => addStandard(false)}>Add standard files</Button>
+        <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} title={(standard ?? []).some((a) => a.fileUrl) ? undefined : "No standard files have been uploaded for the workspace yet. Add them under Settings, Partner Hubs."} onClick={() => addStandard(false)}>Add standard files</Button>
       </div>
       {stdNote && <p className="text-xs text-muted-foreground">{stdNote}</p>}
       <Fold title="Practice microsite" hint={site ? `${site.existing ? "Found" : "Drafted"}: ${site.title}` : "The page this customer’s practices sign up on"} data-room-practice-site>
@@ -1885,10 +1915,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
           {siteNote && <span className="text-xs text-destructive">{siteNote}</span>}
         </div>
       </Fold>
-      <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
-        {busy ? "Creating…" : expansion ? "Create marketing assets" : "Create launch kit"}
-      </Button>
-      <p className="text-xs text-muted-foreground">Finds or drafts the practice microsite, creates the one-pager, both graphics and the media kit, and adds the standard files.</p>
+
     </section>
   );
 }

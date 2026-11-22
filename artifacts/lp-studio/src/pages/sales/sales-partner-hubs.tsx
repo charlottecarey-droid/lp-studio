@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, Copy, ExternalLink, Pencil, Plus, Search, Settings } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, Copy, ExternalLink, MoreHorizontal, Pencil, Plus, Search, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { toast } from "@/hooks/use-toast";
 import { fmtWhen } from "@/components/analytics/RoomPerformance";
 import type { RoomPanelTab } from "@/components/analytics/PageRoomPanel";
-import { filterHubs, hubFlags, hubLandingTab, hubStageText, needsLine, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
+import { filterHubs, hubFlags, hubLandingTab, hubStageText, needsLine, sortHubRows, sortHubs, type HubRow, type HubSortKey } from "./sales-partner-hubs-shared";
 import { HubStatus, hubSetupState } from "@/components/analytics/RoomSetup";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -26,6 +26,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 const PageRoomPanel = lazy(() => import("@/components/analytics/PageRoomPanel").then((m) => ({ default: m.PageRoomPanel })));
 
 interface HubSetup {
+  /** The account this hub belongs to, when it is tied to one. */
+  account?: { id: number; owner: string | null; salesforceUrl: string | null } | null;
   pageId: number;
   title: string;
   name: string;
@@ -148,7 +150,7 @@ function NewHubDialog({ open, onClose, onOpenHub }: { open: boolean; onClose: ()
                   )}
                 </li>
               ))}
-              {data && data.length === 0 && !isFetching && <li className="px-3 py-6 text-center text-sm text-muted-foreground">{term ? "No account by that name. Add it under Accounts first." : "No accounts yet. Add one under Accounts first."}</li>}
+              {data && data.length === 0 && !isFetching && <li className="px-3 py-6 text-center text-sm text-muted-foreground">{term ? "No account by that name." : "No accounts yet."} <Link href="/sales/accounts" className="underline">Add one under Accounts</Link>, then come back.</li>}
               {!data && <li className="px-3 py-3"><Skeleton className="h-10 w-full" /></li>}
             </ul>
           </div>
@@ -169,13 +171,26 @@ function NewHubDialog({ open, onClose, onOpenHub }: { open: boolean; onClose: ()
  */
 function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
   const qc = useQueryClient();
-  const { data, refetch, isLoading } = useQuery({
+  const { data, refetch, isLoading, isError } = useQuery({
     queryKey: ["partner-hub-setup", pageId],
+    retry: false,
     queryFn: async () => {
       const r = await json<HubSetup>(`/api/lp/partner-rooms/${pageId}/setup`);
-      return r.ok ? r.data : null;
+      if (r.ok) return r.data;
+      // Gone (or someone else's) is an answer; anything else is a failure worth trying again.
+      if (r.status === 404) return null;
+      throw new Error(r.data.error ?? "Could not load the hub");
     },
   });
+  // Short tabs have no scrollbar and long ones do: keep its space so the page doesn't shift sideways between them.
+  useEffect(() => {
+    const el = document.documentElement;
+    const before = el.style.scrollbarGutter;
+    el.style.scrollbarGutter = "stable";
+    return () => {
+      el.style.scrollbarGutter = before;
+    };
+  }, []);
   // Publishing, invites and uploads here change what the hub's row on the list shows.
   useEffect(() => () => void qc.invalidateQueries({ queryKey: ["partner-hubs"] }), [qc]);
   const [publishing, setPublishing] = useState(false);
@@ -213,7 +228,13 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
       <Link href="/sales/partner-hubs" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" data-hub-back>
         <ArrowLeft className="h-4 w-4" /> Partner Hubs
       </Link>
-      {!isLoading && !data ? (
+      {isError ? (
+        <div className="rounded-md border border-dashed px-4 py-10 text-center" role="alert">
+          <p className="text-sm font-medium">Couldn’t load this hub</p>
+          <p className="mt-1 text-sm text-muted-foreground">Something went wrong on the way. Your work is safe.</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => void refetch()}>Try again</Button>
+        </div>
+      ) : !isLoading && !data ? (
         <div className="rounded-md border border-dashed px-4 py-10 text-center">
           <p className="text-sm font-medium">This hub isn’t here</p>
           <p className="mt-1 text-sm text-muted-foreground">It may have been deleted, or it belongs to another workspace.</p>
@@ -224,8 +245,20 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
             <div className="min-w-0">
               <h1 className="truncate text-2xl font-semibold tracking-tight">{data?.name ?? <Skeleton className="h-8 w-64" />}</h1>
               {data && (
-                <div className="mt-1.5 text-sm">
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                   <HubStatus live={live} setup={hubSetupState(data.setup)} />
+                  {data.account && (
+                    <span className="text-muted-foreground">
+                      · {data.account.owner ? `Owner: ${data.account.owner} · ` : ""}
+                      <Link href={`/sales/accounts/${data.account.id}`} className="underline underline-offset-2 hover:text-foreground">Account</Link>
+                      {data.account.salesforceUrl && (
+                        <>
+                          {" · "}
+                          <a href={data.account.salesforceUrl} target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-foreground">Salesforce</a>
+                        </>
+                      )}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -237,7 +270,7 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
                 </Button>
               )}
               <Button asChild size="sm" variant="outline" className="gap-1.5">
-                <a href={`/builder/${pageId}`} target="_blank" rel="noopener" data-hub-edit>
+                <a href={`/builder/${pageId}`} target="_blank" rel="noopener" data-hub-edit title="Opens the page builder: plan steps, launch kit copy, the calendar and the order of sections are edited there. Names, logos, team and access are here in Settings.">
                   <Pencil className="h-3.5 w-3.5" /> Edit content
                 </a>
               </Button>
@@ -334,6 +367,9 @@ export default function SalesPartnerHubs() {
   const [scope, setScope] = useState<"mine" | "all" | "archived">("mine");
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
+  // Click a column to sort by it (again to reverse); "Needs attention" keeps only hubs with a warning on them.
+  const [sort, setSort] = useState<{ key: HubSortKey; desc: boolean } | null>(null);
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
 
   const { data: loaded, isLoading, isError } = useQuery({
     queryKey: ["partner-hubs"],
@@ -354,7 +390,9 @@ export default function SalesPartnerHubs() {
   const anyMine = hubs.some((h) => h.mine);
   // A rep with no hubs of their own starts on everyone's rather than an empty table.
   const effectiveScope = scope === "mine" && !anyMine ? "all" : scope;
-  const rows = useMemo(() => (effectiveScope === "archived" ? sortHubs(filterHubs(archivedHubs ?? [], { scope: "all", q })) : sortHubs(filterHubs(hubs, { scope: effectiveScope, q }))), [hubs, archivedHubs, effectiveScope, q]);
+  const baseRows = useMemo(() => (effectiveScope === "archived" ? sortHubs(filterHubs(archivedHubs ?? [], { scope: "all", q })) : sortHubs(filterHubs(hubs, { scope: effectiveScope, q }))), [hubs, archivedHubs, effectiveScope, q]);
+  const flaggedCount = useMemo(() => baseRows.filter((h) => hubFlags(h).length > 0).length, [baseRows]);
+  const rows = useMemo(() => sortHubRows(onlyFlagged ? baseRows.filter((h) => hubFlags(h).length > 0) : baseRows, sort), [baseRows, onlyFlagged, sort]);
   // Needs you: every hub in view with something waiting on the account team, most waiting first.
   const inbox = useMemo(() => (effectiveScope === "archived" ? [] : filterHubs(hubs, { scope: effectiveScope, q: "" }).filter((h) => h.waitingOnUs > 0 && !h.test).sort((a, b) => b.waitingOnUs - a.waitingOnUs)), [hubs, effectiveScope]);
 
@@ -428,6 +466,11 @@ export default function SalesPartnerHubs() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search hubs" className="pl-9" aria-label="Search hubs" />
               </div>
+              {(flaggedCount > 0 || onlyFlagged) && (
+                <button type="button" onClick={() => setOnlyFlagged((v) => !v)} aria-pressed={onlyFlagged} className={`rounded-full border px-3 py-1 text-sm ${onlyFlagged ? "border-amber-300 bg-amber-100 font-medium text-amber-900" : "text-muted-foreground hover:text-foreground"}`} data-hub-flagged-filter>
+                  Needs attention · {flaggedCount}
+                </button>
+              )}
             </div>
 
             {inbox.length > 0 && (
@@ -456,12 +499,23 @@ export default function SalesPartnerHubs() {
               <table className="w-full min-w-[820px] text-sm" data-hub-table>
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="px-4 py-2.5 font-normal">Account</th>
-                    <th className="px-3 py-2.5 font-normal">Stage</th>
-                    <th className="px-3 py-2.5 font-normal">Waiting on them</th>
-                    <th className="px-3 py-2.5 font-normal">Waiting on us</th>
-                    <th className="px-3 py-2.5 font-normal">Views, 30 days</th>
-                    <th className="px-3 py-2.5 font-normal">Last visit</th>
+                    {(
+                      [
+                        ["name", "Account", "px-4"],
+                        ["stage", "Stage", "px-3"],
+                        ["waitingOnCustomer", "Waiting on them", "px-3"],
+                        ["waitingOnUs", "Waiting on us", "px-3"],
+                        ["views30", "Views, 30 days", "px-3"],
+                        ["lastVisitAt", "Last visit", "px-3"],
+                      ] as [HubSortKey, string, string][]
+                    ).map(([key, label, pad]) => (
+                      <th key={key} className={`${pad} py-2.5 font-normal`} aria-sort={sort?.key === key ? (sort.desc ? "descending" : "ascending") : undefined}>
+                        <button type="button" className={`inline-flex items-center gap-1 hover:text-foreground ${sort?.key === key ? "font-medium text-foreground" : ""}`} onClick={() => setSort((cur) => (cur?.key !== key ? { key, desc: key !== "name" } : cur.desc === (key !== "name") ? { key, desc: !cur.desc } : null))} title={`Sort by ${label.toLowerCase()}`} data-hub-sort={key}>
+                          {label}
+                          {sort?.key === key && <span aria-hidden>{sort.desc ? "↓" : "↑"}</span>}
+                        </button>
+                      </th>
+                    ))}
                     <th className="px-3 py-2.5" />
                   </tr>
                 </thead>
@@ -469,7 +523,8 @@ export default function SalesPartnerHubs() {
                   {rows.map((h) => (
                     <tr key={h.pageId} className="cursor-pointer border-b last:border-0 hover:bg-muted/40" onClick={() => open(h.pageId, hubLandingTab(h))} data-hub-row={h.pageId}>
                       <td className="px-4 py-3">
-                        <span className="block font-medium">{h.name}{h.test ? " (test)" : ""}</span>
+                        {/* A real link, so a hub opens in a new tab or by keyboard like any other page. */}
+                        <Link href={`/sales/partner-hubs/${h.pageId}${hubLandingTab(h) === "activity" ? "" : `?tab=${hubLandingTab(h)}`}`} onClick={(e) => e.stopPropagation()} className="block font-medium hover:underline" data-hub-link>{h.name}{h.test ? " (test)" : ""}</Link>
                         <span className="block text-xs text-muted-foreground">
                           <HubStatus live={h.status === "live"} setup={h.setup} compact />
                           {h.account?.owner ? ` · ${h.account.owner}` : ""}
@@ -483,7 +538,7 @@ export default function SalesPartnerHubs() {
                           {h.stagePrompt && <span className="ml-1.5 font-medium text-amber-700" data-hub-stage-prompt>· ready to move on</span>}
                         </span>
                       </td>
-                      <td className="px-3 py-3 tabular-nums">{h.waitingOnCustomer || <span className="text-muted-foreground">0</span>}</td>
+                      <td className="px-3 py-3 tabular-nums">{h.status !== "live" ? <span className="text-xs text-muted-foreground" title="The customer can’t open a draft, so nothing is waiting on them yet">Not shared yet</span> : h.waitingOnCustomer || <span className="text-muted-foreground">0</span>}</td>
                       <td className="px-3 py-3 tabular-nums" title={needsLine(h.needs) || undefined}>{h.waitingOnUs ? <span className="font-medium text-amber-700">{h.waitingOnUs}</span> : <span className="text-muted-foreground">0</span>}</td>
                       <td className="px-3 py-3 tabular-nums">
                         {h.views30}
@@ -498,21 +553,23 @@ export default function SalesPartnerHubs() {
                           <IconButton label={h.url ? "Copy the customer's link" : "Publish the hub to get its link"} disabled={!h.url} onClick={() => copyLink(h.url)}>
                             <Copy className="h-4 w-4" />
                           </IconButton>
-                          <Link href={`/builder/${h.pageId}`} onClick={(e) => e.stopPropagation()} title="Edit content" aria-label="Edit content" className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                            <Pencil className="h-4 w-4" />
-                          </Link>
-                          <IconButton label="Settings" onClick={() => open(h.pageId, "settings")} data-hub-settings={String(h.pageId)}>
-                            <Settings className="h-4 w-4" />
-                          </IconButton>
-                          {h.archived ? (
-                            <IconButton label="Bring this hub back" onClick={() => void setArchived(h, false)} data-hub-restore={String(h.pageId)}>
-                              <ArchiveRestore className="h-4 w-4" />
-                            </IconButton>
-                          ) : (
-                            <IconButton label="Archive this hub" onClick={() => void setArchived(h, true)} data-hub-archive={String(h.pageId)}>
-                              <Archive className="h-4 w-4" />
-                            </IconButton>
-                          )}
+                          {/* The two things done from the list stay as buttons; the rest sit behind one menu. */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button type="button" onClick={(e) => e.stopPropagation()} title="More" aria-label={`More for ${h.name}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" data-hub-more={String(h.pageId)}>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem onSelect={() => open(h.pageId, "settings")} data-hub-settings={String(h.pageId)}><Settings className="mr-2 h-4 w-4" /> Settings</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => window.open(`/builder/${h.pageId}`, "_blank", "noopener")}><Pencil className="mr-2 h-4 w-4" /> Edit content</DropdownMenuItem>
+                              {h.archived ? (
+                                <DropdownMenuItem onSelect={() => void setArchived(h, false)} data-hub-restore={String(h.pageId)}><ArchiveRestore className="mr-2 h-4 w-4" /> Bring this hub back</DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onSelect={() => void setArchived(h, true)} data-hub-archive={String(h.pageId)}><Archive className="mr-2 h-4 w-4" /> Archive this hub…</DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </span>
                       </td>
                     </tr>

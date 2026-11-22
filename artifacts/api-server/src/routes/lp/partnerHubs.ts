@@ -247,7 +247,7 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
     const tenantId = getTenantId(req, res);
     if (tenantId == null) return;
     const pageId = Number(req.params.pageId);
-    const [page] = Number.isInteger(pageId) && pageId > 0 ? await db.select({ id: lpPagesTable.id, title: lpPagesTable.title, slug: lpPagesTable.slug, status: lpPagesTable.status, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId))).limit(1) : [];
+    const [page] = Number.isInteger(pageId) && pageId > 0 ? await db.select({ id: lpPagesTable.id, title: lpPagesTable.title, slug: lpPagesTable.slug, status: lpPagesTable.status, blocks: lpPagesTable.blocks, accountId: lpPagesTable.accountId, sfdcAccountId: lpPagesTable.sfdcAccountId }).from(lpPagesTable).where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId))).limit(1) : [];
     if (!page || !pageIsRoom(page.blocks)) {
       res.status(404).json({ error: "Not found" });
       return;
@@ -255,6 +255,15 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
     const blocks = resolveRoomBlocks(page.blocks);
     const [invited] = await db.select({ n: sql<number>`count(*)::int` }).from(lpRoomMembersTable).where(and(eq(lpRoomMembersTable.pageId, page.id), eq(lpRoomMembersTable.status, "allowed")));
     const published = page.status === "published";
+    // The account behind the hub (by its link to Accounts, else its Salesforce id), for the owner's name and a way to it.
+    const [hubSettings] = await db.select({ slackChannelId: lpRoomSettingsTable.slackChannelId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1);
+    const sfdc = page.sfdcAccountId || hubSettings?.sfdcAccountId || null;
+    const accountRows = page.accountId
+      ? await db.select({ id: salesAccountsTable.id, owner: salesAccountsTable.owner, salesforceId: salesAccountsTable.salesforceId }).from(salesAccountsTable).where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, page.accountId))).limit(1)
+      : sfdc
+        ? (await db.select({ id: salesAccountsTable.id, owner: salesAccountsTable.owner, salesforceId: salesAccountsTable.salesforceId }).from(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId)).limit(5000)).filter((a) => sameSfdcId(a.salesforceId, sfdc)).slice(0, 1)
+        : [];
+    const account = accountRows[0] ?? null;
     res.json({
       pageId: page.id,
       title: page.title,
@@ -263,7 +272,8 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
       url: published ? await publicPageUrl(tenantId, page.slug).catch(() => "") : "",
       // Internal: rollout or expansion. The pop-up names the launch sections by it ("Launch kit" / "Marketing").
       stage: roomStageFromProps(roomWorkspaceProps(blocks) ?? {}, new Date()).stage,
-      setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0, slackLinked: !!(await db.select({ c: lpRoomSettingsTable.slackChannelId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1))[0]?.c }),
+      setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0, slackLinked: !!hubSettings?.slackChannelId }),
+      account: account ? { id: account.id, owner: account.owner, salesforceUrl: null } : null,
     });
   } catch (err) {
     req.log.error({ err }, "partner hub setup failed");

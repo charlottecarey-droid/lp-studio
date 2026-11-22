@@ -87,3 +87,30 @@ export function hubStageText(h: Pick<HubRow, "day" | "stage" | "practices">): st
   if (h.stage === "expansion") return h.practices && h.practices.total > 0 ? `${h.practices.live} of ${h.practices.total} live` : "Expansion";
   return h.day === null ? "Not started" : `Day ${h.day}`;
 }
+
+export type HubSortKey = "name" | "stage" | "waitingOnCustomer" | "waitingOnUs" | "views30" | "lastVisitAt";
+
+/** The list in the order a clicked column asks for. No column picked: the order it came in (yours first, newest first). */
+export function sortHubRows(rows: HubRow[], sort: { key: HubSortKey; desc: boolean } | null): HubRow[] {
+  if (!sort) return rows;
+  const value = (h: HubRow): number | string => {
+    switch (sort.key) {
+      case "name":
+        return h.name.toLowerCase();
+      case "stage":
+        // Rollout day; a hub past its rollout sorts after every day count, one not started before.
+        return h.stage === "expansion" ? 100000 : (h.day ?? -1);
+      case "lastVisitAt":
+        return h.lastVisitAt ? new Date(h.lastVisitAt).getTime() : 0;
+      case "waitingOnCustomer":
+        return h.status === "live" ? h.waitingOnCustomer : -1;
+      default:
+        return h[sort.key] ?? 0;
+    }
+  };
+  const dir = sort.desc ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    const x = value(a), y = value(b);
+    return (x < y ? -1 : x > y ? 1 : 0) * dir;
+  });
+}

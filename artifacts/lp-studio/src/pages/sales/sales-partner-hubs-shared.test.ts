@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterHubs, hubFlags, hubLandingTab, needsLine, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
+import { filterHubs, hubFlags, hubLandingTab, needsLine, sortHubRows, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
 
 const hub = (o: Partial<HubRow>): HubRow => ({ pageId: 1, title: "A Partner Hub", name: "A", slug: "a-hub", status: "draft", url: "", account: null, day: null, waitingOnCustomer: 0, waitingOnUs: 0, views30: 0, people30: 0, lastVisitAt: null, mine: false, test: false, updatedAt: "2026-11-01T00:00:00.000Z", ...o });
 
@@ -41,5 +41,22 @@ describe("what a hub needs, and when it is going quiet", () => {
     expect(hubFlags({ ...live, status: "draft", lastVisitAt: null }, NOW)).toEqual([]);
     expect(hubFlags({ ...live, test: true, lastVisitAt: null }, NOW)).toEqual([]);
     expect(hubFlags({ ...live, archived: true, lastVisitAt: null }, NOW)).toEqual([]);
+  });
+});
+
+describe("sorting the hubs list", () => {
+  const h = (over: Partial<HubRow>) => ({ name: "A", status: "live", stage: "rollout", day: 10, waitingOnCustomer: 0, waitingOnUs: 0, views30: 0, lastVisitAt: null, ...over }) as HubRow;
+  const rows = [h({ name: "Birch", waitingOnUs: 1, day: 64, lastVisitAt: "2026-11-01T00:00:00Z" }), h({ name: "Acme", waitingOnUs: 5, day: 21, lastVisitAt: "2026-11-20T00:00:00Z" }), h({ name: "Cedar", status: "draft", day: null, waitingOnCustomer: 19 })];
+  it("leaves the list as it came when no column is picked", () => {
+    expect(sortHubRows(rows, null)).toBe(rows);
+  });
+  it("sorts by a column, either way", () => {
+    expect(sortHubRows(rows, { key: "name", desc: false }).map((r) => r.name)).toEqual(["Acme", "Birch", "Cedar"]);
+    expect(sortHubRows(rows, { key: "waitingOnUs", desc: true }).map((r) => r.name)).toEqual(["Acme", "Birch", "Cedar"]);
+    expect(sortHubRows(rows, { key: "lastVisitAt", desc: true }).map((r) => r.name)).toEqual(["Acme", "Birch", "Cedar"]);
+    expect(sortHubRows(rows, { key: "stage", desc: false }).map((r) => r.name)).toEqual(["Cedar", "Acme", "Birch"]);
+  });
+  it("does not count what is waiting on a customer who cannot open the hub yet", () => {
+    expect(sortHubRows(rows, { key: "waitingOnCustomer", desc: true }).at(-1)?.name).toBe("Cedar");
   });
 });

@@ -113,7 +113,7 @@ export function RoomStageSection({ pageId, stage, onSaved }: { pageId: number; s
         {draft.waves.length > 0 && (
           <div className="hidden gap-2 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_150px_150px_36px]" aria-hidden>
             <span>Name</span>
-            <span title="What this wave is called in the practice list’s wave column">Wave column value</span>
+            <span title="What this wave is called in the practice list’s wave column, for example 1 or Phase A">Called this in your practice list</span>
             <span>Starts</span>
             <span>Target date</span>
             <span />
