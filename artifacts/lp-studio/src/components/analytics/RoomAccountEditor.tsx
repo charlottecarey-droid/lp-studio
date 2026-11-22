@@ -178,7 +178,19 @@ export function RoomAccountFields({ props, update, team, brandName, note }: { pr
   const bookable = (team[0]?.members ?? []).filter((m) => /^https?:\/\//i.test((m.bookingUrl ?? "").trim()) && (m.name ?? "").trim()).map((m) => ({ name: m.name.trim(), role: m.role, bookingUrl: (m.bookingUrl ?? "").trim() }));
   // Off, booking with a named teammate, or the full set of button actions.
   const action = props.scheduleAction ?? "url";
-  const teammate = action === "url" ? bookable.find((m) => m.bookingUrl === props.scheduleUrl)?.name : undefined;
+  // "Books with <name>" is the rep picked from the list (`scheduleRep`). Choosing "A link, a form…" clears it, so the
+  // list stays on that choice even while the link is still that rep's (it used to jump straight back to the rep, so
+  // the form, Chili Piper and video choices could never be reached). A hub saved before `scheduleRep` existed
+  // (never set) is still read from the link.
+  const repNamed = (props.scheduleRep ?? "").trim();
+  const teammate =
+    action !== "url"
+      ? undefined
+      : repNamed
+        ? bookable.find((m) => m.name === repNamed && m.bookingUrl === props.scheduleUrl)?.name
+        : props.scheduleRep === undefined
+          ? bookable.find((m) => m.bookingUrl === props.scheduleUrl)?.name
+          : undefined;
   const scheduleMode = teammate ?? (action !== "url" || props.scheduleAction === "url" || !!(props.scheduleUrl ?? "").trim() ? "custom" : "off");
   const hasLogo = !!(props.partnerLogoUrl ?? "").trim();
   const coverStyle = props.coverStyle ?? "fade";

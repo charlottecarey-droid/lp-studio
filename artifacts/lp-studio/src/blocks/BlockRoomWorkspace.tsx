@@ -3489,7 +3489,7 @@ const SHIPPING_FORM: RequestForm = {
     { key: "state", label: "State", required: true, size: "half", autoComplete: "address-level1" },
     { key: "zip", label: "ZIP code", required: true, size: "half", autoComplete: "postal-code" },
     { key: "phone", label: "Phone", size: "half", autoComplete: "tel" },
-    { key: "notes", label: "Anything we should know", placeholder: "Delivery hours, who to ask for, how many people it’s for", size: "long" },
+    { key: "notes", label: "Anything we should know", size: "long" },
   ],
 };
 

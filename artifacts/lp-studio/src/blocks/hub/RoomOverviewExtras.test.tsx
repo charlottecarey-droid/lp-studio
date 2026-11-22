@@ -19,6 +19,12 @@ describe("the team's own Overview sections", () => {
     expect(overviewVideoEmbed("https://vimeo.com/123456")).toEqual({ kind: "iframe", src: "https://player.vimeo.com/video/123456" });
     expect(overviewVideoEmbed("https://www.loom.com/share/abc123def")).toEqual({ kind: "iframe", src: "https://www.loom.com/embed/abc123def" });
     expect(overviewVideoEmbed("https://cdn.example.com/welcome.mp4")).toEqual({ kind: "file", src: "https://cdn.example.com/welcome.mp4" });
+    // Wistia in its usual shapes, and a video uploaded to the media library (our own storage, no extension).
+    expect(overviewVideoEmbed("https://acme.wistia.com/medias/abcde12345")).toEqual({ kind: "iframe", src: "https://fast.wistia.net/embed/iframe/abcde12345" });
+    expect(overviewVideoEmbed("https://fast.wistia.net/embed/iframe/abcde12345?videoFoam=true")).toEqual({ kind: "iframe", src: "https://fast.wistia.net/embed/iframe/abcde12345" });
+    expect(overviewVideoEmbed("abcde12345")).toEqual({ kind: "iframe", src: "https://fast.wistia.net/embed/iframe/abcde12345" });
+    expect(overviewVideoEmbed("/api/storage/objects/uploads/3f2a9c1e-0000-4000-8000-000000000000")).toEqual({ kind: "file", src: "/api/storage/objects/uploads/3f2a9c1e-0000-4000-8000-000000000000" });
+    expect(overviewVideoEmbed("https://app.example.com/api/storage/objects/uploads/abc")).toEqual({ kind: "file", src: "https://app.example.com/api/storage/objects/uploads/abc" });
     expect(overviewVideoEmbed("https://example.com/page")).toBeNull();
     expect(overviewVideoEmbed("javascript:alert(1)")).toBeNull();
     expect(overviewVideoEmbed("")).toBeNull();

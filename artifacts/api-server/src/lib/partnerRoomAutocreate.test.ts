@@ -25,6 +25,18 @@ describe("signed accounts from the sheet", () => {
       ["Southeast Dental Partners", "Southeast Dental Partners"],
       ["Lakewood Dental Services LLC (Indianapolis)", "Lakewood Dental Services LLC (Indianapolis)"],
       ["HQ", "HQ"],
+      // Names written in capitals are written normally; real acronyms, states and suffixes keep theirs.
+      ["MB2 DENTAL SOLUTIONS - DSO PARENT ENTERPRISE", "MB2 Dental Solutions"],
+      ["SIGNATURE DENTAL PARTNERS (DSO)", "Signature Dental Partners"],
+      ["PDS HEALTH DSO PARENT ACCOUNT", "PDS Health"],
+      ["SMILE DOCTORS OF TX, LLC", "Smile Doctors of TX, LLC"],
+      ["ASPEN DENTAL MANAGEMENT INC - CORPORATE", "Aspen Dental Management Inc"],
+      ["DENTAL CARE ALLIANCE", "Dental Care Alliance"],
+      ["SOUTH-EAST DENTAL (INDIANAPOLIS)", "South-East Dental (Indianapolis)"],
+      // A name with lower-case letters is left as written.
+      ["PepperPointe Partnerships", "PepperPointe Partnerships"],
+      // Nothing but bookkeeping words: the last one is kept, in capitals.
+      ["DSO PARENT", "DSO"],
     ];
     for (const [raw, want] of cases) expect(cleanAccountName(raw)).toBe(want);
   });

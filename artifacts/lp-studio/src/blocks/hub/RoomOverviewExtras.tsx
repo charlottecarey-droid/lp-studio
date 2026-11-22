@@ -53,10 +53,14 @@ export function newOverviewExtra(kind: RoomOverviewExtraKind, existing: RoomOver
  */
 export function overviewVideoEmbed(raw: string | undefined): { kind: "file" | "iframe"; src: string } | null {
   const url = (raw ?? "").trim();
-  if (!/^https?:\/\//i.test(url)) return null;
-  if (isNativeVideoUrl(url)) return { kind: "file", src: url };
+  // A video uploaded to the media library is served from our own storage ("/api/storage/objects/uploads/<id>"):
+  // no file extension, and often no host. It plays as a file.
+  if (/^\/api\/storage\//.test(url) || /^https?:\/\/[^/]+\/api\/storage\//i.test(url)) return { kind: "file", src: url };
+  // Wistia: a media page, an embed link, a ?wvideo= link, or the bare video id.
   const wistia = extractWistiaId(url);
   if (wistia) return { kind: "iframe", src: `https://fast.wistia.net/embed/iframe/${wistia}` };
+  if (!/^https?:\/\//i.test(url)) return null;
+  if (isNativeVideoUrl(url)) return { kind: "file", src: url };
   const yt = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   if (yt) return { kind: "iframe", src: `https://www.youtube.com/embed/${yt[1]}?rel=0` };
   const vimeo = url.match(/(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/);
