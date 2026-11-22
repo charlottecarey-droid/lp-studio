@@ -337,18 +337,18 @@ describe("the team's own Overview sections", () => {
     });
   });
 
-  describe("Rollout timeline: View scorecard", () => {
-    it("sits under the rollout timeline when the hub has a Scorecard", () => {
+  describe("Rollout timeline opens the Scorecard", () => {
+    it("on the live hub the whole timeline is a button to the Scorecard (no separate link)", () => {
       const out = html({});
-      expect(out).toMatch(/data-room-progress-scorecard="true"[^>]*>View scorecard/);
-      expect(out.indexOf("prw-phases")).toBeLessThan(out.indexOf("data-room-progress-scorecard"));
+      expect(out).toMatch(/class="prw-rollout opens" role="button" tabindex="0" title="Open Scorecard" aria-label="Rollout timeline. Open Scorecard" data-room-progress-scorecard=""/);
+      expect(out).not.toContain("View scorecard");
+      // The phases sit inside it.
+      expect(out).toMatch(/data-room-progress-scorecard=""><div class="prw-track">.*?<div class="prw-phases"/s);
     });
 
-    it("uses the Scorecard's own name, and is left off when the Scorecard is hidden", () => {
+    it("isn't clickable in the builder (phase titles are edited there), when the Scorecard is hidden, or in expansion", () => {
+      expect(html({}, true)).not.toContain("data-room-progress-scorecard");
       expect(html({ hiddenModules: ["practices"] })).not.toContain("data-room-progress-scorecard");
-    });
-
-    it("isn't added in expansion, whose timeline already links from its heading", () => {
       expect(html({ stage: "expansion" })).not.toContain("data-room-progress-scorecard");
     });
   });

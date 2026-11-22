@@ -1292,11 +1292,10 @@ const CSS = `
 .prw-btn.pri{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
 .prw-btn:disabled{opacity:.6;cursor:default}
 .prw-btn svg{width:13px;height:13px}
-.prw-tl-more{display:flex;justify-content:flex-end;margin-top:18px}
-.prw .prw-tl-link{display:inline-flex;align-items:center;gap:6px;padding:2px 0;border:0;background:none;cursor:pointer;font-size:13.5px;font-weight:700;color:var(--dark);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:4px}
-.prw-tl-link svg{width:15px;height:15px;transition:transform .15s}
-.prw-tl-link:hover svg{transform:translateX(3px)}
-.prw-tl-link:focus-visible{outline:2px solid var(--dark);outline-offset:3px;border-radius:4px}
+.prw-rollout.opens{cursor:pointer;margin:-12px -14px;padding:12px 14px;border-radius:12px;transition:background .15s}
+.prw-rollout.opens:hover{background:color-mix(in srgb,var(--dark) 4%,transparent)}
+.prw-rollout.opens:hover .prw-ph h3{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+.prw-rollout.opens:focus-visible{outline:2px solid var(--dark);outline-offset:2px}
 .prw-ib{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1px solid #D4D8D0;background:#fff;color:var(--dark);padding:0;flex:none}
 .prw-ib svg{width:14px;height:14px}
 .prw-ib:hover,.prw-btn:hover{border-color:var(--dark)}
@@ -2584,8 +2583,30 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {expansion && pr.total > 0 && !ovHidden.has("progress") && (
                   <PartnershipTimeline onOpen={canScorecard ? () => setView("practices") : undefined} waves={timelineWaves(props.waves, pr.byWave)} total={pr.total} live={pr.byStage.live ?? 0} goal={liveGoal ? { target: liveGoal.targetValue as number, text: liveGoal.target } : null} defaultView={props.timelineView === "waves" ? "waves" : "practices"} noun={noun} fmtDate={(d) => fmtDate(d)} />
                 )}
-                {!expansion && phases.length > 0 && !ovHidden.has("progress") && (
-                  <>
+                {!expansion && phases.length > 0 && !ovHidden.has("progress") && (() => {
+                  // The whole timeline opens the Scorecard on the live hub (in the builder its phase titles are edited by clicking).
+                  const opens = canScorecard && !isEditor;
+                  const scorecardName = modules.find((m) => m.key === "practices")?.label ?? "Scorecard";
+                  return (
+                  <div
+                    className={`prw-rollout${opens ? " opens" : ""}`}
+                    {...(opens
+                      ? {
+                          role: "button",
+                          tabIndex: 0,
+                          title: `Open ${scorecardName}`,
+                          "aria-label": `Rollout timeline. Open ${scorecardName}`,
+                          onClick: () => setView("practices"),
+                          onKeyDown: (e: React.KeyboardEvent) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setView("practices");
+                            }
+                          },
+                          "data-room-progress-scorecard": "",
+                        }
+                      : {})}
+                  >
                     <div className="prw-track">
                       <i style={{ width: `${pct}%` }} />
                       {day !== null && (
@@ -2612,16 +2633,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         </div>
                       ))}
                     </div>
-                    {/* The rollout timeline's way into the Scorecard (the expansion one links from its heading). */}
-                    {canScorecard && (
-                      <div className="prw-tl-more">
-                        <button type="button" className="prw-tl-link" onClick={() => setView("practices")} data-room-progress-scorecard>
-                          View {(modules.find((m) => m.key === "practices")?.label ?? "Scorecard").toLowerCase()} <ArrowRight aria-hidden />
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
+                  </div>
+                  );
+                })()}
                 </>) : null,
                 steps: showNext || showComing || showOverdue ? (
                   <>
