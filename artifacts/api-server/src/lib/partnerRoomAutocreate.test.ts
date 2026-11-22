@@ -9,6 +9,7 @@ vi.mock("./partnerRoomService", () => ({ SHEET_ID_RE: /^[A-Za-z0-9_-]{20,}$/, SH
 
 import { ROOM_LOG_HEADERS, accountKey, cleanAccountName, hubBlocksFromTemplate, isSfdcFieldName, roomBlocksForAccount, roomCreatedEmail, roomLogRow, roomSlugFor, signedAccountsFromSheet } from "./partnerRoomAutocreate";
 import { resolveRoomBlocks, roomKitInfo } from "./partnerRoom";
+import { setRoomStage } from "./partnerRoomStage";
 
 describe("signed accounts from the sheet", () => {
   it("drops Salesforce's bookkeeping words from account names", () => {
@@ -151,5 +152,16 @@ describe("after a room is created", () => {
     expect(isSfdcFieldName("Name; DROP")).toBe(false);
     expect(isSfdcFieldName("1Field")).toBe(false);
     expect(isSfdcFieldName("")).toBe(false);
+  });
+});
+
+describe("a hub past its rollout saved as a template", () => {
+  it("gives new hubs the launch plan, not its later one", () => {
+    const launch = [{ title: "Days 0–5", rows: [{ key: "a", task: "A", status: "done" }, { key: "b", task: "B", status: "not-started" }] }];
+    const moved = setRoomStage([{ type: "room-workspace", props: { partnerName: "MB2", planGroups: launch } }], { stage: "expansion", timelineView: "practices", waves: [] }, new Date("2026-11-22T15:00:00Z"), { decisions: { b: "retire" } })!;
+    const fresh = hubBlocksFromTemplate(moved, "Next DSO") as { props: Record<string, unknown> }[];
+    expect((fresh[0].props.planGroups as { title: string }[]).map((g) => g.title)).toEqual(["Days 0–5"]);
+    expect(fresh[0].props).not.toHaveProperty("rolloutPlanGroups");
+    expect(JSON.stringify(fresh[0].props.planGroups)).not.toContain("retired");
   });
 });

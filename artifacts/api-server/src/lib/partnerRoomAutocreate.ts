@@ -88,13 +88,16 @@ export function hubBlocksFromTemplate(template: unknown[], name: string): unknow
     if (b?.type !== "room-workspace") return b;
     const p = { ...(b.props ?? {}) } as Record<string, any>;
     for (const k of ["kickoffDate", "stage", "stageSince", "stageExtendUntil", "waves", "timelineView", "nextMilestoneDate", "gated"]) delete p[k];
+    // A template saved from a hub past its rollout: a new hub starts on the launch plan, not on that hub's later one.
+    if (Array.isArray(p.rolloutPlanGroups)) p.planGroups = p.rolloutPlanGroups;
+    delete p.rolloutPlanGroups;
     if (Array.isArray(p.planGroups)) {
       p.planGroups = p.planGroups.map((g: any) => ({
         ...g,
         rows: (g.rows ?? []).map((r: any) => {
           // A date belongs to the customer it was set for; a relative target ("Week 2") is part of the template.
-          const { target, ...rest } = r;
-          return { ...rest, ...(target && !ISO.test(String(target).trim()) ? { target } : {}), status: "not-started" };
+          const { target, retired, ...rest } = r;
+          return { ...rest, ...(retired ? { hidden: false } : {}), ...(target && !ISO.test(String(target).trim()) ? { target } : {}), status: "not-started" };
         }),
       }));
     }

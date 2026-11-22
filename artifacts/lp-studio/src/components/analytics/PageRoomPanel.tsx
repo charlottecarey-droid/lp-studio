@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
-import { RoomInviteSection } from "./RoomInvite";
+import { GiftToggle, RoomInviteSection, type HubGifts } from "./RoomInvite";
 import { RoomPerformance, fmtWhen, sectionLabel, type RoomPerformanceData } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
@@ -42,6 +42,8 @@ interface RoomDetail {
   revopsSlackMention?: string | null;
   /** Post to Slack when someone from the customer opens the hub. */
   visitAlert?: boolean;
+  /** Welcome gifts: on for the hub or not, who they are off for, and who accepted theirs. */
+  gifts?: HubGifts;
   /** How the hub tells the team about activity, and who an email goes to (null = no account owner we can match). */
   notify?: { via: "slack" | "email" | "both"; owner: string | null };
   /** Who a reminder can go to, and when the last one went. */
@@ -471,6 +473,9 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
 
   const requests = data.members.filter((m) => m.status === "requested");
   const others = data.members.filter((m) => m.status !== "requested");
+  // Welcome gifts: the whole hub ({ enabled }) or one person ({ email, off }).
+  const setGifts = (body: { enabled?: boolean; email?: string; off?: boolean }) => run(send(`${base}/gifts`, "PUT", body));
+  const onGift = (email: string, on: boolean) => void setGifts({ email, off: !on });
   const openRequests = (data.requests ?? []).filter((q) => q.status !== "done");
   const doneRequests = (data.requests ?? []).filter((q) => q.status === "done");
   // What the To do tab is for: people asking to get in, programs to send to marketing, and requests nobody has picked up.
@@ -1199,6 +1204,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                     {data.contacts!.map((c) => (
                       <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
                         <span className="text-sm">{c.name}{c.role ? ` · ${c.role}` : ""}{c.email ? ` · ${c.email}` : ""} <span className="text-xs text-muted-foreground">added by {c.addedBy}</span></span>
+                        {c.email && data.gifts?.hasStep && <GiftToggle email={c.email} gifts={data.gifts} onChange={onGift} />}
                         <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${c.name}`} onClick={() => run(send(`${base}/contacts/${c.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
                       </div>
                     ))}
@@ -1236,7 +1242,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 {others.map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-2 px-3 py-2">
                     <span className="text-sm">{m.email}</span>
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-3">
+                      {data.gifts?.hasStep && m.status === "allowed" && <GiftToggle email={m.email} gifts={data.gifts} onChange={onGift} />}
                       <Badge variant={m.status === "allowed" ? "secondary" : "outline"}>{m.status === "allowed" ? "Allowed" : "Declined"}</Badge>
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${m.email}`} onClick={() => setMember(m.email, null)}><X className="h-4 w-4" /></Button>
                     </span>
@@ -1248,7 +1255,30 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
 
             {data.isWorkspace && (
               <Fold nav="access" title="Invite the customer’s team" about="Each person gets an email with their own link. The hub must be published first." hint="Email each person their own link" data-room-invite-fold>
-                <RoomInviteSection pageId={pageId} onInvited={refresh} hideIntro={isPage} />
+                <RoomInviteSection pageId={pageId} onInvited={refresh} hideIntro={isPage} gifts={data.gifts} onGift={onGift} />
+              </Fold>
+            )}
+
+            {data.isWorkspace && data.gifts?.hasStep && (
+              <Fold
+                nav="access"
+                title="Welcome gifts"
+                about="Everyone on the customer’s side gets “Accept your welcome gift” when they sign in, and accepts it by telling us where to ship it."
+                hint={data.gifts.enabled ? `On · ${data.gifts.accepted.length} accepted` : "Off"}
+                data-room-gifts-fold
+              >
+                <label className="flex items-start gap-3 text-sm">
+                  <CheckSwitch checked={data.gifts.enabled} onChange={(e) => void setGifts({ enabled: e.target.checked })} aria-label="Offer welcome gifts on this hub" data-room-gifts-enabled />
+                  <span>
+                    <span className="font-medium">Offer welcome gifts on this hub</span>
+                    <span className="block text-xs text-muted-foreground">Turn off for a customer that doesn’t accept gifts. To skip one person, untick Gift on their row under Who has access or Invite the customer’s team.</span>
+                  </span>
+                </label>
+                {(data.gifts.off.length > 0 || data.gifts.accepted.length > 0) && (
+                  <p className="text-xs text-muted-foreground">
+                    {[data.gifts.accepted.length ? `${data.gifts.accepted.length} accepted` : "", data.gifts.off.length ? `turned off for ${data.gifts.off.length} ${data.gifts.off.length === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </Fold>
             )}
 

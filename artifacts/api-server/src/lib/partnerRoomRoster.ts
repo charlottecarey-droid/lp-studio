@@ -34,7 +34,7 @@ const ALIASES: Record<Field, RegExp> = {
   zip: /^(zip( code)?|postal( code)?|postcode|billing zip(\/postal code)?)$/i,
   phone: /^(phone( number)?|office phone|practice phone|telephone)$/i,
   officeType: /^(office type|practice type|location type|type of (office|practice))$/i,
-  regionalManager: /^(regional manager( name)?|regional|region manager|rm|rdo|regional director( of operations)?)$/i,
+  regionalManager: /^(regional manager( name)?|regional|region manager|rm|rdo|rd|dbo|regional director( of operations)?)$/i,
   officeManager: /^(office manager( name)?|practice manager( name)?|om|office contact)$/i,
   doctorName: /^(doctor( name)?|dr\.?( name)?|provider( name)?|dentist( name)?|clinician( name)?)$/i,
   doctorEmail: /^(doctor email|provider email|dentist email|email( address)?|e-mail)$/i,

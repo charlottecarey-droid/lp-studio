@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Gift } from "lucide-react";
 import { parseTeamList } from "@/lib/room-team-import";
 
 export interface RoomAccountContact {
@@ -21,7 +22,35 @@ export interface RoomAccountContact {
 
 const INVITE_MAX = 25;
 
-export function RoomInviteSection({ pageId, onInvited, hideIntro = false }: { pageId: number; onInvited?: () => void; /** The card around it already says how invites work. */ hideIntro?: boolean }) {
+/** The hub's welcome gift settings, as the team sees them. */
+export interface HubGifts {
+  /** The hub has a gift step to offer. */
+  hasStep: boolean;
+  enabled: boolean;
+  /** Lower-case emails the gift is turned off for. */
+  off: string[];
+  /** Lower-case emails of people who have accepted theirs. */
+  accepted: string[];
+}
+
+/**
+ * One person's welcome gift, on their row: a tick box (on = they are offered
+ * one), or "Gift accepted" once they have sent where to ship it. Greyed out
+ * while gifts are off for the whole hub.
+ */
+export function GiftToggle({ email, gifts, onChange }: { email: string; gifts: HubGifts; onChange: (email: string, on: boolean) => void }) {
+  const e = email.trim().toLowerCase();
+  if (gifts.accepted.includes(e)) return <Badge variant="secondary" className="gap-1 whitespace-nowrap" data-room-gift-accepted={e}><Gift className="h-3 w-3" /> Gift accepted</Badge>;
+  const on = gifts.enabled && !gifts.off.includes(e);
+  return (
+    <label className={`flex shrink-0 items-center gap-1.5 text-xs ${gifts.enabled ? "cursor-pointer text-foreground" : "cursor-not-allowed text-muted-foreground"}`} title={gifts.enabled ? (on ? "They are offered a welcome gift in the hub" : "No welcome gift for this person") : "Welcome gifts are off for this hub"}>
+      <input type="checkbox" checked={on} disabled={!gifts.enabled} onChange={(ev) => onChange(e, ev.target.checked)} aria-label={`Welcome gift for ${email}`} data-room-gift-toggle={e} />
+      <Gift className="h-3.5 w-3.5" aria-hidden /> Gift
+    </label>
+  );
+}
+
+export function RoomInviteSection({ pageId, onInvited, hideIntro = false, gifts, onGift }: { pageId: number; onInvited?: () => void; /** The card around it already says how invites work. */ hideIntro?: boolean; /** Welcome gifts: each contact row gets its own switch. */ gifts?: HubGifts | null; onGift?: (email: string, on: boolean) => void }) {
   const [contacts, setContacts] = useState<RoomAccountContact[] | null>(null);
   const [found, setFound] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -99,15 +128,18 @@ export function RoomInviteSection({ pageId, onInvited, hideIntro = false }: { pa
           </div>
           <div className="max-h-64 divide-y overflow-auto rounded-md border">
             {shown.map((c) => (
-              <label key={c.email} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm">
-                <input type="checkbox" checked={picked.has(c.email)} onChange={() => toggle(c.email)} data-room-invite-pick={c.email} />
-                <span className="min-w-0 flex-1">
-                  <span className="font-medium">{c.name}</span>
-                  {c.title && <span className="text-muted-foreground"> · {c.title}</span>}
-                  <span className="block truncate text-xs text-muted-foreground">{c.email}</span>
-                </span>
-                {c.invited && <Badge variant="secondary">Invited</Badge>}
-              </label>
+              <div key={c.email} className="flex items-center gap-3 px-3 py-2 text-sm">
+                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                  <input type="checkbox" checked={picked.has(c.email)} onChange={() => toggle(c.email)} data-room-invite-pick={c.email} aria-label={`Invite ${c.name}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium">{c.name}</span>
+                    {c.title && <span className="text-muted-foreground"> · {c.title}</span>}
+                    <span className="block truncate text-xs text-muted-foreground">{c.email}</span>
+                  </span>
+                  {c.invited && <Badge variant="secondary">Invited</Badge>}
+                </label>
+                {gifts?.hasStep && onGift && <GiftToggle email={c.email} gifts={gifts} onChange={onGift} />}
+              </div>
             ))}
             {shown.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nobody matches that search.</p>}
           </div>

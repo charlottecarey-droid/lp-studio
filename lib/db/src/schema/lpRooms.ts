@@ -56,6 +56,10 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   visitAlert: boolean("visit_alert").notNull().default(false),
   /** The account doesn't allow direct outreach to its practices: no welcome kits or mail from the hub, and plays that need it are not suggested. */
   noDirectOutreach: boolean("no_direct_outreach").notNull().default(false),
+  /** Each person on the customer's side is offered their own welcome gift. Off for a hub whose customer doesn't accept gifts. */
+  giftsEnabled: boolean("gifts_enabled").notNull().default(true),
+  /** People (lower-case emails) the team turned the gift off for. */
+  giftOffEmails: jsonb("gift_off_emails").$type<string[]>().notNull().default([]),
   /** How the hub tells the account team about activity: "slack" (the channel above), "email" (the account owner), or "both". */
   notifyVia: text("notify_via").notNull().default("slack"),
   /** Set when a rep retired the hub: it leaves the list, its page is unpublished and its digest stops. Null = in use. */

@@ -171,7 +171,9 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
               }}
               onStage={(st) => {
                 // Saved on the page from the pop-up: keep the builder's copy in step, or its next save would undo it.
-                const next = { ...propsRef.current, stage: st.stage, stageSince: st.stageSince ?? undefined, timelineView: st.timelineView, waves: st.waves };
+                // Moving on (or back) also changes the action plan: take that too.
+                const plan = st.plan ? { planGroups: st.plan.planGroups as RoomWorkspaceBlockProps["planGroups"], rolloutPlanGroups: (st.plan.rolloutPlanGroups ?? undefined) as RoomWorkspaceBlockProps["rolloutPlanGroups"] } : {};
+                const next = { ...propsRef.current, stage: st.stage, stageSince: st.stageSince ?? undefined, timelineView: st.timelineView, waves: st.waves, ...plan };
                 propsRef.current = next;
                 onChange(next);
               }}

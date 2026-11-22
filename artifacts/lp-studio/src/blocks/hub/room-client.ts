@@ -91,6 +91,10 @@ export interface RoomSnapshot {
   gated?: boolean;
   /** For the account team: the addresses already let into the hub (invited, or allowed by hand). */
   invited?: string[];
+  /** This visitor's own welcome gift: offered to them, and whether they have accepted it. Absent for a visitor not yet recognised. */
+  gift?: { offered: boolean; accepted: boolean };
+  /** For a visitor not yet recognised: whether the hub offers welcome gifts at all. */
+  giftsEnabled?: boolean;
   /** The hub's own contents, handed to a recognised visitor of a hub that asks for an email first. */
   props?: Record<string, unknown>;
   /** A team member is looking at the hub as the customer sees it ("View as the customer"). */
@@ -345,6 +349,8 @@ class RoomStore {
         ...(asCustomer ? { asCustomer: true } : {}),
         gated: json.gated === true,
         ...(Array.isArray(json.invited) ? { invited: json.invited as string[] } : {}),
+        gift: json.gift && typeof json.gift === "object" ? { offered: (json.gift as { offered?: unknown }).offered === true, accepted: (json.gift as { accepted?: unknown }).accepted === true } : undefined,
+        giftsEnabled: typeof json.giftsEnabled === "boolean" ? json.giftsEnabled : undefined,
         ...(json.props && typeof json.props === "object" ? { props: json.props as Record<string, unknown> } : {}),
         tasks: (json.tasks as RoomSnapshot["tasks"]) ?? {},
         requests: Array.isArray(json.requests) ? (json.requests as RoomRequest[]) : [],

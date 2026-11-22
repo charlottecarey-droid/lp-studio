@@ -12,6 +12,7 @@
  *
  * Styles live in the room block's CSS string (`.prw-map*`).
  */
+import { useRegionalsWord } from "./room-words";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import type { RoomMapData, RoomMapPoint, RoomStoreHandle } from "./room-client";
@@ -164,6 +165,7 @@ const STAGE_GROUPS: Record<string, string[]> = { not_started: ["not_started"], s
 const MARK_LABEL: Record<MapMark, string> = { live: "Live", progress: "In progress", open: "Not started" };
 
 export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHandle | null; noun: string; stage: string; stageLabel: (stage: string) => string }) {
+  const rw = useRegionalsWord();
   const [data, setData] = useState<RoomMapData | null | "failed">(null);
   const [states, setStates] = useState<StateShape[]>([]);
   const [group, setGroup] = useState("");
@@ -341,7 +343,7 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
             <b>{picked.name}</b>
             <span className={`prw-chip ${picked.stage}`}>{stageLabel(picked.stage)}</span>
             <dl>
-              {picked.regionalManager && <><dt>Regional manager</dt><dd>{picked.regionalManager}</dd></>}
+              {picked.regionalManager && <><dt>{rw("Regional manager")}</dt><dd>{picked.regionalManager}</dd></>}
               {picked.officeType && <><dt>Office type</dt><dd>{picked.officeType}</dd></>}
               {(picked.address || picked.city) && <><dt>Address</dt><dd>{[picked.address, [picked.city, [picked.state, picked.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")].filter(Boolean).join(", ")}</dd></>}
               {picked.phone && <><dt>Phone</dt><dd>{picked.phone}</dd></>}
@@ -349,7 +351,7 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
             </dl>
           </div>
         ) : null}
-        <h4>{by === "manager" ? "Regional managers" : "Regions"}</h4>
+        <h4>{by === "manager" ? rw("Regional managers") : "Regions"}</h4>
         <div className="prw-map-groups">
           {groups.map((g) => (
             <button type="button" key={g.name} className={group === g.name ? "on" : ""} aria-pressed={group === g.name} onClick={() => pickGroup(g.name)} data-room-map-group={g.name}>

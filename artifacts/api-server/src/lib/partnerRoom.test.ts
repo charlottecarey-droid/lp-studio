@@ -184,7 +184,8 @@ describe("onboarding, choices, contacts, wins", () => {
   ];
   it("onboarding steps are tasks (upload stays upload, the rest are ticks) and win a key clash with the plan", () => {
     const tasks = extractRoomTasks(blocks);
-    expect([...tasks.keys()]).toEqual(["onboard-logo", "onboard-team", "onboard-gift", "next"]);
+    // The welcome gift is each person's own (partnerRoomGift), so it is not a hub-wide task.
+    expect([...tasks.keys()]).toEqual(["onboard-logo", "onboard-team", "next"]);
     expect(tasks.get("onboard-logo")?.action).toBe("upload");
     expect(tasks.get("onboard-team")?.action).toBe("check");
     expect(onboardingTeamStepKey(blocks)).toBe("onboard-team");

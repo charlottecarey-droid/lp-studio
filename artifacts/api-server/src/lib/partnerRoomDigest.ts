@@ -9,7 +9,7 @@
  * the room. The Slack version adds what the team needs to act on: blocking
  * items and decisions still open.
  */
-import { planTaskKey, ROOM_PROGRAM_DEFAULT_OPTIONS } from "./partnerRoom";
+import { fillRegionalsWord, planTaskKey, ROOM_PROGRAM_DEFAULT_OPTIONS } from "./partnerRoom";
 
 export interface DigestState {
   /** Task keys the customer completed, with when and by whom. */
@@ -290,7 +290,8 @@ export function collectDigest(blocks: unknown, state: DigestState, now: Date): D
     const t = doneKeys.get(key);
     // The practice list is in once we hold their practices, however it reached us (their upload, Salesforce, a sheet).
     const held = key === "practice-roster" && state.practices.total > 0;
-    return { key, label, done: !!t || held || rowByKey.get(key)?.status === "done", at: t?.at ?? null, thisWeek: !!t && t.at.getTime() >= weekAgo };
+    // In the customer's own word for its regional managers ("DBOs introduced").
+    return { key, label: fillRegionalsWord(label, typeof props.regionalsNoun === "string" ? props.regionalsNoun : ""), done: !!t || held || rowByKey.get(key)?.status === "done", at: t?.at ?? null, thisWeek: !!t && t.at.getTime() >= weekAgo };
   });
   const named = new Set(DIGEST_MILESTONES.map(([key]) => key));
   const kitRows = state.practices.rows ?? [];

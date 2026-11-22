@@ -1191,6 +1191,13 @@
       "when": 1758117300000,
       "tag": "0169_room_activity_and_last_digest",
       "breakpoints": false
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1758117400000,
+      "tag": "0170_room_welcome_gifts",
+      "breakpoints": false
     }
   ]
 }

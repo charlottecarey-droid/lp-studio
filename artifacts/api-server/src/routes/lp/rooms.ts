@@ -66,7 +66,9 @@ import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
 import { playRequest } from "../../lib/partnerRoomPlays";
 import { hubPlays, hubRestrictsOutreach, setNoDirectOutreach, setPlayState } from "../../lib/partnerRoomPlaysService";
-import { extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage } from "../../lib/partnerRoomStage";
+import { extendRoomStage, parseRoomStage, roomStageFromProps, roomStageInfo, setRoomStage } from "../../lib/partnerRoomStage";
+import { buildExpansionPlan, expansionReview, type ExpansionDecision } from "../../lib/partnerRoomExpansionPlan";
+import { giftFor, hubGiftStep, isGiftRequest, setGiftOff } from "../../lib/partnerRoomGift";
 import { kitAsanaTask, kitNotice } from "../../lib/partnerRoomKit";
 import { ASANA_GID_RE, hubAsanaTarget } from "../../lib/partnerRoomAsana";
 import { buildPlanQueue, isDeclineChoice, planRequest } from "../../lib/partnerRoomPlanQueue";
@@ -180,6 +182,8 @@ interface RoomPage {
   gated: boolean;
   /** The team switched on "show the map to anyone who opens the hub". */
   mapShared: boolean;
+  /** The getting-started step that accepts a welcome gift, when the hub shows one. */
+  giftStep: { key: string; title: string } | null;
 }
 
 async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
@@ -193,7 +197,7 @@ async function loadRoomPage(pageIdRaw: unknown): Promise<RoomPage | null> {
   if (!page || page.tenantId == null) return null;
   // Everything read from the page uses the account name filled in, as the page itself shows it.
   page.blocks = resolveRoomBlocks(page.blocks);
-  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks), gated: roomRequiresEmail(page.blocks), mapShared: roomSharesMap(page.blocks) };
+  return { id: page.id, tenantId: page.tenantId, title: page.title, slug: page.slug, tasks: extractRoomTasks(page.blocks), giftStep: hubGiftStep(page.blocks), isWorkspace: pageIsRoom(page.blocks), choices: extractRoomChoices(page.blocks), teamStepKey: onboardingTeamStepKey(page.blocks), partnerName: roomPartnerName(page.blocks), teamPeople: teamPeopleFromBlocks(page.blocks), gated: roomRequiresEmail(page.blocks), mapShared: roomSharesMap(page.blocks) };
 }
 
 async function loadSettings(pageId: number): Promise<{ allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId: string | null; asanaProjectGid: string | null; notifyVia: NotifyVia }> {
@@ -203,6 +207,18 @@ async function loadSettings(pageId: number): Promise<{ allowedDomains: string[];
     .where(eq(lpRoomSettingsTable.pageId, pageId))
     .limit(1);
   return { allowedDomains: Array.isArray(row?.allowedDomains) ? row.allowedDomains : [], slackChannelId: row?.slackChannelId ?? null, sfdcAccountId: row?.sfdcAccountId ?? null, asanaProjectGid: row?.asanaProjectGid ?? null, notifyVia: parseNotifyVia(row?.notifyVia) };
+}
+
+/** The hub's welcome gift switches: on for the hub unless turned off, and the people it is turned off for. */
+async function loadGiftSettings(pageId: number): Promise<{ giftsEnabled: boolean; giftOffEmails: string[] }> {
+  const [row] = await db.select({ giftsEnabled: lpRoomSettingsTable.giftsEnabled, giftOffEmails: lpRoomSettingsTable.giftOffEmails }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, pageId)).limit(1);
+  return { giftsEnabled: row ? row.giftsEnabled !== false : true, giftOffEmails: Array.isArray(row?.giftOffEmails) ? row.giftOffEmails : [] };
+}
+
+/** Everyone who has accepted their welcome gift on this hub (sent where to ship it). */
+async function giftAcceptedBy(pageId: number, stepKey: string): Promise<string[]> {
+  const rows = await db.select({ email: lpRoomRequestsTable.requestedByEmail, assetKey: lpRoomRequestsTable.assetKey, kind: lpRoomRequestsTable.kind, subject: lpRoomRequestsTable.subject }).from(lpRoomRequestsTable).where(eq(lpRoomRequestsTable.pageId, pageId)).limit(5000);
+  return [...new Set(rows.filter((r) => isGiftRequest(r, stepKey)).map((r) => r.email.toLowerCase()))];
 }
 
 async function memberStatus(pageId: number, email: string): Promise<RoomMemberStatus | null> {
@@ -567,7 +583,9 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
     // The account team sees who has already been let in, so the page can say "Invited" instead of offering it again.
     const invited = viewer?.team ? (await db.select({ email: lpRoomMembersTable.email }).from(lpRoomMembersTable).where(and(eq(lpRoomMembersTable.pageId, page.id), eq(lpRoomMembersTable.status, "allowed"))).limit(2000)).map((m) => m.email) : null;
     const props = page.gated && viewer ? roomWorkspaceProps((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks) : null;
-    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras, ...(props ? { props } : {}), ...(invited ? { invited } : {}) });
+    // The welcome gift is this person's own: offered unless the team turned it off for the hub or for them; accepted once they sent where to ship it.
+    const gift = page.giftStep && viewer ? giftFor(await loadGiftSettings(page.id), viewer, true, (await giftAcceptedBy(page.id, page.giftStep.key)).filter((e) => e.toLowerCase() === viewer.email.toLowerCase())) : null;
+    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras, ...(props ? { props } : {}), ...(invited ? { invited } : {}), ...(gift ? { gift } : {}), ...(page.giftStep && !viewer ? { giftsEnabled: (await loadGiftSettings(page.id)).giftsEnabled } : {}) });
   } catch (err) {
     req.log.error({ err }, "room state failed");
     res.status(500).json({ error: "Could not load the hub" });
@@ -779,6 +797,11 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
     const parsed = parseRoomRequest(req.body ?? {});
     if (!parsed.ok) {
       res.status(400).json({ error: parsed.error });
+      return;
+    }
+    // A gift turned off for this hub or this person can't be accepted from a page that was open before.
+    if (page.giftStep && parsed.assetKey === page.giftStep.key && !giftFor(await loadGiftSettings(page.id), viewer, true, []).offered) {
+      res.status(403).json({ error: "Welcome gifts aren't offered here. Your account team can tell you more." });
       return;
     }
     const [row] = await db
@@ -1636,6 +1659,8 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       sheet: { id: fullSettings?.practicesSheetId ?? null, tab: fullSettings?.practicesSheetTab ?? null, syncedAt: fullSettings?.practicesSyncedAt?.toISOString() ?? null, note: fullSettings?.practicesSyncNote ?? null, filterColumn: fullSettings?.practicesSheetFilterColumn ?? null, filterValue: fullSettings?.practicesSheetFilterValue ?? null },
       revopsSlackMention: fullSettings?.revopsSlackMention ?? null,
       visitAlert: !!fullSettings?.visitAlert,
+      // Welcome gifts: on for the hub unless turned off, who they are turned off for, and who has accepted theirs.
+      ...(page.isWorkspace ? { gifts: { hasStep: !!page.giftStep, enabled: fullSettings ? fullSettings.giftsEnabled !== false : true, off: Array.isArray(fullSettings?.giftOffEmails) ? fullSettings.giftOffEmails : [], accepted: page.giftStep ? [...new Set(requests.filter((r) => isGiftRequest(r, page.giftStep!.key)).map((r) => r.requestedByEmail.toLowerCase()))] : [] } } : {}),
       // How the hub tells the team about activity, and who an email would go to (null = no account owner we can match to a team member).
       notify: { via: parseNotifyVia(fullSettings?.notifyVia), owner: page.isWorkspace ? await hubOwnerEmail(page.tenantId, page.id).catch(() => null) : null },
       archivedAt: fullSettings?.archivedAt?.toISOString() ?? null,
@@ -2530,16 +2555,73 @@ router.put("/lp/partner-rooms/:pageId/stage", async (req: Request, res: Response
       return;
     }
     const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
-    const next = row ? setRoomStage(row.blocks, parsed.value) : null;
+    const ctx = parsed.value.stage === "expansion" ? await expansionPlanContext(page.id) : {};
+    const next = row ? setRoomStage(row.blocks, parsed.value, new Date(), { ...ctx, decisions: expansionDecisions(req.body?.plan?.decisions) }) : null;
     if (!next) {
       res.status(400).json({ error: "This page isn't a Partner Hub." });
       return;
     }
     await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
-    res.json({ ok: true, stage: roomStageInfo(next) });
+    // The plan changes with the stage: an open builder takes it too, so its next save doesn't put the old plan back.
+    const hubProps = (next as { type?: string; props?: Record<string, unknown> }[]).find((b) => b?.type === "room-workspace")?.props ?? {};
+    res.json({ ok: true, stage: roomStageInfo(next), planGroups: hubProps.planGroups ?? [], rolloutPlanGroups: hubProps.rolloutPlanGroups ?? null });
   } catch (err) {
     req.log.error({ err }, "room stage save failed");
     res.status(500).json({ error: "Could not save the stage" });
+  }
+});
+
+/**
+ * Before moving a hub past its rollout: the plan steps still open, what the
+ * rules suggest for each (keep or retire), and what the new plan will add.
+ */
+router.get("/lp/partner-rooms/:pageId/stage/expansion-preview", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const hubProps = (Array.isArray(row?.blocks) ? (row!.blocks as { type?: string; props?: Record<string, unknown> }[]) : []).find((b) => b?.type === "room-workspace")?.props;
+    if (!hubProps) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    const ctx = await expansionPlanContext(page.id);
+    const stage = roomStageFromProps(hubProps);
+    const today = new Date().toISOString().slice(0, 10);
+    const adds = buildExpansionPlan([], { waves: stage.waves, productSummary: ctx.productSummary, today }).map((g) => ({ title: g.title, steps: g.rows.length }));
+    res.json({ open: expansionReview(hubProps.rolloutPlanGroups ?? hubProps.planGroups, ctx.ticked), adds });
+  } catch (err) {
+    req.log.error({ err }, "room expansion preview failed");
+    res.status(500).json({ error: "Could not load the plan" });
+  }
+});
+
+/**
+ * Welcome gifts: turn them on or off for the whole hub ({ enabled }), or for
+ * one person ({ email, off }). Some customers don't accept gifts.
+ */
+router.put("/lp/partner-rooms/:pageId/gifts", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const now = await loadGiftSettings(page.id);
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase().slice(0, 254) : "";
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ error: "That email address doesn't look right." });
+      return;
+    }
+    const next = {
+      giftsEnabled: typeof req.body?.enabled === "boolean" ? req.body.enabled : now.giftsEnabled,
+      giftOffEmails: email ? setGiftOff(now.giftOffEmails, email, req.body?.off === true) : now.giftOffEmails,
+    };
+    await db
+      .insert(lpRoomSettingsTable)
+      .values({ pageId: page.id, tenantId: page.tenantId, allowedDomains: [], ...next })
+      .onConflictDoUpdate({ target: lpRoomSettingsTable.pageId, set: { ...next, updatedAt: sql`now()` } });
+    res.json({ ok: true, enabled: next.giftsEnabled, off: next.giftOffEmails });
+  } catch (err) {
+    req.log.error({ err }, "room gifts save failed");
+    res.status(500).json({ error: "Could not save" });
   }
 });
 
@@ -2885,6 +2967,23 @@ async function roomKitFor(pageId: number) {
 }
 
 /** The hub's goals as stored on the page, for the manage pop-up to edit. */
+/** What moving a hub past its rollout needs to know: what the customer has ticked, and how many practices order each product line. */
+async function expansionPlanContext(pageId: number): Promise<{ ticked: string[]; productSummary: ReturnType<typeof productLineSummary> | null }> {
+  const [ticks, products] = await Promise.all([
+    db.select({ key: lpRoomTaskStateTable.taskKey }).from(lpRoomTaskStateTable).where(eq(lpRoomTaskStateTable.pageId, pageId)),
+    db.select({ products: lpRoomPracticesTable.products }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, pageId), sql`COALESCE(${lpRoomPracticesTable.products}, '') <> ''`)).limit(5000),
+  ]);
+  return { ticked: ticks.map((t) => t.key), productSummary: products.length ? productLineSummary(products.map((r) => r.products ?? "")) : null };
+}
+
+/** The rep's keep / retire choices for the open rollout steps, as sent. */
+function expansionDecisions(raw: unknown): Record<string, ExpansionDecision> {
+  const out: Record<string, ExpansionDecision> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>).slice(0, 200)) if (v === "keep" || v === "retire") out[k.slice(0, 80)] = v;
+  return out;
+}
+
 async function roomStageFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomStageInfo(row.blocks) : null;

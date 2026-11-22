@@ -16,6 +16,7 @@
  *
  * Styles live in the room block's CSS string (`.prw-sc-*`).
  */
+import { useRegionalsWord } from "./room-words";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Download, List, Mail, Package, Map as MapIcon, Search, X } from "lucide-react";
 import { RoomMap } from "./RoomMap";
@@ -345,6 +346,8 @@ const TILES: { key: RoomPracticeStageFilter | "all"; label: string }[] = [
 
 export function ScorecardView({ snapshot, store, isEditor, noun, display, goals, onNeedEmail, mapShared = false }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; /** The hub shows its map to every visitor, not only the team. */ mapShared?: boolean; isEditor: boolean; noun: string; display: string; goals: ScorecardGoal[]; onNeedEmail: () => void }) {
   const pr = snapshot.practices;
+  // The customer's word for its regional managers ("DBOs") in the column names.
+  const rw = useRegionalsWord();
   const trend = pr.trend ?? [];
   const byRegion = pr.byRegion ?? [];
   const waves = pr.waves ?? [];
@@ -543,7 +546,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                   ? `${check.matched ?? 0} of the ${check.onRoster ?? 0} ${noun} on “${check.fileName}” are in Salesforce. Fix the account hierarchy so the scorecard counts every ${one}.`
                   : `All ${check.onRoster ?? 0} ${noun} on “${check.fileName}” are in Salesforce.`}
                 {check.doctors ? ` Their roster lists ${check.doctors} doctors${check.doctorsUnmatched ? `, ${check.doctorsUnmatched} of them at a practice that isn't in Salesforce` : ""}.` : ""}
-                {check.enriched ? ` It added regional managers, office managers or addresses to ${check.enriched} ${noun}.` : ""}
+                {check.enriched ? rw(` It added regional managers, office managers or addresses to ${check.enriched} ${noun}.`) : ""}
                 {check.added ? ` ${check.added} ${noun} from their roster were added to the hub.` : ""}
               </span>
             </div>
@@ -745,7 +748,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                   {offered.map((c) => (
                     <label key={c.key}>
                       <input type="checkbox" checked={picked[c.key] ?? c.on} onChange={(e) => toggleColumn(c.key, e.target.checked)} data-room-column={c.key} />
-                      {c.label}
+                      {rw(c.label)}
                       {c.teamOnly && <em>team only</em>}
                     </label>
                   ))}
@@ -797,7 +800,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                     </th>
                   )}
                   <Th k="name" width={colCount > 6 ? "24%" : "34%"}>{Noun.replace(/s$/, "")}</Th>
-                  {shown.map((c) => <Th key={c.key} k={c.sort}>{c.label}</Th>)}
+                  {shown.map((c) => <Th key={c.key} k={c.sort}>{rw(c.label)}</Th>)}
                   <Th k="stage">Status</Th>
                 </tr>
               </thead>

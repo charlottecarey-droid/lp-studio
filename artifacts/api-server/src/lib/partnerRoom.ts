@@ -23,6 +23,7 @@
  * Revocation still works because every action re-checks that the address is
  * allowed right now.
  */
+import { isGiftStep } from "./partnerRoomGift";
 import crypto from "crypto";
 import { splitAddress, usingDandyStage, zip5 } from "./partnerRoomGeo";
 import { firstDateIn } from "./partnerRoomDates";
@@ -283,6 +284,8 @@ export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
     if (Array.isArray(steps)) {
       for (const step of steps) {
         if (!step || typeof step !== "object") continue;
+        // The welcome gift is each person's own (partnerRoomGift), never one tick for the whole hub.
+        if (isGiftStep(step as { key?: unknown; title?: unknown })) continue;
         const a = (step as { action?: unknown }).action;
         const key = planTaskKey({ key: (step as { key?: unknown }).key, task: (step as { title?: unknown }).title });
         if (!key || out.has(key) || !["upload", "check", "team", "link", "request"].includes(String(a))) continue;
@@ -309,6 +312,8 @@ export function extractRoomTasks(blocks: unknown): Map<string, RoomTask> {
       if (!Array.isArray(rows)) continue;
       for (const row of rows) {
         if (!row || typeof row !== "object") continue;
+        // Set aside when the hub moved past its rollout: nothing to wait on or remind anyone about.
+        if ((row as { retired?: unknown }).retired === true) continue;
         const action = (row as { customerAction?: unknown }).customerAction;
         if (action !== "check" && action !== "upload") continue;
         const key = planTaskKey(row as { key?: unknown; task?: unknown });
@@ -664,7 +669,7 @@ export function parsePracticeRow(row: Record<string, unknown>, now: Date = new D
     // Salesforce's own column names for the scanner dates are accepted as they are.
     scannerSent: get("scannerSent", "scanner_sent", "scanner sent", "scanner delivered", "scanner shipped", "scanner sent date", "first opp"),
     scannerActivated: get("scannerActivated", "scanner_activated", "scanner activated", "scanner connected", "scanner activation date"),
-    regionalManager: get("regionalManager", "regional_manager", "regional manager", "regional manager name", "region manager", "rm", "rdo", "regional director", "regional director of operations"),
+    regionalManager: get("regionalManager", "regional_manager", "regional manager", "regional manager name", "region manager", "rm", "rdo", "regional director", "regional director of operations", "dbo", "rd"),
     scannerCount: count != null && /^\d{1,4}$/.test(count) ? Number(count) : null,
     scannerModels: get("scannerModels", "scanner_models", "scanner models", "scanner type") ?? (models || null),
     scannerBrand: noneAsBlank(get("scannerBrand", "scanner_brand", "scanner brand", "brand of scanner at office", "brand of scanner")),
@@ -1186,19 +1191,43 @@ export const ROOM_STANDARD_ASSETS: { key: string; title: string; description: st
 // The builder's page-level names for the same thing ({{account_name}}, {{company}}, {{company_name}}) work too.
 const ACCOUNT_TOKEN = /\{\{\s*(?:account|account_name|company|company_name)\s*\}\}|\[partner name\]/gi;
 const ACCOUNT_SHORT_TOKEN = /\{\{\s*account_short\s*\}\}|\[partner\]/gi;
-const NAME_KEYS = new Set(["partnerName", "partnerShort"]);
+const NAME_KEYS = new Set(["partnerName", "partnerShort", "regionalsNoun", "locationsNoun"]);
 
 /** Replace the account-name variables in one string. `{{account}}` / `[Partner name]` → the name; `{{account_short}}` / `[Partner]` → the short name (or the name). */
 export function fillAccountName(text: string, name: string, short: string): string {
   return text.includes("{{") || text.includes("[") ? text.replace(ACCOUNT_TOKEN, name).replace(ACCOUNT_SHORT_TOKEN, short) : text;
 }
 
-function fillDeep(node: unknown, name: string, short: string): unknown {
-  if (typeof node === "string") return fillAccountName(node, name, short);
+const REGIONALS = /\b(regional)\s+(manager|leader)(s?)\b/gi;
+const isAcronym = (w: string) => (w.match(/[A-Z]/g) ?? []).length >= 2;
+const capWord = (w: string) => (isAcronym(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+const lowWord = (w: string) => (isAcronym(w) ? w : w.toLowerCase());
+
+/**
+ * What the customer calls its regional managers ("DBOs", "RDs", "regional
+ * directors", plural): every "regional manager(s)" / "regional leader(s)"
+ * becomes it, keeping the sentence's capitals; acronyms keep theirs. Blank
+ * leaves the text alone. Same rule as the hub page's `fillRegionalsWord`
+ * (blocks/hub/room-words.ts).
+ */
+export function fillRegionalsWord(text: string, word: string): string {
+  const plural = word.replace(/\s+/g, " ").trim();
+  if (!plural || !/regional/i.test(text)) return text;
+  const singular = /s$/i.test(plural) && plural.length > 1 ? plural.slice(0, -1) : plural;
+  return text.replace(REGIONALS, (_m, first: string, second: string, s: string) => {
+    const words = (s ? plural : singular).split(" ");
+    if (/^[A-Z]/.test(first) && /^[A-Z]/.test(second)) return words.map(capWord).join(" ");
+    if (/^[A-Z]/.test(first)) return words.map((w, i) => (i === 0 ? capWord(w) : lowWord(w))).join(" ");
+    return words.map(lowWord).join(" ");
+  });
+}
+
+function fillDeep(node: unknown, name: string, short: string, regionals = ""): unknown {
+  if (typeof node === "string") return fillRegionalsWord(name ? fillAccountName(node, name, short) : node, regionals);
   if (Array.isArray(node)) {
     let changed = false;
     const out = node.map((n) => {
-      const r = fillDeep(n, name, short);
+      const r = fillDeep(n, name, short, regionals);
       if (r !== n) changed = true;
       return r;
     });
@@ -1208,7 +1237,7 @@ function fillDeep(node: unknown, name: string, short: string): unknown {
     let changed = false;
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(node)) {
-      const r = NAME_KEYS.has(k) ? v : fillDeep(v, name, short);
+      const r = NAME_KEYS.has(k) ? v : fillDeep(v, name, short, regionals);
       if (r !== v) changed = true;
       out[k] = r;
     }
@@ -1228,10 +1257,12 @@ export function resolveRoomBlocks<T>(blocks: T): T {
   return blocks.map((b) => {
     if (!b || typeof b !== "object" || (b as { type?: unknown }).type !== "room-workspace") return b;
     const props = (b as { props?: Record<string, unknown> }).props ?? {};
-    const name = typeof props.partnerName === "string" ? props.partnerName.trim() : "";
-    if (!name || /^\[partner/i.test(name) || /\{\{/.test(name)) return b;
+    const typed = typeof props.partnerName === "string" ? props.partnerName.trim() : "";
+    const name = !typed || /^\[partner/i.test(typed) || /\{\{/.test(typed) ? "" : typed;
+    const regionals = typeof props.regionalsNoun === "string" ? props.regionalsNoun.trim() : "";
+    if (!name && !regionals) return b;
     const short = typeof props.partnerShort === "string" && props.partnerShort.trim() && !/^\[partner/i.test(props.partnerShort.trim()) ? props.partnerShort.trim() : name;
-    const next = fillDeep(props, name, short);
+    const next = fillDeep(props, name, short, regionals);
     return next === props ? b : { ...b, props: next };
   }) as unknown as T;
 }
@@ -1265,7 +1296,7 @@ export function roomOgCardCopy(blocks: unknown, brandName: string): { headline: 
 /* ── Account and team, edited from the team's pop-up ─────────────────────── */
 
 /** The page props the pop-up's Account settings may change. Mirrors the client's ROOM_ACCOUNT_KEYS. */
-export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "scheduleAction", "scheduleChilipiperUrl", "scheduleVideoUrl", "modalChilipiperUrl", "modalFormSource", "modalFormId", "modalMarketoBaseUrl", "modalMarketoMunchkinId", "modalMarketoFormId", "modalChiliPiperHandoffUrl", "modalChiliPiperHandoffMode", "modalChiliPiperHandoffFieldMap", "modalHeadline", "modalSubheadline", "modalSubmitText", "modalSuccessMessage", "modalDisclaimer", "modalShowFirstName", "modalShowLastName", "modalShowPhone", "modalShowCompany", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
+export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "locationsNoun", "regionalsNoun", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "scheduleAction", "scheduleChilipiperUrl", "scheduleVideoUrl", "modalChilipiperUrl", "modalFormSource", "modalFormId", "modalMarketoBaseUrl", "modalMarketoMunchkinId", "modalMarketoFormId", "modalChiliPiperHandoffUrl", "modalChiliPiperHandoffMode", "modalChiliPiperHandoffFieldMap", "modalHeadline", "modalSubheadline", "modalSubmitText", "modalSuccessMessage", "modalDisclaimer", "modalShowFirstName", "modalShowLastName", "modalShowPhone", "modalShowCompany", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
 export const ROOM_TEAM_MAX_GROUPS = 8;
 export const ROOM_TEAM_MAX_MEMBERS = 200;
 
@@ -1299,6 +1330,8 @@ export function parseRoomAccount(raw: unknown): Parsed<Record<string, unknown>> 
     out.partnerName = name;
   }
   if (has("partnerShort")) out.partnerShort = cleanText(r.partnerShort, 60);
+  // What the customer calls its locations and its regional managers, plural ("offices", "DBOs").
+  for (const k of ["locationsNoun", "regionalsNoun"] as const) if (has(k)) out[k] = cleanText(r[k], 40);
   for (const k of ["partnerLogoUrl", "heroImageUrl", "feedPhotoUrl"] as const) {
     if (!has(k)) continue;
     const url = imageAddress(r[k]);

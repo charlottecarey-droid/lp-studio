@@ -11,6 +11,8 @@
  * All of it lives in the hub block's props, so it travels with the page. Pure.
  */
 
+import { addWaveGroups, buildExpansionPlan, type ExpansionDecision } from "./partnerRoomExpansionPlan";
+
 export const ROOM_STAGES = ["rollout", "expansion"] as const;
 export type RoomStage = (typeof ROOM_STAGES)[number];
 export const ROOM_TIMELINE_VIEWS = ["waves", "practices"] as const;
@@ -105,13 +107,25 @@ export function roomStageInfo(blocks: unknown, now: Date = new Date()): RoomStag
   return block ? roomStageFromProps(block.props, now) : null;
 }
 
+/** What the action plan needs when a hub moves past its rollout (see partnerRoomExpansionPlan). */
+export interface RoomStagePlanContext {
+  decisions?: Record<string, ExpansionDecision>;
+  productSummary?: { ordering: number; lines: { line: string; practices: number }[] } | null;
+  /** Plan keys the customer has ticked. */
+  ticked?: Iterable<string>;
+}
+
 /**
  * Save the stage, the waves and the timeline choice. Moving to a new stage
  * records the day it happened and clears any "ask me later"; saving without
  * changing the stage keeps the day. Returns new blocks, or null when the page
  * has no hub.
+ *
+ * The action plan follows the stage: moving to expansion swaps the launch
+ * checklist for the plan after it (the rollout plan is kept and comes back
+ * on moving back); waves added while in expansion get their own group.
  */
-export function setRoomStage(blocks: unknown, input: RoomStageInput, now: Date = new Date()): unknown[] | null {
+export function setRoomStage(blocks: unknown, input: RoomStageInput, now: Date = new Date(), plan: RoomStagePlanContext = {}): unknown[] | null {
   const block = hub(blocks);
   if (!block || !Array.isArray(blocks)) return null;
   const was = roomStageFromProps(block.props, now);
@@ -120,6 +134,16 @@ export function setRoomStage(blocks: unknown, input: RoomStageInput, now: Date =
     delete props.stageExtendUntil;
     if (input.stage === "rollout") delete props.stageSince;
     else props.stageSince = today(now);
+  }
+  if (input.stage === "expansion" && was.stage === "rollout") {
+    // Keep the launch plan exactly as it was (only the first time, so a hub moved back and forth keeps the original).
+    if (!Array.isArray(props.rolloutPlanGroups)) props.rolloutPlanGroups = props.planGroups ?? [];
+    props.planGroups = buildExpansionPlan(props.rolloutPlanGroups, { decisions: plan.decisions, waves: input.waves, productSummary: plan.productSummary ?? null, ticked: plan.ticked, today: today(now) });
+  } else if (input.stage === "rollout" && was.stage === "expansion" && Array.isArray(props.rolloutPlanGroups)) {
+    props.planGroups = props.rolloutPlanGroups;
+    delete props.rolloutPlanGroups;
+  } else if (input.stage === "expansion") {
+    props.planGroups = addWaveGroups(props.planGroups, input.waves, today(now));
   }
   return blocks.map((b) => (b === block ? { ...(b as object), props } : b));
 }

@@ -22,7 +22,7 @@ import { pickCtaModalConfig, type CtaSuiteFields } from "@/lib/cta-modal";
 import type { HeroCtaActionMode } from "@/lib/block-types";
 
 /** The page props the account fields edit. The pop-up saves exactly these. */
-export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "scheduleAction", "scheduleChilipiperUrl", "scheduleVideoUrl", "modalChilipiperUrl", "modalFormSource", "modalFormId", "modalMarketoBaseUrl", "modalMarketoMunchkinId", "modalMarketoFormId", "modalChiliPiperHandoffUrl", "modalChiliPiperHandoffMode", "modalChiliPiperHandoffFieldMap", "modalHeadline", "modalSubheadline", "modalSubmitText", "modalSuccessMessage", "modalDisclaimer", "modalShowFirstName", "modalShowLastName", "modalShowPhone", "modalShowCompany", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
+export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "locationsNoun", "regionalsNoun", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "scheduleAction", "scheduleChilipiperUrl", "scheduleVideoUrl", "modalChilipiperUrl", "modalFormSource", "modalFormId", "modalMarketoBaseUrl", "modalMarketoMunchkinId", "modalMarketoFormId", "modalChiliPiperHandoffUrl", "modalChiliPiperHandoffMode", "modalChiliPiperHandoffFieldMap", "modalHeadline", "modalSubheadline", "modalSubmitText", "modalSuccessMessage", "modalDisclaimer", "modalShowFirstName", "modalShowLastName", "modalShowPhone", "modalShowCompany", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
 export type RoomAccountProps = Pick<RoomWorkspaceBlockProps, (typeof ROOM_ACCOUNT_KEYS)[number]>;
 export type RoomTeamProps = Pick<RoomWorkspaceBlockProps, "team" | "teamNote">;
 
@@ -188,7 +188,10 @@ export function RoomAccountFields({ props, update, team, brandName, note }: { pr
         <div className="grid gap-2 sm:grid-cols-2">
           <Field label="Customer name"><Input value={props.partnerName ?? ""} onChange={(e) => update({ partnerName: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
           <Field label="Short name (optional)"><Input value={props.partnerShort ?? ""} onChange={(e) => update({ partnerShort: e.target.value })} className="h-8 text-xs" placeholder="Used where space is tight" /></Field>
+          <Field label="What they call a location"><Input value={props.locationsNoun ?? ""} onChange={(e) => update({ locationsNoun: e.target.value })} className="h-8 text-xs" placeholder="locations" maxLength={40} data-room-account-locations /></Field>
+          <Field label="What they call regional managers"><Input value={props.regionalsNoun ?? ""} onChange={(e) => update({ regionalsNoun: e.target.value })} className="h-8 text-xs" placeholder="regional managers" maxLength={40} data-room-account-regionals /></Field>
         </div>
+        <p className="text-[11px] text-muted-foreground">Plural, as they say it: “offices”, “DBOs”, “RDOs”, “RDs”, “regional directors”. The hub uses these words everywhere it would say “locations” or “regional managers”.</p>
         <div className="flex items-start gap-3">
           <ThumbButton value={props.partnerLogoUrl ?? ""} onChange={(url) => update({ partnerLogoUrl: url })} label="Customer logo" />
           <div className="min-w-0 flex-1 space-y-2">

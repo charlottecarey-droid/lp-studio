@@ -14,6 +14,7 @@ import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed, opensInViewer, resolveAssetHref, type HubAsset, type HubAssetAction } from "./hub/hub-assets";
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
+import { fillRegionalsWord, RegionalsWord } from "./hub/room-words";
 import { OrdersAtAGlance, ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
 import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
 import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
@@ -107,6 +108,8 @@ export interface RoomMilestone {
   customerAction?: "check" | "upload";
   uploadLabel?: string;
   hidden?: boolean;
+  /** Still open when the hub moved past its rollout and set aside then: hidden from the customer, listed for the team. */
+  retired?: boolean;
 }
 
 export interface RoomPlanGroup {
@@ -159,7 +162,7 @@ export function isBrandCollateral(a: RoomAsset): boolean {
 // The builder's page-level names for the same thing ({{account_name}}, {{company}}, {{company_name}}) work too.
 const ACCOUNT_TOKEN = /\{\{\s*(?:account|account_name|company|company_name)\s*\}\}|\[partner name\]/gi;
 const ACCOUNT_SHORT_TOKEN = /\{\{\s*account_short\s*\}\}|\[partner\]/gi;
-const NAME_KEYS = new Set(["partnerName", "partnerShort"]);
+const NAME_KEYS = new Set(["partnerName", "partnerShort", "regionalsNoun", "locationsNoun"]);
 
 /** `{{account}}` / `[Partner name]` → the customer's name; `{{account_short}}` / `[Partner]` → the short name (or the name). Same rule as the server's fillAccountName. */
 export function fillAccountName(text: string, name: string, short: string): string {
@@ -175,11 +178,14 @@ export function fillAccountName(text: string, name: string, short: string): stri
 export function resolveRoomProps(raw: RoomWorkspaceBlockProps): { props: RoomWorkspaceBlockProps; rawOf: WeakMap<object, object> } {
   const rawOf = new WeakMap<object, object>();
   const name = (raw.partnerName ?? "").trim();
-  if (!name || /^\[partner/i.test(name) || /\{\{/.test(name)) return { props: raw, rawOf };
+  const named = !!name && !/^\[partner/i.test(name) && !/\{\{/.test(name);
+  // What the customer calls its regional managers ("DBOs"): swapped in wherever the hub says "regional managers".
+  const regionals = (raw.regionalsNoun ?? "").trim();
+  if (!named && !regionals) return { props: raw, rawOf };
   const shortRaw = (raw.partnerShort ?? "").trim();
   const short = shortRaw && !/^\[partner/i.test(shortRaw) ? shortRaw : name;
   const fill = (node: unknown): unknown => {
-    if (typeof node === "string") return fillAccountName(node, name, short);
+    if (typeof node === "string") return fillRegionalsWord(named ? fillAccountName(node, name, short) : node, regionals);
     if (Array.isArray(node)) {
       let changed = false;
       const out = node.map((n) => {
@@ -499,6 +505,8 @@ export interface RoomWorkspaceBlockProps extends CtaModalConfig {
   phases?: RoomPhase[];
   planIntro?: string;
   planGroups?: RoomPlanGroup[];
+  /** The launch plan as it was when the hub moved past its rollout; moving back puts it back. Set by the server. */
+  rolloutPlanGroups?: RoomPlanGroup[];
   kitIntro?: string;
   assets?: RoomAsset[];
   /** Important links. One with a `fileUrl` is an uploaded file (PDF or image) and opens in the viewer. */
@@ -514,6 +522,8 @@ export interface RoomWorkspaceBlockProps extends CtaModalConfig {
   partnerShort?: string;
   /** What the customer calls a location ("practices", "locations", "stores"). */
   locationsNoun?: string;
+  /** What the customer calls its regional managers ("DBOs", "RDs", "regional directors"), plural. Blank = "regional managers". */
+  regionalsNoun?: string;
   teamNote?: string;
   team?: RoomTeamGroup[];
   /** Accent on the dark cover (stats, "make a request"). Blank = the brand accent. */
@@ -1912,7 +1922,13 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const expansion = props.stage === "expansion";
   const phases = (props.phases ?? []).slice(0, 5);
   const states = phaseStates(phases, day);
-  const groups = useMemo(() => (props.planGroups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, rows: (g.rows ?? []).filter((r) => !r.hidden) })), [props.planGroups]);
+  // Past the rollout, a launch phase left with nothing to show (its open steps carried forward or retired) is dropped.
+  const groups = useMemo(
+    () => (props.planGroups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, rows: (g.rows ?? []).filter((r) => !r.hidden) })).filter((g) => props.stage !== "expansion" || g.rows.length > 0),
+    [props.planGroups, props.stage],
+  );
+  // Team only: launch steps still open when the hub moved on and set aside then.
+  const retiredSteps = useMemo(() => (props.planGroups ?? []).flatMap((g) => (g.rows ?? []).filter((r) => r.retired && r.hidden).map((r) => ({ r, phase: g.title }))), [props.planGroups]);
   const assets = (props.assets ?? []).filter((a) => !a.hidden);
   const links = (props.links ?? []).filter((l) => !l.hidden);
   const team = (props.team ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, members: (g.members ?? []).filter((m) => !m.hidden) }));
@@ -1920,7 +1936,17 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const programGroups = (props.marketing?.groups ?? []).filter((g) => !g.hidden).map((g) => ({ ...g, programs: (g.programs ?? []).filter((x) => !x.hidden).map((x) => ({ ...x, options: roomProgramOptions(x) })) }));
   const undecided = programGroups.flatMap((g) => g.programs).filter((x) => (x.options ?? []).length >= 2 && !snapshot.choices[roomMilestoneKey({ key: x.key, task: x.title })]);
   // Onboarding: a step is done when the team ticked it in the builder or the customer completed it.
-  const steps = props.onboarding?.hidden ? [] : (props.onboarding?.steps ?? []).filter((x) => !x.hidden).map((x) => ({ step: x, key: roomMilestoneKey({ key: x.key, task: x.title }) })).map((x) => ({ ...x, saved: snapshot.tasks[x.key], done: !!x.step.done || !!snapshot.tasks[x.key]?.done }));
+  // The welcome gift is each person's own: shown only to someone it is offered to (the team can turn it off for
+  // the hub or one person), and done once they have sent where to ship it, never for everyone at once.
+  const [giftSent, setGiftSent] = useState(false);
+  const giftShown = isEditor || !!snapshot.viewer?.team || (snapshot.gift ? snapshot.gift.offered : snapshot.giftsEnabled !== false);
+  const giftDone = giftSent || !!snapshot.gift?.accepted;
+  const steps = props.onboarding?.hidden
+    ? []
+    : (props.onboarding?.steps ?? [])
+        .filter((x) => !x.hidden && (giftShown || !isGiftStep(x)))
+        .map((x) => ({ step: x, key: roomMilestoneKey({ key: x.key, task: x.title }) }))
+        .map((x) => ({ ...x, saved: snapshot.tasks[x.key], done: !!x.step.done || (isGiftStep(x.step) ? giftDone : !!snapshot.tasks[x.key]?.done) }));
   const stepsOpen = steps.filter((x) => !x.done);
   // The launch kit and the marketing plan are one module: links first, then what needs a decision, what is ready, what is under way, and what is saved for later.
   const hiddenSet = new Set(props.hiddenModules ?? []);
@@ -2113,7 +2139,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
           teamCount={theirPeople.length}
           onNeedEmail={() => setAsk({ kind: "email" })}
           onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
-          onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key, form: isGiftStep(x.step) ? "shipping" : undefined })}
+          onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key, form: isGiftStep(x.step) ? "shipping" : undefined, assetKey: isGiftStep(x.step) ? x.key : undefined })}
         />
       ),
     })),
@@ -2476,7 +2502,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         teamCount={theirPeople.length}
                         onNeedEmail={() => setAsk({ kind: "email" })}
                         onAddTeam={() => needViewer(() => setAsk({ kind: "contact" }))}
-                        onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key, form: isGiftStep(x.step) ? "shipping" : undefined })}
+                        onRequest={() => openRequest({ subject: x.step.title, kind: x.step.requestKind || "other", stepKey: x.key, form: isGiftStep(x.step) ? "shipping" : undefined, assetKey: isGiftStep(x.step) ? x.key : undefined })}
                       />
                         );
                       }
@@ -2639,7 +2665,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 )}
                 {expansion && groups.some((_, gi) => planGroupDone(gi)) && (
                   <details className="prw-sec prw-plan-done" data-room-plan-completed>
-                    <summary className="prw-meta" style={{ cursor: "pointer" }}>Rollout, completed ({rows.filter((x) => planGroupDone(x.gi)).length})</summary>
+                    <summary className="prw-meta" style={{ cursor: "pointer" }}>Completed ({rows.filter((x) => planGroupDone(x.gi)).length})</summary>
                     <div style={{ marginTop: 16 }}>
                 <table className="prw-plan">
                   <thead>
@@ -2660,6 +2686,18 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   </tbody>
                 </table>
                     </div>
+                  </details>
+                )}
+                {expansion && retiredSteps.length > 0 && (isEditor || !!snapshot.viewer?.team) && (
+                  <details className="prw-sec prw-plan-done" data-room-plan-retired>
+                    <summary className="prw-meta" style={{ cursor: "pointer" }}>Not done at rollout ({retiredSteps.length}) · only your team sees this</summary>
+                    <ul style={{ margin: "12px 0 0", padding: 0, listStyle: "none" }}>
+                      {retiredSteps.map(({ r, phase }) => (
+                        <li key={roomMilestoneKey(r)} className="prw-meta" style={{ padding: "6px 0", borderTop: "1px solid var(--line, #E7E7E0)" }}>
+                          <span style={{ color: "var(--ink, inherit)" }}>{r.task}</span> · {phase}
+                        </li>
+                      ))}
+                    </ul>
                   </details>
                 )}
               </>
@@ -2726,7 +2764,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               </>
             )}
 
-            {active === "practices" && <ScorecardView snapshot={snapshot} store={store ?? room.reader} mapShared={!!props.shareMap} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} />}
+            {active === "practices" && <RegionalsWord.Provider value={(props.regionalsNoun ?? "").trim()}><ScorecardView snapshot={snapshot} store={store ?? room.reader} mapShared={!!props.shareMap} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} /></RegionalsWord.Provider>}
 
             {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
 
@@ -2973,7 +3011,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
           onSent={(stepKey) => {
             setAsk(null);
             // A request sent from an onboarding step completes that step; otherwise show the tracker.
-            if (stepKey) void store.setTaskDone(stepKey, true);
+            // The welcome gift is this person's own, so it is never ticked for the whole hub.
+            const fromStep = stepKey ? props.onboarding?.steps.find((x) => roomMilestoneKey({ key: x.key, task: x.title }) === stepKey) : undefined;
+            if (fromStep && isGiftStep(fromStep)) setGiftSent(true);
+            else if (stepKey) void store.setTaskDone(stepKey, true);
             else if (canRequest) setView("requests");
           }}
           onNeedEmail={() => setAsk({ kind: "email" })}
