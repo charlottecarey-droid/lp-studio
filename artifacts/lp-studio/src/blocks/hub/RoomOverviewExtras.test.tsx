@@ -25,6 +25,10 @@ describe("the team's own Overview sections", () => {
     expect(overviewVideoEmbed("abcde12345")).toEqual({ kind: "iframe", src: "https://fast.wistia.net/embed/iframe/abcde12345" });
     expect(overviewVideoEmbed("/api/storage/objects/uploads/3f2a9c1e-0000-4000-8000-000000000000")).toEqual({ kind: "file", src: "/api/storage/objects/uploads/3f2a9c1e-0000-4000-8000-000000000000" });
     expect(overviewVideoEmbed("https://app.example.com/api/storage/objects/uploads/abc")).toEqual({ kind: "file", src: "https://app.example.com/api/storage/objects/uploads/abc" });
+    // The media library's own videos are on this site.
+    expect(overviewVideoEmbed("/videos/dandy-broll.mp4")).toEqual({ kind: "file", src: "/videos/dandy-broll.mp4" });
+    expect(overviewVideoEmbed("/dandy-lab-video-2/")).toEqual({ kind: "iframe", src: "/dandy-lab-video-2/" });
+    expect(overviewVideoEmbed("//evil.example.com/x.mp4")).toBeNull();
     expect(overviewVideoEmbed("https://example.com/page")).toBeNull();
     expect(overviewVideoEmbed("javascript:alert(1)")).toBeNull();
     expect(overviewVideoEmbed("")).toBeNull();
@@ -52,13 +56,18 @@ describe("the team's own Overview sections", () => {
     expect(out.indexOf("ov-resources-1")).toBeGreaterThan(out.indexOf("data-room-attention"));
   });
 
-  it("the builder draws every section with Hide / Show, hidden ones included", () => {
+  it("the builder: shown sections get Hide, hidden ones collapse into one strip with Show", () => {
     const out = html({ overviewExtras: [video, note], hiddenOverview: ["next"] }, true);
-    expect(out).toContain('aria-label="Show Your next steps on the Overview"');
     expect(out).toContain('aria-label="Hide Welcome from your team on the Overview"');
+    expect(out).toContain('aria-label="Hide Progress on the Overview"');
+    // Hidden: a chip in the strip, not the section itself.
+    expect(out).toContain("data-room-ov-hidden");
+    expect(out).toContain('aria-label="Show Your next steps on the Overview"');
     expect(out).toContain('aria-label="Show Hidden note on the Overview"');
-    expect(out).toContain("Only the team sees this");
-    expect(out).toContain("hidden from the customer");
+    expect(out).not.toContain("data-room-attention");
+    expect(out).not.toContain("Only the team sees this");
+    // Nothing hidden: no strip.
+    expect(html({ overviewExtras: [video] }, true)).not.toContain("data-room-ov-hidden");
   });
 
   it("a built-in section hidden by the team stays off the customer's page", () => {

@@ -56,6 +56,8 @@ export function overviewVideoEmbed(raw: string | undefined): { kind: "file" | "i
   // A video uploaded to the media library is served from our own storage ("/api/storage/objects/uploads/<id>"):
   // no file extension, and often no host. It plays as a file.
   if (/^\/api\/storage\//.test(url) || /^https?:\/\/[^/]+\/api\/storage\//i.test(url)) return { kind: "file", src: url };
+  // The library's own videos live on this site ("/videos/dandy-broll.mp4"); one is a page of its own ("/dandy-lab-video-2/").
+  if (/^\/(?!\/)/.test(url)) return /\/$|\.html?$/i.test(url.split("?")[0]) ? { kind: "iframe", src: url } : { kind: "file", src: url };
   // Wistia: a media page, an embed link, a ?wvideo= link, or the bare video id.
   const wistia = extractWistiaId(url);
   if (wistia) return { kind: "iframe", src: `https://fast.wistia.net/embed/iframe/${wistia}` };
@@ -139,20 +141,32 @@ export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra;
 }
 
 /**
- * Builder only: a section of the Overview with a Hide / Show button on it.
- * Hidden ones stay on the canvas, faded, so they can be shown again. The
- * customer's page is drawn without any of this.
+ * Builder only: a section of the Overview the customer sees, with a small
+ * Hide button that appears on hover. Hidden sections are not drawn at all
+ * (they collapse into the strip at the top, OverviewHiddenStrip).
  */
-export function OverviewEditFrame({ label, hidden, onToggle, children }: { label: string; hidden: boolean; onToggle: () => void; children: ReactNode }) {
+export function OverviewEditFrame({ label, onHide, children }: { label: string; onHide: () => void; children: ReactNode }) {
   return (
-    <div className={`prw-ovedit${hidden ? " off" : ""}`} data-room-ov-edit={label}>
-      <div className="prw-ovedit-bar">
-        <span>{label}{hidden ? " · hidden from the customer" : ""}</span>
-        <button type="button" onClick={onToggle} aria-pressed={!hidden} aria-label={`${hidden ? "Show" : "Hide"} ${label} on the Overview`}>
-          {hidden ? <Eye aria-hidden /> : <EyeOff aria-hidden />} {hidden ? "Show" : "Hide"}
-        </button>
-      </div>
+    <div className="prw-ovedit" data-room-ov-edit={label}>
+      <button type="button" className="prw-ovedit-hide" onClick={onHide} title={`Hide “${label}” from the customer`} aria-label={`Hide ${label} on the Overview`}>
+        <EyeOff aria-hidden /> Hide
+      </button>
       {children}
+    </div>
+  );
+}
+
+/** Builder only: every section hidden from the customer, collapsed into one line of chips, each with Show. */
+export function OverviewHiddenStrip({ items }: { items: { key: string; label: string; onShow: () => void }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="prw-ovhidden" role="group" aria-label="Sections hidden from the customer" data-room-ov-hidden>
+      <span className="lbl"><EyeOff aria-hidden /> Hidden from the customer</span>
+      {items.map((x) => (
+        <button key={x.key} type="button" onClick={x.onShow} title={`Show “${x.label}” to the customer again`} aria-label={`Show ${x.label} on the Overview`}>
+          {x.label} <span className="go"><Eye aria-hidden /> Show</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -170,14 +184,18 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-ovx-link{text-decoration:none;color:inherit}
 .prw-ovx-link:hover{background:color-mix(in srgb,var(--dark) 3%,transparent)}
 .prw-ovx-link .a svg{width:15px;height:15px;color:var(--faint)}
-.prw-ovedit{position:relative;border-radius:14px;outline:1px dashed transparent;outline-offset:6px;transition:outline-color .15s}
-.prw-ovedit:hover{outline-color:color-mix(in srgb,var(--dark) 30%,transparent)}
-.prw-ovedit-bar{position:absolute;top:-14px;right:8px;z-index:3;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .15s;pointer-events:none}
-.prw-ovedit:hover .prw-ovedit-bar,.prw-ovedit.off .prw-ovedit-bar,.prw-ovedit:focus-within .prw-ovedit-bar{opacity:1;pointer-events:auto}
-.prw-ovedit-bar span{font-size:11.5px;font-weight:600;color:var(--body);background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 9px}
-.prw-ovedit-bar button{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#fff;background:var(--dark);border:0;border-radius:999px;padding:5px 11px;cursor:pointer}
-.prw-ovedit-bar button svg{width:13px;height:13px}
-.prw-ovedit.off>:not(.prw-ovedit-bar){opacity:.38;filter:grayscale(.6)}
-.prw-ovedit.off{outline-color:color-mix(in srgb,var(--dark) 22%,transparent)}
+.prw-ovedit{position:relative}
+.prw-ovedit-hide{position:absolute;top:-13px;right:14px;z-index:3;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--body);background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 10px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.06);opacity:0;transition:opacity .15s}
+.prw-ovedit-hide svg{width:13px;height:13px}
+.prw-ovedit:hover>.prw-ovedit-hide,.prw-ovedit-hide:focus-visible{opacity:1}
+.prw-ovedit-hide:hover{color:var(--ink);border-color:color-mix(in srgb,var(--dark) 30%,transparent)}
+.prw-ovedit:hover>:not(.prw-ovedit-hide){box-shadow:0 0 0 2px color-mix(in srgb,var(--dark) 14%,transparent);border-radius:12px}
+.prw-ovhidden{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:20px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:#fff}
+.prw-ovhidden .lbl{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--body);margin-right:4px}
+.prw-ovhidden .lbl svg{width:14px;height:14px}
+.prw-ovhidden button{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px;cursor:pointer}
+.prw-ovhidden button .go{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:#fff;background:var(--dark);border-radius:999px;padding:2px 8px}
+.prw-ovhidden button .go svg{width:12px;height:12px}
+.prw-ovhidden button:hover{border-color:color-mix(in srgb,var(--dark) 30%,transparent)}
 .prw-ovedit-empty{border:1px dashed var(--line);border-radius:12px;padding:18px 24px;font-size:13px;color:var(--body);background:#fff}
 `;

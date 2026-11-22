@@ -15,7 +15,7 @@ import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
 import { fillRegionalsWord, RegionalsWord } from "./hub/room-words";
-import { OVERVIEW_EXTRA_LABEL, OVERVIEW_EXTRAS_CSS, OverviewEditFrame, OverviewExtraView, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra } from "./hub/RoomOverviewExtras";
+import { OVERVIEW_EXTRA_LABEL, OVERVIEW_EXTRAS_CSS, OverviewEditFrame, OverviewExtraView, OverviewHiddenStrip, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra } from "./hub/RoomOverviewExtras";
 import { OrdersAtAGlance, ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
 import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
 import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
@@ -2418,27 +2418,34 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
             )}
             {active === "overview" && (() => {
               // What a rep switched off on this hub's Overview, and what is left to lay out.
-              // In the builder every section is drawn, with a Hide / Show button; hidden ones are faded there.
+              // The builder draws the Overview as the customer sees it: each shown section gets a Hide button on hover,
+              // and hidden ones collapse into one strip at the top with a Show button each.
               const hiddenOv = new Set<string>(props.hiddenOverview ?? []);
-              const ovHidden = isEditor ? new Set<string>() : hiddenOv;
+              const ovHidden = hiddenOv;
               const toggleOv = (k: RoomOverviewSection) => onFieldChange?.({ ...rawProps, hiddenOverview: (hiddenOv.has(k) ? [...hiddenOv].filter((x) => x !== k) : [...hiddenOv, k]) as RoomOverviewSection[] });
               const ovLabel = (k: RoomOverviewSection) => ROOM_OVERVIEW_SECTIONS.find((x) => x.key === k)?.label ?? k;
-              const frame = (k: RoomOverviewSection, node: React.ReactNode) => (isEditor && node ? <OverviewEditFrame label={ovLabel(k)} hidden={hiddenOv.has(k)} onToggle={() => toggleOv(k)}>{node}</OverviewEditFrame> : node);
+              const frame = (k: RoomOverviewSection, node: React.ReactNode) => (isEditor && node ? <OverviewEditFrame label={ovLabel(k)} onHide={() => toggleOv(k)}>{node}</OverviewEditFrame> : node);
               // The team's own sections (a video, resources, a note), at the top or the bottom.
-              const extras = (props.overviewExtras ?? []).filter((x) => isEditor || (!x.hidden && overviewExtraHasContent(x)));
+              const allExtras = props.overviewExtras ?? [];
+              const extras = allExtras.filter((x) => !x.hidden && (isEditor || overviewExtraHasContent(x)));
               const toggleExtra = (key: string) => onFieldChange?.({ ...rawProps, overviewExtras: (rawProps.overviewExtras ?? []).map((x) => (x.key === key ? { ...x, hidden: !x.hidden } : x)) });
+              const hiddenChips = isEditor
+                ? [
+                    ...ROOM_OVERVIEW_SECTIONS.filter((x) => hiddenOv.has(x.key)).map((x) => ({ key: x.key, label: x.label, onShow: () => toggleOv(x.key) })),
+                    ...allExtras.filter((x) => x.hidden).map((x) => ({ key: x.key, label: x.title?.trim() || OVERVIEW_EXTRA_LABEL[x.kind], onShow: () => toggleExtra(x.key) })),
+                  ]
+                : [];
               const extraNodes = (where: "top" | "bottom") =>
                 extras
                   .filter((x) => (x.position === "top" ? "top" : "bottom") === where)
                   .map((x) => {
                     const view = <OverviewExtraView key={x.key} extra={x} onOpen={(o) => trackHub({ key: o.key, kind: "link", title: o.title, url: o.url } as HubAsset, "open")} />;
                     if (!isEditor) return view;
+                    const label = x.title?.trim() || OVERVIEW_EXTRA_LABEL[x.kind];
                     return (
-                      <div className="prw-sec" key={x.key}>
-                        <OverviewEditFrame label={x.title?.trim() || OVERVIEW_EXTRA_LABEL[x.kind]} hidden={!!x.hidden} onToggle={() => toggleExtra(x.key)}>
-                          {overviewExtraHasContent(x) ? <div style={{ marginTop: -32 }}>{view}</div> : <div className="prw-ovedit-empty"><b>{OVERVIEW_EXTRA_LABEL[x.kind]}</b> · {overviewExtraMissing(x)}</div>}
-                        </OverviewEditFrame>
-                      </div>
+                      <OverviewEditFrame key={x.key} label={label} onHide={() => toggleExtra(x.key)}>
+                        {overviewExtraHasContent(x) ? view : <div className="prw-ovedit-empty prw-sec"><b>{OVERVIEW_EXTRA_LABEL[x.kind]}</b> · {overviewExtraMissing(x)}</div>}
+                      </OverviewEditFrame>
                     );
                   });
               const canScorecard = modules.some((m) => m.key === "practices");
@@ -2459,6 +2466,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   )}
                 </div>
+                <OverviewHiddenStrip items={hiddenChips} />
                 {extraNodes("top")}
                 {frame("progress", (expansion && pr.total > 0) || (!expansion && phases.length > 0) ? (<>
                 {expansion && pr.total > 0 && !ovHidden.has("progress") && (
@@ -2608,7 +2616,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 {expansion && !!snapshot.viewer?.team && canScorecard && !ovHidden.has("orders") && frame("orders",
                   <OrdersAtAGlance store={store ?? room.reader} viewerKey={snapshot.viewer?.email ?? ""} noun={noun} onOpen={() => setView("practices")} />
                 )}
-                {frame("feed", isEditor && !(modules.some((m) => m.key === "wins") && snapshot.wins.length > 0) ? null : <FeedHighlight wins={modules.some((m) => m.key === "wins") && !ovHidden.has("feed") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />)}
+                {frame("feed", isEditor && (ovHidden.has("feed") || !(modules.some((m) => m.key === "wins") && snapshot.wins.length > 0)) ? null : <FeedHighlight wins={modules.some((m) => m.key === "wins") && !ovHidden.has("feed") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />)}
                 {extraNodes("bottom")}
               </>
               );
