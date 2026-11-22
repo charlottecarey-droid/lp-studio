@@ -336,4 +336,20 @@ describe("the team's own Overview sections", () => {
       expect(html({ overviewExtras: [kickoff] })).not.toMatch(/data-room-note-save="/);
     });
   });
+
+  describe("Rollout timeline: View scorecard", () => {
+    it("sits under the rollout timeline when the hub has a Scorecard", () => {
+      const out = html({});
+      expect(out).toMatch(/data-room-progress-scorecard="true"[^>]*>View scorecard/);
+      expect(out.indexOf("prw-phases")).toBeLessThan(out.indexOf("data-room-progress-scorecard"));
+    });
+
+    it("uses the Scorecard's own name, and is left off when the Scorecard is hidden", () => {
+      expect(html({ hiddenModules: ["practices"] })).not.toContain("data-room-progress-scorecard");
+    });
+
+    it("isn't added in expansion, whose timeline already links from its heading", () => {
+      expect(html({ stage: "expansion" })).not.toContain("data-room-progress-scorecard");
+    });
+  });
 });

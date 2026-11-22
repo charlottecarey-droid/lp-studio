@@ -3,7 +3,7 @@ import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, LogIn, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, LogIn, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -1292,6 +1292,9 @@ const CSS = `
 .prw-btn.pri{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
 .prw-btn:disabled{opacity:.6;cursor:default}
 .prw-btn svg{width:13px;height:13px}
+.prw-tl-more{display:flex;justify-content:flex-end;margin-top:16px}
+.prw-tl-more .prw-btn svg{transition:transform .15s}
+.prw-tl-more .prw-btn:hover svg{transform:translateX(2px)}
 .prw-ib{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1px solid #D4D8D0;background:#fff;color:var(--dark);padding:0;flex:none}
 .prw-ib svg{width:14px;height:14px}
 .prw-ib:hover,.prw-btn:hover{border-color:var(--dark)}
@@ -2607,6 +2610,14 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         </div>
                       ))}
                     </div>
+                    {/* The rollout timeline's way into the Scorecard (the expansion one links from its heading). */}
+                    {canScorecard && (
+                      <div className="prw-tl-more">
+                        <button type="button" className="prw-btn" onClick={() => setView("practices")} data-room-progress-scorecard>
+                          View {(modules.find((m) => m.key === "practices")?.label ?? "Scorecard").toLowerCase()} <ArrowRight aria-hidden />
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
                 </>) : null,
