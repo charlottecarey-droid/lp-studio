@@ -41,6 +41,8 @@ import {
 } from "@/blocks/BlockRoomWorkspace";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { VideoPicker } from "@/components/VideoPicker";
+import { OVERVIEW_EXTRA_LABEL, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -229,6 +231,11 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
   const steps = onboarding.steps ?? [];
   const setOnboarding = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["onboarding"]>>) => update({ onboarding: { ...onboarding, steps, ...patch } });
   const setStep = (i: number, patch: Partial<RoomOnboardingStep>) => setOnboarding({ steps: steps.map((x, idx) => (idx === i ? { ...x, ...patch } : x)) });
+  // The team's own Overview sections (a video, resources, a note).
+  const extras = props.overviewExtras ?? [];
+  const setExtras = (next: RoomOverviewExtra[]) => update({ overviewExtras: next });
+  const setExtra = (i: number, patch: Partial<RoomOverviewExtra>) => setExtras(extras.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const setExtraItem = (i: number, j: number, patch: Partial<RoomOverviewResource>) => setExtra(i, { items: (extras[i].items ?? []).map((it, k) => (k === j ? { ...it, ...patch } : it)) });
   const marketing = props.marketing ?? { groups: [] };
   const mGroups = marketing.groups ?? [];
   const setMarketing = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["marketing"]>>) => update({ marketing: { ...marketing, groups: mGroups, ...patch } });
@@ -383,6 +390,63 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
       </SectionBody>
       )}
 
+
+      {active === "overview" && (
+      <SectionBody title={`Your own sections (${extras.length})`} hint="Add a video, a list of resources or a note to the Overview. Hide or show any section with the button on it in the preview.">
+        {extras.map((x, i) => (
+          <CollapseItem
+            key={x.key}
+            startOpen={!overviewExtraHasContent(x)}
+            header={<ItemHeader label={`${OVERVIEW_EXTRA_LABEL[x.kind]} · ${x.title || "Untitled"}${x.hidden ? " (hidden)" : ""}`} index={i} total={extras.length} onMove={(dir) => setExtras(moveItem(extras, i, dir))} onRemove={() => setExtras(extras.filter((_, idx) => idx !== i))} />}
+          >
+            <Field label="Title"><Input value={x.title ?? ""} onChange={(e) => setExtra(i, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
+            {x.kind === "video" && (
+              <>
+                <VideoPicker label="Video (YouTube, Vimeo, Loom, Wistia, or a file from the library)" value={x.videoUrl ?? ""} onChange={(v) => setExtra(i, { videoUrl: v })} />
+                <Field label="A line under the title (optional)"><Input value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} className="h-8 text-xs" /></Field>
+              </>
+            )}
+            {x.kind === "text" && (
+              <Field label="Text"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} rows={4} className="text-xs" placeholder="What the customer should know" /></Field>
+            )}
+            {x.kind === "resources" && (
+              <div className="space-y-1.5">
+                <Field label="A line under the title (optional)"><Input value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} className="h-8 text-xs" /></Field>
+                {(x.items ?? []).map((it, j) => (
+                  <div key={j} className="space-y-1 rounded border p-1.5" data-room-ov-resource>
+                    <div className="flex gap-1">
+                      <Input value={it.title} onChange={(e) => setExtraItem(i, j, { title: e.target.value })} className="h-7 text-xs" placeholder="Name" aria-label="Resource name" />
+                      <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0 text-muted-foreground" aria-label="Remove this resource" onClick={() => setExtra(i, { items: (x.items ?? []).filter((_, k) => k !== j) })}><X className="h-3.5 w-3.5" /></Button>
+                    </div>
+                    <Input value={it.url} onChange={(e) => setExtraItem(i, j, { url: e.target.value })} className="h-7 text-xs" placeholder="https://…" aria-label="Resource link" />
+                    <Input value={it.description ?? ""} onChange={(e) => setExtraItem(i, j, { description: e.target.value })} className="h-7 text-xs" placeholder="What it is (optional)" aria-label="Resource description" />
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtra(i, { items: [...(x.items ?? []), { title: "", url: "" }] })}><Plus className="h-3 w-3" /> Add a resource</Button>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <Select value={x.position === "top" ? "top" : "bottom"} onValueChange={(v) => setExtra(i, { position: v as "top" | "bottom" })}>
+                <SelectTrigger className="h-7 w-[150px] text-xs" aria-label="Where on the Overview"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top" className="text-xs">At the top</SelectItem>
+                  <SelectItem value="bottom" className="text-xs">At the bottom</SelectItem>
+                </SelectContent>
+              </Select>
+              <HideToggle hidden={x.hidden} onChange={(h) => setExtra(i, { hidden: h })} />
+            </div>
+            {!overviewExtraHasContent(x) && <p className="text-[11px] text-muted-foreground">{overviewExtraMissing(x)}</p>}
+          </CollapseItem>
+        ))}
+        <div className="flex flex-wrap gap-1.5">
+          {(["video", "resources", "text"] as RoomOverviewExtraKind[]).map((k) => (
+            <Button key={k} type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtras([...extras, newOverviewExtra(k, extras)])} data-room-ov-add={k}>
+              <Plus className="h-3 w-3" /> {OVERVIEW_EXTRA_LABEL[k]}
+            </Button>
+          ))}
+        </div>
+      </SectionBody>
+      )}
 
       {active === "overview" && (
       <SectionBody title={`Onboarding checklist (${steps.length})`} hint="Shows on the overview until every step is done">

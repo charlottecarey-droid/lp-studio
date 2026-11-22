@@ -1,0 +1,62 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { DEFAULT_BRAND } from "@/lib/brand-config";
+import { BlockRoomWorkspace, ROOM_WORKSPACE_DEFAULT_PROPS, type RoomWorkspaceBlockProps } from "../BlockRoomWorkspace";
+import { newOverviewExtra, overviewExtraHasContent, overviewVideoEmbed, type RoomOverviewExtra } from "./RoomOverviewExtras";
+
+const BRAND = { ...DEFAULT_BRAND, brandName: "Acme" };
+const html = (props: Partial<RoomWorkspaceBlockProps>, editing = false) =>
+  renderToStaticMarkup(createElement(BlockRoomWorkspace, { props: { ...structuredClone(ROOM_WORKSPACE_DEFAULT_PROPS), ...props }, brand: BRAND, ...(editing ? { onFieldChange: () => {} } : {}) }));
+
+const video: RoomOverviewExtra = { key: "ov-video-1", kind: "video", title: "Welcome from your team", videoUrl: "https://youtu.be/dQw4w9WgXcQ", position: "top" };
+const resources: RoomOverviewExtra = { key: "ov-resources-1", kind: "resources", title: "Resources", items: [{ title: "Brand guide", url: "https://example.com/brand" }, { title: "Bad link", url: "javascript:alert(1)" }, { title: "", url: "https://example.com/blank" }] };
+const note: RoomOverviewExtra = { key: "ov-text-1", kind: "text", title: "Hidden note", body: "Only the team sees this", hidden: true };
+
+describe("the team's own Overview sections", () => {
+  it("plays the usual video hosts and files, and nothing else", () => {
+    expect(overviewVideoEmbed("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toEqual({ kind: "iframe", src: "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0" });
+    expect(overviewVideoEmbed("https://vimeo.com/123456")).toEqual({ kind: "iframe", src: "https://player.vimeo.com/video/123456" });
+    expect(overviewVideoEmbed("https://www.loom.com/share/abc123def")).toEqual({ kind: "iframe", src: "https://www.loom.com/embed/abc123def" });
+    expect(overviewVideoEmbed("https://cdn.example.com/welcome.mp4")).toEqual({ kind: "file", src: "https://cdn.example.com/welcome.mp4" });
+    expect(overviewVideoEmbed("https://example.com/page")).toBeNull();
+    expect(overviewVideoEmbed("javascript:alert(1)")).toBeNull();
+    expect(overviewVideoEmbed("")).toBeNull();
+  });
+
+  it("knows when a section has something to show", () => {
+    expect(overviewExtraHasContent(video)).toBe(true);
+    expect(overviewExtraHasContent(newOverviewExtra("video"))).toBe(false);
+    expect(overviewExtraHasContent(resources)).toBe(true);
+    expect(overviewExtraHasContent(newOverviewExtra("resources"))).toBe(false);
+    expect(newOverviewExtra("video", [newOverviewExtra("video")]).key).toBe("ov-video-2");
+  });
+
+  it("the customer sees filled, shown sections only, with safe links; no builder buttons", () => {
+    const out = html({ overviewExtras: [video, resources, note, newOverviewExtra("text")] });
+    expect(out).toContain('data-room-ov-extra="ov-video-1"');
+    expect(out).toContain("https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0");
+    expect(out).toContain("Brand guide");
+    expect(out).not.toContain("javascript:alert");
+    expect(out).not.toContain("example.com/blank");
+    expect(out).not.toContain("Only the team sees this");
+    expect(out).not.toContain("data-room-ov-edit");
+    // The video sits at the top, before the built-in sections; resources at the bottom.
+    expect(out.indexOf("ov-video-1")).toBeLessThan(out.indexOf("data-room-attention"));
+    expect(out.indexOf("ov-resources-1")).toBeGreaterThan(out.indexOf("data-room-attention"));
+  });
+
+  it("the builder draws every section with Hide / Show, hidden ones included", () => {
+    const out = html({ overviewExtras: [video, note], hiddenOverview: ["next"] }, true);
+    expect(out).toContain('aria-label="Show Your next steps on the Overview"');
+    expect(out).toContain('aria-label="Hide Welcome from your team on the Overview"');
+    expect(out).toContain('aria-label="Show Hidden note on the Overview"');
+    expect(out).toContain("Only the team sees this");
+    expect(out).toContain("hidden from the customer");
+  });
+
+  it("a built-in section hidden by the team stays off the customer's page", () => {
+    expect(html({ hiddenOverview: ["next"] })).not.toContain("data-room-attention");
+    expect(html({})).toContain("data-room-attention");
+  });
+});

@@ -15,6 +15,7 @@ import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
 import { fillRegionalsWord, RegionalsWord } from "./hub/room-words";
+import { OVERVIEW_EXTRA_LABEL, OVERVIEW_EXTRAS_CSS, OverviewEditFrame, OverviewExtraView, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra } from "./hub/RoomOverviewExtras";
 import { OrdersAtAGlance, ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
 import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
 import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
@@ -524,6 +525,8 @@ export interface RoomWorkspaceBlockProps extends CtaModalConfig {
   locationsNoun?: string;
   /** What the customer calls its regional managers ("DBOs", "RDs", "regional directors"), plural. Blank = "regional managers". */
   regionalsNoun?: string;
+  /** The team's own sections on the Overview: a video, resources, a note. */
+  overviewExtras?: RoomOverviewExtra[];
   teamNote?: string;
   team?: RoomTeamGroup[];
   /** Accent on the dark cover (stats, "make a request"). Blank = the brand accent. */
@@ -2277,7 +2280,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   return (
     <RoomEditContext.Provider value={editItem}>
     <section ref={rootRef} className={`prw${tight ? " tight" : ""}${roomLookClass(props.look)}`} style={vars} data-room-workspace data-room-look={roomLook(props.look)}>
-      <style>{CSS}</style>
+      <style>{CSS + OVERVIEW_EXTRAS_CSS}</style>
       {roomLook(props.look) === "polished" && <style>{ROOM_LOOK_CSS}</style>}
       <div className={`prw-cover${cover === "fullbleed" ? " fb" : cover === "light" ? " lt" : cover === "fade" ? (props.coverPhotoScrolls || isEditor ? " fd" : " fd fx") : ""}`} style={cover === "fullbleed" && heroImage ? { backgroundImage: `url(${JSON.stringify(heroImage).slice(1, -1)})` } : undefined} data-room-cover={cover}>
           {fadePhoto}
@@ -2415,7 +2418,29 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
             )}
             {active === "overview" && (() => {
               // What a rep switched off on this hub's Overview, and what is left to lay out.
-              const ovHidden = new Set(props.hiddenOverview ?? []);
+              // In the builder every section is drawn, with a Hide / Show button; hidden ones are faded there.
+              const hiddenOv = new Set<string>(props.hiddenOverview ?? []);
+              const ovHidden = isEditor ? new Set<string>() : hiddenOv;
+              const toggleOv = (k: RoomOverviewSection) => onFieldChange?.({ ...rawProps, hiddenOverview: (hiddenOv.has(k) ? [...hiddenOv].filter((x) => x !== k) : [...hiddenOv, k]) as RoomOverviewSection[] });
+              const ovLabel = (k: RoomOverviewSection) => ROOM_OVERVIEW_SECTIONS.find((x) => x.key === k)?.label ?? k;
+              const frame = (k: RoomOverviewSection, node: React.ReactNode) => (isEditor && node ? <OverviewEditFrame label={ovLabel(k)} hidden={hiddenOv.has(k)} onToggle={() => toggleOv(k)}>{node}</OverviewEditFrame> : node);
+              // The team's own sections (a video, resources, a note), at the top or the bottom.
+              const extras = (props.overviewExtras ?? []).filter((x) => isEditor || (!x.hidden && overviewExtraHasContent(x)));
+              const toggleExtra = (key: string) => onFieldChange?.({ ...rawProps, overviewExtras: (rawProps.overviewExtras ?? []).map((x) => (x.key === key ? { ...x, hidden: !x.hidden } : x)) });
+              const extraNodes = (where: "top" | "bottom") =>
+                extras
+                  .filter((x) => (x.position === "top" ? "top" : "bottom") === where)
+                  .map((x) => {
+                    const view = <OverviewExtraView key={x.key} extra={x} onOpen={(o) => trackHub({ key: o.key, kind: "link", title: o.title, url: o.url } as HubAsset, "open")} />;
+                    if (!isEditor) return view;
+                    return (
+                      <div className="prw-sec" key={x.key}>
+                        <OverviewEditFrame label={x.title?.trim() || OVERVIEW_EXTRA_LABEL[x.kind]} hidden={!!x.hidden} onToggle={() => toggleExtra(x.key)}>
+                          {overviewExtraHasContent(x) ? <div style={{ marginTop: -32 }}>{view}</div> : <div className="prw-ovedit-empty"><b>{OVERVIEW_EXTRA_LABEL[x.kind]}</b> · {overviewExtraMissing(x)}</div>}
+                        </OverviewEditFrame>
+                      </div>
+                    );
+                  });
               const canScorecard = modules.some((m) => m.key === "practices");
               const showNext = !ovHidden.has("next");
               const showComing = !!now && events.upcoming.length > 0 && !ovHidden.has("coming");
@@ -2434,6 +2459,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   )}
                 </div>
+                {extraNodes("top")}
+                {frame("progress", (expansion && pr.total > 0) || (!expansion && phases.length > 0) ? (<>
                 {expansion && pr.total > 0 && !ovHidden.has("progress") && (
                   // The top of the Overview opens the Scorecard, where the same numbers are broken down.
                   canScorecard ? (
@@ -2481,9 +2508,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   </>
                 )}
+                </>) : null)}
                 {(showNext || showComing || showOverdue) && (
                 <div className="prw-grid2 prw-sec" style={!(showNext && (showComing || showOverdue)) ? { gridTemplateColumns: "1fr" } : undefined}>
-                  {showNext && (
+                  {showNext && frame("next",
                   <div className="prw-card prw-att" data-room-attention>
                     <h3>
                       Your next steps
@@ -2541,9 +2569,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                       </div>
                       );
                     })}
-                  </div>
-                  )}
-                  {showComing ? (
+                  </div>)}
+                  {showComing ? frame("coming",
                     <div className="prw-card" data-room-coming-up>
                       <h3>
                         Coming up
@@ -2552,8 +2579,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                       {events.upcoming.slice(0, 4).map((e) => (
                         <EventRow key={e.key || e.title + e.date} event={e} calendarName={`${props.partnerName} × ${brand.brandName}`} isEditor={isEditor} />
                       ))}
-                    </div>
-                  ) : showOverdue ? (
+                    </div>) : showOverdue ? frame("overdue",
                     <div className="prw-card" data-room-blocked>
                       <h3>Overdue</h3>
                       {blocked.slice(0, 4).map((x) => (
@@ -2564,11 +2590,10 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                           </div>
                         </div>
                       ))}
-                    </div>
-                  ) : null}
+                    </div>) : null}
                 </div>
                 )}
-                {showComing && showOverdue && (
+                {showComing && showOverdue && frame("overdue",
                   <div className="prw-card prw-sec" data-room-blocked>
                     <h3>Overdue</h3>
                     {blocked.slice(0, 4).map((x) => (
@@ -2579,12 +2604,12 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-                {expansion && !!snapshot.viewer?.team && canScorecard && !ovHidden.has("orders") && (
+                  </div>)}
+                {expansion && !!snapshot.viewer?.team && canScorecard && !ovHidden.has("orders") && frame("orders",
                   <OrdersAtAGlance store={store ?? room.reader} viewerKey={snapshot.viewer?.email ?? ""} noun={noun} onOpen={() => setView("practices")} />
                 )}
-                <FeedHighlight wins={modules.some((m) => m.key === "wins") && !ovHidden.has("feed") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />
+                {frame("feed", isEditor && !(modules.some((m) => m.key === "wins") && snapshot.wins.length > 0) ? null : <FeedHighlight wins={modules.some((m) => m.key === "wins") && !ovHidden.has("feed") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />)}
+                {extraNodes("bottom")}
               </>
               );
             })()}
