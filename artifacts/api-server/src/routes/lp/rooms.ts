@@ -60,6 +60,7 @@ import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, hubT
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { unlistedPeople } from "../../lib/partnerRoomTeam";
 import { hubSetupItems, parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
+import { hubActivity, recordHubActivity } from "../../lib/partnerRoomActivity";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
@@ -331,7 +332,7 @@ function postToSlack(page: RoomPage, channelId: string | null, headline: string,
   const blocks: unknown[] = [
     { type: "header", text: { type: "plain_text", text: headline, emoji: true } },
     { type: "section", text: { type: "mrkdwn", text: lines.join("\n") } },
-    { type: "context", elements: [{ type: "mrkdwn", text: `${page.title}${pageUrl ? ` · <${pageUrl}|Open the room>` : ""}` }] },
+    { type: "context", elements: [{ type: "mrkdwn", text: `${page.title}${pageUrl ? ` · <${pageUrl}|Open the hub>` : ""}` }] },
   ];
   void slackService.postMessage(page.tenantId, { blocks, text, channelId: channelId ?? undefined }).catch(() => {});
 }
@@ -475,7 +476,7 @@ async function rememberInvited(page: RoomPage, email: string, name: string, byEm
 async function requireWorkspaceViewer(req: Request, res: Response): Promise<{ page: RoomPage; viewer: Viewer } | null> {
   const page = await loadRoomPage(req.body?.pageId);
   if (!page || !page.isWorkspace) {
-    res.status(404).json({ error: "Room not found" });
+    res.status(404).json({ error: "Hub not found" });
     return null;
   }
   const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
@@ -567,7 +568,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
     res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras, ...(props ? { props } : {}), ...(invited ? { invited } : {}) });
   } catch (err) {
     req.log.error({ err }, "room state failed");
-    res.status(500).json({ error: "Could not load the room" });
+    res.status(500).json({ error: "Could not load the hub" });
   }
 });
 
@@ -611,7 +612,7 @@ router.post("/lp/room/access", accessLimiter, async (req: Request, res: Response
         .insert(lpRoomMembersTable)
         .values({ tenantId: page.tenantId, pageId: page.id, email, status: "requested" })
         .onConflictDoNothing();
-      notifyTeam(page, settings, "🔑 Room access requested", [`*${mrk(email)}* asked for access to upload files and mark tasks done.`, "Approve or decline from the page's Room panel in LP Studio."], url);
+      notifyTeam(page, settings, "🔑 Hub access requested", [`*${mrk(email)}* asked for access to upload files and mark tasks done.`, "Approve or decline it on the hub’s page in LP Studio, under To do."], url);
     }
     res.json({ status: "requested" });
   } catch (err) {
@@ -634,7 +635,7 @@ async function syncedMinutesTask(pageId: number, key: string): Promise<RoomTask 
 async function requireActor(req: Request, res: Response): Promise<{ page: RoomPage; viewer: Viewer; task: RoomTask } | null> {
   const page = await loadRoomPage(req.body?.pageId);
   if (!page) {
-    res.status(404).json({ error: "Room not found" });
+    res.status(404).json({ error: "Hub not found" });
     return null;
   }
   const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
@@ -745,7 +746,7 @@ router.post("/lp/room/upload", actionLimiter, async (req: Request, res: Response
       page,
       settings,
       logoUrl ? "🖼️ Logo received" : "📎 File received",
-      [`*${mrk(viewer.name || viewer.email)}* uploaded *${mrk(parsed.fileName)}* for *${mrk(task.title)}*.`, logoUrl ? "It is now the hub's logo. Change it or its size under Settings, Account." : "Download it from the page's Room panel in LP Studio."],
+      [`*${mrk(viewer.name || viewer.email)}* uploaded *${mrk(parsed.fileName)}* for *${mrk(task.title)}*.`, logoUrl ? "It is now the hub's logo. Change it or its size under Settings, Account." : "Download it from the hub’s page in LP Studio, under To do."],
       await roomPageUrl(req, page, req.body?.path),
     );
     // The customer hears what to fix in the file; which practices Salesforce is missing is for the team.
@@ -765,7 +766,7 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
   try {
     const page = await loadRoomPage(req.body?.pageId);
     if (!page || !page.isWorkspace) {
-      res.status(404).json({ error: "Room not found" });
+      res.status(404).json({ error: "Hub not found" });
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
@@ -1064,7 +1065,7 @@ router.post("/lp/room/practice-map", stateLimiter, async (req: Request, res: Res
   try {
     const page = await loadRoomPage(req.body?.pageId);
     if (!page || !page.isWorkspace) {
-      res.status(404).json({ error: "Room not found" });
+      res.status(404).json({ error: "Hub not found" });
       return;
     }
     const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
@@ -1455,7 +1456,7 @@ router.post("/lp/room/contact", actionLimiter, async (req: Request, res: Respons
     }
     const [{ n }] = (await db.execute(sql`SELECT COUNT(*)::int AS n FROM lp_room_contacts WHERE page_id = ${page.id}`)).rows as Array<{ n: number }>;
     if (n >= 100) {
-      res.status(400).json({ error: "That's the most people a room can hold. Ask your team to tidy the list." });
+      res.status(400).json({ error: "That's the most people a hub can hold. Ask your team to tidy the list." });
       return;
     }
     await db.insert(lpRoomContactsTable).values({ tenantId: page.tenantId, pageId: page.id, name: parsed.name, role: parsed.role, email: parsed.email, addedByEmail: viewer.email });
@@ -1567,6 +1568,10 @@ router.post("/lp/room/win/like", actionLimiter, async (req: Request, res: Respon
   }
 });
 
+
+// Who did what to a hub, noted after any change through these routes succeeds.
+router.use("/lp/partner-rooms/:pageId", recordHubActivity);
+
 /** Comment on a win. */
 router.post("/lp/room/win/comment", actionLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1668,6 +1673,10 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       wins,
       isRoom: page.tasks.size > 0 || page.isWorkspace,
       published: pageRow?.status === "published",
+      // What the account team has done to the hub lately, for teammates picking it up.
+      activity: page.isWorkspace ? await hubActivity(page.tenantId, page.id) : [],
+      // The last digest that went out can be looked at again.
+      lastDigest: fullSettings?.lastDigestHtml ? { subject: fullSettings.lastDigestSubject ?? "", html: fullSettings.lastDigestHtml, sentAt: fullSettings.lastDigestAt?.toISOString() ?? null } : null,
       // What is left before the hub can go to the customer, read from the hub as it is now.
       setup: page.isWorkspace ? hubSetupItems(roomWorkspaceProps(resolveRoomBlocks(pageRow?.blocks)), { published: pageRow?.status === "published", invited: members.filter((m) => m.status === "allowed").length, slackLinked: !!fullSettings?.slackChannelId }) : [],
       // The marketing plan as a queue: what the customer said yes to and whether marketing has it yet.
@@ -1708,7 +1717,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
     });
   } catch (err) {
     req.log.error({ err }, "room detail failed");
-    res.status(500).json({ error: "Could not load the room" });
+    res.status(500).json({ error: "Could not load the hub" });
   }
 });
 
@@ -1983,7 +1992,7 @@ router.post("/lp/partner-rooms/:pageId/invite", async (req: Request, res: Respon
     }
     const [row] = await db.select({ status: lpPagesTable.status }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1);
     if (row?.status !== "published") {
-      res.status(400).json({ error: "Publish the room first. An invitation to a draft would open an empty page." });
+      res.status(400).json({ error: "Publish the hub first. An invitation to a draft would open an empty page." });
       return;
     }
     const invitedBy = req.authUser?.name?.trim() || req.authUser?.email || "Your partner team";
@@ -2289,13 +2298,13 @@ router.post("/lp/room-autocreate/create", async (req: Request, res: Response): P
     }
     const pageId = await createRoomForAccount(tenantId, { key: row.accountKey, name: row.accountName, signedDate: row.signedDate, owner: row.owner, sfdcId: row.sfdcAccountId });
     if (!pageId) {
-      res.status(409).json({ error: "That room is already being created." });
+      res.status(409).json({ error: "That hub is already being created." });
       return;
     }
     res.json({ ok: true, pageId });
   } catch (err) {
     req.log.error({ err }, "room autocreate create failed");
-    res.status(500).json({ error: "Could not create the room" });
+    res.status(500).json({ error: "Could not create the hub" });
   }
 });
 
@@ -2340,7 +2349,7 @@ router.post("/lp/partner-rooms/:pageId/standard-assets", async (req: Request, re
     const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
     const info = row ? roomKitInfo(resolveRoomBlocks(row.blocks)) : null;
     if (!row || !info) {
-      res.status(400).json({ error: "This page isn't a workspace room." });
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
       return;
     }
     const standard = await db.select().from(lpRoomStandardAssetsTable).where(eq(lpRoomStandardAssetsTable.tenantId, page.tenantId));
@@ -2381,13 +2390,13 @@ router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Res
     if (!page) return;
     const asset = parseRoomKitAsset(req.body);
     if (!asset) {
-      res.status(400).json({ error: "That isn't a launch asset this room can take." });
+      res.status(400).json({ error: "That isn't a launch asset this hub can take." });
       return;
     }
     const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
     const next = row ? setRoomKitAsset(row.blocks, asset) : null;
     if (!next) {
-      res.status(400).json({ error: "This page isn't a workspace room." });
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
       return;
     }
     await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date() }).where(eq(lpPagesTable.id, page.id));
@@ -2960,7 +2969,7 @@ router.post("/lp/partner-rooms/:pageId/revops-task", async (req: Request, res: R
       .postMessage(page.tenantId, { text: `RevOps action item: ${page.partnerName || page.title}`, channelId: full?.channel ?? undefined, blocks: [{ type: "header", text: { type: "plain_text", text: "🧾 RevOps action item", emoji: true } }, { type: "section", text: { type: "mrkdwn", text: lines.join("\n\n").slice(0, 2900) } }] })
       .catch(() => false);
     if (!posted) {
-      res.status(502).json({ error: "Couldn't post to Slack. Check that Slack is connected and the room has a channel." });
+      res.status(502).json({ error: "Couldn't post to Slack. Check that Slack is connected and the hub has a channel." });
       return;
     }
     res.json({ ok: true, mentioned: !!slackMention(full?.mention) });
@@ -2977,7 +2986,7 @@ router.post("/lp/partner-rooms/:pageId/digest/preview", async (req: Request, res
     if (!page) return;
     const digest = await buildRoomDigest(page.id);
     if (!digest) {
-      res.status(400).json({ error: "This page isn't a workspace room." });
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
       return;
     }
     res.json({ subject: digest.email.subject, html: digest.email.html, recipients: digest.recipients, slackText: (digest.slack.blocks[1] as { text?: { text?: string } })?.text?.text ?? "", slackHeader: (digest.slack.blocks[0] as { text?: { text?: string } })?.text?.text ?? "", slackContext: (digest.slack.blocks[2] as { elements?: { text?: string }[] })?.elements?.[0]?.text ?? "", empty: digest.empty });

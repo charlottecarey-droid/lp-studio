@@ -39,7 +39,7 @@ export function RoomSlackPreview({ header, text, context, channel }: { header: s
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-1.5">
             <span className="text-[15px] font-black">LP Studio</span>
-            <span className="rounded-sm bg-[#DDDDDD] px-1 text-[10px] font-bold leading-4 text-[#616061]">APP</span>
+            <span className="rounded-sm bg-[#DDDDDD] px-1 text-[11px] font-bold leading-4 text-[#616061]">APP</span>
             <span className="text-xs text-[#616061]">{now}</span>
           </div>
           <div className="mt-1 text-[18px] font-black leading-snug">{header}</div>

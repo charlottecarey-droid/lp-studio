@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { CheckSwitch } from "./CheckSwitch";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, Download, DoorOpen, RotateCcw, Trash2, Upload, UserCheck, UserX, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { RoomInviteSection } from "./RoomInvite";
-import { RoomPerformance, fmtWhen } from "./RoomPerformance";
+import { RoomPerformance, fmtWhen, sectionLabel, type RoomPerformanceData } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
 import { rolloutPace } from "@/lib/room-pace";
@@ -71,6 +72,10 @@ interface RoomDetail {
   published?: boolean;
   /** What is left before the hub can go to the customer. */
   setup?: HubSetupItem[];
+  /** What the account team did to the hub lately, newest first. */
+  activity?: { actor: string; action: string; at: string }[];
+  /** The last weekly digest that went out. */
+  lastDigest?: { subject: string; html: string; sentAt: string | null } | null;
   /** The marketing plan as a queue: what the customer said yes to, and whether marketing has it yet. */
   planQueue?: PlanQueueItem[];
   choices?: { key: string; title: string; options: string[]; value: string | null; chosenBy: string | null; chosenAt: string | null }[];
@@ -218,7 +223,7 @@ function SettingsShell({ page, active, onPick, sections, todo, unsaved, footer, 
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden /> A setup step is still to do
             </p>
           )}
-          <p className="px-2.5 text-[11px] leading-snug text-muted-foreground" data-room-settings-how>Switches and tick boxes save as you change them. Anything you type has a Save changes button.</p>
+          <p className="px-2.5 text-[11px] leading-snug text-muted-foreground" data-room-settings-how>Switches save as you flip them. Anything you type has a Save changes button.</p>
           {footer && <div className="border-t pt-3">{footer}</div>}
         </div>
         {footer && <div className="mt-2 md:hidden">{footer}</div>}
@@ -252,6 +257,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
     setSavedAt(at);
     setTimeout(() => setSavedAt((cur) => (cur === at ? 0 : cur)), 2500);
   }).current;
+  const [summaryBusy, setSummaryBusy] = useState(false);
   /** The setup step being worked on (publishing from the checklist). */
   const [setupBusy, setSetupBusy] = useState<string | null>(null);
   // The hub's page: Settings shows one section at a time, picked from a list.
@@ -306,6 +312,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   });
   const [digestOn, setDigestOn] = useState(false);
   const [digestTo, setDigestTo] = useState("");
+  const [lastShown, setLastShown] = useState(false);
   const [preview, setPreview] = useState<{ subject: string; html: string; recipients: string[]; slackText: string; slackHeader?: string; slackContext?: string; empty: boolean } | null>(null);
   const [digestNote, setDigestNote] = useState("");
   const [compare, setCompare] = useState<{ uploadId: number; fileName: string; practices: { uploaded: number; inRoom: number; matched: number; missingFromRoom: string[]; notOnUpload: string[]; sheet: string } | null; doctors: { count: number; sheet: string } | null } | null>(null);
@@ -527,6 +534,41 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
           </section>
   );
 
+  // A one-page summary of the hub to hand to a manager, made from what this page already shows.
+  const downloadSummary = async () => {
+    setSummaryBusy(true);
+    try {
+      const [{ buildHubSummaryPdf }, perf] = await Promise.all([
+        import("@/lib/room-summary"),
+        qc.fetchQuery({ queryKey: ["page-room-performance", pageId], queryFn: async () => { const r = await fetch(`/api/lp/partner-rooms/${pageId}/performance`); return r.ok ? ((await r.json()) as RoomPerformanceData) : null; } }).catch(() => null),
+      ]);
+      const by = data.practices?.byStage ?? {};
+      const stageNow = data.stage?.stage ?? "rollout";
+      const blob = await buildHubSummaryPdf({
+        name: data.account?.partnerName || data.kit?.partnerName || "Partner Hub",
+        status: data.published === false ? "Draft" : "Live",
+        stage: stageNow,
+        day: data.stage?.day ?? null,
+        rolloutDays: data.stage?.rolloutDays ?? 90,
+        pace: pace?.line ?? null,
+        practices: { total: data.practices?.total ?? 0, live: by.live ?? 0, trained: (by.trained ?? 0) + (by.live ?? 0), scheduling: (by.training_booked ?? 0) + (by.scheduling ?? 0), notStarted: by.not_started ?? 0 },
+        goals: (data.goals?.items ?? []).filter((g) => !g.hidden).map((g) => ({ title: g.title, status: g.status, target: g.target, current: g.current })),
+        engagement: perf ? { visits: perf.visits, people: perf.named, seconds: perf.seconds, lastAt: perf.lastAt, windowDays: perf.windowDays, top: perf.modules.map((m) => ({ label: sectionLabel(m.module, stageNow), opens: m.opens })) } : null,
+        openRequests: openRequests.map((q) => ({ subject: q.subject, status: REQUEST_STATUS.find(([v]) => v === q.status)?.[1] ?? q.status })),
+        waitingOnCustomer: [...data.tasks.filter((t) => !t.done).map((t) => t.title), ...(data.planQueue ?? []).filter((i) => i.state === "undecided").map((i) => `A decision on ${i.title}`)],
+        today: new Date(),
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(data.account?.partnerName || "partner-hub").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-summary.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      setError("Couldn’t make the summary. Try again.");
+    } finally {
+      setSummaryBusy(false);
+    }
+  };
   // On the hub's page the rollout numbers sit where they inform (what to do, how it is going, the practices), not above Settings.
   const showRollout = !isPage || tab === "activity" || tab === "practices";
   // Whether the rollout is where it should be today (during the rollout only).
@@ -660,7 +702,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             [
               { id: "activity", label: "To do", count: needsYou },
               ...(data.isWorkspace ? [{ id: "performance", label: "Engagement", count: 0 }] : []),
-              ...(data.isWorkspace ? [{ id: "kit", label: kitNames.kit, count: 0 }] : []),
+              ...(data.isWorkspace ? [{ id: "kit", label: kitNames.module, count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "practices" as const, label: "Practices", count: 0 }] : []),
               ...(data.isWorkspace ? [{ id: "calendar", label: "Calendar", count: (data.events ?? []).filter((e) => e.minutesStatus === "draft").length }] : []),
               { id: "settings", label: "Settings", count: 0 },
@@ -689,6 +731,14 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {/* On the hub's page the numbers sit under the tabs, so the tabs never move as you switch. */}
         {isPage && rollout}
+        {tab === "performance" && data.isWorkspace && (
+          <div className="flex flex-wrap items-center justify-between gap-2" data-room-summary>
+            <p className="text-sm text-muted-foreground">How the customer is using the hub, and what both sides have done.</p>
+            <Button size="sm" variant="outline" className="gap-1.5" disabled={summaryBusy} onClick={() => void downloadSummary()} title="A one-page PDF for a manager or a business review: the rollout, goals, engagement and what is open">
+              <Download className="h-3.5 w-3.5" /> {summaryBusy ? "Making it…" : "Download summary"}
+            </Button>
+          </div>
+        )}
         {tab === "performance" && data.isWorkspace && (
           <RoomPerformance
             pageId={pageId}
@@ -745,11 +795,27 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                   </div>
                 </Fold>
               )}
+            {data.isWorkspace && (
+              <Fold title="What your team has done" hint={(data.activity ?? []).length ? `${data.activity![0].actor}: ${data.activity![0].action.toLowerCase()} · ${fmtWhen(data.activity![0].at).toLowerCase()}` : "Nothing recorded yet"} data-room-activity-fold>
+                {(data.activity ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Publishing, reminders, replies and settings changes are listed here from now on, with who did them.</p>
+                ) : (
+                  <ul className="divide-y rounded-md border text-sm">
+                    {data.activity!.map((a, i) => (
+                      <li key={`${a.at}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-4 px-3 py-2">
+                        <span><span className="font-medium">{a.actor}</span> <span className="text-muted-foreground">{a.action.charAt(0).toLowerCase() + a.action.slice(1)}</span></span>
+                        <span className="text-xs text-muted-foreground">{fmtWhen(a.at)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Fold>
+            )}
           </div>
         )}
         {tab === "activity" && (
           <div className="space-y-6" data-room-todo>
-            {data.isWorkspace && <RoomSetupChecklist items={data.setup ?? []} marketingName={kitNames.kit === "Marketing" ? "Marketing" : "Launch kit"} onGo={goSetup} busy={setupBusy} />}
+            {data.isWorkspace && <RoomSetupChecklist items={data.setup ?? []} marketingName={kitNames.module} onGo={goSetup} busy={setupBusy} />}
             {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
 
             {/* Most pressing first: someone locked out, then what the customer asked us for, then what we owe marketing,
@@ -1135,8 +1201,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                           <span className="font-medium">{sec.label}</span>
                           <span className="block text-xs text-muted-foreground">{sec.hint}</span>
                         </span>
-                        <input
-                          type="checkbox"
+                        <CheckSwitch
                           className="h-4 w-4"
                           checked={!hidden}
                           aria-label={`Show ${sec.label} on the Overview`}
@@ -1163,7 +1228,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               <Fold nav="digest" title="Weekly digest" about="A weekly summary: an email to the customer and a Slack post for your team." hint={data.digest?.enabled ? `On${data.digest.lastSentAt ? ` · last sent ${fmtDate(data.digest.lastSentAt)}` : ""}` : "Off"}>
                 <p className="text-xs text-muted-foreground">Every Monday: an email to the customer and a Slack post.</p>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={digestOn} onChange={(e) => setDigestOn(e.target.checked)} />
+              <CheckSwitch checked={digestOn} onChange={(e) => setDigestOn(e.target.checked)} />
               Send it for this hub
             </label>
             <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Customer emails</span><Input value={digestTo} onChange={(e) => setDigestTo(e.target.value)} placeholder="dana@customer.com, kai@customer.com" /></label>
@@ -1184,7 +1249,12 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               >
                 Save changes
               </Button>
-              <Button size="sm" variant="outline" onClick={async () => { const r = await post(`${base}/digest/preview`); if (r.ok) setPreview(r.json as never); }}>Preview</Button>
+              <Button size="sm" variant="outline" onClick={async () => { setLastShown(false); const r = await post(`${base}/digest/preview`); if (r.ok) setPreview(r.json as never); }}>Preview next</Button>
+              {data.lastDigest && (
+                <Button size="sm" variant="outline" onClick={() => { setPreview(null); setLastShown((v) => !v); }} aria-expanded={lastShown} data-room-digest-last>
+                  {lastShown ? "Hide last sent" : "See last sent"}
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -1199,6 +1269,15 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               </Button>
               {digestNote && <span className="text-sm text-muted-foreground">{digestNote}</span>}
             </div>
+            {lastShown && data.lastDigest && (
+              <div className="space-y-2 rounded-md border p-3" data-room-digest-last-view>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm"><strong>{data.lastDigest.subject}</strong><br /><span className="text-xs text-muted-foreground">What the customer was sent{data.lastDigest.sentAt ? ` on ${fmtDate(data.lastDigest.sentAt)}` : ""}</span></p>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label="Close" onClick={() => setLastShown(false)}><X className="h-4 w-4" /></Button>
+                </div>
+                <iframe title="Last digest email" sandbox="" srcDoc={data.lastDigest.html} className="h-[420px] w-full rounded border bg-white" />
+              </div>
+            )}
             {preview && (
               <div className="space-y-2 rounded-md border p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -1270,8 +1349,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               {data.isWorkspace && <OutreachSetting pageId={pageId} />}
               {data.isWorkspace && (
                 <label className="flex items-start gap-2 text-sm" data-room-visit-alert>
-                  <input
-                    type="checkbox"
+                  <CheckSwitch
                     className="mt-0.5 h-4 w-4"
                     checked={!!data.visitAlert}
                     onChange={async (e) => {
@@ -2129,7 +2207,7 @@ export function AutomaticRoomsSection() {
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Email</p>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={alertOwner} onChange={(e) => setAlertOwner(e.target.checked)} />
+            <CheckSwitch checked={alertOwner} onChange={(e) => setAlertOwner(e.target.checked)} />
             The account owner
           </label>
           <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Other emails</span><Input value={alertEmails} onChange={(e) => setAlertEmails(e.target.value)} aria-label="Other alert emails" /></label>
@@ -2137,7 +2215,7 @@ export function AutomaticRoomsSection() {
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Spreadsheet</p>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={logEnabled} onChange={(e) => setLogEnabled(e.target.checked)} />
+            <CheckSwitch checked={logEnabled} onChange={(e) => setLogEnabled(e.target.checked)} />
             Add a row for each new hub
           </label>
           <div className="grid gap-2 sm:grid-cols-[1fr_220px]">

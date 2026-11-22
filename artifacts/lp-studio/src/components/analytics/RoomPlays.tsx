@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { CheckSwitch } from "./CheckSwitch";
 import { Check, ChevronDown, Package, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -143,8 +144,7 @@ export function OutreachSetting({ pageId }: { pageId: number }) {
   if (value === null) return null;
   return (
     <label className="flex items-start gap-2 text-sm">
-      <input
-        type="checkbox"
+      <CheckSwitch
         className="mt-0.5 h-4 w-4"
         checked={value}
         onChange={async (e) => {

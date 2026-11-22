@@ -32,6 +32,9 @@ export const lpRoomSettingsTable = pgTable("lp_room_settings", {
   digestEnabled: boolean("digest_enabled").notNull().default(false),
   digestRecipients: jsonb("digest_recipients").$type<string[]>().notNull().default([]),
   lastDigestAt: timestamp("last_digest_at", { withTimezone: true }),
+  /** The last weekly digest that went out, kept so the team can see what the customer was sent. */
+  lastDigestSubject: text("last_digest_subject"),
+  lastDigestHtml: text("last_digest_html"),
   /** A live Google Sheet that IS the practice list while connected (read through the workspace's Sheets connection). */
   practicesSheetId: text("practices_sheet_id"),
   practicesSheetTab: text("practices_sheet_tab"),
@@ -149,6 +152,22 @@ export const lpRoomRequestsTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_room_requests_page_created_idx").on(t.pageId, t.createdAt)],
+);
+
+/** What the account team did to a hub, newest last: who published it, sent a reminder, changed its settings. */
+export const lpRoomActivityTable = pgTable(
+  "lp_room_activity",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull(),
+    pageId: integer("page_id").notNull(),
+    /** Who did it, as a name (or an email when there is no name). */
+    actor: text("actor").notNull(),
+    /** What they did, in words ("Published the hub"). */
+    action: text("action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lp_room_activity_page_created_idx").on(t.pageId, t.createdAt)],
 );
 
 /** A practice (location) in a room's rollout. `stage`: not_started | scheduling | training_booked | trained | live. */

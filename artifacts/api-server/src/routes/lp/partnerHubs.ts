@@ -20,6 +20,8 @@ import { roomStageFromProps } from "../../lib/partnerRoomStage";
 import { accountKey, cleanAccountName } from "../../lib/partnerRoomNames";
 import { createRoom, publicPageUrl } from "../../lib/partnerRoomAutocreate";
 import { hubIsMine, hubSetupItems, hubSetupState, sameSfdcId, summarizeRoomViews } from "../../lib/partnerRoomViews";
+import { recordHubActivity } from "../../lib/partnerRoomActivity";
+import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
 const DAY = 86_400_000;
@@ -242,6 +244,16 @@ router.get("/lp/partner-rooms/:pageId/performance", async (req: Request, res: Re
 });
 
 /** One hub's header for the Sales Console: its name, links, and what is left to set up. */
+/** The account's page in Salesforce, when this workspace is connected to one. */
+async function salesforceRecordUrl(tenantId: number, salesforceId: string): Promise<string | null> {
+  const connection = await sfdcService.getActiveConnection(tenantId).catch(() => null);
+  const base = (connection?.instanceUrl ?? "").replace(/\/+$/, "");
+  return /^https:\/\//.test(base) && /^[A-Za-z0-9]{15,18}$/.test(salesforceId) ? `${base}/${salesforceId}` : null;
+}
+
+// Who did what to a hub (publishing and archiving live in this file).
+router.use("/lp/partner-rooms/:pageId", recordHubActivity);
+
 router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res);
@@ -273,7 +285,7 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
       // Internal: rollout or expansion. The pop-up names the launch sections by it ("Launch kit" / "Marketing").
       stage: roomStageFromProps(roomWorkspaceProps(blocks) ?? {}, new Date()).stage,
       setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0, slackLinked: !!hubSettings?.slackChannelId }),
-      account: account ? { id: account.id, owner: account.owner, salesforceUrl: null } : null,
+      account: account ? { id: account.id, owner: account.owner, salesforceUrl: account.salesforceId ? await salesforceRecordUrl(tenantId, account.salesforceId) : null } : null,
     });
   } catch (err) {
     req.log.error({ err }, "partner hub setup failed");

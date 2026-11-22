@@ -1184,6 +1184,13 @@
       "when": 1758117240000,
       "tag": "0168_room_request_reply",
       "breakpoints": false
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1758117300000,
+      "tag": "0169_room_activity_and_last_digest",
+      "breakpoints": false
     }
   ]
 }

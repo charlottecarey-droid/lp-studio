@@ -607,6 +607,8 @@ export async function sendRoomDigest(pageId: number, opts: { scheduled: boolean;
     if (await sendRoomDigestEmail({ recipientEmail: to, subject: digest.email.subject, html: digest.email.html, tenantId: digest.tenantId })) emails++;
   }
   if (!opts.scheduled) await db.update(lpRoomSettingsTable).set({ lastDigestAt: sql`now()` }).where(eq(lpRoomSettingsTable.pageId, pageId));
+  // Keep what went out, so the team can see what the customer was sent (only when an email actually went).
+  if (emails > 0) await db.update(lpRoomSettingsTable).set({ lastDigestSubject: digest.email.subject.slice(0, 300), lastDigestHtml: digest.email.html }).where(eq(lpRoomSettingsTable.pageId, pageId)).catch(() => undefined);
   return { sent: true, emails, slack: !!slack };
 }
 

@@ -4,6 +4,7 @@
  * Goals live on the hub page itself (its Goals section shows them), so a save
  * here changes what the customer sees straight away.
  */
+import { CheckSwitch } from "./CheckSwitch";
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -225,11 +226,11 @@ export function RoomGoalsSection({
 
       <div className="space-y-2 border-t pt-3">
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={state.askAgreement} disabled={busy} onChange={(e) => save({ ...state, askAgreement: e.target.checked })} />
+          <CheckSwitch checked={state.askAgreement} disabled={busy} onChange={(e) => save({ ...state, askAgreement: e.target.checked })} />
           Ask the customer to agree to these goals
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={!state.moduleHidden} disabled={busy} onChange={(e) => save({ ...state, moduleHidden: !e.target.checked })} />
+          <CheckSwitch checked={!state.moduleHidden} disabled={busy} onChange={(e) => save({ ...state, moduleHidden: !e.target.checked })} />
           Show the Goals section in the hub
         </label>
       </div>
@@ -315,7 +316,7 @@ function GoalEditor({ goal, busy, byStage, isNew = false, onSave, onCancel, onRe
             <Input value={g.detail ?? ""} onChange={(e) => set({ detail: e.target.value })} maxLength={300} className={input} placeholder="A line of context under the goal" />
           </label>
           <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-2">
-            <input type="checkbox" checked={!!g.hidden} onChange={(e) => set({ hidden: e.target.checked })} />
+            <CheckSwitch checked={!!g.hidden} onChange={(e) => set({ hidden: e.target.checked })} />
             Hide this goal from the customer
           </label>
         </div>
