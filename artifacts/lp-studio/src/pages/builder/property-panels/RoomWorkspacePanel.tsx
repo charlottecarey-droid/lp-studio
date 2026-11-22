@@ -478,67 +478,72 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
               );
             })()}
             {x.kind === "text" && (
-              <>
-                <Field label="Eyebrow (above the title; clear it to show none)"><Input value={x.eyebrow ?? OVERVIEW_NOTE_EYEBROW} onChange={(e) => setExtra(i, { eyebrow: e.target.value })} className="h-8 text-xs" placeholder={OVERVIEW_NOTE_EYEBROW} /></Field>
-                <Field label="Message"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value, pinnedAt: new Date().toISOString() })} rows={5} className="text-xs" placeholder={"Hi {first name}, …\n\nA short last line (like your team's name) shows as the sign-off."} /></Field>
-                <p className="text-[11px] text-muted-foreground">Write {"{first name}"} in the title or message to greet each visitor by name (their company name when it isn&apos;t known). You can also edit the words right on the note in the preview.</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Signed by">
-                    <Select value={x.signedBy === "" ? "__none" : x.signedBy ?? "__default"} onValueChange={(v) => setExtra(i, { signedBy: v === "__default" ? undefined : v === "__none" ? "" : v })}>
-                      <SelectTrigger className="h-8 text-xs" aria-label="Who signs the note"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__default" className="text-xs">{signers[0] ? `${signers[0].name.trim()} (first on the team)` : "First person on the team"}</SelectItem>
-                        {signers.slice(1).map((m) => (
-                          <SelectItem key={m.name} value={m.name.trim()} className="text-xs">{m.name.trim()}{m.role ? ` · ${m.role}` : ""}</SelectItem>
-                        ))}
-                        <SelectItem value="__none" className="text-xs">No one (just the sign-off line)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Date">
-                    <label className="flex h-8 items-center justify-between gap-2 rounded-md border px-2 text-xs">
-                      <span>{x.pinnedAt ? `Show “Pinned ${new Date(x.pinnedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}”` : "Show the date"}</span>
-                      <Switch checked={!x.hideDate && !!x.pinnedAt} onCheckedChange={(on) => setExtra(i, on ? { hideDate: false, pinnedAt: x.pinnedAt ?? new Date().toISOString() } : { hideDate: true })} aria-label="Show the pinned date" />
-                    </label>
-                  </Field>
+              <div className="space-y-3" data-room-note-fields>
+                <Field label="Eyebrow (clear it to show none)"><Input value={x.eyebrow ?? OVERVIEW_NOTE_EYEBROW} onChange={(e) => setExtra(i, { eyebrow: e.target.value })} className="h-8 text-xs" placeholder={OVERVIEW_NOTE_EYEBROW} /></Field>
+                <div className="space-y-1">
+                  <Field label="Message"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value, pinnedAt: new Date().toISOString() })} rows={6} className="text-xs" placeholder={"Hi {first name},\n\nYour message.\n\nYour team"} /></Field>
+                  <p className="text-[11px] leading-snug text-muted-foreground">{"{first name}"} greets each visitor by name. A short last line becomes the sign-off. You can also edit the words on the note in the preview.</p>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-muted-foreground">Buttons under the message</p>
+                  {(x.items ?? []).map((it, j) => (
+                    <div key={j} className="space-y-1 rounded-md border p-1.5" data-room-note-link-edit>
+                      <div className="flex gap-1">
+                        <Input value={it.title} onChange={(e) => setExtraItem(i, j, { title: e.target.value })} className="h-7 text-xs" placeholder="Button text" aria-label="Link button text" />
+                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0 text-muted-foreground" aria-label="Remove this link" onClick={() => setExtra(i, { items: (x.items ?? []).filter((_, k) => k !== j) })}><X className="h-3.5 w-3.5" /></Button>
+                      </div>
+                      <Input value={it.url} onChange={(e) => setExtraItem(i, j, { url: e.target.value.trim() })} className="h-7 text-xs" placeholder="https://… or {booking link}" aria-label="Link address" />
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtra(i, { items: [...(x.items ?? []), { title: "", url: "" }] })} data-room-note-add-link>
+                    <Plus className="h-3 w-3" /> Add a button
+                  </Button>
+                  <p className="text-[11px] leading-snug text-muted-foreground">Use {"{booking link}"} as the address to open the signer&apos;s booking page.</p>
+                </div>
+
+                <Field label="Signed by">
+                  <Select value={x.signedBy === "" ? "__none" : x.signedBy ?? "__default"} onValueChange={(v) => setExtra(i, { signedBy: v === "__default" ? undefined : v === "__none" ? "" : v })}>
+                    <SelectTrigger className="h-8 text-xs" aria-label="Who signs the note"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__default" className="text-xs">{signers[0] ? `${signers[0].name.trim()} (first on the team)` : "First person on the team"}</SelectItem>
+                      {signers.slice(1).map((m) => (
+                        <SelectItem key={m.name} value={m.name.trim()} className="text-xs">{m.name.trim()}{m.role ? ` · ${m.role}` : ""}</SelectItem>
+                      ))}
+                      <SelectItem value="__none" className="text-xs">No one (just the sign-off line)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <label className="flex items-center justify-between gap-3 rounded-md border px-2.5 py-2 text-xs" data-room-note-date-toggle>
+                  <span className="min-w-0">
+                    <span className="block font-medium">Show the date</span>
+                    <span className="block text-[11px] text-muted-foreground">{x.pinnedAt ? `“Pinned ${new Date(x.pinnedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}”` : "“Pinned” with today’s date"}</span>
+                  </span>
+                  <Switch checked={!x.hideDate && !!x.pinnedAt} onCheckedChange={(on) => setExtra(i, on ? { hideDate: false, pinnedAt: x.pinnedAt ?? new Date().toISOString() } : { hideDate: true })} aria-label="Show the pinned date" />
+                </label>
+
+                <div className="space-y-1.5 border-t pt-3">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 text-[11px]"
+                    className="h-8 w-full gap-1.5 text-xs"
                     data-room-note-save-panel
                     onClick={async () => {
                       const name = (x.title ?? "").replace(/\{\s*first[\s_]*name\s*\}/gi, "").replace(/[\s,!]+$/, "").trim() || "Untitled note";
                       try {
                         const r = await saveRoomNote(name, x);
-                        setNoteSaved((m) => ({ ...m, [x.key]: r.updated ? `Updated the saved note “${r.note.name}”.` : `Saved as “${r.note.name}”. Add it to any hub from + Add section.` }));
+                        setNoteSaved((m) => ({ ...m, [x.key]: r.updated ? `Updated “${r.note.name}” in your saved notes.` : `Saved as “${r.note.name}”. Add it to any hub from + Add section.` }));
                       } catch {
                         setNoteSaved((m) => ({ ...m, [x.key]: "Couldn't save. Try again." }));
                       }
                     }}
                   >
-                    <Bookmark className="h-3 w-3" /> Save to saved notes
+                    <Bookmark className="h-3.5 w-3.5" /> Save to saved notes
                   </Button>
-                  {noteSaved[x.key] && <span className="text-[11px] text-muted-foreground">{noteSaved[x.key]}</span>}
+                  {noteSaved[x.key] && <p className="text-[11px] leading-snug text-muted-foreground" role="status">{noteSaved[x.key]}</p>}
                 </div>
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium text-muted-foreground">Links (shown as buttons under the message)</span>
-                  {(x.items ?? []).map((it, j) => (
-                    <div key={j} className="space-y-1 rounded border p-1.5" data-room-note-link-edit>
-                      <div className="flex gap-1">
-                        <Input value={it.title} onChange={(e) => setExtraItem(i, j, { title: e.target.value })} className="h-7 text-xs" placeholder="Button text (Book your kickoff)" aria-label="Link button text" />
-                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0 text-muted-foreground" aria-label="Remove this link" onClick={() => setExtra(i, { items: (x.items ?? []).filter((_, k) => k !== j) })}><X className="h-3.5 w-3.5" /></Button>
-                      </div>
-                      <Input value={it.url} onChange={(e) => setExtraItem(i, j, { url: e.target.value.trim() })} className="h-7 text-xs" placeholder="https://…" aria-label="Link address" />
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtra(i, { items: [...(x.items ?? []), { title: "", url: "" }] })} data-room-note-add-link>
-                    <Plus className="h-3 w-3" /> Add a link
-                  </Button>
-                </div>
-              </>
+              </div>
             )}
             {x.kind === "resources" && (
               <div className="space-y-1.5">
