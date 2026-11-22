@@ -12,7 +12,7 @@ import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
 import { RoomSetupChecklist, type HubSetupItem } from "./RoomSetup";
-import { RoomAccountSettings, RoomTeamSettings, accountHint, teamHint } from "./RoomAccountSettings";
+import { RoomAccountSettings, RoomTeamSettings, UnsavedSettings, accountHint, teamHint } from "./RoomAccountSettings";
 import type { RoomAccountProps, RoomTeamProps } from "./RoomAccountEditor";
 import type { RoomTeamGroup } from "@/blocks/BlockRoomWorkspace";
 import { RoomStagePrompt, RoomStageSection, STAGE_LABEL, type HubStage } from "./RoomStage";
@@ -137,7 +137,7 @@ export const SETTINGS_SECTIONS: { key: string; label: string; group: string }[] 
   { key: "stage", label: "Stage and waves", group: "The rollout" },
   { key: "overview", label: "Overview sections", group: "The rollout" },
   { key: "digest", label: "Weekly digest", group: "Updates" },
-  { key: "notify", label: "Notifications", group: "Updates" },
+  { key: "notify", label: "Notifications and connections", group: "Updates" },
 ];
 
 /** A settings group. In the pop-up it opens on click, so Settings reads as a short list; on the hub's page it is one part of the section named by `nav`. */
@@ -178,13 +178,13 @@ function Fold({ title, hint, defaultOpen = false, nav, children, ...rest }: { ti
  * section on the right at full width. A dot marks a section with a setup step
  * still to do.
  */
-function SettingsShell({ page, active, onPick, sections, todo, children }: { page: boolean; active: string; onPick: (key: string) => void; sections: string[]; todo: Set<string>; children: React.ReactNode }) {
+function SettingsShell({ page, active, onPick, sections, todo, unsaved, footer, children }: { page: boolean; active: string; onPick: (key: string) => void; sections: string[]; todo: Set<string>; /** Sections with edits not saved yet. */ unsaved: Set<string>; /** Under the list: what is done to the hub as a whole (archive). */ footer?: React.ReactNode; children: React.ReactNode }) {
   if (!page) return <div className="space-y-2" data-room-settings>{children}</div>;
   const shown = SETTINGS_SECTIONS.filter((x) => sections.includes(x.key));
   const groups = [...new Set(shown.map((x) => x.group))];
   return (
     <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)]" data-room-settings="page">
-      <nav aria-label="Settings sections" className="md:sticky md:top-4 md:self-start">
+      <nav aria-label="Settings sections" className="md:sticky md:top-[120px] md:self-start">
         <select className="h-9 w-full rounded-md border bg-background px-2 text-sm md:hidden" value={active} onChange={(e) => onPick(e.target.value)} aria-label="Settings section">
           {shown.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
         </select>
@@ -201,13 +201,19 @@ function SettingsShell({ page, active, onPick, sections, todo, children }: { pag
                   className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm ${active === x.key ? "bg-muted font-semibold" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
                   data-room-settings-nav={x.key}
                 >
-                  {x.label}
-                  {todo.has(x.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" title="A setup step is still to do here" aria-label="Setup step to do" />}
+                  <span className="min-w-0 truncate">{x.label}</span>
+                  {unsaved.has(x.key) ? (
+                    <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" data-room-settings-unsaved={x.key}>Unsaved</span>
+                  ) : (
+                    todo.has(x.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" title="A setup step is still to do here" aria-label="Setup step to do" />
+                  )}
                 </button>
               ))}
             </div>
           ))}
+          {footer && <div className="border-t pt-3">{footer}</div>}
         </div>
+        {footer && <div className="mt-2 md:hidden">{footer}</div>}
       </nav>
       <div className="min-w-0 max-w-3xl space-y-8">{children}</div>
     </div>
@@ -226,7 +232,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string; /** What a generated file was made from; absent for an upload. */ madeFrom?: string }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps, onOverview, onLinks, onStage, initialTab = "activity", embedded = false, layout, initialSection, onNavigate }: { /** "page": the hub's own full page (header buttons live in the page, Settings gets a left-hand list). */ layout?: "page"; /** The Settings section to open on (page layout). */ initialSection?: string; /** The tab (and Settings section) in view changed: lets the page keep its address in step. */ onNavigate?: (tab: RoomPanelTab, section: string) => void; pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onProps?: (patch: Record<string, unknown>) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps, onOverview, onLinks, onStage, initialTab = "activity", embedded = false, layout, initialSection, onNavigate, onArchive }: { /** "page": the hub's own full page (header buttons live in the page, Settings gets a left-hand list). */ layout?: "page"; /** Retire the hub (page layout): shown at the foot of the Settings list. */ onArchive?: () => void; /** The Settings section to open on (page layout). */ initialSection?: string; /** The tab (and Settings section) in view changed: lets the page keep its address in step. */ onNavigate?: (tab: RoomPanelTab, section: string) => void; pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onProps?: (patch: Record<string, unknown>) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   // Plays used to be a tab of their own; they are part of To do now, so an old link to them lands there.
   // Goals are set once and rarely touched: they live in Settings now, so an old link to them lands there with Goals open.
   const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab === "goals" ? "settings" : initialTab);
@@ -238,6 +244,14 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   const [section, setSection] = useState(initialSection && SETTINGS_SECTIONS.some((x) => x.key === initialSection) ? initialSection : initialTab === "goals" ? "goals" : "account");
   const [sections, setSections] = useState<string[]>([]);
   const sawSection = useRef((key: string) => setSections((prev) => (prev.includes(key) ? prev : [...prev, key]))).current;
+  const [unsaved, setUnsaved] = useState<string[]>([]);
+  const reportUnsaved = useRef((key: string, on: boolean) => setUnsaved((prev) => (on ? (prev.includes(key) ? prev : [...prev, key]) : prev.includes(key) ? prev.filter((k) => k !== key) : prev))).current;
+  // The tabs stay in view while a long tab scrolls; picking another starts it from its top.
+  const tabsTop = useRef<HTMLDivElement>(null);
+  const pickTab = (t: RoomPanelTab) => {
+    setTab(t);
+    if (isPage && tabsTop.current && tabsTop.current.getBoundingClientRect().top < 57) window.scrollTo({ top: window.scrollY + tabsTop.current.getBoundingClientRect().top - 57 });
+  };
   useEffect(() => {
     onNavigate?.(tab, section);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -491,6 +505,43 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
           </section>
   );
 
+  // On the hub's page the rollout numbers sit where they inform (what to do, how it is going, the practices), not above Settings.
+  const showRollout = !isPage || tab === "activity" || tab === "performance" || tab === "practices";
+  const rollout = (
+    <>
+        {/* How the partnership is going, on every tab: these numbers used to be a trip to the customer's Scorecard. */}
+        {data.isWorkspace && !!data.practices?.total && showRollout && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-room-rollout-strip>
+            {(
+              [
+                ["Live", data.practices.byStage.live ?? 0, `of ${data.practices.total} practices`],
+                ["Trained", (data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0), "trained or live"],
+                ["Being scheduled", (data.practices.byStage.training_booked ?? 0) + (data.practices.byStage.scheduling ?? 0), "training booked or in progress"],
+                ["Not started", data.practices.byStage.not_started ?? 0, data.stage?.day ? `Day ${data.stage.day} of ${data.stage.rolloutDays}` : ""],
+              ] as [string, number, string][]
+            ).map(([label, n, note]) => (
+              <div key={label} className="rounded-md border px-3 py-2">
+                <div className="text-xs text-muted-foreground">{label}</div>
+                <div className="text-xl font-semibold tabular-nums">{n}</div>
+                {note && <div className="truncate text-xs text-muted-foreground">{note}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+        {data.isWorkspace && showRollout && (data.goals?.items ?? []).filter((g) => !g.hidden).length > 0 && (
+          <p className="-mt-3 text-xs text-muted-foreground" data-room-goal-line>
+            Goals:{" "}
+            {(["on-track", "pending", "done"] as const)
+              .map((st) => [st, data.goals!.items.filter((g) => !g.hidden && g.status === st).length] as const)
+              .filter(([, n]) => n > 0)
+              .map(([st, n]) => `${n} ${st === "on-track" ? "on track" : st === "pending" ? (n === 1 ? "needs attention" : "need attention") : "achieved"}`)
+              .join(" · ")}
+            {" · "}
+            <button type="button" className="underline" onClick={() => { setTab("settings"); setSection("goals"); }}>Edit in Settings</button>
+          </p>
+        )}
+    </>
+  );
   return (
     <Card data-testid="page-room-panel" className={embedded || isPage ? "border-0 bg-transparent shadow-none" : undefined}>
       <CardHeader className={isPage ? "hidden" : embedded ? "space-y-1 p-0 pb-4" : "space-y-1"}>
@@ -553,38 +604,9 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             }}
           />
         )}
-        {/* How the partnership is going, on every tab: these numbers used to be a trip to the customer's Scorecard. */}
-        {data.isWorkspace && !!data.practices?.total && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-room-rollout-strip>
-            {(
-              [
-                ["Live", data.practices.byStage.live ?? 0, `of ${data.practices.total} practices`],
-                ["Trained", (data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0), "trained or live"],
-                ["Being scheduled", (data.practices.byStage.training_booked ?? 0) + (data.practices.byStage.scheduling ?? 0), "training booked or in progress"],
-                ["Not started", data.practices.byStage.not_started ?? 0, data.stage?.day ? `Day ${data.stage.day} of ${data.stage.rolloutDays}` : ""],
-              ] as [string, number, string][]
-            ).map(([label, n, note]) => (
-              <div key={label} className="rounded-md border px-3 py-2">
-                <div className="text-xs text-muted-foreground">{label}</div>
-                <div className="text-xl font-semibold tabular-nums">{n}</div>
-                {note && <div className="truncate text-xs text-muted-foreground">{note}</div>}
-              </div>
-            ))}
-          </div>
-        )}
-        {data.isWorkspace && (data.goals?.items ?? []).filter((g) => !g.hidden).length > 0 && (
-          <p className="-mt-3 text-xs text-muted-foreground" data-room-goal-line>
-            Goals:{" "}
-            {(["on-track", "pending", "done"] as const)
-              .map((st) => [st, data.goals!.items.filter((g) => !g.hidden && g.status === st).length] as const)
-              .filter(([, n]) => n > 0)
-              .map(([st, n]) => `${n} ${st === "on-track" ? "on track" : st === "pending" ? (n === 1 ? "needs attention" : "need attention") : "achieved"}`)
-              .join(" · ")}
-            {" · "}
-            <button type="button" className="underline" onClick={() => { setTab("settings"); setSection("goals"); }}>Edit in Settings</button>
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Hub sections">
+        {!isPage && rollout}
+        <div ref={tabsTop} aria-hidden />
+        <div className={`flex flex-wrap gap-1 border-b ${isPage ? "sticky top-[57px] z-20 -mx-1 bg-background px-1 pt-2" : ""}`} role="tablist" aria-label="Hub sections">
           {(
             [
               { id: "activity", label: "To do", count: needsYou },
@@ -600,7 +622,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               type="button"
               role="tab"
               aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => pickTab(t.id)}
               className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t.id ? "border-foreground font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               data-room-tab={t.id}
             >
@@ -610,6 +632,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
           ))}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {/* On the hub's page the numbers sit under the tabs, so the tabs never move as you switch. */}
+        {isPage && rollout}
         {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} stage={data.stage?.stage} />}
         {/* Everything the customer has done, in one place: what they opened, ticked off, sent and asked for. */}
         {tab === "performance" && (
@@ -897,7 +921,16 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             onPick={setSection}
             sections={sections}
             todo={new Set((data.setup ?? []).filter((i) => !i.done && i.where !== "kit" && i.where !== "publish").map((i) => (i.where === "invite" ? "access" : i.where)))}
+            unsaved={new Set(unsaved)}
+            footer={
+              onArchive && (
+                <button type="button" className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={onArchive} data-room-archive>
+                  Archive this hub…
+                </button>
+              )
+            }
           >
+          <UnsavedSettings.Provider value={reportUnsaved}>
             {data.isWorkspace && data.account && (
               <Fold nav="account" title="Account" hint={accountHint(data.account)} data-room-account-fold>
                 <RoomAccountSettings
@@ -1176,6 +1209,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 </label>
               )}
             </Fold>
+          </UnsavedSettings.Provider>
           </SettingsShell>
           </SettingsNav.Provider>
         )}

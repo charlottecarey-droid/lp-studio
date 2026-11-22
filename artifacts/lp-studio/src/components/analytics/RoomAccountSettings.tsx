@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useBrandConfig } from "@/components/BrandSwatches";
 import { roomHeadlineDefault, type RoomTeamGroup } from "@/blocks/BlockRoomWorkspace";
@@ -6,8 +6,11 @@ import { RoomAccountFields, RoomTeamFields, type RoomAccountProps, type RoomTeam
 
 type Saved = { patch?: Record<string, unknown>; error?: string };
 
+/** Lets whatever holds these sections know one has unsaved changes, so it can say so where the rep is looking. */
+export const UnsavedSettings = createContext<((section: string, unsaved: boolean) => void) | null>(null);
+
 /** Keep a draft of some settings, and save it to the hub. The same fields as the page builder, without opening it. */
-function useDraft<T extends object>(pageId: number, stored: T, body: (draft: T) => Record<string, unknown>, onSaved: (patch: Record<string, unknown>) => void | Promise<void>) {
+function useDraft<T extends object>(name: string, pageId: number, stored: T, body: (draft: T) => Record<string, unknown>, onSaved: (patch: Record<string, unknown>) => void | Promise<void>) {
   const [draft, setDraft] = useState<T>(stored);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -16,6 +19,18 @@ function useDraft<T extends object>(pageId: number, stored: T, body: (draft: T) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => setDraft(stored), [key]);
   const changed = JSON.stringify(draft) !== key;
+  // Unsaved work is flagged to the page, and closing or reloading the browser tab asks first.
+  const report = useContext(UnsavedSettings);
+  useEffect(() => {
+    report?.(name, changed);
+    if (!changed) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      report?.(name, false);
+    };
+  }, [changed, name, report]);
   const save = async () => {
     setBusy(true);
     setErr("");
@@ -52,7 +67,7 @@ export function RoomAccountSettings({ pageId, account, team, onSaved }: { pageId
   const brand = useBrandConfig();
   const fallback = roomHeadlineDefault(brand?.brandName);
   // A headline left as the default is stored blank, so it keeps following the brand name.
-  const { draft, setDraft, bar } = useDraft(pageId, account, (d) => ({ account: { ...d, headline: (d.headline ?? "").trim() === fallback ? "" : (d.headline ?? "") } }), onSaved);
+  const { draft, setDraft, bar } = useDraft("account", pageId, account, (d) => ({ account: { ...d, headline: (d.headline ?? "").trim() === fallback ? "" : (d.headline ?? "") } }), onSaved);
   return (
     <section className="max-w-2xl space-y-3" data-room-account-settings>
       <RoomAccountFields props={draft} update={(patch) => setDraft((d) => ({ ...d, ...patch }))} team={team} brandName={brand?.brandName} note="The social graphics, one-pager and media kit follow these logo sizes. After you save, they are remade when the marketing tab is next opened." />
@@ -63,7 +78,7 @@ export function RoomAccountSettings({ pageId, account, team, onSaved }: { pageId
 
 /** The named people on both sides. */
 export function RoomTeamSettings({ pageId, team, onSaved }: { pageId: number; team: RoomTeamProps; onSaved: (patch: Record<string, unknown>) => void | Promise<void> }) {
-  const { draft, setDraft, bar } = useDraft(pageId, team, (d) => ({ team: d }), onSaved);
+  const { draft, setDraft, bar } = useDraft("team", pageId, team, (d) => ({ team: d }), onSaved);
   return (
     <section className="max-w-2xl space-y-3" data-room-team-settings>
       <RoomTeamFields props={draft} update={(patch) => setDraft((d) => ({ ...d, ...patch }))} pageId={pageId} />

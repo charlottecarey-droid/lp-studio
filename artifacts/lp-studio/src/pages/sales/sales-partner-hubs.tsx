@@ -188,6 +188,23 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
     toast({ title: publish ? "The hub is live" : "The hub is a draft again", description: publish ? "Copy the link, or invite the customer's team from Settings." : undefined });
     await Promise.all([refetch(), qc.invalidateQueries({ queryKey: ["partner-hubs"] }), qc.invalidateQueries({ queryKey: ["page-room", pageId] })]);
   };
+  // Several hubs open at once are told apart by their browser tabs.
+  useEffect(() => {
+    if (!data?.name) return;
+    const before = document.title;
+    document.title = `${data.name} · Partner Hub`;
+    return () => {
+      document.title = before;
+    };
+  }, [data?.name]);
+  const [, navigate] = useLocation();
+  const archive = async () => {
+    if (!window.confirm(`Archive the ${data?.name ?? "hub"} hub? It leaves your list, the customer’s link stops working and its weekly digest stops. Nothing is deleted, and you can bring it back from Archived.`)) return;
+    const r = await json(`/api/lp/partner-rooms/${pageId}/archive`, { method: "POST", body: JSON.stringify({ archived: true }) });
+    if (!r.ok) return void toast({ title: "Couldn't archive the hub", description: r.data.error, variant: "destructive" });
+    toast({ title: "Hub archived", description: "Bring it back any time from Archived on the Partner Hubs list." });
+    navigate("/sales/partner-hubs");
+  };
   const live = data?.status === "live";
   const initialSection = typeof window === "undefined" ? undefined : (new URLSearchParams(window.location.search).get("section") ?? undefined);
   return (
@@ -253,6 +270,7 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
               initialTab={tab}
               initialSection={initialSection}
               layout="page"
+              onArchive={() => void archive()}
               onNavigate={(t, section) => {
                 // The address follows the tab without reloading anything, so Back still returns to the list.
                 const q = new URLSearchParams();
