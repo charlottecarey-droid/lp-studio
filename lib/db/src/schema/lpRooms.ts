@@ -141,6 +141,10 @@ export const lpRoomRequestsTable = pgTable(
     requestedByName: text("requested_by_name"),
     /** The Asana task created for a marketing request. */
     asanaTaskGid: text("asana_task_gid"),
+    /** The account team's answer, shown on the request in the customer's hub. */
+    teamReply: text("team_reply"),
+    teamReplyBy: text("team_reply_by"),
+    teamReplyAt: timestamp("team_reply_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -34,6 +34,8 @@ export interface RoomRequest {
   assetKey: string | null;
   by: string;
   createdAt: string;
+  /** The account team's answer to the request, when they have written one. */
+  reply?: { text: string; by: string; at: string };
 }
 
 export interface RoomReaction {

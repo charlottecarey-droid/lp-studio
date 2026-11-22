@@ -322,7 +322,7 @@ function GoalEditor({ goal, busy, byStage, isNew = false, onSave, onCancel, onRe
       </details>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" variant="brand" className="h-8" disabled={busy || !g.title.trim()} onClick={submit} data-room-goal-save>
-          {isNew ? "Add goal" : "Save"}
+          {isNew ? "Add goal" : "Save changes"}
         </Button>
         <Button type="button" size="sm" variant="ghost" className="h-8" onClick={onCancel}>Cancel</Button>
         {onRemove && (

@@ -41,6 +41,8 @@ export interface OutstandingItem {
   from?: string;
   /** A line of context under the title: what the item is or why it matters, so nobody has to open it to find out. */
   detail?: string;
+  /** The account team's answer to a request, shown under it. */
+  reply?: { text: string; by: string; when: string };
   owner?: string;
   due?: string;
   side: OutstandingSide;
@@ -153,6 +155,12 @@ export function OutstandingView({
       <>
         <span className="t">{i.title}</span>
         {i.detail && <span className="d">{i.detail}</span>}
+        {i.reply && (
+          <span className="d" style={{ display: "block", marginTop: 6, padding: "8px 10px", borderRadius: 8, background: "rgba(0,0,0,.04)", whiteSpace: "pre-wrap" }} data-room-request-reply>
+            <b style={{ display: "block", fontSize: 11, fontWeight: 600, opacity: 0.7, marginBottom: 2 }}>{[i.reply.by || "Your account team", "replied", i.reply.when].filter(Boolean).join(" ")}</b>
+            {i.reply.text}
+          </span>
+        )}
         {meta && <span className="m">{meta}</span>}
       </>
     );

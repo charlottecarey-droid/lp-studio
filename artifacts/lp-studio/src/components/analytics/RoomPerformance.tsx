@@ -153,7 +153,13 @@ function PersonRow({ p, stage }: { p: PersonStat; stage?: string }) {
   );
 }
 
-export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expansion" once the hub is past its rollout: the launch sections are then called Marketing. */ stage?: string }) {
+/** The people with access who are not among the visitors: the ones to chase. */
+export function notVisited(invited: string[], people: { email: string }[]): string[] {
+  const came = new Set(people.map((p) => p.email.trim().toLowerCase()));
+  return [...new Set(invited.map((e) => e.trim().toLowerCase()).filter(Boolean))].filter((e) => !came.has(e)).sort();
+}
+
+export function RoomPerformance({ pageId, stage, invited = [], onRemind }: { pageId: number; /** "expansion" once the hub is past its rollout: the launch sections are then called Marketing. */ stage?: string; /** Everyone who has been given access, so those who have not come can be named. */ invited?: string[]; /** Take the rep to the reminder. */ onRemind?: () => void }) {
   const [allVisits, setAllVisits] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["page-room-performance", pageId],
@@ -166,6 +172,23 @@ export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expans
   if (!data) return <p className="text-sm text-muted-foreground">Could not load how this hub is doing.</p>;
   const maxOpens = Math.max(1, ...data.modules.map((m) => m.opens));
   const recent = allVisits ? data.recent : data.recent.slice(0, 5);
+  const missing = notVisited(invited, data.people);
+  const quiet = missing.length > 0 && (
+    <section className="space-y-2" data-room-perf-missing>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold">
+          Invited, but hasn’t visited <span className="font-normal text-muted-foreground">· {missing.length} in the last {data.windowDays} days</span>
+        </h4>
+        {onRemind && <button type="button" className="rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted/50" onClick={onRemind}>Send a reminder</button>}
+      </div>
+      <ul className="flex flex-wrap gap-1.5">
+        {missing.slice(0, 30).map((e) => (
+          <li key={e} className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">{e}</li>
+        ))}
+        {missing.length > 30 && <li className="px-1 py-0.5 text-xs text-muted-foreground">and {missing.length - 30} more</li>}
+      </ul>
+    </section>
+  );
   return (
     <div className="space-y-5" data-room-performance>
       <div className="grid grid-cols-2 divide-x divide-y rounded-md border sm:grid-cols-4 sm:divide-y-0 [&>*:nth-child(2n+1)]:border-l-0 sm:[&>*:nth-child(2n+1)]:border-l sm:[&>*:first-child]:border-l-0">
@@ -183,6 +206,9 @@ export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expans
               ? `The page was opened ${data.pageViews} time${data.pageViews === 1 ? "" : "s"} in the last ${data.windowDays} days, before visits were recorded by person and section. New visits will show here.`
               : "Nobody from the customer has opened the hub yet. Visits show here as soon as they do. Your own team's visits are never counted."}
         </p>
+      ) : null}
+      {data.visits === 0 ? (
+        quiet || null
       ) : (
         <>
           <section className="space-y-2">
@@ -221,6 +247,8 @@ export function RoomPerformance({ pageId, stage }: { pageId: number; /** "expans
               </ul>
             </section>
           </div>
+
+          {quiet}
 
           <section className="space-y-2">
             <h4 className="text-sm font-semibold">Recent visits</h4>

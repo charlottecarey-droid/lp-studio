@@ -11,6 +11,8 @@ import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
+import { rolloutPace } from "@/lib/room-pace";
+import { RoomPractices } from "./RoomPractices";
 import { RoomSetupChecklist, type HubSetupItem } from "./RoomSetup";
 import { RoomAccountSettings, RoomTeamSettings, UnsavedSettings, accountHint, teamHint } from "./RoomAccountSettings";
 import type { RoomAccountProps, RoomTeamProps } from "./RoomAccountEditor";
@@ -74,7 +76,7 @@ interface RoomDetail {
   choices?: { key: string; title: string; options: string[]; value: string | null; chosenBy: string | null; chosenAt: string | null }[];
   contacts?: { id: number; name: string; role: string | null; email: string | null; addedBy: string; createdAt: string }[];
   wins?: { id: number; body: string; headline: string | null; side: string; by: string; createdAt: string; likes: number; comments: { id: number; body: string; by: string }[] }[];
-  requests: { id: number; kind: string; subject: string; details: string | null; status: string; owner: string | null; due: string | null; requestedBy: string; createdAt: string; asanaTaskGid?: string | null }[];
+  requests: { reply?: string; replyBy?: string; replyAt?: string | null; id: number; kind: string; subject: string; details: string | null; status: string; owner: string | null; due: string | null; requestedBy: string; createdAt: string; asanaTaskGid?: string | null }[];
   uploads: { id: number; taskKey: string; taskTitle: string; fileName: string; sizeBytes: number; uploadedBy: string; uploadedByEmail: string; createdAt: string }[];
 }
 
@@ -237,6 +239,13 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   // Goals are set once and rarely touched: they live in Settings now, so an old link to them lands there with Goals open.
   const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab === "goals" ? "settings" : initialTab);
   const qc = useQueryClient();
+  // One place that says a change took: beside the tabs, whether it was a switch that saves as you flip it or a form's button.
+  const [savedAt, setSavedAt] = useState(0);
+  const flashSaved = useRef(() => {
+    const at = Date.now();
+    setSavedAt(at);
+    setTimeout(() => setSavedAt((cur) => (cur === at ? 0 : cur)), 2500);
+  }).current;
   /** The setup step being worked on (publishing from the checklist). */
   const [setupBusy, setSetupBusy] = useState<string | null>(null);
   // The hub's page: Settings shows one section at a time, picked from a list.
@@ -325,7 +334,10 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
     setSaved("");
     const err = await p;
     setError(err ?? "");
-    if (!err) await refresh();
+    if (!err) {
+      await refresh();
+      flashSaved();
+    }
     return !err;
   };
 
@@ -359,7 +371,11 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   const openRequests = (data.requests ?? []).filter((q) => q.status !== "done");
   const doneRequests = (data.requests ?? []).filter((q) => q.status === "done");
   // What the To do tab is for: people asking to get in, programs to send to marketing, and requests nobody has picked up.
-  const needsYou = requests.length + (data.planQueue ?? []).filter((i) => i.state === "queued").length + openRequests.filter((q) => q.status === "new").length;
+  const planToSend = (data.planQueue ?? []).filter((i) => i.state === "queued").length;
+  const setupLeft = (data.setup ?? []).filter((i) => !i.done).length;
+  // Everything open on To do, so the number on the tab matches what the tab shows: setup steps, people asking to get in,
+  // programs to send to marketing, and requests nobody has picked up.
+  const needsYou = setupLeft + requests.length + planToSend + openRequests.filter((q) => q.status === "new").length;
   // "Launch kit" during the rollout, "Marketing" once the hub is past it.
   const kitNames = roomMarketingNames(data.stage?.stage);
   const goalAgreed = !!data.tasks.find((x) => x.key === "goals-agreed")?.done;
@@ -507,8 +523,20 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
 
   // On the hub's page the rollout numbers sit where they inform (what to do, how it is going, the practices), not above Settings.
   const showRollout = !isPage || tab === "activity" || tab === "performance" || tab === "practices";
+  // Whether the rollout is where it should be today (during the rollout only).
+  const pace =
+    data.isWorkspace && data.stage?.stage === "rollout" && data.practices?.total
+      ? rolloutPace({ live: data.practices.byStage.live ?? 0, total: data.practices.total, day: data.stage.day, rolloutDays: data.stage.rolloutDays, target: (data.goals?.items ?? []).find((g) => !g.hidden && g.metric === "practices_live")?.targetValue })
+      : null;
   const rollout = (
     <>
+        {pace && showRollout && (
+          <p className={`flex items-center gap-2 text-sm font-medium ${pace.state === "behind" ? "text-amber-700" : pace.state === "on-track" ? "text-foreground" : "text-emerald-700"}`} data-room-pace={pace.state}>
+            <span className={`h-2 w-2 rounded-full ${pace.state === "behind" ? "bg-amber-500" : "bg-emerald-500"}`} aria-hidden />
+            {pace.line}
+            <span className="font-normal text-muted-foreground">· target {pace.target} by day {data.stage!.rolloutDays}</span>
+          </p>
+        )}
         {/* How the partnership is going, on every tab: these numbers used to be a trip to the customer's Scorecard. */}
         {data.isWorkspace && !!data.practices?.total && showRollout && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-room-rollout-strip>
@@ -630,11 +658,26 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               {t.count > 0 && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">{t.count}</span>}
             </button>
           ))}
+          {savedAt > 0 && (
+            <span className="ml-auto flex items-center gap-1 self-center pr-1 text-xs font-medium text-emerald-700" role="status" data-room-saved>
+              <Check className="h-3.5 w-3.5" /> Saved
+            </span>
+          )}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {/* On the hub's page the numbers sit under the tabs, so the tabs never move as you switch. */}
         {isPage && rollout}
-        {tab === "performance" && data.isWorkspace && <RoomPerformance pageId={pageId} stage={data.stage?.stage} />}
+        {tab === "performance" && data.isWorkspace && (
+          <RoomPerformance
+            pageId={pageId}
+            stage={data.stage?.stage}
+            invited={data.members.filter((m) => m.status === "allowed").map((m) => m.email)}
+            onRemind={() => {
+              pickTab("activity");
+              setTimeout(() => document.querySelector("[data-room-reminder]")?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
+            }}
+          />
+        )}
         {/* Everything the customer has done, in one place: what they opened, ticked off, sent and asked for. */}
         {tab === "performance" && (
           <div className="space-y-2" data-room-engagement-history>
@@ -685,7 +728,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         {tab === "activity" && (
           <div className="space-y-6" data-room-todo>
             {data.isWorkspace && <RoomSetupChecklist items={data.setup ?? []} marketingName={kitNames.kit === "Marketing" ? "Marketing" : "Launch kit"} onGo={goSetup} busy={setupBusy} />}
-            {needsYou === 0 && !(data.setup ?? []).some((i) => !i.done) && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
+            {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
 
             {/* Most pressing first: someone locked out, then what the customer asked us for, then what we owe marketing,
                 then what they sent, then what we are waiting on them for. Reference and ideas come last. */}
@@ -741,7 +784,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 </Fold>
               )}
               {data.isWorkspace && (data.planQueue ?? []).length > 0 && (
-                <Fold title="Marketing plan" hint={planQueueHint(data.planQueue!)} data-room-plan-fold>
+                <Fold title="Marketing plan" hint={planQueueHint(data.planQueue!)} defaultOpen={planToSend > 0} data-room-plan-fold>
                   <RoomPlanQueueSection pageId={pageId} queue={data.planQueue!} onSent={refresh} bare />
                 </Fold>
               )}
@@ -757,13 +800,21 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 <p className="text-sm text-muted-foreground">
                   {data.practices?.total
                     ? `${data.practices.total} in the hub · ${data.practices.byStage.live ?? 0} live · ${(data.practices.byStage.trained ?? 0) + (data.practices.byStage.live ?? 0)} trained · ${data.practices.regions.length} regions`
-                    : "None yet. Pick one way to add them."}
+                    : "The customer’s locations and where each stands in the rollout. None yet: pick one way to add them."}
                 </p>
               </div>
               {!!data.practices?.total && (
                 <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => window.confirm("Remove every practice from this hub?") && run(send(`${base}/practices`, "DELETE"))}>Clear list</Button>
               )}
             </div>
+            {/* The practices themselves: find one, move it along, send welcome kits to a wave. */}
+            {!!data.practices?.total && <RoomPractices pageId={pageId} onChanged={refresh} />}
+            {!!data.practices?.total && (
+              <div className="pt-2">
+                <h4 className="text-sm font-semibold">Where this list comes from</h4>
+                <p className="text-sm text-muted-foreground">Keep it in step with a sheet or Salesforce, or paste a list.</p>
+              </div>
+            )}
             {/* One way of loading the list at a time, instead of all three stacked. */}
             <div className="flex w-fit gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="How to add practices">
               {([["sheet", data.sheet?.id ? "Google Sheet · connected" : "Google Sheet"], ["salesforce", "Salesforce"], ["paste", "Paste or upload"]] as [PracticeSource, string][]).map(([id, label]) => (
@@ -931,6 +982,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             }
           >
           <UnsavedSettings.Provider value={reportUnsaved}>
+            {isPage && <p className="-mb-4 text-xs text-muted-foreground" data-room-settings-how>Switches and tick boxes save as you change them. Anything you type has a Save changes button.</p>}
             {data.isWorkspace && data.account && (
               <Fold nav="account" title="Account" hint={accountHint(data.account)} data-room-account-fold>
                 <RoomAccountSettings
@@ -940,6 +992,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                   onSaved={async (patch) => {
                     onProps?.(patch);
                     await refresh();
+                    flashSaved();
                   }}
                 />
               </Fold>
@@ -952,6 +1005,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                   onSaved={async (patch) => {
                     onProps?.(patch);
                     await refresh();
+                    flashSaved();
                   }}
                 />
               </Fold>
@@ -981,7 +1035,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                   <span className="font-medium text-muted-foreground">Everyone at these email domains</span>
                   <Input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="customer.com, customergroup.com" />
                 </label>
-                <Button size="sm" variant="brand" onClick={() => saveSettings("access")}>Save</Button>
+                <Button size="sm" variant="brand" onClick={() => saveSettings("access")}>Save changes</Button>
                 {saved === "access" && <span className="pb-2 text-sm text-muted-foreground">Saved</span>}
               </div>
             <form
@@ -1103,10 +1157,11 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                   if (!err) {
                     setDigestNote("Saved.");
                     await refresh();
+                    flashSaved();
                   }
                 }}
               >
-                Save
+                Save changes
               </Button>
               <Button size="sm" variant="outline" onClick={async () => { const r = await post(`${base}/digest/preview`); if (r.ok) setPreview(r.json as never); }}>Preview</Button>
               <Button
@@ -1188,7 +1243,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 </details>
               )}
               <div className="flex items-center gap-3">
-                <Button size="sm" variant="brand" onClick={() => saveSettings("connections")}>Save</Button>
+                <Button size="sm" variant="brand" onClick={() => saveSettings("connections")}>Save changes</Button>
                 {saved === "connections" && <span className="text-sm text-muted-foreground">Saved</span>}
               </div>
               {data.isWorkspace && <OutreachSetting pageId={pageId} />}
@@ -1222,11 +1277,13 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
 const REQUEST_STATUS: [string, string][] = [["new", "Received"], ["in_progress", "In progress"], ["review", "Ready for their review"], ["done", "Done"]];
 const REQUEST_KIND: Record<string, string> = { asset_change: "Asset change", marketing: "Marketing", training: "Training", event: "Event", reporting: "Reporting", other: "Other" };
 
-function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: (patch: { status?: string; owner?: string; due?: string }) => void }) {
+function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: (patch: { status?: string; owner?: string; due?: string; reply?: string }) => void }) {
   const [owner, setOwner] = useState(q.owner ?? "");
   const [due, setDue] = useState(q.due ?? "");
-  // Owner and due date stay out of the way until someone wants to set them.
+  const [reply, setReply] = useState(q.reply ?? "");
+  // Replying, owner and due date stay out of the way until someone wants them. A new request opens ready to answer.
   const [editing, setEditing] = useState(false);
+  useEffect(() => setReply(q.reply ?? ""), [q.reply]);
   const meta = [REQUEST_KIND[q.kind] ?? "Other", q.requestedBy, fmtDate(q.createdAt), q.owner ? `Owner: ${q.owner}` : "", q.due ? `Due: ${q.due}` : ""].filter(Boolean).join(" · ");
   return (
     <div className="px-3 py-2.5" data-room-request-row={q.status}>
@@ -1246,15 +1303,23 @@ function RequestRow({ q, onSave }: { q: RoomDetail["requests"][number]; onSave: 
         <select className="h-8 rounded-md border bg-background px-2 text-sm" value={q.status} onChange={(e) => onSave({ status: e.target.value })} aria-label={`Status of ${q.subject}`}>
           {REQUEST_STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <Button size="sm" variant="ghost" className="h-8 text-muted-foreground" aria-expanded={editing} onClick={() => setEditing((v) => !v)} data-room-request-edit>
-          {editing ? "Close" : q.owner || q.due ? "Edit" : "Assign"}
+        <Button size="sm" variant={editing || q.reply ? "ghost" : "outline"} className={`h-8 ${editing || q.reply ? "text-muted-foreground" : ""}`} aria-expanded={editing} onClick={() => setEditing((v) => !v)} data-room-request-edit>
+          {editing ? "Close" : q.reply ? "Replied · edit" : "Reply"}
         </Button>
       </div>
       {q.details && <p className={`mt-1 whitespace-pre-wrap text-sm text-muted-foreground ${editing ? "" : "line-clamp-2"}`}>{q.details}</p>}
+      {q.reply && !editing && <p className="mt-1.5 line-clamp-2 whitespace-pre-wrap rounded-md bg-muted/60 px-2.5 py-1.5 text-sm" data-room-request-reply><span className="text-xs text-muted-foreground">{q.replyBy || "You"} replied: </span>{q.reply}</p>}
       {editing && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Owner</span><Input value={owner} onChange={(e) => setOwner(e.target.value)} onBlur={() => owner !== (q.owner ?? "") && onSave({ owner })} className="h-8 w-56 text-sm" placeholder="Who is handling it" /></label>
-          <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Due</span><Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} className="h-8 w-36 text-sm" placeholder="e.g. Dec 5" /></label>
+        <div className="mt-2 space-y-2">
+          <label className="block space-y-1 text-xs">
+            <span className="font-medium text-muted-foreground">Reply to {q.requestedBy} (they see it on this request in their hub)</span>
+            <textarea className="min-h-[72px] w-full rounded-md border bg-background px-3 py-2 text-sm" value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} placeholder="e.g. On it. You’ll have the first draft by Friday." data-room-request-reply-input />
+          </label>
+          <div className="flex flex-wrap items-end gap-2">
+            <Button size="sm" variant="brand" disabled={reply.trim() === (q.reply ?? "").trim()} onClick={() => onSave({ reply: reply.trim() })} data-room-request-reply-send>{q.reply ? "Update reply" : "Send reply"}</Button>
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Owner</span><Input value={owner} onChange={(e) => setOwner(e.target.value)} onBlur={() => owner !== (q.owner ?? "") && onSave({ owner })} placeholder="Who has it" className="h-8 w-44" /></label>
+            <label className="block space-y-1 text-xs"><span className="font-medium text-muted-foreground">Due</span><Input value={due} onChange={(e) => setDue(e.target.value)} onBlur={() => due !== (q.due ?? "") && onSave({ due })} placeholder="e.g. Dec 5" className="h-8 w-32" /></label>
+          </div>
         </div>
       )}
     </div>
@@ -1391,6 +1456,7 @@ function CalendarSection({ base, calendar, events, hasDomain, refresh }: { base:
   return (
     <section className="space-y-2">
       <h4 className="text-sm font-semibold">Calendar and minutes{drafts.length > 0 ? ` · ${drafts.length} draft${drafts.length === 1 ? "" : "s"} to review` : ""}</h4>
+      <p className="text-sm text-muted-foreground">Connect your Google Calendar and meetings with this customer appear in their hub. After each one you get draft minutes to check, and nothing reaches the customer until you publish it.</p>
       {!hasDomain && (
         <form
           className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3"

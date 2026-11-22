@@ -131,7 +131,7 @@ export function RoomStageSection({ pageId, stage, onSaved }: { pageId: number; s
         <Button size="sm" variant="outline" onClick={() => setDraft({ ...draft, waves: [...draft.waves, { name: `Wave ${draft.waves.length + 1}`, key: String(draft.waves.length + 1), start: "", target: "" }] })} data-room-wave-add><Plus className="mr-1 h-4 w-4" /> Add a wave</Button>
       </div>
       <div className="flex items-center gap-3">
-        <Button size="sm" variant="brand" disabled={busy || !changed} onClick={() => void save()} data-room-stage-save>Save</Button>
+        <Button size="sm" variant="brand" disabled={busy || !changed} onClick={() => void save()} data-room-stage-save>Save changes</Button>
         {note && <span className="text-sm text-muted-foreground">{note}</span>}
         {err && <span className="text-sm text-destructive">{err}</span>}
       </div>

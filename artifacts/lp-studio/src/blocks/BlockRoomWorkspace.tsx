@@ -2135,6 +2135,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         title: q.subject,
         detail: (q.details ?? "").trim() ? (q.assetKey ?? "").startsWith("mk-plan:") ? (q.details as string).split("\n").filter(Boolean).join(" · ") : (q.details as string).trim() : undefined,
         source: "Request",
+        ...(q.reply?.text ? { reply: { text: q.reply.text, by: q.reply.by, when: q.reply.at ? fmtDate(q.reply.at) : "" } } : {}),
         from: [ROOM_REQUEST_KIND_LABEL[q.kind] ?? "Request", `asked by ${q.by}`, fmtDate(q.createdAt)].filter(Boolean).join(" · "),
         owner: q.owner ?? undefined,
         due: q.due ?? undefined,

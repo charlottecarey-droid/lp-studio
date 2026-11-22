@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, Copy, ExternalLink, Eye, Pencil, Plus, Search, Settings } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, Copy, ExternalLink, Pencil, Plus, Search, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,8 @@ import { toast } from "@/hooks/use-toast";
 import { fmtWhen } from "@/components/analytics/RoomPerformance";
 import type { RoomPanelTab } from "@/components/analytics/PageRoomPanel";
 import { filterHubs, hubFlags, hubLandingTab, hubStageText, needsLine, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
-import { SetupStatus, hubSetupState } from "@/components/analytics/RoomSetup";
+import { HubStatus, hubSetupState } from "@/components/analytics/RoomSetup";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 /* ----------------------------------------------------------------------------
  * Sales Console → Partner Hubs. Where a rep finds their hubs, makes one for an
@@ -223,20 +224,13 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
             <div className="min-w-0">
               <h1 className="truncate text-2xl font-semibold tracking-tight">{data?.name ?? <Skeleton className="h-8 w-64" />}</h1>
               {data && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
-                  <span className={`inline-flex items-center gap-1.5 ${live ? "text-emerald-700" : "text-muted-foreground"}`}>
-                    <span className={`h-2 w-2 rounded-full ${live ? "bg-emerald-500" : "bg-muted-foreground/40"}`} aria-hidden />
-                    {live ? "Live" : "Draft: the customer can’t open it yet"}
-                  </span>
-                  <SetupStatus setup={hubSetupState(data.setup)} />
+                <div className="mt-1.5 text-sm">
+                  <HubStatus live={live} setup={hubSetupState(data.setup)} />
                 </div>
               )}
             </div>
             {/* What a rep does to a hub, most used first. One strong button: publish while it is a draft, open it once it is live. */}
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => void openHub(pageId, true)} title="See the hub without anything that is your team's only" data-room-open-as-customer>
-                <Eye className="h-3.5 w-3.5" /> View as the customer
-              </Button>
               {live && data?.url && (
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => copyLink(data.url)}>
                   <Copy className="h-3.5 w-3.5" /> Copy link
@@ -250,17 +244,18 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
               {data &&
                 (live ? (
                   <>
-                    <Button size="sm" variant="brand" className="gap-1.5" onClick={() => void openHub(pageId, false)} data-room-open-as-me>
-                      <ExternalLink className="h-3.5 w-3.5" /> Open hub
-                    </Button>
+                    <OpenHubMenu pageId={pageId} strong />
                     <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={publishing} onClick={() => void setLive(false)} data-hub-publish="live">
                       {publishing ? "Working…" : "Unpublish"}
                     </Button>
                   </>
                 ) : (
+                  <>
+                  <OpenHubMenu pageId={pageId} />
                   <Button size="sm" variant="brand" disabled={publishing} onClick={() => void setLive(true)} data-hub-publish="draft">
                     {publishing ? "Publishing…" : "Publish"}
                   </Button>
+                  </>
                 ))}
             </div>
           </header>
@@ -284,6 +279,33 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * One way to open the hub, with the two views named: the hub as you see it
+ * (with your team's tools) or exactly what the customer sees. They were two
+ * buttons that looked like the same thing.
+ */
+function OpenHubMenu({ pageId, strong = false }: { pageId: number; /** The page's main button (once the hub is live). */ strong?: boolean }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant={strong ? "brand" : "outline"} className="gap-1.5" data-hub-open-menu>
+          <ExternalLink className="h-3.5 w-3.5" /> {strong ? "Open hub" : "Preview hub"} <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuItem className="flex-col items-start gap-0.5" onSelect={() => void openHub(pageId, false)} data-room-open-as-me>
+          <span className="text-sm font-medium">As me</span>
+          <span className="text-xs text-muted-foreground">With your team’s tools: orders, the practice map, editing.</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="flex-col items-start gap-0.5" onSelect={() => void openHub(pageId, true)} data-room-open-as-customer>
+          <span className="text-sm font-medium">As the customer sees it</span>
+          <span className="text-xs text-muted-foreground">Exactly what they get, with nothing that is your team’s only.</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -449,8 +471,7 @@ export default function SalesPartnerHubs() {
                       <td className="px-4 py-3">
                         <span className="block font-medium">{h.name}{h.test ? " (test)" : ""}</span>
                         <span className="block text-xs text-muted-foreground">
-                          <span className={h.status === "live" ? "text-emerald-700" : ""}>{h.status === "live" ? "Live" : "Draft"}</span>
-                          <SetupStatus setup={h.setup} className="ml-1.5" />
+                          <HubStatus live={h.status === "live"} setup={h.setup} compact />
                           {h.account?.owner ? ` · ${h.account.owner}` : ""}
                         </span>
                         {hubFlags(h).length > 0 && <span className="mt-0.5 block text-xs font-medium text-amber-700" data-hub-flags>{hubFlags(h).join(" · ")}</span>}

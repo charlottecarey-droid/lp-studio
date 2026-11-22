@@ -552,6 +552,8 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
           assetKey: r.assetKey,
           by: r.requestedByName || r.requestedByEmail,
           createdAt: r.createdAt.toISOString(),
+          // The account team's answer, when they have written one.
+          ...(r.teamReply ? { reply: { text: r.teamReply, by: r.teamReplyBy ?? "", at: r.teamReplyAt?.toISOString() ?? "" } } : {}),
         }))
       : [];
     // Synced meetings and published minutes read the same for every visitor, like the page's own calendar. Drafts never leave the server.
@@ -992,15 +994,13 @@ router.post("/lp/room/practice-ids", stateLimiter, async (req: Request, res: Res
   }
 });
 
-router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const ctx = await requireWorkspaceViewer(req, res);
-    if (!ctx) return;
-    const { page, viewer } = ctx;
-    if (!viewer.team) {
-      res.status(403).json({ error: "Not available" });
-      return;
-    }
+/**
+ * Add practices to the welcome kit list and tell marketing. Shared by the
+ * hub's own Scorecard (a team member looking at the hub) and the Sales
+ * Console's practice list, so both follow the same rules: no kits where the
+ * account bars direct outreach, none sent twice, none without an address.
+ */
+async function sendKitsFromRequest(req: Request, res: Response, page: RoomPage, by: string): Promise<void> {
     const ids = Array.isArray(req.body?.ids) ? [...new Set((req.body.ids as unknown[]).filter((v): v is number => typeof v === "number" && Number.isInteger(v) && v > 0))].slice(0, 2000) : [];
     if (ids.length === 0) {
       res.status(400).json({ error: "Nothing selected" });
@@ -1011,8 +1011,7 @@ router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Resp
       return;
     }
     const settings = await loadSettings(page.id);
-    const by = viewer.name || viewer.email;
-    const customer = page.partnerName || page.title;
+        const customer = page.partnerName || page.title;
     const result = await sendWelcomeKits({ id: page.id, tenantId: page.tenantId, partnerName: customer }, { ids, by, sfdcAccountId: settings.sfdcAccountId, dryRun: req.body?.dryRun === true });
     if (!result.ok) {
       res.status(400).json({ error: result.error ?? "Could not add to the welcome kit list", sent: [], already: result.already, noAddress: result.noAddress });
@@ -1031,9 +1030,21 @@ router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Resp
     void createIntakeTask({ tenantId: page.tenantId, pageId: page.id, name: asanaRequestTaskName(customer, kitTask.subject), notes: `${kitTask.notes}\n\nHub: ${await roomPageUrl(req, page, req.body?.path)}`, projectGid: asana.projectGid, assigneeGid: asana.assigneeGid })
       .then((r) => r.warning && req.log.warn({ pageId: page.id, warning: r.warning }, "welcome kit asana warning"))
       .catch((err) => req.log.error({ err }, "welcome kit asana failed"));
+}
+
+router.post("/lp/room/welcome-kit", stateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    if (!viewer.team) {
+      res.status(403).json({ error: "Not available" });
+      return;
+    }
+    await sendKitsFromRequest(req, res, page, viewer.name || viewer.email);
   } catch (err) {
     req.log.error({ err }, "room welcome kit failed");
-    res.status(500).json({ error: "Could not add to the welcome kit list" });
+    if (!res.headersSent) res.status(500).json({ error: "Could not add to the welcome kit list" });
   }
 });
 
@@ -1209,7 +1220,14 @@ router.post("/lp/room/request-update", actionLimiter, async (req: Request, res: 
       res.json({ ok: true });
       return;
     }
-    const set: { status?: string; owner?: string | null; due?: string | null; updatedAt: ReturnType<typeof sql> } = { updatedAt: sql`now()` };
+    const set: { status?: string; owner?: string | null; due?: string | null; teamReply?: string | null; teamReplyBy?: string | null; teamReplyAt?: Date | null; updatedAt: ReturnType<typeof sql> } = { updatedAt: sql`now()` };
+    // An answer to the customer: it shows on the request in their hub. Blank takes it back.
+    if (req.body?.reply !== undefined) {
+      const reply = String(req.body.reply ?? "").trim().slice(0, 2000);
+      set.teamReply = reply || null;
+      set.teamReplyBy = reply ? (req.authUser?.name || req.authUser?.email || "Your account team") : null;
+      set.teamReplyAt = reply ? new Date() : null;
+    }
     if (req.body?.status !== undefined) {
       if (!(ROOM_REQUEST_STATUSES as readonly string[]).includes(String(req.body.status))) {
         res.status(400).json({ error: "Invalid status" });
@@ -1667,6 +1685,9 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
         requestedByEmail: r.requestedByEmail,
         asanaTaskGid: r.asanaTaskGid,
         createdAt: r.createdAt.toISOString(),
+        reply: r.teamReply ?? "",
+        replyBy: r.teamReplyBy ?? "",
+        replyAt: r.teamReplyAt?.toISOString() ?? null,
       })),
       settings,
       tasks: [...page.tasks.values()].map((t) => {
@@ -2985,11 +3006,31 @@ router.get("/lp/partner-rooms/:pageId/practices", async (req: Request, res: Resp
     if (!page) return;
     const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80).replace(/[%_\\]/g, "") : "";
     const where = and(eq(lpRoomPracticesTable.pageId, page.id), q ? ilike(lpRoomPracticesTable.name, `%${q}%`) : undefined);
-    const rows = await db.select().from(lpRoomPracticesTable).where(where).orderBy(asc(lpRoomPracticesTable.name)).limit(100);
-    res.json({ rows: rows.map((p) => ({ id: p.id, name: p.name, region: p.region, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate })) });
+    const rows = await db.select().from(lpRoomPracticesTable).where(where).orderBy(asc(lpRoomPracticesTable.name)).limit(2000);
+    res.json({
+      rows: rows.map((p) => ({ id: p.id, name: p.name, region: p.region, city: p.city, state: p.state, wave: p.wave, stage: p.stage, trainingDate: p.trainingDate, liveDate: p.liveDate, hasAddress: !!(p.address ?? "").trim(), kitSentAt: p.kitSentAt ? p.kitSentAt.toISOString() : null })),
+      noDirectOutreach: await hubRestrictsOutreach(page.id),
+    });
   } catch (err) {
     req.log.error({ err }, "room practices list failed");
     res.status(500).json({ error: "Could not load practices" });
+  }
+});
+
+/** Send welcome kits to the practices picked on the Sales Console's practice list (`dryRun` only says what would happen). */
+router.post("/lp/partner-rooms/:pageId/welcome-kits", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const owned = await ownedRoomPage(req, res);
+    if (!owned) return;
+    const page = await loadRoomPage(owned.id);
+    if (!page || !page.isWorkspace) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await sendKitsFromRequest(req, res, page, req.authUser?.name || req.authUser?.email || "The account team");
+  } catch (err) {
+    req.log.error({ err }, "partner hub welcome kits failed");
+    if (!res.headersSent) res.status(500).json({ error: "Could not add to the welcome kit list" });
   }
 });
 
