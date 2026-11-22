@@ -53,7 +53,7 @@ export async function sendWelcomeKits(page: { id: number; tenantId: number; part
   const plan = planKits(rows as KitPractice[]);
   const names = { sent: plan.send.map((p) => p.name), already: plan.already.map((p) => p.name), noAddress: plan.noAddress.map((p) => p.name) };
   const target = await kitTarget(page.tenantId);
-  if (!target) return { ok: false, error: "No welcome kit sheet is set. Add its link in Settings → Partner Hubs.", ...names };
+  if (!target) return { ok: false, error: "No welcome kit sheet is set. Add its link in Settings → Partnerships.", ...names };
   if (opts.dryRun || plan.send.length === 0) return { ok: true, ...names, sheetUrl: target.url };
 
   const json = { headers: { "Content-Type": "application/json" } };

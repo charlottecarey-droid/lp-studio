@@ -17,7 +17,7 @@ import { HubStatus, hubSetupState } from "@/components/analytics/RoomSetup";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 /* ----------------------------------------------------------------------------
- * Sales Console → Partner Hubs. Where a rep finds their hubs, makes one for an
+ * Sales Console → Partnerships (the product; each customer's workspace is still a "hub"). Where a rep finds their hubs, makes one for an
  * account, and manages it: the same pop-up the builder opens (performance,
  * activity, launch kit, practices, calendar, settings), one click from the row.
  * -------------------------------------------------------------------------- */
@@ -218,15 +218,15 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
     if (!window.confirm(`Archive the ${data?.name ?? "hub"} hub? It leaves your list, the customer’s link stops working and its weekly digest stops. Nothing is deleted, and you can bring it back from Archived.`)) return;
     const r = await json(`/api/lp/partner-rooms/${pageId}/archive`, { method: "POST", body: JSON.stringify({ archived: true }) });
     if (!r.ok) return void toast({ title: "Couldn't archive the hub", description: r.data.error, variant: "destructive" });
-    toast({ title: "Hub archived", description: "Bring it back any time from Archived on the Partner Hubs list." });
-    navigate("/sales/partner-hubs");
+    toast({ title: "Hub archived", description: "Bring it back any time from Archived on the Partnerships list." });
+    navigate("/sales/partnerships");
   };
   const live = data?.status === "live";
   const initialSection = typeof window === "undefined" ? undefined : (new URLSearchParams(window.location.search).get("section") ?? undefined);
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5" data-hub-page>
-      <Link href="/sales/partner-hubs" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" data-hub-back>
-        <ArrowLeft className="h-4 w-4" /> Partner Hubs
+      <Link href="/sales/partnerships" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" data-hub-back>
+        <ArrowLeft className="h-4 w-4" /> Partnerships
       </Link>
       {isError ? (
         <div className="rounded-md border border-dashed px-4 py-10 text-center" role="alert">
@@ -304,7 +304,7 @@ function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
                 const q = new URLSearchParams();
                 if (t !== "activity") q.set("tab", t);
                 if (t === "settings" && section !== "account") q.set("section", section);
-                const next = `/sales/partner-hubs/${pageId}${q.toString() ? `?${q}` : ""}`;
+                const next = `/sales/partnerships/${pageId}${q.toString() ? `?${q}` : ""}`;
                 if (window.location.pathname + window.location.search !== next) window.history.replaceState(window.history.state, "", next);
               }}
             />
@@ -359,7 +359,7 @@ const tabFromSearch = (search: string): RoomPanelTab => {
 
 export default function SalesPartnerHubs() {
   const [, navigate] = useLocation();
-  const [, params] = useRoute("/sales/partner-hubs/:id");
+  const [, params] = useRoute("/sales/partnerships/:id");
   const openId = params?.id && /^\d+$/.test(params.id) ? Number(params.id) : null;
   const qc = useQueryClient();
   // The list and an open hub are two routes, so opening one remounts this page: the tab to land on rides in the URL.
@@ -406,7 +406,7 @@ export default function SalesPartnerHubs() {
 
   const open = (pageId: number, t: RoomPanelTab) => {
     setTab(t);
-    navigate(`/sales/partner-hubs/${pageId}${t === "activity" ? "" : `?tab=${t}`}`);
+    navigate(`/sales/partnerships/${pageId}${t === "activity" ? "" : `?tab=${t}`}`);
   };
 
   // An open hub is its own page; the list is the other route.
@@ -422,7 +422,7 @@ export default function SalesPartnerHubs() {
     <SalesLayout>
       <div className="space-y-6">
         <SalesPageHeader
-          title="Partner Hubs"
+          title="Partnerships"
           description="The shared workspace each partner gets: their plan, marketing, practices and requests in one place."
           actions={
             <Button variant="brand" className="gap-1.5" onClick={() => setCreating(true)} data-hub-new>
@@ -434,10 +434,10 @@ export default function SalesPartnerHubs() {
         {isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : isError ? (
-          <p role="alert" className="text-sm text-destructive">Couldn't load your Partner Hubs. Refresh to try again.</p>
+          <p role="alert" className="text-sm text-destructive">Couldn't load your hubs. Refresh to try again.</p>
         ) : hubs.length === 0 ? (
           <div className="rounded-lg border border-dashed px-6 py-14 text-center">
-            <p className="text-base font-medium">No Partner Hubs yet</p>
+            <p className="text-base font-medium">No hubs yet</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">Make one for an account and it arrives as a draft with the customer's team, practices and standard files filled in.</p>
             <Button variant="brand" className="mt-4 gap-1.5" onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" /> New hub
@@ -524,7 +524,7 @@ export default function SalesPartnerHubs() {
                     <tr key={h.pageId} className="cursor-pointer border-b last:border-0 hover:bg-muted/40" onClick={() => open(h.pageId, hubLandingTab(h))} data-hub-row={h.pageId}>
                       <td className="px-4 py-3">
                         {/* A real link, so a hub opens in a new tab or by keyboard like any other page. */}
-                        <Link href={`/sales/partner-hubs/${h.pageId}${hubLandingTab(h) === "activity" ? "" : `?tab=${hubLandingTab(h)}`}`} onClick={(e) => e.stopPropagation()} className="block font-medium hover:underline" data-hub-link>{h.name}{h.test ? " (test)" : ""}</Link>
+                        <Link href={`/sales/partnerships/${h.pageId}${hubLandingTab(h) === "activity" ? "" : `?tab=${hubLandingTab(h)}`}`} onClick={(e) => e.stopPropagation()} className="block font-medium hover:underline" data-hub-link>{h.name}{h.test ? " (test)" : ""}</Link>
                         <span className="block text-xs text-muted-foreground">
                           <HubStatus live={h.status === "live"} setup={h.setup} compact />
                           {h.account?.owner ? ` · ${h.account.owner}` : ""}

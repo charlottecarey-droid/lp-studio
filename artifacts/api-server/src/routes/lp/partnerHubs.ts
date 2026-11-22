@@ -147,7 +147,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
     res.json({ hubs, archived: archivedIds.size });
   } catch (err) {
     req.log.error({ err }, "partner hubs list failed");
-    res.status(500).json({ error: "Could not load your Partner Hubs" });
+    res.status(500).json({ error: "Could not load your hubs" });
   }
 });
 

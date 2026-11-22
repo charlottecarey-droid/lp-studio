@@ -26,7 +26,7 @@ export function AccountHubButton({ accountId }: { accountId: number }) {
   if (!data) return null;
   if (data.hubPageId) {
     return (
-      <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => navigate(`/sales/partner-hubs/${data.hubPageId}`)} data-account-hub="open">
+      <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => navigate(`/sales/partnerships/${data.hubPageId}`)} data-account-hub="open">
         <DoorOpen className="w-3.5 h-3.5" />
         Partner Hub
       </Button>
@@ -40,7 +40,7 @@ export function AccountHubButton({ accountId }: { accountId: number }) {
     if (r.ok && j.pageId) {
       void qc.invalidateQueries({ queryKey: ["partner-hub-account", accountId] });
       void qc.invalidateQueries({ queryKey: ["partner-hubs"] });
-      navigate(`/sales/partner-hubs/${j.pageId}`);
+      navigate(`/sales/partnerships/${j.pageId}`);
     } else {
       toast({ title: "Couldn't create the hub", description: j.error ?? "Try again in a moment.", variant: "destructive" });
     }

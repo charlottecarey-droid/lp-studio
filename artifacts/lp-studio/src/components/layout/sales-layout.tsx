@@ -284,11 +284,11 @@ export function SalesTopNav() {
       matchFn: (loc) => loc === "/sales/accounts" || loc.startsWith("/sales/accounts/"),
     },
     {
-      label: "Partner Hubs",
-      href: "/sales/partner-hubs",
+      label: "Partnerships",
+      href: "/sales/partnerships",
       icon: <DoorOpen className="w-4 h-4" />,
       permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/partner-hubs" || loc.startsWith("/sales/partner-hubs/"),
+      matchFn: (loc) => loc === "/sales/partnerships" || loc.startsWith("/sales/partnerships/"),
     },
     {
       label: "Activity",

@@ -2010,10 +2010,10 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
         <p className="min-w-0 text-sm">
           <span className="font-medium">Standard files</span>{" "}
           <span className="text-xs text-muted-foreground">
-            {(standard ?? []).filter((a) => has(a.key)).length} of {(standard ?? []).length} in this hub · managed under <a className="underline" href="/settings/partner-hubs">Settings → Partner Hubs</a>
+            {(standard ?? []).filter((a) => has(a.key)).length} of {(standard ?? []).length} in this hub · managed under <a className="underline" href="/settings/partnerships">Settings → Partnerships</a>
           </span>
         </p>
-        <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} title={(standard ?? []).some((a) => a.fileUrl) ? undefined : "No standard files have been uploaded for the workspace yet. Add them under Settings, Partner Hubs."} onClick={() => addStandard(false)}>Add standard files</Button>
+        <Button size="sm" variant="outline" disabled={busy || !(standard ?? []).some((a) => a.fileUrl)} title={(standard ?? []).some((a) => a.fileUrl) ? undefined : "No standard files have been uploaded for the workspace yet. Add them under Settings, Partnerships."} onClick={() => addStandard(false)}>Add standard files</Button>
       </div>
       {stdNote && <p className="text-xs text-muted-foreground">{stdNote}</p>}
       <Fold title="Practice microsite" hint={site ? `${site.existing ? "Found" : "Drafted"}: ${site.title}` : "The page this customer’s practices sign up on"} data-room-practice-site>

@@ -26,8 +26,8 @@ const TABS: { id: TabId; label: string; path: string; adminOnly: boolean }[] = [
   { id: "scoring", label: "Lead scoring", path: "/settings/scoring", adminOnly: true },
   { id: "templates", label: "Templates", path: "/settings/templates", adminOnly: true },
   { id: "integrations", label: "Integrations", path: "/settings/integrations", adminOnly: true },
-  // Partner Hubs: automatic creation from the signed-accounts sheet and the files every hub gets.
-  { id: "hubs", label: "Partner Hubs", path: "/settings/partner-hubs", adminOnly: true },
+  // Partnerships (each customer still gets a "hub"): automatic creation from the signed-accounts sheet and the files every hub gets.
+  { id: "hubs", label: "Partnerships", path: "/settings/partnerships", adminOnly: true },
   { id: "email", label: "Email", path: "/settings/email", adminOnly: false },
 ];
 
@@ -40,7 +40,7 @@ function resolveRoute(location: string): { tab: TabId; emailSub: EmailSubTab } {
   if (location.startsWith("/settings/scoring")) return { tab: "scoring", emailSub: "templates" };
   if (location.startsWith("/settings/templates")) return { tab: "templates", emailSub: "templates" };
   if (location.startsWith("/settings/integrations")) return { tab: "integrations", emailSub: "templates" };
-  if (location.startsWith("/settings/partner-hubs")) return { tab: "hubs", emailSub: "templates" };
+  if (location.startsWith("/settings/partnerships")) return { tab: "hubs", emailSub: "templates" };
   if (location.startsWith("/settings/notifications")) return { tab: "email", emailSub: "preferences" };
   if (location.startsWith("/settings/email/sending")) return { tab: "email", emailSub: "sending" };
   if (location.startsWith("/settings/email/recipients")) return { tab: "email", emailSub: "recipients" };
@@ -120,7 +120,7 @@ export default function SettingsPage() {
         {tab === "hubs" && canManage && (
           <div className="space-y-8" data-testid="settings-partner-hubs">
             <p className="text-sm text-muted-foreground">
-              Applies to every Partner Hub. A hub's own settings are under Manage on its page.
+              Applies to every hub. A hub’s own settings are on its page, under Settings.
             </p>
             <AutomaticRoomsSection />
             <StandardFilesManager />

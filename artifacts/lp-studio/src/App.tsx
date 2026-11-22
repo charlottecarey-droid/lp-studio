@@ -354,7 +354,8 @@ function AppRouter() {
         <Route path="/settings/email/recipients" component={SettingsPage} />
         <Route path="/settings/email" component={SettingsPage} />
         <Route path="/settings/integrations" component={SettingsPage} />
-        <Route path="/settings/partner-hubs" component={SettingsPage} />
+        <Route path="/settings/partnerships" component={SettingsPage} />
+        <Route path="/settings/partner-hubs">{() => <Redirect to="/settings/partnerships" replace />}</Route>
         {/* Task #425 — self-serve billing settings. Open to ANY
             authenticated workspace member in read-only mode so teammates
             can see what plan they're on and the renewal date. The
@@ -392,8 +393,11 @@ function AppRouter() {
         <Route path="/sales/pages">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
         <Route path="/sales/accounts/:id">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
         <Route path="/sales/accounts">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
-        <Route path="/sales/partner-hubs/:id">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPartnerHubs /></PermRoute>}</Route>
-        <Route path="/sales/partner-hubs">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPartnerHubs /></PermRoute>}</Route>
+        {/* The product was "Partner Hubs": its old addresses (bookmarks, links in Slack) go to the new ones, tab and all. */}
+        <Route path="/sales/partner-hubs/:id">{(params) => <Redirect to={`/sales/partnerships/${params.id}${typeof window !== "undefined" ? window.location.search : ""}`} replace />}</Route>
+        <Route path="/sales/partner-hubs">{() => <Redirect to="/sales/partnerships" replace />}</Route>
+        <Route path="/sales/partnerships/:id">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPartnerHubs /></PermRoute>}</Route>
+        <Route path="/sales/partnerships">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPartnerHubs /></PermRoute>}</Route>
         <Route path="/sales/events/:id">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesEventDetail /></PermRoute>}</Route>
         <Route path="/sales/events">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesEvents /></PermRoute>}</Route>
         <Route path="/sales/contacts/:id">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
