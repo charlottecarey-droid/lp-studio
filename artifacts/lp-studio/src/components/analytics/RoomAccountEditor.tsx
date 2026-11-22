@@ -4,7 +4,7 @@
  * hub's manage pop-up (which keeps a draft and saves it), so a rep never has to
  * open the builder to rename a hub, swap a logo or add a teammate.
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronRight, Plus, X } from "lucide-react";
 import { ROOM_LOOKS, roomLook } from "@/blocks/hub/room-look";
 import { roomHeadlineDefault, type RoomTeamGroup, type RoomTeamMember, type RoomWorkspaceBlockProps } from "@/blocks/BlockRoomWorkspace";
@@ -34,8 +34,8 @@ function TeamImport({ groups, pageId, onAdd }: { groups: string[]; pageId: numbe
   const say = (added: number, of: number) => setNote(added ? `Added ${added} ${added === 1 ? "person" : "people"}${of > added ? ` (${of - added} already there)` : ""}.` : of ? "Everyone on the list is already there." : "No people found in that list.");
   if (!open) {
     return (
-      <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setOpen(true)} data-room-team-import>
-        <Plus className="h-3 w-3" /> Add many people (paste, CSV, or from the account)
+      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground" onClick={() => setOpen(true)} data-room-team-import>
+        <Plus className="h-3 w-3" /> Paste a list or upload a CSV
       </Button>
     );
   }
@@ -303,17 +303,82 @@ function MemberRow({ member: m, onChange, onRemove }: { member: RoomTeamMember; 
   );
 }
 
+/**
+ * The customer's people, picked from the account's contacts: tick who belongs
+ * on the hub's team and add them in one go, with their role and email filled
+ * in. Anyone already on the list is left out.
+ */
+function AccountContactsPicker({ pageId, already, onAdd, onClose }: { pageId: number; already: RoomTeamMember[]; onAdd: (people: ImportedPerson[]) => number; onClose: () => void }) {
+  const [state, setState] = useState<"loading" | "ready" | "none" | "error">("loading");
+  const [contacts, setContacts] = useState<{ name: string; title: string; email: string }[]>([]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    let off = false;
+    void (async () => {
+      try {
+        const r = await fetch(`/api/lp/partner-rooms/${pageId}/account-contacts`);
+        const j = (await r.json().catch(() => ({}))) as { found?: boolean; contacts?: { name: string; title: string; email: string }[] };
+        if (off) return;
+        const have = new Set(already.flatMap((m) => [(m.email ?? "").trim().toLowerCase(), (m.name ?? "").trim().toLowerCase()]).filter(Boolean));
+        const fresh = (j.contacts ?? []).filter((c) => c.name?.trim() && !have.has((c.email ?? "").trim().toLowerCase()) && !have.has(c.name.trim().toLowerCase()));
+        setContacts(fresh);
+        setState(!r.ok ? "error" : fresh.length ? "ready" : "none");
+      } catch {
+        if (!off) setState("error");
+      }
+    })();
+    return () => {
+      off = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId]);
+  const shown = contacts.filter((c) => !q.trim() || [c.name, c.title, c.email].some((v) => (v ?? "").toLowerCase().includes(q.trim().toLowerCase())));
+  return (
+    <div className="space-y-2 rounded-md border p-2.5" data-room-team-contacts-open>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold">The account’s contacts</span>
+        <Button type="button" variant="ghost" size="sm" className="h-6 px-1" aria-label="Close" onClick={onClose}><X className="h-3 w-3" /></Button>
+      </div>
+      {state === "loading" && <p className="text-xs text-muted-foreground">Loading contacts…</p>}
+      {state === "error" && <p className="text-xs text-destructive">Couldn’t load the account’s contacts. Add someone by hand instead.</p>}
+      {state === "none" && <p className="text-xs text-muted-foreground">No contacts to add: either the account has none with a work email, or everyone is already on the team. Add someone by hand instead.</p>}
+      {state === "ready" && (
+        <>
+          {contacts.length > 8 && <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search contacts" className="h-8 text-xs" aria-label="Search contacts" />}
+          <ul className="max-h-56 divide-y overflow-auto rounded-md border">
+            {shown.map((c) => (
+              <li key={c.email || c.name}>
+                <label className="flex cursor-pointer items-center gap-2.5 px-2.5 py-1.5">
+                  <input type="checkbox" className="h-4 w-4" checked={picked.has(c.email || c.name)} onChange={(e) => setPicked((prev) => { const next = new Set(prev); if (e.target.checked) next.add(c.email || c.name); else next.delete(c.email || c.name); return next; })} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-medium">{c.name}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{[c.title, c.email].filter(Boolean).join(" · ")}</span>
+                  </span>
+                </label>
+              </li>
+            ))}
+            {shown.length === 0 && <li className="px-2.5 py-2 text-xs text-muted-foreground">No contacts match.</li>}
+          </ul>
+          <Button type="button" size="sm" variant="brand" className="h-8 text-xs" disabled={picked.size === 0} onClick={() => onAdd(contacts.filter((c) => picked.has(c.email || c.name)).map((c) => ({ name: c.name, role: c.title, email: c.email })))} data-room-team-contacts-add>
+            {picked.size ? `Add ${picked.size} to the team` : "Tick who to add"}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** The named people on both sides: our team first, then the customer's. */
 export function RoomTeamFields({ props, update, pageId }: { props: RoomTeamProps; update: (patch: Partial<RoomTeamProps>) => void; pageId: number | null }) {
   const team = props.team ?? [];
   const [repsOpen, setRepsOpen] = useState(false);
+  /** The group whose "from the account's contacts" list is open. */
+  const [contactsFor, setContactsFor] = useState<number | null>(null);
   const setTeam = (i: number, patch: Partial<RoomTeamGroup>) => update({ team: team.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
   const setMember = (gi: number, mi: number, patch: Partial<RoomTeamMember>) => setTeam(gi, { members: team[gi].members.map((m, idx) => (idx === mi ? { ...m, ...patch } : m)) });
   return (
     <>
-      <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setRepsOpen(true)} data-room-team-library>
-        <Plus className="h-3 w-3" /> Add from the Sales Reps library
-      </Button>
       <LibraryPicker
         open={repsOpen}
         onClose={() => setRepsOpen(false)}
@@ -338,6 +403,57 @@ export function RoomTeamFields({ props, update, pageId }: { props: RoomTeamProps
           return <div className="text-xs text-muted-foreground">{[c.role, c.email].filter(Boolean).join(" · ")}</div>;
         }}
       />
+      {team.map((g, gi) => {
+        const count = (g.members ?? []).length;
+        const label = `${g.title || `Group ${gi + 1}`} · ${count} ${count === 1 ? "person" : "people"}${g.hidden ? " · hidden" : ""}`;
+        const remove = () => {
+          if (count > 0 && typeof window !== "undefined" && !window.confirm(`Remove "${g.title || "this group"}" and the ${count} ${count === 1 ? "person" : "people"} in it?`)) return;
+          update({ team: team.filter((_, idx) => idx !== gi) });
+        };
+        return (
+          <CollapseItem key={gi} startOpen={gi === 0 || count === 0} header={<ItemHeader label={label} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={remove} />}>
+            <div className="flex items-end gap-3">
+              <div className="min-w-0 flex-1"><Field label="Group name"><Input value={g.title ?? ""} onChange={(e) => setTeam(gi, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field></div>
+              <div className="pb-1.5"><HideToggle hidden={g.hidden} onChange={(h) => setTeam(gi, { hidden: h })} /></div>
+            </div>
+            {(g.members ?? []).map((m, mi) => (
+              <MemberRow key={mi} member={m} onChange={(patch) => setMember(gi, mi, patch)} onRemove={() => setTeam(gi, { members: g.members.filter((_, idx) => idx !== mi) })} />
+            ))}
+            {count === 0 && <p className="text-[11px] text-muted-foreground">{gi === 0 ? "Nobody here yet. Add your team from the Sales Reps library." : "Nobody here yet. Add the customer’s people from the account’s contacts."}</p>}
+            {/* Pull people in from where they already are; typing one in by hand is the fallback. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
+              {gi === 0 ? (
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setRepsOpen(true)} data-room-team-library>
+                  <Plus className="h-3.5 w-3.5" /> Add from the Sales Reps library
+                </Button>
+              ) : pageId !== null ? (
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setContactsFor(contactsFor === gi ? null : gi)} aria-expanded={contactsFor === gi} data-room-team-contacts>
+                  <Plus className="h-3.5 w-3.5" /> Add from the account’s contacts
+                </Button>
+              ) : null}
+              <button type="button" className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => setTeam(gi, { members: [...(g.members ?? []), { name: "", role: "" }] })} data-room-team-add-person>
+                {gi === 0 || pageId !== null ? "or add someone by hand" : "Add someone by hand"}
+              </button>
+            </div>
+            {contactsFor === gi && pageId !== null && (
+              <AccountContactsPicker
+                pageId={pageId}
+                already={g.members ?? []}
+                onClose={() => setContactsFor(null)}
+                onAdd={(people) => {
+                  const r = mergeTeamMembers(g.members ?? [], people);
+                  if (r.added) setTeam(gi, { members: (r.members as RoomTeamMember[]).filter((m) => !/^\[.*\]$/.test((m.name ?? "").trim())) });
+                  setContactsFor(null);
+                  return r.added;
+                }}
+              />
+            )}
+          </CollapseItem>
+        );
+      })}
+      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground" onClick={() => update({ team: [...team, { title: "New group", members: [] }] })}>
+        <Plus className="h-3 w-3" /> Add another group
+      </Button>
       <TeamImport
         groups={team.map((g) => g.title || "Group")}
         pageId={pageId}
@@ -355,32 +471,6 @@ export function RoomTeamFields({ props, update, pageId }: { props: RoomTeamProps
           return added;
         }}
       />
-      {team.map((g, gi) => {
-        const count = (g.members ?? []).length;
-        const label = `${g.title || `Group ${gi + 1}`} · ${count} ${count === 1 ? "person" : "people"}${g.hidden ? " · hidden" : ""}`;
-        const remove = () => {
-          if (count > 0 && typeof window !== "undefined" && !window.confirm(`Remove "${g.title || "this group"}" and the ${count} ${count === 1 ? "person" : "people"} in it?`)) return;
-          update({ team: team.filter((_, idx) => idx !== gi) });
-        };
-        return (
-          <CollapseItem key={gi} startOpen={gi === 0 || count === 0} header={<ItemHeader label={label} index={gi} total={team.length} onMove={(dir) => update({ team: moveItem(team, gi, dir) })} onRemove={remove} />}>
-            <div className="flex items-end gap-3">
-              <div className="min-w-0 flex-1"><Field label="Group name"><Input value={g.title ?? ""} onChange={(e) => setTeam(gi, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field></div>
-              <div className="pb-1.5"><HideToggle hidden={g.hidden} onChange={(h) => setTeam(gi, { hidden: h })} /></div>
-            </div>
-            {(g.members ?? []).map((m, mi) => (
-              <MemberRow key={mi} member={m} onChange={(patch) => setMember(gi, mi, patch)} onRemove={() => setTeam(gi, { members: g.members.filter((_, idx) => idx !== mi) })} />
-            ))}
-            {count === 0 && <p className="text-[11px] text-muted-foreground">Nobody here yet.</p>}
-            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setTeam(gi, { members: [...(g.members ?? []), { name: "", role: "" }] })} data-room-team-add-person>
-              <Plus className="h-3 w-3" /> Add person
-            </Button>
-          </CollapseItem>
-        );
-      })}
-      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground" onClick={() => update({ team: [...team, { title: "New group", members: [] }] })}>
-        <Plus className="h-3 w-3" /> Add another group
-      </Button>
       <Field label="Line under the Team heading (optional)"><Input value={props.teamNote ?? ""} onChange={(e) => update({ teamNote: e.target.value })} className="h-8 text-xs" placeholder="e.g. Who to call for what" /></Field>
     </>
   );

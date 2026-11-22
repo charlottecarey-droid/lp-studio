@@ -213,6 +213,7 @@ function SettingsShell({ page, active, onPick, sections, todo, unsaved, footer, 
               ))}
             </div>
           ))}
+          <p className="px-2.5 text-[11px] leading-snug text-muted-foreground" data-room-settings-how>Switches and tick boxes save as you change them. Anything you type has a Save changes button.</p>
           {footer && <div className="border-t pt-3">{footer}</div>}
         </div>
         {footer && <div className="mt-2 md:hidden">{footer}</div>}
@@ -982,7 +983,6 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             }
           >
           <UnsavedSettings.Provider value={reportUnsaved}>
-            {isPage && <p className="-mb-4 text-xs text-muted-foreground" data-room-settings-how>Switches and tick boxes save as you change them. Anything you type has a Save changes button.</p>}
             {data.isWorkspace && data.account && (
               <Fold nav="account" title="Account" hint={accountHint(data.account)} data-room-account-fold>
                 <RoomAccountSettings
