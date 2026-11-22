@@ -110,7 +110,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
     let assets = current.assets ?? [];
     for (const c of changes) {
       const at = assets.findIndex((a) => (a.key || roomMilestoneKey({ task: a.title })) === c.key);
-      assets = at >= 0 ? assets.map((a, i) => (i === at ? { ...a, kind: c.kind, fileUrl: c.fileUrl, hidden: false, madeFrom: c.madeFrom ?? "" } : a)) : [...assets, { key: c.key, kind: c.kind, title: c.title, description: c.description, fileUrl: c.fileUrl, ...(c.madeFrom ? { madeFrom: c.madeFrom } : {}) }];
+      assets = at >= 0 ? assets.map((a, i) => (i === at ? (c.removed ? { ...a, fileUrl: "", hidden: true, madeFrom: undefined, own: undefined } : { ...a, kind: c.kind, fileUrl: c.fileUrl, hidden: false, madeFrom: c.madeFrom ?? "", own: !c.madeFrom }) : a)) : c.removed ? assets : [...assets, { key: c.key, kind: c.kind, title: c.title, description: c.description, fileUrl: c.fileUrl, ...(c.madeFrom ? { madeFrom: c.madeFrom } : { own: true }) }];
     }
     const next = { ...current, assets };
     propsRef.current = next;

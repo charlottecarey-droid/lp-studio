@@ -4,7 +4,7 @@ vi.mock("@workspace/db", () => ({ db: {}, pool: {} }));
 vi.mock("./slack-service", () => ({ slackService: { postMessage: vi.fn(async () => true) } }));
 
 import { parentIdFilter, parentNameFilter, practicesFromSheetValues, revopsSlackLines, sheetFilterIndex, slackMention } from "./partnerRoomService";
-import { gateRoomBlocks, roomRequiresEmail, roomWorkspaceProps, extractRoomTasks, fillAccountName, normalizePracticeStage, parsePracticeRow, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, setRoomKitAsset } from "./partnerRoom";
+import { gateRoomBlocks, roomRequiresEmail, roomWorkspaceProps, extractRoomTasks, fillAccountName, normalizePracticeStage, parsePracticeRow, parseRoomKitAsset, resolveRoomBlocks, roomCalendarIcs, roomKitInfo, roomKitAssetIsOwn, clearRoomKitAsset, setRoomKitAsset } from "./partnerRoom";
 
 const MB2 = "0015d000041HyXrAAK";
 const SHEET = [
@@ -101,7 +101,7 @@ describe("launch kit: generated assets", () => {
   ];
   it("reads what the generator needs from the page", () => {
     expect(roomKitInfo(blocks)).toMatchObject({ partnerName: "MB2 Dental", partnerLogoUrl: "/api/storage/objects/uploads/logo", heroImageUrl: "", signupUrl: "https://partners.example.com/mb2" });
-    expect(roomKitInfo(blocks)!.assets).toEqual([{ key: "partnership-one-pager", title: "Partnership one-pager", kind: "pdf", madeFrom: "", hasFile: false, hidden: true, url: "" }, { key: "announcement-email", title: "Announcement email", kind: "text", madeFrom: "", hasFile: true, hidden: false, url: "" }]);
+    expect(roomKitInfo(blocks)!.assets).toEqual([{ key: "partnership-one-pager", title: "Partnership one-pager", kind: "pdf", madeFrom: "", own: false, hasFile: false, hidden: true, url: "" }, { key: "announcement-email", title: "Announcement email", kind: "text", madeFrom: "", own: false, hasFile: true, hidden: false, url: "" }]);
     expect(roomKitInfo(blocks)).toMatchObject({ partnerLogoScale: 100, brandLogoScale: 100 });
     expect(roomKitInfo([{ type: "hero" }])).toBeNull();
   });
@@ -122,7 +122,7 @@ describe("launch kit: generated assets", () => {
     expect(filled[0]).toBe(blocks[0]);
     expect((filled[1].props as { partnerName: string }).partnerName).toBe("MB2 Dental");
     const added = setRoomKitAsset(blocks, { key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" }) as typeof blocks;
-    expect((added[1].props as { assets: Record<string, unknown>[] }).assets[2]).toEqual({ key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2" });
+    expect((added[1].props as { assets: Record<string, unknown>[] }).assets[2]).toEqual({ key: "social-image-2", kind: "image", title: "Social graphic, square", description: "1080", fileUrl: "/api/storage/objects/uploads/img2", own: true });
     expect(setRoomKitAsset([{ type: "hero" }], { key: "x-y", kind: "pdf", title: "X", fileUrl: "/api/storage/a" })).toBeNull();
   });
   it("remembers what a generated file was made from, and forgets it when a file is uploaded in its place", () => {
@@ -131,7 +131,22 @@ describe("launch kit: generated assets", () => {
     const made = setRoomKitAsset(blocks, { ...asset, madeFrom: "2|MB2 Dental|/logo|150|100" })!;
     expect(roomKitInfo(made)!.assets[0].madeFrom).toBe("2|MB2 Dental|/logo|150|100");
     const uploaded = setRoomKitAsset(made, { ...asset, fileUrl: "/api/storage/objects/uploads/own" })!;
-    expect(roomKitInfo(uploaded)!.assets[0]).toMatchObject({ madeFrom: "", hasFile: true });
+    expect(roomKitInfo(uploaded)!.assets[0]).toMatchObject({ madeFrom: "", hasFile: true, own: true });
+  });
+  it("keeps the team's own file until it is removed", () => {
+    const asset = { key: "partnership-one-pager", kind: "pdf" as const, title: "Partnership one-pager", fileUrl: "/api/storage/objects/uploads/own" };
+    expect(parseRoomKitAsset({ ...asset, own: true })).toMatchObject({ own: true });
+    const own = setRoomKitAsset(blocks, asset)!;
+    expect(roomKitAssetIsOwn(own, "partnership-one-pager")).toBe(true);
+    // One made by us is not own; uploading over it makes it so.
+    const made = setRoomKitAsset(blocks, { ...asset, madeFrom: "3|MB2" })!;
+    expect(roomKitAssetIsOwn(made, "partnership-one-pager")).toBe(false);
+    expect(roomKitAssetIsOwn(setRoomKitAsset(made, asset)!, "partnership-one-pager")).toBe(true);
+    // Removed: the entry stays, with no file, and can be generated again.
+    const cleared = clearRoomKitAsset(own, "partnership-one-pager")!;
+    expect(roomKitAssetIsOwn(cleared, "partnership-one-pager")).toBe(false);
+    expect(roomKitInfo(cleared)!.assets[0]).toMatchObject({ hasFile: false, hidden: true, own: false });
+    expect(clearRoomKitAsset([{ type: "hero" }], "x-y")).toBeNull();
   });
 });
 

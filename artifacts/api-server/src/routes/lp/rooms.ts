@@ -101,6 +101,8 @@ import {
   setRoomCover,
   parseRoomCover,
   roomCoverInfo,
+  roomKitAssetIsOwn,
+  clearRoomKitAsset,
   roomLogoTask,
   isLogoImage,
   ROOM_LOGO_TASK_KEY,
@@ -2394,6 +2396,12 @@ router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Res
       return;
     }
     const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    // A file the team uploaded in place of ours stays: nothing generated replaces it, whoever or whatever asks.
+    // It goes only when someone removes it, or uploads another over it.
+    if (row && asset.madeFrom && roomKitAssetIsOwn(row.blocks, asset.key)) {
+      res.json({ ok: true, kept: true });
+      return;
+    }
     const next = row ? setRoomKitAsset(row.blocks, asset) : null;
     if (!next) {
       res.status(400).json({ error: "This page isn't a Partner Hub." });
@@ -2404,6 +2412,30 @@ router.post("/lp/partner-rooms/:pageId/kit-asset", async (req: Request, res: Res
   } catch (err) {
     req.log.error({ err }, "room kit asset save failed");
     res.status(500).json({ error: "Could not add the asset to the launch kit" });
+  }
+});
+
+/** Take the team's own file back out of a kit entry, so the generated one can be made again. */
+router.delete("/lp/partner-rooms/:pageId/kit-asset/:key", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const key = String(req.params.key ?? "");
+    if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(key)) {
+      res.status(400).json({ error: "That isn't a launch asset." });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? clearRoomKitAsset(row.blocks, key) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date() }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "room kit asset removal failed");
+    res.status(500).json({ error: "Could not remove the file" });
   }
 });
 

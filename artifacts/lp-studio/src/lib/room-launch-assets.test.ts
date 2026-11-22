@@ -148,6 +148,10 @@ describe("stale launch assets", () => {
     expect(staleLaunchAssets([made("social-image-1"), made("social-image-2")], { ...basis, heroImageUrl: "/api/storage/other.jpg" })).toEqual(["social-image-1"]);
   });
 
+  it("never names the team's own file, whatever it carries", () => {
+    expect(staleLaunchAssets([{ key: "social-image-1", hasFile: true, own: true, madeFrom: "old" }], { ...basis, partnerLogoScale: 200 })).toEqual([]);
+  });
+
   it("never names an uploaded file, or one with no record of how it was made", () => {
     expect(staleLaunchAssets([{ key: "social-image-1", hasFile: true }, { key: "social-image-2", hasFile: true, madeFrom: "" }], { ...basis, partnerLogoScale: 200 })).toEqual([]);
   });

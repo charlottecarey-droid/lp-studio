@@ -180,11 +180,11 @@ export function launchAssetSignature(key: LaunchAssetKey, input: Pick<LaunchAsse
 }
 
 /** The generated files that no longer match the hub. A file with no record of what it was made from (a rep's own upload, or one made before this) is left alone. */
-export function staleLaunchAssets(assets: { key: string; hasFile: boolean; madeFrom?: string }[], input: Parameters<typeof launchAssetSignature>[1]): LaunchAssetKey[] {
+export function staleLaunchAssets(assets: { key: string; hasFile: boolean; madeFrom?: string; own?: boolean }[], input: Parameters<typeof launchAssetSignature>[1]): LaunchAssetKey[] {
   if (!input.partnerName.trim()) return [];
   return LAUNCH_ASSETS.filter((spec) => {
     const a = assets.find((x) => x.key === spec.key);
-    return !!a && a.hasFile && !!a.madeFrom && a.madeFrom !== launchAssetSignature(spec.key, input);
+    return !!a && a.hasFile && !a.own && !!a.madeFrom && a.madeFrom !== launchAssetSignature(spec.key, input);
   }).map((spec) => spec.key);
 }
 

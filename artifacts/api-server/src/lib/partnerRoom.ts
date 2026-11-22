@@ -817,7 +817,7 @@ export interface RoomKitInfo {
   partnerLogoOriginal: boolean;
   /** The first launch-kit link (the sign-up page), for the one-pager's QR code. */
   signupUrl: string;
-  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; /** What a generated file was made from; blank for a file someone uploaded. */ madeFrom: string; /** Where the item's file is (a hosted path or an address), when it has one. */ url: string }[];
+  assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; /** The team's own upload, which nothing generated replaces. */ own: boolean; /** What a generated file was made from; blank for a file someone uploaded. */ madeFrom: string; /** Where the item's file is (a hosted path or an address), when it has one. */ url: string }[];
   /** The kit's written pieces (announcement email, social posts, approved description), for the media kit document. */
   texts: { title: string; description: string; body: string }[];
   /** The kit's links, for the media kit document. */
@@ -843,7 +843,7 @@ export function roomKitInfo(blocks: unknown): RoomKitInfo | null {
     partnerLogoOriginal: props.partnerLogoOriginal === true,
     // An uploaded file among the links is a resource, never the sign-up page.
     signupUrl: str(links.find((l) => l && !l.hidden && !str(l.fileUrl) && /^https?:\/\//.test(str(l.url)))?.url),
-    assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), madeFrom: str(a.madeFrom), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true, url: str(a.fileUrl) || str(a.videoUrl) })),
+    assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), madeFrom: str(a.madeFrom), own: kitAssetIsOwn(a), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true, url: str(a.fileUrl) || str(a.videoUrl) })),
     texts: assets.filter((a) => a && !a.hidden && a.kind === "text" && str(a.body)).map((a) => ({ title: str(a.title), description: str(a.description), body: typeof a.body === "string" ? a.body.trim().slice(0, 8000) : "" })).slice(0, 20),
     links: [
       ...links.filter((l) => l && !l.hidden && !str(l.fileUrl) && /^https?:\/\//.test(str(l.url))).map((l) => ({ title: str(l.title), url: str(l.url) })),
@@ -860,6 +860,36 @@ export interface RoomKitAssetInput {
   fileUrl: string;
   /** What a generated file was made from (names, logos, sizes). Absent for a file someone uploaded. */
   madeFrom?: string;
+  /** The team's own file, uploaded in place of the one we make. It stays until someone removes it. */
+  own?: boolean;
+}
+
+/** A kit entry holding the team's own file: marked so, or (from before the mark existed) replaced with no record of having been generated. */
+const kitAssetIsOwn = (a: Record<string, unknown> | undefined): boolean => !!a && typeof a.fileUrl === "string" && !!a.fileUrl.trim() && (a.own === true || a.madeFrom === "");
+
+/** Whether the kit's entry under this key is the team's own upload, which nothing generated may replace. */
+export function roomKitAssetIsOwn(blocks: unknown, key: string): boolean {
+  const props = workspaceBlock(blocks)?.props ?? {};
+  const assets = Array.isArray(props.assets) ? (props.assets as Record<string, unknown>[]) : [];
+  return kitAssetIsOwn(assets.find((a) => a && (typeof a.key === "string" && a.key.trim() ? a.key.trim() : planTaskKey({ task: a.title })) === key));
+}
+
+/**
+ * Take the team's own file back out of a kit entry, so the generated one can
+ * be made again. The entry stays (hidden, as an entry with no file is).
+ * Returns new blocks, or null when the page has no workspace block.
+ */
+export function clearRoomKitAsset(blocks: unknown, key: string): unknown[] | null {
+  const block = workspaceBlock(blocks);
+  if (!block || !Array.isArray(blocks)) return null;
+  const props = block.props ?? {};
+  const assets = Array.isArray(props.assets) ? (props.assets as Record<string, unknown>[]) : [];
+  const next = assets.map((a) => {
+    if (!a || (typeof a.key === "string" && a.key.trim() ? a.key.trim() : planTaskKey({ task: a.title })) !== key) return a;
+    const { own: _own, madeFrom: _made, ...rest } = a;
+    return { ...rest, fileUrl: "", hidden: true };
+  });
+  return blocks.map((b) => (b === block ? { ...(b as object), props: { ...props, assets: next } } : b));
 }
 
 /** A generated file's address must be this app's own storage: never an outside URL. */
@@ -871,7 +901,7 @@ export function parseRoomKitAsset(raw: unknown): RoomKitAssetInput | null {
   if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(key) || (b.kind !== "pdf" && b.kind !== "image") || !title) return null;
   if (!/^\/api\/storage\/[A-Za-z0-9/_.-]{1,300}$/.test(fileUrl) || fileUrl.includes("..")) return null;
   const madeFrom = typeof b.madeFrom === "string" ? b.madeFrom.trim().slice(0, 600) : "";
-  return { key, kind: b.kind, title, description: cleanText(b.description, 200) || undefined, fileUrl, ...(madeFrom ? { madeFrom } : {}) };
+  return { key, kind: b.kind, title, description: cleanText(b.description, 200) || undefined, fileUrl, ...(madeFrom ? { madeFrom } : {}), ...(b.own === true && !madeFrom ? { own: true } : {}) };
 }
 
 /**
@@ -889,8 +919,8 @@ export function setRoomKitAsset(blocks: unknown, asset: RoomKitAssetInput): unkn
   const next =
     at >= 0
       ? // An uploaded file drops the record of what the old one was made from, so it is never made again over the upload.
-        assets.map((a, i) => (i === at ? { ...a, kind: asset.kind, fileUrl: asset.fileUrl, hidden: false, madeFrom: asset.madeFrom ?? "" } : a))
-      : [...assets, { key: asset.key, kind: asset.kind, title: asset.title, ...(asset.description ? { description: asset.description } : {}), fileUrl: asset.fileUrl, ...(asset.madeFrom ? { madeFrom: asset.madeFrom } : {}) }];
+        assets.map((a, i) => (i === at ? { ...a, kind: asset.kind, fileUrl: asset.fileUrl, hidden: false, madeFrom: asset.madeFrom ?? "", own: !asset.madeFrom } : a))
+      : [...assets, { key: asset.key, kind: asset.kind, title: asset.title, ...(asset.description ? { description: asset.description } : {}), fileUrl: asset.fileUrl, ...(asset.madeFrom ? { madeFrom: asset.madeFrom } : { own: true }) }];
   return blocks.map((b) => (b === block ? { ...(b as object), props: { ...props, assets: next } } : b));
 }
 

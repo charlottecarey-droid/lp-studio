@@ -60,7 +60,7 @@ interface RoomDetail {
   /** The hub's Important links as stored on the page (workspace hubs only). */
   links?: HubLink[] | null;
   stage?: HubStage | null;
-  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; partnerLogoScale?: number; brandLogoScale?: number; partnerLogoOriginal?: boolean; signupUrl: string; /** False while the sign-up page is one of our pages and still a draft. */ signupPublished?: boolean; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string; madeFrom?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; partnerLogoScale?: number; brandLogoScale?: number; partnerLogoOriginal?: boolean; signupUrl: string; /** False while the sign-up page is one of our pages and still a draft. */ signupPublished?: boolean; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string; madeFrom?: string; own?: boolean }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -243,7 +243,7 @@ export interface RoomKitLinkChange {
   url: string;
 }
 
-export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string; /** What a generated file was made from; absent for an upload. */ madeFrom?: string }
+export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string; /** What a generated file was made from; absent for an upload. */ madeFrom?: string; /** The team's own file, which nothing generated replaces. */ own?: boolean; /** The team's own file was taken out again. */ removed?: boolean }
 
 export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps, onOverview, onLinks, onStage, initialTab = "activity", embedded = false, layout, initialSection, onNavigate, onArchive }: { /** "page": the hub's own full page (header buttons live in the page, Settings gets a left-hand list). */ layout?: "page"; /** Retire the hub (page layout): shown at the foot of the Settings list. */ onArchive?: () => void; /** The Settings section to open on (page layout). */ initialSection?: string; /** The tab (and Settings section) in view changed: lets the page keep its address in step. */ onNavigate?: (tab: RoomPanelTab, section: string) => void; pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onProps?: (patch: Record<string, unknown>) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   // Plays used to be a tab of their own; they are part of To do now, so an old link to them lands there.
@@ -1779,7 +1779,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
       const [{ uploadPdf }, { uploadImage }, { LAUNCH_ASSETS }] = await Promise.all([import("@/components/PdfUploadButton"), import("@/components/ImagePicker"), import("@/lib/room-launch-assets")]);
       const fileUrl = image ? await uploadImage(file) : (await uploadPdf(file)).url;
       const meta = LAUNCH_ASSETS.find((x) => x.key === spec.key);
-      const asset = { key: spec.key, kind: spec.kind, title: meta?.title ?? spec.title, description: meta?.description, fileUrl };
+      const asset = { key: spec.key, kind: spec.kind, title: meta?.title ?? spec.title, description: meta?.description, fileUrl, own: true };
       const r = await fetch(`/api/lp/partner-rooms/${pageId}/kit-asset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(asset) });
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       if (!r.ok) throw new Error(j.error ?? "Could not add it to the hub");
@@ -1795,6 +1795,24 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
     }
   };
   const has = (key: string) => kit.assets.some((a) => a.key === key && a.hasFile);
+  /** The team's own file sits here: it is never made again, by a button or by itself, until it is removed. */
+  const isOwn = (key: string) => !!own[key] || kit.assets.some((a) => a.key === key && a.hasFile && a.own);
+  const removeOwn = async (spec: (typeof SPECS)[number]) => {
+    if (!window.confirm(`Remove your ${spec.title.toLowerCase()} from the hub? You can then create ours in its place, or upload another.`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/lp/partner-rooms/${pageId}/kit-asset/${spec.key}`, { method: "DELETE" });
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) return setState((s) => ({ ...s, [spec.key]: j.error ?? "Could not remove it" }));
+      onKitAssets?.([{ key: spec.key, kind: spec.kind, title: spec.title, fileUrl: "", removed: true }]);
+      setOwn((o) => { const next = { ...o }; delete next[spec.key]; return next; });
+      setPreviews((p) => { const next = { ...p }; delete next[spec.key]; return next; });
+      setState((s) => { const next = { ...s }; delete next[spec.key]; return next; });
+    } finally {
+      setBusy(false);
+      await refresh();
+    }
+  };
   // Files that are the same for every customer: uploaded once for the workspace, added to each room.
   const { data: standard, refetch: refetchStandard } = useQuery({
     queryKey: ["room-standard-assets"],
@@ -1840,11 +1858,14 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
 
   /** What the generated files are drawn from: both names' worth of cover settings, as the hub has them now. */
   const basis = { partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, partnerLogoOriginal: kit.partnerLogoOriginal, signupUrl: site?.url || kit.signupUrl, signupPublished: site ? site.status === "published" : kit.signupPublished };
-  const create = async (keys: readonly string[]) => {
+  const create = async (asked: readonly string[]) => {
+    // Making the whole kit, or remaking what went stale, steps round any file the team uploaded themselves.
+    const keys = asked.filter((k) => !isOwn(k));
+    if (keys.length === 0) return;
     setBusy(true);
     try {
       // The whole kit starts with the practice microsite, so the one-pager and media kit carry its address.
-      const siteUrl = keys.length > 1 ? await ensureSite() : "";
+      const siteUrl = asked.length > 1 ? await ensureSite() : "";
       const [{ createLaunchAsset }, { fetchBrandConfig }] = await Promise.all([import("@/lib/room-launch-assets"), import("@/lib/brand-config")]);
       const brand = await fetchBrandConfig();
       // Files made in this run (the one-pager, the graphics) so the media kit, made last, can link to them.
@@ -1864,7 +1885,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
         }
       }
       // "Create launch kit" also brings in the standard guides (a room's own file is kept).
-      if (keys.length > 1) await addStandard(false);
+      if (asked.length > 1) await addStandard(false);
     } finally {
       setBusy(false);
       await refresh();
@@ -1916,7 +1937,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
         <div className="min-w-0">
           <h4 className="text-sm font-semibold">{expansion ? "Marketing assets" : "Launch assets"}</h4>
           <p className="text-sm text-muted-foreground">
-            Made for {kit.partnerName || "this customer"} from the hub’s names, logos and cover photo. Have your own version? Upload it in its place.
+            Made for {kit.partnerName || "this customer"} from the hub’s names, logos and cover photo. Have your own version? Upload it in its place: your file is kept, and never remade, until you remove it.
           </p>
         </div>
         <Button size="sm" variant="brand" disabled={busy || !kit.partnerName} onClick={() => create(SPECS.map((a) => a.key))}>
@@ -1953,11 +1974,17 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {st === "done" || has(a.key) ? <Badge variant="secondary">{own[a.key] ? "Your file" : st === "done" ? "Created" : "In the kit"}</Badge> : null}
+                {st === "done" || has(a.key) ? <Badge variant="secondary" data-room-asset-state={isOwn(a.key) ? "own" : "made"}>{isOwn(a.key) ? "Your file" : st === "done" ? "Created" : "In the kit"}</Badge> : null}
                 {previews[a.key] && <a className="text-xs underline" href={previews[a.key]} target="_blank" rel="noreferrer">Open</a>}
-                <Button size="sm" variant="outline" disabled={busy || !kit.partnerName} onClick={() => create([a.key])}>
-                  {st === "working" ? "Working…" : has(a.key) || st === "done" ? "Create again" : "Create"}
-                </Button>
+                {isOwn(a.key) ? (
+                  <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={busy} onClick={() => void removeOwn(a)} title="Take your file out, so ours can be created in its place" data-room-asset-remove={a.key}>
+                    Remove my file
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" disabled={busy || !kit.partnerName} onClick={() => create([a.key])}>
+                    {st === "working" ? "Working…" : has(a.key) || st === "done" ? "Create again" : "Create"}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
