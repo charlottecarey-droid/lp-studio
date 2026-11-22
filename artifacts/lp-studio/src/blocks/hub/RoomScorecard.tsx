@@ -20,6 +20,7 @@ import { useRegionalsWord } from "./room-words";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, Columns3, Download, List, Mail, Package, Map as MapIcon, Search, X } from "lucide-react";
 import { RoomMap } from "./RoomMap";
+import { timelineWaves, waveKey, type TimelineWaveDef } from "./RoomTimeline";
 import type { RoomKitResult, RoomPractice, RoomPracticePage, RoomPracticeSort, RoomPracticeStageFilter, RoomScorecardCheck, RoomSnapshot, RoomStoreHandle } from "./room-client";
 
 /**
@@ -344,20 +345,128 @@ const TILES: { key: RoomPracticeStageFilter | "all"; label: string }[] = [
   { key: "live", label: "Live" },
 ];
 
-export function ScorecardView({ snapshot, store, isEditor, noun, display, goals, onNeedEmail, mapShared = false }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; /** The hub shows its map to every visitor, not only the team. */ mapShared?: boolean; isEditor: boolean; noun: string; display: string; goals: ScorecardGoal[]; onNeedEmail: () => void }) {
+/** The practices in no wave, as the wave filter names them (the server's NO_WAVE). */
+export const NO_WAVE = "__none";
+
+const WAVE_STATE_LABEL = { done: "Complete", current: "In progress", upcoming: "Upcoming" } as const;
+const pct = (n: number, of: number) => (of > 0 ? Math.max(0, Math.min(100, Math.round((n / of) * 100))) : 0);
+
+/**
+ * The top of the Scorecard for a hub that rolls out in waves: one card per wave in order (the waves the
+ * team planned, even with no practices in them yet, then any other wave the list uses), each with where it
+ * stands, its dates, and live / trained against its practices. A card filters the list below to its wave;
+ * "not in a wave" does the same for the practices still to place.
+ */
+export function ScorecardWaves({
+  waves,
+  trained,
+  noWave,
+  noun,
+  picked,
+  onPick,
+  fmtDate,
+  canPlace,
+}: {
+  waves: ReturnType<typeof timelineWaves>;
+  /** Trained-or-live practices per wave key. */
+  trained: Map<string, number>;
+  noWave: number;
+  noun: string;
+  /** The wave filter in force (a wave's key, NO_WAVE, or ""). */
+  picked: string;
+  onPick: (wave: string) => void;
+  fmtDate: (iso: string) => string;
+  /** The viewer can put practices into waves (shows how). */
+  canPlace: boolean;
+}) {
+  const placed = waves.reduce((n, w) => n + w.total, 0);
+  const all = Math.max(placed + noWave, placed);
+  const pickedKey = picked && picked !== NO_WAVE ? waveKey(picked) : "";
+  return (
+    <section className="prw-sc-waves" data-room-scorecard-waves>
+      <div className="hd">
+        <h3>Waves</h3>
+        <span className="m">
+          {placed} of {all} {noun} in a wave
+        </span>
+        {noWave > 0 && (
+          <button type="button" className={`prw-sc-nowave${picked === NO_WAVE ? " on" : ""}`} aria-pressed={picked === NO_WAVE} onClick={() => onPick(picked === NO_WAVE ? "" : NO_WAVE)} data-room-wave-none>
+            {noWave} not in a wave
+          </button>
+        )}
+      </div>
+      <div className="cards">
+        {waves.map((w) => {
+          const t = Math.max(trained.get(waveKey(w.key)) ?? 0, w.live);
+          const on = pickedKey === waveKey(w.key);
+          return (
+            <button
+              key={w.key}
+              type="button"
+              className={`prw-sc-wave ${w.state}${on ? " on" : ""}`}
+              aria-pressed={on}
+              onClick={() => onPick(on ? "" : w.key)}
+              data-room-scorecard-wave={w.name}
+            >
+              <span className="top">
+                <b>{w.name}</b>
+                <span className={`prw-st ${w.state}`}>{WAVE_STATE_LABEL[w.state]}</span>
+              </span>
+              <span className="when">
+                {[w.start ? `Starts ${fmtDate(w.start)}` : "", w.target ? `Target ${fmtDate(w.target)}` : ""].filter(Boolean).join(" · ") || " "}
+              </span>
+              {w.total > 0 ? (
+                <>
+                  <span className="nums">
+                    <b className="prw-num">{w.live}</b>
+                    <i>/{w.total} live</i>
+                    <em>{t} trained</em>
+                  </span>
+                  <span className="bar" aria-label={`${w.live} of ${w.total} live, ${t} trained`}>
+                    <span className="tr" style={{ width: `${pct(t, w.total)}%` }} />
+                    <span className="lv" style={{ width: `${pct(w.live, w.total)}%` }} />
+                  </span>
+                </>
+              ) : (
+                <span className="empty">{canPlace ? `No ${noun} yet. Tick ${noun} below and use Add to wave.` : `No ${noun} in this wave yet.`}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function ScorecardView({ snapshot, store, isEditor, noun, display, goals, onNeedEmail, mapShared = false, waveDefs = [], initialWave = "", fmtDate = (d: string) => d }: { snapshot: RoomSnapshot; store: RoomStoreHandle | null; /** The hub shows its map to every visitor, not only the team. */ mapShared?: boolean; isEditor: boolean; noun: string; display: string; goals: ScorecardGoal[]; onNeedEmail: () => void; /** The waves the team planned (Stage and waves), in order. */ waveDefs?: TimelineWaveDef[]; /** Open on one wave (from a wave on the Overview's timeline). */ initialWave?: string; fmtDate?: (iso: string) => string }) {
   const pr = snapshot.practices;
   // The customer's word for its regional managers ("DBOs") in the column names.
   const rw = useRegionalsWord();
   const trend = pr.trend ?? [];
   const byRegion = pr.byRegion ?? [];
-  const waves = pr.waves ?? [];
+  // The hub's waves in order: planned ones (even empty), then any other the list uses.
+  const waveList = useMemo(() => timelineWaves(waveDefs, pr.byWave), [waveDefs, pr.byWave]);
+  const waveTrained = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const w of pr.byWave ?? []) m.set(waveKey(w.wave), (m.get(waveKey(w.wave)) ?? 0) + (w.trained ?? w.live));
+    return m;
+  }, [pr.byWave]);
+  // Practices in no wave: as the server counts them, or (from a server that doesn't send it) what the waves leave over.
+  const noWave = pr.noWave ?? Math.max(0, pr.total - (pr.byWave ?? []).reduce((n, w) => n + w.total, 0));
   const isTeam = !!snapshot.viewer?.team;
   const one = noun.replace(/s$/, "");
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
   const [stage, setStage] = useState<RoomPracticeStageFilter | "">("");
   const [region, setRegion] = useState("");
-  const [wave, setWave] = useState("");
+  const [wave, setWave] = useState(initialWave);
+  // Opened again from another wave on the Overview: show that one.
+  useEffect(() => {
+    if (initialWave) {
+      setWave(initialWave);
+      setPageNo(0);
+    }
+  }, [initialWave]);
   const [scanner, setScanner] = useState<"" | "yes" | "no">("");
   const [q, setQ] = useState("");
   // Team only: one product line, and whether to list the practices that order it or the ones that don't.
@@ -395,9 +504,24 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     const r = await store.wavePracticeIds(w);
     setPickingWave(false);
     if (!r.ok) return setWaveNote(r.error ?? "Couldn't load that wave.");
-    if (r.ids.length === 0) return setWaveNote(`No ${noun} in Wave ${w}.`);
+    const label = w === NO_WAVE ? "Not in a wave" : waveList.find((x) => waveKey(x.key) === waveKey(w))?.name ?? w;
+    if (r.ids.length === 0) return setWaveNote(`No ${noun} in ${label}.`);
     tick(r.ids, true);
-    setWaveNote(`Wave ${w}: ${r.ids.length} selected${r.kitSent ? ` (${r.kitSent} already sent a welcome kit; they are skipped when you send)` : ""}.`);
+    setWaveNote(`${label}: ${r.ids.length} selected${r.kitSent ? ` (${r.kitSent} already sent a welcome kit; they are skipped when you send)` : ""}.`);
+  };
+  // Team only: put the ticked practices into a wave, or take them out of theirs.
+  const [moving, setMoving] = useState(false);
+  const moveToWave = async (target: string) => {
+    if (!store || ticked.size === 0 || moving) return;
+    setMoving(true);
+    setWaveNote("");
+    const r = await store.setPracticesWave([...ticked], target);
+    setMoving(false);
+    if (!r.ok) return setWaveNote(r.error ?? "Couldn't change the wave.");
+    const name = waveList.find((x) => waveKey(x.key) === waveKey(target))?.name ?? target;
+    setWaveNote(target ? `${r.moved} ${r.moved === 1 ? one : noun} added to ${name}.` : `${r.moved} ${r.moved === 1 ? one : noun} taken out of their wave.`);
+    setTicked(new Set());
+    setReload((n) => n + 1);
   };
   const exportNow = async () => {
     if (!store || exporting) return;
@@ -586,6 +710,19 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         </div>
       )}
 
+      {waveList.length > 0 && (
+        <ScorecardWaves
+          waves={waveList}
+          trained={waveTrained}
+          noWave={noWave}
+          noun={noun}
+          picked={wave}
+          onPick={(w) => { setWave(w); setPageNo(0); }}
+          fmtDate={fmtDate}
+          canPlace={isTeam && !isEditor}
+        />
+      )}
+
       <div className="prw-sc-tiles" style={{ ["--n" as string]: TILES.length + (pr.scanners ? 1 : 0) + (pr.doctors ? 1 : 0) }} data-room-practice-summary>
         {TILES.map((t) => {
           const n = tileCount(pr.byStage, pr.total, t.key);
@@ -728,10 +865,11 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
               {STAGE_ORDER.map((s) => <option key={s} value={s}>{s === "trained" ? "Trained (incl. live)" : SCORECARD_STAGE_LABEL[s]}</option>)}
               <option value="open">Not yet trained</option>
             </select>
-            {waves.length > 0 && (
-              <select value={wave} onChange={(e) => { setWave(e.target.value); setPageNo(0); }} aria-label="Wave">
+            {waveList.length > 0 && (
+              <select value={wave && wave !== NO_WAVE ? waveList.find((w) => waveKey(w.key) === waveKey(wave))?.key ?? wave : wave} onChange={(e) => { setWave(e.target.value); setPageNo(0); }} aria-label="Wave" data-room-wave-filter>
                 <option value="">All waves</option>
-                {waves.map((w) => <option key={w} value={w}>Wave {w}</option>)}
+                {waveList.map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}
+                {noWave > 0 && <option value={NO_WAVE}>Not in a wave</option>}
               </select>
             )}
             {pr.scanners && (
@@ -761,10 +899,18 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
             <div className="prw-sc-picked" data-room-picked={ticked.size}>
               <span className="prw-num">{ticked.size ? `${ticked.size} selected` : ""}</span>
               {ticked.size > 0 && <button type="button" className="prw-btn" onClick={() => { setTicked(new Set()); setWaveNote(""); }} data-room-unpick><X aria-hidden /> Clear</button>}
-              {waves.length > 0 && (
+              {waveList.some((w) => w.total > 0) && (
                 <select value="" disabled={pickingWave} onChange={(e) => void pickWave(e.target.value)} aria-label="Select every practice in a wave" title="Select every practice in a wave, for example to send the whole wave a welcome kit" data-room-pick-wave>
                   <option value="">{pickingWave ? "Selecting…" : "Select a wave"}</option>
-                  {(pr.byWave ?? waves.map((w) => ({ wave: w, total: 0, live: 0 }))).map((w) => <option key={w.wave} value={w.wave}>Wave {w.wave}{w.total ? ` (${w.total})` : ""}</option>)}
+                  {waveList.filter((w) => w.total > 0).map((w) => <option key={w.key} value={w.key}>{w.name} ({w.total})</option>)}
+                  {noWave > 0 && <option value={NO_WAVE}>Not in a wave ({noWave})</option>}
+                </select>
+              )}
+              {ticked.size > 0 && waveList.length > 0 && (
+                <select value="" disabled={moving} onChange={(e) => { const v = e.target.value; if (v) void moveToWave(v === NO_WAVE ? "" : v); }} aria-label="Add the selected practices to a wave" data-room-move-wave>
+                  <option value="">{moving ? "Moving…" : "Add to wave…"}</option>
+                  {waveList.map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}
+                  <option value={NO_WAVE}>Take out of their wave</option>
                 </select>
               )}
               <button type="button" className="prw-btn" disabled={exporting} onClick={() => void exportNow()} data-room-export><Download aria-hidden /> {ticked.size ? "Export" : "Export all"}</button>

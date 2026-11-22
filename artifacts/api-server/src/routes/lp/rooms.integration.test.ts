@@ -1430,4 +1430,38 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(live.url).toContain(row.rows[0].title ? "birch-dental-partners-hub" : "");
     expect(live.lastVisitAt).toBeTruthy();
   }, 60_000);
+
+  it("waves in the Scorecard: counts per wave, \"Wave 1\" and \"1\" as one wave, practices in no wave, and the team moving practices between waves", async () => {
+    const tenantId = await seedTenant();
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify([{ id: "w1", type: "room-workspace", props: { partnerName: "Wave Dental", waves: [{ key: "1", name: "Wave 1" }, { key: "2", name: "Wave 2" }] } }])]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@wavedental.com");
+    expect((await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/practices/import`, headers: asTenant(tenantId), body: { csv: "name,region,stage\nAlpha Dental,Texas,Live\nBravo Dental,Texas,Trained\nCharlie Dental,Ohio,Scheduling\nDelta Dental,Ohio,Live" } })).status).toBe(200);
+    // Two ways of writing the same wave, as lists arrive from different places.
+    await pool.query(`UPDATE lp_room_practices SET wave = CASE name WHEN 'Alpha Dental' THEN 'Wave 1' WHEN 'Bravo Dental' THEN ' 1 ' WHEN 'Delta Dental' THEN '' END WHERE page_id = $1`, [pageId]);
+
+    const state = (await post("state", { pageId, hl })).json as { practices: { byWave: { wave: string; total: number; live: number; trained: number }[]; noWave: number } };
+    expect(state.practices.byWave).toEqual([{ wave: "1", total: 1, live: 0, trained: 1 }, { wave: "Wave 1", total: 1, live: 1, trained: 1 }]);
+    expect(state.practices.noWave).toBe(2); // Charlie (no wave) and Delta (a blank one)
+
+    const names = async (body: Record<string, unknown>) => ((await post("practices", { pageId, hl, ...body })).json as { rows: { id: number; name: string }[] }).rows.map((p) => p.name).sort();
+    expect(await names({ wave: "1" })).toEqual(["Alpha Dental", "Bravo Dental"]);
+    expect(await names({ wave: "WAVE 1" })).toEqual(["Alpha Dental", "Bravo Dental"]);
+    expect(await names({ wave: "__none" })).toEqual(["Charlie Dental", "Delta Dental"]);
+    const all = (await post("practices", { pageId, hl })).json as { rows: { id: number; name: string }[] };
+    const id = (n: string) => all.rows.find((p) => p.name === n)!.id;
+
+    // Moving practices between waves is the account team's: a customer can't.
+    expect((await post("practices-wave", { pageId, hl, ids: [id("Charlie Dental")], wave: "2" })).status).toBe(403);
+    const teamEmail = `rep-${Date.now()}@vendor-waves.com`;
+    await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Rae Rep', 'active')`, [tenantId, teamEmail]);
+    const asTeam = (path: string, body: object) => inject(app, { method: "POST", url: `/lp/room/${path}`, headers: { ...asTenant(tenantId), "x-test-email": teamEmail }, body: { pageId, ...body } });
+    expect((await asTeam("practices-wave", { ids: [id("Charlie Dental"), id("Delta Dental")], wave: "2" })).json).toMatchObject({ ok: true, moved: 2, wave: "2" });
+    expect(await names({ wave: "Wave 2" })).toEqual(["Charlie Dental", "Delta Dental"]);
+    expect((await asTeam("practice-ids", { wave: "Wave 1" })).json).toMatchObject({ ids: expect.arrayContaining([id("Alpha Dental"), id("Bravo Dental")]) });
+    // A blank wave takes them out again; ids from another hub are left alone.
+    expect((await asTeam("practices-wave", { ids: [id("Delta Dental"), 999999999], wave: "" })).json).toMatchObject({ ok: true, moved: 1, wave: null });
+    expect(((await post("state", { pageId, hl })).json as { practices: { noWave: number } }).practices.noWave).toBe(1);
+    expect((await asTeam("practices-wave", { ids: [], wave: "2" })).status).toBe(400);
+  }, 60_000);
 });

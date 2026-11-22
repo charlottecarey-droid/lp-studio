@@ -68,7 +68,7 @@ import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
 import { playRequest } from "../../lib/partnerRoomPlays";
 import { hubPlays, hubRestrictsOutreach, setNoDirectOutreach, setPlayState } from "../../lib/partnerRoomPlaysService";
-import { extendRoomStage, parseRoomStage, roomStageFromProps, roomStageInfo, setRoomStage } from "../../lib/partnerRoomStage";
+import { extendRoomStage, parseRoomStage, roomStageFromProps, roomStageInfo, setRoomStage, waveKey } from "../../lib/partnerRoomStage";
 import { buildExpansionPlan, expansionReview, type ExpansionDecision } from "../../lib/partnerRoomExpansionPlan";
 import { giftFor, hubGiftStep, isGiftRequest, setGiftOff } from "../../lib/partnerRoomGift";
 import { kitAsanaTask, kitNotice } from "../../lib/partnerRoomKit";
@@ -161,6 +161,16 @@ const ROOM_UPLOAD_FOLDER = "room-uploads";
 // Reads are cheap and fire on every room view; writes and access requests
 // are rare for a real person, so their ceilings are low.
 const stateLimiter = rateLimit({ name: "room-state", windowMs: 60_000, max: envLimit("RATE_LIMIT_ROOM_STATE_PER_MIN", 120) });
+/**
+ * Practices in a wave, however the list names it: "Wave 1", "wave 1" and "1" are the same wave (as on the
+ * Overview's timeline, waveKey). "__none" is the practices in no wave.
+ */
+export const NO_WAVE = "__none";
+function inWave(wave: string) {
+  if (wave === NO_WAVE) return sql`(${lpRoomPracticesTable.wave} IS NULL OR btrim(${lpRoomPracticesTable.wave}) = '')`;
+  return sql`regexp_replace(regexp_replace(lower(btrim(${lpRoomPracticesTable.wave})), '^wave[[:space:]]*', ''), '[[:space:]]+', ' ', 'g') = ${waveKey(wave)}`;
+}
+
 const actionLimiter = rateLimit({ name: "room-action", windowMs: 60_000, max: envLimit("RATE_LIMIT_ROOM_ACTION_PER_MIN", 60) });
 const accessLimiter = rateLimit({ name: "room-access", windowMs: 10 * 60_000, max: envLimit("RATE_LIMIT_ROOM_ACCESS_PER_10MIN", 6) });
 
@@ -906,7 +916,7 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const where = and(
       eq(lpRoomPracticesTable.pageId, page.id),
       region ? eq(lpRoomPracticesTable.region, region) : undefined,
-      wave ? eq(lpRoomPracticesTable.wave, wave) : undefined,
+      wave ? inWave(wave) : undefined,
       stages ? inArray(lpRoomPracticesTable.stage, stages) : undefined,
       scanner === "yes" ? sql`${lpRoomPracticesTable.scannerCount} > 0` : scanner === "no" ? sql`COALESCE(${lpRoomPracticesTable.scannerCount}, 0) = 0` : undefined,
       recency === "week" ? sql`${day} >= ${cut.week}` : recency === "month" ? sql`${day} < ${cut.week} AND ${day} >= ${cut.month}` : recency === "quarter" ? sql`${day} < ${cut.month} AND ${day} >= ${cut.quarter}` : recency === "lapsed" ? sql`${day} < ${cut.quarter}` : undefined,
@@ -1018,11 +1028,43 @@ router.post("/lp/room/practice-ids", stateLimiter, async (req: Request, res: Res
       res.status(400).json({ error: "Pick a wave" });
       return;
     }
-    const rows = await db.select({ id: lpRoomPracticesTable.id, kitSentAt: lpRoomPracticesTable.kitSentAt }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, page.id), eq(lpRoomPracticesTable.wave, wave))).limit(2000);
+    const rows = await db.select({ id: lpRoomPracticesTable.id, kitSentAt: lpRoomPracticesTable.kitSentAt }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, page.id), inWave(wave))).limit(2000);
     res.json({ wave, ids: rows.map((r) => r.id), kitSent: rows.filter((r) => r.kitSentAt).length });
   } catch (err) {
     req.log.error({ err }, "room practice ids failed");
     res.status(500).json({ error: "Could not load that wave" });
+  }
+});
+
+/**
+ * Team only, from the hub's Scorecard: put the ticked practices into a wave (by the wave's name, as the
+ * hub's Stage and waves names it), or take them out of their wave with a blank one. The same change the
+ * Sales Console's practice list makes, for a rep looking at the hub itself.
+ */
+router.post("/lp/room/practices-wave", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    const { page, viewer } = ctx;
+    if (!viewer.team) {
+      res.status(403).json({ error: "Only the account team can change waves" });
+      return;
+    }
+    const ids = Array.isArray(req.body?.ids) ? [...new Set((req.body.ids as unknown[]).filter((v): v is number => typeof v === "number" && Number.isInteger(v) && v > 0))].slice(0, 2000) : [];
+    if (ids.length === 0) {
+      res.status(400).json({ error: "Nothing selected" });
+      return;
+    }
+    const wave = typeof req.body?.wave === "string" ? req.body.wave.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+    const updated = await db
+      .update(lpRoomPracticesTable)
+      .set({ wave: wave || null, updatedAt: sql`now()` })
+      .where(and(eq(lpRoomPracticesTable.pageId, page.id), inArray(lpRoomPracticesTable.id, ids)))
+      .returning({ id: lpRoomPracticesTable.id });
+    res.json({ ok: true, moved: updated.length, wave: wave || null });
+  } catch (err) {
+    req.log.error({ err }, "room practices wave (hub) failed");
+    res.status(500).json({ error: "Could not change the wave" });
   }
 });
 

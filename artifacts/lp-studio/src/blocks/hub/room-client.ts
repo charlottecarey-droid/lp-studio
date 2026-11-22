@@ -122,8 +122,10 @@ export interface RoomSnapshot {
     scanners?: { total: number; practices: number };
     byRegion?: { region: string; total: number; live: number; trained: number }[];
     waves?: string[];
-    /** Per wave: how many practices and how many are live. */
-    byWave?: { wave: string; total: number; live: number }[];
+    /** Per wave: how many practices, how many are live, and how many trained or live. */
+    byWave?: { wave: string; total: number; live: number; trained?: number }[];
+    /** Practices in no wave yet. */
+    noWave?: number;
     /** One point per day the list was refreshed, oldest first. */
     trend?: { day: string; total: number; byStage: Record<string, number> }[];
     /** Doctors on the customer's roster, and how many sit at a practice we hold. */
@@ -513,6 +515,17 @@ class RoomStore {
       return { ok: status === 200, ids: Array.isArray(json.ids) ? (json.ids as number[]) : [], kitSent: typeof json.kitSent === "number" ? json.kitSent : 0, error: typeof json.error === "string" ? json.error : undefined };
     } catch {
       return { ok: false, ids: [], kitSent: 0, error: "Couldn't reach the server." };
+    }
+  }
+
+  /** Team only: put practices into a wave by its name, or take them out of their wave with a blank one. */
+  async setPracticesWave(ids: number[], wave: string): Promise<{ ok: boolean; moved: number; error?: string }> {
+    try {
+      const { status, json } = await this.post("practices-wave", { ids, wave });
+      if (status === 200) void this.refresh();
+      return { ok: status === 200, moved: typeof json.moved === "number" ? json.moved : 0, error: typeof json.error === "string" ? json.error : undefined };
+    } catch {
+      return { ok: false, moved: 0, error: "Couldn't reach the server." };
     }
   }
 

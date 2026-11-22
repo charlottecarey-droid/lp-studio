@@ -73,7 +73,7 @@ export function timelineWaves(defs: TimelineWaveDef[] | undefined, byWave: { wav
 const STATE_LABEL = { done: "Complete", current: "In progress", upcoming: "Upcoming" } as const;
 const pctOf = (n: number, of: number) => (of > 0 ? Math.max(0, Math.min(100, Math.round((n / of) * 100))) : 0);
 
-export function PartnershipTimeline({ waves, total, live, goal, defaultView, noun, fmtDate, onOpen }: { /** Clicking the bars opens the Scorecard. The Waves / Practices switch above them keeps working. */ onOpen?: () => void; waves: TimelineWave[]; total: number; live: number; goal: { target: number; text?: string } | null; defaultView: "waves" | "practices"; noun: string; fmtDate: (iso: string) => string }) {
+export function PartnershipTimeline({ waves, total, live, goal, defaultView, noun, fmtDate, onOpen, onOpenWave }: { /** Clicking the bars opens the Scorecard. The Waves / Practices switch above them keeps working. */ onOpen?: () => void; /** Clicking one wave opens the Scorecard on that wave. */ onOpenWave?: (key: string) => void; waves: TimelineWave[]; total: number; live: number; goal: { target: number; text?: string } | null; defaultView: "waves" | "practices"; noun: string; fmtDate: (iso: string) => string }) {
   const [picked, setPicked] = useState<"waves" | "practices" | null>(null);
   const view = waves.length === 0 ? "practices" : (picked ?? defaultView);
   const goalPct = goal ? pctOf(goal.target, Math.max(total, goal.target)) : 0;
@@ -94,7 +94,30 @@ export function PartnershipTimeline({ waves, total, live, goal, defaultView, nou
       {view === "waves" ? (
         <div className={`prw-tl-waves${onOpen ? " prw-tl-open" : ""}`} style={{ ["--cols" as string]: Math.min(waves.length, 6) }} {...open}>
           {waves.map((w) => (
-            <div className="prw-tl-wave" key={w.key} data-room-wave={w.state}>
+            <div
+              className="prw-tl-wave"
+              key={w.key}
+              data-room-wave={w.state}
+              {...(onOpenWave
+                ? {
+                    role: "link" as const,
+                    tabIndex: 0,
+                    title: `Open ${w.name} in the Scorecard`,
+                    "aria-label": `${w.name}: ${w.live} of ${w.total} live. Open it in the Scorecard`,
+                    onClick: (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      onOpenWave(w.key);
+                    },
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onOpenWave(w.key);
+                      }
+                    },
+                  }
+                : {})}
+            >
               <div className="d">
                 {w.name} · <span className={`prw-st ${w.state}`}>{STATE_LABEL[w.state]}</span>
               </div>

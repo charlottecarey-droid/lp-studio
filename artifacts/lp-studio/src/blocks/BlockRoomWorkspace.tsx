@@ -1504,6 +1504,29 @@ const CSS = `
 .prw-sc-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:14px 14px 12px;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--body);font-size:12.5px;transition:border-color .12s,box-shadow .12s}
 .prw-sc-tile:hover{border-color:color-mix(in srgb,var(--dark) 40%,var(--line))}
 .prw-sc-tile.on{border-color:var(--dark);box-shadow:inset 0 0 0 1px var(--dark)}
+.prw-sc-waves{margin-bottom:18px}
+.prw-sc-waves .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:10px}
+.prw-sc-waves h3{margin:0;font-size:15px;font-weight:700;color:var(--dark)}
+.prw-sc-waves .hd .m{font-size:12.5px;color:var(--body)}
+.prw .prw-sc-nowave{margin-left:auto;font-size:12px;font-weight:600;color:var(--dark);background:#fff;border:1px dashed color-mix(in srgb,var(--dark) 35%,var(--line));border-radius:999px;padding:3px 10px;cursor:pointer}
+.prw .prw-sc-nowave.on{border-style:solid;border-color:var(--dark);background:color-mix(in srgb,var(--dark) 6%,#fff)}
+.prw-sc-waves .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.prw .prw-sc-wave{display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;padding:14px 14px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--body);font-size:12.5px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.prw-sc-wave:hover{border-color:color-mix(in srgb,var(--dark) 40%,var(--line))}
+.prw-sc-wave.on{border-color:var(--dark);box-shadow:inset 0 0 0 1px var(--dark)}
+.prw-sc-wave.current{border-left:3px solid var(--dark);padding-left:12px}
+.prw-sc-wave .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.prw-sc-wave .top b{font-size:14px;font-weight:600;color:var(--ink)}
+.prw-sc-wave .when{font-size:12px;color:var(--faint)}
+.prw-sc-wave .nums{display:flex;align-items:baseline;gap:4px;margin-top:2px}
+.prw-sc-wave .nums b{font-size:22px;font-weight:700;color:var(--ink);line-height:1}
+.prw-sc-wave .nums i{font-style:normal;color:var(--body)}
+.prw-sc-wave .nums em{margin-left:auto;font-style:normal;font-size:12px;color:var(--body)}
+.prw-sc-wave .bar{position:relative;display:block;height:6px;border-radius:999px;background:#EEF0EC;overflow:hidden}
+.prw-sc-wave .bar span{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
+.prw-sc-wave .bar .tr{background:color-mix(in srgb,var(--green) 35%,#fff)}
+.prw-sc-wave .bar .lv{background:var(--green)}
+.prw-sc-wave .empty{margin-top:4px;font-size:12px;line-height:1.4;color:var(--faint)}
 .prw-sc-tile b{font-size:24px;line-height:1.05;color:var(--dark);letter-spacing:-.03em;font-weight:700}
 .prw-sc-tile span{font-weight:600;color:var(--ink);min-height:2.5em;line-height:1.25}
 .prw-sc-tile small{display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;min-height:15px}
@@ -1895,6 +1918,8 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   const { snapshot, store } = room;
   const modules = visibleModules(props.hiddenModules, props.moduleOrder);
   const [view, setView] = useState<RoomModuleKey>(modules[0].key);
+  // A wave clicked on the Overview's timeline: the Scorecard opens on it (the Scorecard mounts afresh each time it opens).
+  const [scorecardWave, setScorecardWave] = useState<{ key: string } | null>(null);
   const active = modules.some((m) => m.key === view) ? view : modules[0].key;
   // Which sections a visitor opens, and for how long: the account team reads it under Performance. Never in the
   // builder, never behind the email gate, and the server drops the page's own team.
@@ -2581,7 +2606,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   )
                 )}
                 {expansion && pr.total > 0 && !ovHidden.has("progress") && (
-                  <PartnershipTimeline onOpen={canScorecard ? () => setView("practices") : undefined} waves={timelineWaves(props.waves, pr.byWave)} total={pr.total} live={pr.byStage.live ?? 0} goal={liveGoal ? { target: liveGoal.targetValue as number, text: liveGoal.target } : null} defaultView={props.timelineView === "waves" ? "waves" : "practices"} noun={noun} fmtDate={(d) => fmtDate(d)} />
+                  <PartnershipTimeline onOpen={canScorecard ? () => { setScorecardWave(null); setView("practices"); } : undefined} onOpenWave={canScorecard ? (key) => { setScorecardWave({ key }); setView("practices"); } : undefined} waves={timelineWaves(props.waves, pr.byWave)} total={pr.total} live={pr.byStage.live ?? 0} goal={liveGoal ? { target: liveGoal.targetValue as number, text: liveGoal.target } : null} defaultView={props.timelineView === "waves" ? "waves" : "practices"} noun={noun} fmtDate={(d) => fmtDate(d)} />
                 )}
                 {!expansion && phases.length > 0 && !ovHidden.has("progress") && (() => {
                   // The whole timeline opens the Scorecard on the live hub (in the builder its phase titles are edited by clicking).
@@ -3031,7 +3056,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               </>
             )}
 
-            {active === "practices" && <RegionalsWord.Provider value={(props.regionalsNoun ?? "").trim()}><ScorecardView snapshot={snapshot} store={store ?? room.reader} mapShared={!!props.shareMap} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} /></RegionalsWord.Provider>}
+            {active === "practices" && <RegionalsWord.Provider value={(props.regionalsNoun ?? "").trim()}><ScorecardView snapshot={snapshot} store={store ?? room.reader} mapShared={!!props.shareMap} isEditor={isEditor} noun={noun} display={BRAND_DISPLAY_STACK} goals={scorecardGoals} onNeedEmail={() => setAsk({ kind: "email" })} waveDefs={props.waves} initialWave={scorecardWave?.key ?? ""} fmtDate={(d) => fmtDate(d)} /></RegionalsWord.Provider>}
 
             {active === "wins" && <WinsView snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} display={BRAND_DISPLAY_STACK} />}
 
