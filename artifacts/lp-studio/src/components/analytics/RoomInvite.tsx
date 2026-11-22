@@ -21,7 +21,7 @@ export interface RoomAccountContact {
 
 const INVITE_MAX = 25;
 
-export function RoomInviteSection({ pageId, onInvited }: { pageId: number; onInvited?: () => void }) {
+export function RoomInviteSection({ pageId, onInvited, hideIntro = false }: { pageId: number; onInvited?: () => void; /** The card around it already says how invites work. */ hideIntro?: boolean }) {
   const [contacts, setContacts] = useState<RoomAccountContact[] | null>(null);
   const [found, setFound] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -85,7 +85,7 @@ export function RoomInviteSection({ pageId, onInvited }: { pageId: number; onInv
 
   return (
     <div className="space-y-3" data-room-invite>
-      <p className="text-xs text-muted-foreground">Each person gets an email with their own link. The hub must be published first.</p>
+      {!hideIntro && <p className="text-xs text-muted-foreground">Each person gets an email with their own link. The hub must be published first.</p>}
       {contacts === null ? (
         <p className="text-sm text-muted-foreground">Loading the account's contacts…</p>
       ) : contacts.length === 0 ? (

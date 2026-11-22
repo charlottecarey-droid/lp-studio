@@ -126,7 +126,7 @@ function Group({ title, hint, children, ...rest }: { title: string; hint?: strin
   return (
     <div className="space-y-3 border-t pt-5 first:border-t-0 first:pt-0" {...rest}>
       <div>
-        <div className="text-sm font-semibold text-foreground">{title}</div>
+        <div className="text-[13px] font-semibold text-muted-foreground">{title}</div>
         {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
       </div>
       {children}

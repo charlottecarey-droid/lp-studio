@@ -148,30 +148,37 @@ export const SETTINGS_SECTIONS: { key: string; label: string }[] = [
 ];
 
 /**
- * On the hub's own page every tab is a stack of cards (white, rounded, a tinted
- * header strip), so sections read apart at a glance. False in the pop-up, and
- * inside a card, so nothing nests a card in a card.
+ * On the hub's own page every tab is a stack of flat white cards with a plain
+ * header, so sections read apart at a glance without heavy chrome. False in the
+ * pop-up, and inside a card, so nothing nests a card in a card.
  */
 const PageCards = createContext(false);
 
-const PAGE_CARD = "overflow-hidden rounded-xl border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)]";
-/** A card's body; a section component's own first heading gets the card-title size. */
-const PAGE_CARD_BODY = "space-y-5 px-6 py-5 [&>section>h4:first-child]:text-[15px] [&>section>div:first-child>h4]:text-[15px] [&>section>div:first-child>div:first-child>h4]:text-[15px]";
+const PAGE_CARD = "overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_3px_rgba(16,24,40,0.05)]";
+/** A card's body (tighter under a header); a section component's own first heading gets the card-title size. */
+const PAGE_CARD_BODY = "space-y-5 px-6 pb-6 pt-6 [header+&]:pt-4 [&>section>h4:first-child]:text-base [&>section>div:first-child>h4]:text-base [&>section>div:first-child>div:first-child>h4]:text-base";
+
+/** A short status beside a card's title ("2 hidden", "On", a domain). */
+function StatusChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground" data-room-settings-hint>
+      {children}
+    </span>
+  );
+}
 
 function PageCardHead({ title, about, hint, actions }: { title: React.ReactNode; about?: React.ReactNode; hint?: string; actions?: React.ReactNode }) {
   return (
-    <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b bg-muted/60 px-6 py-4 last:border-b-0">
+    <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-6 pt-6 last:pb-6">
       <div className="min-w-0">
-        <h3 className="text-[15px] font-semibold leading-6 tracking-tight">{title}</h3>
-        {about && <p className="mt-0.5 text-sm text-muted-foreground">{about}</p>}
+        <h3 className="flex items-center gap-2 text-base font-semibold leading-6 tracking-tight">
+          {title}
+          {hint && <StatusChip>{hint}</StatusChip>}
+        </h3>
+        {about && <p className="mt-1 text-sm text-muted-foreground">{about}</p>}
       </div>
-      {(hint || actions) && (
+      {actions && (
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {hint && (
-            <span className="max-w-full truncate rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground" data-room-settings-hint>
-              {hint}
-            </span>
-          )}
           {actions}
         </div>
       )}
@@ -224,7 +231,8 @@ function Fold({ title, hint, about, defaultOpen = false, nav, children, ...rest 
   if (page && nav) {
     return (
       <section hidden={page.active !== nav} className={PAGE_CARD} data-room-settings-card {...rest}>
-        <PageCardHead title={title} about={about || hint} hint={about ? hint : undefined} />
+        {/* The pop-up's one-line summary becomes a status chip only when it is short; a sentence there just restates the card. */}
+        <PageCardHead title={title} about={about || hint} hint={about && hint && hint.length < 32 ? hint : undefined} />
         <PageCards.Provider value={false}>
           <div className={PAGE_CARD_BODY}>{children}</div>
         </PageCards.Provider>
@@ -232,18 +240,20 @@ function Fold({ title, hint, about, defaultOpen = false, nav, children, ...rest 
     );
   }
   if (cards) {
-    // On the hub's page, outside Settings: a card that opens on click, its header tinted while open.
+    // On the hub's page, outside Settings: a card that opens on click.
     return (
       <details className={`group ${PAGE_CARD}`} open={defaultOpen || undefined} {...rest}>
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 hover:bg-muted/30 group-open:border-b group-open:bg-muted/60 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 transition-colors hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
-            <span className="block text-[15px] font-semibold leading-6 tracking-tight">{title}</span>
+            <span className="block text-base font-semibold leading-6 tracking-tight">{title}</span>
             {hint && <span className="mt-0.5 block truncate text-sm text-muted-foreground">{hint}</span>}
           </span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-muted">
+            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+          </span>
         </summary>
         <PageCards.Provider value={false}>
-          <div className={PAGE_CARD_BODY}>{children}</div>
+          <div className={`${PAGE_CARD_BODY} border-t border-border/60`}>{children}</div>
         </PageCards.Provider>
       </details>
     );
@@ -279,14 +289,14 @@ function SettingsShell({ page, active, onPick, sections, todo, unsaved, footer, 
         </select>
         <div className="hidden space-y-4 md:block">
           {/* A plain list: eight sections do not need headings over them. */}
-          <div className="space-y-0.5 rounded-xl border bg-card p-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          <div className="space-y-0.5">
             {shown.map((x) => (
               <button
                 key={x.key}
                 type="button"
                 onClick={() => onPick(x.key)}
                 aria-current={active === x.key ? "page" : undefined}
-                className={`relative flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring ${active === x.key ? "bg-primary/[0.07] font-semibold text-foreground before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring ${active === x.key ? "bg-card font-medium text-foreground shadow-[0_1px_3px_rgba(16,24,40,0.08)] ring-1 ring-border/70" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"}`}
                 data-room-settings-nav={x.key}
               >
                 <span className="min-w-0 truncate">{x.label}</span>
@@ -674,7 +684,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         )}
         {/* How the partnership is going, on every tab: these numbers used to be a trip to the customer's Scorecard. */}
         {data.isWorkspace && !!data.practices?.total && showRollout && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-room-rollout-strip>
+          <div className={`grid grid-cols-2 sm:grid-cols-4 ${isPage ? "gap-3" : "gap-2"}`} data-room-rollout-strip>
             {(
               [
                 ["Live", data.practices.byStage.live ?? 0, `of ${data.practices.total} practices`],
@@ -683,9 +693,9 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 ["Not started", data.practices.byStage.not_started ?? 0, data.stage?.day ? `Day ${data.stage.day} of ${data.stage.rolloutDays}` : ""],
               ] as [string, number, string][]
             ).map(([label, n, note]) => (
-              <div key={label} className={isPage ? "rounded-xl border bg-card px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]" : "rounded-md border px-3 py-2"}>
-                <div className="text-xs text-muted-foreground">{label}</div>
-                <div className="text-xl font-semibold tabular-nums">{n}</div>
+              <div key={label} className={isPage ? "rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-[0_1px_3px_rgba(16,24,40,0.05)]" : "rounded-md border px-3 py-2"}>
+                <div className={isPage ? "text-[13px] font-medium text-muted-foreground" : "text-xs text-muted-foreground"}>{label}</div>
+                <div className={isPage ? "mt-1 text-[28px] font-semibold leading-8 tracking-tight tabular-nums" : "text-xl font-semibold tabular-nums"}>{n}</div>
                 {note && <div className="truncate text-xs text-muted-foreground">{note}</div>}
               </div>
             ))}
@@ -826,7 +836,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
           </div>
         )}
         {tab === "performance" && data.isWorkspace && (
-          <Panel title={isPage ? "How they’re using the hub" : undefined} about="Visits, people and the sections they open. Your own team’s visits are never counted." actions={isPage ? summaryButton : undefined} data-room-summary={isPage || undefined}>
+          <Panel title={isPage ? "How they’re using the hub" : undefined} about="Visits, people and the sections they open." actions={isPage ? summaryButton : undefined} data-room-summary={isPage || undefined}>
           <RoomPerformance
             pageId={pageId}
             stage={data.stage?.stage}
@@ -1196,8 +1206,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                 </Fold>
               )}
 
-            <Fold nav="access" title="Who has access" about="Who can open the hub and act in it." hint={noAccessYet ? "No one yet" : [data.settings.allowedDomains.join(", "), allowedPeople ? `${allowedPeople} ${allowedPeople === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")} defaultOpen>
-              <p className="text-xs text-muted-foreground">Anyone with the link can view. These people can also upload, comment and mark tasks done.</p>
+            <Fold nav="access" title="Who has access" about="Anyone with the link can view. These people can also upload, comment and mark tasks done." hint={noAccessYet ? "No one yet" : [data.settings.allowedDomains.join(", "), allowedPeople ? `${allowedPeople} ${allowedPeople === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ")} defaultOpen>
+              {!isPage && <p className="text-xs text-muted-foreground">Anyone with the link can view. These people can also upload, comment and mark tasks done.</p>}
               {noAccessYet && (
                 <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                   No one is allowed yet. Add the customer’s email domain, or people one by one.
@@ -1237,8 +1247,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             </Fold>
 
             {data.isWorkspace && (
-              <Fold nav="access" title="Invite the customer’s team" about="Send each person their own link by email." hint="Email each person their own link" data-room-invite-fold>
-                <RoomInviteSection pageId={pageId} onInvited={refresh} />
+              <Fold nav="access" title="Invite the customer’s team" about="Each person gets an email with their own link. The hub must be published first." hint="Email each person their own link" data-room-invite-fold>
+                <RoomInviteSection pageId={pageId} onInvited={refresh} hideIntro={isPage} />
               </Fold>
             )}
 
@@ -1276,8 +1286,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
 
 
             {data.isWorkspace && data.overviewHidden && (
-              <Fold nav="overview" title="Overview sections" about="Which parts of the hub’s Overview the customer sees." hint={data.overviewHidden.length ? `${data.overviewHidden.length} hidden` : "All shown"} data-room-overview-settings>
-                <p className="text-xs text-muted-foreground">What the customer sees on the hub’s Overview. Changes save straight away.</p>
+              <Fold nav="overview" title="Overview sections" about="Which parts of the hub’s Overview the customer sees. Changes save straight away." hint={data.overviewHidden.length ? `${data.overviewHidden.length} hidden` : "All shown"} data-room-overview-settings>
+                {!isPage && <p className="text-xs text-muted-foreground">What the customer sees on the hub’s Overview. Changes save straight away.</p>}
                 <div className="divide-y rounded-md border">
                   {ROOM_OVERVIEW_SECTIONS.map((sec) => {
                     const hidden = data.overviewHidden!.includes(sec.key);
@@ -1311,8 +1321,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             )}
 
             {data.isWorkspace && (
-              <Fold nav="digest" title="Weekly digest" about="A weekly summary: an email to the customer and a Slack post for your team." hint={data.digest?.enabled ? `On${data.digest.lastSentAt ? ` · last sent ${fmtDate(data.digest.lastSentAt)}` : ""}` : "Off"}>
-                <p className="text-xs text-muted-foreground">Every Monday: an email to the customer and a Slack post.</p>
+              <Fold nav="digest" title="Weekly digest" about="Every Monday: an email to the customer and a Slack post for your team." hint={data.digest?.enabled ? `On${data.digest.lastSentAt ? ` · last sent ${fmtDate(data.digest.lastSentAt)}` : ""}` : "Off"}>
+                {!isPage && <p className="text-xs text-muted-foreground">Every Monday: an email to the customer and a Slack post.</p>}
             <label className="flex items-center gap-2 text-sm">
               <CheckSwitch checked={digestOn} onChange={(e) => setDigestOn(e.target.checked)} />
               Send it for this hub
