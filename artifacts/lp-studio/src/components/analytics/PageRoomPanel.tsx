@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
-import { GiftToggle, RoomInviteSection, type HubGifts } from "./RoomInvite";
+import { GiftToggle, RoomInviteSection, ViewAsButton, type HubGifts } from "./RoomInvite";
 import { RoomPerformance, fmtWhen, sectionLabel, type RoomPerformanceData } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
@@ -476,6 +476,15 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   // Welcome gifts: the whole hub ({ enabled }) or one person ({ email, off }).
   const setGifts = (body: { enabled?: boolean; email?: string; off?: boolean }) => run(send(`${base}/gifts`, "PUT", body));
   const onGift = (email: string, on: boolean) => void setGifts({ email, off: !on });
+  // "View as": the hub as one of the customer's people sees it, opened from the team's own signed-in link (read only).
+  const viewAs = async (email: string) => {
+    setOpenNote("");
+    setError("");
+    const r = await fetch(`${base}/my-link?as=${encodeURIComponent(email)}`);
+    const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
+    if (r.ok && j.url) window.open(j.url, "_blank", "noopener");
+    else setError(j.error ?? "Could not open the hub as them");
+  };
   const openRequests = (data.requests ?? []).filter((q) => q.status !== "done");
   const doneRequests = (data.requests ?? []).filter((q) => q.status === "done");
   // What the To do tab is for: people asking to get in, programs to send to marketing, and requests nobody has picked up.
@@ -1205,6 +1214,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                       <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
                         <span className="text-sm">{c.name}{c.role ? ` · ${c.role}` : ""}{c.email ? ` · ${c.email}` : ""} <span className="text-xs text-muted-foreground">added by {c.addedBy}</span></span>
                         {c.email && data.gifts?.hasStep && <GiftToggle email={c.email} gifts={data.gifts} onChange={onGift} />}
+                        {c.email && <ViewAsButton email={c.email} name={c.name} onViewAs={(e) => void viewAs(e)} />}
                         <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${c.name}`} onClick={() => run(send(`${base}/contacts/${c.id}`, "DELETE"))}><X className="h-4 w-4" /></Button>
                       </div>
                     ))}
@@ -1244,6 +1254,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                     <span className="text-sm">{m.email}</span>
                     <span className="flex items-center gap-3">
                       {data.gifts?.hasStep && m.status === "allowed" && <GiftToggle email={m.email} gifts={data.gifts} onChange={onGift} />}
+                      {data.isWorkspace && m.status === "allowed" && <ViewAsButton email={m.email} onViewAs={(e) => void viewAs(e)} />}
                       <Badge variant={m.status === "allowed" ? "secondary" : "outline"}>{m.status === "allowed" ? "Allowed" : "Declined"}</Badge>
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label={`Remove ${m.email}`} onClick={() => setMember(m.email, null)}><X className="h-4 w-4" /></Button>
                     </span>
@@ -1255,7 +1266,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
 
             {data.isWorkspace && (
               <Fold nav="access" title="Invite the customer’s team" about="Each person gets an email with their own link. The hub must be published first." hint="Email each person their own link" data-room-invite-fold>
-                <RoomInviteSection pageId={pageId} onInvited={refresh} hideIntro={isPage} gifts={data.gifts} onGift={onGift} />
+                <RoomInviteSection pageId={pageId} onInvited={refresh} hideIntro={isPage} gifts={data.gifts} onGift={onGift} onViewAs={(e) => void viewAs(e)} />
               </Fold>
             )}
 

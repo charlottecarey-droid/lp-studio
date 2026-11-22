@@ -99,6 +99,8 @@ export interface RoomSnapshot {
   props?: Record<string, unknown>;
   /** A team member is looking at the hub as the customer sees it ("View as the customer"). */
   asCustomer?: boolean;
+  /** A team member is looking at the hub as one particular person ("View as" on a contact row). Read only: nothing can be done in their name. */
+  viewAs?: { email: string; name: string | null };
   /** `team` is set when the viewer is one of the page owner's own team. */
   viewer: { email: string; name: string | null; team?: boolean } | null;
   tasks: Record<string, RoomTaskState>;
@@ -299,6 +301,21 @@ function readRt(pageId: number): string | undefined {
   }
 }
 
+/**
+ * "View as" a person: the team's link says who (`?preview=person&as=<email>`). Only the hub's state is read as
+ * them (the server honours it for the page's own team only); every other call is refused here, so nothing is
+ * done in their name.
+ */
+function viewAsEmail(): string | null {
+  if (typeof window === "undefined") return null;
+  const q = new URLSearchParams(window.location.search);
+  const as = q.get("preview") === "person" ? (q.get("as") ?? "").trim() : "";
+  return as || null;
+}
+/** What the hub may still ask for while viewing as someone: reading, never changing. */
+const VIEW_AS_READS = new Set(["state", "practices", "practice-map", "practice-ids", "practices-export", "roster-template", "scorecard-check"]);
+export const VIEW_AS_READ_ONLY = "You’re viewing the hub as someone else, so nothing can be changed here. Close this view to act as yourself.";
+
 class RoomStore {
   private snap: RoomSnapshot = EMPTY;
   private listeners = new Set<() => void>();
@@ -320,6 +337,9 @@ class RoomStore {
   }
 
   private async post(path: string, body: Record<string, unknown>): Promise<{ status: number; json: Record<string, unknown> }> {
+    const as = viewAsEmail();
+    if (as && !VIEW_AS_READS.has(path)) return { status: 403, json: { error: VIEW_AS_READ_ONLY } };
+    if (as && path === "state") body = { ...body, as };
     const r = await fetch(`/api/lp/room/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...this.auth(), ...body }) });
     let json: Record<string, unknown> = {};
     try {
@@ -342,11 +362,14 @@ class RoomStore {
       const { status, json } = await this.post("state", {});
       if (status !== 200) throw new Error("state");
       const asCustomer = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "customer" && (json.viewer as { team?: boolean } | null)?.team === true;
+      // "View as" a person: the server answered as them (only for the page's own team).
+      const viewAs = json.viewAs === true && json.viewer ? { email: String((json.viewer as { email?: unknown }).email ?? ""), name: ((json.viewer as { name?: unknown }).name as string | null) ?? null } : null;
       this.set({
         status: "ready",
         // "View as the customer": a team member looking at the hub without what is the team's only (orders, editing, the map).
-        viewer: asCustomer && json.viewer ? { ...(json.viewer as NonNullable<RoomSnapshot["viewer"]>), team: false } : ((json.viewer as RoomSnapshot["viewer"]) ?? null),
+        viewer: (asCustomer || viewAs) && json.viewer ? { ...(json.viewer as NonNullable<RoomSnapshot["viewer"]>), team: false } : ((json.viewer as RoomSnapshot["viewer"]) ?? null),
         ...(asCustomer ? { asCustomer: true } : {}),
+        ...(viewAs ? { viewAs } : {}),
         gated: json.gated === true,
         ...(Array.isArray(json.invited) ? { invited: json.invited as string[] } : {}),
         gift: json.gift && typeof json.gift === "object" ? { offered: (json.gift as { offered?: unknown }).offered === true, accepted: (json.gift as { accepted?: unknown }).accepted === true } : undefined,
@@ -439,6 +462,7 @@ class RoomStore {
   /** Ask the team for something; it shows up in the snapshot's `requests`. */
   /** Asset engagement (viewed, downloaded, time in the viewer), with who it was when the visitor is known. Best effort; survives the tab closing. */
   trackAsset(payload: Record<string, unknown>): void {
+    if (viewAsEmail()) return; // the team looking as someone else is not that person's engagement
     try {
       void fetch("/api/lp/room/asset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...this.auth(), ...payload }), keepalive: true }).catch(() => {});
     } catch {
@@ -448,6 +472,7 @@ class RoomStore {
 
   /** A section of the hub was opened (seconds 0) or left (the seconds spent in it). Best effort; survives the tab closing. */
   trackView(payload: { viewId: string; sessionId: string; module: string; seconds: number }): void {
+    if (viewAsEmail()) return;
     try {
       void fetch("/api/lp/room/view", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...this.auth(), ...payload, ...(new URLSearchParams(window.location.search).get("preview") === "customer" ? { asCustomer: true } : {}) }), keepalive: true }).catch(() => {});
     } catch {

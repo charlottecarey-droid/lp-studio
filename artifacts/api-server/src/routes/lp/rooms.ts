@@ -531,7 +531,11 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
       res.json({ viewer: null, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
       return;
     }
-    const viewer = await resolveViewer(page, req.body ?? {}, req.authUser);
+    const signedInAs = await resolveViewer(page, req.body ?? {}, req.authUser);
+    // "View as" a person (the team's contact rows): the page's own team may read the hub as one of the customer's
+    // people sees it. Read only: every other route still acts as whoever is really signed in.
+    const viewAsEmail = signedInAs?.team ? normalizeEmail(typeof req.body?.as === "string" ? req.body.as : "") : null;
+    const viewer: Viewer | null = viewAsEmail ? { email: viewAsEmail, name: await customerNameFor(page, viewAsEmail), via: "email" } : signedInAs;
     // A gated hub tells a stranger nothing: no progress, no wins, no dates. They get the cover and an email box.
     if (page.gated && !viewer) {
       res.json({ viewer: null, gated: true, tasks: {}, requests: [], choices: {}, wins: [], contacts: [], people: [], practices: { total: 0, byStage: {}, regions: [] }, events: [], minutes: [] });
@@ -585,7 +589,7 @@ router.post("/lp/room/state", stateLimiter, async (req: Request, res: Response):
     const props = page.gated && viewer ? roomWorkspaceProps((await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.blocks) : null;
     // The welcome gift is this person's own: offered unless the team turned it off for the hub or for them; accepted once they sent where to ship it.
     const gift = page.giftStep && viewer ? giftFor(await loadGiftSettings(page.id), viewer, true, (await giftAcceptedBy(page.id, page.giftStep.key)).filter((e) => e.toLowerCase() === viewer.email.toLowerCase())) : null;
-    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, tasks, requests, ...extras, ...(props ? { props } : {}), ...(invited ? { invited } : {}), ...(gift ? { gift } : {}), ...(page.giftStep && !viewer ? { giftsEnabled: (await loadGiftSettings(page.id)).giftsEnabled } : {}) });
+    res.json({ viewer: viewer ? { email: viewer.email, name: viewer.name, ...(viewer.team ? { team: true } : {}) } : null, ...(viewAsEmail ? { viewAs: true } : {}), tasks, requests, ...extras, ...(props ? { props } : {}), ...(invited ? { invited } : {}), ...(gift ? { gift } : {}), ...(page.giftStep && !viewer ? { giftsEnabled: (await loadGiftSettings(page.id)).giftsEnabled } : {}) });
   } catch (err) {
     req.log.error({ err }, "room state failed");
     res.status(500).json({ error: "Could not load the hub" });
@@ -1920,8 +1924,15 @@ router.get("/lp/partner-rooms/:pageId/my-link", async (req: Request, res: Respon
       return;
     }
     // "As the customer sees it": the same signed-in link, with a flag the hub reads to leave out everything that is the team's only.
+    // "As one person" (?as=<email>): the hub reads its state as them, and nothing can be done from it.
     const asCustomer = req.query.as === "customer";
-    res.json({ url: `${await roomPageUrl(req, page, undefined)}?rt=${encodeURIComponent(signRoomToken(page.id, email))}${asCustomer ? "&preview=customer" : ""}` });
+    const asPerson = typeof req.query.as === "string" && req.query.as !== "customer" ? normalizeEmail(req.query.as) : null;
+    if (typeof req.query.as === "string" && req.query.as !== "customer" && !asPerson) {
+      res.status(400).json({ error: "That email address doesn't look right." });
+      return;
+    }
+    const view = asPerson ? `&preview=person&as=${encodeURIComponent(asPerson)}` : asCustomer ? "&preview=customer" : "";
+    res.json({ url: `${await roomPageUrl(req, page, undefined)}?rt=${encodeURIComponent(signRoomToken(page.id, email))}${view}` });
   } catch (err) {
     req.log.error({ err }, "room my-link failed");
     res.status(500).json({ error: "Could not make your link" });

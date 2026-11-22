@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Gift } from "lucide-react";
+import { Eye, Gift } from "lucide-react";
 import { parseTeamList } from "@/lib/room-team-import";
 
 export interface RoomAccountContact {
@@ -50,7 +50,16 @@ export function GiftToggle({ email, gifts, onChange }: { email: string; gifts: H
   );
 }
 
-export function RoomInviteSection({ pageId, onInvited, hideIntro = false, gifts, onGift }: { pageId: number; onInvited?: () => void; /** The card around it already says how invites work. */ hideIntro?: boolean; /** Welcome gifts: each contact row gets its own switch. */ gifts?: HubGifts | null; onGift?: (email: string, on: boolean) => void }) {
+/** "View as": open the hub as this person sees it (read only). */
+export function ViewAsButton({ email, name, onViewAs }: { email: string; name?: string | null; onViewAs: (email: string) => void }) {
+  return (
+    <Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground" onClick={() => onViewAs(email)} title={`Open the hub as ${name || email} sees it. Read only.`} aria-label={`View the hub as ${name || email}`} data-room-view-as-open={email.toLowerCase()}>
+      <Eye className="h-3.5 w-3.5" /> View as
+    </Button>
+  );
+}
+
+export function RoomInviteSection({ pageId, onInvited, hideIntro = false, gifts, onGift, onViewAs }: { pageId: number; onInvited?: () => void; /** The card around it already says how invites work. */ hideIntro?: boolean; /** Welcome gifts: each contact row gets its own switch. */ gifts?: HubGifts | null; onGift?: (email: string, on: boolean) => void; /** Each contact row can open the hub as that person. */ onViewAs?: (email: string) => void }) {
   const [contacts, setContacts] = useState<RoomAccountContact[] | null>(null);
   const [found, setFound] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -139,6 +148,7 @@ export function RoomInviteSection({ pageId, onInvited, hideIntro = false, gifts,
                   {c.invited && <Badge variant="secondary">Invited</Badge>}
                 </label>
                 {gifts?.hasStep && onGift && <GiftToggle email={c.email} gifts={gifts} onChange={onGift} />}
+                {onViewAs && <ViewAsButton email={c.email} name={c.name} onViewAs={onViewAs} />}
               </div>
             ))}
             {shown.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Nobody matches that search.</p>}

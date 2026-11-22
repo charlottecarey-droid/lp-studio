@@ -2406,6 +2406,13 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 You are seeing this hub as the customer does. Anything you tick or upload here is saved.
               </div>
             )}
+            {snapshot.viewAs && (
+              <div className="prw-preview" role="status" data-room-view-as={snapshot.viewAs.email}>
+                Viewing as <b>{snapshot.viewAs.name || snapshot.viewAs.email}</b>
+                {snapshot.viewAs.name ? ` (${snapshot.viewAs.email})` : ""}. Read only: nothing you click is saved or sent in their name.{" "}
+                <a href={typeof window !== "undefined" ? window.location.pathname : "#"} style={{ textDecoration: "underline" }}>Close this view</a>
+              </div>
+            )}
             {active === "overview" && (() => {
               // What a rep switched off on this hub's Overview, and what is left to lay out.
               const ovHidden = new Set(props.hiddenOverview ?? []);
