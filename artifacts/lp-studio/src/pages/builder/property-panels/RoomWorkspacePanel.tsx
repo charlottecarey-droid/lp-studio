@@ -42,6 +42,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { VideoPicker } from "@/components/VideoPicker";
+import { refreshPageVersion } from "@/lib/page-version";
 import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, OVERVIEW_NOTE_EYEBROW, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, overviewVideos, type RoomOverviewExtra, type RoomOverviewVideo, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -149,6 +150,12 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.partnerName, props.partnerLogoUrl, props.heroImageUrl, props.partnerLogoScale, props.brandLogoScale, props.partnerLogoOriginal, pageId, roomTab]);
+  // Everything the pop-up reports was just saved on the page itself: after taking it into the builder's copy,
+  // take the saved page's new fingerprint too, or the builder's next save would be refused as out of date.
+  const synced = <A extends unknown[]>(fn: (...args: A) => void) => (...args: A) => {
+    fn(...args);
+    void refreshPageVersion(pageId);
+  };
   const roomDialog = Number.isFinite(pageId) && pageId > 0 && (
     <Dialog open={roomTab !== null} onOpenChange={(open) => !open && setRoomTab(null)}>
       <DialogContent className="max-w-5xl" data-room-manager>
@@ -162,42 +169,42 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
               pageId={pageId}
               initialTab={roomTab}
               embedded
-              onKitAssets={applyKitAssets}
-              onGoals={(g) => {
+              onKitAssets={synced(applyKitAssets)}
+              onGoals={synced((g) => {
                 // Goals were saved on the page from here: keep the builder's copy the same, or its next save would put the old ones back.
                 const current = propsRef.current;
                 const hiddenModules = (current.hiddenModules ?? []).filter((m) => m !== "goals");
                 const next = { ...current, goals: { ...current.goals, intro: g.intro, askAgreement: g.askAgreement, items: g.items }, hiddenModules: g.moduleHidden ? [...hiddenModules, "goals" as const] : hiddenModules };
                 propsRef.current = next;
                 onChange(next);
-              }}
-              onStage={(st) => {
+              })}
+              onStage={synced((st) => {
                 // Saved on the page from the pop-up: keep the builder's copy in step, or its next save would undo it.
                 // Moving on (or back) also changes the action plan: take that too.
                 const plan = st.plan ? { planGroups: st.plan.planGroups as RoomWorkspaceBlockProps["planGroups"], rolloutPlanGroups: (st.plan.rolloutPlanGroups ?? undefined) as RoomWorkspaceBlockProps["rolloutPlanGroups"] } : {};
                 const next = { ...propsRef.current, stage: st.stage, stageSince: st.stageSince ?? undefined, timelineView: st.timelineView, waves: st.waves, ...plan };
                 propsRef.current = next;
                 onChange(next);
-              }}
-              onLinks={(links) => {
+              })}
+              onLinks={synced((links) => {
                 // Links were changed on the saved page: keep the builder's copy the same, or its next save would undo it.
                 const next = { ...propsRef.current, links };
                 propsRef.current = next;
                 onChange(next);
-              }}
-              onOverview={(hiddenOverview) => {
+              })}
+              onOverview={synced((hiddenOverview) => {
                 // Sections were shown or hidden on the saved page: keep the builder's copy the same, or its next save would undo it.
                 const next = { ...propsRef.current, hiddenOverview };
                 propsRef.current = next;
                 onChange(next);
-              }}
-              onProps={(patch) => {
+              })}
+              onProps={synced((patch) => {
                 // Account or team settings were saved on the page: the builder's copy takes the same values.
                 const next = { ...propsRef.current, ...(patch as Partial<RoomWorkspaceBlockProps>) };
                 propsRef.current = next;
                 onChange(next);
-              }}
-              onKitLink={(link) => {
+              })}
+              onKitLink={synced((link) => {
                 // The practice microsite was linked on the saved page: add it to the builder's copy too, or the next save here would drop it.
                 const current = propsRef.current;
                 const links = (current.links ?? []) as { key?: string; title: string; description?: string; url: string }[];
@@ -205,7 +212,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 const next = { ...current, links: [link, ...links.filter((l) => l.key !== link.key)] };
                 propsRef.current = next;
                 onChange(next);
-              }}
+              })}
             />
           </Suspense>
         )}

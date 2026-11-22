@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PageChangedError, getPageVersion, pageChangedFrom, setPageVersion } from "@/lib/page-version";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -198,7 +199,10 @@ interface FetchedPage {
 async function fetchPage(id: string): Promise<FetchedPage> {
   const res = await fetch(`${API_BASE}/lp/pages/${id}`);
   if (!res.ok) throw new Error("Failed to load page");
-  return res.json() as Promise<FetchedPage>;
+  const page = (await res.json()) as FetchedPage & { blocksVersion?: string };
+  // The saved blocks' fingerprint: sent back on save so a stale copy can't overwrite newer content.
+  setPageVersion(id, page.blocksVersion);
+  return page;
 }
 
 function inferBuilderAudienceType(segmentName: string): string | null {
@@ -241,14 +245,24 @@ interface SavePageData {
   ctaDefault?: CtaConfig | null;
 }
 
-async function savePage(id: string, data: SavePageData) {
+/**
+ * Save the page. Sends the fingerprint of the blocks this builder last loaded or saved; if
+ * the saved page changed since (another tab, a teammate, a direct fix), the server refuses
+ * and this throws PageChangedError, which the builder turns into a "changed since you opened
+ * it" choice. `force` is that choice's "keep mine".
+ */
+async function savePage(id: string, data: SavePageData, opts: { force?: boolean } = {}) {
   const res = await fetch(`${API_BASE}/lp/pages/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, baseBlocksVersion: getPageVersion(id), ...(opts.force ? { force: true } : {}) }),
   });
+  const changed = await pageChangedFrom(res);
+  if (changed) throw changed;
   if (!res.ok) throw new Error("Failed to save page");
-  return res.json();
+  const saved = (await res.json()) as { blocksVersion?: string };
+  setPageVersion(id, saved.blocksVersion);
+  return saved;
 }
 
 // Canvas autosave: quiet period after the last edit before a draft persists,
@@ -1468,6 +1482,18 @@ function BuilderEditorInner() {
   }, [catalogMode, selectedBlockId, blocks]);
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // The saved page changed since this builder loaded it: saving is paused until the user chooses.
+  // Autosave stays paused while it is set; closing the dialog without choosing keeps it paused (Save asks again).
+  const [pageConflict, setPageConflict] = useState<PageChangedError | null>(null);
+  const [conflictOpen, setConflictOpen] = useState(false);
+  const [conflictBusy, setConflictBusy] = useState(false);
+  /** A save was refused as stale: open the choice instead of an error. True when that was the reason. */
+  const takeConflict = (err: unknown): boolean => {
+    if (!(err instanceof PageChangedError)) return false;
+    setPageConflict(err);
+    setConflictOpen(true);
+    return true;
+  };
   const [saveSuccess, setSaveSuccess] = useState(false);
   // Pre-publish review (replaces the native publish confirm): findings from
   // the static checks, shown in PrePublishDialog. Advisory only.
@@ -2705,6 +2731,7 @@ function BuilderEditorInner() {
       setTimeout(() => setSaveSuccess(false), 2000);
       toast({ title: "Saved", description: "Page saved." });
     } catch (err) {
+      if (takeConflict(err)) return;
       alert(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setIsSaving(false);
@@ -2720,7 +2747,7 @@ function BuilderEditorInner() {
   // failure (autosaveRetryAtRef stretches the wait). Visible undo/redo makes
   // an unwanted autosaved edit recoverable, and useUnsavedChangesWarning
   // still covers the debounce window on tab close.
-  const autosaveEligible = !catalogMode && !isLoading && status === "draft";
+  const autosaveEligible = !catalogMode && !isLoading && status === "draft" && !pageConflict;
   useEffect(() => {
     if (!autosaveEligible || !isDirty || isSaving) return;
     const waitMs = Math.max(AUTOSAVE_DEBOUNCE_MS, autosaveRetryAtRef.current - Date.now());
@@ -2729,7 +2756,9 @@ function BuilderEditorInner() {
       try {
         await savePage(pageId, getPageData());
         markSaved();
-      } catch {
+      } catch (err) {
+        // Stale: stop autosaving and ask, rather than retrying into a wall.
+        if (takeConflict(err)) return;
         autosaveFailureCountRef.current += 1;
         autosaveRetryAtRef.current = Date.now() + AUTOSAVE_RETRY_COOLDOWN_MS;
         if (autosaveFailureCountRef.current === 1) {
@@ -2780,6 +2809,7 @@ function BuilderEditorInner() {
       });
     } catch (err) {
       setAppliedSegment(previous);
+      if (takeConflict(err)) return;
       toast({
         title: "Couldn't update segment",
         description: err instanceof Error ? err.message : "Failed to save",
@@ -2902,8 +2932,10 @@ function BuilderEditorInner() {
       const res = await fetch(`${API_BASE}/lp/pages/${pageId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getPageData({ status: newStatus })),
+        body: JSON.stringify({ ...getPageData({ status: newStatus }), baseBlocksVersion: getPageVersion(pageId) }),
       });
+      const changed = await pageChangedFrom(res);
+      if (changed) throw changed;
       if (res.status === 409) {
         const j = await res.json().catch(() => ({} as { code?: string }));
         if (j.code === "fact_flags_pending") {
@@ -2918,6 +2950,7 @@ function BuilderEditorInner() {
         throw new Error((j as { error?: string }).error ?? "Failed to update status");
       }
       if (!res.ok) throw new Error("Failed to update status");
+      setPageVersion(pageId, ((await res.json().catch(() => ({}))) as { blocksVersion?: string }).blocksVersion);
       setStatus(newStatus);
       markSaved({ status: newStatus });
       setSaveSuccess(true);
@@ -2928,6 +2961,7 @@ function BuilderEditorInner() {
         setShowOutreachBanner(true);
       }
     } catch (err) {
+      if (takeConflict(err)) return;
       alert(err instanceof Error ? err.message : "Failed to update status");
     } finally {
       setIsSaving(false);
@@ -2959,6 +2993,7 @@ function BuilderEditorInner() {
         alert(`Submitted for review.\n\nNote: ${data.asanaWarning}`);
       }
     } catch (err) {
+      if (takeConflict(err)) return;
       alert(err instanceof Error ? err.message : "Failed to submit for review");
     } finally {
       setIsSaving(false);
@@ -3050,7 +3085,8 @@ function BuilderEditorInner() {
       setTemplateLabel(updated.templateLabel ?? title);
       setTemplateDescription(updated.templateDescription ?? "");
       setShowTemplateDialog(false);
-    } catch {
+    } catch (err) {
+      if (takeConflict(err)) return;
       alert("Failed to save as template. Please try again.");
     } finally {
       setTemplateSaving(false);
@@ -3421,6 +3457,59 @@ function BuilderEditorInner() {
         }}
       />
 
+
+      {/* The saved page changed since this builder loaded it: load theirs, or keep ours on purpose. */}
+      <Dialog open={conflictOpen} onOpenChange={setConflictOpen}>
+        <DialogContent className="max-w-md" data-page-conflict>
+          <DialogHeader>
+            <DialogTitle>This page changed since you opened it</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              {pageConflict?.updatedBy ? <><b className="text-foreground">{pageConflict.updatedBy}</b> saved changes</> : "Someone saved changes"}
+              {pageConflict?.updatedAt ? ` at ${new Date(pageConflict.updatedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}
+              {" "}(another tab or a teammate). Your edits here haven&apos;t been saved.
+            </p>
+            <p>Load the latest to keep their changes, or keep your version to replace them with what you see here.</p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              disabled={conflictBusy}
+              data-page-conflict-keep
+              onClick={async () => {
+                setConflictBusy(true);
+                try {
+                  await savePage(pageId, getPageData(), { force: true });
+                  markSaved();
+                  setPageConflict(null);
+                  setConflictOpen(false);
+                  toast({ title: "Saved your version", description: "It replaced the changes saved since you opened the page." });
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : "Failed to save");
+                } finally {
+                  setConflictBusy(false);
+                }
+              }}
+            >
+              Keep my version
+            </Button>
+            <Button
+              variant="brand"
+              disabled={conflictBusy}
+              data-page-conflict-reload
+              onClick={() => {
+                // Their changes win: drop ours without the "unsaved changes" prompt, then load the page fresh.
+                markSaved();
+                setConflictBusy(true);
+                setTimeout(() => window.location.reload(), 60);
+              }}
+            >
+              Load the latest
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Styled confirms replacing the last native confirm()s (builder UX #5) */}
       <ConfirmDialog

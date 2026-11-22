@@ -2,7 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "node:crypto";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, getTableColumns } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
 import { listTemplatesForTenant } from "../../lib/templateListing";
@@ -35,6 +35,14 @@ import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 import { pickPageStyleOverrides } from "../../lib/page-style-overrides";
 import { tagTeamPhotosFromBlocks } from "../../lib/teamPhotoTagging";
+
+/**
+ * A fingerprint of a page's saved blocks (md5 of the stored jsonb text, so key order
+ * is Postgres's own and stable). Sent with the page and checked on save: see the
+ * stale-save guard in PUT /lp/pages/:pageId. Content only, so background writes that
+ * touch other columns (share cards, thumbnails) never count as a change.
+ */
+const BLOCKS_VERSION = sql<string>`md5(${lpPagesTable.blocks}::text)`;
 
 const router = Router();
 
@@ -778,7 +786,7 @@ router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
   const where = isSuper
     ? eq(lpPagesTable.id, id)
     : and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id));
-  const [page] = await db.select().from(lpPagesTable).where(where);
+  const [page] = await db.select({ ...getTableColumns(lpPagesTable), blocksVersion: BLOCKS_VERSION }).from(lpPagesTable).where(where);
   if (!page) {
     res.status(404).json({ error: "Page not found" });
     return;
@@ -1046,6 +1054,12 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
+  // Stale-save guard: the builder sends the blocks fingerprint it last loaded or saved
+  // (baseBlocksVersion). If the saved blocks changed since — another tab, a teammate,
+  // the hub's pop-up, a direct fix — the save is refused with 409 page_changed instead of
+  // silently putting the old content back. force: true is the user's explicit "keep mine".
+  const baseBlocksVersion = typeof req.body?.baseBlocksVersion === "string" ? (req.body.baseBlocksVersion as string) : null;
+  const forceSave = req.body?.force === true;
   const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, ogCardPartnerLogo, ogCardLinkLabel, emailEmbedSource, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
     title?: string;
     slug?: string;
@@ -1226,15 +1240,27 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     .where(ownershipWhere);
 
   try {
-    const [page] = await db
+    const guard = updates.blocks !== undefined && baseBlocksVersion && !forceSave;
+    const [saved] = await db
       .update(lpPagesTable)
       .set(updates)
-      .where(ownershipWhere)
-      .returning();
-    if (!page) {
+      .where(guard ? and(ownershipWhere, sql`${BLOCKS_VERSION} = ${baseBlocksVersion}`) : ownershipWhere)
+      .returning({ ...getTableColumns(lpPagesTable), blocksVersion: BLOCKS_VERSION });
+    if (!saved) {
+      if (guard) {
+        const [now] = await db
+          .select({ updatedAt: lpPagesTable.updatedAt, updatedBy: lpPagesTable.updatedBy })
+          .from(lpPagesTable)
+          .where(ownershipWhere);
+        if (now) {
+          res.status(409).json({ error: "This page was changed since you opened it.", code: "page_changed", updatedAt: now.updatedAt, updatedBy: now.updatedBy });
+          return;
+        }
+      }
       res.status(404).json({ error: "Page not found" });
       return;
     }
+    const page = saved;
     // Task #364: keep the prerendered HTML cache in sync with the row.
     //   • newly published → render
     //   • published → published with content changes → re-render
