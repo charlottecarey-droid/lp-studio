@@ -11,8 +11,12 @@
  *   meeting actions    (Meetings)        action items from minutes
  *
  * This module gathers the open ones so nobody has to visit six tabs to know
- * what is waiting. The layout is deliberately plain: a heading per side, one
- * line per item, and the whole line is the button. A meeting action is
+ * what is waiting. A filter at the top picks whose move (all, the customer's,
+ * ours, shared, each with its count); under it the items sit in sections by
+ * kind (overdue first, then getting started, requests, plan steps, marketing
+ * decisions, goals, meeting actions), each with its count, foldable, and long
+ * ones trimmed to a few lines with "Show all". One line per item, and the
+ * whole line is the button. A meeting action is
  * ticked in place; a setup step or a plan step carries its own button
  * (Upload, Complete, Add); a request shows its status (and Approve, when it
  * is ready for the customer); everything else opens the module where it is done.
@@ -21,7 +25,7 @@
  * Styles live in the room block's CSS string (`.prw-o-*`).
  */
 import { useState, type ReactNode } from "react";
-import { Check, ChevronRight, PencilLine } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, PencilLine } from "lucide-react";
 
 export type OutstandingSide = "you" | "us" | "both";
 export type OutstandingSource = "Setup" | "Action plan" | "Marketing plan" | "Goals" | "Request" | "Meeting";
@@ -100,8 +104,34 @@ export function sortOutstanding(items: OutstandingItem[]): OutstandingItem[] {
 }
 
 const REQUEST_STATUS: Record<string, string> = { new: "Received", in_progress: "In progress", review: "Ready for review", done: "Done" };
-/** How many lines a group shows before "Show all". */
-const FOLD = 6;
+/** How many lines a section shows before "Show all". */
+const FOLD = 5;
+
+/** The sections, in order, by where an item comes from. Overdue items sit in their own section above these. */
+export const OUTSTANDING_SECTIONS: { source: OutstandingSource; title: string }[] = [
+  { source: "Setup", title: "Getting started" },
+  { source: "Request", title: "Requests" },
+  { source: "Action plan", title: "Action plan steps" },
+  { source: "Marketing plan", title: "Marketing decisions" },
+  { source: "Goals", title: "Goals to agree" },
+  { source: "Meeting", title: "Meeting action items" },
+];
+
+export type OutstandingWho = "all" | OutstandingSide;
+
+/**
+ * The list laid out: the items for one side (or all), overdue ones first in a section of their own, then
+ * a section per kind in a fixed order. Empty sections are left out. Pure (tested).
+ */
+export function outstandingSections(items: OutstandingItem[], who: OutstandingWho): { key: string; title: string; items: OutstandingItem[] }[] {
+  const mine = sortOutstanding(items).filter((i) => who === "all" || i.side === who);
+  const overdue = mine.filter((i) => i.overdue);
+  const rest = mine.filter((i) => !i.overdue);
+  return [
+    { key: "overdue", title: "Overdue", items: overdue },
+    ...OUTSTANDING_SECTIONS.map((sec) => ({ key: sec.source, title: sec.title, items: rest.filter((i) => i.source === sec.source) })),
+  ].filter((sec) => sec.items.length > 0);
+}
 
 export function OutstandingView({
   items,
@@ -135,12 +165,20 @@ export function OutstandingView({
   const [error, setError] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<string | null>(null);
-  const sorted = sortOutstanding(items);
-  const groups: { key: OutstandingSide; title: string; items: OutstandingItem[] }[] = [
-    { key: "you" as const, title: `Waiting on ${isTeam ? theirName : "you"}`, items: sorted.filter((i) => i.side === "you") },
-    { key: "us" as const, title: `Waiting on ${ourName}`, items: sorted.filter((i) => i.side === "us") },
-    { key: "both" as const, title: "Shared between us", items: sorted.filter((i) => i.side === "both") },
-  ].filter((g) => g.items.length > 0);
+  // Whose move to show: the customer starts on their own (when they have any), the team on everything.
+  const count = (side: OutstandingSide) => items.filter((i) => i.side === side).length;
+  const [who, setWho] = useState<OutstandingWho>(() => (!isTeam && count("you") > 0 ? "you" : "all"));
+  const whoOptions: { key: OutstandingWho; label: string; n: number }[] = [
+    { key: "all" as const, label: "All", n: items.length },
+    { key: "you" as const, label: `Waiting on ${isTeam ? theirName : "you"}`, n: count("you") },
+    { key: "us" as const, label: `Waiting on ${ourName}`, n: count("us") },
+    { key: "both" as const, label: "Shared", n: count("both") },
+  ].filter((o) => o.key === "all" || o.n > 0);
+  const sections = outstandingSections(items, who);
+  // Folded sections: big ones after the first start folded, so the page opens short; overdue never folds by default.
+  const [folded, setFolded] = useState<Record<string, boolean>>({});
+  const isFolded = (key: string, at: number, n: number) => folded[`${who}:${key}`] ?? (key !== "overdue" && at > 1 && n > FOLD);
+  const sideTag: Record<OutstandingSide, string> = { you: isTeam ? theirName : "You", us: ourName, both: "Shared" };
   const run = async (id: string, fn: () => Promise<string | null>) => {
     setBusy(id);
     setError("");
@@ -149,8 +187,9 @@ export function OutstandingView({
     if (err) setError(err);
   };
 
-  const line = (i: OutstandingItem) => {
-    const meta = [i.source === "Request" ? "" : i.source, i.from, i.owner, i.due ? `due ${i.due}` : ""].filter(Boolean).join(" · ");
+  const line = (i: OutstandingItem, inOverdue = false) => {
+    // The section names the kind; only the Overdue section (a mix) repeats it on the line.
+    const meta = [inOverdue && i.source !== "Request" ? i.source : "", i.from, i.owner, i.due ? `due ${i.due}` : ""].filter(Boolean).join(" · ");
     const body = (
       <>
         <span className="t">{i.title}</span>
@@ -180,7 +219,8 @@ export function OutstandingView({
           <button type="button" className="prw-o-main" onClick={() => onOpen(i.module)}>{body}</button>
         )}
         <span className="prw-o-end">
-          {i.overdue && <span className="prw-o-late">Overdue</span>}
+          {who === "all" && <span className={`prw-o-who ${i.side}`} data-room-outstanding-side={i.side}>{sideTag[i.side]}</span>}
+          {i.overdue && !inOverdue && <span className="prw-o-late">Overdue</span>}
           {i.request && <span className={`prw-chip ${i.request.status}`}>{REQUEST_STATUS[i.request.status] ?? i.request.status}</span>}
           {i.approveRequestId && canAct && !isTeam && (
             <button type="button" className="prw-btn pri" disabled={busy === i.id} onClick={() => run(i.id, () => onApprove(i.approveRequestId!))} data-room-outstanding-approve><Check aria-hidden /> Approve</button>
@@ -201,16 +241,36 @@ export function OutstandingView({
   return (
     <div className="prw-o" data-room-outstanding>
       {error && <div className="prw-err" role="alert">{error}</div>}
-      {groups.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is outstanding.</div></div>}
-      {groups.map((g) => {
-        const all = open[g.key] || g.items.length <= FOLD + 1;
+      {items.length === 0 && <div className="prw-card"><div className="prw-empty">Nothing is outstanding.</div></div>}
+      {items.length > 0 && whoOptions.length > 1 && (
+        <div className="prw-o-who-pick" role="group" aria-label="Whose move" data-room-outstanding-who>
+          {whoOptions.map((o) => (
+            <button key={o.key} type="button" className={who === o.key ? "on" : ""} aria-pressed={who === o.key} onClick={() => setWho(o.key)} data-room-outstanding-filter={o.key}>
+              {o.label}
+              <span className="prw-num">{o.n}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {sections.map((sec, at) => {
+        const fkey = `${who}:${sec.key}`;
+        const shut = isFolded(sec.key, at, sec.items.length);
+        const all = open[fkey] || sec.items.length <= FOLD + 1;
         return (
-          <section key={g.key} data-room-outstanding-group={g.key}>
-            <h3>{g.title}<span className="prw-num">{g.items.length}</span></h3>
-            <div className="prw-card">
-              {(all ? g.items : g.items.slice(0, FOLD)).map(line)}
-              {!all && <button type="button" className="prw-o-more" onClick={() => setOpen((o) => ({ ...o, [g.key]: true }))}>Show all {g.items.length}</button>}
-            </div>
+          <section key={sec.key} className={sec.key === "overdue" ? "late" : undefined} data-room-outstanding-group={sec.key}>
+            <h3>
+              <button type="button" className="prw-o-fold" aria-expanded={!shut} onClick={() => setFolded((f) => ({ ...f, [fkey]: !shut }))} data-room-outstanding-fold={sec.key}>
+                <ChevronDown aria-hidden className={shut ? "shut" : undefined} />
+                {sec.title}
+                <span className="prw-num">{sec.items.length}</span>
+              </button>
+            </h3>
+            {!shut && (
+              <div className="prw-card">
+                {(all ? sec.items : sec.items.slice(0, FOLD)).map((i) => line(i, sec.key === "overdue"))}
+                {!all && <button type="button" className="prw-o-more" onClick={() => setOpen((o) => ({ ...o, [fkey]: true }))}>Show all {sec.items.length}</button>}
+              </div>
+            )}
           </section>
         );
       })}
