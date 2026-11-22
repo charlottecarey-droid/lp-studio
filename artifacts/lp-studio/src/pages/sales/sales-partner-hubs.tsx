@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, Copy, ExternalLink, Pencil, Plus, Search, Settings } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Copy, ExternalLink, Eye, Pencil, Plus, Search, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,22 +157,29 @@ function NewHubDialog({ open, onClose, onOpenHub }: { open: boolean; onClose: ()
   );
 }
 
-/* ── One hub: the pop-up ──────────────────────────────────────────────────── */
+/* ── One hub: its own page ────────────────────────────────────────────────── */
 
-function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab: RoomPanelTab; onTab: (t: RoomPanelTab) => void; onClose: () => void }) {
+/**
+ * A hub's page in the Sales Console. Everything about one hub lives here at
+ * full width: who it is and where it stands at the top, the few things a rep
+ * does to it beside that, then the same tabs the builder's pop-up has. The
+ * address carries the tab (and the Settings section), so a hub can be
+ * bookmarked, sent to a teammate, or reloaded without losing the place.
+ */
+function HubPage({ pageId, tab }: { pageId: number; tab: RoomPanelTab }) {
   const qc = useQueryClient();
-  const { data, refetch } = useQuery({
+  const { data, refetch, isLoading } = useQuery({
     queryKey: ["partner-hub-setup", pageId],
-    enabled: pageId !== null,
     queryFn: async () => {
       const r = await json<HubSetup>(`/api/lp/partner-rooms/${pageId}/setup`);
       return r.ok ? r.data : null;
     },
   });
+  // Publishing, invites and uploads here change what the hub's row on the list shows.
+  useEffect(() => () => void qc.invalidateQueries({ queryKey: ["partner-hubs"] }), [qc]);
   const [publishing, setPublishing] = useState(false);
   /** Publish the hub (or take it offline) from here, by the same rules as publishing any page. */
   const setLive = async (publish: boolean) => {
-    if (pageId === null) return;
     if (!publish && !window.confirm("Unpublish this hub? The customer’s link stops working until you publish it again.")) return;
     setPublishing(true);
     const r = await json<{ code?: string }>(`/api/lp/partner-rooms/${pageId}/publish`, { method: "POST", body: JSON.stringify({ publish }) });
@@ -181,51 +188,98 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
     toast({ title: publish ? "The hub is live" : "The hub is a draft again", description: publish ? "Copy the link, or invite the customer's team from Settings." : undefined });
     await Promise.all([refetch(), qc.invalidateQueries({ queryKey: ["partner-hubs"] }), qc.invalidateQueries({ queryKey: ["page-room", pageId] })]);
   };
+  const live = data?.status === "live";
+  const initialSection = typeof window === "undefined" ? undefined : (new URLSearchParams(window.location.search).get("section") ?? undefined);
   return (
-    <Dialog open={pageId !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto" data-hub-dialog>
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {data?.name ?? "Partner Hub"}
-            {data && <span className={`text-sm font-normal ${data.status === "live" ? "text-emerald-700" : "text-muted-foreground"}`}>{data.status === "live" ? "Live" : "Draft"}</span>}
-            {data && <SetupStatus setup={hubSetupState(data.setup)} />}
-          </DialogTitle>
-          <DialogDescription className="sr-only">Manage this Partner Hub</DialogDescription>
-        </DialogHeader>
-        {pageId !== null && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap gap-2">
+    <div className="mx-auto w-full max-w-6xl space-y-5" data-hub-page>
+      <Link href="/sales/partner-hubs" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" data-hub-back>
+        <ArrowLeft className="h-4 w-4" /> Partner Hubs
+      </Link>
+      {!isLoading && !data ? (
+        <div className="rounded-md border border-dashed px-4 py-10 text-center">
+          <p className="text-sm font-medium">This hub isn’t here</p>
+          <p className="mt-1 text-sm text-muted-foreground">It may have been deleted, or it belongs to another workspace.</p>
+        </div>
+      ) : (
+        <>
+          <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight">{data?.name ?? <Skeleton className="h-8 w-64" />}</h1>
+              {data && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+                  <span className={`inline-flex items-center gap-1.5 ${live ? "text-emerald-700" : "text-muted-foreground"}`}>
+                    <span className={`h-2 w-2 rounded-full ${live ? "bg-emerald-500" : "bg-muted-foreground/40"}`} aria-hidden />
+                    {live ? "Live" : "Draft: the customer can’t open it yet"}
+                  </span>
+                  <SetupStatus setup={hubSetupState(data.setup)} />
+                </div>
+              )}
+            </div>
+            {/* What a rep does to a hub, most used first. One strong button: publish while it is a draft, open it once it is live. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => void openHub(pageId, true)} title="See the hub without anything that is your team's only" data-room-open-as-customer>
+                <Eye className="h-3.5 w-3.5" /> View as the customer
+              </Button>
+              {live && data?.url && (
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => copyLink(data.url)}>
+                  <Copy className="h-3.5 w-3.5" /> Copy link
+                </Button>
+              )}
               <Button asChild size="sm" variant="outline" className="gap-1.5">
                 <a href={`/builder/${pageId}`} target="_blank" rel="noopener" data-hub-edit>
                   <Pencil className="h-3.5 w-3.5" /> Edit content
                 </a>
               </Button>
-              {data?.url && (
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => copyLink(data.url)}>
-                  <Copy className="h-3.5 w-3.5" /> Copy link
-                </Button>
-              )}
-              {data && (
-                <Button size="sm" variant={data.status === "live" ? "ghost" : "brand"} className={data.status === "live" ? "text-muted-foreground" : ""} disabled={publishing} onClick={() => void setLive(data.status !== "live")} data-hub-publish={data.status}>
-                  {publishing ? "Working…" : data.status === "live" ? "Unpublish" : "Publish"}
-                </Button>
-              )}
+              {data &&
+                (live ? (
+                  <>
+                    <Button size="sm" variant="brand" className="gap-1.5" onClick={() => void openHub(pageId, false)} data-room-open-as-me>
+                      <ExternalLink className="h-3.5 w-3.5" /> Open hub
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={publishing} onClick={() => void setLive(false)} data-hub-publish="live">
+                      {publishing ? "Working…" : "Unpublish"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="brand" disabled={publishing} onClick={() => void setLive(true)} data-hub-publish="draft">
+                    {publishing ? "Publishing…" : "Publish"}
+                  </Button>
+                ))}
             </div>
-            <Suspense fallback={<Skeleton className="h-40 w-full" />}>
-              {/* The panel reads its starting tab once, so a new tab choice remounts it. */}
-              <PageRoomPanel key={`${pageId}-${tab}`} pageId={pageId} initialTab={tab} embedded />
-            </Suspense>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          </header>
+          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+            <PageRoomPanel
+              pageId={pageId}
+              initialTab={tab}
+              initialSection={initialSection}
+              layout="page"
+              onNavigate={(t, section) => {
+                // The address follows the tab without reloading anything, so Back still returns to the list.
+                const q = new URLSearchParams();
+                if (t !== "activity") q.set("tab", t);
+                if (t === "settings" && section !== "account") q.set("section", section);
+                const next = `/sales/partner-hubs/${pageId}${q.toString() ? `?${q}` : ""}`;
+                if (window.location.pathname + window.location.search !== next) window.history.replaceState(window.history.state, "", next);
+              }}
+            />
+          </Suspense>
+        </>
+      )}
+    </div>
   );
+}
+
+/** Open the hub in a new tab, as yourself or as the customer sees it. */
+async function openHub(pageId: number, asCustomer: boolean) {
+  const r = await json<{ url?: string }>(`/api/lp/partner-rooms/${pageId}/my-link${asCustomer ? "?as=customer" : ""}`);
+  if (r.ok && r.data.url) window.open(r.data.url, "_blank", "noopener");
+  else toast({ title: "Couldn't open the hub", description: r.data.error ?? "Try again in a moment.", variant: "destructive" });
 }
 
 const HUB_TABS: RoomPanelTab[] = ["performance", "plays", "goals", "activity", "kit", "practices", "calendar", "settings"];
 const tabFromSearch = (search: string): RoomPanelTab => {
   const t = new URLSearchParams(search).get("tab") as RoomPanelTab | null;
-  return t && HUB_TABS.includes(t) ? t : "performance";
+  return t && HUB_TABS.includes(t) ? t : "activity";
 };
 
 /* ── The list ─────────────────────────────────────────────────────────────── */
@@ -274,13 +328,17 @@ export default function SalesPartnerHubs() {
 
   const open = (pageId: number, t: RoomPanelTab) => {
     setTab(t);
-    navigate(`/sales/partner-hubs/${pageId}${t === "performance" ? "" : `?tab=${t}`}`);
+    navigate(`/sales/partner-hubs/${pageId}${t === "activity" ? "" : `?tab=${t}`}`);
   };
-  const close = () => {
-    navigate("/sales/partner-hubs");
-    // Publishing, invites and uploads in the pop-up change what the row shows.
-    void qc.invalidateQueries({ queryKey: ["partner-hubs"] });
-  };
+
+  // An open hub is its own page; the list is the other route.
+  if (openId !== null) {
+    return (
+      <SalesLayout>
+        <HubPage key={openId} pageId={openId} tab={tab} />
+      </SalesLayout>
+    );
+  }
 
   return (
     <SalesLayout>
@@ -442,7 +500,6 @@ export default function SalesPartnerHubs() {
           open(pageId, created ? "kit" : hubLandingTab(hubs.find((h) => h.pageId === pageId) ?? {}));
         }}
       />
-      <HubDialog pageId={openId} tab={tab} onTab={setTab} onClose={close} />
     </SalesLayout>
   );
 }
