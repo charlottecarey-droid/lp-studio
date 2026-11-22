@@ -23,6 +23,8 @@ export interface LaunchAssetInput {
   /** The hub cover's logo sizes, in percent (100 = as fitted). The same setting sizes the logos here. */
   partnerLogoScale?: number;
   brandLogoScale?: number;
+  /** The cover's "keep the logo's own colours": off (the default), the customer's logo is drawn in white, as it is on the cover. */
+  partnerLogoOriginal?: boolean;
   /** The kit's written pieces and links, for the media kit document. */
   texts?: { title: string; description: string; body: string }[];
   links?: { title: string; url: string }[];
@@ -111,6 +113,12 @@ export function inkBounds(data: ArrayLike<number>, w: number, h: number): Box | 
   return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
+/** Whether a picture has see-through parts. A logo without any (a JPG, a PNG on a white box) can't be recoloured: it would become a solid block. */
+export function hasTransparency(data: ArrayLike<number>, w: number, h: number): boolean {
+  for (let i = 3; i < w * h * 4; i += 4) if (data[i] < 250) return true;
+  return false;
+}
+
 /**
  * Size a logo for its slot by how heavy it looks, not by the slot's shape.
  * Fitting inside a wide, short slot leaves a stacked or square logo tiny
@@ -150,8 +158,8 @@ export function fitLogo(iw: number, ih: number, slot: Box, opts: { scale?: numbe
  * the name, a logo, a logo size or the cover photo shows the file is out of
  * date and it is made again. The leading number changes when the drawing does.
  */
-export function launchAssetSignature(key: LaunchAssetKey, input: Pick<LaunchAssetInput, "partnerName" | "partnerLogoUrl" | "heroImageUrl" | "partnerLogoScale" | "brandLogoScale">): string {
-  const parts = ["2", input.partnerName.trim(), input.partnerLogoUrl.trim(), String(Math.round(logoSizeFactor(input.partnerLogoScale) * 100)), String(Math.round(logoSizeFactor(input.brandLogoScale) * 100))];
+export function launchAssetSignature(key: LaunchAssetKey, input: Pick<LaunchAssetInput, "partnerName" | "partnerLogoUrl" | "heroImageUrl" | "partnerLogoScale" | "brandLogoScale" | "partnerLogoOriginal">): string {
+  const parts = ["3", input.partnerName.trim(), input.partnerLogoUrl.trim(), String(Math.round(logoSizeFactor(input.partnerLogoScale) * 100)), String(Math.round(logoSizeFactor(input.brandLogoScale) * 100)), input.partnerLogoOriginal ? "own" : "white"];
   if (key === "social-image-1") parts.push(input.heroImageUrl.trim());
   return parts.join("|").slice(0, 600);
 }
@@ -188,10 +196,10 @@ export function socialLayout(variant: "wide" | "square"): SocialLayout {
 
 /* ── Drawing ─────────────────────────────────────────────────────────────── */
 
-interface Drawable { image: CanvasImageSource; w: number; h: number; /** The part of the file that has ink, when it could be measured. */ ink?: Box }
+interface Drawable { image: CanvasImageSource; w: number; h: number; /** The part of the file that has ink, when it could be measured. */ ink?: Box; /** The file has see-through parts, so it can be recoloured. */ clear?: boolean }
 
-/** Measure a logo's ink. Null for an image from another site (its pixels can't be read) or a blank one. */
-function measureInk(img: Drawable): Box | null {
+/** Measure a logo: where its ink is, and whether it has see-through parts. Null for an image from another site (its pixels can't be read) or a blank one. */
+function measureInk(img: Drawable): { ink: Box; clear: boolean } | null {
   try {
     const k = Math.min(1, 320 / Math.max(img.w, img.h));
     const w = Math.max(1, Math.round(img.w * k));
@@ -202,14 +210,42 @@ function measureInk(img: Drawable): Box | null {
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
     ctx.drawImage(img.image, 0, 0, w, h);
-    const b = inkBounds(ctx.getImageData(0, 0, w, h).data, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    const b = inkBounds(data, w, h);
     if (!b) return null;
     // Back to the file's own pixels, a pixel wider all round so soft edges are not shaved.
     const x = Math.max(0, Math.floor(b.x / k) - 1);
     const y = Math.max(0, Math.floor(b.y / k) - 1);
-    return { x, y, w: Math.min(img.w - x, Math.ceil(b.w / k) + 2), h: Math.min(img.h - y, Math.ceil(b.h / k) + 2) };
+    return { ink: { x, y, w: Math.min(img.w - x, Math.ceil(b.w / k) + 2), h: Math.min(img.h - y, Math.ceil(b.h / k) + 2) }, clear: hasTransparency(data, w, h) };
   } catch {
     return null;
+  }
+}
+
+/**
+ * A logo drawn in white, as the hub's cover shows it: every inked pixel turns
+ * white and keeps its own see-through-ness, so the shape is unchanged. Only a
+ * logo with a see-through background can be recoloured; any other is returned
+ * as it is.
+ */
+function whiteLogo(img: Drawable): Drawable {
+  if (!img.clear) return img;
+  try {
+    const src = img.ink ?? { x: 0, y: 0, w: img.w, h: img.h };
+    const k = Math.max(1, Math.min(4, 1200 / Math.max(src.w, src.h)));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(src.w * k));
+    canvas.height = Math.max(1, Math.round(src.h * k));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return img;
+    ctx.drawImage(img.image, src.x, src.y, src.w, src.h, 0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Already trimmed to the ink, so the whole canvas is the logo.
+    return { image: canvas, w: canvas.width, h: canvas.height, clear: true };
+  } catch {
+    return img;
   }
 }
 
@@ -217,8 +253,8 @@ function measureInk(img: Drawable): Box | null {
 async function loadLogo(url: string): Promise<Drawable | null> {
   const img = await loadImage(url);
   if (!img) return null;
-  const ink = measureInk(img);
-  return ink ? { ...img, ink } : img;
+  const m = measureInk(img);
+  return m ? { ...img, ink: m.ink, clear: m.clear } : img;
 }
 
 async function loadImage(url: string): Promise<Drawable | null> {
@@ -338,7 +374,9 @@ export async function buildSocialGraphic(variant: "wide" | "square", input: Laun
     variant === "wide" ? loadImage(input.heroImageUrl) : Promise.resolve(null),
   ]);
   await document.fonts?.ready.catch(() => undefined);
-  const parts: SocialGraphicParts = { surface: graphicSurface(brand), brandLogo, partnerLogo, photo, brandName: brand.brandName || "", partnerName: input.partnerName, font: DISPLAY_FONT, brandLogoScale: logoSizeFactor(input.brandLogoScale), partnerLogoScale: logoSizeFactor(input.partnerLogoScale) };
+  // The customer's logo goes white on the dark surface, as on the hub's cover, unless the hub keeps its own colours.
+  const partnerMark = partnerLogo && !input.partnerLogoOriginal ? whiteLogo(partnerLogo) : partnerLogo;
+  const parts: SocialGraphicParts = { surface: graphicSurface(brand), brandLogo, partnerLogo: partnerMark, photo, brandName: brand.brandName || "", partnerName: input.partnerName, font: DISPLAY_FONT, brandLogoScale: logoSizeFactor(input.brandLogoScale), partnerLogoScale: logoSizeFactor(input.partnerLogoScale) };
   drawSocialGraphic(ctx, variant, parts);
   const toBlob = () => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   let blob: Blob | null = null;
@@ -360,9 +398,10 @@ export async function buildSocialGraphic(variant: "wide" | "square", input: Laun
 
 /* ── One-pager ───────────────────────────────────────────────────────────── */
 
-async function imageAsDataUrl(url: string): Promise<{ data: string; w: number; h: number } | null> {
-  const img = await loadLogo(url);
-  if (!img) return null;
+async function imageAsDataUrl(url: string, opts: { white?: boolean } = {}): Promise<{ data: string; w: number; h: number } | null> {
+  const loaded = await loadLogo(url);
+  if (!loaded) return null;
+  const img = opts.white ? whiteLogo(loaded) : loaded;
   try {
     // Only the part with ink, so the documents size and place the logo itself, not its blank margins.
     const src = img.ink ?? { x: 0, y: 0, w: img.w, h: img.h };
@@ -490,7 +529,7 @@ export async function buildMediaKit(input: LaunchAssetInput): Promise<Blob> {
     doc.setTextColor(...color);
   };
   // Logos appear once, on the cover. The kit does not reprint anyone's logo as a picture: the links section points to the logo files.
-  const [brandLight, partnerLogo] = await Promise.all([imageAsDataUrl((brand.logoUrlDark ?? "").trim() || ""), imageAsDataUrl(input.partnerLogoUrl)]);
+  const [brandLight, partnerLogo] = await Promise.all([imageAsDataUrl((brand.logoUrlDark ?? "").trim() || ""), imageAsDataUrl(input.partnerLogoUrl, { white: !input.partnerLogoOriginal })]);
 
   /* Cover */
   // The cover is the whole first page: logos at the top, the title in the middle, what is inside at the foot.

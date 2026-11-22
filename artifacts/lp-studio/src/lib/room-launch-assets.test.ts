@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LAUNCH_ASSETS, containBox, fitLogo, graphicSurface, inkBounds, launchAssetSignature, layoutKitCopy, logoSizeFactor, shade, socialLayout, staleLaunchAssets } from "./room-launch-assets";
+import { LAUNCH_ASSETS, containBox, fitLogo, graphicSurface, hasTransparency, inkBounds, launchAssetSignature, layoutKitCopy, logoSizeFactor, shade, socialLayout, staleLaunchAssets } from "./room-launch-assets";
 
 describe("launch asset graphics: layout and colour", () => {
   it("fits a logo inside its box, centred, without stretching", () => {
@@ -150,5 +150,18 @@ describe("stale launch assets", () => {
 
   it("never names an uploaded file, or one with no record of how it was made", () => {
     expect(staleLaunchAssets([{ key: "social-image-1", hasFile: true }, { key: "social-image-2", hasFile: true, madeFrom: "" }], { ...basis, partnerLogoScale: 200 })).toEqual([]);
+  });
+});
+
+describe("recolouring a logo", () => {
+  it("only a logo with see-through parts can be turned white", () => {
+    const clear = new Uint8ClampedArray(4 * 4 * 4);
+    clear.set([10, 20, 30, 255], 0);
+    expect(hasTransparency(clear, 4, 4)).toBe(true);
+    expect(hasTransparency(new Uint8ClampedArray(4 * 4 * 4).fill(255), 4, 4)).toBe(false);
+  });
+  it("remakes the files when the hub switches between white and the logo's own colours", () => {
+    const basis = { partnerName: "Acme", partnerLogoUrl: "/api/storage/a.png", heroImageUrl: "", partnerLogoScale: 100, brandLogoScale: 100 };
+    expect(launchAssetSignature("social-image-2", basis)).not.toBe(launchAssetSignature("social-image-2", { ...basis, partnerLogoOriginal: true }));
   });
 });

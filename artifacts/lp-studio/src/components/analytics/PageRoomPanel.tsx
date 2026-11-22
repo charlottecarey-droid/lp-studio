@@ -59,7 +59,7 @@ interface RoomDetail {
   /** The hub's Important links as stored on the page (workspace hubs only). */
   links?: HubLink[] | null;
   stage?: HubStage | null;
-  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; partnerLogoScale?: number; brandLogoScale?: number; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string; madeFrom?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
+  kit?: { partnerName: string; partnerLogoUrl: string; heroImageUrl: string; partnerLogoScale?: number; brandLogoScale?: number; partnerLogoOriginal?: boolean; signupUrl: string; assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; url?: string; madeFrom?: string }[]; texts?: { title: string; description: string; body: string }[]; links?: { title: string; url: string }[]; automatic?: boolean } | null;
   engagement?: {
     assets: { key: string; title: string; kind: string; views: number; downloads: number; seconds: number; maxProgress: number; people: string[]; anonymous: number; lastAt: string }[];
     recent: { title: string; action: string; value: number | null; who: string | null; at: string }[];
@@ -1756,7 +1756,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
   };
 
   /** What the generated files are drawn from: both names' worth of cover settings, as the hub has them now. */
-  const basis = { partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale };
+  const basis = { partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, partnerLogoOriginal: kit.partnerLogoOriginal };
   const create = async (keys: readonly string[]) => {
     setBusy(true);
     try {
@@ -1823,7 +1823,7 @@ function LaunchAssetsSection({ pageId, kit, refresh, onKitAssets, onKitLink, exp
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kit.assets, kit.partnerName, kit.partnerLogoUrl, kit.heroImageUrl, kit.partnerLogoScale, kit.brandLogoScale, busy]);
+  }, [kit.assets, kit.partnerName, kit.partnerLogoUrl, kit.heroImageUrl, kit.partnerLogoScale, kit.brandLogoScale, kit.partnerLogoOriginal, busy]);
 
   const missing = [!kit.partnerName && "the customer’s name", !kit.partnerLogoUrl && "the customer’s logo (their name is used instead)", !kit.heroImageUrl && "a cover photo (the link-preview graphic is made without one)"].filter(Boolean) as string[];
   return (
@@ -2091,7 +2091,7 @@ export function AutomaticRoomsSection() {
       for (const a of LAUNCH_ASSETS) {
         const done = step(`Create: ${a.title}`);
         try {
-          madeUrls[a.key] = await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => ({ title: x.title, url: madeUrls[x.key] ?? "" })), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => ({ title: x.title, url: x.url ?? "" }))] });
+          madeUrls[a.key] = await createLaunchAsset(a.key, { pageId: j.pageId, partnerName: kit.partnerName, partnerLogoUrl: kit.partnerLogoUrl, heroImageUrl: kit.heroImageUrl, partnerLogoScale: kit.partnerLogoScale, brandLogoScale: kit.brandLogoScale, partnerLogoOriginal: kit.partnerLogoOriginal, signupUrl: kit.signupUrl, brand, texts: kit.texts ?? [], links: kit.links ?? [], files: [...LAUNCH_ASSETS.filter((x) => x.key !== "media-kit").map((x) => ({ title: x.title, url: madeUrls[x.key] ?? "" })), ...kit.assets.filter((x) => !x.hidden && x.hasFile && x.kind === "pdf").map((x) => ({ title: x.title, url: x.url ?? "" }))] });
           done("done");
         } catch (e) {
           done("failed", e instanceof Error ? e.message : "Could not create it");

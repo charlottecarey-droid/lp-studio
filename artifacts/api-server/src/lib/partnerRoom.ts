@@ -813,6 +813,8 @@ export interface RoomKitInfo {
   /** The cover's logo sizes in percent (100 when unset), so the generated assets size the logos the same way. */
   partnerLogoScale: number;
   brandLogoScale: number;
+  /** The cover keeps the customer logo's own colours (otherwise it is drawn in white, there and on the generated assets). */
+  partnerLogoOriginal: boolean;
   /** The first launch-kit link (the sign-up page), for the one-pager's QR code. */
   signupUrl: string;
   assets: { key: string; title: string; kind: string; hasFile: boolean; hidden: boolean; /** What a generated file was made from; blank for a file someone uploaded. */ madeFrom: string; /** Where the item's file is (a hosted path or an address), when it has one. */ url: string }[];
@@ -838,6 +840,7 @@ export function roomKitInfo(blocks: unknown): RoomKitInfo | null {
     heroImageUrl: str(props.heroImageUrl),
     partnerLogoScale: typeof props.partnerLogoScale === "number" && props.partnerLogoScale > 0 ? props.partnerLogoScale : 100,
     brandLogoScale: typeof props.brandLogoScale === "number" && props.brandLogoScale > 0 ? props.brandLogoScale : 100,
+    partnerLogoOriginal: props.partnerLogoOriginal === true,
     // An uploaded file among the links is a resource, never the sign-up page.
     signupUrl: str(links.find((l) => l && !l.hidden && !str(l.fileUrl) && /^https?:\/\//.test(str(l.url)))?.url),
     assets: assets.filter((a) => a && typeof a === "object").map((a) => ({ key: str(a.key) || planTaskKey({ task: a.title }), title: str(a.title), kind: str(a.kind), madeFrom: str(a.madeFrom), hasFile: !!(str(a.fileUrl) || str(a.videoUrl) || str(a.externalUrl) || str(a.body)), hidden: a.hidden === true, url: str(a.fileUrl) || str(a.videoUrl) })),

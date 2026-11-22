@@ -126,7 +126,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
     const timer = setTimeout(async () => {
       if (remaking.current) return;
       const p = propsRef.current;
-      const basis = { partnerName: (p.partnerName ?? "").trim(), partnerLogoUrl: (p.partnerLogoUrl ?? "").trim(), heroImageUrl: (p.heroImageUrl ?? "").trim(), partnerLogoScale: p.partnerLogoScale, brandLogoScale: p.brandLogoScale };
+      const basis = { partnerName: (p.partnerName ?? "").trim(), partnerLogoUrl: (p.partnerLogoUrl ?? "").trim(), heroImageUrl: (p.heroImageUrl ?? "").trim(), partnerLogoScale: p.partnerLogoScale, brandLogoScale: p.brandLogoScale, partnerLogoOriginal: p.partnerLogoOriginal };
       const mine = (p.assets ?? []).map((a) => ({ key: a.key || roomMilestoneKey({ task: a.title }), title: a.title, kind: a.kind, hasFile: !!(a.fileUrl ?? "").trim(), hidden: a.hidden, url: a.fileUrl, madeFrom: a.madeFrom }));
       const { staleLaunchAssets, remakeStaleLaunchAssets } = await import("@/lib/room-launch-assets");
       if (!staleLaunchAssets(mine, basis).length) return;
@@ -146,7 +146,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
     }, 4000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.partnerName, props.partnerLogoUrl, props.heroImageUrl, props.partnerLogoScale, props.brandLogoScale, pageId, roomTab]);
+  }, [props.partnerName, props.partnerLogoUrl, props.heroImageUrl, props.partnerLogoScale, props.brandLogoScale, props.partnerLogoOriginal, pageId, roomTab]);
   const roomDialog = Number.isFinite(pageId) && pageId > 0 && (
     <Dialog open={roomTab !== null} onOpenChange={(open) => !open && setRoomTab(null)}>
       <DialogContent className="max-w-5xl" data-room-manager>
