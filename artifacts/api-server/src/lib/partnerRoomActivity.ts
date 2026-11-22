@@ -35,6 +35,7 @@ export function activityLabel(method: string, rest: string, body: Record<string,
   if (path === "links") return "Changed the important links";
   if (/^requests\/\d+$/.test(path)) return b.reply !== undefined ? "Replied to a request" : b.status === "done" ? "Finished a request" : "Updated a request";
   if (path === "practices" && m === "DELETE") return "Removed all practices";
+  if (path === "practices/wave") return "Moved practices to a wave";
   if (/^practices\/(import|sync-salesforce|sync-sheet)$/.test(path)) return "Updated the practice list";
   if (/^practices\/\d+$/.test(path)) return "Changed a practice";
   if (/^uploads\/\d+$/.test(path) && m === "DELETE") return "Deleted a file the customer sent";

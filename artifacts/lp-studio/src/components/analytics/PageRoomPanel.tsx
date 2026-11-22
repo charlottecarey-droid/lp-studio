@@ -898,7 +898,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               )}
             </div>
             {/* The practices themselves: find one, move it along, send welcome kits to a wave. */}
-            {!!data.practices?.total && <RoomPractices pageId={pageId} onChanged={refresh} />}
+            {!!data.practices?.total && <RoomPractices pageId={pageId} onChanged={refresh} hubWaves={(data.stage?.waves ?? []).map((w) => ({ key: w.key, name: w.name }))} />}
             {!!data.practices?.total && (
               <div className="pt-2">
                 <h4 className="text-sm font-semibold">Where this list comes from</h4>

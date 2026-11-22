@@ -3049,6 +3049,25 @@ router.post("/lp/partner-rooms/:pageId/welcome-kits", async (req: Request, res: 
   }
 });
 
+/** Put the practices picked on the Sales Console's list into a wave (or take them out of one, with a blank wave). */
+router.post("/lp/partner-rooms/:pageId/practices/wave", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const ids = Array.isArray(req.body?.ids) ? [...new Set((req.body.ids as unknown[]).filter((v): v is number => typeof v === "number" && Number.isInteger(v) && v > 0))].slice(0, 2000) : [];
+    if (ids.length === 0) {
+      res.status(400).json({ error: "Nothing selected" });
+      return;
+    }
+    const wave = typeof req.body?.wave === "string" ? req.body.wave.trim().slice(0, 80) : "";
+    const updated = await db.update(lpRoomPracticesTable).set({ wave: wave || null, updatedAt: sql`now()` }).where(and(eq(lpRoomPracticesTable.pageId, page.id), inArray(lpRoomPracticesTable.id, ids))).returning({ id: lpRoomPracticesTable.id });
+    res.json({ ok: true, moved: updated.length, wave: wave || null });
+  } catch (err) {
+    req.log.error({ err }, "room practices wave failed");
+    res.status(500).json({ error: "Could not move the practices" });
+  }
+});
+
 /** Change one practice: stage, wave, region, dates. */
 router.patch("/lp/partner-rooms/:pageId/practices/:id", async (req: Request, res: Response): Promise<void> => {
   try {

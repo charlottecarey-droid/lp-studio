@@ -57,7 +57,25 @@ export function kitStatus(r: Pick<PracticeRow, "kitSentAt" | "hasAddress">): str
 
 type KitResult = { ok?: boolean; error?: string; sent?: string[]; already?: string[]; noAddress?: string[] };
 
-export function RoomPractices({ pageId, onChanged }: { pageId: number; /** A stage changed or kits went out: the numbers above the list are stale. */ onChanged: () => void | Promise<void> }) {
+/** The slice of a list one page shows, and how many pages there are. A page past the end falls back to the last one. */
+export function pageOf<T>(rows: T[], page: number, size: number): { rows: T[]; page: number; pages: number; from: number; to: number } {
+  const pages = Math.max(1, Math.ceil(rows.length / size));
+  const at = Math.min(Math.max(0, page), pages - 1);
+  const from = at * size;
+  return { rows: rows.slice(from, from + size), page: at, pages, from: rows.length ? from + 1 : 0, to: Math.min(rows.length, from + size) };
+}
+
+/** The waves a practice can be put in: the hub's own waves first, then any other the list already uses. */
+export function waveChoices(hubWaves: { key: string; name: string }[], inList: string[]): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = [];
+  for (const w of hubWaves) if (w.key.trim() && !out.some((o) => o.value === w.key.trim())) out.push({ value: w.key.trim(), label: w.name.trim() || `Wave ${w.key.trim()}` });
+  for (const w of inList) if (!out.some((o) => o.value === w)) out.push({ value: w, label: /^\d+$/.test(w) ? `Wave ${w}` : w });
+  return out;
+}
+
+const PAGE_SIZES = [25, 50, 100] as const;
+
+export function RoomPractices({ pageId, onChanged, hubWaves = [] }: { pageId: number; /** A stage changed or kits went out: the numbers above the list are stale. */ onChanged: () => void | Promise<void>; /** The waves set up under Settings, so practices can be put in them here. */ hubWaves?: { key: string; name: string }[] }) {
   const qc = useQueryClient();
   const key = ["page-room-practices", pageId];
   const { data, isLoading } = useQuery({
@@ -71,14 +89,19 @@ export function RoomPractices({ pageId, onChanged }: { pageId: number; /** A sta
   const [wave, setWave] = useState("");
   const [stage, setStage] = useState("");
   const [picked, setPicked] = useState<Set<number>>(new Set());
-  const [all, setAll] = useState(false);
+  const [size, setSize] = useState<number>(25);
+  const [page, setPage] = useState(0);
+  const [toWave, setToWave] = useState("");
+  const [newWave, setNewWave] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
 
   const rows = data?.rows ?? [];
   const waves = useMemo(() => wavesOf(rows), [rows]);
   const shown = useMemo(() => filterPractices(rows, { q, wave, stage }), [rows, q, wave, stage]);
-  const visible = all ? shown : shown.slice(0, 50);
+  const paged = pageOf(shown, page, size);
+  const visible = paged.rows;
+  const choices = waveChoices(hubWaves, waves);
   const shownIds = shown.map((r) => r.id);
   const everyShownPicked = shownIds.length > 0 && shownIds.every((id) => picked.has(id));
   const pickedHere = shownIds.filter((id) => picked.has(id));
@@ -92,6 +115,27 @@ export function RoomPractices({ pageId, onChanged }: { pageId: number; /** A sta
     const res = await fetch(`/api/lp/partner-rooms/${pageId}/practices/${r.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stage: next }) });
     if (!res.ok) setNote({ ok: false, text: `Couldn't update ${r.name}.` });
     await reload();
+  };
+  /** Put everything ticked into a wave ("" takes them out of one). */
+  const moveToWave = async () => {
+    const target = toWave === "__new" ? newWave.trim() : toWave === "__none" ? "" : toWave;
+    if (toWave === "" || (toWave === "__new" && !target)) return;
+    const ids = [...picked];
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch(`/api/lp/partner-rooms/${pageId}/practices/wave`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, wave: target }) });
+      const j = (await res.json().catch(() => ({}))) as { moved?: number; error?: string };
+      if (!res.ok) return setNote({ ok: false, text: j.error ?? "Couldn’t move the practices." });
+      const label = target ? (choices.find((c) => c.value === target)?.label ?? (/^\d+$/.test(target) ? `Wave ${target}` : target)) : "";
+      setNote({ ok: true, text: target ? `${j.moved ?? ids.length} ${(j.moved ?? ids.length) === 1 ? "practice is" : "practices are"} now in ${label}.` : `${j.moved ?? ids.length} taken out of their wave.` });
+      setPicked(new Set());
+      setToWave("");
+      setNewWave("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
   };
   const sendKits = async () => {
     const ids = [...picked];
@@ -130,16 +174,16 @@ export function RoomPractices({ pageId, onChanged }: { pageId: number; /** A sta
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, city or region" className="h-9 pl-8" aria-label="Search practices" />
+          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search by name, city or region" className="h-9 pl-8" aria-label="Search practices" />
         </div>
         {waves.length > 0 && (
-          <select className={select} value={wave} onChange={(e) => setWave(e.target.value)} aria-label="Wave" data-room-practice-wave>
+          <select className={select} value={wave} onChange={(e) => { setWave(e.target.value); setPage(0); }} aria-label="Wave" data-room-practice-wave>
             <option value="">All waves</option>
             {waves.map((w) => <option key={w} value={w}>{/^\d+$/.test(w) ? `Wave ${w}` : w}</option>)}
             <option value="none">No wave</option>
           </select>
         )}
-        <select className={select} value={stage} onChange={(e) => setStage(e.target.value)} aria-label="Stage">
+        <select className={select} value={stage} onChange={(e) => { setStage(e.target.value); setPage(0); }} aria-label="Stage">
           <option value="">Any stage</option>
           {PRACTICE_STAGES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
@@ -152,6 +196,22 @@ export function RoomPractices({ pageId, onChanged }: { pageId: number; /** A sta
         </span>
         <span className="flex flex-wrap items-center gap-2">
           {picked.size > 0 && <Button size="sm" variant="ghost" className="h-8 text-muted-foreground" onClick={() => setPicked(new Set())}>Clear</Button>}
+          {picked.size > 0 && (
+            <span className="flex flex-wrap items-center gap-1.5" data-room-practice-move>
+              <select className="h-8 rounded-md border bg-background px-2 text-sm" value={toWave} onChange={(e) => setToWave(e.target.value)} aria-label="Move the selected practices to a wave">
+                <option value="">Move to a wave…</option>
+                {choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                <option value="__new">A new wave…</option>
+                <option value="__none">No wave</option>
+              </select>
+              {toWave === "__new" && <Input value={newWave} onChange={(e) => setNewWave(e.target.value)} placeholder="e.g. 4" className="h-8 w-24" aria-label="New wave" maxLength={60} />}
+              {toWave !== "" && (
+                <Button size="sm" variant="outline" className="h-8" disabled={busy || (toWave === "__new" && !newWave.trim())} onClick={moveToWave} data-room-practice-move-go>
+                  Move {picked.size}
+                </Button>
+              )}
+            </span>
+          )}
           <Button size="sm" variant="brand" className="h-8" disabled={busy || picked.size === 0 || !!data.noDirectOutreach} onClick={sendKits} title={data.noDirectOutreach ? "This account doesn’t allow direct outreach to its practices" : picked.size === 0 ? "Tick the practices first. Pick a wave to tick a whole wave at once." : undefined} data-room-practice-kits>
             {busy ? "Working…" : picked.size ? `Send welcome kits to ${picked.size}` : "Send welcome kits"}
           </Button>
@@ -173,7 +233,8 @@ export function RoomPractices({ pageId, onChanged }: { pageId: number; /** A sta
                     if (el) el.indeterminate = pickedHere.length > 0 && !everyShownPicked;
                   }}
                   onChange={(e) => setPicked((prev) => { const next = new Set(prev); for (const id of shownIds) { if (e.target.checked) next.add(id); else next.delete(id); } return next; })}
-                  aria-label={`Select all ${shown.length} shown`}
+                  aria-label={`Select all ${shown.length}`}
+                  title={shown.length > visible.length ? `Selects all ${shown.length}, on every page` : undefined}
                   data-room-practice-all
                 />
               </th>
@@ -210,11 +271,27 @@ export function RoomPractices({ pageId, onChanged }: { pageId: number; /** A sta
           </tbody>
         </table>
       </div>
-      {shown.length > 50 && (
-        <button type="button" className="text-xs font-medium text-muted-foreground underline-offset-2 hover:underline" onClick={() => setAll((v) => !v)}>
-          {all ? "Show the first 50" : `Show all ${shown.length}`}
-        </button>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground" data-room-practice-pages>
+        <span>
+          {shown.length ? `Showing ${paged.from}–${paged.to} of ${shown.length}` : ""}
+        </span>
+        <span className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-1.5">
+            Show
+            <select className="h-7 rounded-md border bg-background px-1.5 text-xs" value={size} onChange={(e) => { setSize(Number(e.target.value)); setPage(0); }} aria-label="Practices on a page" data-room-practice-size>
+              {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+            a page
+          </label>
+          {paged.pages > 1 && (
+            <span className="flex items-center gap-1">
+              <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={paged.page === 0} onClick={() => setPage(paged.page - 1)} aria-label="Previous page">Previous</Button>
+              <span className="px-1 tabular-nums">Page {paged.page + 1} of {paged.pages}</span>
+              <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={paged.page >= paged.pages - 1} onClick={() => setPage(paged.page + 1)} aria-label="Next page">Next</Button>
+            </span>
+          )}
+        </span>
+      </div>
     </section>
   );
 }
