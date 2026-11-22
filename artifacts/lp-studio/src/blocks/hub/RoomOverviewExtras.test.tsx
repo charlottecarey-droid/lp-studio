@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BRAND } from "@/lib/brand-config";
 import { BlockRoomWorkspace, ROOM_WORKSPACE_DEFAULT_PROPS, type RoomWorkspaceBlockProps } from "../BlockRoomWorkspace";
-import { OVERVIEW_EXTRA_ADDABLE, newOverviewExtra, overviewExtraHasContent, overviewVideoEmbed, type RoomOverviewExtra } from "./RoomOverviewExtras";
+import { OVERVIEW_EXTRA_ADDABLE, newOverviewExtra, overviewExtraHasContent, overviewVideoEmbed, overviewVideoName, overviewVideos, type RoomOverviewExtra } from "./RoomOverviewExtras";
 
 const BRAND = { ...DEFAULT_BRAND, brandName: "Acme" };
 const html = (props: Partial<RoomWorkspaceBlockProps>, editing = false) =>
@@ -111,6 +111,67 @@ describe("the team's own Overview sections", () => {
 
     it("an older hub's Resources list still shows", () => {
       expect(html({ overviewExtras: [resources] })).toContain("Brand guide");
+    });
+  });
+
+  describe("Video carousel", () => {
+    const three: RoomOverviewExtra = {
+      key: "ov-video-9",
+      kind: "video",
+      title: "Introduction to Dandy Insights",
+      position: "top",
+      videos: [
+        { title: "Introduction to Dandy Insights", url: "https://youtu.be/dQw4w9WgXcQ", body: "What you will see in Dandy Hub." },
+        { title: "Not playable", url: "https://example.com/page" },
+        { title: "Placing your first order", url: "https://vimeo.com/123456" },
+        { title: "Reading your remake report", url: "https://www.loom.com/share/abc123def" },
+      ],
+    };
+
+    it("an older one-video section reads as a list of one, and an old 'Watch:' title loses the prefix", () => {
+      expect(overviewVideos(video)).toEqual([{ title: "Welcome from your team", url: "https://youtu.be/dQw4w9WgXcQ", body: undefined }]);
+      expect(overviewVideoName({ title: "Watch: Introduction to Dandy Insights", url: "" })).toBe("Introduction to Dandy Insights");
+      expect(overviewVideoName({ title: "  ", url: "" })).toBe("Video");
+      expect(overviewExtraHasContent({ ...three, videos: [{ title: "x", url: "https://example.com/page" }] })).toBe(false);
+      expect(overviewExtraHasContent(three)).toBe(true);
+    });
+
+    it("several videos: 'Watch video (1 of 3): name', a Next button, and back / forward arrows with a dot per playable video", () => {
+      const out = html({ overviewExtras: [three] });
+      expect(out).toContain('data-room-video-count="3"');
+      expect(out).toMatch(/Watch video <span class="prw-vc-of">\(1 of 3\)<\/span>: <b>Introduction to Dandy Insights<\/b>/);
+      expect(out).toContain("data-room-video-next");
+      expect(out).toContain("Up next: Placing your first order");
+      expect(out).toContain('disabled="" aria-label="Previous video"');
+      expect(out).toContain('aria-label="Video 3 of 3: Reading your remake report"');
+      expect(out).not.toContain("Not playable");
+      expect(out).toContain("What you will see in Dandy Hub.");
+      // Only the current video's player is on the page.
+      expect(out).toContain("youtube.com/embed/dQw4w9WgXcQ");
+      expect(out).not.toContain("player.vimeo.com");
+    });
+
+    it("one video: no counter and no carousel controls", () => {
+      const out = html({ overviewExtras: [{ ...three, videos: three.videos!.slice(0, 1) }] });
+      expect(out).toContain("Watch: <b>Introduction to Dandy Insights</b>");
+      expect(out).not.toContain("data-room-video-next");
+      expect(out).not.toContain("data-room-video-nav");
+    });
+  });
+
+  describe("Note", () => {
+    it("reads as a letter on the page (no card), with a short last line as the sign-off", () => {
+      const note: RoomOverviewExtra = { key: "ov-text-2", kind: "text", title: "Welcome, Signature Team!", body: "Welcome to Dandy!\n\nWe are so excited to partner with you on your lab consolidation journey.\n\nYour Dandy Account Team" };
+      const out = html({ overviewExtras: [note] });
+      expect(out).toContain('class="prw-sec prw-note"');
+      expect(out).not.toMatch(/prw-card[^"]*" data-room-ov-extra="ov-text-2"/);
+      expect(out).toContain("<p>Welcome to Dandy!</p>");
+      expect(out).toMatch(/data-room-note-signoff="?[^>]*>Your Dandy Account Team</);
+    });
+
+    it("a note that ends in a sentence has no sign-off", () => {
+      const out = html({ overviewExtras: [{ key: "ov-text-3", kind: "text", title: "Heads up", body: "First line.\n\nWe will be in touch soon." }] });
+      expect(out).not.toContain("data-room-note-signoff");
     });
   });
 });

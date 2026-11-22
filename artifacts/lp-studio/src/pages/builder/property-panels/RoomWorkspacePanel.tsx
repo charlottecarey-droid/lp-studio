@@ -42,7 +42,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { VideoPicker } from "@/components/VideoPicker";
-import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
+import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, overviewVideos, type RoomOverviewExtra, type RoomOverviewVideo, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -401,19 +401,46 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
             startOpen={!overviewExtraHasContent(x, shownLinks)}
             header={<ItemHeader label={`${OVERVIEW_EXTRA_LABEL[x.kind]} · ${x.title || "Untitled"}${x.hidden ? " (hidden)" : ""}`} index={i} total={extras.length} onMove={(dir) => setExtras(moveItem(extras, i, dir))} onRemove={() => setExtras(extras.filter((_, idx) => idx !== i))} />}
           >
-            {x.kind === "links" ? (
+            {x.kind === "video" ? null : x.kind === "links" ? (
               <p className="text-[11px] text-muted-foreground" data-room-ov-links-note>
                 The same Important links as the Marketing tab ({shownLinks} shown). Add or change them under Marketing → Links and they update in both places.
               </p>
             ) : (
               <Field label="Title"><Input value={x.title ?? ""} onChange={(e) => setExtra(i, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
             )}
-            {x.kind === "video" && (
-              <>
-                <VideoPicker label="Video (YouTube, Vimeo, Loom, Wistia, or a file from the library)" value={x.videoUrl ?? ""} onChange={(v) => setExtra(i, { videoUrl: v })} />
-                <Field label="A line under the title (optional)"><Input value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} className="h-8 text-xs" /></Field>
-              </>
-            )}
+            {x.kind === "video" && (() => {
+              // One video, or several shown as a carousel ("Watch video (1 of 3): name"). Saving always writes the list;
+              // the section's own title follows the first video so the builder's labels stay meaningful.
+              const vids = overviewVideos(x);
+              const setVids = (next: RoomOverviewVideo[]) => setExtra(i, { videos: next, title: next[0]?.title ?? "", videoUrl: undefined, body: undefined });
+              const setVid = (j: number, patch: Partial<RoomOverviewVideo>) => setVids(vids.map((v, k) => (k === j ? { ...v, ...patch } : v)));
+              return (
+                <div className="space-y-2" data-room-ov-videos>
+                  {vids.length > 1 && <p className="text-[11px] text-muted-foreground">{vids.length} videos: customers click through them as a carousel.</p>}
+                  {vids.map((v, j) => (
+                    <div key={j} className="space-y-1.5 rounded border p-2" data-room-ov-video>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-semibold text-muted-foreground">Video {j + 1}</span>
+                        <span className="flex-1" />
+                        {vids.length > 1 && (
+                          <>
+                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" aria-label="Move this video up" disabled={j === 0} onClick={() => setVids(moveItem(vids, j, -1))}><ArrowUp className="h-3 w-3" /></Button>
+                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" aria-label="Move this video down" disabled={j === vids.length - 1} onClick={() => setVids(moveItem(vids, j, 1))}><ArrowDown className="h-3 w-3" /></Button>
+                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground" aria-label="Remove this video" onClick={() => setVids(vids.filter((_, k) => k !== j))}><X className="h-3.5 w-3.5" /></Button>
+                          </>
+                        )}
+                      </div>
+                      <Field label="Name"><Input value={v.title ?? ""} onChange={(e) => setVid(j, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="A welcome from your team" /></Field>
+                      <VideoPicker label="Video (YouTube, Vimeo, Loom, Wistia, or a file from the library)" value={v.url ?? ""} onChange={(u) => setVid(j, { url: u })} />
+                      <Field label="A line about it (optional)"><Input value={v.body ?? ""} onChange={(e) => setVid(j, { body: e.target.value })} className="h-8 text-xs" /></Field>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setVids([...vids, { title: "", url: "" }])} data-room-ov-add-video>
+                    <Plus className="h-3 w-3" /> Add another video
+                  </Button>
+                </div>
+              );
+            })()}
             {x.kind === "text" && (
               <Field label="Text"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} rows={4} className="text-xs" placeholder="What the customer should know" /></Field>
             )}

@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import { ExternalLink, Eye, EyeOff, FileText, Link2, PlayCircle } from "lucide-react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, ExternalLink, Eye, EyeOff, Link2, PlayCircle, RotateCcw } from "lucide-react";
+import { BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { extractWistiaId } from "@/lib/wistia";
 import { isNativeVideoUrl } from "@/lib/video-utils";
 
@@ -26,6 +27,16 @@ export interface RoomOverviewResource {
   description?: string;
 }
 
+/** One video in a Video section. A section with more than one plays them as a carousel. */
+export interface RoomOverviewVideo {
+  /** The video's name, shown as "Watch video (1 of 3): name". */
+  title: string;
+  /** A YouTube, Vimeo, Loom or Wistia link, or a video file. */
+  url: string;
+  /** A sentence about this video, above the player (optional). */
+  body?: string;
+}
+
 export interface RoomOverviewExtra {
   /** Stable id (for tracking and editing). */
   key: string;
@@ -33,8 +44,10 @@ export interface RoomOverviewExtra {
   title: string;
   /** A sentence under the title (text sections: the text itself). */
   body?: string;
-  /** Video: a YouTube, Vimeo, Loom or Wistia link, or a video file. */
+  /** Video (older sections, one video): a YouTube, Vimeo, Loom or Wistia link, or a video file. Read through overviewVideos. */
   videoUrl?: string;
+  /** Video: the videos, in order. When set it wins over videoUrl/title/body. */
+  videos?: RoomOverviewVideo[];
   /** Resources: links the customer can open. */
   items?: RoomOverviewResource[];
   /** Where on the Overview: under the welcome ("top") or after everything else (the default). */
@@ -49,7 +62,7 @@ export function newOverviewExtra(kind: RoomOverviewExtraKind, existing: RoomOver
   let n = existing.length + 1;
   while (existing.some((x) => x.key === `ov-${kind}-${n}`)) n += 1;
   const key = `ov-${kind}-${n}`;
-  if (kind === "video") return { key, kind, title: "Watch: welcome from your Dandy team", videoUrl: "", position: "top" };
+  if (kind === "video") return { key, kind, title: "Welcome from your Dandy team", videos: [{ title: "Welcome from your Dandy team", url: "" }], position: "top" };
   if (kind === "links") return { key, kind, title: "Important links", position: "bottom" };
   if (kind === "resources") return { key, kind, title: "Resources", items: [{ title: "", url: "" }], position: "bottom" };
   return { key, kind, title: "A note from your team", body: "", position: "bottom" };
@@ -82,6 +95,20 @@ export function overviewVideoEmbed(raw: string | undefined): { kind: "file" | "i
   return null;
 }
 
+/**
+ * A Video section's videos. Sections saved before the carousel hold one video in
+ * title / videoUrl / body; they read as a list of one, so nothing needs migrating.
+ */
+export function overviewVideos(extra: RoomOverviewExtra): RoomOverviewVideo[] {
+  if (Array.isArray(extra.videos)) return extra.videos;
+  return [{ title: extra.title ?? "", url: extra.videoUrl ?? "", body: extra.body }];
+}
+
+/** A video's name as shown in the header: an old "Watch: …" title loses its "Watch:". */
+export function overviewVideoName(v: RoomOverviewVideo): string {
+  return (v.title ?? "").trim().replace(/^watch(\s+video)?\s*:\s*/i, "") || "Video";
+}
+
 /** Only links a browser can open safely (no javascript: and the like). */
 const openable = (url: string) => /^(https?:\/\/|mailto:)/i.test(url.trim());
 
@@ -90,7 +117,7 @@ const openable = (url: string) => /^(https?:\/\/|mailto:)/i.test(url.trim());
  * `hubLinks`: how many Important links the hub shows (an Important links section has none of its own).
  */
 export function overviewExtraHasContent(extra: RoomOverviewExtra, hubLinks = 0): boolean {
-  if (extra.kind === "video") return !!overviewVideoEmbed(extra.videoUrl);
+  if (extra.kind === "video") return overviewVideos(extra).some((v) => !!overviewVideoEmbed(v.url));
   if (extra.kind === "links") return hubLinks > 0;
   if (extra.kind === "resources") return (extra.items ?? []).some((i) => (i.title ?? "").trim() && openable(i.url ?? ""));
   return !!((extra.title ?? "").trim() || (extra.body ?? "").trim());
@@ -98,7 +125,7 @@ export function overviewExtraHasContent(extra: RoomOverviewExtra, hubLinks = 0):
 
 /** What still needs filling in, for the builder's placeholder. */
 export function overviewExtraMissing(extra: RoomOverviewExtra): string {
-  if (extra.kind === "video") return (extra.videoUrl ?? "").trim() ? "This link can’t be played here. Use a YouTube, Vimeo, Loom or Wistia link, or a video file." : "Add a video link in the panel on the right.";
+  if (extra.kind === "video") return overviewVideos(extra).some((v) => (v.url ?? "").trim()) ? "This link can’t be played here. Use a YouTube, Vimeo, Loom or Wistia link, or a video file." : "Add a video link in the panel on the right.";
   if (extra.kind === "links") return "This hub has no Important links yet. Add them under Marketing → Links.";
   if (extra.kind === "resources") return "Add a resource (a name and a link) in the panel on the right.";
   return "Add the text in the panel on the right.";
@@ -108,25 +135,7 @@ export function overviewExtraMissing(extra: RoomOverviewExtra): string {
 export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra; /** A resource or the video was opened (engagement). */ onOpen?: (what: { key: string; title: string; url: string }) => void }) {
   const title = (extra.title ?? "").trim();
   const body = (extra.body ?? "").trim();
-  if (extra.kind === "video") {
-    const v = overviewVideoEmbed(extra.videoUrl);
-    if (!v) return null;
-    return (
-      <div className="prw-card prw-sec prw-ovx" data-room-ov-extra={extra.key} data-kind="video">
-        {title && <h3><span className="prw-ovx-t"><PlayCircle aria-hidden /> {title}</span></h3>}
-        <div className="prw-ovx-body">
-          {body && <p className="prw-ovx-lede">{body}</p>}
-          <div className="prw-ovx-video">
-            {v.kind === "file" ? (
-              <video src={v.src} controls preload="metadata" playsInline onPlay={() => onOpen?.({ key: extra.key, title: title || "Video", url: v.src })} />
-            ) : (
-              <iframe src={v.src} title={title || "Video"} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" />
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (extra.kind === "video") return <OverviewVideos extra={extra} onOpen={onOpen} />;
   // The hub's Important links are drawn by the hub itself (the same section as the Marketing tab).
   if (extra.kind === "links") return null;
   if (extra.kind === "resources") {
@@ -149,10 +158,98 @@ export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra;
     );
   }
   if (!title && !body) return null;
+  // A note reads as a letter on the page, not another card: paragraphs, and a short last line becomes the sign-off.
+  const paras = body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const last = paras[paras.length - 1] ?? "";
+  const signoff = paras.length >= 2 && last.length <= 60 && !/[.?!:;]$/.test(last) ? paras.pop() : undefined;
   return (
-    <div className="prw-card prw-sec prw-ovx" data-room-ov-extra={extra.key} data-kind="text">
-      {title && <h3><span className="prw-ovx-t"><FileText aria-hidden /> {title}</span></h3>}
-      {body && <div className="prw-ovx-body prw-ovx-text">{body}</div>}
+    <div className="prw-sec prw-note" data-room-ov-extra={extra.key} data-kind="text">
+      {title && <h3 className="prw-note-t" style={{ fontFamily: BRAND_DISPLAY_STACK }}>{title}</h3>}
+      {paras.length > 0 && <div className="prw-note-b">{paras.map((p, i) => <p key={i}>{p}</p>)}</div>}
+      {signoff && <p className="prw-note-sign" data-room-note-signoff>{signoff}</p>}
+    </div>
+  );
+}
+
+/**
+ * A Video section. One video: a plain card ("Watch: name"). More than one: a
+ * carousel — "Watch video (1 of 3): name" with a Next button in the header,
+ * and back / forward arrows with a dot per video under the player. Only
+ * videos that can play here are counted or shown.
+ */
+function OverviewVideos({ extra, onOpen }: { extra: RoomOverviewExtra; onOpen?: (what: { key: string; title: string; url: string }) => void }) {
+  const list = overviewVideos(extra)
+    .map((v, n) => ({ v, n, embed: overviewVideoEmbed(v.url) }))
+    .filter((x): x is { v: RoomOverviewVideo; n: number; embed: { kind: "file" | "iframe"; src: string } } => !!x.embed);
+  const [at, setAt] = useState(0);
+  if (list.length === 0) return null;
+  const i = Math.min(at, list.length - 1);
+  const { v, n, embed } = list[i];
+  const name = overviewVideoName(v);
+  const body = (v.body ?? "").trim();
+  const many = list.length > 1;
+  const isLast = i === list.length - 1;
+  const go = (to: number) => setAt(Math.max(0, Math.min(list.length - 1, to)));
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "ArrowRight") { e.preventDefault(); go(i + 1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); go(i - 1); }
+  };
+  return (
+    <div className={`prw-card prw-sec prw-ovx${many ? " prw-vc" : ""}`} data-room-ov-extra={extra.key} data-kind="video" data-room-video-count={list.length}>
+      <h3>
+        <span className="prw-ovx-t" aria-live="polite">
+          <PlayCircle aria-hidden />
+          {many ? (
+            <span data-room-video-heading>Watch video <span className="prw-vc-of">({i + 1} of {list.length})</span>: <b>{name}</b></span>
+          ) : (
+            <span data-room-video-heading>Watch: <b>{name}</b></span>
+          )}
+        </span>
+        {many && (
+          <button
+            type="button"
+            className="prw-vc-next"
+            onClick={() => go(isLast ? 0 : i + 1)}
+            title={isLast ? `Back to: ${overviewVideoName(list[0].v)}` : `Up next: ${overviewVideoName(list[i + 1].v)}`}
+            data-room-video-next
+          >
+            {isLast ? <>Start again <RotateCcw aria-hidden /></> : <>Next video <ArrowRight aria-hidden /></>}
+          </button>
+        )}
+      </h3>
+      <div className="prw-ovx-body">
+        {body && <p className="prw-ovx-lede">{body}</p>}
+        <div className="prw-ovx-video" key={`${n}-${embed.src}`}>
+          {embed.kind === "file" ? (
+            <video src={embed.src} controls preload="metadata" playsInline onPlay={() => onOpen?.({ key: many ? `${extra.key}:${n}` : extra.key, title: name, url: embed.src })} />
+          ) : (
+            <iframe src={embed.src} title={name} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" />
+          )}
+        </div>
+        {many && (
+          <div className="prw-vc-nav" role="group" aria-label="Videos" onKeyDown={onKey} data-room-video-nav>
+            <button type="button" className="prw-vc-arrow" onClick={() => go(i - 1)} disabled={i === 0} aria-label="Previous video">
+              <ArrowLeft aria-hidden />
+            </button>
+            <div className="prw-vc-dots">
+              {list.map((x, k) => (
+                <button
+                  key={x.n}
+                  type="button"
+                  className={`prw-vc-dot${k === i ? " on" : ""}`}
+                  onClick={() => go(k)}
+                  aria-label={`Video ${k + 1} of ${list.length}: ${overviewVideoName(x.v)}`}
+                  aria-current={k === i ? "true" : undefined}
+                  title={overviewVideoName(x.v)}
+                />
+              ))}
+            </div>
+            <button type="button" className="prw-vc-arrow" onClick={() => go(i + 1)} disabled={isLast} aria-label="Next video">
+              <ArrowRight aria-hidden />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -198,6 +295,35 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-ovx-text{font-size:14px;line-height:1.6;color:var(--ink);white-space:pre-line}
 .prw-ovx-video{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#0E1A16}
 .prw-ovx-video iframe,.prw-ovx-video video{position:absolute;inset:0;width:100%;height:100%;border:0}
+.prw-ovx-t b{font-weight:600}
+.prw-vc-of{font-weight:500;color:var(--body);font-variant-numeric:tabular-nums}
+.prw-vc-next{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--dark);background:#fff;border:1px solid #D4D8D0;border-radius:999px;padding:6px 12px 6px 14px;cursor:pointer;transition:border-color .15s,background .15s}
+.prw-card>h3 .prw-vc-next{font-size:12.5px;font-weight:600;color:var(--dark);background:#fff;border:1px solid #D4D8D0;padding:6px 12px 6px 14px}
+.prw-vc-next svg{width:14px;height:14px;transition:transform .15s}
+.prw-card>h3 .prw-vc-next:hover{border-color:color-mix(in srgb,var(--dark) 40%,transparent);background:color-mix(in srgb,var(--dark) 3%,#fff)}
+.prw-vc-next:hover svg{transform:translateX(2px)}
+.prw-vc .prw-ovx-video{animation:prw-vc-in .35s ease}
+@keyframes prw-vc-in{from{opacity:0}to{opacity:1}}
+.prw-vc-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}
+.prw-vc-arrow{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:999px;border:1px solid #D4D8D0;background:#fff;color:var(--dark);padding:0;cursor:pointer;transition:border-color .15s,background .15s,opacity .15s}
+.prw-vc-arrow svg{width:16px;height:16px}
+.prw-vc-arrow:hover:not(:disabled){border-color:color-mix(in srgb,var(--dark) 40%,transparent);background:color-mix(in srgb,var(--dark) 3%,#fff)}
+.prw-vc-arrow:disabled{opacity:.35;cursor:default}
+.prw-vc-dots{display:flex;align-items:center;gap:8px}
+.prw-vc-dot{width:8px;height:8px;border-radius:999px;border:0;padding:0;background:color-mix(in srgb,var(--dark) 22%,transparent);cursor:pointer;transition:width .25s ease,background .25s ease}
+.prw-vc-dot.on{width:26px;background:var(--dark)}
+.prw-vc-dot:hover:not(.on){background:color-mix(in srgb,var(--dark) 45%,transparent)}
+.prw-vc-arrow:focus-visible,.prw-vc-dot:focus-visible,.prw-vc-next:focus-visible{outline:2px solid var(--dark);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.prw-vc .prw-ovx-video{animation:none}.prw-vc-dot,.prw-vc-next svg{transition:none}}
+@media (max-width:640px){.prw-vc-next{padding:6px 10px}.prw-card>h3:has(.prw-vc-next){flex-wrap:wrap;gap:10px}}
+.prw-note{position:relative;padding:26px 28px;background:linear-gradient(90deg,color-mix(in srgb,var(--dark) 6%,transparent),transparent 72%);border-radius:0 14px 14px 0}
+.prw-note::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px;background:var(--dark)}
+.prw-note-t{margin:0 0 14px;font-size:26px;line-height:1.2;font-weight:600;letter-spacing:-0.015em;color:var(--dark)}
+.prw-note-b p{margin:0 0 12px;font-size:15.5px;line-height:1.7;color:var(--ink);max-width:66ch;white-space:pre-line}
+.prw-note-b p:last-child{margin-bottom:0}
+.prw-note-sign{display:flex;align-items:center;gap:10px;margin:20px 0 0;font-size:14px;font-weight:600;color:var(--dark);white-space:pre-line}
+.prw-note-sign::before{content:"";flex:none;width:22px;height:1.5px;background:currentColor;opacity:.45}
+@media (max-width:640px){.prw-note{padding:22px 18px 22px 22px}.prw-note-t{font-size:22px}}
 .prw-ovx-link{text-decoration:none;color:inherit}
 .prw-ovx-link:hover{background:color-mix(in srgb,var(--dark) 3%,transparent)}
 .prw-ovx-link .a svg{width:15px;height:15px;color:var(--faint)}
