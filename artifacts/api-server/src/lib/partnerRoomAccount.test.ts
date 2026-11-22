@@ -31,6 +31,18 @@ describe("hub account settings from the pop-up", () => {
   });
 });
 
+describe("the top-bar button's settings", () => {
+  it("takes the same actions as any other button, with a form's settings", () => {
+    const parsed = parseRoomAccount({ scheduleAction: "modal-form", scheduleUrl: "https://", modalFormSource: "global", modalFormId: "4160", modalHeadline: " Book a call ", modalShowPhone: true });
+    expect(parsed).toEqual({ ok: true, value: { scheduleAction: "modal-form", scheduleUrl: "", modalFormSource: "global", modalFormId: 4160, modalHeadline: "Book a call", modalShowPhone: true } });
+  });
+  it("still wants a real address for a button that opens a link", () => {
+    expect(parseRoomAccount({ scheduleAction: "url", scheduleUrl: "calendly.com/sam" }).ok).toBe(false);
+    expect(parseRoomAccount({ scheduleAction: "nonsense", scheduleUrl: "https://calendly.com/sam" })).toMatchObject({ ok: true, value: { scheduleAction: "url" } });
+    expect(parseRoomAccount({ scheduleChilipiperUrl: "javascript:x" }).ok).toBe(false);
+  });
+});
+
 describe("hub team from the pop-up", () => {
   it("keeps named people with their details, and drops blanks", () => {
     const parsed = parseRoomTeam({ teamNote: " Who to call ", team: [{ title: "Our team", members: [{ name: "Sam Lee", role: "AE", email: "sam@example.com", bookingUrl: "https://calendly.com/sam", phone: "", hidden: true }, { name: "  " }] }] });

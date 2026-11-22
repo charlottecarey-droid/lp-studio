@@ -1,4 +1,7 @@
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
+import { CtaButton } from "@/components/CtaButton";
+import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, LogIn, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -436,7 +439,7 @@ export interface RoomTeamGroup {
   hidden?: boolean;
 }
 
-export interface RoomWorkspaceBlockProps {
+export interface RoomWorkspaceBlockProps extends CtaModalConfig {
   partnerName: string;
   partnerLogoUrl?: string;
   /** Size of each logo in the top bar, as a percentage of the standard height (50–300). Blank = 100. */
@@ -457,6 +460,10 @@ export interface RoomWorkspaceBlockProps {
   /** "Schedule" in the top bar: where it books (a rep's booking page). Blank = no button. */
   scheduleUrl?: string;
   scheduleLabel?: string;
+  /** What the button does, like any other button in LP Studio: open a link (the default), a Chili Piper popup, a form, or a video. The form's own settings are the block's `modal…` fields. */
+  scheduleAction?: HeroCtaActionMode;
+  scheduleChilipiperUrl?: string;
+  scheduleVideoUrl?: string;
   /** The name of the rep whose calendar it books, for the builder to show. */
   scheduleRep?: string;
   eyebrow?: string;
@@ -2256,11 +2263,30 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
               {partnerLogo ? <img src={partnerLogo} alt={props.partnerName} style={{ height: Math.round(22 * logoScale(props.partnerLogoScale)), filter: partnerLogoFilter }} data-room-partner-logo /> : <span>{props.partnerName}</span>}
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-              {safeHttpUrl(props.scheduleUrl) && (
-                <a className="prw-sched" href={isEditor ? undefined : safeHttpUrl(props.scheduleUrl)} target="_blank" rel="noopener noreferrer" data-room-schedule>
-                  <CalendarPlus style={{ width: 14, height: 14 }} aria-hidden /> {scheduleButtonLabel(props.scheduleLabel)}
-                </a>
-              )}
+              {(() => {
+                const cta = roomScheduleCta(props);
+                if (!cta) return null;
+                const label = (
+                  <>
+                    <CalendarPlus style={{ width: 14, height: 14 }} aria-hidden /> {scheduleButtonLabel(props.scheduleLabel)}
+                  </>
+                );
+                // A plain link stays a link (it opens in a new tab and can be copied); anything else is the shared button.
+                if (cta.action === "url") {
+                  return (
+                    <a className="prw-sched" href={isEditor ? undefined : cta.url} target="_blank" rel="noopener noreferrer" data-room-schedule="url">
+                      {label}
+                    </a>
+                  );
+                }
+                return (
+                  <span data-room-schedule={cta.action} style={isEditor ? { pointerEvents: "none" } : undefined}>
+                    <CtaButton ctaAction={cta.action} chilipiperUrl={cta.chilipiperUrl} videoUrl={cta.videoUrl} {...pickCtaModalConfig(props)} className="prw-sched" source="partner-hub-schedule" animationsEnabled={false}>
+                      {label}
+                    </CtaButton>
+                  </span>
+                );
+              })()}
               {!isEditor && store && snapshot.status === "ready" && !snapshot.viewer ? (
                 // Nobody is signed in yet: the first thing to do is say who you are, not make a request.
                 <button type="button" className="prw-req" onClick={() => setAsk({ kind: "email" })} data-room-signin-button>
@@ -3416,6 +3442,22 @@ export function coverLabel(eyebrow: string | undefined, brandName: string | unde
 }
 
 /** The top-bar booking button says "Schedule" unless a rep typed their own words (the old default counts as none). */
+/**
+ * What the hub's top-bar button does, or null when there is nothing for it to
+ * do (so no button shows): a link needs an address, a Chili Piper popup or a
+ * video needs its link, the email-then-Chili-Piper form needs the scheduler it
+ * hands off to. A form needs nothing more: its settings have defaults.
+ */
+export function roomScheduleCta(props: Pick<RoomWorkspaceBlockProps, "scheduleAction" | "scheduleUrl" | "scheduleChilipiperUrl" | "scheduleVideoUrl" | "modalChilipiperUrl">): { action: HeroCtaActionMode; url?: string; chilipiperUrl?: string; videoUrl?: string } | null {
+  const action = props.scheduleAction ?? "url";
+  const http = (v: string | undefined) => safeHttpUrl(v);
+  if (action === "url") return http(props.scheduleUrl) ? { action, url: http(props.scheduleUrl) } : null;
+  if (action === "chilipiper") return http(props.scheduleChilipiperUrl) ? { action, chilipiperUrl: http(props.scheduleChilipiperUrl) } : null;
+  if (action === "video-modal") return http(props.scheduleVideoUrl) ? { action, videoUrl: http(props.scheduleVideoUrl) } : null;
+  if (action === "modal-chilipiper") return http(props.modalChilipiperUrl) ? { action } : null;
+  return action === "modal-form" ? { action } : null;
+}
+
 export function scheduleButtonLabel(label: string | undefined): string {
   const typed = (label ?? "").trim();
   return !typed || typed.toLowerCase() === "schedule a meeting" ? "Schedule" : typed;

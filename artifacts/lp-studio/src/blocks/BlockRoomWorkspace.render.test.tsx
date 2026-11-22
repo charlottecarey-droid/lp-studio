@@ -55,6 +55,7 @@ import {
   type RoomWorkspaceBlockProps,
   ROOM_LOGO_STEP_KEYS,
   roomLogoUploaded,
+  roomScheduleCta,
 } from "./BlockRoomWorkspace";
 
 const BRAND = { ...DEFAULT_BRAND, brandName: "Northwind" };
@@ -749,5 +750,24 @@ describe("the customer's logo on the action plan", () => {
     expect(roomLogoUploaded({ "onboard-logo": { done: true } })).toBe(true);
     expect(roomLogoUploaded({ "customer-logo": { done: true } })).toBe(true);
     expect(ROOM_LOGO_STEP_KEYS.has("brand-guidelines")).toBe(true);
+  });
+});
+
+describe("the hub's top-bar button", () => {
+  it("is a link by default, and only when there is a real address", () => {
+    expect(roomScheduleCta({ scheduleUrl: "https://calendly.com/sam" })).toEqual({ action: "url", url: "https://calendly.com/sam" });
+    expect(roomScheduleCta({ scheduleUrl: "" })).toBeNull();
+    expect(roomScheduleCta({ scheduleUrl: "javascript:alert(1)" })).toBeNull();
+  });
+  it("can open a form, a Chili Piper popup or a video, like any other button", () => {
+    expect(roomScheduleCta({ scheduleAction: "modal-form" })).toEqual({ action: "modal-form" });
+    expect(roomScheduleCta({ scheduleAction: "chilipiper", scheduleChilipiperUrl: "https://dandy.chilipiper.com/book/me" })).toMatchObject({ action: "chilipiper", chilipiperUrl: "https://dandy.chilipiper.com/book/me" });
+    expect(roomScheduleCta({ scheduleAction: "video-modal", scheduleVideoUrl: "https://vimeo.com/1" })).toMatchObject({ action: "video-modal" });
+  });
+  it("shows no button when the chosen action has nothing to open", () => {
+    expect(roomScheduleCta({ scheduleAction: "chilipiper" })).toBeNull();
+    expect(roomScheduleCta({ scheduleAction: "video-modal", scheduleUrl: "https://calendly.com/sam" })).toBeNull();
+    expect(roomScheduleCta({ scheduleAction: "modal-chilipiper" })).toBeNull();
+    expect(roomScheduleCta({ scheduleAction: "modal-chilipiper", modalChilipiperUrl: "https://dandy.chilipiper.com/router" })).toEqual({ action: "modal-chilipiper" });
   });
 });

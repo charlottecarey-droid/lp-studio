@@ -17,9 +17,12 @@ import { LibraryPicker } from "@/components/LibraryPicker";
 import { mergeTeamMembers, parseTeamList, TEAM_IMPORT_COLUMNS, type ImportedPerson } from "@/lib/room-team-import";
 import { Field, ItemHeader, moveItem } from "@/pages/builder/property-panels/glow/GlowPanelKit";
 import { ThumbButton } from "@/pages/builder/property-panels/HubPanels";
+import { CtaActionConfigSection } from "@/pages/builder/property-panels/CtaActionConfigSection";
+import { pickCtaModalConfig, type CtaSuiteFields } from "@/lib/cta-modal";
+import type { HeroCtaActionMode } from "@/lib/block-types";
 
 /** The page props the account fields edit. The pop-up saves exactly these. */
-export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
+export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "scheduleAction", "scheduleChilipiperUrl", "scheduleVideoUrl", "modalChilipiperUrl", "modalFormSource", "modalFormId", "modalMarketoBaseUrl", "modalMarketoMunchkinId", "modalMarketoFormId", "modalChiliPiperHandoffUrl", "modalChiliPiperHandoffMode", "modalChiliPiperHandoffFieldMap", "modalHeadline", "modalSubheadline", "modalSubmitText", "modalSuccessMessage", "modalDisclaimer", "modalShowFirstName", "modalShowLastName", "modalShowPhone", "modalShowCompany", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
 export type RoomAccountProps = Pick<RoomWorkspaceBlockProps, (typeof ROOM_ACCOUNT_KEYS)[number]>;
 export type RoomTeamProps = Pick<RoomWorkspaceBlockProps, "team" | "teamNote">;
 
@@ -173,6 +176,10 @@ const COVER_STYLES = [
 /** Who the hub is for, who can open it, the rollout dates, the cover, and the "Schedule" button. */
 export function RoomAccountFields({ props, update, team, brandName, note }: { props: Partial<RoomAccountProps>; update: (patch: Partial<RoomAccountProps>) => void; /** For the "Schedule" button: our people who have a booking link. */ team: RoomTeamGroup[]; brandName?: string; /** Said under the logo sizes (the builder reports the launch assets being remade). */ note?: string }) {
   const bookable = (team[0]?.members ?? []).filter((m) => /^https?:\/\//i.test((m.bookingUrl ?? "").trim()) && (m.name ?? "").trim()).map((m) => ({ name: m.name.trim(), role: m.role, bookingUrl: (m.bookingUrl ?? "").trim() }));
+  // Off, booking with a named teammate, or the full set of button actions.
+  const action = props.scheduleAction ?? "url";
+  const teammate = action === "url" ? bookable.find((m) => m.bookingUrl === props.scheduleUrl)?.name : undefined;
+  const scheduleMode = teammate ?? (action !== "url" || props.scheduleAction === "url" || !!(props.scheduleUrl ?? "").trim() ? "custom" : "off");
   const hasLogo = !!(props.partnerLogoUrl ?? "").trim();
   const coverStyle = props.coverStyle ?? "fade";
   return (
@@ -236,29 +243,35 @@ export function RoomAccountFields({ props, update, team, brandName, note }: { pr
         </div>
       </Group>
 
-      <Group title="“Schedule” button" hint="A button in the hub’s top bar that books time with one of your team." data-room-schedule-settings="">
-        <Field label="Whose calendar it books">
+      <Group title="Top-bar button" hint="A button in the hub’s top bar. Usually it books time with one of your team; it can also open a link, a form or a video." data-room-schedule-settings="">
+        <Field label="What it does">
           <Select
-            value={!props.scheduleUrl ? "off" : bookable.find((m) => m.bookingUrl === props.scheduleUrl)?.name ?? "custom"}
+            value={scheduleMode}
             onValueChange={(v) => {
-              if (v === "off") update({ scheduleUrl: "", scheduleRep: "" });
-              else if (v === "custom") update({ scheduleUrl: props.scheduleUrl || "https://", scheduleRep: "" });
-              else update({ scheduleUrl: bookable.find((m) => m.name === v)?.bookingUrl ?? "", scheduleRep: v });
+              if (v === "off") update({ scheduleUrl: "", scheduleRep: "", scheduleAction: undefined });
+              else if (v === "custom") update({ scheduleAction: props.scheduleAction ?? "url", scheduleUrl: props.scheduleUrl || "", scheduleRep: "" });
+              else update({ scheduleAction: "url", scheduleUrl: bookable.find((m) => m.name === v)?.bookingUrl ?? "", scheduleRep: v });
             }}
           >
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="off" className="text-xs">No button</SelectItem>
-              {bookable.map((m) => <SelectItem key={m.name} value={m.name} className="text-xs">{m.name}{m.role ? ` · ${m.role}` : ""}</SelectItem>)}
-              <SelectItem value="custom" className="text-xs">Another booking link…</SelectItem>
+              {bookable.map((m) => <SelectItem key={m.name} value={m.name} className="text-xs">Books with {m.name}{m.role ? ` · ${m.role}` : ""}</SelectItem>)}
+              <SelectItem value="custom" className="text-xs">A link, a form, Chili Piper or a video…</SelectItem>
             </SelectContent>
           </Select>
         </Field>
-        {bookable.length === 0 && !props.scheduleUrl && <p className="text-[11px] text-muted-foreground">Nobody on your team has a booking link yet. Add one under Team, or paste a link here.</p>}
-        {!!props.scheduleUrl && (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Field label="Booking link"><Input value={props.scheduleUrl} onChange={(e) => update({ scheduleUrl: e.target.value.trim(), scheduleRep: "" })} className="h-8 text-xs" placeholder="https://calendly.com/…" aria-label="Booking link" /></Field>
-            <Field label="Button text"><Input value={props.scheduleLabel ?? ""} onChange={(e) => update({ scheduleLabel: e.target.value })} className="h-8 text-xs" placeholder="Schedule" aria-label="Button text" /></Field>
+        {bookable.length === 0 && scheduleMode === "off" && <p className="text-[11px] text-muted-foreground">Nobody on your team has a booking link yet. Add one under Team, or choose “A link, a form…” here.</p>}
+        {scheduleMode !== "off" && (
+          <Field label="Button text"><Input value={props.scheduleLabel ?? ""} onChange={(e) => update({ scheduleLabel: e.target.value })} className="h-8 text-xs" placeholder="Schedule" aria-label="Button text" /></Field>
+        )}
+        {/* The same choices every other button in LP Studio has: a link, a Chili Piper popup, a form (yours or a global one) or a video. */}
+        {scheduleMode === "custom" && (
+          <div className="rounded-md border p-2.5" data-room-schedule-cta>
+            <CtaActionConfigSection
+              value={{ ctaAction: props.scheduleAction ?? "url", ctaUrl: props.scheduleUrl, chilipiperUrl: props.scheduleChilipiperUrl, videoUrl: props.scheduleVideoUrl, ...pickCtaModalConfig(props) }}
+              onChange={(v: CtaSuiteFields) => update({ scheduleAction: v.ctaAction as HeroCtaActionMode | undefined, scheduleUrl: (v.ctaUrl ?? "").trim(), scheduleChilipiperUrl: v.chilipiperUrl, scheduleVideoUrl: v.videoUrl, scheduleRep: "", ...pickCtaModalConfig(v) })}
+            />
           </div>
         )}
       </Group>

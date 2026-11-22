@@ -1265,7 +1265,7 @@ export function roomOgCardCopy(blocks: unknown, brandName: string): { headline: 
 /* ── Account and team, edited from the team's pop-up ─────────────────────── */
 
 /** The page props the pop-up's Account settings may change. Mirrors the client's ROOM_ACCOUNT_KEYS. */
-export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
+export const ROOM_ACCOUNT_KEYS = ["partnerName", "partnerShort", "partnerLogoUrl", "partnerLogoOriginal", "partnerLogoScale", "brandLogoScale", "requireEmail", "shareMap", "look", "scheduleUrl", "scheduleRep", "scheduleLabel", "scheduleAction", "scheduleChilipiperUrl", "scheduleVideoUrl", "modalChilipiperUrl", "modalFormSource", "modalFormId", "modalMarketoBaseUrl", "modalMarketoMunchkinId", "modalMarketoFormId", "modalChiliPiperHandoffUrl", "modalChiliPiperHandoffMode", "modalChiliPiperHandoffFieldMap", "modalHeadline", "modalSubheadline", "modalSubmitText", "modalSuccessMessage", "modalDisclaimer", "modalShowFirstName", "modalShowLastName", "modalShowPhone", "modalShowCompany", "kickoffDate", "rolloutDays", "headline", "eyebrow", "coverStyle", "coverPhotoScrolls", "heroImageUrl", "feedPhotoUrl"] as const;
 export const ROOM_TEAM_MAX_GROUPS = 8;
 export const ROOM_TEAM_MAX_MEMBERS = 200;
 
@@ -1308,10 +1308,29 @@ export function parseRoomAccount(raw: unknown): Parsed<Record<string, unknown>> 
   for (const k of ["partnerLogoOriginal", "requireEmail", "shareMap", "coverPhotoScrolls"] as const) if (has(k)) out[k] = r[k] === true;
   for (const k of ["partnerLogoScale", "brandLogoScale"] as const) if (has(k)) out[k] = percent(r[k]);
   if (has("look")) out.look = r.look === "polished" ? "polished" : "classic";
+  // The top-bar button does what any button in LP Studio can: a link, a Chili Piper popup, a form or a video.
+  const ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper", "video-modal"];
+  if (has("scheduleAction")) out.scheduleAction = ACTIONS.includes(String(r.scheduleAction)) ? r.scheduleAction : "url";
+  const linkAction = !has("scheduleAction") || out.scheduleAction === "url";
   if (has("scheduleUrl")) {
     const url = webAddress(r.scheduleUrl);
-    if (url === null) return { ok: false, error: "The booking link needs to start with https://" };
-    out.scheduleUrl = url;
+    // Only a button that opens the link needs the link to be right; any other kind ignores a half-typed one.
+    if (url === null && linkAction) return { ok: false, error: "The button’s link needs to start with https://" };
+    out.scheduleUrl = url ?? "";
+  }
+  for (const k of ["scheduleChilipiperUrl", "scheduleVideoUrl", "modalChilipiperUrl", "modalMarketoBaseUrl", "modalChiliPiperHandoffUrl"] as const) {
+    if (!has(k)) continue;
+    const url = webAddress(r[k]);
+    if (url === null) return { ok: false, error: "One of the button’s links needs to start with https://" };
+    out[k] = url;
+  }
+  for (const k of ["modalFormSource", "modalMarketoMunchkinId", "modalMarketoFormId", "modalChiliPiperHandoffMode", "modalHeadline", "modalSubheadline", "modalSubmitText", "modalSuccessMessage", "modalDisclaimer"] as const) if (has(k)) out[k] = cleanText(r[k], 600);
+  for (const k of ["modalShowFirstName", "modalShowLastName", "modalShowPhone", "modalShowCompany"] as const) if (has(k)) out[k] = r[k] === true;
+  if (has("modalFormId")) out.modalFormId = typeof r.modalFormId === "number" && Number.isInteger(r.modalFormId) && r.modalFormId > 0 ? r.modalFormId : typeof r.modalFormId === "string" && /^\d{1,9}$/.test(r.modalFormId.trim()) ? Number(r.modalFormId.trim()) : null;
+  if (has("modalChiliPiperHandoffFieldMap")) {
+    // A small map of form field → Chili Piper field. Anything else is dropped.
+    const map = r.modalChiliPiperHandoffFieldMap;
+    out.modalChiliPiperHandoffFieldMap = map && typeof map === "object" && !Array.isArray(map) && JSON.stringify(map).length <= 4000 ? Object.fromEntries(Object.entries(map as Record<string, unknown>).filter(([k, v]) => typeof v === "string" && k.length <= 80 && v.length <= 200).slice(0, 40)) : null;
   }
   if (has("scheduleRep")) out.scheduleRep = cleanText(r.scheduleRep, 120);
   if (has("scheduleLabel")) out.scheduleLabel = cleanText(r.scheduleLabel, 40);
