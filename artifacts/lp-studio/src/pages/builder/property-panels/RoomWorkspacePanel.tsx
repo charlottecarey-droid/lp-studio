@@ -42,7 +42,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { VideoPicker } from "@/components/VideoPicker";
-import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, overviewVideos, type RoomOverviewExtra, type RoomOverviewVideo, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
+import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, OVERVIEW_NOTE_EYEBROW, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, overviewVideos, type RoomOverviewExtra, type RoomOverviewVideo, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -442,7 +442,25 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
               );
             })()}
             {x.kind === "text" && (
-              <Field label="Text"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} rows={4} className="text-xs" placeholder="What the customer should know" /></Field>
+              <>
+                <Field label="Eyebrow (above the title; clear it to show none)"><Input value={x.eyebrow ?? OVERVIEW_NOTE_EYEBROW} onChange={(e) => setExtra(i, { eyebrow: e.target.value })} className="h-8 text-xs" placeholder={OVERVIEW_NOTE_EYEBROW} /></Field>
+                <Field label="Message"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} rows={5} className="text-xs" placeholder={"What the customer should know.\n\nA short last line (like your team's name) shows as the sign-off."} /></Field>
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-medium text-muted-foreground">Links (shown as buttons under the message)</span>
+                  {(x.items ?? []).map((it, j) => (
+                    <div key={j} className="space-y-1 rounded border p-1.5" data-room-note-link-edit>
+                      <div className="flex gap-1">
+                        <Input value={it.title} onChange={(e) => setExtraItem(i, j, { title: e.target.value })} className="h-7 text-xs" placeholder="Button text (Book your kickoff)" aria-label="Link button text" />
+                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0 text-muted-foreground" aria-label="Remove this link" onClick={() => setExtra(i, { items: (x.items ?? []).filter((_, k) => k !== j) })}><X className="h-3.5 w-3.5" /></Button>
+                      </div>
+                      <Input value={it.url} onChange={(e) => setExtraItem(i, j, { url: e.target.value.trim() })} className="h-7 text-xs" placeholder="https://…" aria-label="Link address" />
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtra(i, { items: [...(x.items ?? []), { title: "", url: "" }] })} data-room-note-add-link>
+                    <Plus className="h-3 w-3" /> Add a link
+                  </Button>
+                </div>
+              </>
             )}
             {x.kind === "resources" && (
               <div className="space-y-1.5">

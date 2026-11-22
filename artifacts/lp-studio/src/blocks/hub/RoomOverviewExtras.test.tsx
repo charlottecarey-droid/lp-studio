@@ -159,19 +159,42 @@ describe("the team's own Overview sections", () => {
     });
   });
 
-  describe("Note", () => {
-    it("reads as a letter on the page (no card), with a short last line as the sign-off", () => {
-      const note: RoomOverviewExtra = { key: "ov-text-2", kind: "text", title: "Welcome, Signature Team!", body: "Welcome to Dandy!\n\nWe are so excited to partner with you on your lab consolidation journey.\n\nYour Dandy Account Team" };
-      const out = html({ overviewExtras: [note] });
+  describe("Pinned note", () => {
+    const base: RoomOverviewExtra = { key: "ov-text-2", kind: "text", title: "Welcome, Signature Team!", body: "Welcome to Dandy!\n\nWe are so excited to partner with you on your lab consolidation journey.\n\nYour Dandy Account Team" };
+
+    it("is a pinned card with the default eyebrow, paragraphs, and a short last line as the sign-off", () => {
+      const out = html({ overviewExtras: [base] });
       expect(out).toContain('class="prw-sec prw-note"');
-      expect(out).not.toMatch(/prw-card[^"]*" data-room-ov-extra="ov-text-2"/);
+      expect(out).toContain("prw-note-pin");
+      expect(out).toMatch(/data-room-note-eyebrow="?[^>]*>From your account team</);
       expect(out).toContain("<p>Welcome to Dandy!</p>");
       expect(out).toMatch(/data-room-note-signoff="?[^>]*>Your Dandy Account Team</);
+    });
+
+    it("the team can change or clear the eyebrow", () => {
+      expect(html({ overviewExtras: [{ ...base, eyebrow: "From Matthew, your account owner" }] })).toContain("From Matthew, your account owner");
+      expect(html({ overviewExtras: [{ ...base, eyebrow: "" }] })).not.toContain("data-room-note-eyebrow");
+    });
+
+    it("shows the team's links as buttons, only safe ones with a name", () => {
+      const out = html({ overviewExtras: [{ ...base, items: [{ title: "Book your kickoff", url: "https://cal.example.com/kickoff" }, { title: "Bad", url: "javascript:alert(1)" }, { title: "", url: "https://example.com/noname" }] }] });
+      expect(out).toContain("data-room-note-links");
+      expect(out).toMatch(/href="https:\/\/cal\.example\.com\/kickoff"[^>]*>Book your kickoff/);
+      expect(out).not.toContain("javascript:alert");
+      expect(out).not.toContain("example.com/noname");
+      // A note with only links still shows.
+      expect(overviewExtraHasContent({ key: "n", kind: "text", title: "", items: [{ title: "Go", url: "https://example.com" }] })).toBe(true);
+      // No links: no button row.
+      expect(html({ overviewExtras: [base] })).not.toContain("data-room-note-links");
     });
 
     it("a note that ends in a sentence has no sign-off", () => {
       const out = html({ overviewExtras: [{ key: "ov-text-3", kind: "text", title: "Heads up", body: "First line.\n\nWe will be in touch soon." }] });
       expect(out).not.toContain("data-room-note-signoff");
+    });
+
+    it("a new note starts at the top with the eyebrow set and room for links", () => {
+      expect(newOverviewExtra("text")).toMatchObject({ kind: "text", eyebrow: "From your account team", items: [], position: "top" });
     });
   });
 });

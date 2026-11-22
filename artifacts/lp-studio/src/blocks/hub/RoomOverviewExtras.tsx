@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, ExternalLink, Eye, EyeOff, Link2, PlayCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, ExternalLink, Eye, EyeOff, Link2, Pin, PlayCircle, RotateCcw } from "lucide-react";
 import { BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { extractWistiaId } from "@/lib/wistia";
 import { isNativeVideoUrl } from "@/lib/video-utils";
@@ -48,14 +48,19 @@ export interface RoomOverviewExtra {
   videoUrl?: string;
   /** Video: the videos, in order. When set it wins over videoUrl/title/body. */
   videos?: RoomOverviewVideo[];
-  /** Resources: links the customer can open. */
+  /** Resources: links the customer can open. Note: the team's links, shown as buttons under the message. */
   items?: RoomOverviewResource[];
+  /** Note: the small line above the title. Unset = "From your account team"; empty = none. */
+  eyebrow?: string;
   /** Where on the Overview: under the welcome ("top") or after everything else (the default). */
   position?: "top" | "bottom";
   hidden?: boolean;
 }
 
-export const OVERVIEW_EXTRA_LABEL: Record<RoomOverviewExtraKind, string> = { video: "Video", links: "Important links", resources: "Resources", text: "Text" };
+/** A note's eyebrow when the team has not set one. */
+export const OVERVIEW_NOTE_EYEBROW = "From your account team";
+
+export const OVERVIEW_EXTRA_LABEL: Record<RoomOverviewExtraKind, string> = { video: "Video", links: "Important links", resources: "Resources", text: "Pinned note" };
 
 /** A new section of this kind, ready to fill in. */
 export function newOverviewExtra(kind: RoomOverviewExtraKind, existing: RoomOverviewExtra[] = []): RoomOverviewExtra {
@@ -65,7 +70,7 @@ export function newOverviewExtra(kind: RoomOverviewExtraKind, existing: RoomOver
   if (kind === "video") return { key, kind, title: "Welcome from your Dandy team", videos: [{ title: "Welcome from your Dandy team", url: "" }], position: "top" };
   if (kind === "links") return { key, kind, title: "Important links", position: "bottom" };
   if (kind === "resources") return { key, kind, title: "Resources", items: [{ title: "", url: "" }], position: "bottom" };
-  return { key, kind, title: "A note from your team", body: "", position: "bottom" };
+  return { key, kind, title: "A note from your team", body: "", eyebrow: OVERVIEW_NOTE_EYEBROW, items: [], position: "top" };
 }
 
 /**
@@ -120,7 +125,12 @@ export function overviewExtraHasContent(extra: RoomOverviewExtra, hubLinks = 0):
   if (extra.kind === "video") return overviewVideos(extra).some((v) => !!overviewVideoEmbed(v.url));
   if (extra.kind === "links") return hubLinks > 0;
   if (extra.kind === "resources") return (extra.items ?? []).some((i) => (i.title ?? "").trim() && openable(i.url ?? ""));
-  return !!((extra.title ?? "").trim() || (extra.body ?? "").trim());
+  return !!((extra.title ?? "").trim() || (extra.body ?? "").trim() || noteLinks(extra).length > 0);
+}
+
+/** A note's links that can be shown: a name and a link a browser can open safely. */
+function noteLinks(extra: RoomOverviewExtra): RoomOverviewResource[] {
+  return (extra.items ?? []).filter((i) => (i.title ?? "").trim() && openable(i.url ?? ""));
 }
 
 /** What still needs filling in, for the builder's placeholder. */
@@ -157,15 +167,37 @@ export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra;
       </div>
     );
   }
-  if (!title && !body) return null;
-  // A note reads as a letter on the page, not another card: paragraphs, and a short last line becomes the sign-off.
+  const links = noteLinks(extra);
+  if (!title && !body && links.length === 0) return null;
+  // A pinned note from the team: an eyebrow, the title, the message in paragraphs, the team's links as buttons,
+  // and a short last line set as the sign-off.
+  const eyebrow = (extra.eyebrow ?? OVERVIEW_NOTE_EYEBROW).trim();
   const paras = body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const last = paras[paras.length - 1] ?? "";
   const signoff = paras.length >= 2 && last.length <= 60 && !/[.?!:;]$/.test(last) ? paras.pop() : undefined;
   return (
     <div className="prw-sec prw-note" data-room-ov-extra={extra.key} data-kind="text">
+      <span className="prw-note-pin" aria-hidden><Pin /></span>
+      {eyebrow && <div className="prw-note-eb" data-room-note-eyebrow>{eyebrow}</div>}
       {title && <h3 className="prw-note-t" style={{ fontFamily: BRAND_DISPLAY_STACK }}>{title}</h3>}
       {paras.length > 0 && <div className="prw-note-b">{paras.map((p, i) => <p key={i}>{p}</p>)}</div>}
+      {links.length > 0 && (
+        <div className="prw-note-links" data-room-note-links>
+          {links.map((l, n) => (
+            <a
+              key={`${l.url}-${n}`}
+              className="prw-note-link"
+              href={l.url.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={(l.description ?? "").trim() || undefined}
+              onClick={() => onOpen?.({ key: `${extra.key}:${n}`, title: l.title.trim(), url: l.url.trim() })}
+            >
+              {l.title.trim()} <ArrowUpRight aria-hidden />
+            </a>
+          ))}
+        </div>
+      )}
       {signoff && <p className="prw-note-sign" data-room-note-signoff>{signoff}</p>}
     </div>
   );
@@ -316,14 +348,21 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-vc-arrow:focus-visible,.prw-vc-dot:focus-visible,.prw-vc-next:focus-visible{outline:2px solid var(--dark);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.prw-vc .prw-ovx-video{animation:none}.prw-vc-dot,.prw-vc-next svg{transition:none}}
 @media (max-width:640px){.prw-vc-next{padding:6px 10px}.prw-card>h3:has(.prw-vc-next){flex-wrap:wrap;gap:10px}}
-.prw-note{position:relative;padding:26px 28px;background:linear-gradient(90deg,color-mix(in srgb,var(--dark) 6%,transparent),transparent 72%);border-radius:0 14px 14px 0}
-.prw-note::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px;background:var(--dark)}
-.prw-note-t{margin:0 0 14px;font-size:26px;line-height:1.2;font-weight:600;letter-spacing:-0.015em;color:var(--dark)}
-.prw-note-b p{margin:0 0 12px;font-size:15.5px;line-height:1.7;color:var(--ink);max-width:66ch;white-space:pre-line}
+.prw-note{position:relative;margin-top:44px;padding:30px 32px 26px;border-radius:14px;border:1px solid color-mix(in srgb,var(--dark) 12%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--dark) 5%,#fff) 0,#fff 140px);box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 32px -16px rgba(16,24,40,.18)}
+.prw-note-pin{position:absolute;top:-16px;left:30px;display:grid;place-items:center;width:32px;height:32px;border-radius:999px;background:var(--dark);color:#fff;box-shadow:0 0 0 4px var(--paper),0 4px 10px -2px rgba(16,24,40,.25)}
+.prw-note-pin svg{width:15px;height:15px;transform:rotate(45deg)}
+.prw-note-eb{margin:0 0 8px;font-size:12.5px;font-weight:600;color:color-mix(in srgb,var(--dark) 72%,var(--body))}
+.prw-note-t{margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.015em;color:var(--dark)}
+.prw-note-b p{margin:0 0 12px;font-size:15px;line-height:1.7;color:var(--ink);max-width:68ch;white-space:pre-line}
 .prw-note-b p:last-child{margin-bottom:0}
-.prw-note-sign{display:flex;align-items:center;gap:10px;margin:20px 0 0;font-size:14px;font-weight:600;color:var(--dark);white-space:pre-line}
-.prw-note-sign::before{content:"";flex:none;width:22px;height:1.5px;background:currentColor;opacity:.45}
-@media (max-width:640px){.prw-note{padding:22px 18px 22px 22px}.prw-note-t{font-size:22px}}
+.prw-note-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.prw-note-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--dark);text-decoration:none;background:color-mix(in srgb,var(--dark) 5%,#fff);border:1px solid color-mix(in srgb,var(--dark) 16%,transparent);border-radius:999px;padding:7px 12px 7px 14px;transition:background .15s,border-color .15s}
+.prw-note-link svg{width:14px;height:14px;transition:transform .15s}
+.prw-note-link:hover{background:color-mix(in srgb,var(--dark) 9%,#fff);border-color:color-mix(in srgb,var(--dark) 32%,transparent)}
+.prw-note-link:hover svg{transform:translate(1px,-1px)}
+.prw-note-link:focus-visible{outline:2px solid var(--dark);outline-offset:2px}
+.prw-note-sign{display:flex;align-items:center;gap:10px;margin:22px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:14px;font-weight:600;color:var(--dark);white-space:pre-line}
+@media (max-width:640px){.prw-note{padding:28px 20px 22px}.prw-note-pin{left:20px}.prw-note-t{font-size:21px}}
 .prw-ovx-link{text-decoration:none;color:inherit}
 .prw-ovx-link:hover{background:color-mix(in srgb,var(--dark) 3%,transparent)}
 .prw-ovx-link .a svg{width:15px;height:15px;color:var(--faint)}
