@@ -1292,9 +1292,11 @@ const CSS = `
 .prw-btn.pri{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
 .prw-btn:disabled{opacity:.6;cursor:default}
 .prw-btn svg{width:13px;height:13px}
-.prw-tl-more{display:flex;justify-content:flex-end;margin-top:16px}
-.prw-tl-more .prw-btn svg{transition:transform .15s}
-.prw-tl-more .prw-btn:hover svg{transform:translateX(2px)}
+.prw-tl-more{display:flex;justify-content:flex-end;margin-top:18px}
+.prw .prw-tl-link{display:inline-flex;align-items:center;gap:6px;padding:2px 0;border:0;background:none;cursor:pointer;font-size:13.5px;font-weight:700;color:var(--dark);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:4px}
+.prw-tl-link svg{width:15px;height:15px;transition:transform .15s}
+.prw-tl-link:hover svg{transform:translateX(3px)}
+.prw-tl-link:focus-visible{outline:2px solid var(--dark);outline-offset:3px;border-radius:4px}
 .prw-ib{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1px solid #D4D8D0;background:#fff;color:var(--dark);padding:0;flex:none}
 .prw-ib svg{width:14px;height:14px}
 .prw-ib:hover,.prw-btn:hover{border-color:var(--dark)}
@@ -2613,7 +2615,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     {/* The rollout timeline's way into the Scorecard (the expansion one links from its heading). */}
                     {canScorecard && (
                       <div className="prw-tl-more">
-                        <button type="button" className="prw-btn" onClick={() => setView("practices")} data-room-progress-scorecard>
+                        <button type="button" className="prw-tl-link" onClick={() => setView("practices")} data-room-progress-scorecard>
                           View {(modules.find((m) => m.key === "practices")?.label ?? "Scorecard").toLowerCase()} <ArrowRight aria-hidden />
                         </button>
                       </div>
