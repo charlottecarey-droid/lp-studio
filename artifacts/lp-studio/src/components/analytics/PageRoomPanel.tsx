@@ -11,6 +11,7 @@ import { RoomInviteSection } from "./RoomInvite";
 import { RoomPerformance } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
 import type { HubCover } from "./RoomCover";
+import { RoomSetupChecklist, type HubSetupItem } from "./RoomSetup";
 import { RoomAccountSettings, RoomTeamSettings, accountHint, teamHint } from "./RoomAccountSettings";
 import type { RoomAccountProps, RoomTeamProps } from "./RoomAccountEditor";
 import type { RoomTeamGroup } from "@/blocks/BlockRoomWorkspace";
@@ -66,6 +67,8 @@ interface RoomDetail {
   isWorkspace?: boolean;
   /** False while the hub is a draft (the customer's link does not work yet). */
   published?: boolean;
+  /** What is left before the hub can go to the customer. */
+  setup?: HubSetupItem[];
   /** The marketing plan as a queue: what the customer said yes to, and whether marketing has it yet. */
   planQueue?: PlanQueueItem[];
   choices?: { key: string; title: string; options: string[]; value: string | null; chosenBy: string | null; chosenAt: string | null }[];
@@ -151,6 +154,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   // Goals are set once and rarely touched: they live in Settings now, so an old link to them lands there with Goals open.
   const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab === "goals" ? "settings" : initialTab);
   const qc = useQueryClient();
+  /** The setup step being worked on (publishing from the checklist). */
+  const [setupBusy, setSetupBusy] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["page-room", pageId],
     queryFn: async () => {
@@ -260,6 +265,29 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
   const goalAgreed = !!data.tasks.find((x) => x.key === "goals-agreed")?.done;
   const allowedPeople = others.filter((m) => m.status === "allowed").length;
   const noAccessYet = data.settings.allowedDomains.length === 0 && !data.members.some((m) => m.status === "allowed");
+
+  // A setup step's button goes to where it is done: a tab, with the right Settings section opened and in view.
+  const goSetup = async (item: HubSetupItem) => {
+    if (item.where === "publish") {
+      setSetupBusy(item.key);
+      const r = await fetch(`/api/lp/partner-rooms/${pageId}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publish: true }) });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; code?: string };
+      setSetupBusy(null);
+      if (!r.ok) return setError(j.code === "fact_flags_pending" ? "Some facts on the page need a review first. Open Edit content to check them." : (j.error ?? "Couldn't publish the hub"));
+      await Promise.all([refresh(), qc.invalidateQueries({ queryKey: ["partner-hub-setup", pageId] }), qc.invalidateQueries({ queryKey: ["partner-hubs"] })]);
+      return;
+    }
+    if (item.where === "kit") return setTab("kit");
+    setTab("settings");
+    const fold = { account: "account", team: "team", notify: "notify", invite: "invite" }[item.where];
+    // The section is drawn on the next paint; open it and bring it into view.
+    setTimeout(() => {
+      const el = document.querySelector<HTMLDetailsElement>(`[data-room-${fold}-fold]`);
+      if (!el) return;
+      el.open = true;
+      el.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 60);
+  };
 
   // Files the customer sent. New ones (the last week) are work for To do; the whole list lives under Engagement.
   const recentUploads = data.uploads.filter((u) => Date.now() - new Date(u.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000);
@@ -545,7 +573,8 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
         )}
         {tab === "activity" && (
           <div className="space-y-6" data-room-todo>
-            {needsYou === 0 && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
+            {data.isWorkspace && <RoomSetupChecklist items={data.setup ?? []} marketingName={kitNames.kit === "Marketing" ? "Marketing" : "Launch kit"} onGo={goSetup} busy={setupBusy} />}
+            {needsYou === 0 && !(data.setup ?? []).some((i) => !i.done) && <p className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">Nothing needs you right now.</p>}
 
             {/* Most pressing first: someone locked out, then what the customer asked us for, then what we owe marketing,
                 then what they sent, then what we are waiting on them for. Reference and ideas come last. */}
@@ -854,7 +883,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
             </Fold>
 
             {data.isWorkspace && (
-              <Fold title="Invite the customer’s team" hint="Email each person their own link">
+              <Fold title="Invite the customer’s team" hint="Email each person their own link" data-room-invite-fold>
                 <RoomInviteSection pageId={pageId} onInvited={refresh} />
               </Fold>
             )}
@@ -981,7 +1010,7 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
               </Fold>
             )}
 
-            <Fold title="Notifications and connections" hint={[notifyVia === "slack" ? "Slack" : notifyVia === "email" ? "Email to the account owner" : "Slack and email", ...(data.isWorkspace ? ["Salesforce, Asana"] : [])].join(" · ")}>
+            <Fold data-room-notify-fold title="Notifications and connections" hint={[notifyVia === "slack" ? "Slack" : notifyVia === "email" ? "Email to the account owner" : "Slack and email", ...(data.isWorkspace ? ["Salesforce, Asana"] : [])].join(" · ")}>
               <div className="space-y-1" data-room-notify>
                 <label className="block max-w-sm space-y-1 text-xs">
                   <span className="font-medium text-muted-foreground">Tell us about activity in this hub by</span>

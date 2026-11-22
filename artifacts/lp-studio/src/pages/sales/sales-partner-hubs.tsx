@@ -13,6 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { fmtWhen } from "@/components/analytics/RoomPerformance";
 import type { RoomPanelTab } from "@/components/analytics/PageRoomPanel";
 import { filterHubs, hubFlags, hubLandingTab, hubStageText, needsLine, sortHubs, type HubRow } from "./sales-partner-hubs-shared";
+import { SetupStatus, hubSetupState } from "@/components/analytics/RoomSetup";
 
 /* ----------------------------------------------------------------------------
  * Sales Console → Partner Hubs. Where a rep finds their hubs, makes one for an
@@ -30,7 +31,7 @@ interface HubSetup {
   status: "live" | "draft";
   url: string;
   stage?: "rollout" | "expansion";
-  setup: { key: string; title: string; done: boolean; where: "builder" | "kit" | "settings" }[];
+  setup: { key: string; title: string; done: boolean; where: "account" | "team" | "kit" | "notify" | "publish" | "invite" }[];
 }
 
 async function json<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: string } }> {
@@ -168,7 +169,6 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
       return r.ok ? r.data : null;
     },
   });
-  const todo = (data?.setup ?? []).filter((s) => !s.done);
   const [publishing, setPublishing] = useState(false);
   /** Publish the hub (or take it offline) from here, by the same rules as publishing any page. */
   const setLive = async (publish: boolean) => {
@@ -188,6 +188,7 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
           <DialogTitle className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {data?.name ?? "Partner Hub"}
             {data && <span className={`text-sm font-normal ${data.status === "live" ? "text-emerald-700" : "text-muted-foreground"}`}>{data.status === "live" ? "Live" : "Draft"}</span>}
+            {data && <SetupStatus setup={hubSetupState(data.setup)} />}
           </DialogTitle>
           <DialogDescription className="sr-only">Manage this Partner Hub</DialogDescription>
         </DialogHeader>
@@ -210,27 +211,6 @@ function HubDialog({ pageId, tab, onTab, onClose }: { pageId: number | null; tab
                 </Button>
               )}
             </div>
-            {todo.length > 0 && (
-              <section className="rounded-md border px-4 py-3" data-hub-setup>
-                <h4 className="text-sm font-semibold">
-                  Still to do before the customer can use it <span className="font-normal text-muted-foreground">· {todo.length} of {data?.setup.length}</span>
-                </h4>
-                <ul className="mt-2 divide-y">
-                  {todo.map((s) => (
-                    <li key={s.key} className="flex items-center justify-between gap-3 py-2 text-sm">
-                      <span>{s.title}</span>
-                      {s.where === "builder" ? (
-                        <Button asChild size="sm" variant="outline">
-                          <a href={`/builder/${pageId}`} target="_blank" rel="noopener">Open editor</a>
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="outline" onClick={() => onTab(s.where === "kit" ? "kit" : "settings")}>{s.where === "kit" ? (data?.stage === "expansion" ? "Marketing" : "Launch kit") : "Invite"}</Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
             <Suspense fallback={<Skeleton className="h-40 w-full" />}>
               {/* The panel reads its starting tab once, so a new tab choice remounts it. */}
               <PageRoomPanel key={`${pageId}-${tab}`} pageId={pageId} initialTab={tab} embedded />
@@ -394,6 +374,7 @@ export default function SalesPartnerHubs() {
                         <span className="block font-medium">{h.name}{h.test ? " (test)" : ""}</span>
                         <span className="block text-xs text-muted-foreground">
                           <span className={h.status === "live" ? "text-emerald-700" : ""}>{h.status === "live" ? "Live" : "Draft"}</span>
+                          <SetupStatus setup={h.setup} className="ml-1.5" />
                           {h.account?.owner ? ` · ${h.account.owner}` : ""}
                         </span>
                         {hubFlags(h).length > 0 && <span className="mt-0.5 block text-xs font-medium text-amber-700" data-hub-flags>{hubFlags(h).join(" · ")}</span>}

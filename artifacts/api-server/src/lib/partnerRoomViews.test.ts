@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hubIsMine, hubSetupItems, parseRoomView, sameSfdcId, summarizeRoomViews, visitsFromViews, VIEW_MAX_SECONDS, type RoomViewRow } from "./partnerRoomViews";
+import { hubIsMine, hubSetupItems, hubSetupState, parseRoomView, sameSfdcId, summarizeRoomViews, visitsFromViews, VIEW_MAX_SECONDS, type RoomViewRow } from "./partnerRoomViews";
 
 const at = (iso: string) => new Date(iso);
 const row = (o: Partial<RoomViewRow> & { createdAt: Date }): RoomViewRow => ({ sessionId: "sess-0001", module: "overview", seconds: 0, viewerEmail: null, viewerName: null, ...o });
@@ -79,14 +79,21 @@ describe("hub list helpers", () => {
 describe("setup checklist", () => {
   it("reads what is left from the hub as it is now", () => {
     const fresh = hubSetupItems({ team: [{ members: [{ name: "Sam Lee" }] }, { members: [{ name: "[Name]" }] }], assets: [{ kind: "pdf", title: "Guide", fileUrl: "/api/storage/x.pdf" }] }, { published: false, invited: 0 });
-    expect(fresh.map((i) => [i.key, i.done])).toEqual([["logo", false], ["team", false], ["kit", false], ["publish", false], ["invite", false]]);
+    expect(fresh.map((i) => [i.key, i.done])).toEqual([["logo", false], ["kickoff", false], ["ourTeam", true], ["team", false], ["kit", false], ["slack", false], ["publish", false], ["invite", false]]);
     const ready = hubSetupItems(
-      { partnerLogoUrl: "/logo.png", team: [{ members: [{ name: "Sam Lee" }] }, { members: [{ name: "Ana Ruiz" }, { name: "Hidden", hidden: true }] }], assets: [{ fileUrl: "/a.pdf" }, { fileUrl: "/b.png" }, { fileUrl: "/c.png", hidden: true }] },
-      { published: true, invited: 3 },
+      { partnerLogoUrl: "/logo.png", kickoffDate: "2026-11-03", team: [{ members: [{ name: "Sam Lee" }] }, { members: [{ name: "Ana Ruiz" }, { name: "Hidden", hidden: true }] }], assets: [{ fileUrl: "/a.pdf" }, { fileUrl: "/b.png" }, { fileUrl: "/c.png", hidden: true }] },
+      { published: true, invited: 3, slackLinked: true },
     );
     expect(ready.every((i) => i.done)).toBe(true);
+    expect(ready.find((i) => i.key === "ourTeam")?.title).toBe("Check your team (1 listed)");
     expect(ready.find((i) => i.key === "team")?.title).toBe("Check the customer's team (1 listed)");
     expect(ready.find((i) => i.key === "invite")?.title).toBe("Invite the customer (3 invited)");
+  });
+  it("says whether a hub is in setup, ready to share, or shared", () => {
+    const step = (where: "account" | "publish" | "invite", done: boolean) => ({ where, done });
+    expect(hubSetupState([step("account", false), step("publish", false), step("invite", false)])).toEqual({ state: "setup", left: 1, total: 3 });
+    expect(hubSetupState([step("account", true), step("publish", false), step("invite", false)])).toEqual({ state: "ready", left: 2, total: 3 });
+    expect(hubSetupState([step("account", true), step("publish", true), step("invite", true)])).toEqual({ state: "shared", left: 0, total: 3 });
   });
   it("survives a hub with no content", () => {
     expect(hubSetupItems(null, { published: false, invited: 0 }).filter((i) => i.done)).toEqual([]);

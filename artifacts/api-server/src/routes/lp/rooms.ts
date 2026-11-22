@@ -59,7 +59,7 @@ import { ensurePracticeSite, setRoomPracticeLink } from "../../lib/partnerRoomPr
 import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { unlistedPeople } from "../../lib/partnerRoomTeam";
-import { parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
+import { hubSetupItems, parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
 import { createIntakeTask } from "../../lib/asana";
 import { sfdcService } from "../../lib/sfdc-service";
 import { zipCentroid } from "../../lib/zipCentroids";
@@ -1604,6 +1604,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
         ])
       : [[], [], []];
     const [fullSettings] = await db.select().from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1);
+    const [pageRow] = await db.select({ status: lpPagesTable.status, blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1);
     res.json({
       isWorkspace: page.isWorkspace,
       digest: { enabled: !!fullSettings?.digestEnabled, recipients: Array.isArray(fullSettings?.digestRecipients) ? fullSettings.digestRecipients : [], lastSentAt: fullSettings?.lastDigestAt?.toISOString() ?? null },
@@ -1648,7 +1649,9 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       contacts: contactRows.map((c) => ({ id: c.id, name: c.name, role: c.role, email: c.email, addedBy: c.addedByEmail, createdAt: c.createdAt.toISOString() })),
       wins,
       isRoom: page.tasks.size > 0 || page.isWorkspace,
-      published: (await db.select({ status: lpPagesTable.status }).from(lpPagesTable).where(eq(lpPagesTable.id, page.id)).limit(1))[0]?.status === "published",
+      published: pageRow?.status === "published",
+      // What is left before the hub can go to the customer, read from the hub as it is now.
+      setup: page.isWorkspace ? hubSetupItems(roomWorkspaceProps(resolveRoomBlocks(pageRow?.blocks)), { published: pageRow?.status === "published", invited: members.filter((m) => m.status === "allowed").length, slackLinked: !!fullSettings?.slackChannelId }) : [],
       // The marketing plan as a queue: what the customer said yes to and whether marketing has it yet.
       planQueue: page.isWorkspace ? planQueueFor(page, choiceRows, requests) : [],
       requests: requests.map((r) => ({

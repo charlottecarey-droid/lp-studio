@@ -195,11 +195,13 @@ export function hubIsMine(user: { email?: string | null; name?: string | null },
 /* ── Setup checklist ──────────────────────────────────────────────────────── */
 
 export interface HubSetupItem {
-  key: "logo" | "team" | "kit" | "publish" | "invite";
+  key: "logo" | "kickoff" | "ourTeam" | "team" | "kit" | "slack" | "publish" | "invite";
   title: string;
+  /** One line on why it matters, shown under the title while it is still to do. */
+  why: string;
   done: boolean;
-  /** Where the rep does it: the builder, or a tab of the hub's settings pop-up. */
-  where: "builder" | "kit" | "settings";
+  /** Where the rep does it: a section of the hub's Settings, the marketing tab, or the Publish button. */
+  where: "account" | "team" | "kit" | "notify" | "publish" | "invite";
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -210,19 +212,36 @@ const list = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.fi
  * hub as it is now (not from when it was made), so the list is right whoever
  * did the work and wherever.
  */
-export function hubSetupItems(props: Record<string, unknown> | null, facts: { published: boolean; invited: number }): HubSetupItem[] {
+export function hubSetupItems(props: Record<string, unknown> | null, facts: { published: boolean; invited: number; slackLinked?: boolean }): HubSetupItem[] {
   const p = props ?? {};
-  // The customer's people sit in every team group after the first (ours). Placeholders like "[Name]" do not count.
-  const customers = list(p.team)
-    .slice(1)
-    .flatMap((g) => list(g.members))
-    .filter((m) => m.hidden !== true && str(m.name) && !/^\[.*\]$/.test(str(m.name)));
+  // Placeholders like "[Name]" do not count as people.
+  const named = (g: Record<string, unknown> | undefined) => list(g?.members).filter((m) => m.hidden !== true && str(m.name) && !/^\[.*\]$/.test(str(m.name)));
+  const groups = list(p.team);
+  const ours = named(groups[0]);
+  // The customer's people sit in every team group after the first (ours).
+  const customers = groups.slice(1).flatMap((g) => named(g));
   const files = list(p.assets).filter((a) => a.hidden !== true && (str(a.fileUrl) || str(a.videoUrl)));
+  const expansion = str(p.stage) === "expansion";
+  // In the order a rep sets a hub up: make it theirs, fill it, wire it to the team, then open the door.
   return [
-    { key: "logo", title: "Add the customer's logo", done: !!str(p.partnerLogoUrl), where: "builder" },
-    { key: "team", title: customers.length ? `Check the customer's team (${customers.length} listed)` : "Add the customer's team", done: customers.length > 0, where: "builder" },
-    { key: "kit", title: str(p.stage) === "expansion" ? "Create the marketing assets" : "Create the launch kit", done: files.length >= 2, where: "kit" },
-    { key: "publish", title: "Publish the hub", done: facts.published, where: "builder" },
-    { key: "invite", title: facts.invited ? `Invite the customer (${facts.invited} invited)` : "Invite the customer", done: facts.invited > 0, where: "settings" },
+    { key: "logo", title: "Add the customer's logo", why: "It goes on the cover and on everything made for them. The customer can also upload it from their action plan.", done: !!str(p.partnerLogoUrl), where: "account" },
+    { key: "kickoff", title: "Set the kickoff date", why: "The day count, rollout track and due dates all run from it.", done: /^\d{4}-\d{2}-\d{2}$/.test(str(p.kickoffDate)), where: "account" },
+    { key: "ourTeam", title: ours.length ? `Check your team (${ours.length} listed)` : "Add your team", why: "The customer sees who to call, and the Schedule button books with one of them.", done: ours.length > 0, where: "team" },
+    { key: "team", title: customers.length ? `Check the customer's team (${customers.length} listed)` : "Add the customer's team", why: "So both sides can see who owns what.", done: customers.length > 0, where: "team" },
+    { key: "kit", title: expansion ? "Create the marketing assets" : "Create the launch kit", why: "The one-pager, social graphics and media kit the customer announces with.", done: files.length >= 2, where: "kit" },
+    { key: "slack", title: "Link the hub's Slack channel", why: "Requests, uploads and the weekly digest are posted there. Without it they go to the workspace's default channel.", done: facts.slackLinked === true, where: "notify" },
+    { key: "publish", title: "Publish the hub", why: "The customer's link does not work until it is published.", done: facts.published, where: "publish" },
+    { key: "invite", title: facts.invited ? `Invite the customer (${facts.invited} invited)` : "Invite the customer", why: "Each person gets their own link by email.", done: facts.invited > 0, where: "invite" },
   ];
+}
+
+/**
+ * Where a hub stands on the way to the customer. "setup" while anything in
+ * the hub itself is still missing; "ready" once only the sharing is left
+ * (publish it, invite them); "shared" when every step is done.
+ */
+export function hubSetupState(items: Pick<HubSetupItem, "done" | "where">[]): { state: "setup" | "ready" | "shared"; left: number; total: number } {
+  const left = items.filter((i) => !i.done);
+  const prepLeft = left.filter((i) => i.where !== "publish" && i.where !== "invite").length;
+  return { state: prepLeft ? "setup" : left.length ? "ready" : "shared", left: prepLeft || left.length, total: items.length };
 }

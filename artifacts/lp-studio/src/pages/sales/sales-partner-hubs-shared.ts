@@ -5,6 +5,8 @@ export interface HubRow {
   name: string;
   slug: string;
   status: "live" | "draft";
+  /** In setup, ready to share, or shared (from the hub's setup checklist). */
+  setup?: { state: "setup" | "ready" | "shared"; left: number; total: number };
   /** The customer's link. Blank until the hub is published. */
   url: string;
   account: { id: number; name: string; owner: string | null } | null;

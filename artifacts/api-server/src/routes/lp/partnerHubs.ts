@@ -19,7 +19,7 @@ import { digestRolloutDay } from "../../lib/partnerRoomDigest";
 import { roomStageFromProps } from "../../lib/partnerRoomStage";
 import { accountKey, cleanAccountName } from "../../lib/partnerRoomNames";
 import { createRoom, publicPageUrl } from "../../lib/partnerRoomAutocreate";
-import { hubIsMine, hubSetupItems, sameSfdcId, summarizeRoomViews } from "../../lib/partnerRoomViews";
+import { hubIsMine, hubSetupItems, hubSetupState, sameSfdcId, summarizeRoomViews } from "../../lib/partnerRoomViews";
 
 const router = Router();
 const DAY = 86_400_000;
@@ -68,8 +68,9 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
     const ids = pages.map((p) => p.id);
     const since = new Date(Date.now() - 30 * DAY);
     // What needs the account team, per hub: the same things the pop-up's To do tab counts, plus minutes to review.
-    const [asking, choiceRows, requestRows, minuteDrafts] = await Promise.all([
+    const [asking, allowed, choiceRows, requestRows, minuteDrafts] = await Promise.all([
       db.select({ pageId: lpRoomMembersTable.pageId, n: sql<number>`count(*)::int` }).from(lpRoomMembersTable).where(and(inArray(lpRoomMembersTable.pageId, ids), eq(lpRoomMembersTable.status, "requested"))).groupBy(lpRoomMembersTable.pageId),
+      db.select({ pageId: lpRoomMembersTable.pageId, n: sql<number>`count(*)::int` }).from(lpRoomMembersTable).where(and(inArray(lpRoomMembersTable.pageId, ids), eq(lpRoomMembersTable.status, "allowed"))).groupBy(lpRoomMembersTable.pageId),
       db.select().from(lpRoomChoicesTable).where(inArray(lpRoomChoicesTable.pageId, ids)),
       db.select({ id: lpRoomRequestsTable.id, pageId: lpRoomRequestsTable.pageId, assetKey: lpRoomRequestsTable.assetKey, status: lpRoomRequestsTable.status, asanaTaskGid: lpRoomRequestsTable.asanaTaskGid, createdAt: lpRoomRequestsTable.createdAt }).from(lpRoomRequestsTable).where(inArray(lpRoomRequestsTable.pageId, ids)),
       db.select({ pageId: lpRoomEventsTable.pageId, n: sql<number>`count(*)::int` }).from(lpRoomEventsTable).where(and(inArray(lpRoomEventsTable.pageId, ids), eq(lpRoomEventsTable.minutesStatus, "draft"))).groupBy(lpRoomEventsTable.pageId),
@@ -86,7 +87,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
     };
     const [accounts, settings, doneTasks, openRequests, visits, lastVisits, people] = await Promise.all([
       db.select({ id: salesAccountsTable.id, name: salesAccountsTable.name, displayName: salesAccountsTable.displayName, owner: salesAccountsTable.owner, salesforceId: salesAccountsTable.salesforceId }).from(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId)).limit(5000),
-      db.select({ pageId: lpRoomSettingsTable.pageId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId }).from(lpRoomSettingsTable).where(inArray(lpRoomSettingsTable.pageId, ids)),
+      db.select({ pageId: lpRoomSettingsTable.pageId, sfdcAccountId: lpRoomSettingsTable.sfdcAccountId, slackChannelId: lpRoomSettingsTable.slackChannelId }).from(lpRoomSettingsTable).where(inArray(lpRoomSettingsTable.pageId, ids)),
       db.select({ pageId: lpRoomTaskStateTable.pageId, taskKey: lpRoomTaskStateTable.taskKey }).from(lpRoomTaskStateTable).where(inArray(lpRoomTaskStateTable.pageId, ids)),
       db.select({ pageId: lpRoomRequestsTable.pageId, n: sql<number>`count(*)::int` }).from(lpRoomRequestsTable).where(and(inArray(lpRoomRequestsTable.pageId, ids), sql`${lpRoomRequestsTable.status} <> 'done'`)).groupBy(lpRoomRequestsTable.pageId),
       db.select({ pageId: lpPageVisitsTable.pageId, views: sql<number>`count(*)::int` }).from(lpPageVisitsTable).where(and(inArray(lpPageVisitsTable.pageId, ids), gte(lpPageVisitsTable.createdAt, since))).groupBy(lpPageVisitsTable.pageId),
@@ -113,6 +114,8 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
           name,
           slug: p.slug,
           status: p.status === "published" ? "live" : "draft",
+          // In setup, ready to share, or shared: from the same checklist the hub's To do shows.
+          setup: hubSetupState(hubSetupItems(props, { published: p.status === "published", invited: allowed.find((a) => a.pageId === p.id)?.n ?? 0, slackLinked: !!settings.find((x) => x.pageId === p.id)?.slackChannelId })),
           url: p.status === "published" ? await publicPageUrl(tenantId, p.slug).catch(() => "") : "",
           account: account ? { id: account.id, name: account.displayName || account.name, owner: account.owner } : null,
           day: digestRolloutDay(props.kickoffDate, now),
@@ -260,7 +263,7 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
       url: published ? await publicPageUrl(tenantId, page.slug).catch(() => "") : "",
       // Internal: rollout or expansion. The pop-up names the launch sections by it ("Launch kit" / "Marketing").
       stage: roomStageFromProps(roomWorkspaceProps(blocks) ?? {}, new Date()).stage,
-      setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0 }),
+      setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0, slackLinked: !!(await db.select({ c: lpRoomSettingsTable.slackChannelId }).from(lpRoomSettingsTable).where(eq(lpRoomSettingsTable.pageId, page.id)).limit(1))[0]?.c }),
     });
   } catch (err) {
     req.log.error({ err }, "partner hub setup failed");
