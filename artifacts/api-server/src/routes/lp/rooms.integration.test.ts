@@ -1461,6 +1461,12 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect((await asTeam("practices-wave", { ids: [id("Charlie Dental"), id("Delta Dental")], wave: "2" })).json).toMatchObject({ ok: true, moved: 2, wave: "2" });
     expect(await names({ wave: "Wave 2" })).toEqual(["Charlie Dental", "Delta Dental"]);
     expect((await asTeam("practice-ids", { wave: "Wave 1" })).json).toMatchObject({ ids: expect.arrayContaining([id("Alpha Dental"), id("Bravo Dental")]) });
+    // "Select all" takes the same filters as the list: region, status, search…, and none at all means every practice.
+    const ids = async (body: object) => (((await asTeam("practice-ids", body)).json as { ids: number[] }).ids).slice().sort();
+    expect(await ids({ region: "Ohio" })).toEqual([id("Charlie Dental"), id("Delta Dental")].sort());
+    expect(await ids({ region: "Texas", stage: "live" })).toEqual([id("Alpha Dental")]);
+    expect(await ids({ q: "bravo" })).toEqual([id("Bravo Dental")]);
+    expect((await ids({})).length).toBe(4);
     // A blank wave takes them out again; ids from another hub are left alone.
     expect((await asTeam("practices-wave", { ids: [id("Delta Dental"), 999999999], wave: "" })).json).toMatchObject({ ok: true, moved: 1, wave: null });
     expect(((await post("state", { pageId, hl })).json as { practices: { noWave: number } }).practices.noWave).toBe(1);

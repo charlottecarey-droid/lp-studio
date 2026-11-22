@@ -865,26 +865,47 @@ router.post("/lp/room/request", actionLimiter, async (req: Request, res: Respons
   }
 });
 
+/**
+ * The practice list's filters as a WHERE clause: region, wave (loosely, or NO_WAVE), the scorecard's
+ * stage tiles, scanners, a search, and (team only) a product line and order recency. Shared by the list
+ * itself and by "select all" (practice-ids), so a selection is exactly what the list shows.
+ */
+function practiceListWhere(pageId: number, body: Record<string, unknown> | undefined, team: boolean) {
+  const b = body ?? {};
+  const region = typeof b.region === "string" ? b.region.trim().slice(0, 80) : "";
+  const wave = typeof b.wave === "string" ? b.wave.trim().slice(0, 80) : "";
+  // The scorecard's tiles: one stage, or a group of them ("trained" counts live ones too, as the tile does).
+  const STAGE_GROUPS: Record<string, string[]> = { not_started: ["not_started"], scheduling: ["scheduling"], training_booked: ["training_booked"], trained: ["trained", "live"], live: ["live"], open: ["not_started", "scheduling", "training_booked"] };
+  const stages = typeof b.stage === "string" ? STAGE_GROUPS[b.stage] : undefined;
+  const scanner = b.scanner === "yes" || b.scanner === "no" ? (b.scanner as "yes" | "no") : null;
+  const q = typeof b.q === "string" ? b.q.trim().slice(0, 80).replace(/[%_\\]/g, "") : "";
+  // Team only: practices that order a product line, or (among those with orders on record) that don't.
+  const product = team && typeof b.product === "string" ? (PRODUCT_LINES.find(([, label]) => label === b.product)?.[1] ?? null) : null;
+  const productLacks = b.productMode === "lacks";
+  // Team only: practices by how long since their last order.
+  const recency = team && (ORDER_RECENCY as readonly unknown[]).includes(b.recency) ? (b.recency as OrderRecency) : null;
+  const cut = recencyCutoffs();
+  const day = lpRoomPracticesTable.lastOrderDay;
+  return and(
+    eq(lpRoomPracticesTable.pageId, pageId),
+    region ? eq(lpRoomPracticesTable.region, region) : undefined,
+    wave ? inWave(wave) : undefined,
+    stages ? inArray(lpRoomPracticesTable.stage, stages) : undefined,
+    scanner === "yes" ? sql`${lpRoomPracticesTable.scannerCount} > 0` : scanner === "no" ? sql`COALESCE(${lpRoomPracticesTable.scannerCount}, 0) = 0` : undefined,
+    recency === "week" ? sql`${day} >= ${cut.week}` : recency === "month" ? sql`${day} < ${cut.week} AND ${day} >= ${cut.month}` : recency === "quarter" ? sql`${day} < ${cut.month} AND ${day} >= ${cut.quarter}` : recency === "lapsed" ? sql`${day} < ${cut.quarter}` : undefined,
+    product ? (productLacks ? sql`COALESCE(${lpRoomPracticesTable.products}, '') <> '' AND (', ' || ${lpRoomPracticesTable.products} || ', ') NOT LIKE ${`%, ${product}, %`}` : sql`(', ' || COALESCE(${lpRoomPracticesTable.products}, '') || ', ') LIKE ${`%, ${product}, %`}`) : undefined,
+    q ? or(ilike(lpRoomPracticesTable.name, `%${q}%`), ilike(lpRoomPracticesTable.city, `%${q}%`), ilike(lpRoomPracticesTable.regionalManager, `%${q}%`)) : undefined,
+  );
+}
+
 /** The practice list, for a known visitor: filter by region and name, 50 a page. */
 router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const ctx = await requireWorkspaceViewer(req, res);
     if (!ctx) return;
     const { page, viewer } = ctx;
-    const region = typeof req.body?.region === "string" ? req.body.region.trim().slice(0, 80) : "";
-    const wave = typeof req.body?.wave === "string" ? req.body.wave.trim().slice(0, 80) : "";
-    // The scorecard's tiles: one stage, or a group of them ("trained" counts live ones too, as the tile does).
-    const STAGE_GROUPS: Record<string, string[]> = { not_started: ["not_started"], scheduling: ["scheduling"], training_booked: ["training_booked"], trained: ["trained", "live"], live: ["live"], open: ["not_started", "scheduling", "training_booked"] };
-    const stages = typeof req.body?.stage === "string" ? STAGE_GROUPS[req.body.stage] : undefined;
-    const scanner = req.body?.scanner === "yes" || req.body?.scanner === "no" ? (req.body.scanner as "yes" | "no") : null;
-    const q = typeof req.body?.q === "string" ? req.body.q.trim().slice(0, 80) : "";
-    // Team only: practices that order a product line, or (among those with orders on record) that don't.
-    const product = viewer.team && typeof req.body?.product === "string" ? (PRODUCT_LINES.find(([, label]) => label === req.body.product)?.[1] ?? null) : null;
-    const productLacks = req.body?.productMode === "lacks";
-    // Team only: practices by how long since their last order.
-    const recency = viewer.team && (ORDER_RECENCY as readonly unknown[]).includes(req.body?.recency) ? (req.body.recency as OrderRecency) : null;
-    const cut = recencyCutoffs();
-    const day = lpRoomPracticesTable.lastOrderDay;
+    // The same filters as "select all" (practiceListWhere), so the list and the selection always agree.
+    const where = practiceListWhere(page.id, req.body, !!viewer.team);
     const pageNo = Math.max(0, Math.min(1000, Math.floor(Number(req.body?.page) || 0)));
     // Sorting: one of a fixed set of columns (never a name from the request), blanks last.
     const SORTS = {
@@ -913,16 +934,6 @@ router.post("/lp/room/practices", stateLimiter, async (req: Request, res: Respon
     const sortKey = typeof req.body?.sort === "string" && req.body.sort in SORTS ? (req.body.sort as keyof typeof SORTS) : null;
     const down = req.body?.dir === "desc";
     const order = sortKey ? [down ? sql`${SORTS[sortKey]} DESC NULLS LAST` : sql`${SORTS[sortKey]} ASC NULLS LAST`, asc(lpRoomPracticesTable.name)] : [asc(lpRoomPracticesTable.region), asc(lpRoomPracticesTable.name)];
-    const where = and(
-      eq(lpRoomPracticesTable.pageId, page.id),
-      region ? eq(lpRoomPracticesTable.region, region) : undefined,
-      wave ? inWave(wave) : undefined,
-      stages ? inArray(lpRoomPracticesTable.stage, stages) : undefined,
-      scanner === "yes" ? sql`${lpRoomPracticesTable.scannerCount} > 0` : scanner === "no" ? sql`COALESCE(${lpRoomPracticesTable.scannerCount}, 0) = 0` : undefined,
-      recency === "week" ? sql`${day} >= ${cut.week}` : recency === "month" ? sql`${day} < ${cut.week} AND ${day} >= ${cut.month}` : recency === "quarter" ? sql`${day} < ${cut.month} AND ${day} >= ${cut.quarter}` : recency === "lapsed" ? sql`${day} < ${cut.quarter}` : undefined,
-      product ? (productLacks ? sql`COALESCE(${lpRoomPracticesTable.products}, '') <> '' AND (', ' || ${lpRoomPracticesTable.products} || ', ') NOT LIKE ${`%, ${product}, %`}` : sql`(', ' || COALESCE(${lpRoomPracticesTable.products}, '') || ', ') LIKE ${`%, ${product}, %`}`) : undefined,
-      q ? or(ilike(lpRoomPracticesTable.name, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.city, `%${q.replace(/[%_\\]/g, "")}%`), ilike(lpRoomPracticesTable.regionalManager, `%${q.replace(/[%_\\]/g, "")}%`)) : undefined,
-    );
     const [rows, [{ n }], [has]] = await Promise.all([
       db.select().from(lpRoomPracticesTable).where(where).orderBy(...order).limit(50).offset(pageNo * 50),
       db.select({ n: sql<number>`COUNT(*)::int` }).from(lpRoomPracticesTable).where(where),
@@ -1010,9 +1021,9 @@ router.post("/lp/room/practices-export", stateLimiter, async (req: Request, res:
  * in Slack and with an intake task when practices were added.
  */
 /**
- * Team only: every practice in one wave, as ids, so a rep can select a whole
- * wave at once (the list itself is a page at a time). A customer who wants
- * welcome kits to go out wave by wave is the usual reason.
+ * Team only: the ids of every practice the list's filters match (the same filters as the list itself:
+ * wave, region, status, scanners, search…), across every page, so "Select all" picks exactly what the
+ * list shows. No filters = every practice on the hub.
  */
 router.post("/lp/room/practice-ids", stateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1024,11 +1035,7 @@ router.post("/lp/room/practice-ids", stateLimiter, async (req: Request, res: Res
       return;
     }
     const wave = typeof req.body?.wave === "string" ? req.body.wave.trim().slice(0, 80) : "";
-    if (!wave) {
-      res.status(400).json({ error: "Pick a wave" });
-      return;
-    }
-    const rows = await db.select({ id: lpRoomPracticesTable.id, kitSentAt: lpRoomPracticesTable.kitSentAt }).from(lpRoomPracticesTable).where(and(eq(lpRoomPracticesTable.pageId, page.id), inWave(wave))).limit(2000);
+    const rows = await db.select({ id: lpRoomPracticesTable.id, kitSentAt: lpRoomPracticesTable.kitSentAt }).from(lpRoomPracticesTable).where(practiceListWhere(page.id, req.body, true)).orderBy(asc(lpRoomPracticesTable.id)).limit(5000);
     res.json({ wave, ids: rows.map((r) => r.id), kitSent: rows.filter((r) => r.kitSentAt).length });
   } catch (err) {
     req.log.error({ err }, "room practice ids failed");

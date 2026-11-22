@@ -1504,6 +1504,9 @@ const CSS = `
 .prw-sc-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:14px 14px 12px;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--body);font-size:12.5px;transition:border-color .12s,box-shadow .12s}
 .prw-sc-tile:hover{border-color:color-mix(in srgb,var(--dark) 40%,var(--line))}
 .prw-sc-tile.on{border-color:var(--dark);box-shadow:inset 0 0 0 1px var(--dark)}
+.prw-sc-selectall{margin:0 0 8px;padding:9px 14px;border-radius:10px;background:color-mix(in srgb,var(--dark) 6%,#fff);font-size:13px;color:var(--ink);text-align:center}
+.prw .prw-sc-selectall button{padding:0;border:0;background:none;font:inherit;font-weight:700;color:var(--dark);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.prw .prw-sc-selectall button:disabled{opacity:.6;cursor:default}
 .prw-sc-waves{margin-bottom:18px}
 .prw-sc-waves .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:10px}
 .prw-sc-waves h3{margin:0;font-size:15px;font-weight:700;color:var(--dark)}

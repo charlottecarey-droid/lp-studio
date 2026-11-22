@@ -510,8 +510,13 @@ class RoomStore {
   /** Team only: add the ticked practices to the welcome kit list (`dryRun` only reports what would happen). */
   /** Team only: the ids of every practice in a wave, to select the whole wave at once. */
   async wavePracticeIds(wave: string): Promise<{ ok: boolean; ids: number[]; kitSent: number; error?: string }> {
+    return this.matchingPracticeIds({ wave });
+  }
+
+  /** Team only: the ids of every practice the list's filters match, across every page ("Select all"). */
+  async matchingPracticeIds(filter: Record<string, unknown>): Promise<{ ok: boolean; ids: number[]; kitSent: number; error?: string }> {
     try {
-      const { status, json } = await this.post("practice-ids", { wave });
+      const { status, json } = await this.post("practice-ids", filter);
       return { ok: status === 200, ids: Array.isArray(json.ids) ? (json.ids as number[]) : [], kitSent: typeof json.kitSent === "number" ? json.kitSent : 0, error: typeof json.error === "string" ? json.error : undefined };
     } catch {
       return { ok: false, ids: [], kitSent: 0, error: "Couldn't reach the server." };

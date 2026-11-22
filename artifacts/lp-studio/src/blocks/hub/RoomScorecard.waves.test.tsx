@@ -26,9 +26,11 @@ const rows = [
   { id: 12, name: "Charlie Dental", region: "Texas", city: null, state: "TX", wave: null, stage: "scheduling" },
 ];
 
-function setup(team: boolean) {
+function setup(team: boolean, total = rows.length) {
   const store = {
-    loadPractices: vi.fn(async () => ({ rows, total: rows.length, page: 0, pageSize: 50, columns: { wave: true } })),
+    loadPractices: vi.fn(async () => ({ rows, total, page: 0, pageSize: 50, columns: { wave: true } })),
+    // Every match, the rows on this page among them (as the server returns).
+    matchingPracticeIds: vi.fn(async () => ({ ok: true, ids: [11, 12, ...Array.from({ length: Math.max(0, total - 2) }, (_, i) => 1000 + i)], kitSent: 0 })),
     checkScorecard: vi.fn(async () => ({ checked: false })),
     setPracticesWave: vi.fn(async (ids: number[]) => ({ ok: true, moved: ids.length })),
     wavePracticeIds: vi.fn(async () => ({ ok: true, ids: [11], kitSent: 0 })),
@@ -81,6 +83,36 @@ describe("Scorecard waves", () => {
     fireEvent.click(within(screen.getByText("Alpha Dental").closest("tr")!).getByRole("checkbox"));
     fireEvent.change(screen.getByLabelText("Add the selected practices to a wave"), { target: { value: NO_WAVE } });
     await waitFor(() => expect(store.setPracticesWave).toHaveBeenLastCalledWith([11], ""));
+  });
+
+  it("one wave picker: no second Select a wave dropdown", async () => {
+    setup(true);
+    await waitFor(() => expect(screen.getByText("Charlie Dental")).toBeTruthy());
+    expect(screen.queryByLabelText("Select every practice in a wave")).toBeNull();
+    expect(screen.getAllByLabelText("Wave")).toHaveLength(1);
+  });
+
+  it("the header box selects just this page; then Select all N picks every practice the filters match", async () => {
+    const store = setup(true, 40);
+    await waitFor(() => expect(screen.getByText("Charlie Dental")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Wave"), { target: { value: "1" } });
+    fireEvent.click(screen.getByLabelText("Select every practice on this page"));
+    expect(screen.getByText("2 selected")).toBeTruthy();
+    const bar = await screen.findByText(/All 2 practices on this page are selected\./);
+    expect(bar).toBeTruthy();
+    fireEvent.click(screen.getByText("Select all 40 practices matching these filters"));
+    await waitFor(() => expect(store.matchingPracticeIds).toHaveBeenCalledWith(expect.objectContaining({ wave: "1", region: "", q: "" })));
+    await waitFor(() => expect(screen.getByText(/All 40 practices matching these filters are selected\./)).toBeTruthy());
+    expect(screen.getByText("40 selected")).toBeTruthy();
+    fireEvent.click(screen.getByText("Clear selection"));
+    await waitFor(() => expect(screen.queryByText(/selected\./)).toBeNull());
+  });
+
+  it("no Select all bar when the page already holds every match", async () => {
+    setup(true);
+    await waitFor(() => expect(screen.getByText("Charlie Dental")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Select every practice on this page"));
+    expect(screen.queryByText(/on this page are selected/)).toBeNull();
   });
 
   it("a customer can see and filter waves but not move practices", async () => {

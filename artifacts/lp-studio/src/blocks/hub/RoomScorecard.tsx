@@ -488,26 +488,29 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const [ticked, setTicked] = useState<Set<number>>(() => new Set());
   const [exporting, setExporting] = useState(false);
   const [exportNote, setExportNote] = useState("");
-  const tick = (ids: number[], on: boolean) =>
+  const tick = (ids: number[], on: boolean) => {
+    if (!on) setAllFor(null);
     setTicked((cur) => {
       const next = new Set(cur);
       for (const id of ids) on ? next.add(id) : next.delete(id);
       return next;
     });
-  // Select a whole wave at once, across every page of the list: a customer who wants welcome kits to go out wave by wave.
+  };
+  // Select everything the list's filters match, across every page (after the header box has ticked the page).
   const [waveNote, setWaveNote] = useState("");
-  const [pickingWave, setPickingWave] = useState(false);
-  const pickWave = async (w: string) => {
-    if (!store || !w) return;
-    setPickingWave(true);
+  const [selectingAll, setSelectingAll] = useState(false);
+  // The filters "Select all" was last used with: everything they match is ticked (until the filters or ticks change).
+  const [allFor, setAllFor] = useState<string | null>(null);
+  const selectAllMatching = async () => {
+    if (!store) return;
+    setSelectingAll(true);
     setWaveNote("");
-    const r = await store.wavePracticeIds(w);
-    setPickingWave(false);
-    if (!r.ok) return setWaveNote(r.error ?? "Couldn't load that wave.");
-    const label = w === NO_WAVE ? "Not in a wave" : waveList.find((x) => waveKey(x.key) === waveKey(w))?.name ?? w;
-    if (r.ids.length === 0) return setWaveNote(`No ${noun} in ${label}.`);
+    const r = await store.matchingPracticeIds(listFilter);
+    setSelectingAll(false);
+    if (!r.ok) return setWaveNote(r.error ?? "Couldn't select them all.");
     tick(r.ids, true);
-    setWaveNote(`${label}: ${r.ids.length} selected${r.kitSent ? ` (${r.kitSent} already sent a welcome kit; they are skipped when you send)` : ""}.`);
+    setAllFor(JSON.stringify(listFilter));
+    if (r.kitSent) setWaveNote(`${r.kitSent} of them already had a welcome kit; they are skipped when you send.`);
   };
   // Team only: put the ticked practices into a wave, or take them out of theirs.
   const [moving, setMoving] = useState(false);
@@ -520,7 +523,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     if (!r.ok) return setWaveNote(r.error ?? "Couldn't change the wave.");
     const name = waveList.find((x) => waveKey(x.key) === waveKey(target))?.name ?? target;
     setWaveNote(target ? `${r.moved} ${r.moved === 1 ? one : noun} added to ${name}.` : `${r.moved} ${r.moved === 1 ? one : noun} taken out of their wave.`);
-    setTicked(new Set());
+    setTicked(new Set()); setAllFor(null);
     setReload((n) => n + 1);
   };
   const exportNow = async () => {
@@ -552,13 +555,18 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     const r = await store.welcomeKit([...ticked], false);
     setKit({ state: r.ok ? "done" : "error", result: r });
     if (r.ok) {
-      setTicked(new Set());
+      setTicked(new Set()); setAllFor(null);
       setReload((n) => n + 1);
     }
   };
   const canMap = isTeam || mapShared;
   const mapOn = canMap && mode === "map";
 
+  // What the list is filtered by: the page of rows, and "Select all", ask for the same set.
+  const listFilter = useMemo(
+    () => ({ region, q, ...(stage ? { stage } : {}), ...(wave ? { wave } : {}), ...(scanner ? { scanner } : {}), ...(product ? { product, productMode } : {}), ...(recency ? { recency } : {}) }),
+    [region, q, stage, wave, scanner, product, productMode, recency],
+  );
   useEffect(() => setPicked(savedColumns()), []);
   const viewerKey = snapshot.viewer?.email ?? "";
   useEffect(() => {
@@ -566,7 +574,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
     let cancelled = false;
     setLoading(true);
     const t = window.setTimeout(() => {
-      void store.loadPractices({ region, q, page: pageNo, ...(stage ? { stage } : {}), ...(wave ? { wave } : {}), ...(scanner ? { scanner } : {}), ...(product ? { product, productMode } : {}), ...(recency ? { recency } : {}), ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
+      void store.loadPractices({ ...listFilter, page: pageNo, ...(sort ? { sort: sort.key, dir: sort.dir } : {}) }).then((r) => {
         if (cancelled) return;
         setLoading(false);
         if (r && r !== "identity") setData(r);
@@ -898,14 +906,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
           {isTeam && (
             <div className="prw-sc-picked" data-room-picked={ticked.size}>
               <span className="prw-num">{ticked.size ? `${ticked.size} selected` : ""}</span>
-              {ticked.size > 0 && <button type="button" className="prw-btn" onClick={() => { setTicked(new Set()); setWaveNote(""); }} data-room-unpick><X aria-hidden /> Clear</button>}
-              {waveList.some((w) => w.total > 0) && (
-                <select value="" disabled={pickingWave} onChange={(e) => void pickWave(e.target.value)} aria-label="Select every practice in a wave" title="Select every practice in a wave, for example to send the whole wave a welcome kit" data-room-pick-wave>
-                  <option value="">{pickingWave ? "Selecting…" : "Select a wave"}</option>
-                  {waveList.filter((w) => w.total > 0).map((w) => <option key={w.key} value={w.key}>{w.name} ({w.total})</option>)}
-                  {noWave > 0 && <option value={NO_WAVE}>Not in a wave ({noWave})</option>}
-                </select>
-              )}
+              {ticked.size > 0 && <button type="button" className="prw-btn" onClick={() => { setTicked(new Set()); setAllFor(null); setWaveNote(""); }} data-room-unpick><X aria-hidden /> Clear</button>}
               {ticked.size > 0 && waveList.length > 0 && (
                 <select value="" disabled={moving} onChange={(e) => { const v = e.target.value; if (v) void moveToWave(v === NO_WAVE ? "" : v); }} aria-label="Add the selected practices to a wave" data-room-move-wave>
                   <option value="">{moving ? "Moving…" : "Add to wave…"}</option>
@@ -934,6 +935,23 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
                 {(kit.state === "confirm" || kit.state === "sending") && kit.result!.sent.length > 0 && <button type="button" className="prw-btn pri" disabled={kit.state === "sending"} onClick={() => void sendKit()} data-room-kit-send><Package aria-hidden /> {kit.state === "sending" ? "Adding…" : "Add them"}</button>}
                 <button type="button" className="prw-btn" onClick={() => setKit(null)} data-room-kit-close>{kit.state === "done" || kit.state === "error" ? "Close" : "Cancel"}</button>
               </div>
+            </div>
+          )}
+          {isTeam && pageAllTicked && (data?.total ?? 0) > pageIds.length && (
+            <div className="prw-sc-selectall" role="status" data-room-select-all-bar>
+              {allFor === JSON.stringify(listFilter) ? (
+                <>
+                  All {data!.total} {noun}{filtered ? " matching these filters" : ""} are selected.{" "}
+                  <button type="button" onClick={() => { setTicked(new Set()); setAllFor(null); setWaveNote(""); }} data-room-clear-selection>Clear selection</button>
+                </>
+              ) : (
+                <>
+                  All {pageIds.length} {noun} on this page are selected.{" "}
+                  <button type="button" disabled={selectingAll} onClick={() => void selectAllMatching()} data-room-select-all>
+                    {selectingAll ? "Selecting…" : `Select all ${data!.total} ${noun}${filtered ? " matching these filters" : ""}`}
+                  </button>
+                </>
+              )}
             </div>
           )}
           <TwoWayScroll>
