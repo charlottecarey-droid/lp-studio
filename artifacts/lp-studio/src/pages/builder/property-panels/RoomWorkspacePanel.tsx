@@ -188,6 +188,12 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 propsRef.current = next;
                 onChange(next);
               })}
+              onPlan={synced((groups) => {
+                // The plan was saved on the page from the pop-up: the builder's copy takes it, or its next save would undo it.
+                const next = { ...propsRef.current, planGroups: groups as RoomWorkspaceBlockProps["planGroups"] };
+                propsRef.current = next;
+                onChange(next);
+              })}
               onLinks={synced((links) => {
                 // Links were changed on the saved page: keep the builder's copy the same, or its next save would undo it.
                 const next = { ...propsRef.current, links };

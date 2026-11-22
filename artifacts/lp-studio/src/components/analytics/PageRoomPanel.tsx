@@ -11,6 +11,7 @@ import { PdfUploadButton } from "@/components/PdfUploadButton";
 import { GiftToggle, RoomInviteSection, ViewAsButton, type HubGifts } from "./RoomInvite";
 import { RoomPerformance, fmtWhen, sectionLabel, type RoomPerformanceData } from "./RoomPerformance";
 import { RoomGoalsSection, type HubGoals } from "./RoomGoals";
+import { RoomPlanSection, type HubPlan, type PlanGroup } from "./RoomPlanSection";
 import type { HubCover } from "./RoomCover";
 import { rolloutPace } from "@/lib/room-pace";
 import { RoomPractices } from "./RoomPractices";
@@ -35,6 +36,8 @@ import { ROOM_OVERVIEW_SECTIONS, roomMarketingNames, type RoomOverviewSection } 
  */
 interface RoomDetail {
   isRoom: boolean;
+  /** The mutual action plan (Settings › Mutual action plan). */
+  plan?: HubPlan | null;
   settings: { allowedDomains: string[]; slackChannelId: string | null; sfdcAccountId?: string | null; asanaProjectGid?: string | null };
   practices?: { total: number; byStage: Record<string, number>; regions: string[] };
   digest?: { enabled: boolean; recipients: string[]; lastSentAt: string | null };
@@ -143,6 +146,7 @@ export const SETTINGS_SECTIONS: { key: string; label: string }[] = [
   { key: "team", label: "Team" },
   { key: "access", label: "Access and invites" },
   { key: "goals", label: "Goals" },
+  { key: "plan", label: "Mutual action plan" },
   { key: "stage", label: "Stage and waves" },
   { key: "overview", label: "Overview sections" },
   { key: "digest", label: "Weekly digest" },
@@ -337,7 +341,7 @@ export interface RoomKitLinkChange {
 
 export interface RoomKitAssetChange { key: string; kind: "pdf" | "image"; title: string; description?: string; fileUrl: string; /** What a generated file was made from; absent for an upload. */ madeFrom?: string; /** The team's own file, which nothing generated replaces. */ own?: boolean; /** The team's own file was taken out again. */ removed?: boolean }
 
-export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps, onOverview, onLinks, onStage, initialTab = "activity", embedded = false, layout, initialSection, onNavigate, onArchive }: { /** "page": the hub's own full page (header buttons live in the page, Settings gets a left-hand list). */ layout?: "page"; /** Retire the hub (page layout): shown at the foot of the Settings list. */ onArchive?: () => void; /** The Settings section to open on (page layout). */ initialSection?: string; /** The tab (and Settings section) in view changed: lets the page keep its address in step. */ onNavigate?: (tab: RoomPanelTab, section: string) => void; pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onProps?: (patch: Record<string, unknown>) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
+export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onPlan, onProps, onOverview, onLinks, onStage, initialTab = "activity", embedded = false, layout, initialSection, onNavigate, onArchive }: { /** "page": the hub's own full page (header buttons live in the page, Settings gets a left-hand list). */ layout?: "page"; /** Retire the hub (page layout): shown at the foot of the Settings list. */ onArchive?: () => void; /** The Settings section to open on (page layout). */ initialSection?: string; /** The tab (and Settings section) in view changed: lets the page keep its address in step. */ onNavigate?: (tab: RoomPanelTab, section: string) => void; pageId: number; onKitAssets?: (assets: RoomKitAssetChange[]) => void; /** Goals were saved on the page: lets an open builder update its own copy. */ onGoals?: (goals: HubGoals) => void; /** The action plan was saved on the page: lets an open builder update its own copy. */ onPlan?: (groups: PlanGroup[]) => void; /** The cover was saved on the page: the builder keeps its copy the same. */ onProps?: (patch: Record<string, unknown>) => void; /** Overview sections were shown or hidden on the page: the builder keeps its copy the same. */ onOverview?: (hidden: RoomOverviewSection[]) => void; /** Important links were changed on the page: the builder keeps its copy the same. */ onLinks?: (links: HubLink[]) => void; /** The stage, waves or timeline were saved on the page: lets an open builder update its own copy. */ onStage?: (stage: HubStage) => void; /** The practice microsite was linked in the launch kit: lets an open builder add it to its own copy. */ onKitLink?: (link: RoomKitLinkChange) => void; initialTab?: RoomPanelTab; /** Inside a pop-up that already names the hub: no card frame, title or intro. */ embedded?: boolean }) {
   // Plays used to be a tab of their own; they are part of To do now, so an old link to them lands there.
   // Goals are set once and rarely touched: they live in Settings now, so an old link to them lands there with Goals open.
   const [tab, setTab] = useState<RoomPanelTab>(initialTab === "plays" ? "activity" : initialTab === "goals" ? "settings" : initialTab);
@@ -1308,6 +1312,24 @@ export function PageRoomPanel({ pageId, onKitAssets, onKitLink, onGoals, onProps
                   await refresh();
                 }}
               />
+              </Fold>
+            )}
+
+            {data.isWorkspace && data.plan && (
+              <Fold nav="plan" title="Mutual action plan" about="The phases and steps the customer sees on the Action plan tab. Edit them here, or upload your own MAP." hint={(() => { const n = data.plan.groups.reduce((t, g) => t + g.rows.length, 0); return n ? `${n} ${n === 1 ? "step" : "steps"}` : "No steps yet"; })()} data-room-plan-fold>
+                <RoomPlanSection
+                  pageId={pageId}
+                  plan={data.plan}
+                  people={(() => {
+                    const groups = (data.team?.team ?? []) as RoomTeamGroup[];
+                    const names = (g?: RoomTeamGroup) => (g?.members ?? []).map((m) => (m.name ?? "").trim()).filter((n) => n && !/^\[.*\]$/.test(n));
+                    return { ours: names(groups[0]), theirs: groups.slice(1).flatMap((g) => names(g)) };
+                  })()}
+                  onSaved={async (groups) => {
+                    onPlan?.(groups);
+                    await refresh();
+                  }}
+                />
               </Fold>
             )}
 

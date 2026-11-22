@@ -13,6 +13,8 @@
  * the ONLY place an uploaded file can be downloaded.
  */
 import { Router, type Request, type Response } from "express";
+import { readXlsx } from "../../lib/xlsxLite";
+import { PLAN_COLUMN_GUIDE, cleanPlanGroups, csvRows, mergeImportedPlan, parsePlanRows, planCsv, roomPlanInfo, setRoomPlan } from "../../lib/partnerRoomPlan";
 import { Readable } from "stream";
 import {
   db,
@@ -1676,6 +1678,7 @@ router.get("/lp/partner-rooms/:pageId", async (req: Request, res: Response): Pro
       engagement: page.isWorkspace ? await roomAssetEngagement(page.id) : { assets: [], recent: [] },
       kit: page.isWorkspace ? await roomKitFor(page.id) : null,
       goals: page.isWorkspace ? await roomGoalsFor(page.id) : null,
+      plan: page.isWorkspace ? await roomPlanFor(page.id) : null,
       cover: page.isWorkspace ? await roomCoverFor(page.id) : null,
       ...(page.isWorkspace ? await roomAccountFor(page.id) : { account: null, team: null }),
       overviewHidden: page.isWorkspace ? await roomOverviewHiddenFor(page.id) : null,
@@ -2896,6 +2899,96 @@ router.put("/lp/partner-rooms/:pageId/goals", async (req: Request, res: Response
   }
 });
 
+/* ── The mutual action plan, edited from the hub's Settings ─────────────── */
+
+/** Save the hub's plan (what the Action plan tab shows). Only the plan changes on the page. */
+router.put("/lp/partner-rooms/:pageId/plan", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    if (!Array.isArray(req.body?.groups)) {
+      res.status(400).json({ error: "No plan sent." });
+      return;
+    }
+    const groups = cleanPlanGroups(req.body.groups);
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, page.id), eq(lpPagesTable.tenantId, page.tenantId))).limit(1);
+    const next = row ? setRoomPlan(row.blocks, groups) : null;
+    if (!next) {
+      res.status(400).json({ error: "This page isn't a Partner Hub." });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
+    res.json({ ok: true, plan: roomPlanInfo(next) });
+  } catch (err) {
+    req.log.error({ err }, "room plan save failed");
+    res.status(500).json({ error: "Could not save the plan" });
+  }
+});
+
+/** The MAP spreadsheet: the blank template (example steps), or ?current=1 for this hub's plan to edit and bring back in. */
+router.get("/lp/partner-rooms/:pageId/plan/template", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const current = req.query.current === "1" ? (await roomPlanFor(page.id))?.groups ?? [] : null;
+    const slug = (page.title || "hub").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "hub";
+    res.json({ fileName: current ? `${slug}-action-plan.csv` : "mutual-action-plan-template.csv", csv: planCsv(current), columns: PLAN_COLUMN_GUIDE });
+  } catch (err) {
+    req.log.error({ err }, "room plan template failed");
+    res.status(500).json({ error: "Could not make the spreadsheet" });
+  }
+});
+
+/**
+ * Read an uploaded MAP (CSV or .xlsx, base64) and show what the plan would become: replace it, or add the
+ * file's steps to it. Nothing is saved here; the Settings section shows the result and saves it with PUT /plan.
+ */
+router.post("/lp/partner-rooms/:pageId/plan/import", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = await ownedRoomPage(req, res);
+    if (!page) return;
+    const fileName = typeof req.body?.fileName === "string" ? req.body.fileName.slice(0, 200) : "";
+    const b64 = typeof req.body?.fileBase64 === "string" ? req.body.fileBase64 : "";
+    const mode = req.body?.mode === "add" ? "add" : "replace";
+    if (!fileName || !b64) {
+      res.status(400).json({ error: "Choose a CSV or Excel file." });
+      return;
+    }
+    const buf = Buffer.from(b64, "base64");
+    if (buf.length > 5 * 1024 * 1024) {
+      res.status(400).json({ error: "That file is over 5 MB." });
+      return;
+    }
+    const ext = (fileName.split(".").pop() ?? "").toLowerCase();
+    let rows: string[][];
+    try {
+      if (ext === "xlsx") {
+        const sheets = readXlsx(buf);
+        // The first sheet with a Step column (a workbook may keep notes on another tab).
+        rows = (sheets.find((sh) => !parsePlanRows(sh.rows).error) ?? sheets[0])?.rows ?? [];
+      } else if (ext === "csv" || ext === "tsv" || ext === "txt") {
+        rows = csvRows(buf.toString("utf8"));
+      } else {
+        res.status(400).json({ error: "Use a .csv or .xlsx file." });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: "That file couldn't be read. Save it as .csv or .xlsx and try again." });
+      return;
+    }
+    const parsed = parsePlanRows(rows);
+    if (parsed.error) {
+      res.status(400).json({ error: parsed.error, warnings: parsed.warnings });
+      return;
+    }
+    const current = (await roomPlanFor(page.id))?.groups ?? [];
+    res.json({ groups: mergeImportedPlan(current, parsed.groups, mode), steps: parsed.steps, phases: parsed.groups.length, warnings: parsed.warnings, mode });
+  } catch (err) {
+    req.log.error({ err }, "room plan import failed");
+    res.status(500).json({ error: "Could not read the file" });
+  }
+});
+
 /** Re-read the room's Google Calendar now (it is also re-read about every hour). */
 router.post("/lp/partner-rooms/:pageId/calendar/sync", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -3035,6 +3128,11 @@ async function roomAccountFor(pageId: number) {
 async function roomCoverFor(pageId: number) {
   const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
   return row ? roomCoverInfo(row.blocks) : null;
+}
+
+async function roomPlanFor(pageId: number) {
+  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return row ? roomPlanInfo(row.blocks) : null;
 }
 
 async function roomGoalsFor(pageId: number) {
