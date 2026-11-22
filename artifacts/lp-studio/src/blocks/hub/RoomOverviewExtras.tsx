@@ -1,14 +1,16 @@
-import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, ExternalLink, Eye, EyeOff, Link2, Pin, PlayCircle, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, Check, Columns2, ExternalLink, Eye, EyeOff, GripVertical, Link2, Pin, PlayCircle, Plus, RotateCcw, Square, StickyNote } from "lucide-react";
 import { BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
 import { extractWistiaId } from "@/lib/wistia";
 import { isNativeVideoUrl } from "@/lib/video-utils";
 
 /**
  * The team's own sections on a hub's Overview, beside the built-in ones
- * (progress, next steps, coming up…): a video, the hub's Important links,
- * a list of resources (older hubs), or a short note. Each sits at the top (under the welcome) or the bottom, and
- * can be hidden from the customer without deleting it.
+ * (progress, next steps, coming up…): a video (or several, as a carousel),
+ * the hub's Important links, a list of resources (older hubs), or a pinned
+ * note. Each can be placed anywhere on the Overview (roomOverviewLayout.ts),
+ * set beside the section before it, and hidden from the customer without
+ * deleting it.
  */
 /**
  * "links" is the hub's own Important links (props.links), the very section the
@@ -35,6 +37,25 @@ export interface RoomOverviewVideo {
   url: string;
   /** A sentence about this video, above the player (optional). */
   body?: string;
+  /** A picture for the "Up next" strip. Blank: taken from the video where the host allows (YouTube, Loom, a file). */
+  thumbnailUrl?: string;
+}
+
+/** Who a pinned note is signed by, from the hub's Team. */
+export interface OverviewSigner {
+  name: string;
+  role?: string;
+  photoUrl?: string;
+}
+
+/** What a section needs from the hub around it. */
+export interface OverviewViewCtx {
+  /** The visitor's first name, or the customer's name when it isn't known (fills {first name}). */
+  firstName: string;
+  /** Who a pinned note is signed by, when anyone. */
+  signerFor: (extra: RoomOverviewExtra) => OverviewSigner | null;
+  /** Per-hub key for this visitor's own memory (which videos they have watched). */
+  storageKey: string;
 }
 
 export interface RoomOverviewExtra {
@@ -52,6 +73,12 @@ export interface RoomOverviewExtra {
   items?: RoomOverviewResource[];
   /** Note: the small line above the title. Unset = "From your account team"; empty = none. */
   eyebrow?: string;
+  /** Note: who signs it, by name from the hub's Team. Unset = the first person on the team (the account owner); empty = no one. */
+  signedBy?: string;
+  /** Note: when it was pinned or last changed (ISO), shown as "Pinned Nov 22". Unset = no date. */
+  pinnedAt?: string;
+  /** Note: leave the date off. */
+  hideDate?: boolean;
   /** Where on the Overview: under the welcome ("top") or after everything else (the default). */
   position?: "top" | "bottom";
   hidden?: boolean;
@@ -67,10 +94,10 @@ export function newOverviewExtra(kind: RoomOverviewExtraKind, existing: RoomOver
   let n = existing.length + 1;
   while (existing.some((x) => x.key === `ov-${kind}-${n}`)) n += 1;
   const key = `ov-${kind}-${n}`;
-  if (kind === "video") return { key, kind, title: "Welcome from your Dandy team", videos: [{ title: "Welcome from your Dandy team", url: "" }], position: "top" };
+  if (kind === "video") return { key, kind, title: "Welcome from your team", videos: [{ title: "Welcome from your team", url: "" }], position: "top" };
   if (kind === "links") return { key, kind, title: "Important links", position: "bottom" };
   if (kind === "resources") return { key, kind, title: "Resources", items: [{ title: "", url: "" }], position: "bottom" };
-  return { key, kind, title: "A note from your team", body: "", eyebrow: OVERVIEW_NOTE_EYEBROW, items: [], position: "top" };
+  return { key, kind, title: "A note from your team", body: "", eyebrow: OVERVIEW_NOTE_EYEBROW, items: [], pinnedAt: new Date().toISOString(), position: "top" };
 }
 
 /**
@@ -141,12 +168,58 @@ export function overviewExtraMissing(extra: RoomOverviewExtra): string {
   return "Add the text in the panel on the right.";
 }
 
+/** Inline text editing, supplied by the hub in the builder (absent on the live page). */
+export type OverviewTextEditor = (p: { item: object; field: string; multiline?: boolean; placeholder?: string; touch?: Record<string, unknown> }) => ReactNode;
+
+/** Fill {first name} (any spacing or case, also {firstName}) with the visitor's first name. */
+export function fillFirstName(text: string, firstName: string): string {
+  return text.replace(/\{\s*first[\s_]*name\s*\}/gi, firstName);
+}
+
+/** "Pinned Nov 22" from an ISO date; empty when there is none. */
+export function pinnedLabel(iso: string | undefined): string {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return "";
+  return `Pinned ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
+/**
+ * Split a note's message into paragraphs and, when the last one is a short
+ * line that doesn't end a sentence ("Your Dandy Account Team"), its sign-off.
+ */
+export function splitNote(body: string): { paras: string[]; signoff?: string } {
+  const paras = body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const last = paras[paras.length - 1] ?? "";
+  const signoff = paras.length >= 2 && last.length <= 60 && !/[.?!:;]$/.test(last) ? paras.pop() : undefined;
+  return { paras, signoff };
+}
+
+const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+
 /** One of the team's own sections, as the customer sees it. Nothing is drawn while it has nothing to show. */
-export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra; /** A resource or the video was opened (engagement). */ onOpen?: (what: { key: string; title: string; url: string }) => void }) {
+export function OverviewExtraView({
+  extra,
+  onOpen,
+  ctx,
+  T,
+}: {
+  extra: RoomOverviewExtra;
+  /** A resource or a video was opened (engagement). */
+  onOpen?: (what: { key: string; title: string; url: string }) => void;
+  ctx?: OverviewViewCtx;
+  /** Builder only: edit the note's words where they are. */
+  T?: OverviewTextEditor;
+}) {
   const title = (extra.title ?? "").trim();
   const body = (extra.body ?? "").trim();
-  if (extra.kind === "video") return <OverviewVideos extra={extra} onOpen={onOpen} />;
-  // The hub's Important links are drawn by the hub itself (the same section as the Marketing tab).
+  if (extra.kind === "video") return <OverviewVideos extra={extra} onOpen={onOpen} storageKey={ctx?.storageKey ?? ""} />;
+  // The hub's Important links are drawn by the hub itself (the same rows as the Marketing tab).
   if (extra.kind === "links") return null;
   if (extra.kind === "resources") {
     const items = (extra.items ?? []).filter((i) => (i.title ?? "").trim() && openable(i.url ?? ""));
@@ -167,20 +240,48 @@ export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra;
       </div>
     );
   }
+  return <PinnedNote extra={extra} onOpen={onOpen} ctx={ctx} T={T} />;
+}
+
+/**
+ * A pinned note from the team: a pin on the top edge, an eyebrow with the date,
+ * the title, the message in paragraphs ({first name} filled in), the team's
+ * links as buttons, and a sign-off with the signer's photo (or initials) and role.
+ * In the builder the eyebrow, title and message are edited where they are.
+ */
+function PinnedNote({ extra, onOpen, ctx, T }: { extra: RoomOverviewExtra; onOpen?: (what: { key: string; title: string; url: string }) => void; ctx?: OverviewViewCtx; T?: OverviewTextEditor }) {
+  const first = ctx?.firstName ?? "";
+  const editing = !!T;
+  const title = editing ? (extra.title ?? "") : fillFirstName((extra.title ?? "").trim(), first);
+  const body = editing ? (extra.body ?? "") : fillFirstName((extra.body ?? "").trim(), first);
   const links = noteLinks(extra);
-  if (!title && !body && links.length === 0) return null;
-  // A pinned note from the team: an eyebrow, the title, the message in paragraphs, the team's links as buttons,
-  // and a short last line set as the sign-off.
+  const signer = ctx?.signerFor(extra) ?? null;
+  if (!editing && !title && !body && links.length === 0) return null;
   const eyebrow = (extra.eyebrow ?? OVERVIEW_NOTE_EYEBROW).trim();
-  const paras = body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  const last = paras[paras.length - 1] ?? "";
-  const signoff = paras.length >= 2 && last.length <= 60 && !/[.?!:;]$/.test(last) ? paras.pop() : undefined;
+  const date = extra.hideDate ? "" : pinnedLabel(extra.pinnedAt);
+  const { paras, signoff } = splitNote(body);
+  // Any change made here moves the note's date on, as a change made in the panel does.
+  const touch = { pinnedAt: new Date().toISOString() };
   return (
     <div className="prw-sec prw-note" data-room-ov-extra={extra.key} data-kind="text">
       <span className="prw-note-pin" aria-hidden><Pin /></span>
-      {eyebrow && <div className="prw-note-eb" data-room-note-eyebrow>{eyebrow}</div>}
-      {title && <h3 className="prw-note-t" style={{ fontFamily: BRAND_DISPLAY_STACK }}>{title}</h3>}
-      {paras.length > 0 && <div className="prw-note-b">{paras.map((p, i) => <p key={i}>{p}</p>)}</div>}
+      {(eyebrow || date || editing) && (
+        <div className="prw-note-eb">
+          {editing ? (
+            // Unset shows the default the customer sees (as a hint, typing replaces it); cleared means none.
+            <span data-room-note-eyebrow>{T({ item: extra, field: "eyebrow", placeholder: extra.eyebrow === undefined ? OVERVIEW_NOTE_EYEBROW : "No eyebrow (click to add one)" })}</span>
+          ) : (
+            eyebrow && <span data-room-note-eyebrow>{eyebrow}</span>
+          )}
+          {date && <span className="d" data-room-note-date>{date}</span>}
+        </div>
+      )}
+      {(title || editing) && <h3 className="prw-note-t" style={{ fontFamily: BRAND_DISPLAY_STACK }}>{editing ? T({ item: extra, field: "title", placeholder: "Title", touch }) : title}</h3>}
+      {editing ? (
+        <div className="prw-note-b"><p>{T({ item: extra, field: "body", multiline: true, placeholder: "Your message. Shift+Enter for a new line.", touch })}</p></div>
+      ) : (
+        paras.length > 0 && <div className="prw-note-b">{paras.map((p, i) => <p key={i}>{p}</p>)}</div>
+      )}
       {links.length > 0 && (
         <div className="prw-note-links" data-room-note-links>
           {links.map((l, n) => (
@@ -198,33 +299,147 @@ export function OverviewExtraView({ extra, onOpen }: { extra: RoomOverviewExtra;
           ))}
         </div>
       )}
-      {signoff && <p className="prw-note-sign" data-room-note-signoff>{signoff}</p>}
+      {signer ? (
+        <div className="prw-note-sign who" data-room-note-signer={signer.name}>
+          <span className="prw-note-av" aria-hidden>
+            {signer.photoUrl ? <img src={signer.photoUrl} alt="" /> : initialsOf(signer.name)}
+          </span>
+          <span className="who-t">
+            <b>{signer.name}</b>
+            {(signer.role || (!editing && signoff)) && <span>{[signer.role, editing ? "" : signoff].filter(Boolean).join(" · ")}</span>}
+          </span>
+        </div>
+      ) : (
+        !editing && signoff && <p className="prw-note-sign" data-room-note-signoff>{signoff}</p>
+      )}
     </div>
   );
+}
+
+/** Where a video's picture for the "Up next" strip comes from. */
+export function overviewVideoThumb(v: RoomOverviewVideo): { kind: "img" | "video"; src: string } | null {
+  const own = (v.thumbnailUrl ?? "").trim();
+  if (own) return { kind: "img", src: own };
+  const url = (v.url ?? "").trim();
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (yt) return { kind: "img", src: `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg` };
+  const loom = url.match(/loom\.com\/(?:share|embed)\/([A-Za-z0-9]+)/);
+  if (loom) return { kind: "img", src: `https://cdn.loom.com/sessions/thumbnails/${loom[1]}-00001.jpg` };
+  const e = overviewVideoEmbed(url);
+  // A file shows its own first frames.
+  if (e?.kind === "file") return { kind: "video", src: `${e.src}#t=1` };
+  return null;
+}
+
+const WATCHED_PREFIX = "prw-watched:";
+function readWatched(storageKey: string): Set<string> {
+  if (!storageKey) return new Set();
+  try {
+    const raw = window.localStorage.getItem(WATCHED_PREFIX + storageKey);
+    const list = raw ? (JSON.parse(raw) as unknown) : [];
+    return new Set(Array.isArray(list) ? list.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+function writeWatched(storageKey: string, ids: Set<string>) {
+  if (!storageKey) return;
+  try {
+    window.localStorage.setItem(WATCHED_PREFIX + storageKey, JSON.stringify([...ids].slice(-200)));
+  } catch {
+    // Private window or storage blocked: the ticks just don't survive a reload.
+  }
 }
 
 /**
  * A Video section. One video: a plain card ("Watch: name"). More than one: a
  * carousel — "Watch video (1 of 3): name" with a Next button in the header,
- * and back / forward arrows with a dot per video under the player. Only
- * videos that can play here are counted or shown.
+ * the player, and an "Up next" strip of pictures between back / forward
+ * arrows, each ticked once this visitor has watched it (remembered in their
+ * browser). Swiping left or right off the player changes video on a phone.
+ * Only videos that can play here are counted or shown.
+ *
+ * Plays are counted for every player: a file when it starts, an embedded
+ * player (YouTube, Vimeo, Loom, Wistia) when the visitor clicks into it.
  */
-function OverviewVideos({ extra, onOpen }: { extra: RoomOverviewExtra; onOpen?: (what: { key: string; title: string; url: string }) => void }) {
+function OverviewVideos({ extra, onOpen, storageKey }: { extra: RoomOverviewExtra; onOpen?: (what: { key: string; title: string; url: string }) => void; storageKey: string }) {
   const list = overviewVideos(extra)
     .map((v, n) => ({ v, n, embed: overviewVideoEmbed(v.url) }))
     .filter((x): x is { v: RoomOverviewVideo; n: number; embed: { kind: "file" | "iframe"; src: string } } => !!x.embed);
   const [at, setAt] = useState(0);
-  if (list.length === 0) return null;
-  const i = Math.min(at, list.length - 1);
-  const { v, n, embed } = list[i];
+  const [watched, setWatched] = useState<Set<string>>(() => new Set());
+  const counted = useRef<Set<string>>(new Set());
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const memoryKey = storageKey ? `${storageKey}:${extra.key}` : "";
+  const i = Math.min(at, Math.max(0, list.length - 1));
+  const cur = list[i];
+  const idOf = (x: { v: RoomOverviewVideo }) => (x.v.url ?? "").trim();
+
+  // This visitor's ticks, read after mount (the server render has none).
+  useEffect(() => setWatched(readWatched(memoryKey)), [memoryKey]);
+
+  // Keep the current picture in view in the strip, without moving the page.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const item = strip?.querySelector<HTMLElement>(`[data-vc-i="${i}"]`);
+    if (!strip || !item) return;
+    const left = item.offsetLeft - (strip.clientWidth - item.clientWidth) / 2;
+    strip.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [i]);
+
+  const many = list.length > 1;
+  const played = () => {
+    if (!cur) return;
+    const id = idOf(cur);
+    const name = overviewVideoName(cur.v);
+    if (!counted.current.has(id)) {
+      counted.current.add(id);
+      onOpen?.({ key: many ? `${extra.key}:${cur.n}` : extra.key, title: name, url: cur.embed.src });
+    }
+    if (!watched.has(id)) {
+      const next = new Set(watched).add(id);
+      setWatched(next);
+      writeWatched(memoryKey, next);
+    }
+  };
+
+  // An embedded player can't tell the page it started, but clicking into it moves focus to the frame: count that.
+  useEffect(() => {
+    if (!cur || cur.embed.kind !== "iframe") return;
+    const onBlur = () => {
+      window.setTimeout(() => {
+        if (document.activeElement && document.activeElement === frameRef.current) played();
+      }, 0);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => window.removeEventListener("blur", onBlur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- played reads the current video; re-arm per video.
+  }, [cur?.embed.src, cur?.n]);
+
+  if (!cur) return null;
+  const { v, n, embed } = cur;
   const name = overviewVideoName(v);
   const body = (v.body ?? "").trim();
-  const many = list.length > 1;
   const isLast = i === list.length - 1;
   const go = (to: number) => setAt(Math.max(0, Math.min(list.length - 1, to)));
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "ArrowRight") { e.preventDefault(); go(i + 1); }
     if (e.key === "ArrowLeft") { e.preventDefault(); go(i - 1); }
+  };
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0];
+    touch.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const start = touch.current;
+    const t = e.changedTouches[0];
+    touch.current = null;
+    if (!many || !start || !t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? i + 1 : i - 1);
   };
   return (
     <div className={`prw-card prw-sec prw-ovx${many ? " prw-vc" : ""}`} data-room-ov-extra={extra.key} data-kind="video" data-room-video-count={list.length}>
@@ -249,13 +464,13 @@ function OverviewVideos({ extra, onOpen }: { extra: RoomOverviewExtra; onOpen?: 
           </button>
         )}
       </h3>
-      <div className="prw-ovx-body">
+      <div className="prw-ovx-body" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {body && <p className="prw-ovx-lede">{body}</p>}
         <div className="prw-ovx-video" key={`${n}-${embed.src}`}>
           {embed.kind === "file" ? (
-            <video src={embed.src} controls preload="metadata" playsInline onPlay={() => onOpen?.({ key: many ? `${extra.key}:${n}` : extra.key, title: name, url: embed.src })} />
+            <video src={embed.src} controls preload="metadata" playsInline onPlay={played} />
           ) : (
-            <iframe src={embed.src} title={name} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" />
+            <iframe ref={frameRef} src={embed.src} title={name} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" />
           )}
         </div>
         {many && (
@@ -263,18 +478,35 @@ function OverviewVideos({ extra, onOpen }: { extra: RoomOverviewExtra; onOpen?: 
             <button type="button" className="prw-vc-arrow" onClick={() => go(i - 1)} disabled={i === 0} aria-label="Previous video">
               <ArrowLeft aria-hidden />
             </button>
-            <div className="prw-vc-dots">
-              {list.map((x, k) => (
-                <button
-                  key={x.n}
-                  type="button"
-                  className={`prw-vc-dot${k === i ? " on" : ""}`}
-                  onClick={() => go(k)}
-                  aria-label={`Video ${k + 1} of ${list.length}: ${overviewVideoName(x.v)}`}
-                  aria-current={k === i ? "true" : undefined}
-                  title={overviewVideoName(x.v)}
-                />
-              ))}
+            <div className="prw-vc-strip" ref={stripRef} data-room-video-strip>
+              {list.map((x, k) => {
+                const thumb = overviewVideoThumb(x.v);
+                const seen = watched.has(idOf(x));
+                const xName = overviewVideoName(x.v);
+                return (
+                  <button
+                    key={x.n}
+                    type="button"
+                    data-vc-i={k}
+                    className={`prw-vc-item${k === i ? " on" : ""}`}
+                    onClick={() => go(k)}
+                    aria-label={`Video ${k + 1} of ${list.length}: ${xName}${seen ? " (watched)" : ""}`}
+                    aria-current={k === i ? "true" : undefined}
+                    data-room-video-watched={seen ? "" : undefined}
+                  >
+                    <span className="th">
+                      {thumb?.kind === "img" ? (
+                        <img src={thumb.src} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      ) : thumb?.kind === "video" ? (
+                        <video src={thumb.src} preload="metadata" muted playsInline tabIndex={-1} aria-hidden />
+                      ) : null}
+                      <span className="ph" aria-hidden><PlayCircle /></span>
+                      {k === i ? <span className="now">Now playing</span> : seen ? <span className="seen" aria-hidden><Check /></span> : null}
+                    </span>
+                    <span className="nm"><span className="ix">{k + 1}</span>{xName}</span>
+                  </button>
+                );
+              })}
             </div>
             <button type="button" className="prw-vc-arrow" onClick={() => go(i + 1)} disabled={isLast} aria-label="Next video">
               <ArrowRight aria-hidden />
@@ -287,17 +519,147 @@ function OverviewVideos({ extra, onOpen }: { extra: RoomOverviewExtra; onOpen?: 
 }
 
 /**
- * Builder only: a section of the Overview the customer sees, with a small
- * Hide button that appears on hover. Hidden sections are not drawn at all
- * (they collapse into the strip at the top, OverviewHiddenStrip).
+ * Builder only: one section of the Overview as the customer sees it, with its
+ * tools on hover — a drag handle, up / down, side by side, and Hide. Drop
+ * another section on it to place that one above or below it.
  */
+export function OverviewUnitFrame({
+  unitKey,
+  label,
+  onHide,
+  onUp,
+  onDown,
+  beside,
+  onBeside,
+  onDrop,
+  children,
+}: {
+  unitKey: string;
+  label: string;
+  /** Absent for a unit hidden part by part (Next steps & coming up). */
+  onHide?: () => void;
+  onUp?: () => void;
+  onDown?: () => void;
+  /** Whether it sits beside the section before it; absent when it can't. */
+  beside?: boolean;
+  onBeside?: () => void;
+  onDrop: (dragged: string, where: "before" | "after") => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [drop, setDrop] = useState<"before" | "after" | null>(null);
+  const whereFor = (e: DragEvent) => {
+    const r = ref.current?.getBoundingClientRect();
+    return r && e.clientY > r.top + r.height / 2 ? "after" : "before";
+  };
+  return (
+    <div
+      ref={ref}
+      className={`prw-ovedit${drop ? ` drop-${drop}` : ""}`}
+      data-room-ov-edit={label}
+      data-room-ov-unit={unitKey}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("text/x-prw-unit")) return;
+        e.preventDefault();
+        setDrop(whereFor(e));
+      }}
+      onDragLeave={(e) => {
+        if (!ref.current?.contains(e.relatedTarget as Node)) setDrop(null);
+      }}
+      onDrop={(e) => {
+        const dragged = e.dataTransfer.getData("text/x-prw-unit");
+        setDrop(null);
+        if (!dragged || dragged === unitKey) return;
+        e.preventDefault();
+        onDrop(dragged, whereFor(e));
+      }}
+    >
+      <div className="prw-ovtools" role="toolbar" aria-label={`${label}: arrange`}>
+        <span
+          className="grip"
+          draggable
+          title="Drag to move"
+          aria-hidden
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/x-prw-unit", unitKey);
+            e.dataTransfer.effectAllowed = "move";
+            if (ref.current) e.dataTransfer.setDragImage(ref.current, 24, 16);
+          }}
+        >
+          <GripVertical />
+        </span>
+        <button type="button" onClick={onUp} disabled={!onUp} title="Move up" aria-label={`Move ${label} up`}><ArrowUp aria-hidden /></button>
+        <button type="button" onClick={onDown} disabled={!onDown} title="Move down" aria-label={`Move ${label} down`}><ArrowDown aria-hidden /></button>
+        {onBeside && (
+          <button type="button" onClick={onBeside} aria-pressed={!!beside} title={beside ? "Full width" : "Side by side with the section before"} aria-label={beside ? `Make ${label} full width` : `Put ${label} beside the section before`}>
+            {beside ? <Square aria-hidden /> : <Columns2 aria-hidden />}
+          </button>
+        )}
+        {onHide && (
+          <button type="button" className="hide" onClick={onHide} title={`Hide “${label}” from the customer`} aria-label={`Hide ${label} on the Overview`}>
+            <EyeOff aria-hidden /> Hide
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Kept for the parts inside Next steps & coming up, which hide one by one. */
 export function OverviewEditFrame({ label, onHide, children }: { label: string; onHide: () => void; children: ReactNode }) {
   return (
-    <div className="prw-ovedit" data-room-ov-edit={label}>
+    <div className="prw-ovedit prw-ovpart" data-room-ov-edit={label}>
       <button type="button" className="prw-ovedit-hide" onClick={onHide} title={`Hide “${label}” from the customer`} aria-label={`Hide ${label} on the Overview`}>
         <EyeOff aria-hidden /> Hide
       </button>
       {children}
+    </div>
+  );
+}
+
+const ADD_KIND_ICON: Record<"video" | "links" | "text", ReactNode> = { video: <PlayCircle aria-hidden />, links: <Link2 aria-hidden />, text: <StickyNote aria-hidden /> };
+const ADD_KIND_HINT: Record<"video" | "links" | "text", string> = {
+  video: "One video, or several as a carousel",
+  links: "The same links as the Marketing tab",
+  text: "A message from your team, with links",
+};
+
+/**
+ * Builder only: "+ Add section" between two sections of the Overview. Opens a
+ * short menu of what can go there; the new section lands right at that spot.
+ */
+export function OverviewAddBar({ kinds, onAdd, always }: { kinds: ("video" | "links" | "text")[]; onAdd: (kind: "video" | "links" | "text") => void; /** The last bar: always visible, not only on hover. */ always?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | globalThis.KeyboardEvent) => {
+      if (e instanceof MouseEvent ? !ref.current?.contains(e.target as Node) : e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  if (kinds.length === 0) return null;
+  return (
+    <div ref={ref} className={`prw-ovadd${always || open ? " show" : ""}`} data-room-ov-add-bar>
+      <button type="button" className="open" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <Plus aria-hidden /> Add section
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {kinds.map((k) => (
+            <button key={k} type="button" role="menuitem" onClick={() => { setOpen(false); onAdd(k); }} data-room-ov-add-kind={k}>
+              {ADD_KIND_ICON[k]}
+              <span><b>{OVERVIEW_EXTRA_LABEL[k]}</b><span>{ADD_KIND_HINT[k]}</span></span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -341,17 +703,30 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-vc-arrow svg{width:16px;height:16px}
 .prw-vc-arrow:hover:not(:disabled){border-color:color-mix(in srgb,var(--dark) 40%,transparent);background:color-mix(in srgb,var(--dark) 3%,#fff)}
 .prw-vc-arrow:disabled{opacity:.35;cursor:default}
-.prw-vc-dots{display:flex;align-items:center;gap:8px}
-.prw-vc-dot{width:8px;height:8px;border-radius:999px;border:0;padding:0;background:color-mix(in srgb,var(--dark) 22%,transparent);cursor:pointer;transition:width .25s ease,background .25s ease}
-.prw-vc-dot.on{width:26px;background:var(--dark)}
-.prw-vc-dot:hover:not(.on){background:color-mix(in srgb,var(--dark) 45%,transparent)}
-.prw-vc-arrow:focus-visible,.prw-vc-dot:focus-visible,.prw-vc-next:focus-visible{outline:2px solid var(--dark);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){.prw-vc .prw-ovx-video{animation:none}.prw-vc-dot,.prw-vc-next svg{transition:none}}
-@media (max-width:640px){.prw-vc-next{padding:6px 10px}.prw-card>h3:has(.prw-vc-next){flex-wrap:wrap;gap:10px}}
+.prw-vc-arrow{flex:none}
+.prw-vc-strip{flex:1;min-width:0;display:flex;justify-content:safe center;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px;scrollbar-width:thin}
+.prw-vc-item{flex:0 0 136px;scroll-snap-align:center;display:flex;flex-direction:column;gap:6px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:var(--ink)}
+.prw-vc-item .th{position:relative;display:block;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:color-mix(in srgb,var(--dark) 10%,#fff);border:1px solid var(--line);transition:border-color .15s,box-shadow .15s}
+.prw-vc-item .th img,.prw-vc-item .th video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.prw-vc-item .ph{position:absolute;inset:0;display:grid;place-items:center;color:color-mix(in srgb,var(--dark) 55%,transparent)}
+.prw-vc-item .th img+.ph,.prw-vc-item .th video+.ph{color:#fff;background:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.35))}
+.prw-vc-item .ph svg{width:22px;height:22px}
+.prw-vc-item .now{position:absolute;left:6px;bottom:6px;font-size:10.5px;font-weight:600;color:#fff;background:var(--dark);border-radius:999px;padding:2px 8px}
+.prw-vc-item .seen{position:absolute;right:6px;top:6px;display:grid;place-items:center;width:20px;height:20px;border-radius:999px;background:var(--green);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.prw-vc-item .seen svg{width:12px;height:12px;stroke-width:3}
+.prw-vc-item .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;line-height:1.35;font-weight:500;color:var(--body)}
+.prw-vc-item .ix{font-variant-numeric:tabular-nums;font-weight:600;color:var(--faint);margin-right:6px}
+.prw-vc-item.on .th{border-color:var(--dark);box-shadow:0 0 0 1px var(--dark)}
+.prw-vc-item.on .nm{color:var(--ink);font-weight:600}
+.prw-vc-item:hover:not(.on) .th{border-color:color-mix(in srgb,var(--dark) 35%,transparent)}
+.prw-vc-arrow:focus-visible,.prw-vc-item:focus-visible,.prw-vc-next:focus-visible{outline:2px solid var(--dark);outline-offset:2px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){.prw-vc .prw-ovx-video{animation:none}.prw-vc-item .th,.prw-vc-next svg{transition:none}}
+@media (max-width:640px){.prw-vc-next{padding:6px 10px}.prw-card>h3:has(.prw-vc-next){flex-wrap:wrap;gap:10px}.prw-vc-item{flex-basis:112px}.prw-vc-nav{gap:8px}.prw-vc-arrow{width:34px;height:34px}}
 .prw-note{position:relative;margin-top:44px;padding:30px 32px 26px;border-radius:14px;border:1px solid color-mix(in srgb,var(--dark) 12%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--dark) 5%,#fff) 0,#fff 140px);box-shadow:0 1px 2px rgba(16,24,40,.04),0 12px 32px -16px rgba(16,24,40,.18)}
 .prw-note-pin{position:absolute;top:-16px;left:30px;display:grid;place-items:center;width:32px;height:32px;border-radius:999px;background:var(--dark);color:#fff;box-shadow:0 0 0 4px var(--paper),0 4px 10px -2px rgba(16,24,40,.25)}
 .prw-note-pin svg{width:15px;height:15px;transform:rotate(45deg)}
-.prw-note-eb{margin:0 0 8px;font-size:12.5px;font-weight:600;color:color-mix(in srgb,var(--dark) 72%,var(--body))}
+.prw-note-eb{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 8px;font-size:12.5px;font-weight:600;color:color-mix(in srgb,var(--dark) 72%,var(--body))}
+.prw-note-eb .d{flex:none;font-size:12px;font-weight:500;color:var(--faint)}
 .prw-note-t{margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.015em;color:var(--dark)}
 .prw-note-b p{margin:0 0 12px;font-size:15px;line-height:1.7;color:var(--ink);max-width:68ch;white-space:pre-line}
 .prw-note-b p:last-child{margin-bottom:0}
@@ -362,6 +737,12 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-note-link:hover svg{transform:translate(1px,-1px)}
 .prw-note-link:focus-visible{outline:2px solid var(--dark);outline-offset:2px}
 .prw-note-sign{display:flex;align-items:center;gap:10px;margin:22px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:14px;font-weight:600;color:var(--dark);white-space:pre-line}
+.prw-note-sign.who{gap:12px}
+.prw-note-av{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--dark) 10%,#fff);color:var(--dark);font-size:13.5px;font-weight:700;letter-spacing:.02em;box-shadow:0 0 0 2px #fff,0 0 0 3px color-mix(in srgb,var(--dark) 14%,transparent)}
+.prw-note-av img{width:100%;height:100%;object-fit:cover}
+.prw-note-sign .who-t{display:flex;flex-direction:column;gap:1px;min-width:0}
+.prw-note-sign .who-t b{font-size:14px;font-weight:600;color:var(--ink)}
+.prw-note-sign .who-t span{font-size:12.5px;font-weight:500;color:var(--body)}
 @media (max-width:640px){.prw-note{padding:28px 20px 22px}.prw-note-pin{left:20px}.prw-note-t{font-size:21px}}
 .prw-ovx-link{text-decoration:none;color:inherit}
 .prw-ovx-link:hover{background:color-mix(in srgb,var(--dark) 3%,transparent)}
@@ -369,9 +750,37 @@ export const OVERVIEW_EXTRAS_CSS = `
 .prw-ovedit{position:relative}
 .prw-ovedit-hide{position:absolute;top:-13px;right:14px;z-index:3;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--body);background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 10px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.06);opacity:0;transition:opacity .15s}
 .prw-ovedit-hide svg{width:13px;height:13px}
-.prw-ovedit:hover>.prw-ovedit-hide,.prw-ovedit-hide:focus-visible{opacity:1}
+.prw-ovpart:hover>.prw-ovedit-hide,.prw-ovedit-hide:focus-visible{opacity:1}
 .prw-ovedit-hide:hover{color:var(--ink);border-color:color-mix(in srgb,var(--dark) 30%,transparent)}
-.prw-ovedit:hover>:not(.prw-ovedit-hide){box-shadow:0 0 0 2px color-mix(in srgb,var(--dark) 14%,transparent);border-radius:12px}
+.prw-ovpart:hover>:not(.prw-ovedit-hide){box-shadow:0 0 0 2px color-mix(in srgb,var(--dark) 14%,transparent);border-radius:12px}
+.prw-ovtools{position:absolute;top:-15px;right:14px;z-index:4;display:inline-flex;align-items:center;gap:2px;padding:3px;background:#fff;border:1px solid var(--line);border-radius:999px;box-shadow:0 2px 8px -2px rgba(16,24,40,.14);opacity:0;transition:opacity .15s}
+.prw-ovedit[data-room-ov-unit]:hover>.prw-ovtools,.prw-ovtools:focus-within{opacity:1}
+.prw-ovtools button,.prw-ovtools .grip{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:26px;min-width:26px;padding:0 6px;border:0;border-radius:999px;background:none;color:var(--body);font-size:12px;font-weight:600;cursor:pointer}
+.prw-ovtools .grip{cursor:grab}
+.prw-ovtools svg{width:14px;height:14px}
+.prw-ovtools button:hover:not(:disabled),.prw-ovtools .grip:hover{background:color-mix(in srgb,var(--dark) 7%,#fff);color:var(--ink)}
+.prw-ovtools button:disabled{opacity:.35;cursor:default}
+.prw-ovtools button[aria-pressed="true"]{color:var(--dark);background:color-mix(in srgb,var(--dark) 9%,#fff)}
+.prw-ovtools .hide{border-left:1px solid var(--line);border-radius:0 999px 999px 0;padding:0 10px 0 8px}
+.prw-ovedit[data-room-ov-unit]:hover>:not(.prw-ovtools){box-shadow:0 0 0 2px color-mix(in srgb,var(--dark) 14%,transparent);border-radius:12px}
+.prw-ovedit.drop-before::before,.prw-ovedit.drop-after::after{content:"";position:absolute;left:0;right:0;height:3px;border-radius:3px;background:var(--dark);z-index:5}
+.prw-ovedit.drop-before::before{top:-18px}
+.prw-ovedit.drop-after::after{bottom:-18px}
+.prw-ovrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start;margin-top:44px}
+.prw-ovrow .prw-sec{margin-top:0}
+@media (max-width:900px){.prw-ovrow{grid-template-columns:1fr;gap:44px}}
+.prw-ovadd{position:relative;display:flex;justify-content:center;height:22px;margin:10px 0 -14px}
+.prw-ovadd::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed color-mix(in srgb,var(--dark) 22%,transparent);opacity:0;transition:opacity .15s}
+.prw-ovadd .open{position:relative;display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 10px;font-size:12px;font-weight:600;color:var(--dark);background:var(--paper);border:1px solid color-mix(in srgb,var(--dark) 22%,transparent);border-radius:999px;cursor:pointer;opacity:0;transition:opacity .15s}
+.prw-ovadd .open svg{width:13px;height:13px}
+.prw-ovadd:hover::before,.prw-ovadd.show::before,.prw-ovadd:hover .open,.prw-ovadd.show .open,.prw-ovadd .open:focus-visible{opacity:1}
+.prw-ovadd.show{margin:28px 0 0}
+.prw-ovadd .menu{position:absolute;top:28px;z-index:10;display:flex;flex-direction:column;min-width:280px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px -8px rgba(16,24,40,.22)}
+.prw-ovadd .menu button{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border:0;border-radius:8px;background:none;text-align:left;cursor:pointer;color:var(--ink)}
+.prw-ovadd .menu button:hover,.prw-ovadd .menu button:focus-visible{background:color-mix(in srgb,var(--dark) 6%,#fff);outline:none}
+.prw-ovadd .menu svg{flex:none;width:16px;height:16px;margin-top:2px;color:var(--dark)}
+.prw-ovadd .menu b{display:block;font-size:13px;font-weight:600}
+.prw-ovadd .menu span>span{display:block;font-size:12px;color:var(--body)}
 .prw-ovhidden{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:20px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:#fff}
 .prw-ovhidden .lbl{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--body);margin-right:4px}
 .prw-ovhidden .lbl svg{width:14px;height:14px}

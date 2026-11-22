@@ -79,6 +79,8 @@ export default function GenericCatalogFixture() {
   const [seed, setSeed] = useState<GenericSeedRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewPageId, setPreviewPageId] = useState<number | undefined>(undefined);
+  // Editor mode keeps its edits here, so builder affordances (reorder, add, inline text) can be tried for real.
+  const [edits, setEdits] = useState<Record<string, PageBlock>>({});
 
   useEffect(() => {
     // Dev-only: `?seed=<site path>.json` loads `{ seed, brand? }` (or a bare
@@ -137,9 +139,13 @@ export default function GenericCatalogFixture() {
   // exists to check).
   const brandOverride = typeof window !== "undefined" ? (window as unknown as { __GENERIC_BRAND__?: Partial<typeof DEFAULT_BRAND> }).__GENERIC_BRAND__ : undefined;
   const brand = brandOverride ? { ...DEFAULT_BRAND, ...brandOverride } : DEFAULT_BRAND;
-  // Dev-only: `window.__GENERIC_EDITOR__ = true` renders blocks with a no-op
-  // onFieldChange so builder-only affordances (inline text, image pills) show.
-  const editorMode = typeof window !== "undefined" && !!(window as unknown as { __GENERIC_EDITOR__?: boolean }).__GENERIC_EDITOR__;
+  // Dev-only: `window.__GENERIC_EDITOR__ = true` (or `?edit=1` with `?seed=`)
+  // renders blocks as the builder does, so builder-only affordances (inline
+  // text, image pills, the hub Overview's arrange tools) show; edits are kept
+  // in local state for the life of the tab.
+  const editorMode =
+    typeof window !== "undefined" &&
+    (!!(window as unknown as { __GENERIC_EDITOR__?: boolean }).__GENERIC_EDITOR__ || (import.meta.env.DEV && new URLSearchParams(window.location.search).get("edit") === "1"));
 
   return (
     <div data-testid="generic-catalog-fixture" data-seed-count={items.length}>
@@ -151,7 +157,7 @@ export default function GenericCatalogFixture() {
             data-has-registry-def={item.hasRegistryDef ? "1" : "0"}
           >
             <BlockErrorBoundary blockType={item.type}>
-              <BlockRenderer block={toPageBlock(item)} brand={brand} pageId={previewPageId} onBlockChange={editorMode ? () => {} : undefined} isBuilder={editorMode} />
+              <BlockRenderer block={edits[item.id] ?? toPageBlock(item)} brand={brand} pageId={previewPageId} onBlockChange={editorMode ? (b) => setEdits((e) => ({ ...e, [item.id]: b })) : undefined} isBuilder={editorMode} />
             </BlockErrorBoundary>
           </section>
         ))}

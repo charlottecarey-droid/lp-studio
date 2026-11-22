@@ -15,7 +15,8 @@ import { buildAssetEventPayload, isHostedFileUrl, isPdfUrl, isTrackingSuppressed
 import { HubAssetViewer, shouldOpenInline } from "./hub/HubAssetViewer";
 import { WinsView } from "./hub/RoomFeed";
 import { fillRegionalsWord, RegionalsWord } from "./hub/room-words";
-import { OVERVIEW_EXTRA_LABEL, OVERVIEW_EXTRAS_CSS, OverviewEditFrame, OverviewExtraView, OverviewHiddenStrip, overviewExtraHasContent, overviewExtraMissing, type RoomOverviewExtra } from "./hub/RoomOverviewExtras";
+import { OVERVIEW_EXTRA_LABEL, OVERVIEW_EXTRAS_CSS, OverviewAddBar, OverviewEditFrame, OverviewExtraView, OverviewHiddenStrip, OverviewUnitFrame, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, type OverviewSigner, type OverviewTextEditor, type OverviewViewCtx, type RoomOverviewExtra } from "./hub/RoomOverviewExtras";
+import { OVERVIEW_UNIT_LABEL, canSitBeside, insertOverviewUnit, isBuiltinUnit, moveOverviewUnit, overviewRows, placeOverviewUnit, resolveOverviewOrder, type OverviewBuiltinUnit } from "./hub/roomOverviewLayout";
 import { OrdersAtAGlance, ScorecardView, type ScorecardGoal } from "./hub/RoomScorecard";
 import { PartnershipTimeline, timelineWaves } from "./hub/RoomTimeline";
 import { OutstandingView, ownerSide, roomMeetingActionKey, type OutstandingItem } from "./hub/RoomOutstanding";
@@ -250,7 +251,7 @@ const RoomEditContext = createContext<((item: object, patch: Record<string, unkn
  * Plain text only (no formatting), because these values also feed emails,
  * Slack and task keys. On the live page it renders the text and nothing else.
  */
-function E<T extends object>({ item, field, multiline, placeholder }: { item: T; field: keyof T & string; multiline?: boolean; placeholder?: string }) {
+function E<T extends object>({ item, field, multiline, placeholder, touch }: { item: T; field: keyof T & string; multiline?: boolean; placeholder?: string; /** Also set with any change (a note's date). */ touch?: Record<string, unknown> }) {
   const edit = useContext(RoomEditContext);
   const value = String((item as Record<string, unknown>)[field] ?? "");
   if (!edit) return <>{value}</>;
@@ -263,6 +264,7 @@ function E<T extends object>({ item, field, multiline, placeholder }: { item: T;
       aria-label={placeholder || field}
       data-ph={placeholder || "Add text"}
       data-room-edit={field}
+      data-multiline={multiline ? "" : undefined}
       onClick={(e) => e.stopPropagation()}
       onPaste={(e) => {
         e.preventDefault();
@@ -278,8 +280,10 @@ function E<T extends object>({ item, field, multiline, placeholder }: { item: T;
         }
       }}
       onBlur={(e) => {
-        const next = (e.currentTarget.textContent ?? "").replace(/\u00a0/g, " ").trim();
-        if (next !== value) edit(item, { [field]: next });
+        // Multi-line text keeps its line breaks (innerText reads <br> and new blocks as newlines; textContent drops them).
+        const raw = multiline ? e.currentTarget.innerText : e.currentTarget.textContent;
+        const next = (raw ?? "").replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+        if (next !== value) edit(item, { [field]: next, ...(touch ?? {}) });
       }}
     >
       {value}
@@ -527,6 +531,10 @@ export interface RoomWorkspaceBlockProps extends CtaModalConfig {
   regionalsNoun?: string;
   /** The team's own sections on the Overview: a video, resources, a note. */
   overviewExtras?: RoomOverviewExtra[];
+  /** The Overview's order: built-in sections ("progress", "steps", "orders", "feed") and the team's own by key. Unset = the usual layout (see roomOverviewLayout.ts). */
+  overviewOrder?: string[];
+  /** Sections that sit beside the one before them on a wide screen. */
+  overviewBeside?: string[];
   teamNote?: string;
   team?: RoomTeamGroup[];
   /** Accent on the dark cover (stats, "make a request"). Blank = the brand accent. */
@@ -1691,6 +1699,11 @@ input.prw-pick{display:block;width:100%;margin-top:5px}
 .prw-lk{margin-bottom:28px}
 .prw-lk-link{gap:16px}
 .prw-lk-link>div:first-of-type{min-width:0}
+.prw-lk-url{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;overflow-wrap:anywhere}
+.prw-lk-add{display:flex;align-items:center;gap:6px;width:100%;padding:12px 24px;border:0;border-top:1px solid var(--line);background:none;font-size:13px;font-weight:600;color:var(--dark);cursor:pointer;text-align:left}
+.prw-lk-add:first-child{border-top:0}
+.prw-lk-add svg{width:14px;height:14px}
+.prw-lk-add:hover{background:color-mix(in srgb,var(--dark) 4%,#fff)}
 .prw-lk h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:15px;font-weight:700;color:var(--dark)}
 .prw-lk h3 .prw-num{font-size:11.5px;font-weight:600;color:var(--body);background:#F1F2EE;border-radius:999px;padding:1px 8px}
 .prw-lk>p{margin:0 0 10px;font-size:12.5px;color:var(--body);max-width:70ch}
@@ -2072,44 +2085,103 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
    * The hub's Important links: one section, drawn the same on the Marketing tab and (when a rep adds it) on the Overview,
    * from the same list (props.links), so a link added once shows in both. Nothing is drawn while the hub has no links.
    */
-  const importantLinks = (where: "marketing" | "overview") =>
-    links.length === 0 ? null : (
-    <section className={`prw-lk${where === "overview" ? " prw-sec" : ""}`} data-room-launch={where === "marketing" ? "links" : undefined} data-room-ov-links={where === "overview" ? "" : undefined}>
-      <h3>Important links</h3>
-      <div className="prw-card">
-        {links.map((l, i) => {
-          // An uploaded file opens in the viewer (and its views and time are counted); a web page opens in a new tab and is counted as opened.
-          const asAsset = roomLinkAsset(l);
-          const file = asAsset.kind !== "link";
-          return (
-          <div className="prw-li prw-lk-link" key={i} data-room-link={file ? "file" : "link"}>
-            <span className="prw-ft ic" aria-hidden>{asAsset.kind === "image" ? <ImageIcon /> : file ? <FileText /> : <Link2 />}</span>
-            <div>
-              <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
+  /** Builder: add an empty Important link (filled in where it shows), or remove one. Both places show the same list. */
+  const addHubLink = () => onFieldChange?.({ ...rawProps, links: [...(rawProps.links ?? []), { key: `link-${Date.now().toString(36)}`, title: "", url: "" }] });
+  const removeHubLink = (l: object) => {
+    const target = rawOf.get(l) ?? l;
+    onFieldChange?.({ ...rawProps, links: (rawProps.links ?? []).filter((x) => x !== target) });
+  };
+  /**
+   * The hub's Important links: one list (props.links), the same rows on the Marketing tab and (when a rep adds it) the
+   * Overview, so a link added once shows in both. On the Overview it sits in a card with its header inside, like the
+   * Overview's other sections; on Marketing it keeps that tab's heading-above style. In the builder every link is
+   * edited where it is (name, a line about it, address), with Add a link and remove.
+   */
+  const importantLinks = (where: "marketing" | "overview") => {
+    if (links.length === 0 && !(isEditor && where === "overview")) return null;
+    const rows = links.map((l, i) => {
+      // An uploaded file opens in the viewer (and its views and time are counted); a web page opens in a new tab and is counted as opened.
+      const asAsset = roomLinkAsset(l);
+      const file = asAsset.kind !== "link";
+      return (
+        <div className="prw-li prw-lk-link" key={l.key || i} data-room-link={file ? "file" : "link"}>
+          <span className="prw-ft ic" aria-hidden>{asAsset.kind === "image" ? <ImageIcon /> : file ? <FileText /> : <Link2 />}</span>
+          <div>
+            <div className="t"><E item={l} field="title" placeholder="Link name" /></div>
+            {isEditor ? (
+              <>
+                <div className="m"><E item={l} field="description" placeholder="One line about it (optional)" /></div>
+                {!file && <div className="m prw-lk-url"><E item={l} field="url" placeholder="https://…" /></div>}
+              </>
+            ) : (
               <div className="m">{l.description || (file ? (asAsset.kind === "image" ? "Image" : "PDF") : l.url)}</div>
-            </div>
-            <div className="a">
-              <CopyButton text={l.url} label="Copy link" link />
-              <a
-                className="prw-ib"
-                href={isEditor ? undefined : l.url}
-                target="_blank"
-                rel="noreferrer"
-                title="Open"
-                aria-label={`Open ${l.title}`}
-                onClick={(e) => {
-                  if (openAsset(asAsset)) e.preventDefault();
-                }}
-              >
-                <ExternalLink aria-hidden />
-              </a>
-            </div>
+            )}
           </div>
-          );
-        })}
-      </div>
-    </section>
+          <div className="a">
+            <CopyButton text={l.url} label="Copy link" link />
+            <a
+              className="prw-ib"
+              href={isEditor ? undefined : l.url}
+              target="_blank"
+              rel="noreferrer"
+              title="Open"
+              aria-label={`Open ${l.title}`}
+              onClick={(e) => {
+                if (openAsset(asAsset)) e.preventDefault();
+              }}
+            >
+              <ExternalLink aria-hidden />
+            </a>
+            {isEditor && (
+              <button type="button" className="prw-ib" title="Remove this link" aria-label={`Remove ${l.title || "this link"}`} onClick={() => removeHubLink(l)} data-room-link-remove>
+                <X aria-hidden />
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    });
+    const add = isEditor && (
+      <button type="button" className="prw-lk-add" onClick={addHubLink} data-room-link-add>
+        <Plus aria-hidden /> Add a link
+      </button>
     );
+    if (where === "overview") {
+      return (
+        <div className="prw-card prw-sec prw-ovx" data-room-ov-links>
+          <h3><span className="prw-ovx-t"><Link2 aria-hidden /> Important links</span></h3>
+          {rows}
+          {links.length === 0 && <div className="prw-empty">No links yet. Add the first one here; it shows on the Marketing tab too.</div>}
+          {add}
+        </div>
+      );
+    }
+    return (
+      <section className="prw-lk" data-room-launch="links">
+        <h3>Important links</h3>
+        <div className="prw-card">
+          {rows}
+          {add}
+        </div>
+      </section>
+    );
+  };
+  // What the Overview's own sections need from the hub: the visitor's first name for {first name}, who signs a
+  // pinned note (by default the first person on our team, i.e. the account owner), and a key for the visitor's
+  // own memory of which videos they've watched.
+  const signerPool = (props.team ?? [])[0]?.members ?? [];
+  const realPerson = (m: RoomTeamMember) => !m.hidden && !!(m.name ?? "").trim() && !/^\[.*\]$/.test(m.name.trim()) && m.name.trim() !== "New person";
+  const ovCtx: OverviewViewCtx = {
+    firstName: welcomeName(snapshot.viewer, props.partnerName),
+    signerFor: (x): OverviewSigner | null => {
+      if (x.signedBy === "") return null;
+      const want = (x.signedBy ?? "").trim().toLowerCase();
+      const m = want ? signerPool.find((p) => realPerson(p) && p.name.trim().toLowerCase() === want) : signerPool.find(realPerson);
+      return m ? { name: m.name.trim(), role: (m.role ?? "").trim() || undefined, photoUrl: (m.photoUrl ?? "").trim() || undefined } : null;
+    },
+    storageKey: `hub:${pageId ?? props.partnerName}`,
+  };
+  const ovText: OverviewTextEditor = (p) => <E item={p.item} field={p.field as never} multiline={p.multiline} placeholder={p.placeholder} touch={p.touch} />;
   /** Run something that needs a known visitor; ask for their email first when they are anonymous. */
   const needViewer = (fn: () => void) => {
     if (isEditor) return;
@@ -2460,14 +2532,14 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
             )}
             {active === "overview" && (() => {
               // What a rep switched off on this hub's Overview, and what is left to lay out.
-              // The builder draws the Overview as the customer sees it: each shown section gets a Hide button on hover,
-              // and hidden ones collapse into one strip at the top with a Show button each.
+              // The builder draws the Overview as the customer sees it: each section gets its tools on hover (drag, up / down,
+              // side by side, Hide), "+ Add section" sits between sections, and hidden ones collapse into one strip at the top.
               const hiddenOv = new Set<string>(props.hiddenOverview ?? []);
               const ovHidden = hiddenOv;
               const toggleOv = (k: RoomOverviewSection) => onFieldChange?.({ ...rawProps, hiddenOverview: (hiddenOv.has(k) ? [...hiddenOv].filter((x) => x !== k) : [...hiddenOv, k]) as RoomOverviewSection[] });
               const ovLabel = (k: RoomOverviewSection) => ROOM_OVERVIEW_SECTIONS.find((x) => x.key === k)?.label ?? k;
               const frame = (k: RoomOverviewSection, node: React.ReactNode) => (isEditor && node ? <OverviewEditFrame label={ovLabel(k)} onHide={() => toggleOv(k)}>{node}</OverviewEditFrame> : node);
-              // The team's own sections (a video, resources, a note), at the top or the bottom.
+              // The team's own sections (video, Important links, pinned note), placed anywhere among the built-in ones.
               const allExtras = props.overviewExtras ?? [];
               const extras = allExtras.filter((x) => !x.hidden && (isEditor || overviewExtraHasContent(x, links.length)));
               const toggleExtra = (key: string) => onFieldChange?.({ ...rawProps, overviewExtras: (rawProps.overviewExtras ?? []).map((x) => (x.key === key ? { ...x, hidden: !x.hidden } : x)) });
@@ -2477,40 +2549,13 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     ...allExtras.filter((x) => x.hidden).map((x) => ({ key: x.key, label: x.title?.trim() || OVERVIEW_EXTRA_LABEL[x.kind], onShow: () => toggleExtra(x.key) })),
                   ]
                 : [];
-              const extraNodes = (where: "top" | "bottom") =>
-                extras
-                  .filter((x) => (x.position === "top" ? "top" : "bottom") === where)
-                  .map((x) => {
-                    const view = x.kind === "links" ? <Fragment key={x.key}>{importantLinks("overview")}</Fragment> : <OverviewExtraView key={x.key} extra={x} onOpen={(o) => trackHub({ key: o.key, kind: "link", title: o.title, url: o.url } as HubAsset, "open")} />;
-                    if (!isEditor) return view;
-                    const label = x.title?.trim() || OVERVIEW_EXTRA_LABEL[x.kind];
-                    return (
-                      <OverviewEditFrame key={x.key} label={label} onHide={() => toggleExtra(x.key)}>
-                        {overviewExtraHasContent(x, links.length) ? view : <div className="prw-ovedit-empty prw-sec"><b>{OVERVIEW_EXTRA_LABEL[x.kind]}</b> · {overviewExtraMissing(x)}</div>}
-                      </OverviewEditFrame>
-                    );
-                  });
               const canScorecard = modules.some((m) => m.key === "practices");
               const showNext = !ovHidden.has("next");
               const showComing = !!now && events.upcoming.length > 0 && !ovHidden.has("coming");
               const showOverdue = blocked.length > 0 && !ovHidden.has("overdue");
-              return (
-              <>
-                <div className="prw-hd prw-welcome">
-                  <div>
-                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }} data-room-welcome>
-                      {(props.onboarding?.title ?? "").trim() || `Welcome, ${welcomeName(snapshot.viewer, props.partnerName)}!`}
-                    </h2>
-                  </div>
-                  {(props.kickoffDate ?? "").trim() && (
-                    <div className="prw-meta">
-                      Kickoff <b>{fmtDate(props.kickoffDate)}</b>
-                    </div>
-                  )}
-                </div>
-                <OverviewHiddenStrip items={hiddenChips} />
-                {extraNodes("top")}
-                {frame("progress", (expansion && pr.total > 0) || (!expansion && phases.length > 0) ? (<>
+              // The built-in sections, each ready to place (null when there is nothing to show).
+              const builtinUnits: Record<OverviewBuiltinUnit, React.ReactNode> = {
+                progress: (expansion && pr.total > 0) || (!expansion && phases.length > 0) ? (<>
                 {expansion && pr.total > 0 && !ovHidden.has("progress") && (
                   // The top of the Overview opens the Scorecard, where the same numbers are broken down.
                   canScorecard ? (
@@ -2558,7 +2603,9 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     </div>
                   </>
                 )}
-                </>) : null)}
+                </>) : null,
+                steps: showNext || showComing || showOverdue ? (
+                  <>
                 {(showNext || showComing || showOverdue) && (
                 <div className="prw-grid2 prw-sec" style={!(showNext && (showComing || showOverdue)) ? { gridTemplateColumns: "1fr" } : undefined}>
                   {showNext && frame("next",
@@ -2655,11 +2702,101 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                       </div>
                     ))}
                   </div>)}
-                {expansion && !!snapshot.viewer?.team && canScorecard && !ovHidden.has("orders") && frame("orders",
+                  </>
+                ) : null,
+                orders: expansion && !!snapshot.viewer?.team && canScorecard && !ovHidden.has("orders") ? (
                   <OrdersAtAGlance store={store ?? room.reader} viewerKey={snapshot.viewer?.email ?? ""} noun={noun} onOpen={() => setView("practices")} />
-                )}
-                {frame("feed", isEditor && (ovHidden.has("feed") || !(modules.some((m) => m.key === "wins") && snapshot.wins.length > 0)) ? null : <FeedHighlight wins={modules.some((m) => m.key === "wins") && !ovHidden.has("feed") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />)}
-                {extraNodes("bottom")}
+                ) : null,
+                feed: isEditor && (ovHidden.has("feed") || !(modules.some((m) => m.key === "wins") && snapshot.wins.length > 0)) ? null : <FeedHighlight wins={modules.some((m) => m.key === "wins") && !ovHidden.has("feed") ? snapshot.wins : []} photo={(props.feedPhotoUrl ?? "").trim() || ROOM_FEED_PHOTO} onOpen={() => setView("wins")} />,
+              };
+              const extrasByKey = new Map(extras.map((x) => [x.key, x] as const));
+              const order = resolveOverviewOrder(allExtras, props.overviewOrder);
+              // What each of the team's own sections looks like here; in the builder an empty one shows what it still needs.
+              const extraView = (x: RoomOverviewExtra): React.ReactNode => {
+                if (x.kind === "links") return importantLinks("overview");
+                const view = <OverviewExtraView extra={x} ctx={ovCtx} T={isEditor ? ovText : undefined} onOpen={(o) => trackHub({ key: o.key, kind: "link", title: o.title, url: o.url } as HubAsset, "open")} />;
+                if (!isEditor || overviewExtraHasContent(x, links.length) || x.kind === "text") return view;
+                return <div className="prw-ovedit-empty prw-sec"><b>{OVERVIEW_EXTRA_LABEL[x.kind]}</b> · {overviewExtraMissing(x)}</div>;
+              };
+              const unitNode = (k: string): React.ReactNode => {
+                if (isBuiltinUnit(k)) return builtinUnits[k];
+                const x = extrasByKey.get(k);
+                return x ? extraView(x) : null;
+              };
+              const visible = order.filter((k) => unitNode(k) != null);
+              const rows = overviewRows(visible, props.overviewBeside);
+              const unitLabel = (k: string) => {
+                if (k === "steps") return OVERVIEW_UNIT_LABEL.steps;
+                if (isBuiltinUnit(k)) return ovLabel(k as RoomOverviewSection);
+                const x = extrasByKey.get(k);
+                return (x && x.kind !== "links" ? x.title?.trim() : "") || (x ? OVERVIEW_EXTRA_LABEL[x.kind] : k);
+              };
+              const setLayout = (patch: Partial<RoomWorkspaceBlockProps>) => onFieldChange?.({ ...rawProps, ...patch });
+              const toggleBeside = (k: string) => {
+                const now = new Set(rawProps.overviewBeside ?? []);
+                if (now.has(k)) now.delete(k);
+                else now.add(k);
+                setLayout({ overviewBeside: [...now], overviewOrder: order });
+              };
+              const addSection = (kind: "video" | "links" | "text", before: string | null) => {
+                const x = newOverviewExtra(kind, rawProps.overviewExtras ?? []);
+                setLayout({ overviewExtras: [...(rawProps.overviewExtras ?? []), x], overviewOrder: insertOverviewUnit(order, x.key, before) });
+              };
+              const addKinds = (["video", "links", "text"] as const).filter((k) => k !== "links" || !allExtras.some((x) => x.kind === "links"));
+              const frameUnit = (k: string, rowIndex: number, inRow: number): React.ReactNode => {
+                const node = unitNode(k);
+                if (!isEditor) return <Fragment key={k}>{node}</Fragment>;
+                const at = visible.indexOf(k);
+                const beside = inRow === 1;
+                // Side by side: a paired unit can always go back to full width; a unit alone in its row can join the row
+                // before it when that one is alone too and both may share a row.
+                const myRow = rows[rowIndex];
+                const prevRow = rows[rowIndex - 1];
+                const canPair = beside || (inRow === 0 && myRow.length === 1 && prevRow?.length === 1 && canSitBeside(k) && canSitBeside(prevRow[0]));
+                return (
+                  <OverviewUnitFrame
+                    key={k}
+                    unitKey={k}
+                    label={unitLabel(k)}
+                    onHide={k === "steps" ? undefined : isBuiltinUnit(k) ? () => toggleOv(k as RoomOverviewSection) : () => toggleExtra(k)}
+                    onUp={at > 0 ? () => setLayout({ overviewOrder: moveOverviewUnit(order, visible, k, -1) }) : undefined}
+                    onDown={at < visible.length - 1 ? () => setLayout({ overviewOrder: moveOverviewUnit(order, visible, k, 1) }) : undefined}
+                    beside={beside}
+                    onBeside={canPair ? () => toggleBeside(k) : undefined}
+                    onDrop={(dragged, where) => setLayout({ overviewOrder: placeOverviewUnit(order, dragged, k, where) })}
+                  >
+                    {node}
+                  </OverviewUnitFrame>
+                );
+              };
+              return (
+              <>
+                <div className="prw-hd prw-welcome">
+                  <div>
+                    <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }} data-room-welcome>
+                      {(props.onboarding?.title ?? "").trim() || `Welcome, ${welcomeName(snapshot.viewer, props.partnerName)}!`}
+                    </h2>
+                  </div>
+                  {(props.kickoffDate ?? "").trim() && (
+                    <div className="prw-meta">
+                      Kickoff <b>{fmtDate(props.kickoffDate)}</b>
+                    </div>
+                  )}
+                </div>
+                <OverviewHiddenStrip items={hiddenChips} />
+                {rows.map((row, r) => (
+                  <Fragment key={row.join("+")}>
+                    {isEditor && <OverviewAddBar kinds={[...addKinds]} onAdd={(kind) => addSection(kind, row[0])} />}
+                    {row.length === 2 ? (
+                      <div className="prw-ovrow" data-room-ov-row>
+                        {row.map((k, n) => frameUnit(k, r, n))}
+                      </div>
+                    ) : (
+                      frameUnit(row[0], r, 0)
+                    )}
+                  </Fragment>
+                ))}
+                {isEditor && <OverviewAddBar kinds={[...addKinds]} onAdd={(kind) => addSection(kind, null)} always />}
               </>
               );
             })()}

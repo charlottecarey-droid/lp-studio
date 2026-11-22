@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BRAND } from "@/lib/brand-config";
 import { BlockRoomWorkspace, ROOM_WORKSPACE_DEFAULT_PROPS, type RoomWorkspaceBlockProps } from "../BlockRoomWorkspace";
-import { OVERVIEW_EXTRA_ADDABLE, newOverviewExtra, overviewExtraHasContent, overviewVideoEmbed, overviewVideoName, overviewVideos, type RoomOverviewExtra } from "./RoomOverviewExtras";
+import { OVERVIEW_EXTRA_ADDABLE, fillFirstName, newOverviewExtra, overviewExtraHasContent, overviewVideoEmbed, overviewVideoName, overviewVideoThumb, overviewVideos, pinnedLabel, type RoomOverviewExtra } from "./RoomOverviewExtras";
 
 const BRAND = { ...DEFAULT_BRAND, brandName: "Acme" };
 const html = (props: Partial<RoomWorkspaceBlockProps>, editing = false) =>
@@ -93,7 +93,7 @@ describe("the team's own Overview sections", () => {
     it("shows the hub's own Important links, drawn like the Marketing tab (copy + open), hidden ones left out", () => {
       const out = html({ links: hubLinks, overviewExtras: [linksSection] });
       expect(out).toContain("data-room-ov-links");
-      expect(out).toContain("<h3>Important links</h3>");
+      expect(out).toMatch(/<h3><span class="prw-ovx-t">.*Important links<\/span><\/h3>/);
       expect(out).toContain("Practice sign-up page");
       expect(out).toContain("prw-lk-link");
       expect(out).toContain("Copy link");
@@ -105,7 +105,9 @@ describe("the team's own Overview sections", () => {
     it("with no links the customer sees nothing, and the builder says where to add them", () => {
       expect(html({ links: [], overviewExtras: [linksSection] })).not.toContain("data-room-ov-links");
       const builder = html({ links: [], overviewExtras: [linksSection] }, true);
-      expect(builder).toContain("no Important links yet");
+      // The builder shows the empty card with its own Add a link, so links can be added right there.
+      expect(builder).toContain("No links yet");
+      expect(builder).toContain("data-room-link-add");
       expect(builder).toContain('aria-label="Hide Important links on the Overview"');
     });
 
@@ -163,7 +165,7 @@ describe("the team's own Overview sections", () => {
     const base: RoomOverviewExtra = { key: "ov-text-2", kind: "text", title: "Welcome, Signature Team!", body: "Welcome to Dandy!\n\nWe are so excited to partner with you on your lab consolidation journey.\n\nYour Dandy Account Team" };
 
     it("is a pinned card with the default eyebrow, paragraphs, and a short last line as the sign-off", () => {
-      const out = html({ overviewExtras: [base] });
+      const out = html({ overviewExtras: [{ ...base, signedBy: "" }] });
       expect(out).toContain('class="prw-sec prw-note"');
       expect(out).toContain("prw-note-pin");
       expect(out).toMatch(/data-room-note-eyebrow="?[^>]*>From your account team</);
@@ -195,6 +197,116 @@ describe("the team's own Overview sections", () => {
 
     it("a new note starts at the top with the eyebrow set and room for links", () => {
       expect(newOverviewExtra("text")).toMatchObject({ kind: "text", eyebrow: "From your account team", items: [], position: "top" });
+    });
+  });
+
+  describe("Overview layout in the page", () => {
+    const note: RoomOverviewExtra = { key: "n1", kind: "text", title: "Hello", body: "Hi.", position: "top" };
+    const linksX = newOverviewExtra("links");
+    const hubLinks = [{ title: "Sign-up page", url: "https://example.com/signup" }];
+
+    it("follows the saved order, built-ins included", () => {
+      const out = html({ links: hubLinks, overviewExtras: [note, linksX], overviewOrder: ["steps", "ov-links-1", "n1", "progress"] });
+      const at = (needle: string) => out.indexOf(needle);
+      expect(at("data-room-attention")).toBeLessThan(at("data-room-ov-links"));
+      expect(at("data-room-ov-links")).toBeLessThan(at('data-room-ov-extra="n1"'));
+    });
+
+    it("puts a 'beside' section in the same row as the one before it", () => {
+      const out = html({ links: hubLinks, overviewExtras: [note, linksX], overviewOrder: ["n1", "ov-links-1", "progress", "steps"], overviewBeside: ["ov-links-1"] });
+      expect(out).toMatch(/<div class="prw-ovrow" data-room-ov-row="true">.*data-room-ov-extra="n1".*data-room-ov-links/s);
+    });
+
+    it("the builder: every section gets its tools, and + Add section sits between sections", () => {
+      const out = html({ links: hubLinks, overviewExtras: [note, linksX], overviewOrder: ["progress", "steps", "n1", "ov-links-1"] }, true);
+      expect(out).toContain('data-room-ov-unit="n1"');
+      expect(out).toContain('aria-label="Move Hello up"');
+      // Beside a wide section (Next steps) is never offered; beside the note is.
+      expect(out).not.toContain('aria-label="Put Hello beside the section before"');
+      expect(out).toContain('aria-label="Put Important links beside the section before"');
+      // Next steps & coming up hides part by part, so its unit has no Hide of its own.
+      expect(out).toMatch(/data-room-ov-unit="steps"/);
+      expect((out.match(/data-room-ov-add-bar/g) ?? []).length).toBeGreaterThanOrEqual(3);
+      // None of it reaches the customer.
+      const live = html({ links: hubLinks, overviewExtras: [note, linksX] });
+      // (The stylesheet names these attributes; the markup must not carry them.)
+      expect(live).not.toMatch(/data-room-ov-unit="/);
+      expect(live).not.toMatch(/data-room-ov-add-bar="/);
+    });
+
+    it("the builder: Important links are edited where they are, with Add a link and remove", () => {
+      const out = html({ links: hubLinks, overviewExtras: [linksX] }, true);
+      expect(out).toContain('data-room-edit="url"');
+      expect(out).toContain('data-room-edit="description"');
+      expect(out).toContain("data-room-link-remove");
+      expect(out).toContain("data-room-link-add");
+      expect(html({ links: hubLinks, overviewExtras: [linksX] })).not.toContain("data-room-link-remove");
+    });
+  });
+
+  describe("Pinned note: signer, date and first name", () => {
+    const note: RoomOverviewExtra = { key: "n2", kind: "text", title: "Welcome, {first name}!", body: "Glad you're here.\n\nYour account team", pinnedAt: "2026-11-22T15:00:00.000Z" };
+
+    it("is signed by the first person on our team by default, with initials when there's no photo", () => {
+      const out = html({ overviewExtras: [note] });
+      expect(out).toContain('data-room-note-signer="Alex Morgan"');
+      expect(out).toMatch(/class="prw-note-av"[^>]*>AM</);
+      expect(out).toContain("Account lead · Your account team");
+    });
+
+    it("can be signed by someone else, or no one", () => {
+      expect(html({ overviewExtras: [{ ...note, signedBy: "Jordan Lee" }] })).toContain('data-room-note-signer="Jordan Lee"');
+      const none = html({ overviewExtras: [{ ...note, signedBy: "" }] });
+      expect(none).not.toContain("data-room-note-signer");
+      expect(none).toMatch(/data-room-note-signoff="?[^>]*>Your account team</);
+    });
+
+    it("fills {first name} (the company name when the visitor isn't known) and shows the pinned date", () => {
+      const out = html({ overviewExtras: [note] });
+      expect(out).toContain("Welcome, Acme Group!");
+      expect(out).not.toContain("{first name}");
+      expect(out).toContain("Pinned Nov 22");
+      expect(html({ overviewExtras: [{ ...note, hideDate: true }] })).not.toContain("data-room-note-date");
+      expect(fillFirstName("Hi {First Name}, {firstName} and { first_name }", "Josh")).toBe("Hi Josh, Josh and Josh");
+      expect(pinnedLabel(undefined)).toBe("");
+      expect(pinnedLabel("not a date")).toBe("");
+    });
+
+    it("the builder edits the words where they are and keeps the {first name} token visible", () => {
+      const out = html({ overviewExtras: [note] }, true);
+      expect(out).toContain('data-room-edit="title"');
+      expect(out).toContain('data-room-edit="body"');
+      expect(out).toContain('data-room-edit="eyebrow"');
+      expect(out).toContain("Welcome, {first name}!");
+    });
+  });
+
+  describe("Video carousel: Up next strip", () => {
+    const three: RoomOverviewExtra = {
+      key: "v3",
+      kind: "video",
+      title: "Intro",
+      videos: [
+        { title: "Intro", url: "https://youtu.be/dQw4w9WgXcQ" },
+        { title: "Ordering", url: "https://vimeo.com/123456", thumbnailUrl: "https://example.com/ordering.jpg" },
+        { title: "Lab tour", url: "/videos/dandy-lab-video.mp4" },
+      ],
+    };
+
+    it("finds a picture for each video where it can", () => {
+      expect(overviewVideoThumb(three.videos![0])).toEqual({ kind: "img", src: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" });
+      expect(overviewVideoThumb(three.videos![1])).toEqual({ kind: "img", src: "https://example.com/ordering.jpg" });
+      expect(overviewVideoThumb(three.videos![2])).toEqual({ kind: "video", src: "/videos/dandy-lab-video.mp4#t=1" });
+      expect(overviewVideoThumb({ title: "x", url: "https://vimeo.com/1" })).toBeNull();
+    });
+
+    it("shows every video in the strip, the current one marked Now playing", () => {
+      const out = html({ overviewExtras: [three] });
+      expect(out).toContain("data-room-video-strip");
+      expect((out.match(/class="prw-vc-item/g) ?? []).length).toBe(3);
+      expect(out).toMatch(/class="prw-vc-item on"[^>]*aria-current="true"/);
+      expect(out).toContain("Now playing");
+      expect(out).toContain('aria-label="Video 2 of 3: Ordering"');
     });
   });
 });

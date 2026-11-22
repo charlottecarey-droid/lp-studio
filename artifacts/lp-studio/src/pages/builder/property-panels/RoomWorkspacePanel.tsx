@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { VideoPicker } from "@/components/VideoPicker";
 import { refreshPageVersion } from "@/lib/page-version";
+import { insertOverviewUnit, placeOverviewUnit, resolveOverviewOrder } from "@/blocks/hub/roomOverviewLayout";
 import { OVERVIEW_EXTRA_ADDABLE, OVERVIEW_EXTRA_LABEL, OVERVIEW_NOTE_EYEBROW, newOverviewExtra, overviewExtraHasContent, overviewExtraMissing, overviewVideos, type RoomOverviewExtra, type RoomOverviewVideo, type RoomOverviewExtraKind, type RoomOverviewResource } from "@/blocks/hub/RoomOverviewExtras";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -245,6 +246,19 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
   const setExtras = (next: RoomOverviewExtra[]) => update({ overviewExtras: next });
   const setExtra = (i: number, patch: Partial<RoomOverviewExtra>) => setExtras(extras.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   const setExtraItem = (i: number, j: number, patch: Partial<RoomOverviewResource>) => setExtra(i, { items: (extras[i].items ?? []).map((it, k) => (k === j ? { ...it, ...patch } : it)) });
+  // The team's sections listed in the order they sit on the Overview (moving one here moves it there too).
+  const overviewOrder = resolveOverviewOrder(extras, props.overviewOrder);
+  const orderedExtras = overviewOrder.flatMap((k) => {
+    const i = extras.findIndex((x) => x.key === k);
+    return i >= 0 ? [{ x: extras[i], i }] : [];
+  });
+  const moveExtra = (key: string, dir: -1 | 1) => {
+    const at = orderedExtras.findIndex((e) => e.x.key === key);
+    const other = orderedExtras[at + dir];
+    if (other) update({ overviewOrder: placeOverviewUnit(overviewOrder, key, other.x.key, dir === -1 ? "before" : "after") });
+  };
+  // Who can sign a pinned note: the named people on our side of the Team.
+  const signers = (props.team?.[0]?.members ?? []).filter((m) => !m.hidden && (m.name ?? "").trim() && !/^\[.*\]$/.test(m.name.trim()) && m.name.trim() !== "New person");
   const marketing = props.marketing ?? { groups: [] };
   const mGroups = marketing.groups ?? [];
   const setMarketing = (patch: Partial<NonNullable<RoomWorkspaceBlockProps["marketing"]>>) => update({ marketing: { ...marketing, groups: mGroups, ...patch } });
@@ -401,19 +415,19 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
 
 
       {active === "overview" && (
-      <SectionBody title={`Your own sections (${extras.length})`} hint="Add a video, the hub’s Important links or a note to the Overview. Hide or show any section with the button on it in the preview.">
-        {extras.map((x, i) => (
+      <SectionBody title={`Your own sections (${extras.length})`} hint="Add a video, the hub’s Important links or a pinned note. In the preview you can also add a section anywhere (+ Add section), drag sections to reorder them, set two side by side, or hide one.">
+        {orderedExtras.map(({ x, i }, n) => (
           <CollapseItem
             key={x.key}
             startOpen={!overviewExtraHasContent(x, shownLinks)}
-            header={<ItemHeader label={`${OVERVIEW_EXTRA_LABEL[x.kind]} · ${x.title || "Untitled"}${x.hidden ? " (hidden)" : ""}`} index={i} total={extras.length} onMove={(dir) => setExtras(moveItem(extras, i, dir))} onRemove={() => setExtras(extras.filter((_, idx) => idx !== i))} />}
+            header={<ItemHeader label={`${OVERVIEW_EXTRA_LABEL[x.kind]} · ${x.title || "Untitled"}${x.hidden ? " (hidden)" : ""}`} index={n} total={orderedExtras.length} onMove={(dir) => moveExtra(x.key, dir)} onRemove={() => setExtras(extras.filter((_, idx) => idx !== i))} />}
           >
             {x.kind === "video" ? null : x.kind === "links" ? (
               <p className="text-[11px] text-muted-foreground" data-room-ov-links-note>
-                The same Important links as the Marketing tab ({shownLinks} shown). Add or change them under Marketing → Links and they update in both places.
+                The same Important links as the Marketing tab ({shownLinks} shown). Add, edit or remove them right on this section in the preview, or under Marketing → Links; they update in both places.
               </p>
             ) : (
-              <Field label="Title"><Input value={x.title ?? ""} onChange={(e) => setExtra(i, { title: e.target.value })} className="h-8 text-xs font-semibold" /></Field>
+              <Field label="Title"><Input value={x.title ?? ""} onChange={(e) => setExtra(i, { title: e.target.value, ...(x.kind === "text" ? { pinnedAt: new Date().toISOString() } : {}) })} className="h-8 text-xs font-semibold" /></Field>
             )}
             {x.kind === "video" && (() => {
               // One video, or several shown as a carousel ("Watch video (1 of 3): name"). Saving always writes the list;
@@ -440,6 +454,11 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                       <Field label="Name"><Input value={v.title ?? ""} onChange={(e) => setVid(j, { title: e.target.value })} className="h-8 text-xs font-semibold" placeholder="A welcome from your team" /></Field>
                       <VideoPicker label="Video (YouTube, Vimeo, Loom, Wistia, or a file from the library)" value={v.url ?? ""} onChange={(u) => setVid(j, { url: u })} />
                       <Field label="A line about it (optional)"><Input value={v.body ?? ""} onChange={(e) => setVid(j, { body: e.target.value })} className="h-8 text-xs" /></Field>
+                      {vids.length > 1 && (
+                        <Field label="Picture for the Up next strip (optional; YouTube, Loom and video files have their own)">
+                          <Input value={v.thumbnailUrl ?? ""} onChange={(e) => setVid(j, { thumbnailUrl: e.target.value.trim() })} className="h-8 text-xs" placeholder="https://… or a library image link" />
+                        </Field>
+                      )}
                     </div>
                   ))}
                   <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setVids([...vids, { title: "", url: "" }])} data-room-ov-add-video>
@@ -451,7 +470,28 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
             {x.kind === "text" && (
               <>
                 <Field label="Eyebrow (above the title; clear it to show none)"><Input value={x.eyebrow ?? OVERVIEW_NOTE_EYEBROW} onChange={(e) => setExtra(i, { eyebrow: e.target.value })} className="h-8 text-xs" placeholder={OVERVIEW_NOTE_EYEBROW} /></Field>
-                <Field label="Message"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value })} rows={5} className="text-xs" placeholder={"What the customer should know.\n\nA short last line (like your team's name) shows as the sign-off."} /></Field>
+                <Field label="Message"><Textarea value={x.body ?? ""} onChange={(e) => setExtra(i, { body: e.target.value, pinnedAt: new Date().toISOString() })} rows={5} className="text-xs" placeholder={"Hi {first name}, …\n\nA short last line (like your team's name) shows as the sign-off."} /></Field>
+                <p className="text-[11px] text-muted-foreground">Write {"{first name}"} in the title or message to greet each visitor by name (their company name when it isn&apos;t known). You can also edit the words right on the note in the preview.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Signed by">
+                    <Select value={x.signedBy === "" ? "__none" : x.signedBy ?? "__default"} onValueChange={(v) => setExtra(i, { signedBy: v === "__default" ? undefined : v === "__none" ? "" : v })}>
+                      <SelectTrigger className="h-8 text-xs" aria-label="Who signs the note"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default" className="text-xs">{signers[0] ? `${signers[0].name.trim()} (first on the team)` : "First person on the team"}</SelectItem>
+                        {signers.slice(1).map((m) => (
+                          <SelectItem key={m.name} value={m.name.trim()} className="text-xs">{m.name.trim()}{m.role ? ` · ${m.role}` : ""}</SelectItem>
+                        ))}
+                        <SelectItem value="__none" className="text-xs">No one (just the sign-off line)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Date">
+                    <label className="flex h-8 items-center justify-between gap-2 rounded-md border px-2 text-xs">
+                      <span>{x.pinnedAt ? `Show “Pinned ${new Date(x.pinnedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}”` : "Show the date"}</span>
+                      <Switch checked={!x.hideDate && !!x.pinnedAt} onCheckedChange={(on) => setExtra(i, on ? { hideDate: false, pinnedAt: x.pinnedAt ?? new Date().toISOString() } : { hideDate: true })} aria-label="Show the pinned date" />
+                    </label>
+                  </Field>
+                </div>
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-medium text-muted-foreground">Links (shown as buttons under the message)</span>
                   {(x.items ?? []).map((it, j) => (
@@ -485,14 +525,7 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
                 <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtra(i, { items: [...(x.items ?? []), { title: "", url: "" }] })}><Plus className="h-3 w-3" /> Add a resource</Button>
               </div>
             )}
-            <div className="flex items-center justify-between gap-2">
-              <Select value={x.position === "top" ? "top" : "bottom"} onValueChange={(v) => setExtra(i, { position: v as "top" | "bottom" })}>
-                <SelectTrigger className="h-7 w-[150px] text-xs" aria-label="Where on the Overview"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="top" className="text-xs">At the top</SelectItem>
-                  <SelectItem value="bottom" className="text-xs">At the bottom</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-end gap-2">
               <HideToggle hidden={x.hidden} onChange={(h) => setExtra(i, { hidden: h })} />
             </div>
             {!overviewExtraHasContent(x, shownLinks) && <p className="text-[11px] text-muted-foreground">{overviewExtraMissing(x)}</p>}
@@ -501,7 +534,11 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
         <div className="flex flex-wrap gap-1.5">
           {/* Important links is one shared section: once it is on the Overview there is nothing more to add. */}
           {OVERVIEW_EXTRA_ADDABLE.filter((k) => k !== "links" || !extras.some((x) => x.kind === "links")).map((k: RoomOverviewExtraKind) => (
-            <Button key={k} type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setExtras([...extras, newOverviewExtra(k, extras)])} data-room-ov-add={k}>
+            <Button key={k} type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => {
+              // Added from here: a video or note goes to the top of the Overview, Important links to the end. Add one anywhere from the preview.
+              const x = newOverviewExtra(k, extras);
+              update({ overviewExtras: [...extras, x], overviewOrder: insertOverviewUnit(overviewOrder, x.key, k === "links" ? null : overviewOrder[0] ?? null) });
+            }} data-room-ov-add={k}>
               <Plus className="h-3 w-3" /> {OVERVIEW_EXTRA_LABEL[k]}
             </Button>
           ))}
@@ -852,11 +889,14 @@ export function RoomWorkspacePanel({ props, onChange, brandName }: { props: Room
         <div className="space-y-2 pt-2">
           <span className="text-[11px] font-medium text-muted-foreground">Links</span>
           {links.map((l, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1">
-              <Input value={l.title} onChange={(e) => update({ links: links.map((x, idx) => (idx === i ? { ...x, title: e.target.value } : x)) })} className="h-7 text-xs" placeholder="Title" />
-              <Input value={l.url} onChange={(e) => update({ links: links.map((x, idx) => (idx === i ? { ...x, url: e.target.value } : x)) })} className="h-7 text-xs" placeholder="https://…" />
-              <HideToggle hidden={l.hidden} onChange={(h) => update({ links: links.map((x, idx) => (idx === i ? { ...x, hidden: h } : x)) })} />
-              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => update({ links: links.filter((_, idx) => idx !== i) })}>Remove</Button>
+            <div key={i} className="space-y-1 rounded border p-1.5" data-room-link-edit>
+              <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1">
+                <Input value={l.title} onChange={(e) => update({ links: links.map((x, idx) => (idx === i ? { ...x, title: e.target.value } : x)) })} className="h-7 text-xs" placeholder="Title" />
+                <Input value={l.url} onChange={(e) => update({ links: links.map((x, idx) => (idx === i ? { ...x, url: e.target.value } : x)) })} className="h-7 text-xs" placeholder="https://…" />
+                <HideToggle hidden={l.hidden} onChange={(h) => update({ links: links.map((x, idx) => (idx === i ? { ...x, hidden: h } : x)) })} />
+                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => update({ links: links.filter((_, idx) => idx !== i) })}>Remove</Button>
+              </div>
+              <Input value={l.description ?? ""} onChange={(e) => update({ links: links.map((x, idx) => (idx === i ? { ...x, description: e.target.value } : x)) })} className="h-7 text-xs" placeholder="One line about it (shown under the name; blank shows the address)" aria-label="Link description" />
             </div>
           ))}
           <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => update({ links: [...links, { title: "New link", url: "" }] })}>
