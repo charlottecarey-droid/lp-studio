@@ -37,12 +37,13 @@
  */
 import * as Sentry from "@sentry/node";
 import { db, lpPagesTable, pool } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getActiveHostsForTenant } from "./tenantHosts";
 import { getPublishedHtmlMetaFromR2, isR2Configured } from "./r2Storage";
 import { renderAndStoreNow } from "./triggerPublishedRender";
 import { CURRENT_RENDER_VERSION } from "./renderVersion";
+import { getCurrentAppBuildId } from "./appBuild";
 
 // Stable advisory-lock pair-key. Class id is the task number; obj id leaves
 // room for sibling locks in this family. Distinct from the custom-domain
@@ -70,6 +71,28 @@ interface PageRow {
   id: number;
   tenantId: number;
   slug: string;
+  /** An app-like page (a Partner Hub): also re-baked when the live app build changes. */
+  isApp: boolean;
+}
+
+/**
+ * Block types that make a page app-like: it reads live data and its sections
+ * change with the code, so a snapshot left on an old build shows the wrong
+ * thing. Only these pages follow the app build; everything else follows
+ * CURRENT_RENDER_VERSION alone (re-baking the fleet per deploy is expensive).
+ */
+export const APP_PAGE_BLOCK_TYPES = ["room-workspace"] as const;
+
+/**
+ * Pure decision for an app-like page (exported for unit tests): stale when any
+ * host's snapshot loads a build other than the live one. `current` null means
+ * the live build couldn't be read: never stale on that basis. A snapshot with
+ * no stamp (baked before stamping) counts as behind.
+ */
+export function isAppBuildStale(hostBuilds: Record<string, string | null>, current: string | null): boolean {
+  if (!current) return false;
+  const hosts = Object.keys(hostBuilds);
+  return hosts.some((h) => hostBuilds[h] !== current);
 }
 
 /**
@@ -102,19 +125,23 @@ export function isSnapshotStale(
  */
 async function classifyPage(
   page: PageRow,
-): Promise<{ stale: boolean; reason: "current" | "stale" | "no_hosts"; hostVersions: Record<string, string | null> }> {
+  currentAppBuild: string | null,
+): Promise<{ stale: boolean; reason: "current" | "stale" | "app_build" | "no_hosts"; hostVersions: Record<string, string | null> }> {
   const hosts = await getActiveHostsForTenant(page.tenantId);
   if (hosts.length === 0) {
     return { stale: false, reason: "no_hosts", hostVersions: {} };
   }
   const hostVersions: Record<string, string | null> = {};
+  const hostBuilds: Record<string, string | null> = {};
   for (const host of hosts) {
     const meta = await getPublishedHtmlMetaFromR2(host, page.slug);
     // Missing object (meta === null) → version null → stale.
     hostVersions[host] = meta ? meta.renderVersion : null;
+    hostBuilds[host] = meta ? meta.appBuild : null;
   }
-  const stale = isSnapshotStale(hostVersions, CURRENT_RENDER_VERSION);
-  return { stale, reason: stale ? "stale" : "current", hostVersions };
+  if (isSnapshotStale(hostVersions, CURRENT_RENDER_VERSION)) return { stale: true, reason: "stale", hostVersions };
+  if (page.isApp && isAppBuildStale(hostBuilds, currentAppBuild)) return { stale: true, reason: "app_build", hostVersions };
+  return { stale: false, reason: "current", hostVersions };
 }
 
 // In-process single-flight guard.
@@ -164,7 +191,15 @@ async function runReconcileLocked(): Promise<void> {
   let pages: PageRow[];
   try {
     pages = await db
-      .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, slug: lpPagesTable.slug })
+      .select({
+        id: lpPagesTable.id,
+        tenantId: lpPagesTable.tenantId,
+        slug: lpPagesTable.slug,
+        isApp: sql<boolean>`(${sql.join(
+          APP_PAGE_BLOCK_TYPES.map((t) => sql`${lpPagesTable.blocks} @> ${JSON.stringify([{ type: t }])}::jsonb`),
+          sql` OR `,
+        )})`,
+      })
       .from(lpPagesTable)
       .where(eq(lpPagesTable.status, "published"))
       .orderBy(desc(lpPagesTable.updatedAt));
@@ -178,6 +213,10 @@ async function runReconcileLocked(): Promise<void> {
     return;
   }
 
+  // The build the site serves now; app-like pages on another build are re-baked.
+  const currentAppBuild = pages.some((p) => p.isApp) ? await getCurrentAppBuildId() : null;
+  let appBuildStale = 0;
+
   // ── Detection phase: cheap HEADs, bounded worker pool ────────────────
   const stalePages: PageRow[] = [];
   let noHostPages = 0;
@@ -187,11 +226,12 @@ async function runReconcileLocked(): Promise<void> {
     while (cursor < pages.length) {
       const page = pages[cursor++];
       try {
-        const c = await classifyPage(page);
+        const c = await classifyPage(page, currentAppBuild);
         if (c.reason === "no_hosts") {
           noHostPages++;
         } else if (c.stale) {
           stalePages.push(page);
+          if (c.reason === "app_build") appBuildStale++;
         }
       } catch (err) {
         // A transient HEAD failure shouldn't abort the sweep; treat as
@@ -208,6 +248,7 @@ async function runReconcileLocked(): Promise<void> {
     logger.info(
       {
         currentRenderVersion: CURRENT_RENDER_VERSION,
+        currentAppBuild,
         totalPublished: pages.length,
         stale: 0,
         noHostPages,
@@ -221,6 +262,8 @@ async function runReconcileLocked(): Promise<void> {
 
   // ── Re-bake phase: SERIAL, bounded by maxRebakesPerRun ───────────────
   const cap = maxRebakesPerRun();
+  // App-like pages first: they are the ones a visitor notices running old code.
+  stalePages.sort((a, b) => Number(b.isApp) - Number(a.isApp));
   const toRebake = stalePages.slice(0, cap);
   let rebaked = 0;
   let rebakeFailed = 0;
@@ -231,6 +274,8 @@ async function runReconcileLocked(): Promise<void> {
       currentRenderVersion: CURRENT_RENDER_VERSION,
       totalPublished: pages.length,
       staleDetected: stalePages.length,
+      appBuildStale,
+      currentAppBuild,
       rebakeAttempting: toRebake.length,
       capped: stalePages.length > cap,
       noHostPages,
@@ -267,6 +312,8 @@ async function runReconcileLocked(): Promise<void> {
     currentRenderVersion: CURRENT_RENDER_VERSION,
     totalPublished: pages.length,
     staleDetected: stalePages.length,
+    appBuildStale,
+    currentAppBuild,
     rebaked,
     rebakeFailed,
     capped: stalePages.length > cap,

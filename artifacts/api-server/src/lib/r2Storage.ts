@@ -41,7 +41,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { Agent as HttpsAgent } from "node:https";
-import { RENDER_VERSION_META_KEY } from "./renderVersion";
+import { APP_BUILD_META_KEY, RENDER_VERSION_META_KEY } from "./renderVersion";
 
 /** Default socket pool for the on-demand client (publish-path writes, the
  *  request-serving reads). Large enough to absorb a publish burst. */
@@ -206,7 +206,7 @@ export async function uploadPublishedHtmlToR2(
   host: string,
   slug: string,
   html: string,
-  meta?: { tenantId?: number; robots?: string | null; renderVersion?: string },
+  meta?: { tenantId?: number; robots?: string | null; renderVersion?: string; appBuild?: string | null },
 ): Promise<void> {
   const cfg = getR2Config();
   if (!cfg) {
@@ -233,6 +233,9 @@ export async function uploadPublishedHtmlToR2(
         ...(meta?.tenantId !== undefined ? { "tenant-id": String(meta.tenantId) } : {}),
         ...(meta?.robots ? { "x-robots": meta.robots } : {}),
         ...(meta?.renderVersion ? { [RENDER_VERSION_META_KEY]: meta.renderVersion } : {}),
+        // The app build the snapshot loads (appBuild.ts): app-like pages are
+        // re-baked after a deploy when it no longer matches the live build.
+        ...(meta?.appBuild ? { [APP_BUILD_META_KEY]: meta.appBuild } : {}),
         host: normalizeHostForKey(host),
         "rendered-at": new Date().toISOString(),
       },
@@ -254,7 +257,7 @@ export async function uploadPublishedHtmlToR2(
 export async function getPublishedHtmlMetaFromR2(
   host: string,
   slug: string,
-): Promise<{ renderVersion: string | null; lastModified: Date | null } | null> {
+): Promise<{ renderVersion: string | null; appBuild: string | null; lastModified: Date | null } | null> {
   const cfg = getR2Config();
   if (!cfg) return null;
   try {
@@ -264,6 +267,7 @@ export async function getPublishedHtmlMetaFromR2(
     const md = out.Metadata ?? {};
     return {
       renderVersion: md[RENDER_VERSION_META_KEY] ?? null,
+      appBuild: md[APP_BUILD_META_KEY] ?? null,
       lastModified: out.LastModified ?? null,
     };
   } catch (err) {

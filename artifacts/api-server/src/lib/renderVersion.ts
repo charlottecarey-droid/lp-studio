@@ -38,3 +38,6 @@ export const CURRENT_RENDER_VERSION = "2026-08-03.1";
 
 /** R2 object metadata key under which CURRENT_RENDER_VERSION is stored. */
 export const RENDER_VERSION_META_KEY = "render-version";
+
+/** R2 object metadata key under which the snapshot's app build (its entry script, see appBuild.ts) is stored. */
+export const APP_BUILD_META_KEY = "app-build";

@@ -112,7 +112,7 @@ export function detectSystemChromium(): string | undefined {
  * tenant host (so client-side host-based logic in the SPA, like
  * tenant resolution, matches what visitors will see).
  */
-function resolveLpStudioBaseUrl(): string {
+export function resolveLpStudioBaseUrl(): string {
   const override = process.env.LP_STUDIO_RENDER_BASE_URL;
   if (override) return override.replace(/\/$/, "");
   const dev = process.env.REPLIT_DEV_DOMAIN;

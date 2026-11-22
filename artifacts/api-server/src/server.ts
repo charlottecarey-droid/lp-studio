@@ -588,6 +588,12 @@ const httpServer = app.listen(port, (err) => {
   setTimeout(() => {
     void runSnapshotReconcile();
   }, LP_SNAPSHOT_RECONCILE_BOOT_DELAY_MS).unref();
+  // A second pass a little later: Partner Hubs follow the live app build
+  // (appBuild.ts), and during a rollout the first pass can still read the
+  // previous build from the site. Cheap when nothing is behind (HEADs only).
+  setTimeout(() => {
+    void runSnapshotReconcile();
+  }, LP_SNAPSHOT_RECONCILE_BOOT_DELAY_MS + 20 * 60 * 1000).unref();
   setInterval(() => {
     void runSnapshotReconcile();
   }, LP_SNAPSHOT_RECONCILE_INTERVAL_MS).unref();

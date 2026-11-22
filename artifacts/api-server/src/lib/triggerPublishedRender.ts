@@ -60,6 +60,7 @@ import { verifyAssetsForHtml } from "./assetPresenceCheck";
 import { getTenantPlanFeatures } from "./planFeatures";
 import { applyProvenanceFooterForHost } from "./provenanceFooter";
 import { CURRENT_RENDER_VERSION } from "./renderVersion";
+import { extractAppBuildId } from "./appBuild";
 
 export interface TriggerPublishedRenderOpts {
   pageId: number;
@@ -582,13 +583,17 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     let firstError: unknown = null;
     for (const host of hostsToWrite) {
       try {
-        await uploadPublishedHtmlToR2(host, page.slug, buildHtmlForHost(host), {
+        const hostHtml = buildHtmlForHost(host);
+        await uploadPublishedHtmlToR2(host, page.slug, hostHtml, {
           tenantId: page.tenantId,
           robots: robotsHeaderValue,
           // Task #708 — stamp the render-schema version so the post-deploy
           // reconcile can tell whether this snapshot reflects the current
           // rendering code or is stale and needs re-baking.
           renderVersion: CURRENT_RENDER_VERSION,
+          // And the app build it loads, so app-like pages (Partner Hubs)
+          // are re-baked when a deploy changes it (appBuild.ts).
+          appBuild: extractAppBuildId(hostHtml),
         });
       } catch (err) {
         failedHost = host;
