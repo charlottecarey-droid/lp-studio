@@ -4346,7 +4346,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                         </button>
                       ))}
                     </div>
-                    <p className="text-[11px] text-muted-foreground">What the large showcase below the text displays.</p>
+                    <p className="text-[11px] text-muted-foreground">What the large showcase next to the text displays.</p>
+                  </div>
+                )}
+                {p.layout === "stacked-video" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Video position</Label>
+                    <div className="flex gap-2">
+                      {([["below", "Below the headline"], ["above", "Above the headline"]] as const).map(([val, label]) => (
+                        <button key={val} onClick={() => onChange({ ...block, props: { ...p, videoPosition: val } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.videoPosition ?? "below") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Put the showcase under the headline and buttons, or first, right under the top bar.</p>
                   </div>
                 )}
                 {p.layout === "stacked-video" && (p.stackedMediaType ?? "video") === "image" ? (

@@ -1033,6 +1033,228 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     const stackedHScale = (p.heroHeadingSize ?? 100) / 100;
     const stackedVideoMaxW = p.heroVideoWidth ?? 1100;
     const stackedTextW = p.heroTextWidth ?? 720;
+    // Showcase position (stacked-video only): "below" (default, the original
+    // look) or "above" — video first under the nav, copy + CTAs beneath it.
+    // The top padding moves to the showcase so it clears the nav/logo bar.
+    const videoAbove = !isCentered && p.videoPosition === "above";
+    const stackedText = (
+      <div
+        className="hl-px"
+        style={{
+          maxWidth: stackedTextW + 2 * (p.heroSidePadding ?? 32),
+          margin: "0 auto",
+          width: "100%",
+          boxSizing: "border-box",
+          paddingTop: videoAbove ? "3rem" : stackedTopPad,
+          paddingBottom: videoAbove ? "4rem" : "3rem",
+          textAlign: "center",
+          ...sidePadVar(p.heroSidePadding ?? 32),
+        }}
+      >
+        {(p.eyebrow || onFieldChange) && (
+          <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
+            <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
+          </motion.p>
+        )}
+
+        <motion.h1
+          initial={anim({ opacity: 0, y: 24 })}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+          style={{
+            fontFamily: DISPLAY_FONT,
+            fontSize: `clamp(${2.5 * stackedHScale}rem, ${5.5 * stackedHScale}vw, ${4.25 * stackedHScale}rem)`,
+            fontWeight: 600,
+            lineHeight: 1.06,
+            letterSpacing: "-0.025em",
+            color: "#fff",
+            textShadow: "0 2px 40px rgba(0,0,0,0.25)",
+          }}
+        >
+          {renderHeadline()}
+        </motion.h1>
+
+        {(p.subheadline || onFieldChange) && (
+          <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: p.heroTextWidth ? Math.round(stackedTextW * 0.72) : 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
+            <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: fullBleedSubColor, fontFamily: BODY }} />
+          </motion.p>
+        )}
+
+        {/* CTAs */}
+        {ctaStyle === "email-capture" ? (
+          <div style={{ display: "flex", justifyContent: "center" }}>{emailCaptureForm}</div>
+        ) : (
+        <motion.div
+          initial={anim({ opacity: 0, y: 14 })}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35 }}
+          className="flex flex-col sm:flex-row gap-3 justify-center"
+          style={{ marginTop: "2rem" }}
+        >
+          {p.primaryCtaText && (
+            <a
+              href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
+              onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
+              className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
+              style={{ background: CTA_BG, color: CTA_TEXT, cursor: "pointer" }}
+            >
+              {p.primaryCtaText}
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          )}
+          {p.secondaryCtaText && (
+            <a
+              href={p.secondaryCtaUrl || "#"}
+              className="inline-flex items-center justify-center gap-2 rounded-full border px-8 py-3.5 text-sm font-semibold transition-all hover:bg-white/10"
+              style={{ borderColor: "rgba(255,255,255,0.20)", color: "rgba(255,255,255,0.90)" }}
+            >
+              {p.secondaryCtaText}
+            </a>
+          )}
+        </motion.div>
+        )}
+      </div>
+    );
+    const stackedShowcase = (
+      <motion.div
+        initial={anim({ opacity: 0, y: 32 })}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: videoAbove ? 0.1 : 0.45 }}
+        style={{
+          maxWidth: stackedVideoMaxW,
+          margin: "0 auto",
+          padding: videoAbove ? `${stackedTopPad}px 1.5rem 0` : "0 1.5rem 4rem",
+        }}
+      >
+        <div
+          style={{
+            borderRadius: "1.25rem",
+            overflow: "hidden",
+            position: "relative",
+            aspectRatio: "16 / 9",
+            background: "rgba(255,255,255,0.05)",
+            boxShadow: "0 32px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)",
+          }}
+        >
+          {(p.stackedMediaType ?? "video") === "image" ? (
+            p.heroImageUrl ? (
+              <>
+                <img
+                  src={p.heroImageUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: p.heroImageFit ?? "cover",
+                    objectPosition: p.heroImagePosition ?? "center",
+                    display: "block",
+                  }}
+                />
+                {assetDimmerEl}
+              </>
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                  color: "rgba(255,255,255,0.20)",
+                  fontSize: "0.875rem",
+                  fontFamily: DISPLAY_FONT,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                Add hero image
+              </div>
+            )
+          ) : p.heroVideoUrl ? (
+            <>
+              <video
+                ref={attachHeroVideo}
+                src={p.heroVideoUrl}
+                autoPlay={p.videoAutoplay ?? true}
+                loop={p.videoAutoplay ?? true}
+                playsInline
+                onPlay={() => setHeroVideoPlaying(true)}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+              {assetDimmerEl}
+              {((p.videoAutoplay ?? true) || heroVideoPlaying) && (
+                <MuteToggleButton
+                  muted={heroVideoMuted}
+                  onClick={toggleHeroVideoMute}
+                  className="absolute bottom-4 right-4 z-10"
+                />
+              )}
+              {!(p.videoAutoplay ?? true) && !heroVideoPlaying && (
+                <button
+                  onClick={() => { heroVideoRef.current?.play(); setHeroVideoPlaying(true); }}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(0,0,0,0.35)",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,0.15)",
+                    backdropFilter: "blur(8px)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "1.5px solid rgba(255,255,255,0.3)",
+                  }}>
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="white" stroke="none">
+                      <polygon points="6 3 20 12 6 21 6 3" />
+                    </svg>
+                  </div>
+                </button>
+              )}
+            </>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                gap: "0.75rem",
+                color: "rgba(255,255,255,0.20)",
+                fontSize: "0.875rem",
+                fontFamily: DISPLAY_FONT,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Add hero video URL
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section
@@ -1051,223 +1273,16 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             style={{ opacity: scrollOpacity, y: scrollY }}
             className={isCentered ? "relative z-10 w-full flex-1 flex flex-col justify-center" : "relative z-10 w-full"}
           >
-            <div
-              className="hl-px"
-              style={{
-                maxWidth: stackedTextW + 2 * (p.heroSidePadding ?? 32),
-                margin: "0 auto",
-                width: "100%",
-                boxSizing: "border-box",
-                paddingTop: stackedTopPad,
-                paddingBottom: "3rem",
-                textAlign: "center",
-                ...sidePadVar(p.heroSidePadding ?? 32),
-              }}
-            >
-              {(p.eyebrow || onFieldChange) && (
-                <motion.p initial={anim({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
-                  <InlineText as="span" value={p.eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ color: ACCENT_FG, fontFamily: BODY }} />
-                </motion.p>
-              )}
-
-              <motion.h1
-                initial={anim({ opacity: 0, y: 24 })}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
-                style={{
-                  fontFamily: DISPLAY_FONT,
-                  fontSize: `clamp(${2.5 * stackedHScale}rem, ${5.5 * stackedHScale}vw, ${4.25 * stackedHScale}rem)`,
-                  fontWeight: 600,
-                  lineHeight: 1.06,
-                  letterSpacing: "-0.025em",
-                  color: "#fff",
-                  textShadow: "0 2px 40px rgba(0,0,0,0.25)",
-                }}
-              >
-                {renderHeadline()}
-              </motion.h1>
-
-              {(p.subheadline || onFieldChange) && (
-                <motion.p initial={anim({ opacity: 0, y: 16 })} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: p.heroTextWidth ? Math.round(stackedTextW * 0.72) : 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
-                  <InlineText as="span" value={p.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ color: fullBleedSubColor, fontFamily: BODY }} />
-                </motion.p>
-              )}
-
-              {/* CTAs */}
-              {ctaStyle === "email-capture" ? (
-                <div style={{ display: "flex", justifyContent: "center" }}>{emailCaptureForm}</div>
-              ) : (
-              <motion.div
-                initial={anim({ opacity: 0, y: 14 })}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.35 }}
-                className="flex flex-col sm:flex-row gap-3 justify-center"
-                style={{ marginTop: "2rem" }}
-              >
-                {p.primaryCtaText && (
-                  <a
-                    href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
-                    onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
-                    className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
-                    style={{ background: CTA_BG, color: CTA_TEXT, cursor: "pointer" }}
-                  >
-                    {p.primaryCtaText}
-                    <ArrowRight className="w-4 h-4" />
-                  </a>
-                )}
-                {p.secondaryCtaText && (
-                  <a
-                    href={p.secondaryCtaUrl || "#"}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border px-8 py-3.5 text-sm font-semibold transition-all hover:bg-white/10"
-                    style={{ borderColor: "rgba(255,255,255,0.20)", color: "rgba(255,255,255,0.90)" }}
-                  >
-                    {p.secondaryCtaText}
-                  </a>
-                )}
-              </motion.div>
-              )}
-            </div>
-
-            {/* ── Large video showcase ── */}
-            {!isCentered && (
-            <motion.div
-              initial={anim({ opacity: 0, y: 32 })}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.45 }}
-              style={{
-                maxWidth: stackedVideoMaxW,
-                margin: "0 auto",
-                padding: "0 1.5rem 4rem",
-              }}
-            >
-              <div
-                style={{
-                  borderRadius: "1.25rem",
-                  overflow: "hidden",
-                  position: "relative",
-                  aspectRatio: "16 / 9",
-                  background: "rgba(255,255,255,0.05)",
-                  boxShadow: "0 32px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)",
-                }}
-              >
-                {(p.stackedMediaType ?? "video") === "image" ? (
-                  p.heroImageUrl ? (
-                    <>
-                      <img
-                        src={p.heroImageUrl}
-                        alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: p.heroImageFit ?? "cover",
-                          objectPosition: p.heroImagePosition ?? "center",
-                          display: "block",
-                        }}
-                      />
-                      {assetDimmerEl}
-                    </>
-                  ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexDirection: "column",
-                        gap: "0.75rem",
-                        color: "rgba(255,255,255,0.20)",
-                        fontSize: "0.875rem",
-                        fontFamily: DISPLAY_FONT,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
-                      </svg>
-                      Add hero image
-                    </div>
-                  )
-                ) : p.heroVideoUrl ? (
-                  <>
-                    <video
-                      ref={attachHeroVideo}
-                      src={p.heroVideoUrl}
-                      autoPlay={p.videoAutoplay ?? true}
-                      loop={p.videoAutoplay ?? true}
-                      playsInline
-                      onPlay={() => setHeroVideoPlaying(true)}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                    {assetDimmerEl}
-                    {((p.videoAutoplay ?? true) || heroVideoPlaying) && (
-                      <MuteToggleButton
-                        muted={heroVideoMuted}
-                        onClick={toggleHeroVideoMute}
-                        className="absolute bottom-4 right-4 z-10"
-                      />
-                    )}
-                    {!(p.videoAutoplay ?? true) && !heroVideoPlaying && (
-                      <button
-                        onClick={() => { heroVideoRef.current?.play(); setHeroVideoPlaying(true); }}
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          zIndex: 10,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: "rgba(0,0,0,0.35)",
-                          border: "none",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <div style={{
-                          width: 72,
-                          height: 72,
-                          borderRadius: "50%",
-                          background: "rgba(255,255,255,0.15)",
-                          backdropFilter: "blur(8px)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          border: "1.5px solid rgba(255,255,255,0.3)",
-                        }}>
-                          <svg width="30" height="30" viewBox="0 0 24 24" fill="white" stroke="none">
-                            <polygon points="6 3 20 12 6 21 6 3" />
-                          </svg>
-                        </div>
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexDirection: "column",
-                      gap: "0.75rem",
-                      color: "rgba(255,255,255,0.20)",
-                      fontSize: "0.875rem",
-                      fontFamily: DISPLAY_FONT,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                    Add hero video URL
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            {videoAbove ? (
+              <>
+                {stackedShowcase}
+                {stackedText}
+              </>
+            ) : (
+              <>
+                {stackedText}
+                {!isCentered && stackedShowcase}
+              </>
             )}
 
             {/* ── Stats below video (below the CTAs when centered) ── */}

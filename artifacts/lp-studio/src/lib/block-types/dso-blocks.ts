@@ -118,6 +118,12 @@ export interface DsoHeartlandHeroBlockProps {
    *  "video" (default) keeps the current video player; "image" swaps it for a
    *  static image (`heroImageUrl`) in the same framed showcase. */
   stackedMediaType?: "video" | "image";
+  /** Stacked layout only: where the showcase sits relative to the copy.
+   *  "below" (default — every saved page keeps its look) = eyebrow, headline,
+   *  subheadline and CTAs first, showcase under them; "above" = showcase first
+   *  (just under the nav), copy + CTAs beneath it. Stats stay last either way.
+   *  Ignored by every other layout. */
+  videoPosition?: "below" | "above";
   /** `centered` = the stacked layout without the media showcase (centered
    *  headline + CTAs, stats below). */
   layout?: "full-bleed" | "split" | "split-video" | "stacked-video" | "centered";
