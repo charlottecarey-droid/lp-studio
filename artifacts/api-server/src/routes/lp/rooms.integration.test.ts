@@ -365,9 +365,9 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const otherPageId = other.rows[0].id;
     const hl = await seedHotlink(tenantId, pageId, "dana@roomco.com");
 
-    // Onboarding: an upload step takes a file; the gift step is a tick.
+    // Onboarding: an upload step takes a file. The welcome gift is each person's own (partnerRoomGift), never one tick for the whole hub.
     expect((await post("upload", { pageId, taskKey: "onboard-logo", hl, fileName: "logo.png", fileBase64: Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2]).toString("base64") })).status).toBe(200);
-    expect((await post("task", { pageId, taskKey: "onboard-gift", hl })).status).toBe(200);
+    expect((await post("task", { pageId, taskKey: "onboard-gift", hl })).status).toBe(404);
 
     // Choices: anonymous refused; only offered options on offered programs.
     expect((await post("choice", { pageId, key: "mk-event", value: "Dinner" })).status).toBe(401);
@@ -387,7 +387,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(teamPost.status).toBe(400); // the test user has no email: a team post needs a signed-in person
 
     const s1 = (await post("state", { pageId, hl })).json as { tasks: Record<string, { done: boolean }>; choices: Record<string, { value: string; by?: string }>; contacts: { name: string; email: string }[]; wins: { id: number; likes: number; liked: boolean; by: string; comments: unknown[] }[] };
-    expect(Object.keys(s1.tasks).sort()).toEqual(["onboard-gift", "onboard-logo", "onboard-team"]);
+    expect(Object.keys(s1.tasks).sort()).toEqual(["onboard-logo", "onboard-team"]);
     expect(s1.choices).toEqual({ "mk-event": { value: "Onsite training", at: expect.any(String), by: "Dana Visitor" } });
     // The person they added, then themself: in the hub by personal link, on no list, so shown rather than asked to add themself.
     expect(s1.contacts).toEqual([expect.objectContaining({ name: "Sam Rivera", email: "sam@roomco.com" }), expect.objectContaining({ name: "Dana Visitor", email: "dana@roomco.com", invited: true })]);
@@ -599,7 +599,7 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const lines = tpl.csv.replace(/^\uFEFF/, "").trim().split("\r\n");
     expect(lines[0]).toBe("Practice ID,Practice name,Street address,City,State,ZIP,Phone,Office type,Regional manager,Office manager,Doctor name,Doctor email,Doctor NPI,Doctor role");
     expect(lines).toHaveLength(4);
-    expect(lines[1]).toBe("0015d00000BBBBBAAA,Lakeside Family,,,CO,,,,,,,");
+    expect(lines[1]).toBe("0015d00000BBBBBAAA,Lakeside Family,,,CO,,,,,,,,,");
 
     // The customer fills it in and uploads it: a renamed practice still lands by its ID, and one practice isn't in Salesforce.
     const roster = [
@@ -808,7 +808,9 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     const preview = (await inject(app, { method: "POST", url: `/lp/partner-rooms/${pageId}/digest/preview`, headers: asTenant(tenantId) })).json as { subject: string; html: string; recipients: string[]; slackText: string; empty: boolean };
     expect(preview.recipients).toEqual(["dana@roomco.com", "sam@roomco.com"]);
     expect(preview.subject).toContain("MB2 Dental");
-    expect(preview.html).toContain("Internal announcement");
+    // Small steps are counted, not named (only milestones are named); this plan has no milestones, so the count is in the Slack post.
+    expect(preview.html).not.toContain("Internal announcement");
+    expect(preview.slackText).toContain("1 other step completed");
     expect(preview.html).toContain("Upload your practice list");
     expect(preview.empty).toBe(false);
 
