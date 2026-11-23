@@ -389,42 +389,39 @@ export function ScorecardWaves({
         <span className="m">
           {placed} of {all} {noun} in a wave
         </span>
-        {noWave > 0 && (
-          <button type="button" className={`prw-sc-nowave${picked === NO_WAVE ? " on" : ""}`} aria-pressed={picked === NO_WAVE} onClick={() => onPick(picked === NO_WAVE ? "" : NO_WAVE)} data-room-wave-none>
-            {noWave} not in a wave
-          </button>
-        )}
       </div>
-      <div className="cards">
+      <div className="rows" role="list">
         {waves.map((w) => {
           const t = Math.max(trained.get(waveKey(w.key)) ?? 0, w.live);
           const on = pickedKey === waveKey(w.key);
+          const dates = [w.start ? `Starts ${fmtDate(w.start)}` : "", w.target ? `Target ${fmtDate(w.target)}` : ""].filter(Boolean).join(" · ");
           return (
             <button
               key={w.key}
               type="button"
+              role="listitem"
               className={`prw-sc-wave ${w.state}${on ? " on" : ""}`}
               aria-pressed={on}
               onClick={() => onPick(on ? "" : w.key)}
               data-room-scorecard-wave={w.name}
             >
-              <span className="top">
+              <span className="name">
                 <b>{w.name}</b>
-                <span className={`prw-st ${w.state}`}>{WAVE_STATE_LABEL[w.state]}</span>
+                <span className={`state ${w.state}`}>{WAVE_STATE_LABEL[w.state]}</span>
               </span>
-              <span className="when">
-                {[w.start ? `Starts ${fmtDate(w.start)}` : "", w.target ? `Target ${fmtDate(w.target)}` : ""].filter(Boolean).join(" · ") || " "}
-              </span>
+              <span className="when">{dates}</span>
               {w.total > 0 ? (
                 <>
-                  <span className="nums">
-                    <b className="prw-num">{w.live}</b>
-                    <i>/{w.total} live</i>
-                    <em>{t} trained</em>
-                  </span>
                   <span className="bar" aria-label={`${w.live} of ${w.total} live, ${t} trained`}>
                     <span className="tr" style={{ width: `${pct(t, w.total)}%` }} />
                     <span className="lv" style={{ width: `${pct(w.live, w.total)}%` }} />
+                  </span>
+                  <span className="nums">
+                    <span className="live">
+                      <b className="prw-num">{w.live}</b>
+                      <i>/{w.total} live</i>
+                    </span>
+                    <em>{t} trained</em>
                   </span>
                 </>
               ) : (
@@ -433,6 +430,14 @@ export function ScorecardWaves({
             </button>
           );
         })}
+        {noWave > 0 && (
+          <button type="button" role="listitem" className={`prw-sc-wave prw-sc-nowave${picked === NO_WAVE ? " on" : ""}`} aria-pressed={picked === NO_WAVE} onClick={() => onPick(picked === NO_WAVE ? "" : NO_WAVE)} data-room-wave-none>
+            <span className="name">
+              <b>{noWave} not in a wave</b>
+            </span>
+            <span className="when">{canPlace ? `Tick ${noun} below and use Add to wave` : `Still to be placed`}</span>
+          </button>
+        )}
       </div>
     </section>
   );

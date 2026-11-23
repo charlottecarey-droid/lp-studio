@@ -420,6 +420,15 @@ export const ROOM_PROGRAM_DEFAULT_OPTIONS: Record<string, string[]> = {
   "mk-announcement": ["Include", "Not now"],
   "mk-welcome-kits": ["Include", "Not now"],
 };
+/**
+ * A program's timing as the customer sees it. Relative launch days ("Day 5",
+ * "Days 15–45", "By Day 60", "Week 1") read as a countdown the partner is
+ * already behind on, so they never show; real timing ("Flexible", "Q1") does.
+ */
+export function programWhen(when: string | undefined): string {
+  const w = (when ?? "").trim();
+  return /\b(days?|weeks?)\s*\d/i.test(w) ? "" : w;
+}
 /** A program's choices: its own, or the standing ones for the two programs above when it has none. */
 export function roomProgramOptions(p: { key?: string; options?: string[] }): string[] {
   const own = (p.options ?? []).filter((o) => typeof o === "string" && o.trim());
@@ -602,15 +611,15 @@ export const ROOM_WORKSPACE_DEFAULT_PROPS: RoomWorkspaceBlockProps = {
         title: "Standard launch package",
         note: "Included",
         programs: [
-          { key: "mk-announcement", title: "Partnership announcement", description: "Email, social posts and a one-pager for your network.", audience: "Leadership, locations", when: "Week 1", options: ["Include", "Not now"] },
-          { key: "mk-welcome-kits", title: "Welcome kits to every location", description: "Shipped to each location on your list.", audience: "Locations", when: "Week 2", options: ["Include", "Not now"] },
+          { key: "mk-announcement", title: "Partnership announcement", description: "Email, social posts and a one-pager for your network.", audience: "Leadership, locations", when: "", options: ["Include", "Not now"] },
+          { key: "mk-welcome-kits", title: "Welcome kits to every location", description: "Shipped to each location on your list.", audience: "Locations", when: "", options: ["Include", "Not now"] },
         ],
       },
       {
         title: "Optional add-ons",
         note: "Based on your needs",
         programs: [
-          { key: "mk-case-study", title: "Your own case study", description: "Built from your first live locations.", audience: "Your whole network", when: "Days 60–90", options: ["Include", "Not now"] },
+          { key: "mk-case-study", title: "Your own case study", description: "Built from your first live locations.", audience: "Your whole network", when: "", options: ["Include", "Not now"] },
           { key: "mk-press", title: "Joint press release", description: "Written and distributed by us, approved by your team.", audience: "Public", when: "Flexible", options: ["Include", "Not now"] },
         ],
       },
@@ -1514,29 +1523,42 @@ const CSS = `
 .prw-sc-selectall{margin:0 0 8px;padding:9px 14px;border-radius:10px;background:color-mix(in srgb,var(--dark) 6%,#fff);font-size:13px;color:var(--ink);text-align:center}
 .prw .prw-sc-selectall button{padding:0;border:0;background:none;font:inherit;font-weight:700;color:var(--dark);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .prw .prw-sc-selectall button:disabled{opacity:.6;cursor:default}
-.prw-sc-waves{margin-bottom:18px}
-.prw-sc-waves .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:10px}
+.prw-sc-waves{margin-bottom:22px;border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}
+.prw-sc-waves .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:16px 20px 12px}
 .prw-sc-waves h3{margin:0;font-size:15px;font-weight:700;color:var(--dark)}
-.prw-sc-waves .hd .m{font-size:12.5px;color:var(--body)}
-.prw .prw-sc-nowave{margin-left:auto;font-size:12px;font-weight:600;color:var(--dark);background:#fff;border:1px dashed color-mix(in srgb,var(--dark) 35%,var(--line));border-radius:999px;padding:3px 10px;cursor:pointer}
-.prw .prw-sc-nowave.on{border-style:solid;border-color:var(--dark);background:color-mix(in srgb,var(--dark) 6%,#fff)}
-.prw-sc-waves .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
-.prw .prw-sc-wave{display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;padding:14px 14px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--body);font-size:12.5px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
-.prw-sc-wave:hover{border-color:color-mix(in srgb,var(--dark) 40%,var(--line))}
-.prw-sc-wave.on{border-color:var(--dark);box-shadow:inset 0 0 0 1px var(--dark)}
-.prw-sc-wave.current{border-left:3px solid var(--dark);padding-left:12px}
-.prw-sc-wave .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.prw-sc-wave .top b{font-size:14px;font-weight:600;color:var(--ink)}
-.prw-sc-wave .when{font-size:12px;color:var(--faint)}
-.prw-sc-wave .nums{display:flex;align-items:baseline;gap:4px;margin-top:2px}
-.prw-sc-wave .nums b{font-size:22px;font-weight:700;color:var(--ink);line-height:1}
-.prw-sc-wave .nums i{font-style:normal;color:var(--body)}
-.prw-sc-wave .nums em{margin-left:auto;font-style:normal;font-size:12px;color:var(--body)}
-.prw-sc-wave .bar{position:relative;display:block;height:6px;border-radius:999px;background:#EEF0EC;overflow:hidden}
+.prw-sc-waves .hd .m{font-size:12.5px;color:var(--faint)}
+.prw-sc-waves .rows{display:flex;flex-direction:column}
+.prw .prw-sc-wave{display:grid;grid-template-columns:minmax(130px,1fr) minmax(170px,1.2fr) minmax(120px,2fr) minmax(150px,auto);align-items:center;gap:6px 24px;width:100%;margin:0;padding:14px 20px;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:inset 3px 0 0 transparent;color:var(--body);font:inherit;font-size:12.5px;text-align:left;cursor:pointer;transition:background .12s,box-shadow .12s}
+.prw .prw-sc-wave:hover{background:color-mix(in srgb,var(--dark) 3%,#fff)}
+.prw .prw-sc-wave.on{background:color-mix(in srgb,var(--dark) 5%,#fff);box-shadow:inset 3px 0 0 var(--dark)}
+.prw .prw-sc-wave:focus-visible{outline:2px solid var(--dark);outline-offset:-2px}
+.prw-sc-wave .name{display:flex;align-items:baseline;gap:10px;min-width:0}
+.prw-sc-wave .name b{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
+.prw-sc-wave .state{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+.prw-sc-wave .state.current{color:var(--dark)}
+.prw-sc-wave .state.current::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--green);vertical-align:1px}
+.prw-sc-wave .state.done{color:var(--green)}
+.prw-sc-wave .when{font-size:12.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prw-sc-wave .bar{position:relative;display:block;height:4px;border-radius:999px;background:#EEF0EC;overflow:hidden}
 .prw-sc-wave .bar span{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
 .prw-sc-wave .bar .tr{background:color-mix(in srgb,var(--green) 35%,#fff)}
 .prw-sc-wave .bar .lv{background:var(--green)}
-.prw-sc-wave .empty{margin-top:4px;font-size:12px;line-height:1.4;color:var(--faint)}
+.prw-sc-wave .nums{display:flex;align-items:baseline;justify-content:flex-end;gap:14px;white-space:nowrap}
+.prw-sc-wave .nums .live{display:inline-flex;align-items:baseline;gap:1px}
+.prw-sc-wave .nums b{font-size:16px;font-weight:700;color:var(--ink);line-height:1}
+.prw-sc-wave .nums i{font-style:normal;color:var(--body)}
+.prw-sc-wave .nums em{font-style:normal;font-size:12px;color:var(--faint)}
+.prw-sc-wave .empty{grid-column:3 / -1;font-size:12.5px;color:var(--faint)}
+.prw .prw-sc-nowave{background:color-mix(in srgb,var(--page) 55%,#fff)}
+.prw .prw-sc-nowave .name b{font-weight:600;color:var(--dark)}
+.prw .prw-sc-nowave .when{grid-column:2 / -1}
+@media (max-width:720px){
+.prw .prw-sc-wave{grid-template-columns:1fr auto;gap:6px 12px;padding:14px 16px}
+.prw-sc-wave .when{grid-column:1 / -1;grid-row:2}
+.prw-sc-wave .bar{grid-column:1 / -1;grid-row:3}
+.prw-sc-wave .nums{grid-column:2;grid-row:1}
+.prw-sc-wave .empty,.prw .prw-sc-nowave .when{grid-column:1 / -1}
+}
 .prw-sc-tile b{font-size:24px;line-height:1.05;color:var(--dark);letter-spacing:-.03em;font-weight:700}
 .prw-sc-tile span{font-weight:600;color:var(--ink);min-height:2.5em;line-height:1.25}
 .prw-sc-tile small{display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;min-height:15px}
@@ -2358,13 +2380,13 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
         detail: (x.r.note ?? "").trim() || (ROOM_STEP_SHORTCUTS[x.key]?.hint ?? undefined),
         ...(x.action ? { action: <MilestoneAction row={x} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} /> } : {}),
       })),
-    ...undecided.map((x): OutstandingItem => ({ id: `mk-${x.key}`, title: `Decide: ${x.title}`, source: "Marketing plan", from: [x.audience, x.when].filter(Boolean).join(" · ") || undefined, side: "you", module: "marketing", detail: (x.description ?? "").trim() || undefined })),
+    ...undecided.map((x): OutstandingItem => ({ id: `mk-${x.key}`, title: `Decide: ${x.title}`, source: "Marketing plan", from: [x.audience, programWhen(x.when)].filter(Boolean).join(" · ") || undefined, side: "you", module: "marketing", detail: (x.description ?? "").trim() || undefined })),
     // What they said yes to and are waiting on: with the account team until it goes to marketing (after that, the request below carries it).
     ...programGroups
       .flatMap((g) => g.programs)
       .map((x) => ({ x, st: roomProgramStatus(roomMilestoneKey({ key: x.key, task: x.title }), snapshot.choices[roomMilestoneKey({ key: x.key, task: x.title })], snapshot.requests) }))
       .filter((p) => p.st?.state === "team")
-      .map(({ x, st }): OutstandingItem => ({ id: `mkw-${x.key}`, title: x.title, source: "Marketing plan", from: x.when, side: "us", module: "marketing", detail: st!.line })),
+      .map(({ x, st }): OutstandingItem => ({ id: `mkw-${x.key}`, title: x.title, source: "Marketing plan", from: programWhen(x.when) || undefined, side: "us", module: "marketing", detail: st!.line })),
     ...snapshot.requests
       .filter((q) => q.status !== "done")
       .map((q): OutstandingItem => ({
@@ -4341,7 +4363,7 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot, onA
         <div className="tx" onClick={isEditor ? undefined : () => setOpen((o) => !o)} style={isEditor ? undefined : { cursor: "pointer" }}>
           <h3><E item={program} field="title" placeholder="Program" /></h3>
           {(program.description || isEditor) && <p><E item={program} field="description" multiline placeholder="What it is" /></p>}
-          {(program.audience || program.when) && <div className="meta">{[program.audience, program.when].filter(Boolean).join(" · ")}{chosen && !declined && yes.length > 1 ? ` · ${chosen.value}` : ""}{status && <span className={`prw-chip ${status.state === "team" ? "new" : status.state}`} data-room-program-status={status.state}>{status.label}</span>}</div>}
+          {(program.audience || programWhen(program.when)) && <div className="meta">{[program.audience, programWhen(program.when)].filter(Boolean).join(" · ")}{chosen && !declined && yes.length > 1 ? ` · ${chosen.value}` : ""}{status && <span className={`prw-chip ${status.state === "team" ? "new" : status.state}`} data-room-program-status={status.state}>{status.label}</span>}</div>}
         </div>
         <button type="button" className="prw-more" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} details: ${program.title}`} onClick={() => setOpen((o) => !o)} data-room-program-more>
           <ChevronDown aria-hidden />
@@ -4364,7 +4386,7 @@ function ProgramRow({ program, snapshot, store, isEditor, onNeedEmail, slot, onA
           {details ? details.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>) : isEditor ? <p className="hint">Add more about this program in the builder panel: what it involves and what the customer needs to do.</p> : null}
           <dl>
             {program.audience && (<><dt>Who it’s for</dt><dd>{program.audience}</dd></>)}
-            {program.when && (<><dt>When</dt><dd>{program.when}</dd></>)}
+            {programWhen(program.when) && (<><dt>When</dt><dd>{programWhen(program.when)}</dd></>)}
             {!canChoose && (<><dt>Status</dt><dd>{program.fixedLabel || "Included in every partnership"}</dd></>)}
             {chosen?.by && (<><dt>{declined ? "Saved for later by" : "Added by"}</dt><dd>{chosen.by} · {fmtDate(chosen.at)}</dd></>)}
             {status && (<><dt>Where it is</dt><dd>{status.line}{status.owner ? ` Owner: ${status.owner}.` : ""}{status.due ? ` Due ${status.due}.` : ""}</dd></>)}
