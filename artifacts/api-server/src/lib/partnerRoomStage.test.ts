@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage, waveKey } from "./partnerRoomStage";
+import { contractDay, extendRoomStage, parseRoomStage, roomStageInfo, setRoomStage, waveKey } from "./partnerRoomStage";
 
 const hub = (props: Record<string, unknown>) => [{ type: "hero", props: {} }, { type: "room-workspace", props: { partnerName: "MB2", ...props } }];
 const now = new Date("2026-11-20T15:00:00Z");
@@ -11,6 +11,23 @@ describe("hub stage", () => {
     expect(roomStageInfo(hub({ kickoffDate: "2026-08-01", rolloutDays: 120 }), now)).toMatchObject({ day: 112, prompt: false });
     expect(roomStageInfo(hub({}), now)).toMatchObject({ day: null, prompt: false });
     expect(roomStageInfo([{ type: "hero" }], now)).toBeNull();
+  });
+
+  it("with no kickoff date, counts from the contract: signed over 90 days ago asks to move on", () => {
+    expect(roomStageInfo(hub({}), now, { contractSigned: "5/14/2026" })).toMatchObject({ day: 191, dayFrom: "contract", prompt: true });
+    expect(roomStageInfo(hub({}), now, { contractSigned: "11/5/2026" })).toMatchObject({ day: 16, dayFrom: "contract", prompt: false });
+    // The kickoff wins when the team set one; an extension still puts it off; a hub already in expansion never asks.
+    expect(roomStageInfo(hub({ kickoffDate: "2026-11-01" }), now, { contractSigned: "5/14/2026" })).toMatchObject({ day: 20, dayFrom: "kickoff", prompt: false });
+    expect(roomStageInfo(hub({ stageExtendUntil: "2026-12-01" }), now, { contractSigned: "5/14/2026" })).toMatchObject({ prompt: false });
+    expect(roomStageInfo(hub({ stage: "expansion" }), now, { contractSigned: "5/14/2026" })).toMatchObject({ prompt: false });
+    expect(roomStageInfo(hub({}), now, { contractSigned: "not a date" })).toMatchObject({ day: null, dayFrom: null, prompt: false });
+  });
+
+  it("reads the sheet's signed dates", () => {
+    expect(contractDay("5/14/2026")).toBe("2026-05-14");
+    expect(contractDay("2026-05-14")).toBe("2026-05-14");
+    expect(contractDay("14/5/2026")).toBe("");
+    expect(contractDay(null)).toBe("");
   });
 
   it("moving on records the day and stops the asking; moving back clears it", () => {

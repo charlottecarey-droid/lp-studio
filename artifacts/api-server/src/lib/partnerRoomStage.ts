@@ -40,6 +40,8 @@ export interface RoomStageInfo extends RoomStageInput {
   extendUntil: string | null;
   /** Day of the rollout, and its length. */
   day: number | null;
+  /** What the day counts from: the hub's kickoff date, else the day the contract was signed (from the signed-accounts sheet). */
+  dayFrom: "kickoff" | "contract" | null;
   rolloutDays: number;
   /** The rollout has run its length and the team hasn't moved the hub on or put it off: ask them. */
   prompt: boolean;
@@ -87,24 +89,45 @@ function rolloutDay(kickoff: unknown, now: Date): number | null {
   return d >= 1 ? d : null;
 }
 
+/**
+ * A signed date as the sheet writes it ("5/14/2026", "2026-05-14") as YYYY-MM-DD; "" when it isn't one.
+ * Month first, as Salesforce exports it.
+ */
+export function contractDay(v: unknown): string {
+  const t = typeof v === "string" ? v.trim() : "";
+  if (DAY_RE.test(t)) return t;
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+  if (!m || +m[1] < 1 || +m[1] > 12 || +m[2] < 1 || +m[2] > 31) return "";
+  return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+}
+
+export interface RoomStageContext {
+  /** When the contract was signed (the sheet's date, any form contractDay reads). Counts the rollout when the hub has no kickoff date. */
+  contractSigned?: string | null;
+}
+
 /** The hub's stage as stored, with whether to ask the team to move it on. */
-export function roomStageFromProps(props: Record<string, unknown> | null | undefined, now: Date = new Date()): RoomStageInfo {
+export function roomStageFromProps(props: Record<string, unknown> | null | undefined, now: Date = new Date(), ctx: RoomStageContext = {}): RoomStageInfo {
   const p = props ?? {};
   const parsed = parseRoomStage(p);
   const base: RoomStageInput = parsed.ok ? parsed.value : { stage: "rollout", timelineView: "practices", waves: waves(p.waves) };
   const rolloutDays = typeof p.rolloutDays === "number" && p.rolloutDays > 0 ? Math.floor(p.rolloutDays) : 90;
-  const d = rolloutDay(p.kickoffDate, now);
+  // From the kickoff when the team set one; else from the contract, so a hub made long after signing still asks.
+  const fromKickoff = rolloutDay(p.kickoffDate, now);
+  const fromContract = fromKickoff === null ? rolloutDay(contractDay(ctx.contractSigned), now) : null;
+  const d = fromKickoff ?? fromContract;
+  const dayFrom = fromKickoff !== null ? "kickoff" : fromContract !== null ? "contract" : null;
   const extendUntil = day(p.stageExtendUntil) || null;
   const prompt = base.stage === "rollout" && d !== null && d >= rolloutDays && !(extendUntil && extendUntil >= today(now));
-  return { ...base, stageSince: base.stage === "rollout" ? null : day(p.stageSince) || null, extendUntil, day: d, rolloutDays, prompt };
+  return { ...base, stageSince: base.stage === "rollout" ? null : day(p.stageSince) || null, extendUntil, day: d, dayFrom, rolloutDays, prompt };
 }
 
 type Block = { type?: unknown; props?: Record<string, unknown> };
 const hub = (blocks: unknown): Block | null => (Array.isArray(blocks) ? ((blocks.find((b) => !!b && typeof b === "object" && (b as Block).type === "room-workspace") as Block | undefined) ?? null) : null);
 
-export function roomStageInfo(blocks: unknown, now: Date = new Date()): RoomStageInfo | null {
+export function roomStageInfo(blocks: unknown, now: Date = new Date(), ctx: RoomStageContext = {}): RoomStageInfo | null {
   const block = hub(blocks);
-  return block ? roomStageFromProps(block.props, now) : null;
+  return block ? roomStageFromProps(block.props, now, ctx) : null;
 }
 
 /** What the action plan needs when a hub moves past its rollout (see partnerRoomExpansionPlan). */

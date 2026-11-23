@@ -18,7 +18,7 @@ import { teamPeopleFromBlocks } from "../../lib/partnerRoomFeed";
 import { digestRolloutDay } from "../../lib/partnerRoomDigest";
 import { roomStageFromProps } from "../../lib/partnerRoomStage";
 import { accountKey, cleanAccountName } from "../../lib/partnerRoomNames";
-import { createRoom, publicPageUrl, sheetOwnersByPage } from "../../lib/partnerRoomAutocreate";
+import { contractSignedByPage, createRoom, publicPageUrl, sheetOwnersByPage } from "../../lib/partnerRoomAutocreate";
 import { hubIsMine, hubSetupItems, hubSetupState, sameSfdcId, summarizeRoomViews } from "../../lib/partnerRoomViews";
 import { recordHubActivity } from "../../lib/partnerRoomActivity";
 import { roomSignupSlug, signupPagesBySlug } from "../../lib/partnerRoomPracticeSite";
@@ -101,6 +101,8 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
     ]);
     // Owners as Salesforce has them (the signed-accounts sheet); LP Studio's Accounts can lag.
     const sheetOwners = await sheetOwnersByPage(tenantId);
+    // A hub with no kickoff date counts its rollout from the contract, so one signed long ago still asks to move on.
+    const signedOn = await contractSignedByPage(tenantId);
     const practiceCounts = (await db.execute(sql`SELECT page_id AS "pageId", COUNT(*)::int AS total, COUNT(*) FILTER (WHERE stage = 'live')::int AS live FROM lp_room_practices WHERE page_id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)}) GROUP BY page_id`)).rows as { pageId: number; total: number; live: number }[];
     const iso = (v: string | Date | null | undefined) => (v ? new Date(v).toISOString() : null);
     const now = new Date();
@@ -129,7 +131,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
           day: digestRolloutDay(props.kickoffDate, now),
           // Internal: where the hub is in the partnership, whether to ask the team to move it on, and how many practices are live.
           stage: roomStageFromProps(props, now).stage,
-          stagePrompt: roomStageFromProps(props, now).prompt,
+          stagePrompt: roomStageFromProps(props, now, { contractSigned: signedOn.get(p.id) }).prompt,
           practices: practiceCounts.find((c) => c.pageId === p.id) ?? null,
           waitingOnCustomer: [...tasks.keys()].filter((k) => !done.has(k)).length,
           // Everything that needs the team: what the pop-up's To do tab counts, plus minutes to review. (It used to be open requests only.)

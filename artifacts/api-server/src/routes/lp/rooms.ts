@@ -58,7 +58,7 @@ import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
 import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
 import { ensurePracticeSite, setRoomPracticeLink, roomSignupSlug, signupPagesBySlug } from "../../lib/partnerRoomPracticeSite";
-import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, createMissingHubs, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, createMissingHubs, contractSignedByPage, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { unlistedPeople } from "../../lib/partnerRoomTeam";
 import { hubSetupItems, parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
@@ -2677,7 +2677,7 @@ router.put("/lp/partner-rooms/:pageId/stage", async (req: Request, res: Response
     await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
     // The plan changes with the stage: an open builder takes it too, so its next save doesn't put the old plan back.
     const hubProps = (next as { type?: string; props?: Record<string, unknown> }[]).find((b) => b?.type === "room-workspace")?.props ?? {};
-    res.json({ ok: true, stage: roomStageInfo(next), planGroups: hubProps.planGroups ?? [], rolloutPlanGroups: hubProps.rolloutPlanGroups ?? null });
+    res.json({ ok: true, stage: roomStageInfo(next, new Date(), { contractSigned: (await contractSignedByPage(page.tenantId, [page.id])).get(page.id) }), planGroups: hubProps.planGroups ?? [], rolloutPlanGroups: hubProps.rolloutPlanGroups ?? null });
   } catch (err) {
     req.log.error({ err }, "room stage save failed");
     res.status(500).json({ error: "Could not save the stage" });
@@ -2750,7 +2750,7 @@ router.post("/lp/partner-rooms/:pageId/stage/extend", async (req: Request, res: 
       return;
     }
     await db.update(lpPagesTable).set({ blocks: next as typeof row.blocks, updatedAt: new Date(), updatedBy: req.authUser?.email ?? undefined }).where(eq(lpPagesTable.id, page.id));
-    res.json({ ok: true, stage: roomStageInfo(next) });
+    res.json({ ok: true, stage: roomStageInfo(next, new Date(), { contractSigned: (await contractSignedByPage(page.tenantId, [page.id])).get(page.id) }) });
   } catch (err) {
     req.log.error({ err }, "room stage extend failed");
     res.status(500).json({ error: "Could not save" });
@@ -3188,8 +3188,8 @@ function expansionDecisions(raw: unknown): Record<string, ExpansionDecision> {
 }
 
 async function roomStageFor(pageId: number) {
-  const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
-  return row ? roomStageInfo(row.blocks) : null;
+  const [row] = await db.select({ blocks: lpPagesTable.blocks, tenantId: lpPagesTable.tenantId }).from(lpPagesTable).where(eq(lpPagesTable.id, pageId)).limit(1);
+  return row ? roomStageInfo(row.blocks, new Date(), { contractSigned: (await contractSignedByPage(row.tenantId, [pageId])).get(pageId) }) : null;
 }
 
 /** The hub's marketing plan as a queue, from its decisions and the requests already sent for them. */

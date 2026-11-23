@@ -25,6 +25,8 @@ export interface HubStage {
   stageSince: string | null;
   extendUntil: string | null;
   day: number | null;
+  /** What the day counts from: the kickoff date, else the day the contract was signed. */
+  dayFrom?: "kickoff" | "contract" | null;
   rolloutDays: number;
   prompt: boolean;
   /** The action plan as the move left it (set only on a save that changed it): the builder keeps its copy the same. */
@@ -64,7 +66,7 @@ export function RoomStagePrompt({ pageId, stage, onSaved }: { pageId: number; st
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm" data-room-stage-prompt>
       <div className="min-w-0 flex-1">
-        <span className="font-semibold">Day {stage.day} of {stage.rolloutDays}.</span> Move this hub to Expansion?
+        <span className="font-semibold">{stage.dayFrom === "contract" ? `Contract signed ${stage.day} days ago.` : `Day ${stage.day} of ${stage.rolloutDays}.`}</span> Move this hub to Expansion?
         {err && <span className="ml-2 text-destructive">{err}</span>}
       </div>
       <Button size="sm" variant="brand" disabled={busy} onClick={() => setReviewing(true)} data-room-stage-move>Move to Expansion</Button>

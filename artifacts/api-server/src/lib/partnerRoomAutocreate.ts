@@ -648,6 +648,13 @@ export async function syncHubOwner(tenantId: number, pageId: number, owner: stri
   return true;
 }
 
+/** When each hub's contract was signed, as the signed-accounts sheet says (as written there), by page id. */
+export async function contractSignedByPage(tenantId: number, pageIds?: number[]): Promise<Map<number, string>> {
+  if (pageIds && pageIds.length === 0) return new Map();
+  const rows = await db.select({ pageId: lpRoomAutocreateAccountsTable.pageId, signedDate: lpRoomAutocreateAccountsTable.signedDate }).from(lpRoomAutocreateAccountsTable).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), sql`${lpRoomAutocreateAccountsTable.pageId} > 0`, isNotNull(lpRoomAutocreateAccountsTable.signedDate), ...(pageIds ? [sql`${lpRoomAutocreateAccountsTable.pageId} IN (${sql.join(pageIds.map((i) => sql`${i}`), sql`, `)})`] : [])));
+  return new Map(rows.filter((r) => r.signedDate?.trim()).map((r) => [r.pageId!, r.signedDate!.trim()]));
+}
+
 /** Each hub's account owner as the signed-accounts sheet names them, by page id. */
 export async function sheetOwnersByPage(tenantId: number): Promise<Map<number, string>> {
   const rows = await db.select({ pageId: lpRoomAutocreateAccountsTable.pageId, owner: lpRoomAutocreateAccountsTable.owner }).from(lpRoomAutocreateAccountsTable).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), sql`${lpRoomAutocreateAccountsTable.pageId} > 0`, isNotNull(lpRoomAutocreateAccountsTable.owner)));
