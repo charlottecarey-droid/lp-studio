@@ -35,7 +35,7 @@ function hubAs(team: boolean, planDelete: { ok: boolean; error?: string } = { ok
   );
   // Each test its own page id: the hub keeps one data store per page for the whole window.
   const pageId = nextPageId++;
-  render(createElement(PageContextProvider, { value: { pageId, sessionId: "s1" } }, createElement(BlockRoomWorkspace, { props, brand: { ...DEFAULT_BRAND, brandName: "Acme" } })));
+  render(createElement(PageContextProvider, { value: { pageId, sessionId: "s1" }, children: createElement(BlockRoomWorkspace, { props, brand: { ...DEFAULT_BRAND, brandName: "Acme" } }) }));
   return calls;
 }
 
