@@ -115,6 +115,37 @@ export function addTeamPeople(blocks: unknown, side: "partner" | "ours", people:
   return changed ? next : null;
 }
 
+/**
+ * Put the account owner (as Salesforce has them, via the signed-accounts sheet) on our side of the Team
+ * module: the member whose role is "Account owner" takes the new name (and address, when known); with no
+ * such member, the owner is added first. Everyone else is left alone. Null when nothing changes.
+ */
+export function setTeamOwner(blocks: unknown, owner: { name: string; email?: string | null }): unknown[] | null {
+  const name = owner.name.trim();
+  if (!Array.isArray(blocks) || !name) return null;
+  let changed = false;
+  const next = (blocks as Block[]).map((b) => {
+    if (!b || typeof b !== "object" || b.type !== "room-workspace" || changed) return b;
+    const groups = Array.isArray(b.props?.team) ? (b.props!.team as Group[]) : [];
+    const at = groupIndex(groups, "ours");
+    if (at < 0) return b;
+    const members = Array.isArray(groups[at].members) ? (groups[at].members as Record<string, unknown>[]) : [];
+    const i = members.findIndex((m) => typeof m.role === "string" && /^account owner$/i.test(m.role.trim()));
+    if (i >= 0) {
+      const m = members[i];
+      if (typeof m.name === "string" && m.name.trim().toLowerCase() === name.toLowerCase()) return b;
+      const { email: _old, ...rest } = m;
+      const updated = { ...rest, name, ...(owner.email ? { email: owner.email.trim().toLowerCase() } : {}) };
+      changed = true;
+      return { ...b, props: { ...b.props, team: groups.map((g, gi) => (gi === at ? { ...g, members: members.map((x, xi) => (xi === i ? updated : x)) } : g)) } };
+    }
+    changed = true;
+    const added = { name, role: "Account owner", ...(owner.email ? { email: owner.email.trim().toLowerCase() } : {}) };
+    return { ...b, props: { ...b.props, team: groups.map((g, gi) => (gi === at ? { ...g, members: [added, ...members] } : g)) } };
+  });
+  return changed ? next : null;
+}
+
 /* ── The setup checklist the team gets with a new room ───────────────────── */
 
 export interface RoomSetupFacts {

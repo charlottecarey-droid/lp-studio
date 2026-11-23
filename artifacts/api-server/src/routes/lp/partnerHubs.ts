@@ -18,7 +18,7 @@ import { teamPeopleFromBlocks } from "../../lib/partnerRoomFeed";
 import { digestRolloutDay } from "../../lib/partnerRoomDigest";
 import { roomStageFromProps } from "../../lib/partnerRoomStage";
 import { accountKey, cleanAccountName } from "../../lib/partnerRoomNames";
-import { createRoom, publicPageUrl } from "../../lib/partnerRoomAutocreate";
+import { createRoom, publicPageUrl, sheetOwnersByPage } from "../../lib/partnerRoomAutocreate";
 import { hubIsMine, hubSetupItems, hubSetupState, sameSfdcId, summarizeRoomViews } from "../../lib/partnerRoomViews";
 import { recordHubActivity } from "../../lib/partnerRoomActivity";
 import { roomSignupSlug, signupPagesBySlug } from "../../lib/partnerRoomPracticeSite";
@@ -99,6 +99,8 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
       db.select({ pageId: lpPageVisitsTable.pageId, at: sql<string | null>`max(${lpPageVisitsTable.createdAt})` }).from(lpPageVisitsTable).where(inArray(lpPageVisitsTable.pageId, ids)).groupBy(lpPageVisitsTable.pageId),
       db.select({ pageId: lpRoomViewsTable.pageId, n: sql<number>`count(distinct ${lpRoomViewsTable.viewerEmail})::int`, at: sql<string | null>`max(${lpRoomViewsTable.createdAt})` }).from(lpRoomViewsTable).where(and(inArray(lpRoomViewsTable.pageId, ids), gte(lpRoomViewsTable.createdAt, since))).groupBy(lpRoomViewsTable.pageId),
     ]);
+    // Owners as Salesforce has them (the signed-accounts sheet); LP Studio's Accounts can lag.
+    const sheetOwners = await sheetOwnersByPage(tenantId);
     const practiceCounts = (await db.execute(sql`SELECT page_id AS "pageId", COUNT(*)::int AS total, COUNT(*) FILTER (WHERE stage = 'live')::int AS live FROM lp_room_practices WHERE page_id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)}) GROUP BY page_id`)).rows as { pageId: number; total: number; live: number }[];
     const iso = (v: string | Date | null | undefined) => (v ? new Date(v).toISOString() : null);
     const now = new Date();
@@ -108,6 +110,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
         const props = roomWorkspaceProps(blocks) ?? {};
         const name = roomPartnerName(blocks) || p.title;
         const account = accountOf({ accountId: p.accountId, sfdcAccountId: p.sfdcAccountId, name }, settings.find((s) => s.pageId === p.id)?.sfdcAccountId ?? null, accounts);
+        const owner = sheetOwners.get(p.id) ?? account?.owner ?? null;
         const tasks = extractRoomTasks(blocks);
         const done = new Set(doneTasks.filter((t) => t.pageId === p.id).map((t) => t.taskKey));
         const lastPage = iso(lastVisits.find((v) => v.pageId === p.id)?.at);
@@ -122,7 +125,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
           // In setup, ready to share, or shared: from the same checklist the hub's To do shows.
           setup: hubSetupState(hubSetupItems(props, { published: p.status === "published", invited: allowed.find((a) => a.pageId === p.id)?.n ?? 0, slackLinked: !!settings.find((x) => x.pageId === p.id)?.slackChannelId, signup: signupPages.get(roomSignupSlug(roomWorkspaceProps(p.blocks))) ?? null })),
           url: p.status === "published" ? await publicPageUrl(tenantId, p.slug).catch(() => "") : "",
-          account: account ? { id: account.id, name: account.displayName || account.name, owner: account.owner } : null,
+          account: account ? { id: account.id, name: account.displayName || account.name, owner } : owner ? { id: null, name, owner } : null,
           day: digestRolloutDay(props.kickoffDate, now),
           // Internal: where the hub is in the partnership, whether to ask the team to move it on, and how many practices are live.
           stage: roomStageFromProps(props, now).stage,
@@ -138,7 +141,7 @@ router.get("/lp/partner-rooms", async (req: Request, res: Response): Promise<voi
           views30: visits.find((v) => v.pageId === p.id)?.views ?? 0,
           people30: people.find((v) => v.pageId === p.id)?.n ?? 0,
           lastVisitAt: [lastPage, lastRoom].filter((v): v is string => !!v).sort().pop() ?? null,
-          mine: hubIsMine({ email: req.authUser?.email, name: req.authUser?.name }, { accountOwner: account?.owner, createdBy: p.createdBy, updatedBy: p.updatedBy, teamEmails: teamPeopleFromBlocks(blocks).map((t) => t.email) }),
+          mine: hubIsMine({ email: req.authUser?.email, name: req.authUser?.name }, { accountOwner: owner, createdBy: p.createdBy, updatedBy: p.updatedBy, teamEmails: teamPeopleFromBlocks(blocks).map((t) => t.email) }),
           test: /\(test\)\s*$/.test(p.title),
           updatedAt: p.updatedAt.toISOString(),
         };
@@ -279,6 +282,7 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
         ? (await db.select({ id: salesAccountsTable.id, owner: salesAccountsTable.owner, salesforceId: salesAccountsTable.salesforceId }).from(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId)).limit(5000)).filter((a) => sameSfdcId(a.salesforceId, sfdc)).slice(0, 1)
         : [];
     const account = accountRows[0] ?? null;
+    const sheetOwner = (await sheetOwnersByPage(tenantId)).get(page.id) ?? null;
     res.json({
       pageId: page.id,
       title: page.title,
@@ -288,7 +292,7 @@ router.get("/lp/partner-rooms/:pageId/setup", async (req: Request, res: Response
       // Internal: rollout or expansion. The pop-up names the launch sections by it ("Launch kit" / "Marketing").
       stage: roomStageFromProps(roomWorkspaceProps(blocks) ?? {}, new Date()).stage,
       setup: hubSetupItems(roomWorkspaceProps(blocks), { published, invited: invited?.n ?? 0, slackLinked: !!hubSettings?.slackChannelId, signup: (await signupPagesBySlug(tenantId, [roomSignupSlug(roomWorkspaceProps(page.blocks))])).get(roomSignupSlug(roomWorkspaceProps(page.blocks))) ?? null }),
-      account: account ? { id: account.id, owner: account.owner, salesforceUrl: account.salesforceId ? await salesforceRecordUrl(tenantId, account.salesforceId) : null } : null,
+      account: account ? { id: account.id, owner: sheetOwner ?? account.owner, salesforceUrl: account.salesforceId ? await salesforceRecordUrl(tenantId, account.salesforceId) : null } : null,
     });
   } catch (err) {
     req.log.error({ err }, "partner hub setup failed");

@@ -19,12 +19,13 @@ import { sendRoomDigestEmail } from "./notifications";
 import { sfdcService } from "./sfdc-service";
 import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 import { logger } from "./logger";
+import { triggerPublishedRender } from "./triggerPublishedRender";
 import { welcomePost } from "./partnerRoomFeed";
 import { ROOM_STANDARD_ASSETS, setRoomKitAsset } from "./partnerRoom";
 import { accountKey, cleanAccountName } from "./partnerRoomNames";
 import { roomSheetsRequest, sheetProblem } from "./partnerRoomSheets";
 import { ensurePracticeSite, setRoomPracticeLink, type PracticeSite } from "./partnerRoomPracticeSite";
-import { addTeamPeople, cleanDomain, EMPTY_SETUP_FACTS, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist, type AccountContact, type RoomSetupFacts } from "./partnerRoomTeam";
+import { addTeamPeople, setTeamOwner, cleanDomain, EMPTY_SETUP_FACTS, mainEmailDomain, rankAccountContacts, roomCreatedSlackBlocks, roomSetupChecklist, type AccountContact, type RoomSetupFacts } from "./partnerRoomTeam";
 import { SHEET_ID_RE, SHEET_TAB_RE, syncPracticesFromSheet } from "./partnerRoomService";
 import { slackService } from "./slack-service";
 import { buildPartnerWorkspaceBlocks } from "../seeds/partnerLaunchRoomTemplate";
@@ -256,6 +257,12 @@ async function fillRoomFromAccount(tenantId: number, pageId: number, account: Si
 export async function hubOwnerEmail(tenantId: number, pageId: number): Promise<string | null> {
   const [page] = await db.select({ accountId: lpPagesTable.accountId, updatedBy: lpPagesTable.updatedBy, createdBy: lpPagesTable.createdBy }).from(lpPagesTable).where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId))).limit(1);
   if (!page) return null;
+  // The sheet's owner (from Salesforce) first; LP Studio's Accounts can lag.
+  const sheetOwner = (await sheetOwnersByPage(tenantId)).get(pageId);
+  if (sheetOwner) {
+    const match = await ownerUser(tenantId, sheetOwner);
+    if (match) return match.email.toLowerCase();
+  }
   if (page.accountId) {
     const [account] = await db.select({ owner: salesAccountsTable.owner }).from(salesAccountsTable).where(and(eq(salesAccountsTable.id, page.accountId), eq(salesAccountsTable.tenantId, tenantId))).limit(1);
     const match = account?.owner ? await ownerUser(tenantId, account.owner) : null;
@@ -523,6 +530,8 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
       if (row.pageId && row.pageId > 0) await linkRoomPractices(tenantId, row.pageId, a.sfdcId, cfg.sheetId, cfg.practicesTab).catch(() => false);
     }
     const fresh = accounts.filter((a) => !knownKeys.has(a.key));
+    // Owners (and signed dates) follow the sheet, and so do the hubs' Team modules.
+    const ownersMoved = await refreshSheetOwners(tenantId, accounts).catch((err) => (logger.warn({ err, tenantId }, "refreshing account owners from the sheet failed"), 0));
 
     // First read: everything already on the list is recorded, and nothing is created.
     if (known.length === 0) {
@@ -545,7 +554,7 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
       await slackService.postMessage(tenantId, { text: `Partner Hub created: ${a.name}`, blocks: roomCreatedSlackBlocks(a.name, links, room.facts) }).catch(() => false);
     }
     const waiting = fresh.length - created.length;
-    return finish(true, `${accounts.length} accounts on the list${created.length ? ` · created ${created.length} room${created.length === 1 ? "" : "s"}: ${created.map((c) => c.name).join(", ")}` : " · nothing new"}${waiting > 0 ? ` · ${waiting} more will be created on the next reads` : ""}.`, created);
+    return finish(true, `${accounts.length} accounts on the list${ownersMoved ? ` · ${ownersMoved} hub owner${ownersMoved === 1 ? "" : "s"} updated` : ""}${created.length ? ` · created ${created.length} room${created.length === 1 ? "" : "s"}: ${created.map((c) => c.name).join(", ")}` : " · nothing new"}${waiting > 0 ? ` · ${waiting} more will be created on the next reads` : ""}.`, created);
   } catch (err) {
     logger.error({ err, tenantId }, "room autocreate sync failed");
     return finish(false, "Couldn't reach Google Sheets.");
@@ -585,6 +594,7 @@ export async function createMissingHubs(tenantId: number, opts: { limit?: number
   if (!resp.ok) return { ok: false, error: sheetProblem(resp.status, resp.sharedWith, tab) };
   const accounts = signedAccountsFromSheet(((await resp.json()) as { values?: unknown }).values);
   if (!accounts) return { ok: false, error: "The tab needs an “Account Name” column in its first row." };
+  await refreshSheetOwners(tenantId, accounts).catch((err) => logger.warn({ err, tenantId }, "refreshing account owners from the sheet failed"));
   const known = await db.select({ key: lpRoomAutocreateAccountsTable.accountKey, pageId: lpRoomAutocreateAccountsTable.pageId }).from(lpRoomAutocreateAccountsTable).where(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId));
   const ids = known.map((k) => k.pageId).filter((n): n is number => n != null && n > 0);
   const live = new Set(ids.length ? (await db.select({ id: lpPagesTable.id }).from(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), sql`${lpPagesTable.id} IN (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`))).map((r) => r.id) : []);
@@ -602,6 +612,46 @@ export async function createMissingHubs(tenantId: number, opts: { limit?: number
     else failed.push(a.name);
   }
   return { ok: true, created, failed, remaining: Math.max(0, todo.length - created.length - failed.length), total: todo.length };
+}
+
+/**
+ * The sheet is Salesforce's word on who owns an account (LP Studio's Accounts can lag). On every read, each
+ * account's recorded owner and signed date follow the sheet, and a hub whose owner changed gets the new
+ * owner on its Team module (re-published when live). Returns how many hubs were updated.
+ */
+export async function refreshSheetOwners(tenantId: number, accounts: SignedAccount[]): Promise<number> {
+  const known = await db.select({ key: lpRoomAutocreateAccountsTable.accountKey, owner: lpRoomAutocreateAccountsTable.owner, signedDate: lpRoomAutocreateAccountsTable.signedDate, pageId: lpRoomAutocreateAccountsTable.pageId }).from(lpRoomAutocreateAccountsTable).where(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId));
+  let hubs = 0;
+  for (const a of accounts) {
+    const row = known.find((k) => k.key === a.key);
+    const owner = a.owner?.trim() || null;
+    if (!row || !owner) continue;
+    const ownerChanged = (row.owner ?? "").trim() !== owner;
+    const dateChanged = !!a.signedDate && a.signedDate !== row.signedDate;
+    if (ownerChanged || dateChanged) {
+      await db.update(lpRoomAutocreateAccountsTable).set({ owner, ...(a.signedDate ? { signedDate: a.signedDate } : {}) }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, a.key)));
+    }
+    if (row.pageId && row.pageId > 0 && (await syncHubOwner(tenantId, row.pageId, owner))) hubs++;
+  }
+  return hubs;
+}
+
+/** Put this owner on the hub's Team module when it names someone else. True when the hub changed. */
+export async function syncHubOwner(tenantId: number, pageId: number, owner: string): Promise<boolean> {
+  const [page] = await db.select({ blocks: lpPagesTable.blocks, status: lpPagesTable.status }).from(lpPagesTable).where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId))).limit(1);
+  if (!page) return false;
+  const user = await ownerUser(tenantId, owner).catch(() => null);
+  const next = setTeamOwner(page.blocks, { name: owner, email: user?.email ?? null });
+  if (!next) return false;
+  await db.update(lpPagesTable).set({ blocks: next as never, updatedAt: new Date(), updatedBy: "system:account owner from sheet" }).where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId)));
+  if (page.status === "published") triggerPublishedRender({ pageId });
+  return true;
+}
+
+/** Each hub's account owner as the signed-accounts sheet names them, by page id. */
+export async function sheetOwnersByPage(tenantId: number): Promise<Map<number, string>> {
+  const rows = await db.select({ pageId: lpRoomAutocreateAccountsTable.pageId, owner: lpRoomAutocreateAccountsTable.owner }).from(lpRoomAutocreateAccountsTable).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), sql`${lpRoomAutocreateAccountsTable.pageId} > 0`, isNotNull(lpRoomAutocreateAccountsTable.owner)));
+  return new Map(rows.filter((r) => r.owner?.trim()).map((r) => [r.pageId!, r.owner!.trim()]));
 }
 
 /** Workspaces whose signed-accounts sheet was last read more than 55 minutes ago. */
