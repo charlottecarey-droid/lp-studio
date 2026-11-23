@@ -2298,6 +2298,38 @@ export function AutomaticRoomsSection() {
     await refetch();
   };
 
+  // Every account on the list without a hub, a few per request until none remain. Quiet unless asked: no email per hub.
+  const [bulk, setBulk] = useState<{ done: number; total: number; failed: string[]; running: boolean } | null>(null);
+  const [bulkNotify, setBulkNotify] = useState(false);
+  const createMissing = async () => {
+    setBusy(true);
+    setErr("");
+    let done = 0;
+    let total = 0;
+    const failed: string[] = [];
+    setBulk({ done, total, failed, running: true });
+    try {
+      for (let round = 0; round < 40; round++) {
+        const r = await fetch("/api/lp/room-autocreate/create-missing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notify: bulkNotify }) });
+        const j = (await r.json().catch(() => ({}))) as { created?: { name: string }[]; failed?: string[]; remaining?: number; total?: number; error?: string };
+        if (!r.ok) {
+          setErr(j.error ?? "Could not create the hubs");
+          break;
+        }
+        if (round === 0) total = j.total ?? 0;
+        done += j.created?.length ?? 0;
+        // A failure stays on the list, so the next round would try it again: stop once a round makes nothing.
+        for (const f of j.failed ?? []) if (!failed.includes(f)) failed.push(f);
+        setBulk({ done, total, failed: [...failed], running: true });
+        if (!j.remaining || !(j.created?.length)) break;
+      }
+    } finally {
+      setBulk((b) => (b ? { ...b, running: false } : b));
+      setBusy(false);
+      await refetch();
+    }
+  };
+
   // A test run: the same room a new signed account gets, for a name typed here, then its launch kit.
   // The test runs for an account picked from Accounts, so it exercises the same matching a real hub gets (practices, team, owner).
   const [testAccount, setTestAccount] = useState<{ id: number; name: string; owner: string | null; salesforceId: string | null } | null>(null);
@@ -2502,6 +2534,23 @@ export function AutomaticRoomsSection() {
         )}
         </div>
       </details>
+      {accounts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm" data-hub-create-missing>
+          <Button size="sm" disabled={busy} onClick={createMissing}>
+            {bulk?.running ? `Creating hubs… ${bulk.done}${bulk.total ? ` of ${bulk.total}` : ""}` : "Create hubs for every account without one"}
+          </Button>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input type="checkbox" checked={bulkNotify} onChange={(e) => setBulkNotify(e.target.checked)} disabled={busy} />
+            Email each account owner
+          </label>
+          {bulk && !bulk.running && (
+            <span className="text-xs text-muted-foreground" role="status">
+              {bulk.total === 0 ? "Every account on the list has a hub." : `${bulk.done} hub${bulk.done === 1 ? "" : "s"} created as drafts.`}
+              {bulk.failed.length ? ` Couldn't create: ${bulk.failed.join(", ")}.` : ""}
+            </span>
+          )}
+        </div>
+      )}
       {accounts.length > 0 && (
         <details className="text-sm" open={showAll} onToggle={(e) => setShowAll((e.currentTarget as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer text-xs text-muted-foreground">{accounts.length} accounts on the list · {withRoom.length} with a hub made here</summary>

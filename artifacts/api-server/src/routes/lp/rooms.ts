@@ -58,7 +58,7 @@ import { slackService } from "../../lib/slack-service";
 import { parseAssetEventBody } from "../../lib/assetEvents";
 import { roomSheetsAccount } from "../../lib/partnerRoomSheets";
 import { ensurePracticeSite, setRoomPracticeLink, roomSignupSlug, signupPagesBySlug } from "../../lib/partnerRoomPracticeSite";
-import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
+import { accountPeople, hubOwnerEmail, publicPageUrl, createRoomForAccount, createMissingHubs, hubTemplate, isSfdcFieldName, syncRoomAutocreate, testRoomAutocreate } from "../../lib/partnerRoomAutocreate";
 import { summarizeAssetEvents, type RoomAssetStat } from "../../lib/partnerRoomEngagement";
 import { unlistedPeople } from "../../lib/partnerRoomTeam";
 import { hubSetupItems, parseRoomView, VISIT_ALERT_QUIET_MS } from "../../lib/partnerRoomViews";
@@ -2428,6 +2428,23 @@ router.post("/lp/room-autocreate/create", async (req: Request, res: Response): P
   } catch (err) {
     req.log.error({ err }, "room autocreate create failed");
     res.status(500).json({ error: "Could not create the hub" });
+  }
+});
+
+/** Make hubs for every account on the signed list that has none, a few per call (the settings screen repeats until none remain). */
+router.post("/lp/room-autocreate/create-missing", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const result = await createMissingHubs(tenantId, { quiet: req.body?.notify !== true, limit: 4 });
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "bulk hub creation failed");
+    res.status(500).json({ error: "Could not create the hubs" });
   }
 });
 

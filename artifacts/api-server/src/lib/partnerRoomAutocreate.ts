@@ -293,7 +293,7 @@ export async function postWelcome(tenantId: number, pageId: number, partnerName:
 }
 
 /** Make the draft room for an account that has none yet. Returns the page id, or null when another reader already made it. */
-export async function createRoom(tenantId: number, account: SignedAccount, opts: { claimed?: boolean; test?: boolean } = {}): Promise<{ pageId: number; facts: RoomSetupFacts } | null> {
+export async function createRoom(tenantId: number, account: SignedAccount, opts: { claimed?: boolean; test?: boolean; /** No email alerts (a bulk run): the sheet log still gets its row. */ quiet?: boolean } = {}): Promise<{ pageId: number; facts: RoomSetupFacts } | null> {
   if (!opts.claimed) {
     // Claim the account first: only the one that updates a still-empty row goes on to create the page.
     const claim = await db
@@ -338,7 +338,7 @@ export async function createRoom(tenantId: number, account: SignedAccount, opts:
     const facts: RoomSetupFacts = { ...EMPTY_SETUP_FACTS, ...filled, standardFiles: standard.length, practicesLinked: linked && read.ok, practiceSite: site ? (site.existing ? "found" : "drafted") : null };
     lastPracticeSite.set(page.id, site);
     // Alerts, the sheet log and the Salesforce field. A test run does these itself so it can report each one.
-    if (!opts.test) await afterRoomCreated(tenantId, { ...account, sfdcId }, page.id, { facts }).catch((err) => logger.warn({ err, pageId: page.id }, "follow-ups for an automatic room failed"));
+    if (!opts.test) await afterRoomCreated(tenantId, { ...account, sfdcId }, page.id, { facts, quiet: opts.quiet }).catch((err) => logger.warn({ err, pageId: page.id }, "follow-ups for an automatic room failed"));
     return { pageId: page.id, facts };
   } catch (err) {
     // Release the claim so the next read tries again.
@@ -433,13 +433,13 @@ export async function roomLinks(tenantId: number, pageId: number): Promise<{ edi
   };
 }
 
-export async function afterRoomCreated(tenantId: number, account: SignedAccount, pageId: number, opts: { test?: boolean; facts?: RoomSetupFacts } = {}): Promise<RoomFollowUps> {
+export async function afterRoomCreated(tenantId: number, account: SignedAccount, pageId: number, opts: { test?: boolean; facts?: RoomSetupFacts; quiet?: boolean } = {}): Promise<RoomFollowUps> {
   const [[cfg], links] = await Promise.all([db.select().from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1), roomLinks(tenantId, pageId)]);
   const out: RoomFollowUps = { alerts: null, sheet: null, sfdc: null };
 
   // 1. Alerts
   const extra = Array.isArray(cfg?.alertEmails) ? cfg.alertEmails : [];
-  if (cfg?.alertOwner || extra.length) {
+  if (!opts.quiet && (cfg?.alertOwner || extra.length)) {
     const to = new Set(extra.map((e) => e.toLowerCase()));
     let ownerMatched: boolean | null = null;
     if (cfg?.alertOwner && account.owner) {
@@ -550,6 +550,58 @@ export async function syncRoomAutocreate(tenantId: number): Promise<{ ok: boolea
     logger.error({ err, tenantId }, "room autocreate sync failed");
     return finish(false, "Couldn't reach Google Sheets.");
   }
+}
+
+/**
+ * Accounts on the signed list (as the sheet has it now) that should get a hub and have none: never made,
+ * or made and since deleted. One per Salesforce account (two spellings of one account get one hub).
+ */
+export function accountsWithoutHub(accounts: SignedAccount[], known: { key: string; pageId: number | null }[], livePages: Set<number>): SignedAccount[] {
+  const byKey = new Map(known.map((k) => [k.key, k.pageId]));
+  const seen = new Set<string>();
+  const out: SignedAccount[] = [];
+  for (const a of accounts) {
+    const id = a.sfdcId && a.sfdcId.length >= 15 ? `sf:${a.sfdcId.slice(0, 15)}` : `k:${a.key}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const pageId = byKey.get(a.key);
+    if (pageId != null && (pageId === -1 || livePages.has(pageId))) continue;
+    out.push(a);
+  }
+  return out;
+}
+
+/**
+ * Make a hub now for every account on the signed list that has none (accounts already there when the sheet
+ * was connected never got one). A few per call so each request stays short; the caller repeats until
+ * `remaining` is 0. Quiet: no email alerts (the team is told once, not 60 times); the sheet log still fills.
+ */
+export async function createMissingHubs(tenantId: number, opts: { limit?: number; quiet?: boolean } = {}): Promise<{ ok: true; created: { name: string; pageId: number }[]; failed: string[]; remaining: number; total: number } | { ok: false; error: string }> {
+  const [cfg] = await db.select().from(lpRoomAutocreateTable).where(eq(lpRoomAutocreateTable.tenantId, tenantId)).limit(1);
+  if (!cfg?.sheetId || !SHEET_ID_RE.test(cfg.sheetId)) return { ok: false, error: "Connect the signed-accounts sheet first." };
+  const tab = cfg.sheetTab && SHEET_TAB_RE.test(cfg.sheetTab) ? cfg.sheetTab : "";
+  const range = encodeURIComponent(tab ? `'${tab.replace(/'/g, "''")}'!A1:Z5001` : "A1:Z5001");
+  const resp = await roomSheetsRequest(tenantId, `/v4/spreadsheets/${cfg.sheetId}/values/${range}`);
+  if (!resp.ok) return { ok: false, error: sheetProblem(resp.status, resp.sharedWith, tab) };
+  const accounts = signedAccountsFromSheet(((await resp.json()) as { values?: unknown }).values);
+  if (!accounts) return { ok: false, error: "The tab needs an “Account Name” column in its first row." };
+  const known = await db.select({ key: lpRoomAutocreateAccountsTable.accountKey, pageId: lpRoomAutocreateAccountsTable.pageId }).from(lpRoomAutocreateAccountsTable).where(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId));
+  const ids = known.map((k) => k.pageId).filter((n): n is number => n != null && n > 0);
+  const live = new Set(ids.length ? (await db.select({ id: lpPagesTable.id }).from(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), sql`${lpPagesTable.id} IN (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`))).map((r) => r.id) : []);
+  const todo = accountsWithoutHub(accounts, known, live);
+  const created: { name: string; pageId: number }[] = [];
+  const failed: string[] = [];
+  for (const a of todo.slice(0, Math.max(1, Math.min(opts.limit ?? 4, 10)))) {
+    // A hub that was deleted: free the account so it can be claimed again.
+    await db.update(lpRoomAutocreateAccountsTable).set({ pageId: null }).where(and(eq(lpRoomAutocreateAccountsTable.tenantId, tenantId), eq(lpRoomAutocreateAccountsTable.accountKey, a.key), sql`${lpRoomAutocreateAccountsTable.pageId} > 0`));
+    const room = await createRoom(tenantId, a, { quiet: opts.quiet }).catch((err) => {
+      logger.error({ err, tenantId, account: a.name }, "bulk hub creation failed");
+      return null;
+    });
+    if (room) created.push({ name: a.name, pageId: room.pageId });
+    else failed.push(a.name);
+  }
+  return { ok: true, created, failed, remaining: Math.max(0, todo.length - created.length - failed.length), total: todo.length };
 }
 
 /** Workspaces whose signed-accounts sheet was last read more than 55 minutes ago. */
