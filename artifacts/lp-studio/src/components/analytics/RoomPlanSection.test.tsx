@@ -97,4 +97,30 @@ describe("Settings › Mutual action plan", () => {
     fireEvent.click(screen.getByText("Download template"));
     await waitFor(() => expect(fetchMock.mock.calls[1][0]).toBe("/api/lp/partner-rooms/7/plan/template"));
   });
+
+  it("ticks several steps (or a whole phase) and deletes them from the draft; Save writes it, Discard brings them back", async () => {
+    const two: HubPlan = { expansion: false, groups: [
+      { title: "Setup", rows: [{ key: "a", task: "Step A" }, { key: "b", task: "Step B" }] },
+      { title: "Launch", rows: [{ key: "d", task: "Step D" }] },
+    ] };
+    render(<RoomPlanSection pageId={7} plan={two} onSaved={() => {}} />);
+    fireEvent.click(screen.getByLabelText("Select Step A"));
+    fireEvent.click(screen.getByLabelText("Select every step in Launch"));
+    expect(screen.getByText("2 steps selected")).toBeTruthy();
+    fireEvent.click(screen.getByText("Delete", { selector: "[data-room-plan-delete-picked]" }));
+    expect(screen.queryByDisplayValue("Step A")).toBeNull();
+    expect(screen.queryByDisplayValue("Step D")).toBeNull();
+    expect(screen.getByDisplayValue("Step B")).toBeTruthy();
+    expect(screen.queryByText(/steps? selected/)).toBeNull();
+    fireEvent.click(screen.getByText("Discard"));
+    expect(screen.getByDisplayValue("Step A")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Select Step B"));
+    fireEvent.click(screen.getByText("Delete", { selector: "[data-room-plan-delete-picked]" }));
+    fetchMock.mockResolvedValueOnce(json({ ok: true, plan: { groups: [], expansion: false } }));
+    fireEvent.click(screen.getByText("Save plan"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body).groups as PlanGroup[];
+    expect(sent.map((g) => g.rows.map((r) => r.task))).toEqual([["Step A"], ["Step D"]]);
+  });
 });

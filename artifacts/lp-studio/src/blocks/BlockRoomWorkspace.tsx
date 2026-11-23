@@ -3,7 +3,7 @@ import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, LogIn, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, Trash2, CalendarPlus, Check, Play, ThumbsDown, ThumbsUp, ChevronDown, Copy, Download, FileText, Video, ExternalLink, Eye, EyeOff, Loader2, LogIn, Mail, PencilLine, Plus, Upload, UserPlus, X, BookOpen, ClipboardList, Image as ImageIcon, Link2, Megaphone, Palette, Phone, Presentation, Quote, Share2, type LucideIcon } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
@@ -1504,6 +1504,13 @@ const CSS = `
 .prw-sc-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:14px 14px 12px;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--body);font-size:12.5px;transition:border-color .12s,box-shadow .12s}
 .prw-sc-tile:hover{border-color:color-mix(in srgb,var(--dark) 40%,var(--line))}
 .prw-sc-tile.on{border-color:var(--dark);box-shadow:inset 0 0 0 1px var(--dark)}
+.prw-plan-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 12px;padding:10px 14px;border:1px solid color-mix(in srgb,var(--dark) 18%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--dark) 4%,#fff);font-size:13px;color:var(--ink)}
+.prw-plan-bulk .m{flex:1 1 220px;font-size:12.5px;color:var(--body)}
+.prw-plan-bulk .err{flex-basis:100%;font-size:12.5px;color:var(--red)}
+.prw .prw-btn.danger{color:#fff;background:var(--red);border-color:var(--red)}
+.prw .prw-btn.danger svg{color:#fff}
+.prw-plan .prw-plan-pick{width:40px;text-align:center;padding-left:12px;padding-right:0}
+.prw-plan .prw-plan-pick input{width:15px;height:15px;accent-color:var(--dark);cursor:pointer}
 .prw-sc-selectall{margin:0 0 8px;padding:9px 14px;border-radius:10px;background:color-mix(in srgb,var(--dark) 6%,#fff);font-size:13px;color:var(--ink);text-align:center}
 .prw .prw-sc-selectall button{padding:0;border:0;background:none;font:inherit;font-weight:700;color:var(--dark);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .prw .prw-sc-selectall button:disabled{opacity:.6;cursor:default}
@@ -2039,18 +2046,23 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
   // Milestones with the customer's saved state laid over the builder's status.
   // Changes the account team made on this page since it loaded (status, owners): saved to the page, and laid over what was loaded.
   const [planEdits, setPlanEdits] = useState<Record<string, Partial<RoomMilestone>>>({});
+  // The account team ticks plan steps on the live page to delete several at once; deleted ones leave the list straight away.
+  const [planPicked, setPlanPicked] = useState<Set<string>>(() => new Set());
+  const [planGone, setPlanGone] = useState<Set<string>>(() => new Set());
+  const [planDel, setPlanDel] = useState<{ confirm: boolean; busy: boolean; error: string }>({ confirm: false, busy: false, error: "" });
   const rows = useMemo(
     () =>
       groups.flatMap((g, gi) =>
-        (g.rows ?? []).map((row, ri) => {
+        (g.rows ?? []).flatMap((row, ri) => {
           const key = roomMilestoneKey(row);
+          if (planGone.has(key)) return [];
           const r = planEdits[key] ? { ...row, ...planEdits[key] } : row;
           const action = roomRowAction(r);
           const saved = action ? snapshot.tasks[key] : undefined;
-          return { gi, ri, r, action, key, saved, status: saved?.done ? ("done" as RoomMilestoneStatus) : resolveRoomStatus(r.status) };
+          return [{ gi, ri, r, action, key, saved, status: saved?.done ? ("done" as RoomMilestoneStatus) : resolveRoomStatus(r.status) }];
         }),
       ),
-    [groups, snapshot.tasks, planEdits],
+    [groups, snapshot.tasks, planEdits, planGone],
   );
   const doneCount = rows.filter((x) => x.status === "done").length;
   // A column with nothing in it is left out: a plan of the customer's own steps has no owner on our side, and one with no dates has no Due column.
@@ -2082,6 +2094,27 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
           },
         }
       : null;
+  const pickPlan = (keys: string[], on: boolean) =>
+    setPlanPicked((cur) => {
+      const next = new Set(cur);
+      for (const k of keys) on ? next.add(k) : next.delete(k);
+      return next;
+    });
+  const deletePickedSteps = async () => {
+    if (!store || planPicked.size === 0) return;
+    const keys = [...planPicked];
+    setPlanDel({ confirm: true, busy: true, error: "" });
+    setPlanGone((g) => new Set([...g, ...keys]));
+    const r = await store.deletePlanSteps(keys);
+    if (!r.ok) {
+      // Put them back: nothing was deleted.
+      setPlanGone((g) => new Set([...g].filter((k) => !keys.includes(k))));
+      setPlanDel({ confirm: false, busy: false, error: r.error ?? "Couldn't delete those steps." });
+      return;
+    }
+    setPlanPicked(new Set());
+    setPlanDel({ confirm: false, busy: false, error: "" });
+  };
   const editPlan = async (key: string, patch: Partial<RoomMilestone>): Promise<string | null> => {
     if (!store) return null;
     const before = planEdits[key];
@@ -2949,11 +2982,31 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                     <h2 style={{ fontFamily: BRAND_DISPLAY_STACK }}>Action plan</h2>
                   </div>
                 </div>
+                {canEditLive && (planPicked.size > 0 || planDel.error) && (
+                  <div className="prw-plan-bulk" role="status" data-room-plan-bulk>
+                    {planDel.error && <span className="err" role="alert">{planDel.error}</span>}
+                    {planPicked.size > 0 && (planDel.confirm ? (
+                      <>
+                        <b>Delete {planPicked.size} {planPicked.size === 1 ? "step" : "steps"}?</b>
+                        <span className="m">{props.partnerName || "The customer"} will no longer see {planPicked.size === 1 ? "it" : "them"}, and any ticks or uploads on {planPicked.size === 1 ? "it" : "them"} are cleared.</span>
+                        <button type="button" className="prw-btn danger" disabled={planDel.busy} onClick={() => void deletePickedSteps()} data-room-plan-delete-confirm>{planDel.busy ? "Deleting…" : "Delete"}</button>
+                        <button type="button" className="prw-btn" disabled={planDel.busy} onClick={() => setPlanDel({ confirm: false, busy: false, error: "" })}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <b>{planPicked.size} {planPicked.size === 1 ? "step" : "steps"} selected</b>
+                        <button type="button" className="prw-btn danger" onClick={() => setPlanDel({ confirm: true, busy: false, error: "" })} data-room-plan-delete><Trash2 aria-hidden /> Delete</button>
+                        <button type="button" className="prw-btn" onClick={() => { setPlanPicked(new Set()); setPlanDel({ confirm: false, busy: false, error: "" }); }} data-room-plan-unpick><X aria-hidden /> Clear</button>
+                      </>
+                    ))}
+                  </div>
+                )}
                 {/* Past the rollout, a phase whose milestones are all done folds away; anything still open stays in the plan. */}
                 {expansion && groups.every((_, gi) => planGroupDone(gi)) && groups.length > 0 ? null : (
                 <table className="prw-plan">
                   <thead>
                     <tr>
+                      {canEditLive && <th className="prw-plan-pick" style={{ width: 40 }} />}
                       {planCols.target && <th style={{ width: 96 }}>Due</th>}
                       <th>Step</th>
                       {planCols.ours && <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>}
@@ -2965,7 +3018,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <tbody>
                     {groups.map((g, gi) => (expansion && planGroupDone(gi) ? null : (
 
-                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
+                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} pick={canEditLive ? { picked: planPicked, toggle: pickPlan } : null} />
                     )))}
                   </tbody>
                 </table>
@@ -2977,6 +3030,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                 <table className="prw-plan">
                   <thead>
                     <tr>
+                      {canEditLive && <th className="prw-plan-pick" style={{ width: 40 }} />}
                       {planCols.target && <th style={{ width: 96 }}>Due</th>}
                       <th>Step</th>
                       {planCols.ours && <th style={{ width: 136 }}>{brand.brandName || "Us"}</th>}
@@ -2988,7 +3042,7 @@ export function BlockRoomWorkspace({ props: sentProps, brand, blockId, onFieldCh
                   <tbody>
                     {groups.map((g, gi) => (!planGroupDone(gi) ? null : (
 
-                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} />
+                      <PlanGroup key={gi} cols={planCols} group={g} rows={rows.filter((x) => x.gi === gi).map((x) => (blocked.includes(x) ? { ...x, status: "blocking" as RoomMilestoneStatus } : x))} snapshot={snapshot} store={store} isEditor={isEditor} onNeedEmail={() => setAsk({ kind: "email" })} onGo={goTo} edit={canEditLive ? { save: editPlan, ours: ourPeople, theirs: theirPeople } : null} pick={canEditLive ? { picked: planPicked, toggle: pickPlan } : null} />
                     )))}
                   </tbody>
                 </table>
@@ -3327,18 +3381,42 @@ export function planCell(v: string | undefined): string {
   return /^(—|–|-|n\/a)$/i.test(t) ? "" : t;
 }
 
-function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit, cols, onGo }: { onGo?: (module: RoomModuleKey) => boolean; cols: { target: boolean; ours: boolean }; group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null }) {
+function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit, cols, onGo, pick = null }: { onGo?: (module: RoomModuleKey) => boolean; cols: { target: boolean; ours: boolean }; group: RoomPlanGroup; rows: PlanRow[]; snapshot: RoomSnapshot; store: RoomStoreHandle | null; isEditor: boolean; onNeedEmail: () => void; edit: PlanEdit | null; /** The account team ticks steps to delete several at once. */ pick?: { picked: Set<string>; toggle: (keys: string[], on: boolean) => void } | null }) {
   // The account team edits one row at a time: the table stays plain text, and a pencil opens that row's fields.
   const [editing, setEditing] = useState<string | null>(null);
-  const span = 4 + Number(cols.target) + Number(cols.ours);
+  const span = 4 + Number(cols.target) + Number(cols.ours) + Number(!!pick);
+  const keys = rows.map((x) => x.key);
+  const allPicked = !!pick && keys.length > 0 && keys.every((k) => pick.picked.has(k));
+  const somePicked = !!pick && keys.some((k) => pick.picked.has(k));
   return (
     <>
       <tr className="grp">
-        <td colSpan={span}>{group.title}</td>
+        {pick && (
+          <td className="prw-plan-pick">
+            {keys.length > 0 && (
+              <input
+                type="checkbox"
+                checked={allPicked}
+                ref={(el) => {
+                  if (el) el.indeterminate = somePicked && !allPicked;
+                }}
+                onChange={(e) => pick.toggle(keys, e.target.checked)}
+                aria-label={`Select every step in ${group.title}`}
+                data-room-plan-pick-group
+              />
+            )}
+          </td>
+        )}
+        <td colSpan={span - Number(!!pick)}>{group.title}</td>
       </tr>
       {rows.map((x) => (
         <Fragment key={x.key || x.ri}>
-          <tr data-room-milestone={x.status} className={editing === x.key ? "on" : undefined}>
+          <tr data-room-milestone={x.status} className={editing === x.key || pick?.picked.has(x.key) ? "on" : undefined}>
+            {pick && (
+              <td className="prw-plan-pick">
+                <input type="checkbox" checked={pick.picked.has(x.key)} onChange={(e) => pick.toggle([x.key], e.target.checked)} aria-label={`Select ${x.r.task}`} data-room-plan-pick={x.key} />
+              </td>
+            )}
             {cols.target && <td className="c">{planDue(x.r.target)}</td>}
             <td>
               <div className="t"><E item={x.r} field="task" placeholder="Step" /></div>
@@ -3372,7 +3450,8 @@ function PlanGroup({ group, rows, snapshot, store, isEditor, onNeedEmail, edit, 
       ))}
       {group.checkpoint && (
         <tr className="chk">
-          <td colSpan={span}>
+          {pick && <td className="prw-plan-pick" />}
+          <td colSpan={span - Number(!!pick)}>
             <b>Checkpoint</b> · {group.checkpoint}
           </td>
         </tr>

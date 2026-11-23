@@ -191,6 +191,33 @@ export function setRoomMilestone(blocks: unknown, key: string, patch: MilestoneP
   return done ? next : null;
 }
 
+/**
+ * Remove plan steps by key, from the plan the hub shows (planGroups) and from a rollout plan kept for
+ * later (rolloutPlanGroups), so a removed step can't come back when the hub changes stage. Phases left
+ * with no steps stay (a rep may add to them). Returns the new blocks and how many steps went, or null
+ * when the page isn't a hub or none of the keys is on it.
+ */
+export function removeRoomMilestones(blocks: unknown, keys: string[]): { blocks: unknown[]; removed: number } | null {
+  if (!Array.isArray(blocks) || keys.length === 0) return null;
+  const drop = new Set(keys);
+  let removed = 0;
+  const next = blocks.map((b) => {
+    if (!b || typeof b !== "object" || (b as { type?: unknown }).type !== "room-workspace") return b;
+    const props = (b as { props?: Record<string, unknown> }).props ?? {};
+    const prune = (list: unknown, count: boolean) =>
+      Array.isArray(list)
+        ? (list as { rows?: unknown }[]).map((g) => {
+            if (!g || !Array.isArray(g.rows)) return g;
+            const rows = g.rows.filter((r) => !(r && typeof r === "object" && drop.has(planTaskKey(r as { key?: unknown; task?: unknown }))));
+            if (count) removed += g.rows.length - rows.length;
+            return rows.length === g.rows.length ? g : { ...g, rows };
+          })
+        : list;
+    return { ...(b as object), props: { ...props, planGroups: prune(props.planGroups, true), ...(props.rolloutPlanGroups !== undefined ? { rolloutPlanGroups: prune(props.rolloutPlanGroups, false) } : {}) } };
+  });
+  return removed > 0 ? { blocks: next, removed } : null;
+}
+
 /** Block types that make a page a room. `room-workspace` keeps its plan in `planGroups`, `hub-plan` in `lanes`. */
 export const ROOM_BLOCK_TYPES = ["room-workspace", "hub-plan"] as const;
 

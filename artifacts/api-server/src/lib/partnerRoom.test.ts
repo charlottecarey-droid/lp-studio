@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  removeRoomMilestones,
   ROOM_TOKEN_TTL_MS,
   ROOM_UPLOAD_MAX_BYTES,
   extractRoomTasks,
@@ -246,5 +247,23 @@ describe("practices, goals agreement, Asana naming", () => {
     expect(asanaRequestTaskName("MB2 Dental", "Change to:  Partnership one-pager")).toBe("Expansion Support - MB2 Dental - Change to: Partnership one-pager");
     expect(asanaRequestTaskName("", "")).toBe("Expansion Support - Customer - Request");
     expect(ASANA_REQUEST_KINDS).toEqual(["asset_change", "marketing", "event"]);
+  });
+});
+
+describe("removeRoomMilestones", () => {
+  it("removes steps by key from the plan (counted) and from the rollout plan kept for later; other blocks untouched", () => {
+    const hero = { type: "hero" };
+    const blocks = [hero, { type: "room-workspace", props: { planGroups: [{ title: "P", rows: [{ key: "a", task: "A" }, { task: "Book it" }] }], rolloutPlanGroups: [{ title: "R", rows: [{ key: "a", task: "A" }] }] } }];
+    const out = removeRoomMilestones(blocks, ["a", "book-it"])!;
+    expect(out.removed).toBe(2);
+    expect(out.blocks[0]).toBe(hero);
+    expect((out.blocks[1] as { props: Record<string, { rows: unknown[] }[]> }).props.planGroups[0].rows).toEqual([]);
+    expect((out.blocks[1] as { props: Record<string, { rows: unknown[] }[]> }).props.rolloutPlanGroups[0].rows).toEqual([]);
+  });
+
+  it("is null when nothing matches or there is nothing to remove", () => {
+    expect(removeRoomMilestones([{ type: "room-workspace", props: { planGroups: [{ title: "P", rows: [{ key: "a", task: "A" }] }] } }], ["z"])).toBeNull();
+    expect(removeRoomMilestones([{ type: "hero" }], ["a"])).toBeNull();
+    expect(removeRoomMilestones([], [])).toBeNull();
   });
 });

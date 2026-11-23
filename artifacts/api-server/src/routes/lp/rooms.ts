@@ -133,6 +133,7 @@ import {
   parseMilestonePatch,
   parseRoomWin,
   setRoomMilestone,
+  removeRoomMilestones,
   type RoomChoiceSpec,
   pageIsRoom,
   parseRoomRequest,
@@ -1270,6 +1271,38 @@ router.post("/lp/room/plan-edit", actionLimiter, async (req: Request, res: Respo
   } catch (err) {
     req.log.error({ err }, "room plan edit failed");
     res.status(500).json({ error: "Could not save the change" });
+  }
+});
+
+/**
+ * Team only, from the live page: delete plan steps (several at once). They leave the page itself, so the
+ * builder and the customer see the same plan, and their saved ticks and uploads' completion go with them.
+ */
+router.post("/lp/room/plan-delete", actionLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ctx = await requireWorkspaceViewer(req, res);
+    if (!ctx) return;
+    if (!ctx.viewer.team) {
+      res.status(403).json({ error: "Only the account team can change the plan" });
+      return;
+    }
+    const keys = Array.isArray(req.body?.keys) ? [...new Set((req.body.keys as unknown[]).filter((k): k is string => typeof k === "string" && !!k.trim()).map((k) => k.trim().slice(0, 120)))].slice(0, 500) : [];
+    if (keys.length === 0) {
+      res.status(400).json({ error: "Nothing selected" });
+      return;
+    }
+    const [row] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.id, ctx.page.id), eq(lpPagesTable.tenantId, ctx.page.tenantId))).limit(1);
+    const out = row ? removeRoomMilestones(row.blocks, keys) : null;
+    if (!out) {
+      res.status(404).json({ error: "Those steps aren't on this page any more" });
+      return;
+    }
+    await db.update(lpPagesTable).set({ blocks: out.blocks as typeof row.blocks, updatedAt: new Date() }).where(eq(lpPagesTable.id, ctx.page.id));
+    await db.delete(lpRoomTaskStateTable).where(and(eq(lpRoomTaskStateTable.pageId, ctx.page.id), inArray(lpRoomTaskStateTable.taskKey, keys)));
+    res.json({ ok: true, removed: out.removed });
+  } catch (err) {
+    req.log.error({ err }, "room plan delete failed");
+    res.status(500).json({ error: "Could not delete the steps" });
   }
 });
 

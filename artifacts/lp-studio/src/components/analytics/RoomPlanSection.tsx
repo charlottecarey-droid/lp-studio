@@ -111,10 +111,24 @@ export function RoomPlanSection({
   const [guide, setGuide] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState<Set<number>>(() => new Set(plan.groups.length <= 2 ? plan.groups.map((_, i) => i) : [0]));
+  // Ticked steps ("phase:step"), to delete several at once. The deletion is part of the draft: Save writes it, Discard undoes it.
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const pickKey = (gi: number, ri: number) => `${gi}:${ri}`;
+  const togglePick = (ids: string[], on: boolean) =>
+    setPicked((cur) => {
+      const next = new Set(cur);
+      for (const id of ids) on ? next.add(id) : next.delete(id);
+      return next;
+    });
+  const deletePicked = () => {
+    setGroups((gs) => gs.map((g, gi) => ({ ...g, rows: g.rows.filter((_, ri) => !picked.has(pickKey(gi, ri))) })));
+    setPicked(new Set());
+  };
 
   useEffect(() => {
     setGroups(plan.groups);
     setImported(null);
+    setPicked(new Set());
   }, [plan.groups]);
 
   const changed = !same(groups, plan.groups);
@@ -271,6 +285,17 @@ export function RoomPlanSection({
         </div>
       )}
 
+      {picked.size > 0 && (
+        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 p-2 text-xs backdrop-blur" data-room-plan-picked>
+          <b>{picked.size} {picked.size === 1 ? "step" : "steps"} selected</b>
+          <span className="flex-1" />
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" onClick={deletePicked} data-room-plan-delete-picked>
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+          <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setPicked(new Set())}>Clear</Button>
+        </div>
+      )}
+
       {/* The plan itself */}
       <div className="space-y-2" data-room-plan-editor>
         <datalist id="room-plan-ours">{(people?.ours ?? []).map((n) => <option key={n} value={n} />)}</datalist>
@@ -281,15 +306,33 @@ export function RoomPlanSection({
           return (
             <div key={gi} className="rounded-lg border" data-room-plan-phase={g.title}>
               <div className="flex items-center gap-2 p-2">
+                {g.rows.length > 0 && (() => {
+                  const ids = g.rows.map((_, ri) => pickKey(gi, ri));
+                  const all = ids.every((id) => picked.has(id));
+                  const some = ids.some((id) => picked.has(id));
+                  return (
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 shrink-0 accent-foreground"
+                      checked={all}
+                      ref={(el) => {
+                        if (el) el.indeterminate = some && !all;
+                      }}
+                      onChange={(e) => togglePick(ids, e.target.checked)}
+                      aria-label={`Select every step in ${g.title}`}
+                      data-room-plan-pick-phase
+                    />
+                  );
+                })()}
                 <button type="button" onClick={() => setOpen((o) => { const n = new Set(o); if (n.has(gi)) n.delete(gi); else n.add(gi); return n; })} aria-expanded={isOpen} aria-label={isOpen ? `Collapse ${g.title}` : `Expand ${g.title}`} className="rounded p-1 text-muted-foreground hover:bg-muted">
                   <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
                 </button>
                 <Input value={g.title} onChange={(e) => setGroup(gi, { title: e.target.value })} className="h-8 flex-1 text-sm font-semibold" placeholder="Phase (Days 1–30 · Foundation)" aria-label="Phase name" />
                 <span className="shrink-0 text-xs text-muted-foreground">{g.rows.length} {g.rows.length === 1 ? "step" : "steps"}</span>
                 <Button type="button" variant="ghost" size="sm" className={`h-8 w-8 p-0 ${g.hidden ? "text-amber-700" : "text-muted-foreground"}`} title={g.hidden ? "Hidden from the customer (show)" : "Hide from the customer"} aria-pressed={!!g.hidden} onClick={() => setGroup(gi, { hidden: !g.hidden })}><EyeOff className="h-3.5 w-3.5" /></Button>
-                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={gi === 0} aria-label="Move phase up" onClick={() => setGroups((gs) => move(gs, gi, -1))}><ArrowUp className="h-3.5 w-3.5" /></Button>
-                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={gi === groups.length - 1} aria-label="Move phase down" onClick={() => setGroups((gs) => move(gs, gi, 1))}><ArrowDown className="h-3.5 w-3.5" /></Button>
-                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" aria-label={`Remove the phase ${g.title}`} onClick={() => { if (g.rows.length === 0 || window.confirm(`Remove “${g.title}” and its ${g.rows.length} steps?`)) setGroups((gs) => gs.filter((_, i) => i !== gi)); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={gi === 0} aria-label="Move phase up" onClick={() => { setPicked(new Set()); setGroups((gs) => move(gs, gi, -1)); }}><ArrowUp className="h-3.5 w-3.5" /></Button>
+                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={gi === groups.length - 1} aria-label="Move phase down" onClick={() => { setPicked(new Set()); setGroups((gs) => move(gs, gi, 1)); }}><ArrowDown className="h-3.5 w-3.5" /></Button>
+                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" aria-label={`Remove the phase ${g.title}`} onClick={() => { if (g.rows.length === 0 || window.confirm(`Remove “${g.title}” and its ${g.rows.length} steps?`)) { setPicked(new Set()); setGroups((gs) => gs.filter((_, i) => i !== gi)); } }}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
               {isOpen && (
                 <div className="space-y-2 border-t p-2">
@@ -297,11 +340,12 @@ export function RoomPlanSection({
                   {g.rows.map((r, ri) => (
                     <div key={ri} className={`space-y-1.5 rounded-md border p-2 ${r.hidden ? "bg-muted/40" : ""}`} data-room-plan-step={r.task}>
                       <div className="flex items-center gap-1.5">
+                        <input type="checkbox" className="h-4 w-4 shrink-0 accent-foreground" checked={picked.has(pickKey(gi, ri))} onChange={(e) => togglePick([pickKey(gi, ri)], e.target.checked)} aria-label={`Select ${r.task || "this step"}`} data-room-plan-pick-step />
                         <Input value={r.task} onChange={(e) => setRow(gi, ri, { task: e.target.value })} className="h-8 flex-1 text-xs font-medium" placeholder="Step" aria-label="Step" />
                         <Button type="button" variant="ghost" size="sm" className={`h-8 w-8 p-0 ${r.hidden ? "text-amber-700" : "text-muted-foreground"}`} title={r.hidden ? "Hidden from the customer (show)" : "Hide from the customer"} aria-pressed={!!r.hidden} onClick={() => setRow(gi, ri, { hidden: !r.hidden })}><EyeOff className="h-3.5 w-3.5" /></Button>
-                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={ri === 0} aria-label="Move step up" onClick={() => setGroup(gi, { rows: move(g.rows, ri, -1) })}><ArrowUp className="h-3.5 w-3.5" /></Button>
-                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={ri === g.rows.length - 1} aria-label="Move step down" onClick={() => setGroup(gi, { rows: move(g.rows, ri, 1) })}><ArrowDown className="h-3.5 w-3.5" /></Button>
-                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" aria-label={`Remove the step ${r.task}`} onClick={() => setGroup(gi, { rows: g.rows.filter((_, j) => j !== ri) })}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={ri === 0} aria-label="Move step up" onClick={() => { setPicked(new Set()); setGroup(gi, { rows: move(g.rows, ri, -1) }); }}><ArrowUp className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={ri === g.rows.length - 1} aria-label="Move step down" onClick={() => { setPicked(new Set()); setGroup(gi, { rows: move(g.rows, ri, 1) }); }}><ArrowDown className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" aria-label={`Remove the step ${r.task}`} onClick={() => { setPicked(new Set()); setGroup(gi, { rows: g.rows.filter((_, j) => j !== ri) }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
                         <Input value={r.target ?? ""} onChange={(e) => setRow(gi, ri, { target: e.target.value })} className="h-8 text-xs" placeholder="Target (2026-12-15 or Week 2)" aria-label="Target date" />
@@ -351,7 +395,7 @@ export function RoomPlanSection({
           <span className="flex-1" />
           {changed && (
             <>
-              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" disabled={busy} onClick={() => { setGroups(plan.groups); setImported(null); }}>Discard</Button>
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" disabled={busy} onClick={() => { setGroups(plan.groups); setImported(null); setPicked(new Set()); }}>Discard</Button>
               <Button type="button" variant="brand" size="sm" className="h-8 text-xs" disabled={busy} onClick={() => void save()} data-room-plan-save>{busy ? "Saving…" : "Save plan"}</Button>
             </>
           )}

@@ -445,6 +445,11 @@ class RoomStore {
     return this.act("plan-edit", { key, ...patch });
   }
 
+  /** Team only: delete plan steps (several at once) from the page. */
+  deletePlanSteps(keys: string[]) {
+    return this.act("plan-delete", { keys });
+  }
+
   /** The team moves a request along (status, owner, due); the customer can approve one that is ready for review. */
   updateRequest(id: number, patch: { status?: string; owner?: string; due?: string }) {
     return this.act("request-update", { id, ...patch });

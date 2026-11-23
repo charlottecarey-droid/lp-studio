@@ -1472,4 +1472,36 @@ describe.skipIf(!dbAvailable)("partner rooms", () => {
     expect(((await post("state", { pageId, hl })).json as { practices: { noWave: number } }).practices.noWave).toBe(1);
     expect((await asTeam("practices-wave", { ids: [], wave: "2" })).status).toBe(400);
   }, 60_000);
+
+  it("on the live page the team deletes several plan steps at once; their ticks go with them; nobody else can", async () => {
+    const tenantId = await seedTenant();
+    const blocks = [{ id: "w1", type: "room-workspace", props: {
+      partnerName: "Del Dental",
+      planGroups: [
+        { title: "Setup", rows: [{ key: "a", task: "Step A", customerAction: "check" }, { key: "b", task: "Step B" }, { task: "Step C (no key)" }] },
+        { title: "Launch", rows: [{ key: "d", task: "Step D" }] },
+      ],
+      rolloutPlanGroups: [{ title: "Old", rows: [{ key: "a", task: "Step A" }, { key: "z", task: "Keep me" }] }],
+    } }];
+    const r = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, status, blocks) VALUES ($1, 'WS', $2, 'published', $3::jsonb) RETURNING id`, [tenantId, `ws-${Math.floor(Math.random() * 1e9)}`, JSON.stringify(blocks)]);
+    const pageId = r.rows[0].id;
+    const hl = await seedHotlink(tenantId, pageId, "dana@deldental.com");
+    const teamEmail = `rep-${Date.now()}@vendor-del.com`;
+    await pool.query(`INSERT INTO app_users (tenant_id, email, name, status) VALUES ($1, $2, 'Rae Rep', 'active')`, [tenantId, teamEmail]);
+    const asTeam = (path: string, body: object) => inject(app, { method: "POST", url: `/lp/room/${path}`, headers: { ...asTenant(tenantId), "x-test-email": teamEmail }, body: { pageId, ...body } });
+    const props = async () => ((await pool.query<{ blocks: { props: Record<string, { title: string; rows: { task: string }[] }[]> }[] }>(`SELECT blocks FROM lp_pages WHERE id = $1`, [pageId])).rows[0].blocks[0].props);
+
+    // The customer ticks Step A, then the team deletes A, C (keyed by its name) and D.
+    expect((await post("task", { pageId, hl, taskKey: "a" })).status).toBe(200);
+    expect((await post("plan-delete", { pageId, hl, keys: ["a"] })).status).toBe(403);
+    expect((await post("plan-delete", { pageId, keys: ["a"] })).status).toBe(401);
+    expect((await asTeam("plan-delete", { keys: [] })).status).toBe(400);
+    expect((await asTeam("plan-delete", { keys: ["nope"] })).status).toBe(404);
+    expect((await asTeam("plan-delete", { keys: ["a", "step-c-no-key", "d"] })).json).toEqual({ ok: true, removed: 3 });
+    const after = await props();
+    expect(after.planGroups.map((g) => [g.title, g.rows.map((x) => x.task)])).toEqual([["Setup", ["Step B"]], ["Launch", []]]);
+    // The rollout plan kept for later loses it too, so it can't come back; other steps there stay.
+    expect(after.rolloutPlanGroups[0].rows.map((x) => x.task)).toEqual(["Keep me"]);
+    expect(((await post("state", { pageId, hl })).json as { tasks: Record<string, unknown> }).tasks.a).toBeUndefined();
+  }, 60_000);
 });
