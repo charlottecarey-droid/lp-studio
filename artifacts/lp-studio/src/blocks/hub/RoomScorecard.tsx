@@ -348,6 +348,43 @@ const TILES: { key: RoomPracticeStageFilter | "all"; label: string }[] = [
 /** The practices in no wave, as the wave filter names them (the server's NO_WAVE). */
 export const NO_WAVE = "__none";
 
+type PracticeCounts = Pick<RoomSnapshot["practices"], "total" | "byStage" | "byRegion" | "scanners">;
+
+/**
+ * What the Scorecard counts while a wave is picked: that wave's stages, regions and scanners (every list
+ * spelling of it together, "Wave 1" and "1" alike), or the no-wave practices' for NO_WAVE. Null when nothing
+ * is picked or the server sent no breakdown (an older server): the Scorecard then counts the whole rollout.
+ */
+export function waveCounts(pr: RoomSnapshot["practices"], wave: string): PracticeCounts | null {
+  if (!wave) return null;
+  const parts = wave === NO_WAVE ? (pr.noWaveDetail ? [pr.noWaveDetail] : []) : (pr.byWave ?? []).filter((w) => waveKey(w.wave) === waveKey(wave) && w.byStage);
+  if (parts.length === 0) {
+    // Nobody in it (a planned wave not filled yet): zeros, when the server sends breakdowns at all.
+    const breakdowns = !!pr.noWaveDetail || (pr.byWave ?? []).some((w) => w.byStage);
+    return breakdowns ? { total: 0, byStage: {}, byRegion: [] } : null;
+  }
+  const byStage: Record<string, number> = {};
+  const regions = new Map<string, { region: string; total: number; live: number; trained: number }>();
+  let scanners: { total: number; practices: number } | undefined;
+  for (const w of parts) {
+    for (const [k, n] of Object.entries(w.byStage ?? {})) byStage[k] = (byStage[k] ?? 0) + n;
+    for (const r of w.byRegion ?? []) {
+      const g = regions.get(r.region) ?? { region: r.region, total: 0, live: 0, trained: 0 };
+      g.total += r.total;
+      g.live += r.live;
+      g.trained += r.trained;
+      regions.set(r.region, g);
+    }
+    if (w.scanners) scanners = { total: (scanners?.total ?? 0) + w.scanners.total, practices: (scanners?.practices ?? 0) + w.scanners.practices };
+  }
+  return {
+    total: Object.values(byStage).reduce((n, v) => n + v, 0),
+    byStage,
+    byRegion: [...regions.values()].sort((a, b) => b.total - a.total || a.region.localeCompare(b.region)),
+    ...(scanners ? { scanners } : {}),
+  };
+}
+
 const WAVE_STATE_LABEL = { done: "Complete", current: "In progress", upcoming: "Upcoming" } as const;
 const pct = (n: number, of: number) => (of > 0 ? Math.max(0, Math.min(100, Math.round((n / of) * 100))) : 0);
 
@@ -448,7 +485,6 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   // The customer's word for its regional managers ("DBOs") in the column names.
   const rw = useRegionalsWord();
   const trend = pr.trend ?? [];
-  const byRegion = pr.byRegion ?? [];
   // The hub's waves in order: planned ones (even empty), then any other the list uses.
   const waveList = useMemo(() => timelineWaves(waveDefs, pr.byWave), [waveDefs, pr.byWave]);
   const waveTrained = useMemo(() => {
@@ -465,6 +501,11 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
   const [stage, setStage] = useState<RoomPracticeStageFilter | "">("");
   const [region, setRegion] = useState("");
   const [wave, setWave] = useState(initialWave);
+  // A picked wave re-counts the tiles, the stage bar, the regions and the map for just that wave.
+  const inWave = useMemo(() => waveCounts(pr, wave), [pr, wave]);
+  const counts: PracticeCounts = inWave ?? pr;
+  const byRegion = counts.byRegion ?? [];
+  const waveLabel = !inWave ? "" : wave === NO_WAVE ? "Not in a wave" : `In ${waveList.find((w) => waveKey(w.key) === waveKey(wave))?.name ?? wave}`;
   // Opened again from another wave on the Overview: show that one.
   useEffect(() => {
     if (initialWave) {
@@ -736,51 +777,52 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
         />
       )}
 
-      <div className="prw-sc-tiles" style={{ ["--n" as string]: TILES.length + (pr.scanners ? 1 : 0) + (pr.doctors ? 1 : 0) }} data-room-practice-summary>
+      <div className="prw-sc-tiles" style={{ ["--n" as string]: TILES.length + (counts.scanners ? 1 : 0) + (pr.doctors && !inWave ? 1 : 0) }} data-room-practice-summary>
         {TILES.map((t) => {
-          const n = tileCount(pr.byStage, pr.total, t.key);
-          const delta = trendDelta(trend, t.key);
+          const n = tileCount(counts.byStage, counts.total, t.key);
+          // The trend is kept for the whole rollout only, so a wave's tiles carry no weekly change.
+          const delta = inWave ? null : trendDelta(trend, t.key);
           const active = t.key === "all" ? !stage : stage === t.key;
           return (
             <button key={t.key} type="button" className={`prw-sc-tile${active ? " on" : ""}`} aria-pressed={active} onClick={() => pick(t.key)} data-room-tile={t.key}>
               <b className="prw-num">{n}</b>
-              <span>{t.label}</span>
+              <span>{t.key === "all" && waveLabel ? waveLabel : t.label}</span>
               <small>
-                {t.key !== "all" && pr.total > 0 ? `${Math.round((n / pr.total) * 100)}%` : " "}
+                {t.key !== "all" && counts.total > 0 ? `${Math.round((n / counts.total) * 100)}%` : " "}
                 {/* More trained or live is good news; the other tiles just move as locations progress, so they stay neutral. */}
                 {delta ? <i className={t.key === "trained" || t.key === "live" ? (delta > 0 ? "up" : "down") : ""}>{delta > 0 ? "+" : ""}{delta} this week</i> : null}
               </small>
             </button>
           );
         })}
-        {pr.doctors && (
+        {pr.doctors && !inWave && (
           <div className="prw-sc-tile" data-room-tile="doctors">
             <b className="prw-num">{pr.doctors.total}</b>
             <span>Doctors</span>
             <small>{pr.doctors.matched === pr.doctors.total ? "all at a listed practice" : `${pr.doctors.total - pr.doctors.matched} not placed yet`}</small>
           </div>
         )}
-        {pr.scanners && (
+        {counts.scanners && (
           <button type="button" className={`prw-sc-tile${scanner === "yes" ? " on" : ""}`} aria-pressed={scanner === "yes"} onClick={() => { setPageNo(0); setScanner((s) => (s === "yes" ? "" : "yes")); }} data-room-tile="scanners">
-            <b className="prw-num">{pr.scanners.practices}</b>
+            <b className="prw-num">{counts.scanners.practices}</b>
             <span>With scanners</span>
-            <small>{pr.scanners.total} scanners</small>
+            <small>{counts.scanners.total} scanners</small>
           </button>
         )}
       </div>
 
-      {mapOn && <RoomMap store={store} noun={noun} stage={stage} stageLabel={(s) => SCORECARD_STAGE_LABEL[s] ?? s} />}
+      {mapOn && <RoomMap store={store} noun={noun} stage={stage} wave={wave} stageLabel={(s) => SCORECARD_STAGE_LABEL[s] ?? s} />}
 
-      {!mapOn && pr.total > 0 && (
-        <div className="prw-sc-bar" role="img" aria-label={STAGE_ORDER.map((s) => `${SCORECARD_STAGE_LABEL[s]}: ${pr.byStage[s] ?? 0}`).join(", ")}>
-          {STAGE_ORDER.map((s) => ((pr.byStage[s] ?? 0) > 0 ? <span key={s} className={s} style={{ flexGrow: pr.byStage[s] }} title={`${SCORECARD_STAGE_LABEL[s]}: ${pr.byStage[s]}`} /> : null))}
+      {!mapOn && counts.total > 0 && (
+        <div className="prw-sc-bar" role="img" aria-label={STAGE_ORDER.map((s) => `${SCORECARD_STAGE_LABEL[s]}: ${counts.byStage[s] ?? 0}`).join(", ")}>
+          {STAGE_ORDER.map((s) => ((counts.byStage[s] ?? 0) > 0 ? <span key={s} className={s} style={{ flexGrow: counts.byStage[s] }} title={`${SCORECARD_STAGE_LABEL[s]}: ${counts.byStage[s]}`} /> : null))}
         </div>
       )}
 
       {!mapOn && pr.total > 0 && (
         <div className="prw-sc-grid">
           <div className="prw-card prw-sc-panel" data-room-scorecard-trend>
-            <h4>Trend</h4>
+            <h4>Trend{inWave && <span className="scope"> · all waves</span>}</h4>
             {trend.length >= 2 ? (
               <>
                 <svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden>
@@ -798,7 +840,7 @@ export function ScorecardView({ snapshot, store, isEditor, noun, display, goals,
             )}
           </div>
           <div className="prw-card prw-sc-panel" data-room-scorecard-goals>
-            <h4>Goals</h4>
+            <h4>Goals{inWave && <span className="scope"> · all waves</span>}</h4>
             {goals.length > 0 ? (
               goals.map((g) => {
                 const pct = Math.max(0, Math.min(100, Math.round((g.value / g.target) * 100)));

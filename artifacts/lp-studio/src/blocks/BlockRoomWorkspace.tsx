@@ -1523,6 +1523,7 @@ const CSS = `
 .prw-sc-selectall{margin:0 0 8px;padding:9px 14px;border-radius:10px;background:color-mix(in srgb,var(--dark) 6%,#fff);font-size:13px;color:var(--ink);text-align:center}
 .prw .prw-sc-selectall button{padding:0;border:0;background:none;font:inherit;font-weight:700;color:var(--dark);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .prw .prw-sc-selectall button:disabled{opacity:.6;cursor:default}
+.prw-sc-panel h4 .scope{font-weight:400;color:var(--faint)}
 .prw-sc-waves{margin-bottom:22px;border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}
 .prw-sc-waves .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:16px 20px 12px}
 .prw-sc-waves h3{margin:0;font-size:15px;font-weight:700;color:var(--dark)}

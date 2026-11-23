@@ -41,6 +41,42 @@ export interface PracticeTrendPoint {
   byStage: Record<string, number>;
 }
 
+/** One wave's (or the no-wave practices') counts by stage and region, and its scanners: what the Scorecard shows when that wave is picked. Counts only. */
+export interface WaveBreakdown {
+  byStage: Record<string, number>;
+  byRegion: { region: string; total: number; live: number; trained: number }[];
+  scanners?: { total: number; practices: number };
+}
+
+/** Rows of (wave, stage, region) counts folded into one breakdown per wave; "" holds the practices in no wave. */
+export function waveBreakdowns(rows: Array<{ wave: string; stage: string; region: string | null; n: number; scanners: number; scannerPractices: number; scannerKnown: number }>): Map<string, WaveBreakdown> {
+  const out = new Map<string, WaveBreakdown & { regions: Map<string, { region: string; total: number; live: number; trained: number }>; known: number }>();
+  for (const r of rows) {
+    const w = out.get(r.wave) ?? { byStage: {} as Record<string, number>, byRegion: [], regions: new Map(), known: 0, scanners: { total: 0, practices: 0 } };
+    w.byStage[r.stage] = (w.byStage[r.stage] ?? 0) + r.n;
+    w.scanners!.total += r.scanners;
+    w.scanners!.practices += r.scannerPractices;
+    w.known += r.scannerKnown;
+    if (r.region) {
+      const g = w.regions.get(r.region) ?? { region: r.region, total: 0, live: 0, trained: 0 };
+      g.total += r.n;
+      if (r.stage === "live") g.live += r.n;
+      if (r.stage === "live" || r.stage === "trained") g.trained += r.n;
+      w.regions.set(r.region, g);
+    }
+    out.set(r.wave, w);
+  }
+  const done = new Map<string, WaveBreakdown>();
+  for (const [k, w] of out) {
+    done.set(k, {
+      byStage: w.byStage,
+      byRegion: [...w.regions.values()].sort((a, b) => b.total - a.total || a.region.localeCompare(b.region)).slice(0, 60),
+      ...(w.known > 0 ? { scanners: w.scanners } : {}),
+    });
+  }
+  return done;
+}
+
 export interface PracticeSummary {
   total: number;
   byStage: Record<string, number>;
@@ -50,9 +86,11 @@ export interface PracticeSummary {
   byRegion: { region: string; total: number; live: number; trained: number }[];
   waves: string[];
   /** Per wave, as the practice list names it: how many practices, how many are live, and how many trained or live. Counts only: safe for any visitor. */
-  byWave: { wave: string; total: number; live: number; trained: number }[];
+  byWave: ({ wave: string; total: number; live: number; trained: number } & WaveBreakdown)[];
   /** Practices not in any wave yet (only when some are in one, or the hub plans waves). */
   noWave: number;
+  /** The same breakdown for the practices in no wave, so the Scorecard can show them on their own. */
+  noWaveDetail?: WaveBreakdown;
   /** One point per day the list was refreshed (oldest first, up to 120 days). */
   trend: PracticeTrendPoint[];
   /** Doctors on the customer's roster, and how many of them sit at a practice we hold. Absent until a roster with doctors is read. */
@@ -78,12 +116,17 @@ export async function practiceSummary(pageId: number): Promise<PracticeSummary> 
   }
   // Scanner counts, when the list carries them (the scanner tracker's office breakdown).
   const [sc] = (await db.execute(sql`SELECT COALESCE(SUM(scanner_count), 0)::int AS total, COUNT(*) FILTER (WHERE scanner_count > 0)::int AS practices, COUNT(scanner_count)::int AS known FROM lp_room_practices WHERE page_id = ${pageId}`)).rows as Array<{ total: number; practices: number; known: number }>;
-  const [byWave, trend] = total
+  const [waveCounts, trend, waveRows] = total
     ? await Promise.all([
         db.execute(sql`SELECT btrim(wave) AS wave, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE stage = 'live')::int AS live, COUNT(*) FILTER (WHERE stage IN ('live', 'trained'))::int AS trained FROM lp_room_practices WHERE page_id = ${pageId} AND wave IS NOT NULL AND btrim(wave) <> '' GROUP BY btrim(wave) ORDER BY btrim(wave) LIMIT 40`).then((r) => r.rows as Array<{ wave: string; total: number; live: number; trained: number }>),
         db.select({ day: lpRoomPracticeSnapshotsTable.day, total: lpRoomPracticeSnapshotsTable.total, byStage: lpRoomPracticeSnapshotsTable.byStage }).from(lpRoomPracticeSnapshotsTable).where(eq(lpRoomPracticeSnapshotsTable.pageId, pageId)).orderBy(desc(lpRoomPracticeSnapshotsTable.day)).limit(120),
+        // Each wave's own stages, regions and scanners ("" = in no wave), so picking a wave re-counts the whole Scorecard.
+        db.execute(sql`SELECT COALESCE(btrim(wave), '') AS wave, stage, region, COUNT(*)::int AS n, COALESCE(SUM(scanner_count), 0)::int AS scanners, COUNT(*) FILTER (WHERE scanner_count > 0)::int AS "scannerPractices", COUNT(scanner_count)::int AS "scannerKnown" FROM lp_room_practices WHERE page_id = ${pageId} GROUP BY 1, stage, region`).then((r) => r.rows as Array<{ wave: string; stage: string; region: string | null; n: number; scanners: number; scannerPractices: number; scannerKnown: number }>),
       ])
-    : [[], []];
+    : [[], [], []];
+  const breakdowns = waveBreakdowns(waveRows);
+  const empty: WaveBreakdown = { byStage: {}, byRegion: [] };
+  const byWave = waveCounts.map((w) => ({ ...w, ...(breakdowns.get(w.wave) ?? empty) }));
   return {
     total,
     byStage,
@@ -93,6 +136,7 @@ export async function practiceSummary(pageId: number): Promise<PracticeSummary> 
     waves: byWave.map((w) => w.wave),
     byWave,
     noWave: Math.max(0, total - byWave.reduce((n, w) => n + w.total, 0)),
+    ...(breakdowns.has("") ? { noWaveDetail: breakdowns.get("")! } : {}),
     trend: trend.reverse(),
     ...(await doctorTotals(pageId, total)),
     ...(await lastSheetRead(pageId)),

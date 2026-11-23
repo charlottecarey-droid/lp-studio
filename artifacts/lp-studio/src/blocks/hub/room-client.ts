@@ -123,9 +123,11 @@ export interface RoomSnapshot {
     byRegion?: { region: string; total: number; live: number; trained: number }[];
     waves?: string[];
     /** Per wave: how many practices, how many are live, and how many trained or live. */
-    byWave?: { wave: string; total: number; live: number; trained?: number }[];
+    byWave?: ({ wave: string; total: number; live: number; trained?: number } & Partial<RoomWaveBreakdown>)[];
     /** Practices in no wave yet. */
     noWave?: number;
+    /** The no-wave practices' own stages, regions and scanners. */
+    noWaveDetail?: RoomWaveBreakdown;
     /** One point per day the list was refreshed, oldest first. */
     trend?: { day: string; total: number; byStage: Record<string, number> }[];
     /** Doctors on the customer's roster, and how many sit at a practice we hold. */
@@ -220,7 +222,16 @@ export interface RoomScorecardCheck {
   added?: number;
 }
 /** Team only: one practice for the scorecard's map. `lat`/`lng` are null when its ZIP code is missing or unknown. */
+/** One wave's counts by stage and region, and its scanners: the Scorecard re-counts with these when a wave is picked. */
+export interface RoomWaveBreakdown {
+  byStage: Record<string, number>;
+  byRegion: { region: string; total: number; live: number; trained: number }[];
+  scanners?: { total: number; practices: number };
+}
+
 export interface RoomMapPoint {
+  /** The practice's wave as the list names it (null = in no wave). */
+  wave?: string | null;
   id: number;
   name: string;
   stage: string;

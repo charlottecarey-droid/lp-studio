@@ -1160,7 +1160,7 @@ router.post("/lp/room/practice-map", stateLimiter, async (req: Request, res: Res
       return;
     }
     const rows = await db
-      .select({ id: lpRoomPracticesTable.id, name: lpRoomPracticesTable.name, stage: lpRoomPracticesTable.stage, region: lpRoomPracticesTable.region, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, address: lpRoomPracticesTable.address, regionalManager: lpRoomPracticesTable.regionalManager, officeType: lpRoomPracticesTable.officeType, phone: lpRoomPracticesTable.phone, scannerCount: lpRoomPracticesTable.scannerCount })
+      .select({ id: lpRoomPracticesTable.id, name: lpRoomPracticesTable.name, stage: lpRoomPracticesTable.stage, region: lpRoomPracticesTable.region, city: lpRoomPracticesTable.city, state: lpRoomPracticesTable.state, zip: lpRoomPracticesTable.zip, address: lpRoomPracticesTable.address, regionalManager: lpRoomPracticesTable.regionalManager, officeType: lpRoomPracticesTable.officeType, phone: lpRoomPracticesTable.phone, scannerCount: lpRoomPracticesTable.scannerCount, wave: lpRoomPracticesTable.wave })
       .from(lpRoomPracticesTable)
       .where(eq(lpRoomPracticesTable.pageId, page.id))
       .orderBy(asc(lpRoomPracticesTable.name))
@@ -1169,7 +1169,7 @@ router.post("/lp/room/practice-map", stateLimiter, async (req: Request, res: Res
     const points = rows.map((p) => {
       const at = zipCentroid(p.zip);
       if (!at) unplaced++;
-      const shared = { id: p.id, name: p.name, stage: p.stage, region: p.region, city: p.city, state: p.state, regionalManager: p.regionalManager, officeType: p.officeType, lat: at?.lat ?? null, lng: at?.lng ?? null };
+      const shared = { id: p.id, name: p.name, stage: p.stage, region: p.region, city: p.city, state: p.state, regionalManager: p.regionalManager, officeType: p.officeType, wave: p.wave?.trim() || null, lat: at?.lat ?? null, lng: at?.lng ?? null };
       return team ? { ...shared, zip: p.zip, address: p.address, phone: p.phone, scannerCount: p.scannerCount } : { ...shared, zip: null, address: null, phone: null, scannerCount: null };
     });
     res.json({ points, unplaced });

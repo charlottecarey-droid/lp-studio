@@ -16,6 +16,7 @@ import { useRegionalsWord } from "./room-words";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import type { RoomMapData, RoomMapPoint, RoomStoreHandle } from "./room-client";
+import { waveKey } from "./RoomTimeline";
 
 /** Colours for up to eight groups, in a fixed order (checked for colour-blind separation). Anything beyond folds into "Other". */
 export const MAP_GROUP_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"] as const;
@@ -164,7 +165,7 @@ function loadStates(): Promise<StateShape[]> {
 const STAGE_GROUPS: Record<string, string[]> = { not_started: ["not_started"], scheduling: ["scheduling"], training_booked: ["training_booked"], trained: ["trained", "live"], live: ["live"], open: ["not_started", "scheduling", "training_booked"] };
 const MARK_LABEL: Record<MapMark, string> = { live: "Live", progress: "In progress", open: "Not started" };
 
-export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHandle | null; noun: string; stage: string; stageLabel: (stage: string) => string }) {
+export function RoomMap({ store, noun, stage, wave = "", stageLabel }: { store: RoomStoreHandle | null; noun: string; stage: string; /** Show only this wave's pins (a wave key, or NO_WAVE for practices in none). */ wave?: string; stageLabel: (stage: string) => string }) {
   const rw = useRegionalsWord();
   const [data, setData] = useState<RoomMapData | null | "failed">(null);
   const [states, setStates] = useState<StateShape[]>([]);
@@ -188,7 +189,12 @@ export function RoomMap({ store, noun, stage, stageLabel }: { store: RoomStoreHa
     };
   }, [store]);
 
-  const points = data && data !== "failed" ? data.points : [];
+  const allPoints = data && data !== "failed" ? data.points : null;
+  const points = useMemo(() => {
+    const all = allPoints ?? [];
+    if (!wave) return all;
+    return wave === "__none" ? all.filter((p) => !(p.wave ?? "").trim()) : all.filter((p) => !!(p.wave ?? "").trim() && waveKey(p.wave!) === waveKey(wave));
+  }, [allPoints, wave]);
   const placed = useMemo(() => points.filter((p): p is RoomMapPoint & { lat: number; lng: number } => p.lat != null && p.lng != null), [points]);
   const { by, groups, of } = useMemo(() => mapGroups(points), [points]);
   const colorOf = useMemo(() => new Map(groups.map((g) => [g.name, g.color])), [groups]);

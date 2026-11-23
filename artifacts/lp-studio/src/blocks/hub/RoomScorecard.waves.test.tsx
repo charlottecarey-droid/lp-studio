@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { NO_WAVE, ScorecardView } from "./RoomScorecard";
+import { NO_WAVE, ScorecardView, waveCounts } from "./RoomScorecard";
 import { PartnershipTimeline, timelineWaves } from "./RoomTimeline";
 
 afterEach(cleanup);
@@ -12,10 +12,11 @@ const practices = {
   regions: ["Texas"],
   // "Wave 1" and "1" are the same wave; Wave 2 is planned with nobody in it yet.
   byWave: [
-    { wave: "1", total: 1, live: 0, trained: 1 },
-    { wave: "Wave 1", total: 2, live: 2, trained: 2 },
+    { wave: "1", total: 1, live: 0, trained: 1, byStage: { trained: 1 }, byRegion: [{ region: "Texas", total: 1, live: 0, trained: 1 }] },
+    { wave: "Wave 1", total: 2, live: 2, trained: 2, byStage: { live: 2 }, byRegion: [{ region: "Texas", total: 2, live: 2, trained: 2 }], scanners: { total: 3, practices: 2 } },
   ],
   noWave: 2,
+  noWaveDetail: { byStage: { scheduling: 2 }, byRegion: [{ region: "Texas", total: 2, live: 0, trained: 0 }] },
 };
 const waveDefs = [
   { key: "1", name: "Wave 1", start: "2026-11-22", target: "2026-12-22" },
@@ -120,6 +121,34 @@ describe("Scorecard waves", () => {
     await waitFor(() => expect(screen.getByText("Charlie Dental")).toBeTruthy());
     expect(screen.queryByLabelText("Add the selected practices to a wave")).toBeNull();
     expect(screen.queryByText(/use Add to wave/)).toBeNull();
+  });
+});
+
+describe("Picking a wave re-counts the Scorecard", () => {
+  it("adds up every spelling of the wave; NO_WAVE counts the unplaced; nothing picked = the whole rollout", () => {
+    expect(waveCounts(practices as never, "")).toBeNull();
+    const w1 = waveCounts(practices as never, "1")!;
+    expect(w1).toMatchObject({ total: 3, byStage: { trained: 1, live: 2 }, scanners: { total: 3, practices: 2 } });
+    expect(w1.byRegion).toEqual([{ region: "Texas", total: 3, live: 2, trained: 3 }]);
+    expect(waveCounts(practices as never, NO_WAVE)).toMatchObject({ total: 2, byStage: { scheduling: 2 } });
+    expect(waveCounts(practices as never, "2")).toMatchObject({ total: 0 });
+    // An older server with no breakdowns: keep counting the whole rollout.
+    expect(waveCounts({ ...practices, byWave: [{ wave: "1", total: 1, live: 0 }], noWaveDetail: undefined } as never, "1")).toBeNull();
+  });
+
+  it("the first tile reads In Wave 1 and the tiles count only that wave", async () => {
+    setup(false);
+    const tile = () => document.querySelector("[data-room-tile='all']") as HTMLElement;
+    expect(tile().textContent).toContain("In the rollout");
+    expect(tile().textContent).toContain("5");
+    fireEvent.click(within(screen.getByText("Waves").closest("section")!).getByText("Wave 1").closest("button")!);
+    await waitFor(() => expect(tile().textContent).toContain("In Wave 1"));
+    expect(tile().querySelector("b")!.textContent).toBe("3");
+    expect((document.querySelector("[data-room-tile='live']") as HTMLElement).textContent).toContain("67%");
+    expect((document.querySelector("[data-room-tile='scheduling'] b") as HTMLElement).textContent).toBe("0");
+    fireEvent.click(screen.getByText("2 not in a wave"));
+    await waitFor(() => expect(tile().textContent).toContain("Not in a wave"));
+    expect((document.querySelector("[data-room-tile='scheduling'] b") as HTMLElement).textContent).toBe("2");
   });
 });
 
