@@ -39,6 +39,7 @@ import { getTemplateById, parseGlobalTemplateId } from "@/lib/templates";
 import { ShareModalWrapper } from "./pages-gallery/share-modal-wrapper";
 import { CreateTestFromPageModal } from "./pages-gallery/create-test-from-page-modal";
 import { FiltersBar } from "./pages-gallery/filters-bar";
+import { pageKind } from "./pages-gallery/page-kind";
 import { BulkActionBar } from "./pages-gallery/bulk-action-bar";
 import {
   GalleryLoadingState,
@@ -669,6 +670,12 @@ export default function PagesGallery() {
       if (filterStatus === "Published" && page.status !== "published") return false;
       if (filterStatus === "Running" && !runningTests.some(t => t.slug === page.slug)) return false;
       if (filterStatus === "Templates" && !page.isTemplate) return false;
+      // Partner Hubs and practice microsites live on their own tabs so they don't bury marketing's pages.
+      // Templates (any kind) stay on Templates, and a search still finds everything.
+      const kind = pageKind(page.blocks);
+      if (filterStatus === "Hubs" && kind !== "hub") return false;
+      if (filterStatus === "Microsites" && kind !== "microsite") return false;
+      if (kind !== "page" && filterStatus !== "Hubs" && filterStatus !== "Microsites" && filterStatus !== "Templates" && !searchQuery.trim()) return false;
       if (segmentFilterId && page.segmentId !== segmentFilterId) return false;
       if (filterStatus === "Mine") {
         const me = (user?.name ?? "").trim().toLowerCase();

@@ -33,7 +33,7 @@ export interface Test {
   variantCount?: number;
 }
 
-export type FilterStatus = "All" | "Mine" | "Draft" | "Published" | "Running" | "Templates";
+export type FilterStatus = "All" | "Mine" | "Draft" | "Published" | "Running" | "Templates" | "Hubs" | "Microsites";
 export type SortBy = "recent" | "author" | "created";
 
 export interface ColumnVisibility {

@@ -54,7 +54,7 @@ export function NoFilteredPagesEmptyState({
   return (
     <div className="border border-border rounded-lg p-12 text-center">
       <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-      <h3 className="text-sm font-semibold text-foreground mb-1">No {filterStatus === "All" ? "pages" : filterStatus === "Mine" ? "pages by you yet" : filterStatus.toLowerCase() + " pages"}</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-1">No {filterStatus === "All" ? "pages" : filterStatus === "Mine" ? "pages by you yet" : filterStatus === "Hubs" ? "Partner Hubs" : filterStatus === "Microsites" ? "microsites" : filterStatus.toLowerCase() + " pages"}</h3>
       <p className="text-xs text-muted-foreground mb-4">Try a different filter or create a new page.</p>
       <Button variant="outline" size="sm" className="rounded-lg text-xs" onClick={onReset}>
         View all pages

@@ -1,4 +1,4 @@
-import { Search, Star, User, X } from "lucide-react";
+import { LayoutDashboard, Search, Star, Store, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AudienceSegment } from "@/lib/brand-config";
 import type { FilterStatus, SortBy } from "./types";
@@ -31,7 +31,7 @@ export function FiltersBar({
   return (
     <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
       <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible sm:pb-0">
-        {((["All", "Mine", "Draft", "Published", "Running", "Templates"] as const)
+        {((["All", "Mine", "Draft", "Published", "Running", "Templates", "Hubs", "Microsites"] as const)
           .filter(s => s !== "Mine" || showMine)
         ).map(status => (
           <button
@@ -43,11 +43,14 @@ export function FiltersBar({
                 ? "bg-foreground/10 text-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             )}
-            title={status === "Mine" ? "Pages you authored or last updated" : undefined}
+            title={status === "Mine" ? "Pages you authored or last updated" : status === "Hubs" ? "Customer Partner Hubs (kept out of the other tabs)" : status === "Microsites" ? "Practice sign-up microsites (kept out of the other tabs)" : undefined}
+            data-pages-filter={status}
           >
             {status === "Mine" && <User className="w-3 h-3" />}
             {status === "Templates" && <Star className="w-3 h-3" />}
-            {status === "Mine" ? "My Pages" : status}
+            {status === "Hubs" && <LayoutDashboard className="w-3 h-3" />}
+            {status === "Microsites" && <Store className="w-3 h-3" />}
+            {status === "Mine" ? "My Pages" : status === "Hubs" ? "Partner Hubs" : status}
           </button>
         ))}
       </div>
