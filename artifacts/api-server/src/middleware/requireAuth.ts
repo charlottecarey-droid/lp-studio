@@ -4,6 +4,7 @@ import { pool } from "@workspace/db";
 import { findTenantByHost } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import { isRootSuperadminEmail } from "../lib/rootSuperadmin";
+import { getInternalAuthUser } from "./internalAuth";
 
 export const SESSION_COOKIE = "lp_sid";
 
@@ -47,6 +48,8 @@ declare global {
  * handler is a no-op for everyone.
  */
 export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const internal = getInternalAuthUser(req);
+  if (internal) { req.authUser = internal; next(); return; }
   const sid = req.cookies?.[SESSION_COOKIE];
   if (!sid) { next(); return; }
   try {
@@ -65,6 +68,16 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // In-process call from the Claude connector (lib/mcp/dispatch.ts): the
+  // identity was resolved from the rep's connector token and membership just
+  // before dispatch. Only settable in-process; see middleware/internalAuth.ts.
+  const internal = getInternalAuthUser(req);
+  if (internal) {
+    req.authUser = internal;
+    Sentry.setUser({ id: String(internal.userId), tenantId: internal.tenantId == null ? undefined : String(internal.tenantId) });
+    next();
+    return;
+  }
   const sid = req.cookies?.[SESSION_COOKIE];
   if (!sid) {
     res.status(401).json({ error: "Not authenticated" });

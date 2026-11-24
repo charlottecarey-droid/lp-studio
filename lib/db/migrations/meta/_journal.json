@@ -1205,6 +1205,13 @@
       "when": 1758117500000,
       "tag": "0171_room_saved_notes",
       "breakpoints": false
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1758117600000,
+      "tag": "0172_claude_connector",
+      "breakpoints": false
     }
   ]
 }

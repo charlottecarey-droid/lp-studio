@@ -57,6 +57,9 @@ export function inject(app: Express, opts: InjectOptions): Promise<InjectRespons
     headers["content-length"] = String(Buffer.byteLength(bodyBuf));
   }
   req.headers = headers;
+  // Real requests also carry rawHeaders; some libraries (e.g. the MCP SDK's
+  // Node→Fetch adapter) build their Headers from it, not from req.headers.
+  req.rawHeaders = Object.entries(headers).flat();
 
   const res = new ServerResponse(req);
   const chunks: Buffer[] = [];

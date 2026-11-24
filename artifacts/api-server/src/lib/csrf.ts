@@ -41,6 +41,16 @@ const CSRF_EXEMPT_EXACT = new Set([
   "/api/auth/verify-password",
   "/api/auth/magic-link/verify",
   "/api/auth/email/verify",
+  // Claude connector: bearer-token / OAuth client endpoints called by Claude's
+  // servers, never by the SPA. A browser cookie riding along grants nothing
+  // here: /api/mcp authenticates only by bearer token, and the OAuth
+  // endpoints only by the code/refresh secret + PKCE verifier in the body.
+  // (The consent decision POST is NOT exempt — the SPA sends it with the
+  // session and a CSRF token.)
+  "/api/mcp",
+  "/api/oauth/token",
+  "/api/oauth/register",
+  "/api/oauth/revoke",
 ]);
 
 function isExemptPath(path: string): boolean {

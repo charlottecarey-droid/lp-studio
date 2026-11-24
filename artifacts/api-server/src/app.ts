@@ -13,6 +13,8 @@ import { decodeEncodedBody } from "./lib/encodedBodyMiddleware";
 import { ObjectStorageService } from "./lib/objectStorage";
 import { isReady } from "./lib/readiness";
 import { stripeWebhookHandler } from "./routes/stripeWebhook";
+import { wellKnownRootRouter } from "./routes/mcp";
+import { setDispatchApp } from "./lib/mcp/dispatch";
 
 const app: Express = express();
 
@@ -290,6 +292,11 @@ app.get("/api/auth/csrf", (req, res) => {
 // but we don't want to serve real API traffic against a half-migrated schema.
 // Return a clean retryable 503 for /api/* until migrations complete. The
 // always-on `/healthz` below is what the deploy probe hits.
+// Claude connector OAuth discovery at the root (RFC 8414 / 9728 paths).
+// Also served under /api by routes/mcp.ts, which is all production routes
+// here unless the deploy adds these paths to the API service.
+app.use(wellKnownRootRouter);
+
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ ok: true, ready: isReady() });
 });
@@ -301,6 +308,9 @@ app.use("/api", (req, res, next) => {
 });
 
 app.use("/api", router);
+
+// The Claude connector's tools call the app's own routes in-process.
+setDispatchApp(app);
 
 // CSRF-specific error handler — must come BEFORE the Sentry/global error
 // handlers so a missing/invalid token surfaces as a clean 403 instead of a

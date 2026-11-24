@@ -28,6 +28,7 @@ import cspReportRouter from "./cspReport";
 import billingRouter from "./billing";
 import notificationsRouter from "./notifications";
 import { requireAuth } from "../middleware/requireAuth";
+import mcpRouter from "./mcp";
 
 const router: IRouter = Router();
 
@@ -106,6 +107,9 @@ router.use(embedRouter);
 // from `<tenantId>/<slug>` to `<host>/<slug>`. The CF worker no longer
 // needs a host→tenant lookup — see cloudflare/og-bot-router/worker.js.
 router.use(authRouter);
+// Claude connector: MCP endpoint + its OAuth server. Auth is per-route
+// (bearer token on /mcp, session on the consent/connections endpoints).
+router.use(mcpRouter);
 router.use(lpRouter);
 router.use(storageRouter);
 // Sales Console is a paid tier feature, but a couple of sub-surfaces

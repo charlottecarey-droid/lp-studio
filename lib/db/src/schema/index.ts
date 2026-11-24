@@ -124,3 +124,4 @@ export * from "./lpGenerationJobs";
 
 // Partner rooms (Nov 2026): who may act in a room page, completed tasks, private uploads.
 export * from "./lpRooms";
+export * from "./claudeConnector";
