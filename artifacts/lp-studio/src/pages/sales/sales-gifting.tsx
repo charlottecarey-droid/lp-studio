@@ -46,6 +46,7 @@ export default function SalesGifting() {
 
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState<string[] | null>(null);
+  const [custom, setCustom] = useState(false);
   const [baseOverride, setBaseOverride] = useState<GiftTierId | null>(null);
   const [sources, setSources] = useState<GiftSources | null>(null);
   const [audience, setAudience] = useState<GiftAudience>("customer");
@@ -276,13 +277,14 @@ export default function SalesGifting() {
         {step === 0 && (
           <div className="space-y-4">
             <div className="space-y-1.5 text-center">
-              <h2 className="text-2xl font-semibold tracking-tight">Which gifts do you want to offer?</h2>
-              <p className="mx-auto max-w-lg text-sm text-muted-foreground">Pick up to {MAX_PICKED_GIFTS}, from any tier. Each recipient chooses one on their page.</p>
+              <h2 className="text-2xl font-semibold tracking-tight">{custom ? "Build your own collection" : "Choose a gift set"}</h2>
+              <p className="mx-auto max-w-lg text-sm text-muted-foreground">{custom ? `Pick up to ${MAX_PICKED_GIFTS} gifts, from any set. Each recipient chooses one on their page.` : "Each recipient chooses one gift from the set on their page."}</p>
             </div>
             {sources === null ? <div className="text-sm text-muted-foreground">Loading gifts…</div> : gifts.length === 0 ? (
               <Notice tone="amber">The holiday gift pages (holiday-gifts-premium, -mid, -swag) aren't set up in this workspace.</Notice>
-            ) : (
+            ) : custom ? (
               <div className="space-y-5">
+                <button type="button" onClick={() => setCustom(false)} className="mx-auto block text-sm underline text-muted-foreground hover:text-foreground">← Back to the three sets</button>
                 {GIFT_TIERS.map((t) => {
                   const tierGifts = gifts.filter((g) => g.tier === t.id);
                   if (tierGifts.length === 0) return null;
@@ -326,6 +328,30 @@ export default function SalesGifting() {
                       </Select>
                     </label>
                   )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid gap-5 md:grid-cols-3">
+                  {GIFT_TIERS.map((t) => {
+                    const tierGifts = gifts.filter((g) => g.tier === t.id);
+                    if (tierGifts.length === 0) return null;
+                    const on = pickedKeys.length === tierGifts.length && tierGifts.every((g) => pickedKeys.includes(g.key));
+                    return (
+                      <button key={t.id} type="button" onClick={() => { setPicked(tierGifts.map((g) => g.key)); setBaseOverride(null); }} className={cn("flex flex-col rounded-2xl border p-3 text-left transition-all", on ? "border-foreground ring-1 ring-foreground shadow-lg" : "hover:border-foreground/40 hover:shadow-md")}>
+                        <GiftPagePreview heroProps={sources?.[t.id]?.blocks["gift-hero"]} />
+                        <div className="flex items-center justify-between px-1 pt-3">
+                          <div className="font-semibold">{t.label}</div>
+                          {on && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background"><Check className="h-3 w-3" /></span>}
+                        </div>
+                        <p className="px-1 text-xs text-muted-foreground">{t.blurb}</p>
+                        <ul className="mt-2 space-y-0.5 px-1 pb-1 text-xs">{tierGifts.map((g) => <li key={g.key}>• {g.name}</li>)}</ul>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-center">
+                  <Button type="button" variant="outline" onClick={() => setCustom(true)} className="gap-2 rounded-full px-6"><Gift className="h-4 w-4" />Build your own collection</Button>
                 </div>
               </div>
             )}
