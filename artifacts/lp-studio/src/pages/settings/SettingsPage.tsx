@@ -11,9 +11,10 @@ import { EmailSendingContent } from "./EmailSendingPage";
 import { AlertRecipientsContent } from "./AlertRecipients";
 import { TemplateSettingsContent } from "./TemplateSettingsPage";
 import { IntegrationsSettingsContent } from "./IntegrationsSettingsPage";
+import { ClaudeConnectorContent } from "./ClaudeConnectorPage";
 import { AutomaticRoomsSection, StandardFilesManager } from "@/components/analytics/PageRoomPanel";
 
-type TabId = "general" | "domain" | "seo" | "scoring" | "templates" | "integrations" | "hubs" | "email";
+type TabId = "general" | "domain" | "seo" | "scoring" | "templates" | "integrations" | "hubs" | "email" | "claude";
 type EmailSubTab = "templates" | "sending" | "recipients" | "preferences";
 
 const TABS: { id: TabId; label: string; path: string; adminOnly: boolean }[] = [
@@ -29,6 +30,8 @@ const TABS: { id: TabId; label: string; path: string; adminOnly: boolean }[] = [
   // Partnerships (each customer still gets a "hub"): automatic creation from the signed-accounts sheet and the files every hub gets.
   { id: "hubs", label: "Partnerships", path: "/settings/partnerships", adminOnly: true },
   { id: "email", label: "Email", path: "/settings/email", adminOnly: false },
+  // Personal: each member connects their own Claude (routes/mcp.ts).
+  { id: "claude", label: "Claude", path: "/settings/claude", adminOnly: false },
 ];
 
 // Map a settings URL to the active tab + (for Email) sub-tab. Old, separate
@@ -41,6 +44,7 @@ function resolveRoute(location: string): { tab: TabId; emailSub: EmailSubTab } {
   if (location.startsWith("/settings/templates")) return { tab: "templates", emailSub: "templates" };
   if (location.startsWith("/settings/integrations")) return { tab: "integrations", emailSub: "templates" };
   if (location.startsWith("/settings/partnerships")) return { tab: "hubs", emailSub: "templates" };
+  if (location.startsWith("/settings/claude")) return { tab: "claude", emailSub: "templates" };
   if (location.startsWith("/settings/notifications")) return { tab: "email", emailSub: "preferences" };
   if (location.startsWith("/settings/email/sending")) return { tab: "email", emailSub: "sending" };
   if (location.startsWith("/settings/email/recipients")) return { tab: "email", emailSub: "recipients" };
@@ -59,7 +63,7 @@ export default function SettingsPage() {
   // Non-admins can only see the Email tab (for personal Preferences). If they
   // deep-link into an admin-only tab, bounce them to their preferences. The
   // server re-checks every admin endpoint regardless.
-  if (!canManage && tab !== "email") {
+  if (!canManage && tab !== "email" && tab !== "claude") {
     return <Redirect to="/settings/notifications" />;
   }
   // A non-admin on the Email tab is forced onto the Preferences sub-tab.
@@ -111,6 +115,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Tab content */}
+        {tab === "claude" && <ClaudeConnectorContent />}
         {tab === "general" && <GeneralContent />}
         {tab === "domain" && <DomainContent />}
         {tab === "seo" && <SeoContent />}

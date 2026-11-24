@@ -162,6 +162,7 @@ const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 // tabbed Settings hub. SettingsPage statically imports each section's *Content
 // component and renders the right tab based on the URL.
 const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
+const ClaudeConnectPage = lazy(() => import("@/pages/connect/ClaudeConnectPage"));
 const BillingPage = lazy(() => import("@/pages/settings/BillingPage"));
 
 // Superadmin (no auth gate)
@@ -350,6 +351,9 @@ function AppRouter() {
         <Route path="/settings/scoring" component={SettingsPage} />
         <Route path="/settings/templates" component={SettingsPage} />
         <Route path="/settings/notifications" component={SettingsPage} />
+        <Route path="/settings/claude" component={SettingsPage} />
+        {/* Claude connector consent screen (OAuth); AuthGate signs the rep in first. */}
+        <Route path="/connect/claude" component={ClaudeConnectPage} />
         <Route path="/settings/email/sending" component={SettingsPage} />
         <Route path="/settings/email/recipients" component={SettingsPage} />
         <Route path="/settings/email" component={SettingsPage} />

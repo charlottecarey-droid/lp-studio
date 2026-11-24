@@ -177,6 +177,13 @@ function SettingsMenuItems({ hasPerm, user, isActive }: {
         {/* Settings consolidation (Phase 1): all integrations (CRM, Slack,
             lead delivery) live under Settings → Integrations; the individual
             service pages are reached from its connection cards. */}
+        {/* Personal, every member: connect your own Claude (Settings → Claude). */}
+        <Link href="/settings/claude">
+          <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/settings/claude") ? "bg-accent" : ""}`} data-testid="menu-use-in-claude">
+            <Plug className="w-4 h-4 text-muted-foreground" />
+            <span>Use in Claude</span>
+          </DropdownMenuItem>
+        </Link>
         {(hasPerm("settings") || user?.isAdmin) && (
           <Link href="/settings/integrations">
             <DropdownMenuItem className="gap-2.5 cursor-pointer rounded-md mx-0.5">

@@ -179,6 +179,22 @@ export function IntegrationsSettingsContent() {
       </section>
 
       <section>
+        <SettingsSectionHeader title="Claude" description="Each member connects their own Claude to LP Studio." />
+        <Link href="/settings/claude">
+          <Card className="mt-3 px-4 py-3 cursor-pointer hover:border-foreground/30 transition-colors flex items-center gap-3" data-testid="integration-card-claude">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#D977571A" }}>
+              <Cloud className="w-4 h-4" style={{ color: "#D97757" }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-medium leading-tight">Use LP Studio in Claude</h3>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">Weekly updates, account questions and drafts from your own Claude.</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+          </Card>
+        </Link>
+      </section>
+
+      <section>
         <SettingsSectionHeader title="Lead delivery" description="Where new leads are sent. A form can override this under Forms → Lead routing." />
         <div className="mt-3">
           <IntegrationsContent />

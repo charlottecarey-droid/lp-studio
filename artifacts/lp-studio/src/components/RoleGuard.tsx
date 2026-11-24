@@ -14,6 +14,9 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
     const hasMarketing = MARKETING_PERMS.some(k => hasPerm(k));
 
     const isSalesRoute = location === "/sales" || location.startsWith("/sales/");
+    // Personal pages every member uses, whatever their side of the app: the
+    // Claude connector consent screen and its settings tab.
+    if (location.startsWith("/connect/") || location.startsWith("/settings/claude")) return;
 
     if (hasSales && !hasMarketing && !isSalesRoute) {
       navigate("/sales");
