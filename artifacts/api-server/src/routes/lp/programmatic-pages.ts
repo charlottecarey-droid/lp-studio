@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 import { userCanPublish } from "./pages";
-import { loadRepDirectory, fillRepVariables } from "../../lib/sales/rep-directory";
+import { loadRepDirectory, fillRepVariables, applyRepToBlocks, applyGiftProps, sanitizeGiftProps } from "../../lib/sales/rep-directory";
 import { triggerPublishedRender } from "../../lib/triggerPublishedRender";
 import { getRequestHost } from "../../lib/requestHost";
 import { isUniqueViolation } from "../../lib/dbErrors";
@@ -203,6 +203,35 @@ router.get("/lp/programmatic/templates", async (req, res): Promise<void> => {
   }
 });
 
+// GET /lp/programmatic/gift-sources — the three designed gift pages the Sales
+// Console gifting wizard builds from (by slug), with their gift-block props.
+// The wizard restyles these (audience / layout / envelope) client-side, so
+// editing a source page in the builder changes what the wizard produces.
+const GIFT_SOURCE_SLUGS = { mid: "holiday-gifts-mid", premium: "holiday-gifts-premium", swag: "holiday-gifts-swag" } as const;
+router.get("/lp/programmatic/gift-sources", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    const out: Record<string, { pageId: number; title: string; blocks: Record<string, Record<string, unknown>> }> = {};
+    for (const [tier, slug] of Object.entries(GIFT_SOURCE_SLUGS)) {
+      const [page] = await db
+        .select({ id: lpPagesTable.id, title: lpPagesTable.title, blocks: lpPagesTable.blocks })
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, slug)));
+      if (!page) continue;
+      const blocks: Record<string, Record<string, unknown>> = {};
+      for (const b of Array.isArray(page.blocks) ? (page.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) : []) {
+        if (b?.type && b.props && !blocks[b.type]) blocks[b.type] = b.props;
+      }
+      out[tier] = { pageId: page.id, title: page.title, blocks };
+    }
+    res.json(out);
+  } catch (err) {
+    console.error("GET /lp/programmatic/gift-sources error:", err);
+    res.status(500).json({ error: "Failed to load gift pages" });
+  }
+});
+
 // POST /lp/programmatic/bulk-generate — clone a template page N times with variable overrides
 //
 // Body: { templateId, rows: [{ slug, variables }], publish?, autoSuffix? }
@@ -211,6 +240,8 @@ router.get("/lp/programmatic/templates", async (req, res): Promise<void> => {
 //   - a row's `rep_email` fills rep_name / rep_first_name / rep_title /
 //     rep_photo / rep_calendar / rep_phone from the Sales Reps library
 //     (values already in the row win).
+//   - gifts: optional { "gift-hero"|"gift-picker"|"gift-form"|"gift-note": props }
+//     replacing those blocks' props (Sales Console gifting wizard).
 //   - publish: create the pages as published (only for users allowed to
 //     publish; otherwise they stay drafts and `publishSkipped` says why).
 //   - autoSuffix: when a slug is taken, try slug-2, slug-3, … instead of
@@ -222,11 +253,12 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
     const tenantId = getTenantId(req, res);
     if (tenantId === null) return;
 
-    const { templateId, rows, publish, autoSuffix } = req.body as {
+    const { templateId, rows, publish, autoSuffix, gifts } = req.body as {
       templateId?: number;
       rows?: Array<{ slug: string; variables: Record<string, string> }>;
       publish?: boolean;
       autoSuffix?: boolean;
+      gifts?: unknown;
     };
 
     if (!templateId || !Array.isArray(rows) || rows.length === 0) {
@@ -258,6 +290,10 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
     const repDir = needsReps ? await loadRepDirectory(tenantId) : null;
     const repUnmatched = new Set<string>();
 
+    // Gifting wizard: restyle the template's gift blocks once for the whole batch.
+    const giftOverride = sanitizeGiftProps(gifts);
+    const baseBlocks = Array.isArray(template.blocks) ? template.blocks : [];
+
     const created: Array<{ index: number; id: number; slug: string; status: string }> = [];
     const errors: Array<{ index: number; slug: string; error: string }> = [];
 
@@ -274,11 +310,15 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
       }
       let rowVars: Record<string, string> = {};
       for (const [k, v] of Object.entries(row.variables ?? {})) rowVars[String(k).toLowerCase()] = String(v ?? "");
+      let repMatched = false;
       if (repDir) {
         const filled = fillRepVariables(rowVars, repDir);
         rowVars = filled.vars;
         if (filled.matched === false) repUnmatched.add(rowVars.rep_email.trim());
+        repMatched = filled.matched === true;
       }
+      const templateBlocks = giftOverride ? applyGiftProps(baseBlocks, giftOverride) : baseBlocks;
+      const pageBlocks = repMatched ? applyRepToBlocks(templateBlocks, rowVars) : templateBlocks;
       // Merge template pageVariables with row-specific overrides
       const mergedVars = { ...baseVars, ...rowVars };
       const who = [rowVars.first_name, rowVars.last_name].filter(Boolean).join(" ") || rowVars.company || rawSlug;
@@ -293,7 +333,7 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
               tenantId,
               title: `${template.title} — ${who}`,
               slug,
-              blocks: Array.isArray(template.blocks) ? template.blocks : [],
+              blocks: pageBlocks,
               status,
               customCss: template.customCss ?? "",
               metaTitle: template.metaTitle ?? "",

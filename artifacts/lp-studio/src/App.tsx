@@ -146,6 +146,7 @@ const SalesOnePager = lazy(() => import("@/pages/sales/sales-one-pager"));
 const SalesOnePagerEditor = lazy(() => import("@/pages/sales/sales-one-pager-editor"));
 const SalesOnePagerTemplates = lazy(() => import("@/pages/sales/sales-one-pager-templates"));
 const SalesMarketplace = lazy(() => import("@/pages/sales/sales-marketplace"));
+const SalesGifting = lazy(() => import("@/pages/sales/sales-gifting"));
 const SalesGuide = lazy(() => import("@/pages/sales/sales-guide"));
 
 // New feature pages
@@ -394,6 +395,7 @@ function AppRouter() {
         <Route path="/sales/draft-email/:contactId">{() => <PermRoute perm="sales_outreach" fallback="/sales"><SalesDraftEmail /></PermRoute>}</Route>
         <Route path="/sales/campaigns/:id">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignDetail /></PermRoute>}</Route>
         <Route path="/sales/campaigns">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOutreach /></PermRoute>}</Route>
+        <Route path="/sales/gifting">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesGifting /></PermRoute>}</Route>
         <Route path="/sales/pages">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
         <Route path="/sales/accounts/:id">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
         <Route path="/sales/accounts">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>

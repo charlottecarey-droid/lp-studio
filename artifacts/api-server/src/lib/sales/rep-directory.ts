@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { buildRepDirectory, resolveRepRecipient, type RepDirectory } from "./rep-directory-match";
 
-export { buildRepDirectory, fillRepVariables, findRepEmailField, resolveRepRecipient, REP_VARIABLES } from "./rep-directory-match";
+export { buildRepDirectory, fillRepVariables, applyRepToBlocks, applyGiftProps, sanitizeGiftProps, findRepEmailField, resolveRepRecipient, REP_VARIABLES } from "./rep-directory-match";
 export type { RepDirectory, RepProfile } from "./rep-directory-match";
 
 export async function loadRepDirectory(tenantId: number): Promise<RepDirectory> {

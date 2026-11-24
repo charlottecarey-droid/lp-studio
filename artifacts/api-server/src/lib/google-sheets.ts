@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { alignLeadRow } from "./sheet-rows";
 
 export interface SheetsConfig {
   sheetId: string;
@@ -113,8 +114,6 @@ export async function appendLeadRow(config: SheetsConfig, lead: LeadRow): Promis
   const tabName = config.tabName || "Leads";
   const spreadsheetId = config.sheetId;
 
-  const fieldKeys = Object.keys(lead.fields).filter(k => !k.startsWith("_"));
-
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const existingSheets = spreadsheet.data.sheets ?? [];
   const tabExists = existingSheets.some(s => s.properties?.title === tabName);
@@ -129,26 +128,24 @@ export async function appendLeadRow(config: SheetsConfig, lead: LeadRow): Promis
   }
 
   const range = `'${tabName}'!A1`;
-  const existing = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+  // The whole header row (a bare A1 would return only the first cell).
+  const existing = await sheets.spreadsheets.values.get({ spreadsheetId, range: `'${tabName}'!1:1` });
   const existingRows = existing.data.values ?? [];
 
-  if (existingRows.length === 0) {
-    const headers = ["Timestamp", "Page", "Slug", "Variant", ...fieldKeys];
-    await sheets.spreadsheets.values.append({
+  const { header, row, headerChanged } = alignLeadRow(
+    existingRows[0] ?? null,
+    [lead.submittedAt, lead.pageTitle, lead.pageSlug, lead.variantName ?? ""],
+    lead.fields,
+  );
+  if (headerChanged) {
+    // First row ever, or a field this tab has no column for yet: (re)write row 1.
+    await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range,
+      range: `'${tabName}'!A1`,
       valueInputOption: "RAW",
-      requestBody: { values: [headers] },
+      requestBody: { values: [header] },
     });
   }
-
-  const row = [
-    lead.submittedAt,
-    lead.pageTitle,
-    lead.pageSlug,
-    lead.variantName ?? "",
-    ...fieldKeys.map(k => String(lead.fields[k] ?? "")),
-  ];
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,

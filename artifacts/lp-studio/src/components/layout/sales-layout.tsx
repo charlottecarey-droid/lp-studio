@@ -24,6 +24,7 @@ import {
   Megaphone,
   DoorOpen,
   SquarePen,
+  Gift,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -347,6 +348,13 @@ export function SalesTopNav() {
           matchFn: (loc: string) => loc === "/sales/roi-calculator",
         }]
       : []),
+    {
+      label: "Gifting",
+      href: "/sales/gifting",
+      icon: <Gift className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/gifting",
+    },
     {
       label: "Events",
       href: "/sales/events",

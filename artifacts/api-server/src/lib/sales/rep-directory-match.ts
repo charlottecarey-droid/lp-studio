@@ -106,3 +106,71 @@ export function resolveRepRecipient(fields: Record<string, unknown>, dir: RepDir
   if (!email) return null;
   return dir.has(email) ? email : null;
 }
+
+/**
+ * Re-point the gift blocks at the row's rep. The builder's rep picker bakes
+ * one rep's name, role, headshot and booking link into the template's
+ * gift-note (and name/email into gift-form), so cloning the template alone
+ * would put the template author's rep on every page. When a row's rep_email
+ * matched the library, `vars` carries that rep's details (row overrides
+ * included); write them over those literal values. A rep without a booking
+ * link clears the field rather than leaving another rep's link behind.
+ */
+export function applyRepToBlocks(blocks: unknown[], vars: Record<string, string>): unknown[] {
+  return blocks.map((b) => {
+    if (!b || typeof b !== "object") return b;
+    const block = b as { type?: unknown; props?: Record<string, unknown> };
+    if (!block.props || typeof block.props !== "object") return b;
+    if (block.type === "gift-note") {
+      return {
+        ...block,
+        props: {
+          ...block.props,
+          signature: str(vars.rep_name) || block.props.signature,
+          repTitle: str(vars.rep_title),
+          repPhotoUrl: str(vars.rep_photo),
+          calendarUrl: str(vars.rep_calendar),
+        },
+      };
+    }
+    if (block.type === "gift-form") {
+      return {
+        ...block,
+        props: {
+          ...block.props,
+          sentBy: str(vars.rep_name) || block.props.sentBy,
+          repEmail: str(vars.rep_email).toLowerCase(),
+        },
+      };
+    }
+    return b;
+  });
+}
+
+export const GIFT_BLOCK_TYPES = ["gift-hero", "gift-picker", "gift-form", "gift-note"] as const;
+export type GiftProps = Partial<Record<(typeof GIFT_BLOCK_TYPES)[number], Record<string, unknown>>>;
+
+/**
+ * Validate the gifting wizard's per-block props: only the four gift block
+ * types, each a plain object, bounded in size. Anything else is dropped, so
+ * this can restyle a gift template but never inject other block types.
+ */
+export function sanitizeGiftProps(raw: unknown): GiftProps | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: GiftProps = {};
+  for (const t of GIFT_BLOCK_TYPES) {
+    const v = (raw as Record<string, unknown>)[t];
+    if (v && typeof v === "object" && !Array.isArray(v) && JSON.stringify(v).length <= 60_000) out[t] = v as Record<string, unknown>;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** Replace the props of the template's gift blocks with the wizard's. */
+export function applyGiftProps(blocks: unknown[], giftProps: GiftProps): unknown[] {
+  return blocks.map((b) => {
+    if (!b || typeof b !== "object") return b;
+    const block = b as { type?: string; props?: unknown };
+    const next = (GIFT_BLOCK_TYPES as readonly string[]).includes(block.type ?? "") ? giftProps[block.type as keyof GiftProps] : undefined;
+    return next ? { ...block, props: next } : b;
+  });
+}

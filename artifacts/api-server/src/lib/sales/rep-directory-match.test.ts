@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRepDirectory, fillRepVariables, findRepEmailField, resolveRepRecipient } from "./rep-directory-match";
+import { applyGiftProps, applyRepToBlocks, sanitizeGiftProps, buildRepDirectory, fillRepVariables, findRepEmailField, resolveRepRecipient } from "./rep-directory-match";
 
 const library = [
   { name: "Harrison Corman", role: "Business Development", email: "harrison.corman@x.com", calendlyUrl: "https://cp/harrison" },
@@ -39,5 +39,34 @@ describe("rep directory", () => {
     // The submitter's own email is never mistaken for the rep's.
     expect(resolveRepRecipient({ Email: "dan@x.com" }, dir)).toBeNull();
     expect(findRepEmailField({ rep_email: "HARRISON.CORMAN@x.com" })).toBe("harrison.corman@x.com");
+  });
+});
+
+describe("applyRepToBlocks", () => {
+  const vars = { rep_email: "Bo@x.com", rep_name: "Bo Lee", rep_title: "AE", rep_photo: "https://p/bo.jpg", rep_calendar: "" };
+  const blocks = [
+    { type: "gift-note", props: { signature: "Old Rep", repTitle: "VP", repPhotoUrl: "https://p/old.jpg", calendarUrl: "https://cal/old", body: "hi" } },
+    { type: "gift-form", props: { sentBy: "Old Rep", repEmail: "old@x.com" } },
+    { type: "hero", props: { headline: "h" } },
+  ];
+  it("replaces the template rep on gift blocks and leaves others alone", () => {
+    const out = applyRepToBlocks(blocks, vars) as Array<{ type: string; props: Record<string, string> }>;
+    expect(out[0].props).toMatchObject({ signature: "Bo Lee", repTitle: "AE", repPhotoUrl: "https://p/bo.jpg", calendarUrl: "", body: "hi" });
+    expect(out[1].props).toMatchObject({ sentBy: "Bo Lee", repEmail: "bo@x.com" });
+    expect(out[2]).toBe(blocks[2]);
+  });
+});
+
+describe("gift props override", () => {
+  it("keeps only the four gift block types as plain objects", () => {
+    expect(sanitizeGiftProps({ "gift-hero": { a: 1 }, "custom-html": { html: "<script>" }, "gift-note": [1] })).toEqual({ "gift-hero": { a: 1 } });
+    expect(sanitizeGiftProps(null)).toBeNull();
+    expect(sanitizeGiftProps({ "custom-html": {} })).toBeNull();
+  });
+  it("replaces gift block props and leaves other blocks alone", () => {
+    const blocks = [{ type: "gift-hero", props: { a: 0 } }, { type: "dandy-site-footer", props: { b: 0 } }];
+    const out = applyGiftProps(blocks, { "gift-hero": { a: 2 } }) as typeof blocks;
+    expect(out[0].props).toEqual({ a: 2 });
+    expect(out[1]).toBe(blocks[1]);
   });
 });

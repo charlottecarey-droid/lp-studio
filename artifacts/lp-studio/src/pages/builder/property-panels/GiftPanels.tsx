@@ -81,7 +81,7 @@ function RepPicker({ onPick, label = "Sent from (fills name, role, photo and cal
     <Field label={label}>
       <Select value="" onValueChange={(v) => { const m = members.find((x) => String(x.id) === v); if (m) onPick(m); }}>
         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={loaded ? (members.length ? "Choose a rep…" : "No team members in Content Library") : "Loading reps…"} /></SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-72">
           {members.map((m) => (
             <SelectItem key={m.id} value={String(m.id)} className="text-xs">
               {m.name}{m.content?.role ? ` — ${m.content.role}` : ""}{teamMemberCalendar(m) ? " · calendar" : ""}
