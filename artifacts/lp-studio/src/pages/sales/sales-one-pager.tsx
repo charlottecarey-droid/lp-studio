@@ -892,7 +892,6 @@ const SalesOnePager = () => {
     setGeneratingLink(true);
     setLinkResult(null);
     try {
-      const tenantId = (user as { tenantId?: number } | null)?.tenantId ?? 1;
       const teamMembers = teamContacts
         .filter(c => c.name?.trim())
         .map(c => {
@@ -916,7 +915,6 @@ const SalesOnePager = () => {
           phone: phoneNumber || undefined,
           ctaUrl: customLinkUrl || undefined,
           teamMembers,
-          tenantId,
         }),
       });
       if (!res.ok) {

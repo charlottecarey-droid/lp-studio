@@ -354,6 +354,7 @@ describe.skipIf(!dbAvailable)("POST /sales/web-one-pager — partner layout glob
     const res = await injectSid({
       method: "POST",
       url: "/web-one-pager",
+      sid: SID_TENANT,
       body: { dsoName: "Acme DSO", tenantId, template: "new-partner" },
     });
     expect(res.status).toBe(200);
@@ -386,6 +387,7 @@ describe.skipIf(!dbAvailable)("POST /sales/web-one-pager — partner layout glob
     const res = await injectSid({
       method: "POST",
       url: "/web-one-pager",
+      sid: SID_TENANT,
       body: { dsoName: "Acme DSO", tenantId, template: "new-partner" },
     });
     expect(res.status).toBe(200);

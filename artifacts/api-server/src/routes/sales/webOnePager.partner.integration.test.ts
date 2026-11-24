@@ -73,7 +73,12 @@ beforeAll(async () => {
   app = express();
   app.use(cookieParser());
   app.use(express.json());
-  // web-one-pager is intentionally public (no auth middleware required).
+  // In the real app /sales/* is behind requireAuth and the page lands in the
+  // signed-in workspace; stand in a member of this test tenant.
+  app.use((req, _res, next) => {
+    req.authUser = { userId: 999300001, email: "it@example.com", name: "IT", tenantId, role: "admin", permissions: {}, isAdmin: false, appUserRole: null };
+    next();
+  });
   app.use(webOnePagerRouter);
 });
 

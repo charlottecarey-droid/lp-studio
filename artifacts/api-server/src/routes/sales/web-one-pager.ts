@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { lpPagesTable, lpPageVisitsTable, salesLayoutDefaultsTable } from "@workspace/db";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 import { isDandyTenant } from "../../lib/planFeatures";
+import { getTenantId } from "../../middleware/requireAuth";
 import { detectAndWriteFlagsForPage } from "../../lib/factFlags";
 import { isDandyGatedBuiltin } from "@workspace/one-pager-types/constants";
 import { stripContentFromGlobalLayoutConfig } from "../../lib/onePagerGlobalLayout";
@@ -193,7 +194,6 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       phone,
       teamMembers,
       ctaUrl,
-      tenantId,
       builtinId,
       template,
     } = req.body as {
@@ -203,7 +203,6 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       phone?: string;
       teamMembers?: { name: string; role: string; email?: string; photo?: string; chilipiperUrl?: string }[];
       ctaUrl?: string;
-      tenantId?: number;
       builtinId?: string;
       template?: string;
     };
@@ -213,13 +212,12 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       return;
     }
 
-    // Require an explicit tenantId — refuse to silently default to Dandy
-    // (tenant 1). This route is callable without auth, so the caller must
-    // identify which tenant the page belongs to.
-    if (typeof tenantId !== "number" || !Number.isFinite(tenantId) || tenantId <= 0) {
-      res.status(400).json({ error: "tenantId is required" });
-      return;
-    }
+    // The page belongs to the signed-in workspace — never to a tenantId the
+    // caller sends (an old client field; ignored). Trusting the body let any
+    // signed-in user publish a page into another workspace. getTenantId keeps
+    // the superadmin X-Tenant-Id override, same as every other sales route.
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
 
     // Gate the Dandy-only built-ins: reject explicit requests to publish them
     // from non-Dandy tenants (mirrors the picker gate in the client). The flag
@@ -503,6 +501,18 @@ router.get("/web-one-pager/views/:pageId", async (req, res): Promise<void> => {
     const pageId = parseInt(req.params.pageId, 10);
     if (isNaN(pageId)) {
       res.status(400).json({ error: "Invalid pageId" });
+      return;
+    }
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    // Only this workspace's pages: another workspace's page id reads as not found.
+    const [page] = await db
+      .select({ id: lpPagesTable.id })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId)))
+      .limit(1);
+    if (!page) {
+      res.status(404).json({ error: "Page not found" });
       return;
     }
     const [row] = await db

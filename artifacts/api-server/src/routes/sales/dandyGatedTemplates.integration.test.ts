@@ -118,7 +118,7 @@ beforeAll(async () => {
   app.use(express.json());
   // optionalAuth hydrates req.authUser from the session cookie without
   // rejecting (mirrors how the global auth guard populates authUser before
-  // /sales in the real router). web-one-pager is intentionally public.
+  // /sales in the real router).
   app.use(optionalAuth);
   app.use(onePagerTemplatesRouter);
   app.use(webOnePagerRouter);
@@ -175,6 +175,7 @@ describe.skipIf(!dbAvailable)("publish gate — POST /sales/web-one-pager", () =
       const res = await injectSid({
         method: "POST",
         url: "/web-one-pager",
+        sid: SID,
         body: { dsoName: "Acme DSO", tenantId, builtinId },
       });
       expect(res.status).not.toBe(403);
@@ -184,6 +185,7 @@ describe.skipIf(!dbAvailable)("publish gate — POST /sales/web-one-pager", () =
       const res = await injectSid({
         method: "POST",
         url: "/web-one-pager",
+        sid: SID,
         body: { dsoName: "Acme DSO", tenantId, template: builtinId },
       });
       expect(res.status).not.toBe(403);
