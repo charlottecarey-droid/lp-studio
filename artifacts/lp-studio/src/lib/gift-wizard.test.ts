@@ -123,3 +123,25 @@ describe("planRepSave", () => {
     expect(planRepSave(rows, form)).toEqual({ error: "Add a headshot or some details to save." });
   });
 });
+
+describe("a single picked gift", () => {
+  const sources = { mid: { pageId: 2, title: "M", blocks: {
+    "gift-hero": { headline: "Pick the gift that suits you", subheadline: "Choose one of three, tell us where to send it", ctaText: "See the three gifts" },
+    "gift-picker": { headline: "Three gifts.\nOne is yours.", subheadline: "x", options: [{ name: "Yeti" }, { name: "Candy" }, { name: "Bears" }] },
+    "gift-form": { subheadline: "y", giftLabel: "Which gift would you like?" },
+  } } };
+  it("is featured, with no choose-one or 'your gift.' phrasing", () => {
+    const picked = allGifts(sources).slice(0, 1);
+    const composed = composeSource(sources, picked, "mid");
+    for (const audience of ["customer", "prospect"] as const) {
+      const out = buildGiftProps(composed, { tier: "custom", audience, layout: "atelier", envelope: false });
+      const text = JSON.stringify({ picker: out["gift-picker"], hero: out["gift-hero"] }).toLowerCase();
+      expect(text).not.toContain("one is yours");
+      expect(text).not.toContain("choose one");
+      expect(text).not.toContain("your gift.");
+      expect(out["gift-picker"].headline).toBe("A gift,\njust for you.");
+      expect(out["gift-picker"].chooseText).toBe("Claim this gift");
+      expect(String(out["gift-hero"].subheadline)).not.toMatch(/choose|pick/i);
+    }
+  });
+});

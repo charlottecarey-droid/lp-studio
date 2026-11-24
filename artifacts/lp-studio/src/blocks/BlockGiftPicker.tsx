@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, Gift } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -112,6 +113,13 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
     }
   };
 
+  // One gift is a featured gift, not a choice (see AtelierGiftPicker).
+  const single = options.length === 1 && !isEditor;
+  useEffect(() => {
+    if (single) selectGift(options[0].name);
+  }, [single, options]);
+  const claimText = props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
+
   const cols = options.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : options.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
 
   return (
@@ -134,9 +142,10 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
           )}
         </div>
 
-        <div className={cn("mt-14 grid grid-cols-1 gap-6 lg:mt-20", cols)}>
+        <div className={cn("mt-14 grid grid-cols-1 gap-6 lg:mt-20", single ? "mx-auto max-w-[460px]" : cols)}>
           {options.map((it, i) => {
             const picked = !isEditor && selection.selected !== "" && selection.selected === it.name;
+            const markedPicked = picked && !single;
             return (
               <motion.article
                 key={i}
@@ -155,10 +164,10 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
                     : `0 0 0 1px ${pal.creamLine}, 0 40px 80px -40px rgba(0,0,0,0.85)`,
                 }}
               >
-                {/* Corner ribbon */}
-                <div aria-hidden="true" className="pointer-events-none absolute -left-12 top-5 w-44 rotate-[-35deg] py-1 text-center text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ background: `linear-gradient(90deg, ${pal.gold}, #F3E2B4)`, color: pal.creamInk, boxShadow: "0 4px 10px -6px rgba(0,0,0,0.4)" }}>
+                {/* Corner ribbon (a single gift needs no number) */}
+                {(it.badge || !single) && <div aria-hidden="true" className="pointer-events-none absolute -left-12 top-5 w-44 rotate-[-35deg] py-1 text-center text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ background: `linear-gradient(90deg, ${pal.gold}, #F3E2B4)`, color: pal.creamInk, boxShadow: "0 4px 10px -6px rgba(0,0,0,0.4)" }}>
                   {it.badge || String(i + 1).padStart(2, "0")}
-                </div>
+                </div>}
                 <GiftFlip
                   enabled={!isEditor}
                   onSelect={() => choose(it.name)}
@@ -205,13 +214,15 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
                     <button
                       type="button"
                       onClick={() => choose(it.name)}
-                      aria-pressed={picked}
+                      aria-pressed={markedPicked}
                       className={cn(INVITE_PILL_CLASS, "!min-h-[42px] !px-5 !text-[13px]")}
-                      style={picked ? { background: pal.creamInk, color: pal.cream } : { background: pal.accent, color: pal.onAccent, boxShadow: `0 10px 30px -14px ${pal.accent}` }}
+                      style={markedPicked ? { background: pal.creamInk, color: pal.cream } : { background: pal.accent, color: pal.onAccent, boxShadow: `0 10px 30px -14px ${pal.accent}` }}
                     >
-                      {picked ? <Check className="h-4 w-4" aria-hidden strokeWidth={3} /> : <Gift className="h-4 w-4" aria-hidden />}
-                      {picked ? (
+                      {markedPicked ? <Check className="h-4 w-4" aria-hidden strokeWidth={3} /> : <Gift className="h-4 w-4" aria-hidden />}
+                      {markedPicked ? (
                         <InlineText as="span" value={props.chosenText || "Your pick"} onUpdate={field("chosenText")} />
+                      ) : single ? (
+                        <span>{claimText}</span>
                       ) : (
                         <InlineText as="span" value={props.chooseText || "Choose this one"} onUpdate={field("chooseText")} />
                       )}

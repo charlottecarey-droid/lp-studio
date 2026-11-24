@@ -81,6 +81,10 @@ export function buildGiftProps(source: GiftSourceBlocks, c: GiftChoices): Record
     if (!source[type]) continue;
     let p: GiftBlockProps = { ...source[type] };
     if (c.audience === "prospect") p = { ...p, ...PROSPECT_COPY[type] };
+    // The prospect hero sub-line says "Choose your gift"; a lone gift has nothing to choose.
+    if (type === "gift-hero" && Array.isArray(source["gift-picker"]?.options) && (source["gift-picker"].options as unknown[]).length === 1) {
+      p.subheadline = SINGLE_HERO_SUB[c.audience];
+    }
     if (c.layout === "atelier") {
       p = { ...p, ...ATELIER_COPY[type] };
       // Customer notes read "wonderful year" in Atelier; the prospect headline already fits.
@@ -136,6 +140,11 @@ export function allGifts(sources: Partial<Record<GiftTierId, { blocks: GiftSourc
 export const MAX_PICKED_GIFTS = 4;
 const COUNT_WORD = ["", "one", "two", "three", "four"];
 
+const SINGLE_HERO_SUB: Record<GiftAudience, string> = {
+  customer: "A thank-you from your Dandy team. Tell us where to send it, and we'll take care of the rest.",
+  prospect: "For your commitment to the industry. Tell us where to send it, and we'll take care of the rest.",
+};
+
 /** Swap "one of three" / "three gifts" style copy for the real number of gifts. */
 export function fixCountCopy(text: unknown, n: number): unknown {
   if (typeof text !== "string" || n === 3) return text;
@@ -165,6 +174,28 @@ export function composeSource(
     for (const k of ["ctaText", "subheadline"]) out["gift-hero"][k] = fixCountCopy(out["gift-hero"][k], n);
     if (Array.isArray(out["gift-hero"].facts)) {
       out["gift-hero"].facts = (out["gift-hero"].facts as Array<{ label?: unknown }>).map((f) => ({ ...f, label: fixCountCopy(f.label, n) }));
+    }
+  }
+  if (n === 1) {
+    // A lone gift is featured, not offered as a choice: no "choose one" / "your gift." phrasing.
+    if (out["gift-picker"]) {
+      Object.assign(out["gift-picker"], {
+        kicker: "Your gift",
+        headline: "A gift,\njust for you.",
+        subheadline: "It ships straight to you. Claim it below and tell us where to send it.",
+        chooseText: "Claim this gift",
+      });
+    }
+    if (out["gift-hero"]) {
+      Object.assign(out["gift-hero"], {
+        headline: "A gift,\nfrom us to you.",
+        subheadline: SINGLE_HERO_SUB.customer,
+        ctaText: "See your gift",
+        chooseGiftText: "See your gift",
+      });
+    }
+    if (out["gift-form"]) {
+      Object.assign(out["gift-form"], { giftLabel: "Your gift", stepOneTitle: "Your gift", nextSteps: ["Confirm your gift", "Tell us who you are", "Give us a shipping address"] });
     }
   }
   if (out["gift-form"]) {

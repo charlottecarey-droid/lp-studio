@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Check } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -45,6 +46,14 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
     if (anchor.startsWith("#")) document.getElementById(anchor.slice(1))?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   };
 
+  // One gift is a featured gift, not a choice: no "choose one" framing, it is
+  // selected for the visitor, and the card sits centred wearing its ribbon.
+  const single = options.length === 1 && !isEditor;
+  useEffect(() => {
+    if (single) selectGift(options[0].name);
+  }, [single, options]);
+  const claimText = props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
+
   const cols = options.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : options.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
   const count = options.length;
 
@@ -63,15 +72,19 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                 <InlineText as="span" value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
               </p>
             )}
-            <p className="text-[11px] font-medium uppercase tracking-[0.28em]" style={{ color: pal.faint }}>
-              {count} {count === 1 ? "gift" : "gifts"} · choose one
-            </p>
+            {!single && (
+              <p className="text-[11px] font-medium uppercase tracking-[0.28em]" style={{ color: pal.faint }}>
+                {count} {count === 1 ? "gift" : "gifts"} · choose one
+              </p>
+            )}
           </div>
         </div>
 
-        <div className={cn("mt-14 grid grid-cols-1 gap-x-8 gap-y-16", cols)}>
+        <div className={cn("mt-14 grid grid-cols-1 gap-x-8 gap-y-16", single ? "mx-auto max-w-[460px]" : cols)}>
           {options.map((it, i) => {
             const picked = !isEditor && selection.selected !== "" && selection.selected === it.name;
+            const dressed = picked || single; // ribbon, bow and tag
+            const markedPicked = picked && !single; // "Your pick" label state
             return (
               <motion.article
                 key={i}
@@ -89,7 +102,7 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                   label={it.name}
                   dotColor={pal.ink}
                   className="relative overflow-hidden rounded-[3px]"
-                  style={{ aspectRatio: "4 / 5", background: TILE_BG(pal), boxShadow: picked ? `inset 0 0 0 1.5px ${pal.ribbon}` : `inset 0 0 0 1px ${pal.line}` }}
+                  style={{ aspectRatio: "4 / 5", background: TILE_BG(pal), boxShadow: dressed ? `inset 0 0 0 1.5px ${pal.ribbon}` : `inset 0 0 0 1px ${pal.line}` }}
                   back={it.hoverImageUrl ? (
                     <div className="absolute inset-0" style={{ background: TILE_BG(pal) }}>
                       <img
@@ -121,14 +134,16 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                     <GiftBoxArt palette={pal} variant="single" className="atl-zoom absolute inset-x-[8%] top-[14%] w-[84%]" />
                   )}
                 >
-                  <span className="absolute left-5 top-5 text-[11px] font-medium uppercase tracking-[0.28em]" style={{ color: pal.muted }}>
-                    {it.badge || `No. ${String(i + 1).padStart(2, "0")}`}
-                  </span>
-                  {picked && (
+                  {(it.badge || !single) && (
+                    <span className="absolute left-5 top-5 text-[11px] font-medium uppercase tracking-[0.28em]" style={{ color: pal.muted }}>
+                      {it.badge || `No. ${String(i + 1).padStart(2, "0")}`}
+                    </span>
+                  )}
+                  {dressed && (
                     <>
                       <SatinBand palette={pal} className="inset-y-0 left-[16%] w-[9%]" />
                       <SatinBow palette={pal} className="absolute left-[3%] top-[-2%] w-[36%]" />
-                      <LeatherTag palette={pal} className="absolute right-[10%] top-0" line1="Your" line2="selection" />
+                      <LeatherTag palette={pal} className="absolute right-[10%] top-0" line1="Your" line2={single ? "gift" : "selection"} />
                     </>
                   )}
                 </GiftFlip>
@@ -144,17 +159,19 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                   <button
                     type="button"
                     onClick={() => choose(it.name)}
-                    aria-pressed={picked}
+                    aria-pressed={markedPicked}
                     className={`${ATELIER_LINK_CLASS} mt-3 self-start`}
-                    style={{ color: picked ? pal.ribbon : pal.ink }}
+                    style={{ color: markedPicked ? pal.ribbon : pal.ink }}
                   >
-                    {picked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> : null}
-                    {picked ? (
+                    {markedPicked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> : null}
+                    {markedPicked ? (
                       <InlineText as="span" value={props.chosenText || "Your pick"} onUpdate={field("chosenText")} />
+                    ) : single ? (
+                      <span>{claimText}</span>
                     ) : (
                       <InlineText as="span" value={props.chooseText || "Choose this one"} onUpdate={field("chooseText")} />
                     )}
-                    {!picked && <ArrowRight className="h-3.5 w-3.5" aria-hidden />}
+                    {!markedPicked && <ArrowRight className="h-3.5 w-3.5" aria-hidden />}
                   </button>
                 </div>
               </motion.article>
