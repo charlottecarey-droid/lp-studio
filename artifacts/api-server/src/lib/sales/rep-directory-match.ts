@@ -114,7 +114,8 @@ export function resolveRepRecipient(fields: Record<string, unknown>, dir: RepDir
  * would put the template author's rep on every page. When a row's rep_email
  * matched the library, `vars` carries that rep's details (row overrides
  * included); write them over those literal values. A rep without a booking
- * link clears the field rather than leaving another rep's link behind.
+ * link clears the field rather than leaving another rep's link behind. The
+ * headshot becomes the note's big picture (imageUrl).
  */
 export function applyRepToBlocks(blocks: unknown[], vars: Record<string, string>): unknown[] {
   return blocks.map((b) => {
@@ -128,7 +129,11 @@ export function applyRepToBlocks(blocks: unknown[], vars: Record<string, string>
           ...block.props,
           signature: str(vars.rep_name) || block.props.signature,
           repTitle: str(vars.rep_title),
-          repPhotoUrl: str(vars.rep_photo),
+          // The rep's headshot goes in the card's big picture, not as a tiny
+          // thumbnail beside their name; no headshot keeps the template's image.
+          repPhotoUrl: "",
+          imageUrl: str(vars.rep_photo) || block.props.imageUrl,
+          imageAlt: str(vars.rep_photo) ? str(vars.rep_name) : block.props.imageAlt,
           calendarUrl: str(vars.rep_calendar),
         },
       };

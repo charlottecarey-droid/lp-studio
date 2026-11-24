@@ -49,9 +49,13 @@ describe("applyRepToBlocks", () => {
     { type: "gift-form", props: { sentBy: "Old Rep", repEmail: "old@x.com" } },
     { type: "hero", props: { headline: "h" } },
   ];
+  it("keeps the template's big picture when the rep has no headshot", () => {
+    const out = applyRepToBlocks([{ type: "gift-note", props: { imageUrl: "/generic.jpg", imageAlt: "x" } }], { ...vars, rep_photo: "" }) as Array<{ props: Record<string, string> }>;
+    expect(out[0].props).toMatchObject({ imageUrl: "/generic.jpg", imageAlt: "x", repPhotoUrl: "" });
+  });
   it("replaces the template rep on gift blocks and leaves others alone", () => {
     const out = applyRepToBlocks(blocks, vars) as Array<{ type: string; props: Record<string, string> }>;
-    expect(out[0].props).toMatchObject({ signature: "Bo Lee", repTitle: "AE", repPhotoUrl: "https://p/bo.jpg", calendarUrl: "", body: "hi" });
+    expect(out[0].props).toMatchObject({ signature: "Bo Lee", repTitle: "AE", repPhotoUrl: "", imageUrl: "https://p/bo.jpg", imageAlt: "Bo Lee", calendarUrl: "", body: "hi" });
     expect(out[1].props).toMatchObject({ sentBy: "Bo Lee", repEmail: "bo@x.com" });
     expect(out[2]).toBe(blocks[2]);
   });

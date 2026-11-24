@@ -105,7 +105,10 @@ export function buildGiftProps(source: GiftSourceBlocks, c: GiftChoices): Record
     if (type === "gift-note") {
       Object.assign(p, {
         greeting: "Hi {{first_name|there}},", personalNote: "{{personal_note}}",
-        signature: "{{rep_name|Your Dandy rep}}", repTitle: "{{rep_title}}", repPhotoUrl: "{{rep_photo}}", calendarUrl: "{{rep_calendar}}",
+        signature: "{{rep_name|Your Dandy rep}}", repTitle: "{{rep_title}}", calendarUrl: "{{rep_calendar}}",
+        // No thumbnail by the name: bulk-generate puts the rep's headshot in the card's big picture
+        // (imageUrl) per page, and keeps the source page's image when the rep has no headshot.
+        repPhotoUrl: "",
         calendarText: p.calendarText || "Grab time on my calendar",
       });
     }
@@ -241,4 +244,42 @@ export function manualRow(v: Record<string, string>): WizardRow | null {
   if (WIZARD_COLUMNS.some((c) => c.required && !variables[c.key])) return null;
   const slug = slugify([variables.first_name, variables.last_name, variables.company].filter(Boolean).join(" "));
   return slug ? { slug, variables } : null;
+}
+
+export interface RepForm { name: string; role: string; email: string; phone: string; calendar: string; photo: string }
+export interface RawLibraryRow { id: number; name?: string; content?: Record<string, unknown> }
+
+/**
+ * Save a rep's own details to the Sales Reps library. If records already exist
+ * for the email (the library can hold duplicates per rep), every one of them is
+ * updated with the NON-EMPTY form values, so a blank field never erases what's
+ * on file and the headshot lands on whichever record the directory reads first.
+ * Otherwise one new record is created (name required). Null when there is
+ * nothing to save.
+ */
+export function planRepSave(rows: RawLibraryRow[], f: RepForm):
+  | { error: string }
+  | { create: { name: string; content: Record<string, unknown> } }
+  | { updates: Array<{ id: number; name: string; content: Record<string, unknown> }> } {
+  const email = f.email.trim().toLowerCase();
+  if (!email || !email.includes("@")) return { error: "Enter your work email." };
+  const edits: Record<string, string> = {};
+  if (f.name.trim()) edits.name = f.name.trim();
+  if (f.role.trim()) edits.role = f.role.trim();
+  if (f.phone.trim()) edits.phone = f.phone.trim();
+  if (f.calendar.trim()) edits.chilipiperUrl = f.calendar.trim();
+  if (f.photo.trim()) edits.photo = f.photo.trim();
+  const matches = rows.filter((r) => String(r.content?.email ?? "").trim().toLowerCase() === email);
+  if (matches.length === 0) {
+    if (!edits.name) return { error: "Enter your name." };
+    return { create: { name: edits.name, content: { ...edits, email } } };
+  }
+  if (Object.keys(edits).length === 0) return { error: "Add a headshot or some details to save." };
+  return {
+    updates: matches.map((r) => ({
+      id: r.id,
+      name: edits.name ?? r.name ?? String(r.content?.name ?? ""),
+      content: { ...(r.content ?? {}), ...edits, email: String(r.content?.email ?? email) },
+    })),
+  };
 }

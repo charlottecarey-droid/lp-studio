@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CheckCircle2, Download, Gift, Loader2, Upload, AlertCircle, ExternalLink } from "lucide-react";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
+import { GiftPagePreview } from "@/components/sales/GiftPagePreview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,11 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, resolveEffectiveMicrositeDomain } from "@/context/AuthContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
 import { toCsv } from "@/lib/csv";
-import { mergeTeamMembers, type TeamMember } from "@/pages/builder/property-panels/GiftPanels";
+import { ImagePicker } from "@/components/ImagePicker";
+import { mergeTeamMembers, teamMemberCalendar, type TeamMember } from "@/pages/builder/property-panels/GiftPanels";
 import {
-  GIFT_TIERS, MAX_PICKED_GIFTS, WIZARD_COLUMNS, allGifts, applyWizardDefaults, buildGiftProps, composeSource, manualRow, majorityTier,
+  GIFT_TIERS, MAX_PICKED_GIFTS, planRepSave, WIZARD_COLUMNS, allGifts, applyWizardDefaults, buildGiftProps, composeSource, manualRow, majorityTier,
   parseWizardCsv, wizardCsvTemplate,
-  type GiftAudience, type GiftLayoutChoice, type GiftSourceBlocks, type GiftTierId, type WizardRow,
+  type RawLibraryRow, type RepForm, type GiftAudience, type GiftLayoutChoice, type GiftSourceBlocks, type GiftTierId, type WizardRow,
 } from "@/lib/gift-wizard";
 
 const API_BASE = "/api";
@@ -24,7 +26,7 @@ const LAST = STEPS.length - 1;
 type GiftSources = Partial<Record<GiftTierId, { pageId: number; title: string; blocks: GiftSourceBlocks }>>;
 interface BulkResult {
   pagesGenerated: number;
-  created: Array<{ index: number; slug: string; status?: string }>;
+  created: Array<{ index: number; id: number; slug: string; status?: string; url?: string }>;
   failed: Array<{ index: number; slug: string; error: string }>;
   publishSkipped?: string | null;
   repUnmatched?: string[];
@@ -51,6 +53,11 @@ export default function SalesGifting() {
   const [envelope, setEnvelope] = useState(false);
   const [note, setNote] = useState("");
   const [reps, setReps] = useState<TeamMember[]>([]);
+  const [rawReps, setRawReps] = useState<RawLibraryRow[]>([]);
+  const [showMine, setShowMine] = useState(false);
+  const [mine, setMine] = useState<RepForm>({ name: "", role: "", email: "", phone: "", calendar: "", photo: "" });
+  const [savingMine, setSavingMine] = useState(false);
+  const [mineMsg, setMineMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [repEmail, setRepEmail] = useState("");
   const [mode, setMode] = useState<"one" | "upload">("one");
   const [one, setOne] = useState<Record<string, string>>({});
@@ -63,20 +70,28 @@ export default function SalesGifting() {
   const [result, setResult] = useState<{ data: BulkResult; rows: WizardRow[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Reload the Sales Reps library; `initial` also preselects the signed-in user.
+  const loadReps = (initial = false) =>
+    fetch(`${API_BASE}/lp/library/team_member`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: TeamMember[]) => {
+        const list = Array.isArray(rows) ? rows : [];
+        setRawReps(list as unknown as RawLibraryRow[]);
+        const merged = mergeTeamMembers(list).filter((m) => (m.content?.email ?? "").trim());
+        setReps(merged);
+        if (initial) {
+          const me = merged.find((m) => (m.content?.email ?? "").trim().toLowerCase() === (user?.email ?? "").toLowerCase());
+          if (me) setRepEmail((me.content?.email ?? "").trim().toLowerCase());
+        }
+      })
+      .catch(() => setReps([]));
+
   useEffect(() => {
     fetch(`${API_BASE}/lp/programmatic/gift-sources`)
       .then((r) => (r.ok ? r.json() : {}))
       .then((data: GiftSources) => setSources(data && typeof data === "object" ? data : {}))
       .catch(() => setSources({}));
-    fetch(`${API_BASE}/lp/library/team_member`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: TeamMember[]) => {
-        const merged = mergeTeamMembers(Array.isArray(rows) ? rows : []).filter((m) => (m.content?.email ?? "").trim());
-        setReps(merged);
-        const mine = merged.find((m) => (m.content?.email ?? "").trim().toLowerCase() === (user?.email ?? "").toLowerCase());
-        if (mine) setRepEmail((mine.content?.email ?? "").trim().toLowerCase());
-      })
-      .catch(() => setReps([]));
+    loadReps(true);
   }, [user?.email]);
 
   const gifts = useMemo(() => allGifts(sources), [sources]);
@@ -98,6 +113,37 @@ export default function SalesGifting() {
   const rows: WizardRow[] = mode === "one" ? (oneRow ? [oneRow] : []) : uploaded;
   const finalRows = useMemo(() => applyWizardDefaults(rows, repEmail, note), [rows, repEmail, note]);
   const canGenerate = !!templateId && pickedGifts.length > 0 && !!repEmail && finalRows.length > 0 && !generating;
+
+  const openMine = () => {
+    // Start from the selected rep's record, else from the signed-in user.
+    const cur = reps.find((m) => (m.content?.email ?? "").trim().toLowerCase() === (repEmail || (user?.email ?? "").toLowerCase()));
+    setMine({
+      name: cur?.name ?? user?.name ?? "", role: cur?.content?.role ?? "", email: (cur?.content?.email ?? user?.email ?? "").trim(),
+      phone: (cur?.content as { phone?: string } | undefined)?.phone ?? "", calendar: cur ? teamMemberCalendar(cur) : "", photo: cur?.content?.photo ?? "",
+    });
+    setMineMsg(null); setShowMine(true);
+  };
+
+  const saveMine = async () => {
+    const plan = planRepSave(rawReps, mine);
+    if ("error" in plan) { setMineMsg({ ok: false, text: plan.error }); return; }
+    setSavingMine(true); setMineMsg(null);
+    try {
+      const calls = "create" in plan
+        ? [fetch(`${API_BASE}/lp/library/team_member`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: plan.create.name, content: plan.create.content }) })]
+        : plan.updates.map((u) => fetch(`${API_BASE}/lp/library/team_member/${u.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: u.name, content: u.content }) }));
+      const results = await Promise.all(calls);
+      if (results.some((r) => !r.ok)) throw new Error("The library didn't accept that. Try again, or ask an admin.");
+      await loadReps();
+      setRepEmail(mine.email.trim().toLowerCase());
+      setMineMsg({ ok: true, text: "Saved to Sales Reps. You're selected as the sender." });
+      setShowMine(false);
+    } catch (err) {
+      setMineMsg({ ok: false, text: err instanceof Error ? err.message : "Could not save." });
+    } finally {
+      setSavingMine(false);
+    }
+  };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,7 +168,7 @@ export default function SalesGifting() {
       const r = await fetch(`${API_BASE}/lp/programmatic/bulk-generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId, rows: finalRows, gifts: buildPayload(), publish: publish && canPublish, autoSuffix: true }),
+        body: JSON.stringify({ templateId, rows: finalRows, gifts: buildPayload(), hotlinks: true, publish: publish && canPublish, autoSuffix: true }),
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error ?? "Could not create the pages.");
       setResult({ data: (await r.json()) as BulkResult, rows: finalRows });
@@ -133,15 +179,37 @@ export default function SalesGifting() {
     }
   };
 
-  const linkFor = (slug: string) => getLpPageUrl(slug, micrositeDomain, tenantHost);
+  // Hotlink (/p/<token>) when the server made one, so the URL never carries a name.
+  const linkOf = (c: { slug: string; url?: string }) => c.url ?? getLpPageUrl(c.slug, micrositeDomain, tenantHost);
   const linksCsv = () => {
     if (!result) return;
     const lines = [["first_name", "last_name", "company", "email", "rep_email", "status", "link"]];
     for (const c of result.data.created) {
       const v = result.rows[c.index]?.variables ?? {};
-      lines.push([v.first_name ?? "", v.last_name ?? "", v.company ?? "", v.email ?? "", v.rep_email ?? "", c.status ?? "draft", linkFor(c.slug)]);
+      lines.push([v.first_name ?? "", v.last_name ?? "", v.company ?? "", v.email ?? "", v.rep_email ?? "", c.status ?? "draft", linkOf(c)]);
     }
     download("gift-page-links.csv", toCsv(lines));
+  };
+
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState<string | null>(null);
+  const publishAll = async () => {
+    if (!result) return;
+    const ids = result.data.created.filter((c) => c.status !== "published").map((c) => c.id);
+    if (ids.length === 0) return;
+    setPublishing(true); setPublishMsg(null);
+    try {
+      const r = await fetch(`${API_BASE}/lp/programmatic/publish-pages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pageIds: ids }) });
+      const body = (await r.json().catch(() => ({}))) as { published?: number[]; error?: string };
+      if (!r.ok) throw new Error(body.error ?? "Could not publish.");
+      const done = new Set(body.published ?? []);
+      setResult({ ...result, data: { ...result.data, created: result.data.created.map((c) => (done.has(c.id) ? { ...c, status: "published" } : c)) } });
+      setPublishMsg(`Published ${done.size} page${done.size === 1 ? "" : "s"}.`);
+    } catch (err) {
+      setPublishMsg(err instanceof Error ? err.message : "Could not publish.");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const reset = () => { setResult(null); setStep(0); setOne({}); setUploaded([]); setProblems([]); setNote(""); };
@@ -151,11 +219,13 @@ export default function SalesGifting() {
     const { data } = result;
     return (
       <SalesLayout>
-        <div className="space-y-6 max-w-3xl">
-          <SalesPageHeader title="Your gift pages are ready" description={`${data.pagesGenerated} page${data.pagesGenerated === 1 ? "" : "s"} created${data.failed.length ? `, ${data.failed.length} failed` : ""}.`} actions={<><Button variant="outline" onClick={linksCsv} className="gap-1.5"><Download className="w-4 h-4" />Download links (CSV)</Button><Button onClick={reset}>Start another</Button></>} />
+        <div className="mx-auto w-full max-w-3xl space-y-6 py-4 sm:py-8">
+          <SalesPageHeader title="Your gift pages are ready" description={`${data.pagesGenerated} page${data.pagesGenerated === 1 ? "" : "s"} created${data.failed.length ? `, ${data.failed.length} failed` : ""}.`} actions={<>{canPublish && data.created.some((c) => c.status !== "published") && <Button onClick={publishAll} disabled={publishing} className="gap-1.5">{publishing && <Loader2 className="w-4 h-4 animate-spin" />}Publish all</Button>}<Button variant="outline" onClick={linksCsv} className="gap-1.5"><Download className="w-4 h-4" />Download links (CSV)</Button><Button onClick={reset}>Start another</Button></>} />
+          {publishMsg && <Notice tone="blue">{publishMsg}</Notice>}
           {data.publishSkipped && <Notice tone="amber">{data.publishSkipped} The pages were saved as drafts.</Notice>}
           {(data.repUnmatched?.length ?? 0) > 0 && <Notice tone="amber">No Sales Reps match for {data.repUnmatched!.join(", ")}. Those pages keep the template's rep. Fix the rep in Content Library → Sales Reps and run it again.</Notice>}
-          {data.created.some((c) => c.status !== "published") && <Notice tone="blue">These are drafts. Open each in the builder to review and publish before you send the link.</Notice>}
+          {data.created.some((c) => c.url) && <Notice tone="blue">These are private hotlinks: the URL has no names in it. Each recipient is added as a contact, and views show up under Sales → Pages and Activity.</Notice>}
+          {data.created.some((c) => c.status !== "published") && <Notice tone="blue">These are drafts, so the links show "not found" until they're published. {canPublish ? "Use Publish all, or open each in the builder to review first." : "Ask someone with publish access, or submit them for review in the builder."}</Notice>}
           <Card className="divide-y">
             {data.created.map((c) => {
               const v = result.rows[c.index]?.variables ?? {};
@@ -163,12 +233,12 @@ export default function SalesGifting() {
                 <div key={c.slug} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{[v.first_name, v.last_name].filter(Boolean).join(" ") || c.slug}{v.company ? ` · ${v.company}` : ""}</div>
-                    <div className="text-xs text-muted-foreground truncate">{linkFor(c.slug)}</div>
+                    <div className="text-xs text-muted-foreground truncate">{linkOf(c)}</div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">{c.status ?? "draft"}</span>
-                    <Button size="sm" variant="outline" onClick={() => navigator.clipboard?.writeText(linkFor(c.slug))}>Copy link</Button>
-                    <a href={linkFor(c.slug)} target="_blank" rel="noreferrer" aria-label="Open page"><ExternalLink className="w-4 h-4 text-muted-foreground" /></a>
+                    <Button size="sm" variant="outline" onClick={() => navigator.clipboard?.writeText(linkOf(c))}>Copy link</Button>
+                    <a href={linkOf(c)} target="_blank" rel="noreferrer" aria-label="Open page"><ExternalLink className="w-4 h-4 text-muted-foreground" /></a>
                   </div>
                 </div>
               );
@@ -183,25 +253,31 @@ export default function SalesGifting() {
   /* ── Wizard ──────────────────────────────────────────────────────────── */
   return (
     <SalesLayout>
-      <div className="space-y-6 max-w-3xl">
-        <SalesPageHeader title="Holiday gifting" description="Pick the gifts, add your note and your info, then we build a personal gift page for each recipient." />
+      <div className="mx-auto w-full max-w-4xl space-y-10 py-4 sm:py-8">
+        <header className="space-y-3 text-center">
+          <div className="text-[11px] font-medium uppercase tracking-[0.3em] text-muted-foreground">Holiday gifting</div>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Send something worth opening</h1>
+          <p className="mx-auto max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Choose the gifts, add your note and your details, and we'll build a personal gift page for every recipient.</p>
+        </header>
 
-        <ol className="flex items-center gap-2 text-sm">
+        <ol className="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 text-sm">
           {STEPS.map((label, i) => (
             <li key={label} className="flex items-center gap-2">
-              <button type="button" onClick={() => i <= step && setStep(i)} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1 border", i === step ? "bg-foreground text-background border-foreground" : i < step ? "border-foreground/40 text-foreground" : "text-muted-foreground")}>
-                {i < step ? <Check className="w-3.5 h-3.5" /> : <span className="text-xs">{i + 1}</span>}{label}
+              <button type="button" onClick={() => i <= step && setStep(i)} className={cn("flex items-center gap-2 rounded-full py-1 pl-1 pr-3.5 transition-colors", i === step ? "bg-foreground text-background" : i < step ? "text-foreground hover:bg-muted" : "text-muted-foreground cursor-default")}>
+                <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs", i === step ? "bg-background/20" : i < step ? "bg-foreground text-background" : "border")}>{i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}</span>
+                {label}
               </button>
-              {i < STEPS.length - 1 && <span className="text-muted-foreground">·</span>}
+              {i < STEPS.length - 1 && <span className="h-px w-5 bg-border sm:w-8" />}
             </li>
           ))}
         </ol>
 
+        <div className="rounded-3xl border bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_30px_70px_-40px_rgba(0,0,0,0.25)] sm:p-10">
         {step === 0 && (
           <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold">Which gifts do you want to offer?</h2>
-              <p className="text-sm text-muted-foreground">Pick up to {MAX_PICKED_GIFTS}, from any tier. Each recipient chooses one on their page.</p>
+            <div className="space-y-1.5 text-center">
+              <h2 className="text-2xl font-semibold tracking-tight">Which gifts do you want to offer?</h2>
+              <p className="mx-auto max-w-lg text-sm text-muted-foreground">Pick up to {MAX_PICKED_GIFTS}, from any tier. Each recipient chooses one on their page.</p>
             </div>
             {sources === null ? <div className="text-sm text-muted-foreground">Loading gifts…</div> : gifts.length === 0 ? (
               <Notice tone="amber">The holiday gift pages (holiday-gifts-premium, -mid, -swag) aren't set up in this workspace.</Notice>
@@ -212,12 +288,15 @@ export default function SalesGifting() {
                   if (tierGifts.length === 0) return null;
                   const allOn = tierGifts.every((g) => pickedKeys.includes(g.key));
                   return (
-                    <div key={t.id}>
-                      <div className="flex items-baseline justify-between mb-2">
-                        <div><span className="font-semibold text-sm">{t.label}</span> <span className="text-xs text-muted-foreground">{t.blurb}</span></div>
+                    <div key={t.id} className="grid gap-5 md:grid-cols-[200px_1fr]">
+                      <div className="space-y-2">
+                        <GiftPagePreview heroProps={sources?.[t.id]?.blocks["gift-hero"]} />
+                        <div className="text-sm font-semibold">{t.label} page</div>
+                        <p className="text-xs leading-relaxed text-muted-foreground">{t.blurb}</p>
                         <button type="button" className="text-xs underline text-muted-foreground hover:text-foreground" onClick={() => setPicked(allOn ? pickedKeys.filter((k) => !tierGifts.some((g) => g.key === k)) : [...new Set([...pickedKeys, ...tierGifts.map((g) => g.key)])].slice(0, MAX_PICKED_GIFTS))}>{allOn ? "Clear" : "Select all"}</button>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {tierGifts.map((g) => {
                           const on = pickedKeys.includes(g.key);
                           const full = !on && pickedKeys.length >= MAX_PICKED_GIFTS;
@@ -232,6 +311,7 @@ export default function SalesGifting() {
                             </button>
                           );
                         })}
+                      </div>
                       </div>
                     </div>
                   );
@@ -254,15 +334,32 @@ export default function SalesGifting() {
         )}
 
         {step === 1 && (
-          <div className="space-y-5">
-            <h2 className="text-lg font-semibold">How should the page look and read?</h2>
+          <div className="space-y-8">
+            <h2 className="text-center text-2xl font-semibold tracking-tight">How should the page look and read?</h2>
+            <div>
+              <div className="mb-3 text-center text-sm font-medium">Style</div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                {([
+                  { value: "atelier", title: "Atelier", hint: "Light, luxury-retail look with satin ribbon and tags." },
+                  { value: "classic", title: "Dark", hint: "Dark forest green with snow and a gold ribbon." },
+                ] as Array<{ value: GiftLayoutChoice; title: string; hint: string }>).map((o) => {
+                  const hero = buildGiftProps(composeSource(sources ?? {}, pickedGifts, baseTier), { tier: wholeTier ? baseTier : "custom", audience, layout: o.value, envelope: false })["gift-hero"];
+                  return (
+                    <button key={o.value} type="button" onClick={() => setLayout(o.value)} className={cn("group rounded-2xl border p-3 text-left transition-all", layout === o.value ? "border-foreground ring-1 ring-foreground shadow-lg" : "hover:border-foreground/40 hover:shadow-md")}>
+                      <GiftPagePreview heroProps={hero} />
+                      <div className="flex items-center justify-between px-1 pt-3">
+                        <div className="font-semibold">{o.title}</div>
+                        {layout === o.value && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background"><Check className="h-3 w-3" /></span>}
+                      </div>
+                      <p className="px-1 pb-1 text-xs text-muted-foreground">{o.hint}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Choice<GiftAudience> label="Who is it for?" value={audience} onChange={setAudience} options={[
               { value: "prospect", title: "Prospect", hint: "“A small thank-you, no strings attached.” No follow-up required." },
               { value: "customer", title: "Customer", hint: "“Thank you for a great year.” Your rep follows up with tracking." },
-            ]} />
-            <Choice<GiftLayoutChoice> label="Style" value={layout} onChange={setLayout} options={[
-              { value: "atelier", title: "Atelier", hint: "Light, luxury-retail look with satin ribbon and tags." },
-              { value: "classic", title: "Dark", hint: "Dark forest green with snow and a gold ribbon." },
             ]} />
             <Choice<string> label="Opening" value={envelope ? "yes" : "no"} onChange={(v) => setEnvelope(v === "yes")} options={[
               { value: "yes", title: "Envelope", hint: "They open an animated envelope to reveal the card first." },
@@ -272,39 +369,70 @@ export default function SalesGifting() {
         )}
 
         {step === 2 && (
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Do you have a custom note?</h2>
-            <p className="text-sm text-muted-foreground">It appears on the card from you, above the standard message. Leave it blank to use the standard message only. A recipient's own note in an uploaded list wins over this one.</p>
+          <div className="mx-auto max-w-xl space-y-4">
+            <h2 className="text-center text-2xl font-semibold tracking-tight">Do you have a custom note?</h2>
+            <p className="text-center text-sm text-muted-foreground">It appears on the card from you, above the standard message. Leave it blank to use the standard message only. A recipient's own note in an uploaded list wins over this one.</p>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={5} maxLength={600} placeholder="Thank you for trusting us with your labs this year. Wishing you and your team a great holiday season." />
             <div className="text-xs text-muted-foreground">{note.length}/600</div>
           </div>
         )}
 
         {step === 3 && (
-          <div className="space-y-3 max-w-md">
-            <h2 className="text-lg font-semibold">Who is sending it?</h2>
-            <p className="text-sm text-muted-foreground">Your name, title, photo and booking link are pulled from Content Library → Sales Reps, and you're emailed when someone claims a gift.</p>
+          <div className="mx-auto max-w-md space-y-4">
+            <h2 className="text-center text-2xl font-semibold tracking-tight">Who is sending it?</h2>
+            <p className="text-center text-sm text-muted-foreground">Your name, title, photo and booking link are pulled from Content Library → Sales Reps, and you're emailed when someone claims a gift.</p>
             <Select value={repEmail} onValueChange={setRepEmail}>
               <SelectTrigger><SelectValue placeholder={reps.length ? "Choose a rep…" : "Loading reps…"} /></SelectTrigger>
               <SelectContent className="max-h-72">{reps.map((m) => { const e = (m.content?.email ?? "").trim().toLowerCase(); return <SelectItem key={m.id} value={e}>{m.name}{m.content?.role ? `, ${m.content.role}` : ""}</SelectItem>; })}</SelectContent>
             </Select>
             {rep && (
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                {rep.content?.photo ? <img src={rep.content.photo} alt="" className="w-12 h-12 rounded-full object-cover" /> : <div className="w-12 h-12 rounded-full bg-muted" />}
-                <div className="text-sm"><div className="font-medium">{rep.name}</div><div className="text-xs text-muted-foreground">{rep.content?.role || "No title on file"} · {repEmail}</div></div>
+              <div className="flex items-center gap-5 rounded-2xl border p-4">
+                <div className="w-28 shrink-0 rotate-[-2deg] rounded-md bg-white p-1.5 pb-4 shadow-md ring-1 ring-black/5">
+                  <div className="aspect-[4/5] overflow-hidden rounded-sm bg-muted">
+                    {rep.content?.photo ? <img src={rep.content.photo} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-2 text-center text-[10px] text-muted-foreground">No headshot yet</div>}
+                  </div>
+                </div>
+                <div className="min-w-0 text-sm">
+                  <div className="text-base font-semibold">{rep.name}</div>
+                  <div className="text-xs text-muted-foreground">{rep.content?.role || "No title on file"} · {repEmail}</div>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{rep.content?.photo ? "This photo is the big picture on the card." : "Add a headshot below so the card shows you instead of the default image."}</p>
+                </div>
               </div>
             )}
-            {!user?.email || (reps.length > 0 && !reps.some((m) => (m.content?.email ?? "").trim().toLowerCase() === user.email.toLowerCase())) ? (
-              <p className="text-xs text-muted-foreground">Your own email isn't in Sales Reps, so pick yourself from the list or ask an admin to add you.</p>
-            ) : null}
+            {mineMsg && !showMine && <p className={cn("text-xs", mineMsg.ok ? "text-green-700" : "text-red-700")}>{mineMsg.text}</p>}
+            {!showMine ? (
+              <button type="button" onClick={openMine} className="text-sm underline text-muted-foreground hover:text-foreground">
+                {reps.some((m) => (m.content?.email ?? "").trim().toLowerCase() === (user?.email ?? "").toLowerCase()) ? "Update my photo or details" : "I'm not in the list. Add my info"}
+              </button>
+            ) : (
+              <Card className="p-4 space-y-3">
+                <div className="text-sm font-medium">Your details (saved to Sales Reps)</div>
+                <div>
+                  <label className="text-xs font-medium">Headshot</label>
+                  <ImagePicker value={mine.photo} onChange={(v) => setMine({ ...mine, photo: v })} placeholder="Upload your headshot" allowAiGenerate={false} previewClassName="w-20 h-20 object-cover rounded-full" libraryTag="team-photo" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {([["name", "Name"], ["role", "Title"], ["email", "Work email"], ["phone", "Phone"]] as const).map(([k, label]) => (
+                    <div key={k}><label className="text-xs font-medium">{label}</label><Input className="mt-1" value={mine[k]} onChange={(e) => setMine({ ...mine, [k]: e.target.value })} /></div>
+                  ))}
+                </div>
+                <div><label className="text-xs font-medium">Booking link (Chili Piper)</label><Input className="mt-1" value={mine.calendar} onChange={(e) => setMine({ ...mine, calendar: e.target.value })} placeholder="https://meetdandy.chilipiper.com/me/your-name" /></div>
+                <p className="text-xs text-muted-foreground">Only filled-in fields are saved; anything blank keeps what's already on file. If you're already in the library, this updates your record.</p>
+                {mineMsg && <p className={cn("text-xs", mineMsg.ok ? "text-green-700" : "text-red-700")}>{mineMsg.text}</p>}
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={saveMine} disabled={savingMine} className="gap-1.5">{savingMine && <Loader2 className="w-4 h-4 animate-spin" />}Save to Sales Reps</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowMine(false)}>Cancel</Button>
+                </div>
+              </Card>
+            )}
           </div>
         )}
 
         {step === 4 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Who is it going to?</h2>
-            <div className="inline-flex rounded-lg border p-0.5 text-sm">
-              {(["one", "upload"] as const).map((m) => <button key={m} type="button" onClick={() => setMode(m)} className={cn("px-3 py-1 rounded-md", mode === m ? "bg-foreground text-background" : "text-muted-foreground")}>{m === "one" ? "One person" : "Upload a list"}</button>)}
+            <h2 className="text-center text-2xl font-semibold tracking-tight">Who is it going to?</h2>
+            <div className="mx-auto flex w-fit rounded-full border p-1 text-sm">
+              {(["one", "upload"] as const).map((m) => <button key={m} type="button" onClick={() => setMode(m)} className={cn("rounded-full px-4 py-1.5", mode === m ? "bg-foreground text-background" : "text-muted-foreground")}>{m === "one" ? "One person" : "Upload a list"}</button>)}
             </div>
 
             {mode === "one" ? (
@@ -350,7 +478,9 @@ export default function SalesGifting() {
           </div>
         )}
 
-        <div className="flex justify-between pt-2">
+        </div>
+
+        <div className="flex items-center justify-between">
           <Button variant="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>Back</Button>
           {step < LAST ? (
             <Button onClick={() => setStep(step + 1)} disabled={(step === 0 && (!templateId || pickedGifts.length === 0)) || (step === 3 && !repEmail)}>Continue</Button>
@@ -371,10 +501,10 @@ function Notice({ tone, children }: { tone: "amber" | "red" | "blue"; children: 
 function Choice<T extends string>({ label, value, onChange, options }: { label: string; value: T; onChange: (v: T) => void; options: Array<{ value: T; title: string; hint: string }> }) {
   return (
     <div>
-      <div className="text-sm font-medium mb-2">{label}</div>
+      <div className="mb-3 text-center text-sm font-medium">{label}</div>
       <div className="grid gap-3 sm:grid-cols-2">
         {options.map((o) => (
-          <button key={o.value} type="button" onClick={() => onChange(o.value)} className={cn("text-left rounded-xl border p-3 transition-colors", value === o.value ? "border-foreground ring-1 ring-foreground" : "hover:border-foreground/40")}>
+          <button key={o.value} type="button" onClick={() => onChange(o.value)} className={cn("rounded-2xl border p-4 text-left transition-all", value === o.value ? "border-foreground ring-1 ring-foreground shadow-md" : "hover:border-foreground/40")}>
             <div className="font-semibold text-sm">{o.title}</div>
             <p className="text-xs text-muted-foreground mt-0.5">{o.hint}</p>
           </button>

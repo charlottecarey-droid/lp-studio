@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allGifts, applyWizardDefaults, buildGiftProps, composeSource, fixCountCopy, majorityTier, giftNames, giftSourceLabel, manualRow, parseWizardCsv, wizardCsvTemplate } from "./gift-wizard";
+import { planRepSave, allGifts, applyWizardDefaults, buildGiftProps, composeSource, fixCountCopy, majorityTier, giftNames, giftSourceLabel, manualRow, parseWizardCsv, wizardCsvTemplate } from "./gift-wizard";
 
 const source = {
   "gift-hero": { headline: "Pick the gift", envelopeIntro: false, kicker: "Happy holidays from Dandy", tagFrom: "From your Dandy team" },
@@ -97,5 +97,29 @@ describe("pick-your-own gifts", () => {
     expect(majorityTier([all[0], all[2]])).toBe("premium");
     expect(fixCountCopy("Choose one of three", 1)).toBe("Choose your gift");
     expect(fixCountCopy("Choose one of three", 3)).toBe("Choose one of three");
+  });
+});
+
+describe("planRepSave", () => {
+  const form = { name: "", role: "", email: "Bo@x.com", phone: "", calendar: "", photo: "" };
+  const rows = [
+    { id: 1, name: "Bo Lee", content: { name: "Bo Lee", email: "bo@x.com", role: "AE", calendlyUrl: "https://cal/bo" } },
+    { id: 2, name: "Bo Lee", content: { name: "Bo Lee", email: "BO@x.com ", photo: "/old.jpg" } },
+    { id: 3, name: "Other", content: { name: "Other", email: "o@x.com" } },
+  ];
+  it("updates every record for the email with only the filled fields", () => {
+    const plan = planRepSave(rows, { ...form, photo: "/new.jpg" }) as { updates: Array<{ id: number; content: Record<string, unknown> }> };
+    expect(plan.updates.map((u) => u.id)).toEqual([1, 2]);
+    expect(plan.updates[0].content).toMatchObject({ photo: "/new.jpg", role: "AE", calendlyUrl: "https://cal/bo" });
+    expect(plan.updates[1].content.photo).toBe("/new.jpg");
+  });
+  it("creates a record for a new rep, requiring a name", () => {
+    expect(planRepSave(rows, { ...form, email: "new@x.com" })).toEqual({ error: "Enter your name." });
+    const plan = planRepSave(rows, { ...form, email: "new@x.com", name: "New Rep", role: "AE", calendar: "https://cp/new" }) as { create: { name: string; content: Record<string, unknown> } };
+    expect(plan.create.content).toEqual({ name: "New Rep", role: "AE", chilipiperUrl: "https://cp/new", email: "new@x.com" });
+  });
+  it("rejects a bad email or an empty update", () => {
+    expect(planRepSave(rows, { ...form, email: "nope" })).toEqual({ error: "Enter your work email." });
+    expect(planRepSave(rows, form)).toEqual({ error: "Add a headshot or some details to save." });
   });
 });

@@ -72,3 +72,37 @@ export async function ensureHotlinkForContact(
   }
   throw new Error("Failed to generate a unique hotlink token after multiple attempts", { cause: lastErr });
 }
+
+/**
+ * A hotlink for a per-recipient gift page the Sales Console wizard just
+ * created: tied to the recipient's contact when there is one, else contactless. The link is `/p/<token>`: opaque, and
+ * resolving it records a page_view signal tied to this hotlink. Retries on a
+ * token collision like ensureHotlinkForContact.
+ */
+export async function createPageHotlink(
+  tenantId: number,
+  pageId: number,
+  contact?: { contactId: number; salesforceId: string | null } | null,
+): Promise<{ id: number; token: string }> {
+  // A known recipient: the standard per-contact hotlink (views name the person).
+  if (contact) return ensureHotlinkForContact(tenantId, contact.contactId, pageId, contact.salesforceId);
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = randomBytes(12).toString("base64url").slice(0, 16);
+    try {
+      const [row] = await db.insert(salesHotlinksTable)
+        .values({ tenantId, token: candidate, contactId: null, sfdcContactId: null, pageId })
+        .returning({ id: salesHotlinksTable.id, token: salesHotlinksTable.token });
+      return { id: row.id, token: row.token };
+    } catch (err) {
+      if (isUniqueViolation(err)) { lastErr = err; continue; }
+      throw err;
+    }
+  }
+  throw new Error("Failed to generate a unique hotlink token after multiple attempts", { cause: lastErr });
+}
+
+/** `gift-` + 10 hex chars: a page slug that says nothing about the recipient. */
+export function opaqueSlug(prefix = "gift"): string {
+  return `${prefix}-${randomBytes(5).toString("hex")}`;
+}

@@ -2,13 +2,16 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 import { userCanPublish } from "./pages";
 import { loadRepDirectory, fillRepVariables, applyRepToBlocks, applyGiftProps, sanitizeGiftProps } from "../../lib/sales/rep-directory";
 import { triggerPublishedRender } from "../../lib/triggerPublishedRender";
 import { getRequestHost } from "../../lib/requestHost";
+import { createPageHotlink, opaqueSlug } from "../../lib/ensureHotlink";
+import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
+import { findOrCreateRecipientContact, type RecipientContact } from "../../lib/sales/recipient-contacts";
 import { isUniqueViolation } from "../../lib/dbErrors";
 
 const router = Router();
@@ -232,6 +235,35 @@ router.get("/lp/programmatic/gift-sources", async (req, res): Promise<void> => {
   }
 });
 
+// POST /lp/programmatic/publish-pages — publish drafts a bulk run created.
+// Body: { pageIds: number[] }. Tenant-scoped, non-template pages only, and only
+// for users allowed to publish; same effect as bulk-generate with publish: true.
+router.post("/lp/programmatic/publish-pages", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    if (!(await userCanPublish(req.authUser, tenantId))) {
+      res.status(403).json({ error: "You don't have permission to publish pages." });
+      return;
+    }
+    const ids = Array.isArray(req.body?.pageIds) ? (req.body.pageIds as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500) : [];
+    if (ids.length === 0) {
+      res.status(400).json({ error: "pageIds[] is required" });
+      return;
+    }
+    const updated = await db
+      .update(lpPagesTable)
+      .set({ status: "published" })
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, false), inArray(lpPagesTable.id, ids), eq(lpPagesTable.status, "draft")))
+      .returning({ id: lpPagesTable.id });
+    for (const p of updated) triggerPublishedRender({ pageId: p.id, requestHost: getRequestHost(req) });
+    res.json({ published: updated.map((p) => p.id) });
+  } catch (err) {
+    console.error("POST /lp/programmatic/publish-pages error:", err);
+    res.status(500).json({ error: "Failed to publish pages" });
+  }
+});
+
 // POST /lp/programmatic/bulk-generate — clone a template page N times with variable overrides
 //
 // Body: { templateId, rows: [{ slug, variables }], publish?, autoSuffix? }
@@ -242,6 +274,10 @@ router.get("/lp/programmatic/gift-sources", async (req, res): Promise<void> => {
 //     (values already in the row win).
 //   - gifts: optional { "gift-hero"|"gift-picker"|"gift-form"|"gift-note": props }
 //     replacing those blocks' props (Sales Console gifting wizard).
+//   - hotlinks: give every page a random slug (no recipient name in the URL)
+//     and a /p/<token> hotlink; `created[].url` is that link. Each row's
+//     recipient becomes a Sales contact (+ account, reused by name or created)
+//     the hotlink is tied to, so opening it records a named page_view signal.
 //   - publish: create the pages as published (only for users allowed to
 //     publish; otherwise they stay drafts and `publishSkipped` says why).
 //   - autoSuffix: when a slug is taken, try slug-2, slug-3, … instead of
@@ -253,12 +289,13 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
     const tenantId = getTenantId(req, res);
     if (tenantId === null) return;
 
-    const { templateId, rows, publish, autoSuffix, gifts } = req.body as {
+    const { templateId, rows, publish, autoSuffix, gifts, hotlinks } = req.body as {
       templateId?: number;
       rows?: Array<{ slug: string; variables: Record<string, string> }>;
       publish?: boolean;
       autoSuffix?: boolean;
       gifts?: unknown;
+      hotlinks?: boolean;
     };
 
     if (!templateId || !Array.isArray(rows) || rows.length === 0) {
@@ -294,7 +331,9 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
     const giftOverride = sanitizeGiftProps(gifts);
     const baseBlocks = Array.isArray(template.blocks) ? template.blocks : [];
 
-    const created: Array<{ index: number; id: number; slug: string; status: string }> = [];
+    const useHotlinks = hotlinks === true;
+    const origin = useHotlinks ? await getTenantOutboundOrigin(tenantId, req) : "";
+    const created: Array<{ index: number; id: number; slug: string; status: string; url?: string }> = [];
     const errors: Array<{ index: number; slug: string; error: string }> = [];
 
     const baseVars = (template.pageVariables && typeof template.pageVariables === "object" && !Array.isArray(template.pageVariables))
@@ -303,7 +342,7 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
 
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index];
-      const rawSlug = String(row?.slug ?? "").trim().toLowerCase();
+      const rawSlug = useHotlinks ? "(hotlink)" : String(row?.slug ?? "").trim().toLowerCase();
       if (!rawSlug) {
         errors.push({ index, slug: "", error: "Missing slug" });
         continue;
@@ -321,11 +360,22 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
       const pageBlocks = repMatched ? applyRepToBlocks(templateBlocks, rowVars) : templateBlocks;
       // Merge template pageVariables with row-specific overrides
       const mergedVars = { ...baseVars, ...rowVars };
-      const who = [rowVars.first_name, rowVars.last_name].filter(Boolean).join(" ") || rowVars.company || rawSlug;
+      const who = [rowVars.first_name, rowVars.last_name].filter(Boolean).join(" ") || rowVars.company || (useHotlinks ? "Recipient" : rawSlug);
+
+      // Hotlink pages are tied to a real contact + account (created if new), so
+      // views name the recipient and the page files under their account.
+      let recipient: RecipientContact | null = null;
+      if (useHotlinks) {
+        try {
+          recipient = await findOrCreateRecipientContact(tenantId, rowVars, req.authUser?.name ?? null);
+        } catch (contactErr) {
+          console.error("bulk-generate: recipient contact failed:", contactErr);
+        }
+      }
 
       let done = false;
-      for (let attempt = 0; attempt < (autoSuffix ? 20 : 1) && !done; attempt++) {
-        const slug = attempt === 0 ? rawSlug : `${rawSlug}-${attempt + 1}`;
+      for (let attempt = 0; attempt < (autoSuffix || useHotlinks ? 20 : 1) && !done; attempt++) {
+        const slug = useHotlinks ? opaqueSlug() : attempt === 0 ? rawSlug : `${rawSlug}-${attempt + 1}`;
         try {
           const [page] = await db
             .insert(lpPagesTable)
@@ -343,10 +393,22 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
               smoothScroll: template.smoothScroll ?? true,
               styleOverrides: template.styleOverrides ?? null,
               pageVariables: mergedVars,
+              ...(recipient ? { accountId: recipient.accountId } : {}),
               createdBy: req.authUser?.email ?? null,
             })
             .returning({ id: lpPagesTable.id, slug: lpPagesTable.slug, status: lpPagesTable.status });
-          created.push({ index, id: page.id, slug: page.slug, status: page.status });
+          let url: string | undefined;
+          if (useHotlinks) {
+            try {
+              const link = await createPageHotlink(tenantId, page.id, recipient);
+              url = `${origin}/p/${link.token}`;
+            } catch (linkErr) {
+              // No link, no point keeping an unreachable-by-design page.
+              await db.delete(lpPagesTable).where(eq(lpPagesTable.id, page.id)).catch(() => {});
+              throw linkErr;
+            }
+          }
+          created.push({ index, id: page.id, slug: page.slug, status: page.status, ...(url ? { url } : {}) });
           if (page.status === "published") {
             triggerPublishedRender({ pageId: page.id, requestHost: getRequestHost(req) });
           }
@@ -354,12 +416,12 @@ router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> =>
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
           const isDupe = isUniqueViolation(err) || message.includes("23505") || message.includes("duplicate");
-          if (isDupe && autoSuffix) continue;
+          if (isDupe && (autoSuffix || useHotlinks)) continue;
           errors.push({ index, slug, error: isDupe ? "Slug already exists" : "Failed to create" });
           done = true;
         }
       }
-      if (!done) errors.push({ index, slug: rawSlug, error: "Slug already exists" });
+      if (!done) errors.push({ index, slug: useHotlinks ? "" : rawSlug, error: "Slug already exists" });
     }
 
     res.json({
