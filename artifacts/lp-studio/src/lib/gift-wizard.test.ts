@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyWizardDefaults, buildGiftProps, giftNames, giftSourceLabel, manualRow, parseWizardCsv, wizardCsvTemplate } from "./gift-wizard";
+import { allGifts, applyWizardDefaults, buildGiftProps, composeSource, fixCountCopy, majorityTier, giftNames, giftSourceLabel, manualRow, parseWizardCsv, wizardCsvTemplate } from "./gift-wizard";
 
 const source = {
   "gift-hero": { headline: "Pick the gift", envelopeIntro: false, kicker: "Happy holidays from Dandy", tagFrom: "From your Dandy team" },
@@ -63,5 +63,39 @@ describe("recipient list", () => {
   it("builds a manual row slug", () => {
     expect(manualRow({ first_name: "Ada", last_name: "Lovelace", company: "Acme Dental" })?.slug).toBe("ada-lovelace-acme-dental");
     expect(manualRow({ first_name: "Ada" })).toBeNull();
+  });
+});
+
+describe("pick-your-own gifts", () => {
+  const sources = {
+    premium: { pageId: 1, title: "P", blocks: { "gift-hero": { subheadline: "Choose your gift", ctaText: "See the options" }, "gift-picker": { headline: "x", options: [{ name: "AirPods" }, { name: "Ray-Bans" }] }, "gift-form": { sizeOptions: [], sizeLabel: "", subheadline: "Three quick steps." } } },
+    mid: { pageId: 2, title: "M", blocks: { "gift-hero": { subheadline: "Choose one of three, tell us where to send it", ctaText: "See the three gifts" }, "gift-picker": { headline: "x", options: [{ name: "Yeti" }, { name: "Candy" }, { name: "Bears" }] }, "gift-form": { sizeOptions: [], sizeLabel: "" } } },
+    swag: { pageId: 3, title: "S", blocks: { "gift-picker": { options: [{ name: "Jacket" }] }, "gift-form": { sizeOptions: ["S", "M"], sizeLabel: "Size (if it applies)" } } },
+  };
+  it("lists every gift with a tier key", () => {
+    expect(allGifts(sources).map((g) => g.key)).toEqual(["premium::AirPods", "premium::Ray-Bans", "mid::Yeti", "mid::Candy", "mid::Bears", "swag::Jacket"]);
+  });
+  it("composes the picked gifts onto the base page and fixes count copy", () => {
+    const all = allGifts(sources);
+    const picked = [all[0], all[2]]; // AirPods + Yeti
+    const out = composeSource(sources, picked, "mid");
+    expect((out["gift-picker"].options as Array<{ name: string }>).map((o) => o.name)).toEqual(["AirPods", "Yeti"]);
+    expect(out["gift-hero"].subheadline).toBe("Choose one of two, tell us where to send it");
+    expect(out["gift-hero"].ctaText).toBe("See the two gifts");
+    expect(out["gift-form"].sizeOptions).toEqual([]);
+    expect(sources.mid.blocks["gift-picker"].options).toHaveLength(3); // source untouched
+  });
+  it("adds the size select only when a swag gift is picked", () => {
+    const all = allGifts(sources);
+    const out = composeSource(sources, [all[0], all[5]], "premium");
+    expect(out["gift-form"].sizeOptions).toEqual(["S", "M"]);
+    expect(out["gift-form"].sizeLabel).toBe("Size (if it applies)");
+  });
+  it("picks the majority tier as the base and rewrites counts", () => {
+    const all = allGifts(sources);
+    expect(majorityTier([all[2], all[3], all[0]])).toBe("mid");
+    expect(majorityTier([all[0], all[2]])).toBe("premium");
+    expect(fixCountCopy("Choose one of three", 1)).toBe("Choose your gift");
+    expect(fixCountCopy("Choose one of three", 3)).toBe("Choose one of three");
   });
 });

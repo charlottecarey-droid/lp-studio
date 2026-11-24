@@ -12,8 +12,8 @@ import { getLpPageUrl, cn } from "@/lib/utils";
 import { toCsv } from "@/lib/csv";
 import { mergeTeamMembers, type TeamMember } from "@/pages/builder/property-panels/GiftPanels";
 import {
-  GIFT_TIERS, WIZARD_COLUMNS, applyWizardDefaults, buildGiftProps, giftNames, manualRow,
-  parseWizardCsv, tierById, wizardCsvTemplate,
+  GIFT_TIERS, MAX_PICKED_GIFTS, WIZARD_COLUMNS, allGifts, applyWizardDefaults, buildGiftProps, composeSource, manualRow, majorityTier,
+  parseWizardCsv, wizardCsvTemplate,
   type GiftAudience, type GiftLayoutChoice, type GiftSourceBlocks, type GiftTierId, type WizardRow,
 } from "@/lib/gift-wizard";
 
@@ -43,7 +43,8 @@ export default function SalesGifting() {
   const tenantHost = user?.tenantHost ?? null;
 
   const [step, setStep] = useState(0);
-  const [tierId, setTierId] = useState<GiftTierId>("premium");
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const [baseOverride, setBaseOverride] = useState<GiftTierId | null>(null);
   const [sources, setSources] = useState<GiftSources | null>(null);
   const [audience, setAudience] = useState<GiftAudience>("customer");
   const [layout, setLayout] = useState<GiftLayoutChoice>("classic");
@@ -78,14 +79,25 @@ export default function SalesGifting() {
       .catch(() => setReps([]));
   }, [user?.email]);
 
-  const tier = tierById(tierId);
-  const source = sources?.[tierId];
-  const templateId = source?.pageId ?? null;
+  const gifts = useMemo(() => allGifts(sources), [sources]);
+  // Until the rep chooses, start from the whole premium set.
+  const pickedKeys = picked ?? gifts.filter((g) => g.tier === "premium").map((g) => g.key);
+  const pickedGifts = gifts.filter((g) => pickedKeys.includes(g.key));
+  const pickedTiers = GIFT_TIERS.filter((t) => pickedGifts.some((g) => g.tier === t.id));
+  const baseTier: GiftTierId = baseOverride && pickedTiers.some((t) => t.id === baseOverride) ? baseOverride : majorityTier(pickedGifts);
+  const templateId = sources?.[baseTier]?.pageId ?? null;
+  const wholeTier = pickedTiers.length === 1 && pickedGifts.length === gifts.filter((g) => g.tier === baseTier).length;
+  const togglePick = (key: string) => {
+    const cur = pickedKeys;
+    if (cur.includes(key)) setPicked(cur.filter((k) => k !== key));
+    else if (cur.length < MAX_PICKED_GIFTS) setPicked([...cur, key]);
+  };
+  const buildPayload = () => buildGiftProps(composeSource(sources ?? {}, pickedGifts, baseTier), { tier: wholeTier ? baseTier : "custom", audience, layout, envelope });
   const rep = reps.find((m) => (m.content?.email ?? "").trim().toLowerCase() === repEmail);
   const oneRow = useMemo(() => manualRow(one), [one]);
   const rows: WizardRow[] = mode === "one" ? (oneRow ? [oneRow] : []) : uploaded;
   const finalRows = useMemo(() => applyWizardDefaults(rows, repEmail, note), [rows, repEmail, note]);
-  const canGenerate = !!templateId && !!source && !!repEmail && finalRows.length > 0 && !generating;
+  const canGenerate = !!templateId && pickedGifts.length > 0 && !!repEmail && finalRows.length > 0 && !generating;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,7 +122,7 @@ export default function SalesGifting() {
       const r = await fetch(`${API_BASE}/lp/programmatic/bulk-generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId, rows: finalRows, gifts: buildGiftProps(source!.blocks, { tier: tierId, audience, layout, envelope }), publish: publish && canPublish, autoSuffix: true }),
+        body: JSON.stringify({ templateId, rows: finalRows, gifts: buildPayload(), publish: publish && canPublish, autoSuffix: true }),
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error ?? "Could not create the pages.");
       setResult({ data: (await r.json()) as BulkResult, rows: finalRows });
@@ -187,24 +199,57 @@ export default function SalesGifting() {
 
         {step === 0 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Which gifts do you want to send?</h2>
-            {sources === null ? <div className="text-sm text-muted-foreground">Loading gifts…</div> : (
-              <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <h2 className="text-lg font-semibold">Which gifts do you want to offer?</h2>
+              <p className="text-sm text-muted-foreground">Pick up to {MAX_PICKED_GIFTS}, from any tier. Each recipient chooses one on their page.</p>
+            </div>
+            {sources === null ? <div className="text-sm text-muted-foreground">Loading gifts…</div> : gifts.length === 0 ? (
+              <Notice tone="amber">The holiday gift pages (holiday-gifts-premium, -mid, -swag) aren't set up in this workspace.</Notice>
+            ) : (
+              <div className="space-y-5">
                 {GIFT_TIERS.map((t) => {
-                  const names = giftNames(sources[t.id]?.blocks);
-                  const missing = !sources[t.id];
+                  const tierGifts = gifts.filter((g) => g.tier === t.id);
+                  if (tierGifts.length === 0) return null;
+                  const allOn = tierGifts.every((g) => pickedKeys.includes(g.key));
                   return (
-                    <button key={t.id} type="button" disabled={missing} onClick={() => setTierId(t.id)} className={cn("text-left rounded-xl border p-4 transition-colors disabled:opacity-50", tierId === t.id ? "border-foreground ring-1 ring-foreground" : "hover:border-foreground/40")}>
-                      <Gift className="w-5 h-5 mb-2" />
-                      <div className="font-semibold">{t.label}</div>
-                      <p className="text-xs text-muted-foreground mt-1">{missing ? "This gift page isn't set up in this workspace." : t.blurb}</p>
-                      <ul className="mt-3 space-y-0.5 text-xs">{names.map((n) => <li key={n}>• {n}</li>)}</ul>
-                    </button>
+                    <div key={t.id}>
+                      <div className="flex items-baseline justify-between mb-2">
+                        <div><span className="font-semibold text-sm">{t.label}</span> <span className="text-xs text-muted-foreground">{t.blurb}</span></div>
+                        <button type="button" className="text-xs underline text-muted-foreground hover:text-foreground" onClick={() => setPicked(allOn ? pickedKeys.filter((k) => !tierGifts.some((g) => g.key === k)) : [...new Set([...pickedKeys, ...tierGifts.map((g) => g.key)])].slice(0, MAX_PICKED_GIFTS))}>{allOn ? "Clear" : "Select all"}</button>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {tierGifts.map((g) => {
+                          const on = pickedKeys.includes(g.key);
+                          const full = !on && pickedKeys.length >= MAX_PICKED_GIFTS;
+                          return (
+                            <button key={g.key} type="button" disabled={full} onClick={() => togglePick(g.key)} className={cn("relative text-left rounded-xl border p-3 transition-colors disabled:opacity-40", on ? "border-foreground ring-1 ring-foreground" : "hover:border-foreground/40")}>
+                              <span className={cn("absolute right-2 top-2 w-5 h-5 rounded-full border flex items-center justify-center", on ? "bg-foreground text-background border-foreground" : "bg-background")}>{on && <Check className="w-3 h-3" />}</span>
+                              <div className="h-24 mb-2 rounded-md bg-muted/50 flex items-center justify-center overflow-hidden">
+                                {g.imageUrl ? <img src={g.imageUrl} alt="" className="max-h-full max-w-full object-contain" /> : <Gift className="w-6 h-6 text-muted-foreground" />}
+                              </div>
+                              <div className="text-sm font-medium leading-snug">{g.name}</div>
+                              {g.caption && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{g.caption}</p>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="text-muted-foreground">{pickedGifts.length} selected{pickedGifts.length >= MAX_PICKED_GIFTS ? " (the most one page shows)" : ""}</span>
+                  {pickedTiers.length > 1 && (
+                    <label className="flex items-center gap-2">Page look based on
+                      <Select value={baseTier} onValueChange={(v) => setBaseOverride(v as GiftTierId)}>
+                        <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                        <SelectContent>{pickedTiers.map((t) => <SelectItem key={t.id} value={t.id}>{t.label} page</SelectItem>)}</SelectContent>
+                      </Select>
+                    </label>
+                  )}
+                </div>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Recipients choose one gift on their page. Each tier is built from its own designed page, so editing that page in the builder changes what's generated.</p>
+            <p className="text-xs text-muted-foreground">Gifts, photos and copy come from the designed gift pages, so editing those in the builder changes what's offered here. A size picker appears automatically when a swag item is selected.</p>
           </div>
         )}
 
@@ -298,7 +343,7 @@ export default function SalesGifting() {
 
             <Card className="p-4 text-sm space-y-1">
               <div className="font-medium">Ready to build</div>
-              <div className="text-muted-foreground">{finalRows.length || 0} page{finalRows.length === 1 ? "" : "s"} · {tier.label} gifts · {audience} · {layout === "atelier" ? "Atelier" : "Dark"} · {envelope ? "envelope" : "no envelope"} · from {rep?.name ?? "(pick a rep)"} · {note.trim() ? "custom note" : "standard note"}</div>
+              <div className="text-muted-foreground">{finalRows.length || 0} page{finalRows.length === 1 ? "" : "s"} · {pickedGifts.length} gift{pickedGifts.length === 1 ? "" : "s"} ({pickedGifts.map((g) => g.name).join(", ")}) · {audience} · {layout === "atelier" ? "Atelier" : "Dark"} · {envelope ? "envelope" : "no envelope"} · from {rep?.name ?? "(pick a rep)"} · {note.trim() ? "custom note" : "standard note"}</div>
               {canPublish && <label className="flex items-center gap-2 pt-2"><input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />Publish the pages now (otherwise they're saved as drafts to review first)</label>}
             </Card>
             {error && <Notice tone="red">{error}</Notice>}
@@ -308,7 +353,7 @@ export default function SalesGifting() {
         <div className="flex justify-between pt-2">
           <Button variant="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>Back</Button>
           {step < LAST ? (
-            <Button onClick={() => setStep(step + 1)} disabled={(step === 0 && !templateId) || (step === 3 && !repEmail)}>Continue</Button>
+            <Button onClick={() => setStep(step + 1)} disabled={(step === 0 && (!templateId || pickedGifts.length === 0)) || (step === 3 && !repEmail)}>Continue</Button>
           ) : (
             <Button onClick={generate} disabled={!canGenerate} className="gap-1.5">{generating && <Loader2 className="w-4 h-4 animate-spin" />}Create {finalRows.length > 1 ? `${finalRows.length} pages` : "page"}</Button>
           )}

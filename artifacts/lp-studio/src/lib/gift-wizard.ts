@@ -26,7 +26,7 @@ export type GiftBlockProps = Record<string, unknown>;
 /** The source page's gift blocks, keyed by block type (from gift-sources). */
 export type GiftSourceBlocks = Record<string, GiftBlockProps>;
 
-export interface GiftChoices { tier: GiftTierId; audience: GiftAudience; layout: GiftLayoutChoice; envelope: boolean }
+export interface GiftChoices { tier: GiftTierId | "custom"; audience: GiftAudience; layout: GiftLayoutChoice; envelope: boolean }
 
 const PROSPECT_COPY: Record<string, GiftBlockProps> = {
   "gift-hero": {
@@ -65,7 +65,8 @@ const ATELIER_COPY: Record<string, GiftBlockProps> = {
 };
 
 /** Lead source label, e.g. holiday-gift-prospect / holiday-gift-mid-customer / holiday-swag-prospect. */
-export function giftSourceLabel(tier: GiftTierId, audience: GiftAudience): string {
+export function giftSourceLabel(tier: GiftTierId | "custom", audience: GiftAudience): string {
+  if (tier === "custom") return `holiday-gift-custom-${audience}`;
   return `${tier === "swag" ? "holiday-swag" : tier === "mid" ? "holiday-gift-mid" : "holiday-gift"}-${audience}`;
 }
 
@@ -111,6 +112,78 @@ export function buildGiftProps(source: GiftSourceBlocks, c: GiftChoices): Record
     out[type] = p;
   }
   return out;
+}
+
+export interface PickableGift { key: string; tier: GiftTierId; name: string; caption: string; imageUrl: string; option: Record<string, unknown> }
+
+/** Every gift across the three source pages, for the pick-your-own step. */
+export function allGifts(sources: Partial<Record<GiftTierId, { blocks: GiftSourceBlocks }>> | null): PickableGift[] {
+  const out: PickableGift[] = [];
+  for (const t of GIFT_TIERS) {
+    const opts = sources?.[t.id]?.blocks?.["gift-picker"]?.options;
+    if (!Array.isArray(opts)) continue;
+    for (const o of opts as Array<Record<string, unknown>>) {
+      const name = String(o.name ?? "");
+      if (name) out.push({ key: `${t.id}::${name}`, tier: t.id, name, caption: String(o.caption ?? ""), imageUrl: String(o.imageUrl ?? ""), option: o });
+    }
+  }
+  return out;
+}
+
+export const MAX_PICKED_GIFTS = 4;
+const COUNT_WORD = ["", "one", "two", "three", "four"];
+
+/** Swap "one of three" / "three gifts" style copy for the real number of gifts. */
+export function fixCountCopy(text: unknown, n: number): unknown {
+  if (typeof text !== "string" || n === 3) return text;
+  if (n === 1) return text.replace(/\b(choose|pick) one of (three|two|four)\b/gi, "$1 your gift").replace(/\b(three|two|four) gifts\b/gi, "your gift");
+  const w = COUNT_WORD[n] ?? String(n);
+  return text.replace(/\bone of three\b/gi, `one of ${w}`).replace(/\bthree gifts\b/gi, `${w} gifts`).replace(/\bthree to choose from\b/gi, `${w} to choose from`);
+}
+
+/**
+ * The source blocks for a hand-picked set of gifts: the base page's blocks
+ * (its look, hero photo and copy), with the picker showing exactly the
+ * picked gifts and the size select present only if a swag gift is among them.
+ */
+export function composeSource(
+  sources: Partial<Record<GiftTierId, { blocks: GiftSourceBlocks }>>,
+  picked: PickableGift[],
+  baseTier: GiftTierId,
+): GiftSourceBlocks {
+  const base = sources[baseTier]?.blocks ?? {};
+  const n = picked.length;
+  const out: GiftSourceBlocks = {};
+  for (const [type, props] of Object.entries(base)) out[type] = { ...props };
+  if (out["gift-picker"]) {
+    out["gift-picker"] = { ...out["gift-picker"], options: picked.map((g) => g.option), headline: fixCountCopy(out["gift-picker"].headline, n) };
+  }
+  if (out["gift-hero"]) {
+    for (const k of ["ctaText", "subheadline"]) out["gift-hero"][k] = fixCountCopy(out["gift-hero"][k], n);
+    if (Array.isArray(out["gift-hero"].facts)) {
+      out["gift-hero"].facts = (out["gift-hero"].facts as Array<{ label?: unknown }>).map((f) => ({ ...f, label: fixCountCopy(f.label, n) }));
+    }
+  }
+  if (out["gift-form"]) {
+    const swagForm = sources.swag?.blocks?.["gift-form"];
+    const hasSwag = picked.some((g) => g.tier === "swag");
+    out["gift-form"] = {
+      ...out["gift-form"],
+      subheadline: fixCountCopy(out["gift-form"].subheadline, n),
+      sizeOptions: hasSwag ? ((swagForm?.sizeOptions as string[] | undefined) ?? ["XS", "S", "M", "L", "XL", "XXL"]) : [],
+      sizeLabel: hasSwag ? String(swagForm?.sizeLabel || "Size (if it applies)") : "",
+    };
+  }
+  return out;
+}
+
+/** Tier with the most picked gifts (ties go to the earlier tier), as the page's base look. */
+export function majorityTier(picked: PickableGift[]): GiftTierId {
+  const counts = new Map<GiftTierId, number>();
+  for (const g of picked) counts.set(g.tier, (counts.get(g.tier) ?? 0) + 1);
+  let best: GiftTierId = "premium", n = -1;
+  for (const t of GIFT_TIERS) if ((counts.get(t.id) ?? 0) > n) { best = t.id; n = counts.get(t.id) ?? 0; }
+  return best;
 }
 
 /** Gift names on the source page, for the tier cards. */
