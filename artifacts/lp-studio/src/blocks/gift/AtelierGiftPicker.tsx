@@ -9,6 +9,7 @@ import type { GiftOption, GiftPickerBlockProps } from "../BlockGiftPicker";
 import { ATELIER_BODY, ATELIER_CSS, ATELIER_LINK_CLASS, ATELIER_SERIF, AtelierEyebrow, GiftBoxArt, LeatherTag, SatinBand, SatinBow, resolveAtelierPalette } from "./atelier-theme";
 import { AtelierHeadline } from "./AtelierHeadline";
 import { isGiftSoldOut, selectGift, useGiftSelection } from "./gift-selection";
+import { DEFAULT_LIMITED_NOTE, SINGLE_GIFT_PICKER_COPY } from "@/lib/gift-copy";
 import { useRegisterGiftOptions } from "./use-register-gift-options";
 import { cn } from "@/lib/utils";
 import { GiftFlip } from "./GiftFlip";
@@ -49,14 +50,21 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
 
   // One gift is a featured gift, not a choice: no "choose one" framing, it is
   // selected for the visitor, and the card sits centred wearing its ribbon.
-  const single = options.length === 1 && !isEditor;
+  // Sold-out gifts are hidden on the live page (the builder keeps showing them,
+  // marked). One left is a featured gift, not a choice.
+  const shown = isEditor ? options : options.filter((o) => !isGiftSoldOut(selection.soldOut, o.name));
+  const allGone = !isEditor && options.length > 0 && shown.length === 0;
+  const single = shown.length === 1 && !isEditor;
+  const narrowedToOne = single && options.length > 1;
+  const limitedNote = props.limitedNote === undefined ? DEFAULT_LIMITED_NOTE : props.limitedNote.trim();
   useEffect(() => {
-    if (single && !isGiftSoldOut(selection.soldOut, options[0].name)) selectGift(options[0].name);
-  }, [single, options, selection.soldOut]);
-  const claimText = props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
+    if (single) selectGift(shown[0].name);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [single, shown[0]?.name]);
+  const claimText = narrowedToOne ? SINGLE_GIFT_PICKER_COPY.chooseText : props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
 
-  const cols = options.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : options.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
-  const count = options.length;
+  const cols = shown.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : shown.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
+  const count = shown.length;
 
   return (
     <section id={props.anchorId || "gifts"} data-gift-layout="atelier" className="relative" style={{ background: pal.bg, color: pal.ink, fontFamily: ATELIER_BODY }}>
@@ -64,13 +72,13 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
       <div className="mx-auto w-full max-w-page px-6 py-20 lg:px-10 lg:py-28">
         <div className="grid grid-cols-1 items-end gap-8 pb-10 lg:grid-cols-12" style={{ borderBottom: `1px solid ${pal.line}` }}>
           <div className="flex flex-col gap-5 lg:col-span-7">
-            {(props.kicker || isEditor) && <AtelierEyebrow palette={pal}><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></AtelierEyebrow>}
-            {(props.headline || isEditor) && <AtelierHeadline value={props.headline ?? ""} size="clamp(2.6rem, 5vw, 4.4rem)" onUpdate={field("headline")} />}
+            {(props.kicker || isEditor) && <AtelierEyebrow palette={pal}><InlineText as="span" value={narrowedToOne ? SINGLE_GIFT_PICKER_COPY.kicker : props.kicker ?? ""} onUpdate={field("kicker")} /></AtelierEyebrow>}
+            {(props.headline || isEditor) && <AtelierHeadline value={narrowedToOne ? SINGLE_GIFT_PICKER_COPY.headline : props.headline ?? ""} size="clamp(2.6rem, 5vw, 4.4rem)" onUpdate={field("headline")} />}
           </div>
           <div className="flex flex-col gap-3 lg:col-span-5 lg:pb-2">
             {(props.subheadline || isEditor) && (
               <p className="max-w-[44ch] text-[15px] leading-relaxed" style={{ color: pal.muted }}>
-                <InlineText as="span" value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+                <InlineText as="span" value={narrowedToOne ? SINGLE_GIFT_PICKER_COPY.subheadline : props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
               </p>
             )}
             {!single && (
@@ -82,7 +90,10 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
         </div>
 
         <div className={cn("mt-14 grid grid-cols-1 gap-x-8 gap-y-16", single ? "mx-auto max-w-[460px]" : cols)}>
-          {options.map((it, i) => {
+          {allGone ? (
+            <p className="col-span-full py-10 text-center text-[15px]" style={{ color: pal.muted }}>Every gift has been claimed. Thank you for stopping by.</p>
+          ) : null}
+          {shown.map((it, i) => {
             const picked = !isEditor && selection.selected !== "" && selection.selected === it.name;
             const dressed = picked || single; // ribbon, bow and tag
             const markedPicked = picked && !single; // "Your pick" label state
@@ -186,6 +197,9 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
             );
           })}
         </div>
+        {limitedNote && (
+          <p className="mt-12 text-center text-[11px] font-medium uppercase tracking-[0.24em]" style={{ color: pal.faint }} data-gift-limited-note="true">{limitedNote}</p>
+        )}
       </div>
     </section>
   );

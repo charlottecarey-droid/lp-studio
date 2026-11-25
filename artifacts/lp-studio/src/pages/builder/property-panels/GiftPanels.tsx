@@ -20,6 +20,7 @@ import { ColorField } from "./BlockSettingsPanel";
 import { Field, ItemHeader, PanelSection, moveItem } from "./glow/GlowPanelKit";
 import { InviteColorFields } from "./invite/InviteColorFields";
 import { Copy, Plus } from "lucide-react";
+import { DEFAULT_LIMITED_NOTE } from "@/lib/gift-copy";
 import { useEffect, useState } from "react";
 
 const API_BASE = "/api";
@@ -341,6 +342,12 @@ export function GiftPickerPanel({ props, onChange, onApplyLayoutToAll }: { props
           ))}
         </div>
         <Button variant="outline" size="sm" className="w-full h-8 text-xs" disabled={options.length >= 4} onClick={() => set([...options, { name: "New gift", caption: "", imageUrl: "", imageAlt: "", fit: "contain" }])}><Plus className="w-3 h-3 mr-1" /> Add gift</Button>
+      </PanelSection>
+      <PanelSection title="Limited quantities">
+        <Field label="Note under the gifts (blank hides it)">
+          <Input value={props.limitedNote ?? DEFAULT_LIMITED_NOTE} onChange={(e) => update({ limitedNote: e.target.value })} className="h-8 text-xs" />
+        </Field>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">On the live page, gifts the order sheet marks sold out are hidden and the wording adjusts ("one of two"); the builder still shows them.</p>
       </PanelSection>
       <PanelSection title="Buttons">
         <div className="grid grid-cols-2 gap-2">

@@ -61,6 +61,12 @@ export function setSoldOut(names: string[]): void {
   emit();
 }
 
+/** How many of the page's gifts are still available (live pages hide the sold-out ones). */
+export function useGiftStock(): { total: number; remaining: number } {
+  const s = useGiftSelection();
+  return { total: s.options.length, remaining: s.options.filter((o) => !isGiftSoldOut(s.soldOut, o)).length };
+}
+
 export function isGiftSoldOut(soldOut: string[], name: string): boolean {
   return soldOut.includes(name.trim().toLowerCase());
 }

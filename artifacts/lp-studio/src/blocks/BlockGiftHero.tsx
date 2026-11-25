@@ -9,6 +9,8 @@ import { GIFT_CSS, GIFT_TILE, GiftKicker, GiftTag, RibbonOverlay, Snowfall, Spar
 import { cn } from "@/lib/utils";
 import { AtelierGiftHero } from "./gift/AtelierGiftHero";
 import { GiftEnvelopeIntro } from "./gift/GiftEnvelopeIntro";
+import { useGiftStock } from "./gift/gift-selection";
+import { adaptHeroCopy } from "@/lib/gift-copy";
 import type { GiftLayout } from "./gift/atelier-theme";
 
 /* ----------------------------------------------------------------------------
@@ -122,8 +124,13 @@ export const GIFT_HERO_DEFAULT_PROPS: GiftHeroBlockProps = {
   chooseGiftText: "Choose your gift",
 };
 
-export function BlockGiftHero(p: Props) {
-  const isEditor = !!p.onFieldChange;
+export function BlockGiftHero(raw: Props) {
+  const isEditor = !!raw.onFieldChange;
+  // Live page, some gifts sold out and hidden: say "one of two", or feature the last one.
+  const stock = useGiftStock();
+  const p: Props = !isEditor && stock.total > 0 && stock.remaining > 0 && stock.remaining < stock.total
+    ? { ...raw, props: adaptHeroCopy(raw.props as unknown as Record<string, unknown>, stock.remaining) as unknown as GiftHeroBlockProps }
+    : raw;
   if (p.props.envelopeIntro && !isEditor) return <GiftEnvelopeIntro {...p} />;
   const hero = p.props.layout === "atelier" ? <AtelierGiftHero {...p} /> : <ClassicGiftHero {...p} />;
   if (!p.props.envelopeIntro) return hero;

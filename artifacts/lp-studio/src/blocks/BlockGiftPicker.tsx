@@ -8,6 +8,7 @@ import { INVITE_BODY, INVITE_PILL_CLASS, displayStyle, pillStyle } from "@/lib/i
 import { KitProductTile, type KitTileFit } from "./kit/KitProductTile";
 import { GIFT_CSS, GIFT_TILE, GiftKicker, SparkleField, resolveGiftPalette } from "./gift/gift-theme";
 import { isGiftSoldOut, selectGift, useGiftSelection } from "./gift/gift-selection";
+import { DEFAULT_LIMITED_NOTE, SINGLE_GIFT_PICKER_COPY } from "@/lib/gift-copy";
 import { useRegisterGiftOptions } from "./gift/use-register-gift-options";
 import { cn } from "@/lib/utils";
 import { AtelierGiftPicker } from "./gift/AtelierGiftPicker";
@@ -50,6 +51,8 @@ export interface GiftPickerBlockProps {
   /** Where "Choose" scrolls to — the gift form's anchor. */
   formAnchor?: string;
   anchorId?: string;
+  /** Small line under the gifts; blank hides it, unset uses the default. */
+  limitedNote?: string;
   tileColor?: string;
   bgColor?: string;
   accentColor?: string;
@@ -114,14 +117,20 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
     }
   };
 
-  // One gift is a featured gift, not a choice (see AtelierGiftPicker).
-  const single = options.length === 1 && !isEditor;
+  // Sold-out gifts are hidden on the live page (the builder keeps showing them,
+  // marked). One left is a featured gift, not a choice (see AtelierGiftPicker).
+  const shown = isEditor ? options : options.filter((o) => !isGiftSoldOut(selection.soldOut, o.name));
+  const allGone = !isEditor && options.length > 0 && shown.length === 0;
+  const single = shown.length === 1 && !isEditor;
+  const narrowedToOne = single && options.length > 1;
+  const limitedNote = props.limitedNote === undefined ? DEFAULT_LIMITED_NOTE : props.limitedNote.trim();
   useEffect(() => {
-    if (single && !isGiftSoldOut(selection.soldOut, options[0].name)) selectGift(options[0].name);
-  }, [single, options, selection.soldOut]);
-  const claimText = props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
+    if (single) selectGift(shown[0].name);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [single, shown[0]?.name]);
+  const claimText = narrowedToOne ? SINGLE_GIFT_PICKER_COPY.chooseText : props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
 
-  const cols = options.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : options.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
+  const cols = shown.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : shown.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
 
   return (
     <section id={props.anchorId || "gifts"} className="relative overflow-hidden" style={{ background: pal.bg, color: pal.text, fontFamily: INVITE_BODY }}>
@@ -130,21 +139,24 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
       {!reduced && <SparkleField palette={pal} count={5} />}
       <div className="relative mx-auto w-full max-w-page px-6 py-20 lg:px-10 lg:py-28">
         <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 text-center">
-          {(props.kicker || isEditor) && <GiftKicker palette={pal}><InlineText as="span" value={props.kicker ?? ""} onUpdate={field("kicker")} /></GiftKicker>}
+          {(props.kicker || isEditor) && <GiftKicker palette={pal}><InlineText as="span" value={narrowedToOne ? SINGLE_GIFT_PICKER_COPY.kicker : props.kicker ?? ""} onUpdate={field("kicker")} /></GiftKicker>}
           {(props.headline || isEditor) && (
             <h2 className="whitespace-pre-line" style={displayStyle("clamp(2.2rem, 4.6vw, 3.6rem)")}>
-              <InlineText as="span" value={props.headline ?? ""} onUpdate={field("headline")} multiline />
+              <InlineText as="span" value={narrowedToOne ? SINGLE_GIFT_PICKER_COPY.headline : props.headline ?? ""} onUpdate={field("headline")} multiline />
             </h2>
           )}
           {(props.subheadline || isEditor) && (
             <p className="max-w-[48ch] text-[15px] leading-relaxed" style={{ color: pal.muted }}>
-              <InlineText as="span" value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+              <InlineText as="span" value={narrowedToOne ? SINGLE_GIFT_PICKER_COPY.subheadline : props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
             </p>
           )}
         </div>
 
         <div className={cn("mt-14 grid grid-cols-1 gap-6 lg:mt-20", single ? "mx-auto max-w-[460px]" : cols)}>
-          {options.map((it, i) => {
+          {allGone ? (
+            <p className="col-span-full py-10 text-center text-[15px]" style={{ color: pal.muted }}>Every gift has been claimed. Thank you for stopping by.</p>
+          ) : null}
+          {shown.map((it, i) => {
             const picked = !isEditor && selection.selected !== "" && selection.selected === it.name;
             const markedPicked = picked && !single;
             const out = outOfStock(it.name);
@@ -238,6 +250,9 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
             );
           })}
         </div>
+        {limitedNote && (
+          <p className="mt-10 text-center text-[12px] tracking-wide" style={{ color: pal.muted }} data-gift-limited-note="true">{limitedNote}</p>
+        )}
       </div>
     </section>
   );

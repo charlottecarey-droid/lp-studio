@@ -8,6 +8,9 @@
  */
 import { parseBulkCsv, slugify, toCsv } from "@/lib/csv";
 import { buildEmailPreviewHtml } from "@/lib/email-preview";
+import { fixCountCopy } from "@/lib/gift-copy";
+
+export { fixCountCopy };
 
 export type GiftTierId = "premium" | "mid" | "swag";
 export type GiftAudience = "prospect" | "customer";
@@ -139,20 +142,10 @@ export function allGifts(sources: Partial<Record<GiftTierId, { blocks: GiftSourc
 }
 
 export const MAX_PICKED_GIFTS = 4;
-const COUNT_WORD = ["", "one", "two", "three", "four"];
-
 const SINGLE_HERO_SUB: Record<GiftAudience, string> = {
   customer: "A thank-you from your Dandy team. Tell us where to send it, and we'll take care of the rest.",
   prospect: "For your commitment to the industry. Tell us where to send it, and we'll take care of the rest.",
 };
-
-/** Swap "one of three" / "three gifts" style copy for the real number of gifts. */
-export function fixCountCopy(text: unknown, n: number): unknown {
-  if (typeof text !== "string" || n === 3) return text;
-  if (n === 1) return text.replace(/\b(choose|pick) one of (three|two|four)\b/gi, "$1 your gift").replace(/\b(three|two|four) gifts\b/gi, "your gift");
-  const w = COUNT_WORD[n] ?? String(n);
-  return text.replace(/\bone of three\b/gi, `one of ${w}`).replace(/\bthree gifts\b/gi, `${w} gifts`).replace(/\bthree to choose from\b/gi, `${w} to choose from`);
-}
 
 /**
  * The source blocks for a hand-picked set of gifts: the base page's blocks

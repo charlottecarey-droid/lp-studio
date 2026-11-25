@@ -8,6 +8,7 @@ import { BlockGiftPicker } from "@/blocks/BlockGiftPicker";
 import { resetGiftSelection, setSoldOut, selectGift } from "@/blocks/gift/gift-selection";
 import { buildGiftProps } from "./gift-wizard";
 import { resolvePreviewTokens } from "@/components/sales/GiftPagePreview";
+import { adaptHeroCopy } from "@/lib/gift-copy";
 
 const source = { "gift-hero": { headline: "Pick the gift", kicker: "Happy holidays from Dandy", heroImageUrl: "/img/x.webp", logoUrl: "/dandy-logo-white.svg", ctaText: "See the options", tagFrom: "From your Dandy team" } };
 
@@ -46,24 +47,60 @@ describe("single-gift picker", () => {
 });
 
 describe("sold-out gifts", () => {
-  const props = (layout: "classic" | "atelier") => ({ layout, headline: "h", options: [{ name: "Branded AirPods kit" }, { name: "Dandy Meta Ray-Bans" }] });
-  const html = (layout: "classic" | "atelier") => renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, createElement(BlockGiftPicker as never, { props: props(layout), brand: DEFAULT_BRAND })));
-  it("marks only the sold-out gift, in both layouts, and drops a sold-out selection", () => {
+  const three = (layout: "classic" | "atelier", extra: Record<string, unknown> = {}) => ({ layout, headline: "Three gifts.\nOne is yours.", options: [{ name: "Branded AirPods kit" }, { name: "Dandy Meta Ray-Bans" }, { name: "Yeti Mug" }], ...extra });
+  const render = (el: unknown) => renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, el as never));
+  const picker = (layout: "classic" | "atelier", extra?: Record<string, unknown>) => render(createElement(BlockGiftPicker as never, { props: three(layout, extra), brand: DEFAULT_BRAND }));
+
+  it("hides sold-out gifts on the live page in both layouts and keeps the rest choosable", () => {
     resetGiftSelection();
     selectGift("Branded AirPods kit");
     setSoldOut(["branded airpods kit"]);
     for (const layout of ["classic", "atelier"] as const) {
-      const out = html(layout);
-      expect(out).toContain("Sold out");
-      // Atelier shows a badge on the tile as well as the disabled link; Classic only the button.
-      expect(out.match(/Sold out/g)?.length).toBe(layout === "atelier" ? 2 : 1);
-      expect(out).toContain("Choose this one"); // the other gift is still available
+      const out = picker(layout);
+      expect(out).not.toContain("Branded AirPods kit");
+      expect(out).toContain("Dandy Meta Ray-Bans");
+      expect(out).toContain("Yeti Mug");
+      expect(out).toContain("Choose this one");
+      expect(out).not.toContain("Sold out");
     }
     resetGiftSelection();
   });
-  it("shows no sold-out marker when the sheet reports none", () => {
+  it("turns into a featured gift when only one is left, with no 'choose one' wording", () => {
     resetGiftSelection();
-    setSoldOut([]);
-    expect(html("atelier")).not.toContain("Sold out");
+    setSoldOut(["branded airpods kit", "dandy meta ray-bans"]);
+    for (const layout of ["classic", "atelier"] as const) {
+      const out = picker(layout);
+      expect(out).toContain("Yeti Mug");
+      expect(out).toContain("Claim this gift");
+      expect(out).toContain("A gift,");
+      expect(out).not.toContain("One is yours");
+      expect(out.toLowerCase()).not.toContain("choose one");
+    }
+    resetGiftSelection();
+  });
+  it("says so when every gift is gone", () => {
+    resetGiftSelection();
+    setSoldOut(["branded airpods kit", "dandy meta ray-bans", "yeti mug"]);
+    expect(picker("atelier")).toContain("Every gift has been claimed");
+    resetGiftSelection();
+  });
+  it("shows the limited-quantities note by default, and hides it when blanked", () => {
+    resetGiftSelection();
+    for (const layout of ["classic", "atelier"] as const) {
+      expect(picker(layout)).toContain("Quantities are limited");
+      expect(picker(layout, { limitedNote: "" })).not.toContain("Quantities are limited");
+      expect(picker(layout, { limitedNote: "Only 40 left." })).toContain("Only 40 left.");
+    }
+  });
+});
+
+describe("hero copy when gifts are hidden", () => {
+  it("adapts counts, and features the last gift", () => {
+    const props = { headline: "Pick the gift that suits you", subheadline: "Choose one of three, tell us where.", ctaText: "See the three gifts" };
+    const two = adaptHeroCopy(props, 2);
+    expect(two.subheadline).toBe("Choose one of two, tell us where.");
+    expect(two.ctaText).toBe("See the two gifts");
+    expect(two.headline).toBe("Pick the gift that suits you");
+    expect(adaptHeroCopy(props, 1).headline).toBe("A gift,\nfrom us to you.");
   });
 });
