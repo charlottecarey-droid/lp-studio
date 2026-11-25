@@ -317,7 +317,7 @@ export default function SalesGifting() {
           <p className="mx-auto max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Choose the gifts, add your note and your details, and we'll build a personal gift page for every recipient.</p>
         </header>
         <div className="space-y-4">
-          <GiftAllocationCard email={repEmail} version={giftsVersion} />
+          <GiftAllocationCard version={giftsVersion} />
           <GiftExchangeSection onChange={() => setGiftsVersion((v) => v + 1)} />
         </div>
 

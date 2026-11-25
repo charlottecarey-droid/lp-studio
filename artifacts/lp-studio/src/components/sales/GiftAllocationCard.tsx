@@ -17,23 +17,22 @@ export interface GiftAllocation {
 const LABELS: Record<TierId, string> = { premium: "Premium", mid: "Mid-value", swag: "Swag" };
 
 /**
- * The selected rep's holiday gift allocation, read from the gifting sheet's
+ * The signed-in rep's holiday gift allocation, read from the gifting sheet's
  * Allocations tab plus rep-to-rep transfers (GET /lp/gifts/my-allocation).
  * "Left" counts down as their recipients claim gifts, not as links go out, so
  * reps can send more links than they have gifts. Renders nothing until an allocation sheet is set up.
  */
-export function GiftAllocationCard({ email, version = 0 }: { email: string; version?: number }) {
+export function GiftAllocationCard({ version = 0 }: { version?: number }) {
   const [data, setData] = useState<GiftAllocation | null>(null);
 
   useEffect(() => {
-    if (!email) { setData(null); return; }
     let cancelled = false;
-    fetch(`/api/lp/gifts/my-allocation?email=${encodeURIComponent(email)}`)
+    fetch("/api/lp/gifts/my-allocation")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: GiftAllocation | null) => { if (!cancelled) setData(d); })
       .catch(() => { if (!cancelled) setData(null); });
     return () => { cancelled = true; };
-  }, [email, version]);
+  }, [version]);
 
   if (!data || !data.configured) return null;
 
@@ -41,7 +40,7 @@ export function GiftAllocationCard({ email, version = 0 }: { email: string; vers
     return (
       <Card className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
         <Gift className="h-4 w-4 shrink-0" />
-        <span>{data.email} doesn't have a gift allocation yet. Ask marketing to add you to the gifting sheet.</span>
+        <span>You ({data.email}) don't have a gift allocation yet. Ask marketing to add you to the gifting sheet.</span>
       </Card>
     );
   }
@@ -51,7 +50,7 @@ export function GiftAllocationCard({ email, version = 0 }: { email: string; vers
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Gift className="h-4 w-4" />
-          {data.name ? `${data.name}'s loot` : "Your loot"}
+          Your loot
         </div>
         <div className="text-xs text-muted-foreground">{data.linksSent} gift page{data.linksSent === 1 ? "" : "s"} sent</div>
       </div>
