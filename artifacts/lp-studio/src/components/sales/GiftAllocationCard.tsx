@@ -12,6 +12,7 @@ export interface GiftAllocation {
   allocated?: boolean;
   name?: string;
   tiers?: TierRow[];
+  thanks?: Array<{ from: string; message: string; at: string }>;
 }
 
 const LABELS: Record<TierId, string> = { premium: "Premium", mid: "Mid-value", swag: "Swag" };
@@ -71,6 +72,13 @@ export function GiftAllocationCard({ version = 0, onTrade }: { version?: number;
           </div>
         ))}
       </div>
+      {(data.thanks ?? []).length > 0 && (
+        <div className="mt-3 space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs">
+          {(data.thanks ?? []).map((t, i) => (
+            <div key={i}>🙏 <span className="font-medium">{t.from}</span>: “{t.message}”</div>
+          ))}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs leading-relaxed text-muted-foreground">
         <p>A gift only counts once your recipient claims it, so you can send more links than you have gifts left.</p>
         {onTrade && (

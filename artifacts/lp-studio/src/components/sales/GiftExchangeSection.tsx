@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightLeft, HandHeart, Loader2, Plus, Send } from "lucide-react";
+import { ArrowRightLeft, HandHeart, Loader2, Plus, Send, Trophy } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +10,17 @@ type TierId = "premium" | "mid" | "swag";
 type Kind = "offer" | "request";
 interface Post { id: number; kind: Kind; repEmail: string; repName: string; tier: TierId; qty: number; remaining: number; note: string; createdAt: string; mine: boolean }
 interface Balance { tier: TierId; left: number }
-interface ExchangeData { me: string; balances: Balance[]; posts: Post[]; reps?: Array<{ email: string; name: string }> }
+interface ToThank { giverEmail: string; giverName: string; gifts: Partial<Record<TierId, number>> }
+interface LeaderRow { name: string; pagesSent: number; claimed: number; rate: number; me: boolean }
+interface Leaderboard { top: LeaderRow[]; myRank: number | null; mine: LeaderRow | null; ranked: number; minPages: number }
+interface ExchangeData { me: string; balances: Balance[]; posts: Post[]; reps?: Array<{ email: string; name: string }>; toThank?: ToThank[]; leaderboard?: Leaderboard }
 type FormKind = Kind | "give";
 
 const LABELS: Record<TierId, string> = { premium: "Premium", mid: "Mid-value", swag: "Swag" };
+
+const giftList = (gifts: Partial<Record<TierId, number>>) =>
+  (Object.keys(LABELS) as TierId[]).filter((t) => gifts[t]).map((t) => `${gifts[t]} ${LABELS[t]}`).join(" and ");
+const pct = (r: number) => `${Math.round(r * 100)}%`;
 
 function ago(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -31,6 +39,7 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
   const [data, setData] = useState<ExchangeData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | "post" | null>(null);
+  const [thanking, setThanking] = useState<{ giverEmail: string; message: string } | null>(null);
   const [form, setForm] = useState<{ kind: FormKind; tier: TierId; qty: string; note: string; toEmail: string } | null>(null);
 
   const load = useCallback(() => {
@@ -67,6 +76,7 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
   };
 
   return (
+    <div className="space-y-4">
     <Card className="p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold"><ArrowRightLeft className="h-4 w-4" />Up for grabs &amp; requests</div>
@@ -76,6 +86,27 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setForm({ kind: "request", tier: "mid", qty: "1", note: "", toEmail: "" })}><Plus className="h-3.5 w-3.5" />Request gifts</Button>
         </div>
       </div>
+
+      {(data.toThank ?? []).length > 0 && (
+        <div className="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          {(data.toThank ?? []).map((t) => (
+            <div key={t.giverEmail} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span>🎉 <span className="font-medium">{t.giverName}</span> gave you {giftList(t.gifts)}</span>
+              {thanking?.giverEmail === t.giverEmail ? (
+                <div className="flex flex-1 items-center gap-2 sm:max-w-md">
+                  <Input value={thanking.message} onChange={(e) => setThanking({ ...thanking, message: e.target.value })} maxLength={200} className="h-8 flex-1" autoFocus />
+                  <Button size="sm" disabled={busy === "post" || !thanking.message.trim()} onClick={async () => {
+                    const ok = await call("post", "/api/lp/gifts/exchange/thanks", { method: "POST", body: JSON.stringify(thanking) });
+                    if (ok) setThanking(null);
+                  }}>Send</Button>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setThanking({ giverEmail: t.giverEmail, message: "Thank you! 🙏" })}>Say thanks</Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <p className="mb-3 text-xs text-muted-foreground">Have gifts you won't use? Give them to a rep or put them up for grabs. Need more? Ask the other reps here.</p>
 
@@ -106,19 +137,20 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
       {error && <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</div>}
 
       {data.posts.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Nothing here yet. Have gifts you won't use, or need a few more? Post them here.</p>
+        <p className="text-xs text-muted-foreground">The pile's empty. Got gifts you won't use? Drop them here. Need more? Start a hunt.</p>
       ) : (
         <ul className="divide-y">
           {data.posts.map((p) => {
             const who = p.mine ? "You" : p.repName || p.repEmail;
-            const what = `${p.remaining} ${LABELS[p.tier]}`;
+            const what = `${p.qty} ${LABELS[p.tier]}`;
             const cantGive = p.kind === "request" && !p.mine && left(p.tier) < 1;
             return (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <div className="min-w-0 text-sm">
-                  <span className="font-medium">{who}</span>{" "}
-                  {p.kind === "offer" ? <>{p.mine ? "have" : "has"} <span className="font-medium">{what}</span> up for grabs</> : <>{p.mine ? "need" : "needs"} <span className="font-medium">{what}</span></>}
-                  {p.remaining < p.qty && <span className="text-muted-foreground"> (of {p.qty})</span>}
+                  {p.kind === "offer"
+                    ? <>🎁 <span className="font-medium">{who}</span> dropped <span className="font-medium">{what}</span> in the pile</>
+                    : <>🎯 <span className="font-medium">{who}</span> {p.mine ? "are" : "is"} hunting for <span className="font-medium">{what}</span></>}
+                  {p.remaining < p.qty && <span className="text-muted-foreground"> · {p.remaining} {p.kind === "offer" ? "left" : "still needed"}</span>}
                   <div className="text-xs text-muted-foreground">{p.note ? `“${p.note}” · ` : ""}{ago(p.createdAt)}</div>
                 </div>
                 {p.mine ? (
@@ -136,6 +168,37 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
         </ul>
       )}
       <p className="mt-3 text-[11px] text-muted-foreground">You're trading as {data.me}. Claim 1 and Give 1 on a post each move one gift.</p>
+    </Card>
+    {data.leaderboard && <ClaimLeaderboard board={data.leaderboard} />}
+    </div>
+  );
+}
+
+/** Reps ranked by the share of their gift pages that recipients have claimed. */
+function ClaimLeaderboard({ board }: { board: Leaderboard }) {
+  const medal = (i: number) => ["🥇", "🥈", "🥉"][i] ?? `${i + 1}`;
+  return (
+    <Card className="p-4 sm:p-5">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Trophy className="h-4 w-4" />Claim leaderboard</div>
+      <p className="mb-3 text-xs text-muted-foreground">Share of each rep's gift pages that recipients have claimed. You're on the board once you've sent {board.minPages} pages.</p>
+      {board.top.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No one's on the board yet.</p>
+      ) : (
+        <ol className="space-y-1">
+          {board.top.map((r, i) => (
+            <li key={`${r.name}-${i}`} className={cn("flex items-center gap-3 rounded-md px-2 py-1.5 text-sm", r.me && "bg-muted font-medium")}>
+              <span className="w-6 text-center tabular-nums">{medal(i)}</span>
+              <span className="min-w-0 flex-1 truncate">{r.me ? `${r.name} (you)` : r.name}</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{r.claimed} of {r.pagesSent} claimed</span>
+              <span className="w-12 text-right font-semibold tabular-nums">{pct(r.rate)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {board.mine && board.myRank && board.myRank > board.top.length && (
+        <p className="mt-2 text-xs text-muted-foreground">You're #{board.myRank} of {board.ranked} at {pct(board.mine.rate)} ({board.mine.claimed} of {board.mine.pagesSent} claimed).</p>
+      )}
+      {!board.mine && <p className="mt-2 text-xs text-muted-foreground">Send {board.minPages} gift pages to get on the board.</p>}
     </Card>
   );
 }
