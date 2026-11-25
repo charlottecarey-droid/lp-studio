@@ -22,7 +22,7 @@ const LABELS: Record<TierId, string> = { premium: "Premium", mid: "Mid-value", s
  * "Left" counts down as their recipients claim gifts, not as links go out, so
  * reps can send more links than they have gifts. Renders nothing until an allocation sheet is set up.
  */
-export function GiftAllocationCard({ version = 0 }: { version?: number }) {
+export function GiftAllocationCard({ version = 0, onTrade }: { version?: number; onTrade?: () => void }) {
   const [data, setData] = useState<GiftAllocation | null>(null);
 
   useEffect(() => {
@@ -71,9 +71,14 @@ export function GiftAllocationCard({ version = 0 }: { version?: number }) {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        A gift only counts once your recipient claims it, so you can send more links than you have gifts left.
-      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs leading-relaxed text-muted-foreground">
+        <p>A gift only counts once your recipient claims it, so you can send more links than you have gifts left.</p>
+        {onTrade && (
+          <button type="button" onClick={onTrade} className="font-medium text-foreground underline-offset-4 hover:underline">
+            Need more gifts or have extras? Trade with other reps →
+          </button>
+        )}
+      </div>
     </Card>
   );
 }

@@ -63,6 +63,7 @@ export default function SalesGifting() {
   const [mineMsg, setMineMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [repEmail, setRepEmail] = useState("");
   const [giftsVersion, setGiftsVersion] = useState(0);
+  const [view, setView] = useState<"send" | "trade">("send");
   const [mode, setMode] = useState<"one" | "upload">("one");
   const [one, setOne] = useState<Record<string, string>>({});
   const [uploaded, setUploaded] = useState<WizardRow[]>([]);
@@ -317,10 +318,20 @@ export default function SalesGifting() {
           <p className="mx-auto max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Choose the gifts, add your note and your details, and we'll build a personal gift page for every recipient.</p>
         </header>
         <div className="space-y-4">
-          <GiftAllocationCard version={giftsVersion} />
-          <GiftExchangeSection onChange={() => setGiftsVersion((v) => v + 1)} />
+          <div role="tablist" aria-label="Holiday gifting" className="mx-auto flex w-fit rounded-full border p-1 text-sm">
+            {([["send", "Send gifts"], ["trade", "Trade gifts with reps"]] as const).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)}
+                className={cn("rounded-full px-4 py-1.5 transition-colors", view === id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <GiftAllocationCard version={giftsVersion} onTrade={view === "send" ? () => setView("trade") : undefined} />
         </div>
 
+        {view === "trade" && <GiftExchangeSection onChange={() => setGiftsVersion((v) => v + 1)} />}
+
+        {view === "send" && (<>
         <ol className="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 text-sm">
           {STEPS.map((label, i) => (
             <li key={label} className="flex items-center gap-2">
@@ -574,6 +585,7 @@ export default function SalesGifting() {
             <Button onClick={generate} disabled={!canGenerate} className="gap-1.5">{generating && <Loader2 className="w-4 h-4 animate-spin" />}Create {finalRows.length > 1 ? `${finalRows.length} pages` : "page"}</Button>
           )}
         </div>
+        </>)}
       </div>
     </SalesLayout>
   );

@@ -73,6 +73,8 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
         </div>
       </div>
 
+      <p className="mb-3 text-xs text-muted-foreground">Have gifts you won't use? Put them up for grabs. Need more? Ask the other reps here.</p>
+
       {form && (
         <div className="mb-3 space-y-2 rounded-lg border bg-muted/30 p-3">
           <div className="text-xs font-medium">{form.kind === "offer" ? "Put gifts from your loot up for grabs" : "Ask other reps for gifts"}</div>
@@ -115,7 +117,7 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
                   <Button size="sm" variant={p.kind === "offer" ? "default" : "outline"} disabled={busy === p.id || cantGive} title={cantGive ? `You have no ${LABELS[p.tier]} gifts left to give` : undefined}
                     onClick={() => call(p.id, `/api/lp/gifts/exchange/posts/${p.id}/act`, { method: "POST" })} className="gap-1.5">
                     {busy === p.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {p.kind === "offer" ? "Claim 1" : "Give 1 from my loot"}
+                    {p.kind === "offer" ? "Claim 1" : "Give 1"}
                   </Button>
                 )}
               </li>
