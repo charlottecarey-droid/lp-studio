@@ -10,7 +10,11 @@
  * functions only; the route does the reading and caching.
  */
 
-export interface GiftOrderRow { slug: string; gift: string; shipDate: string; repEmail: string }
+export interface GiftOrderRow {
+  slug: string; gift: string; shipDate: string; repEmail: string;
+  /** "tier" | "swag" when the recipient claimed a fallback because the page's own gifts were gone; "" otherwise. */
+  fallback?: string;
+}
 export type GiftTierKey = "premium" | "mid" | "swag";
 export const GIFT_TIER_KEYS: GiftTierKey[] = ["premium", "mid", "swag"];
 export interface RepAllocation { email: string; name: string; allocated: Record<GiftTierKey, number> }
@@ -54,12 +58,13 @@ export function parseOrdersTab(values: string[][]): { claimed: Map<string, numbe
   const slugCol = header.findIndex((h) => /^slug$/i.test(h));
   const shipCol = header.findIndex((h) => /^ship(ped)?([ _-]?date)?$/i.test(h));
   const repCol = header.findIndex((h) => /^rep[ _-]?email$/i.test(h));
+  const fallbackCol = header.findIndex((h) => /^fallback$/i.test(h));
   if (giftCol < 0) return { claimed, orders };
   for (const row of values.slice(1)) {
     const gift = cell(row, giftCol);
     if (!gift) continue;
     claimed.set(giftKey(gift), (claimed.get(giftKey(gift)) ?? 0) + 1);
-    orders.push({ slug: cell(row, slugCol), gift, shipDate: cell(row, shipCol), repEmail: cell(row, repCol).toLowerCase() });
+    orders.push({ slug: cell(row, slugCol), gift, shipDate: cell(row, shipCol), repEmail: cell(row, repCol).toLowerCase(), fallback: cell(row, fallbackCol).toLowerCase() });
   }
   return { claimed, orders };
 }
@@ -168,6 +173,8 @@ export function repGiftSummary(data: Pick<GiftSheetData, "orders" | "tiers" | "a
   let untiered = 0;
   for (const o of data.orders) {
     if (!key || o.repEmail !== key) continue;
+    // Swag handed out as a fallback comes from the unallocated reserve, not the rep's swag.
+    if (o.fallback === "swag") continue;
     const tier = data.tiers?.get(giftKey(o.gift));
     if (tier) redeemed[tier] += 1; else untiered += 1;
   }
@@ -180,4 +187,57 @@ export function repGiftSummary(data: Pick<GiftSheetData, "orders" | "tiers" | "a
     }),
     untiered,
   };
+}
+
+// ─── Fallback gifts (Nov 2026) ────────────────────────────────────────────
+// When every gift a page offers has sold out, the recipient is offered other
+// gifts of the same tier that are still in stock, then swag from the
+// unallocated reserve, before the page gives up.
+
+export interface FallbackOption { name: string; [key: string]: unknown }
+export interface GiftTierSource { options: FallbackOption[]; sizeOptions: string[] }
+export interface GiftFallback { kind: "tier" | "swag"; fromTier: GiftTierKey | null; tier: GiftTierKey; options: FallbackOption[]; sizeOptions: string[] }
+
+/** In stock = not on the Inventory tab (unknown, fail open) or claims below the Ordered quantity. */
+export function giftInStock(data: Pick<GiftSheetData, "stock" | "claimed">, name: string): boolean {
+  const ordered = data.stock.get(giftKey(name));
+  return ordered === undefined || (data.claimed.get(giftKey(name)) ?? 0) < ordered;
+}
+
+/** Swag not allocated to any rep and not yet used as a fallback. */
+export function swagReserveLeft(data: Pick<GiftSheetData, "stock" | "tiers" | "allocations" | "orders">): number {
+  let ordered = 0;
+  for (const [name, qty] of data.stock) if (data.tiers?.get(name) === "swag") ordered += qty;
+  let allocated = 0;
+  for (const a of data.allocations?.values() ?? []) allocated += a.allocated.swag;
+  const used = data.orders.filter((o) => o.fallback === "swag").length;
+  return ordered - allocated - used;
+}
+
+/** Fallback for a page whose own gifts are all gone, or null (some still in stock, or nothing to offer). */
+export function pickFallback(data: GiftSheetData, pageGifts: string[], sources: Partial<Record<GiftTierKey, GiftTierSource>>): GiftFallback | null {
+  const own = pageGifts.map((g) => g.trim()).filter(Boolean);
+  if (own.length === 0 || own.some((g) => giftInStock(data, g))) return null;
+  const counts = new Map<GiftTierKey, number>();
+  for (const g of own) { const t = data.tiers?.get(giftKey(g)); if (t) counts.set(t, (counts.get(t) ?? 0) + 1); }
+  const fromTier = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const ownKeys = new Set(own.map(giftKey));
+  if (fromTier && fromTier !== "swag") {
+    const src = sources[fromTier];
+    const options = (src?.options ?? []).filter((o) => o.name && !ownKeys.has(giftKey(o.name)) && giftInStock(data, o.name));
+    if (options.length) return { kind: "tier", fromTier, tier: fromTier, options, sizeOptions: src?.sizeOptions ?? [] };
+  }
+  if (fromTier !== "swag" && swagReserveLeft(data) > 0) {
+    const src = sources.swag;
+    const options = (src?.options ?? []).filter((o) => o.name && giftInStock(data, o.name));
+    if (options.length) return { kind: "swag", fromTier, tier: "swag", options, sizeOptions: src?.sizeOptions ?? [] };
+  }
+  return null;
+}
+
+/** The line shown above fallback gifts. */
+export function fallbackNote(fb: GiftFallback): string {
+  const label = fb.fromTier ? { premium: "premium", mid: "", swag: "" }[fb.fromTier] : "";
+  if (fb.kind === "tier") return "Your first choice went fast, so here are a few more we think you'll love.";
+  return `Our ${label ? `${label} ` : ""}gifts went fast. Pick some Dandy gear instead.`;
 }

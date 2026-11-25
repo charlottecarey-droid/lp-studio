@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideGiftClaim, orderStatusForSlug, parseAllocationsTab, parseInventoryTab, parseInventoryTiers, parseOrdersTab, repGiftSummary, soldOutGifts, tierKey } from "./gift-sheet-status";
+import { decideGiftClaim, fallbackNote, orderStatusForSlug, parseAllocationsTab, pickFallback, swagReserveLeft, parseInventoryTab, parseInventoryTiers, parseOrdersTab, repGiftSummary, soldOutGifts, tierKey } from "./gift-sheet-status";
 
 const inventory = [
   ["Kit", "Gift name on the form (must match)", "Ordered", "Claimed", "Remaining"],
@@ -113,5 +113,53 @@ describe("rep gift allocations", () => {
   it("reads an order's rep email when the column exists", () => {
     expect(parseOrdersTab(ord).orders[1].repEmail).toBe("austin.donohue@meetdandy.com");
     expect(parseOrdersTab(orders).orders[0].repEmail).toBe("");
+  });
+});
+
+describe("fallback gifts", () => {
+  const inv = [
+    ["Kit", "Gift name on the form (must match)", "Ordered", "Tier"],
+    ["", "Dandy Meta Ray-Bans", "2", "Premium"],
+    ["", "Branded AirPods kit", "2", "Premium"],
+    ["", "Yeti Mug and Wireless Charger Duo", "1", "Mid-value"],
+    ["", "Premium Zip Up Hoodie", "5", "Swag"],
+    ["", "Dandy Windbreaker", "1", "Swag"],
+  ];
+  const alloc = [["Rep email", "Premium", "Mid-value", "Swag"], ["a@x.com", "2", "1", "3"]];
+  const sources = {
+    premium: { options: [{ name: "Dandy Meta Ray-Bans", imageUrl: "m.png" }, { name: "Branded AirPods kit", imageUrl: "a.png" }], sizeOptions: [] },
+    mid: { options: [{ name: "Yeti Mug and Wireless Charger Duo" }], sizeOptions: [] },
+    swag: { options: [{ name: "Premium Zip Up Hoodie" }, { name: "Dandy Windbreaker" }], sizeOptions: ["S", "M", "L"] },
+  };
+  const build = (orderRows: string[][]) => {
+    const values = [["Timestamp", "Page", "Slug", "Variant", "Gift", "Rep email", "Fallback"], ...orderRows];
+    const { claimed, orders } = parseOrdersTab(values);
+    return { stock: parseInventoryTab(inv), claimed, orders, tiers: parseInventoryTiers(inv), allocations: parseAllocationsTab(alloc) };
+  };
+  const o = (gift: string, fallback = "") => ["t", "P", "s", "", gift, "a@x.com", fallback];
+
+  it("offers nothing while any of the page's gifts are in stock", () => {
+    expect(pickFallback(build([o("Dandy Meta Ray-Bans")]), ["Dandy Meta Ray-Bans"], sources)).toBeNull();
+  });
+  it("offers other gifts of the same tier first", () => {
+    const fb = pickFallback(build([o("Dandy Meta Ray-Bans"), o("Dandy Meta Ray-Bans")]), ["Dandy Meta Ray-Bans"], sources);
+    expect(fb).toMatchObject({ kind: "tier", fromTier: "premium", options: [{ name: "Branded AirPods kit", imageUrl: "a.png" }] });
+    expect(fallbackNote(fb!)).toMatch(/first choice/);
+  });
+  it("falls back to in-stock swag from the reserve when the tier is gone", () => {
+    const fb = pickFallback(build([o("Yeti Mug and Wireless Charger Duo"), o("Dandy Windbreaker")]), ["Yeti Mug and Wireless Charger Duo"], sources);
+    expect(fb).toMatchObject({ kind: "swag", fromTier: "mid", sizeOptions: ["S", "M", "L"], options: [{ name: "Premium Zip Up Hoodie" }] });
+    expect(fallbackNote(fb!)).toBe("Our gifts went fast. Pick some Dandy gear instead.");
+  });
+  it("stops offering swag when the reserve is used up, and never falls back from swag", () => {
+    // 6 swag ordered, 3 allocated → reserve 3; three fallback swag claims use it up.
+    const gone = [o("Yeti Mug and Wireless Charger Duo"), o("Premium Zip Up Hoodie", "swag"), o("Premium Zip Up Hoodie", "swag"), o("Premium Zip Up Hoodie", "swag")];
+    expect(swagReserveLeft(build(gone))).toBe(0);
+    expect(pickFallback(build(gone), ["Yeti Mug and Wireless Charger Duo"], sources)).toBeNull();
+    expect(pickFallback(build([o("Dandy Windbreaker")]), ["Dandy Windbreaker"], sources)).toBeNull();
+  });
+  it("counts fallback swag against the reserve, not the rep", () => {
+    const s = repGiftSummary(build([o("Premium Zip Up Hoodie", "swag"), o("Premium Zip Up Hoodie")]), "a@x.com");
+    expect(s.tiers.find((t) => t.tier === "swag")).toMatchObject({ redeemed: 1 });
   });
 });

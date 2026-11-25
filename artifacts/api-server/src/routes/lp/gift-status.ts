@@ -3,6 +3,7 @@
 // lib/gift-sheet-status.ts):
 //   GET /lp/gifts/availability?formId=   → { soldOut: string[] }
 //   GET /lp/gifts/order-status?formId=&pageId= → { ordered, shipped, shipDate, gift }
+//   GET /lp/gifts/fallback?formId=&pageId=     → gifts to offer when all of the page's gifts are gone
 // Tenant comes from the request host (like the public GET /lp/forms/:id); only
 // the sheet configured on that tenant's own form is read, and only booleans,
 // gift names and a ship date leave. Cached 60s. Fails OPEN: if the sheet can't
@@ -16,14 +17,15 @@ import { getRequestHost } from "../../lib/requestHost";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getIntegration } from "../../lib/lpIntegrationsStore";
 import { readTabValues, type SheetsConfig } from "../../lib/google-sheets";
-import { decideGiftClaim, orderStatusForSlug, parseAllocationsTab, parseInventoryTab, parseInventoryTiers, parseOrdersTab, soldOutGifts, type GiftSheetData } from "../../lib/gift-sheet-status";
+import { decideGiftClaim, fallbackNote, giftKey, orderStatusForSlug, pickFallback, parseAllocationsTab, parseInventoryTab, parseInventoryTiers, parseOrdersTab, soldOutGifts, type GiftSheetData, type GiftTierKey, type GiftTierSource } from "../../lib/gift-sheet-status";
 
 const router = Router();
 const limiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
 const INVENTORY_TAB = "Inventory";
 const ALLOCATIONS_TAB = "Allocations";
 // The Sales Console gifting wizard's source pages; their gift form names the sheet.
-const GIFT_SOURCE_SLUGS = ["holiday-gifts-premium", "holiday-gifts-mid", "holiday-gifts-swag"];
+const GIFT_SOURCE_BY_TIER: Record<GiftTierKey, string> = { premium: "holiday-gifts-premium", mid: "holiday-gifts-mid", swag: "holiday-gifts-swag" };
+const GIFT_SOURCE_SLUGS = Object.values(GIFT_SOURCE_BY_TIER);
 const TTL_MS = 60_000;
 const cache = new Map<string, { at: number; data: GiftSheetData | null }>();
 
@@ -119,6 +121,53 @@ export async function giftSourceFormId(tenantId: number): Promise<number | null>
   return null;
 }
 
+type BlockLike = { type?: string; props?: Record<string, unknown> };
+const blocksOf = (raw: unknown): BlockLike[] => (Array.isArray(raw) ? (raw as BlockLike[]) : []);
+
+/** The gift names a page offers: its picker's options, else its form's. */
+function pageGiftNames(rawBlocks: unknown): string[] {
+  const blocks = blocksOf(rawBlocks);
+  const fromPicker = blocks.find((b) => b?.type === "gift-picker")?.props?.options;
+  if (Array.isArray(fromPicker) && fromPicker.length) return fromPicker.map((o) => String((o as { name?: unknown })?.name ?? "").trim()).filter(Boolean);
+  const fromForm = blocks.find((b) => b?.type === "gift-form")?.props?.options;
+  return Array.isArray(fromForm) ? fromForm.map((o) => String(o ?? "").trim()).filter(Boolean) : [];
+}
+
+/** Each tier's full gift set (picker cards + swag sizes) from the wizard's source pages. */
+async function giftTierSources(tenantId: number): Promise<Partial<Record<GiftTierKey, GiftTierSource>>> {
+  const out: Partial<Record<GiftTierKey, GiftTierSource>> = {};
+  for (const [tier, slug] of Object.entries(GIFT_SOURCE_BY_TIER) as Array<[GiftTierKey, string]>) {
+    const [page] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, slug)));
+    if (!page) continue;
+    const blocks = blocksOf(page.blocks);
+    const options = blocks.find((b) => b?.type === "gift-picker")?.props?.options;
+    const sizes = blocks.find((b) => b?.type === "gift-form")?.props?.sizeOptions;
+    out[tier] = {
+      options: Array.isArray(options) ? (options as Array<{ name: string }>).filter((o) => typeof o?.name === "string" && o.name.trim()) : [],
+      sizeOptions: Array.isArray(sizes) ? sizes.map((x) => String(x).trim()).filter(Boolean) : [],
+    };
+  }
+  return out;
+}
+
+router.get("/lp/gifts/fallback", limiter, async (req, res): Promise<void> => {
+  res.set("Cache-Control", "no-store");
+  const none = { kind: null };
+  const formId = formIdOf(req.query.formId);
+  const pageId = formIdOf(req.query.pageId);
+  const tenantId = formId && pageId ? await tenantFor(req) : null;
+  if (!formId || !pageId || !tenantId) { res.json(none); return; }
+  try {
+    const [page] = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
+    const data = page ? await loadSheet(tenantId, formId) : null;
+    const fb = data && page ? pickFallback(data, pageGiftNames(page.blocks), await giftTierSources(tenantId)) : null;
+    res.json(fb ? { kind: fb.kind, tier: fb.tier, note: fallbackNote(fb), options: fb.options, sizeOptions: fb.sizeOptions } : none);
+  } catch (err) {
+    console.error("gift-status: fallback failed:", err);
+    res.json(none);
+  }
+});
+
 /**
  * Called by POST /lp/leads before a gift-form submission is stored: re-reads the
  * sheet (no cache) and refuses a second order from the same page or a gift that
@@ -134,7 +183,19 @@ export async function checkGiftClaim(args: { tenantId: number; blocks: unknown; 
     const gift = typeof args.fields.Gift === "string" ? args.fields.Gift.trim() : "";
     if (!block || !Number.isInteger(formId) || formId <= 0 || !gift) return null;
     const data = await loadSheet(args.tenantId, formId, true);
-    return data ? decideGiftClaim(data, args.slug, gift) : null;
+    if (!data) return null;
+    const issue = decideGiftClaim(data, args.slug, gift);
+    if (issue) return issue;
+    // A gift the page doesn't offer is only allowed as the page's fallback; the
+    // server, not the browser, decides which kind it is (swag comes off the reserve).
+    const own = pageGiftNames(args.blocks);
+    delete args.fields.Fallback;
+    if (own.length && !own.some((g) => giftKey(g) === giftKey(gift))) {
+      const fb = pickFallback(data, own, await giftTierSources(args.tenantId));
+      if (!fb || !fb.options.some((o) => giftKey(o.name) === giftKey(gift))) return { code: "gift_sold_out", gift };
+      args.fields.Fallback = fb.kind;
+    }
+    return null;
   } catch (err) {
     console.error("gift-status: claim check failed:", err);
     return null;
