@@ -326,10 +326,14 @@ export default function SalesGifting() {
               </button>
             ))}
           </div>
-          <GiftAllocationCard version={giftsVersion} onTrade={view === "send" ? () => setView("trade") : undefined} />
         </div>
 
-        {view === "trade" && <GiftExchangeSection onChange={() => setGiftsVersion((v) => v + 1)} />}
+        {view === "trade" && (
+          <div className="space-y-4">
+            <GiftAllocationCard version={giftsVersion} />
+            <GiftExchangeSection onChange={() => setGiftsVersion((v) => v + 1)} />
+          </div>
+        )}
 
         {view === "send" && (<>
         <ol className="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 text-sm">
@@ -585,6 +589,9 @@ export default function SalesGifting() {
             <Button onClick={generate} disabled={!canGenerate} className="gap-1.5">{generating && <Loader2 className="w-4 h-4 animate-spin" />}Create {finalRows.length > 1 ? `${finalRows.length} pages` : "page"}</Button>
           )}
         </div>
+
+        {/* Below the wizard so it doesn't pull focus from building pages. */}
+        <GiftAllocationCard version={giftsVersion} onTrade={() => setView("trade")} />
         </>)}
       </div>
     </SalesLayout>
