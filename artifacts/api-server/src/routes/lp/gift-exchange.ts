@@ -5,6 +5,7 @@
 //   POST   /lp/gifts/exchange/posts/:id/act    → Claim (offer) or Give (request): moves ONE gift
 //   DELETE /lp/gifts/exchange/posts/:id        → poster cancels their own post
 //   POST   /lp/gifts/exchange/send             → { toEmail, tier, qty, note }: give gifts straight to one rep
+//   POST   /lp/gifts/exchange/thanks           → { giverEmail, message }: thank a rep for gifts they gave you
 // Signed-in tenant users only; the acting rep is always the signed-in user.
 // Allocation + recipient claims come from the gifting sheet (gift-status.ts);
 // rep-to-rep moves live in lp_gift_transfers and are mirrored, best effort, to
@@ -12,11 +13,11 @@
 // lock so two reps can't take the same gift or overdraw a balance.
 import { Router, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db, lpGiftPostsTable, lpGiftTransfersTable, lpPagesTable } from "@workspace/db";
 import { appendRowToTab } from "../../lib/google-sheets";
 import { repGiftSummary, type GiftTierKey } from "../../lib/gift-sheet-status";
-import { availableToOffer, balancesWithTransfers, parsePostInput, parseSendInput, transferForAction, type TierBalance } from "../../lib/gift-exchange";
+import { availableToOffer, balancesWithTransfers, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction, type TierBalance } from "../../lib/gift-exchange";
 import { giftSheetConfig, giftSourceFormId, loadSheet } from "./gift-status";
 
 const router = Router();
@@ -58,6 +59,30 @@ async function openOffers(tenantId: number, q: Tx | typeof db = db) {
     .where(and(eq(lpGiftPostsTable.tenantId, tenantId), eq(lpGiftPostsTable.status, "open"), eq(lpGiftPostsTable.kind, "offer")));
 }
 
+/** Holiday gift pages (a gift-form block on the wizard's form) per rep_email, or one rep's count. */
+function giftPageFilter(tenantId: number, formId: number | null) {
+  return and(
+    eq(lpPagesTable.tenantId, tenantId),
+    eq(lpPagesTable.isTemplate, false),
+    formId
+      ? sql`exists (select 1 from jsonb_array_elements(${lpPagesTable.blocks}) b where b->>'type' = 'gift-form' and b->'props'->>'formId' = ${String(formId)})`
+      : sql`${lpPagesTable.blocks} @> '[{"type":"gift-form"}]'::jsonb`,
+  );
+}
+
+async function pagesByRep(tenantId: number, formId: number | null): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ email: sql<string>`lower(${lpPagesTable.pageVariables}->>'rep_email')`, n: sql<number>`count(*)::int` })
+    .from(lpPagesTable)
+    .where(and(giftPageFilter(tenantId, formId), sql`coalesce(${lpPagesTable.pageVariables}->>'rep_email', '') <> ''`))
+    .groupBy(sql`1`);
+  return new Map(rows.map((r) => [r.email, r.n]));
+}
+
+function nameFor(allocations: Map<string, { name: string }> | undefined, email: string): string {
+  return allocations?.get(email)?.name || email;
+}
+
 function leftOf(balances: TierBalance[], tier: string): number {
   return balances.find((b) => b.tier === tier)?.left ?? 0;
 }
@@ -69,17 +94,24 @@ router.get("/lp/gifts/my-allocation", limiter, async (req, res): Promise<void> =
   const email = String(req.query.email ?? me.email).trim().toLowerCase();
   if (!email.includes("@")) { res.status(400).json({ error: "email is required" }); return; }
   try {
-    const { configured, summary, balances } = await repBalance(me.tenantId, email);
+    const { configured, summary, balances, formId } = await repBalance(me.tenantId, email);
     const [{ n }] = await db
       .select({ n: sql<number>`count(*)::int` })
       .from(lpPagesTable)
-      .where(and(
-        eq(lpPagesTable.tenantId, me.tenantId),
-        eq(lpPagesTable.isTemplate, false),
-        sql`lower(${lpPagesTable.pageVariables}->>'rep_email') = ${email}`,
-        sql`${lpPagesTable.blocks} @> '[{"type":"gift-form"}]'::jsonb`,
-      ));
-    res.json({ email, configured, linksSent: n, allocated: summary.allocated, name: summary.name, tiers: balances });
+      .where(and(giftPageFilter(me.tenantId, formId), sql`lower(${lpPagesTable.pageVariables}->>'rep_email') = ${email}`));
+    const sheet = formId ? await loadSheet(me.tenantId, formId) : null;
+    const thanks = await db
+      .select({ toEmail: lpGiftTransfersTable.toEmail, thanks: lpGiftTransfersTable.thanks, thankedAt: lpGiftTransfersTable.thankedAt })
+      .from(lpGiftTransfersTable)
+      .where(and(eq(lpGiftTransfersTable.tenantId, me.tenantId), sql`lower(${lpGiftTransfersTable.fromEmail}) = ${email}`, isNotNull(lpGiftTransfersTable.thanks)))
+      .orderBy(desc(lpGiftTransfersTable.thankedAt))
+      .limit(30);
+    // One note per thank-you (a thanks covers every gift from that giver, so collapse repeats).
+    const seen = new Set<string>();
+    const notes = thanks.filter((t) => { const k = `${t.toEmail}|${t.thanks}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .slice(0, 3)
+      .map((t) => ({ from: nameFor(sheet?.allocations, t.toEmail.toLowerCase()), message: t.thanks, at: t.thankedAt }));
+    res.json({ email, configured, linksSent: n, allocated: summary.allocated, name: summary.name, tiers: balances, thanks: notes });
   } catch (err) {
     console.error("gift-exchange: allocation failed:", err);
     res.status(500).json({ error: "Couldn't load the gift allocation." });
@@ -100,6 +132,19 @@ router.get("/lp/gifts/exchange", limiter, async (req, res): Promise<void> => {
     const { balances } = await repBalance(me.tenantId, me.email);
     const formId = await giftSourceFormId(me.tenantId);
     const sheet = formId ? await loadSheet(me.tenantId, formId) : null;
+    const unthanked = await db
+      .select({ fromEmail: lpGiftTransfersTable.fromEmail, tier: lpGiftTransfersTable.tier, qty: lpGiftTransfersTable.qty })
+      .from(lpGiftTransfersTable)
+      .where(and(eq(lpGiftTransfersTable.tenantId, me.tenantId), sql`lower(${lpGiftTransfersTable.toEmail}) = ${me.email}`, isNull(lpGiftTransfersTable.thanks)));
+    const byGiver = new Map<string, { giverEmail: string; giverName: string; gifts: Record<string, number> }>();
+    for (const t of unthanked) {
+      const g = t.fromEmail.toLowerCase();
+      const row = byGiver.get(g) ?? { giverEmail: g, giverName: nameFor(sheet?.allocations, g), gifts: {} };
+      row.gifts[t.tier] = (row.gifts[t.tier] ?? 0) + t.qty;
+      byGiver.set(g, row);
+    }
+    const board = claimLeaderboard(await pagesByRep(me.tenantId, formId), sheet?.orders ?? [], sheet?.allocations);
+    const myRank = board.findIndex((r) => r.email === me.email);
     const reps = [...(sheet?.allocations?.values() ?? [])]
       .filter((r) => r.email !== me.email)
       .map((r) => ({ email: r.email, name: r.name }))
@@ -108,6 +153,8 @@ router.get("/lp/gifts/exchange", limiter, async (req, res): Promise<void> => {
       me: me.email,
       balances,
       reps,
+      toThank: [...byGiver.values()],
+      leaderboard: { top: board.slice(0, 10).map(({ email, ...r }) => ({ ...r, me: email === me.email })), myRank: myRank >= 0 ? myRank + 1 : null, mine: myRank >= 0 ? board[myRank] : null, ranked: board.length, minPages: 5 },
       posts: posts.map((p) => ({ id: p.id, kind: p.kind, repEmail: p.repEmail, repName: p.repName, tier: p.tier, qty: p.qty, remaining: p.remaining, note: p.note, createdAt: p.createdAt, mine: p.repEmail.toLowerCase() === me.email })),
     });
   } catch (err) {
@@ -211,6 +258,30 @@ router.post("/lp/gifts/exchange/send", limiter, async (req, res): Promise<void> 
     if (err instanceof HttpError) { res.status(err.status).json({ error: err.message }); return; }
     console.error("gift-exchange: send failed:", err);
     res.status(500).json({ error: "Couldn't give those gifts." });
+  }
+});
+
+router.post("/lp/gifts/exchange/thanks", limiter, async (req, res): Promise<void> => {
+  const me = signedIn(req, res);
+  if (!me) return;
+  const input = parseThanks(req.body);
+  if ("error" in input) { res.status(400).json({ error: input.error }); return; }
+  try {
+    const updated = await db
+      .update(lpGiftTransfersTable)
+      .set({ thanks: input.message, thankedAt: new Date() })
+      .where(and(
+        eq(lpGiftTransfersTable.tenantId, me.tenantId),
+        sql`lower(${lpGiftTransfersTable.toEmail}) = ${me.email}`,
+        sql`lower(${lpGiftTransfersTable.fromEmail}) = ${input.giverEmail}`,
+        isNull(lpGiftTransfersTable.thanks),
+      ))
+      .returning({ id: lpGiftTransfersTable.id });
+    if (!updated.length) { res.status(404).json({ error: "Nothing from that rep left to thank them for." }); return; }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("gift-exchange: thanks failed:", err);
+    res.status(500).json({ error: "Couldn't send your thanks." });
   }
 });
 

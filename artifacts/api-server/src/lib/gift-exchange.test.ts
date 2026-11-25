@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableToOffer, balancesWithTransfers, parsePostInput, parseSendInput, transferForAction } from "./gift-exchange";
+import { availableToOffer, balancesWithTransfers, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction } from "./gift-exchange";
 
 const summary = {
   tiers: [
@@ -46,5 +46,17 @@ describe("gift exchange", () => {
     expect(parseSendInput({ toEmail: "A@x.com", tier: "premium", qty: 1 }, "a@x.com")).toHaveProperty("error");
     expect(parseSendInput({ toEmail: "nobody", tier: "premium", qty: 1 }, "a@x.com")).toHaveProperty("error");
     expect(parseSendInput({ toEmail: "b@x.com", tier: "premium", qty: 51 }, "a@x.com")).toHaveProperty("error");
+  });
+  it("validates thank-you notes", () => {
+    expect(parseThanks({ giverEmail: " Nick@x.com ", message: "  Thank you!  " })).toEqual({ giverEmail: "nick@x.com", message: "Thank you!" });
+    expect(parseThanks({ giverEmail: "nick@x.com", message: "   " })).toHaveProperty("error");
+    expect(parseThanks({ message: "hi" })).toHaveProperty("error");
+  });
+  it("ranks reps by claim rate with a minimum number of pages", () => {
+    const pages = new Map([["a@x.com", 10], ["b@x.com", 5], ["c@x.com", 2], ["d@x.com", 8]]);
+    const orders = [..."aaaa"].map(() => ({ repEmail: "a@x.com" })).concat([..."bbb"].map(() => ({ repEmail: "b@x.com" })), [{ repEmail: "c@x.com" }, { repEmail: "c@x.com" }]);
+    const alloc = new Map([["a@x.com", { email: "a@x.com", name: "Ann", allocated: { premium: 0, mid: 0, swag: 0 } }]]);
+    const rows = claimLeaderboard(pages, orders, alloc, 5);
+    expect(rows.map((r) => [r.name, r.claimed, r.rate])).toEqual([["b@x.com", 3, 0.6], ["Ann", 4, 0.4], ["d@x.com", 0, 0]]);
   });
 });

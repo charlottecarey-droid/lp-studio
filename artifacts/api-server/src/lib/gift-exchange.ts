@@ -3,7 +3,7 @@
  * grabs" (offers) or ask for gifts (requests); each Claim / Give moves ONE gift.
  * The routes (routes/lp/gift-exchange.ts) do the locking, reading and writing.
  */
-import { GIFT_TIER_KEYS, type GiftTierKey, type RepGiftSummary } from "./gift-sheet-status";
+import { GIFT_TIER_KEYS, type GiftOrderRow, type GiftTierKey, type RepAllocation, type RepGiftSummary } from "./gift-sheet-status";
 
 export type GiftPostKind = "offer" | "request";
 export interface TransferLike { fromEmail: string; toEmail: string; tier: string; qty: number }
@@ -80,4 +80,38 @@ export function parseSendInput(body: unknown, fromEmail: string): SendInput | { 
   if (!Number.isInteger(qty) || qty < 1 || qty > 50) return { error: "Quantity must be between 1 and 50." };
   const note = typeof b.note === "string" ? b.note.trim().slice(0, 280) : "";
   return { toEmail, tier, qty, note };
+}
+
+/** A thank-you note: trimmed, 1–200 characters. */
+export function parseThanks(body: unknown): { giverEmail: string; message: string } | { error: string } {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const giverEmail = typeof b.giverEmail === "string" ? b.giverEmail.trim().toLowerCase() : "";
+  if (!giverEmail.includes("@")) return { error: "Who are you thanking?" };
+  const message = typeof b.message === "string" ? b.message.trim().slice(0, 200) : "";
+  if (!message) return { error: "Write a quick thank-you first." };
+  return { giverEmail, message };
+}
+
+export interface LeaderRow { email: string; name: string; pagesSent: number; claimed: number; rate: number }
+
+/**
+ * Claim-rate leaderboard: per rep, recipient claims (orders with their Rep email)
+ * ÷ gift pages sent. Reps need `minPages` pages to rank, so one lucky page
+ * doesn't top the board. Sorted by rate, then claims, then name.
+ */
+export function claimLeaderboard(
+  pagesByRep: Map<string, number>,
+  orders: Pick<GiftOrderRow, "repEmail">[],
+  allocations: Map<string, RepAllocation> | undefined,
+  minPages = 5,
+): LeaderRow[] {
+  const claims = new Map<string, number>();
+  for (const o of orders) if (o.repEmail) claims.set(o.repEmail, (claims.get(o.repEmail) ?? 0) + 1);
+  const rows: LeaderRow[] = [];
+  for (const [email, pagesSent] of pagesByRep) {
+    if (pagesSent < minPages) continue;
+    const claimed = claims.get(email) ?? 0;
+    rows.push({ email, name: allocations?.get(email)?.name || email, pagesSent, claimed, rate: Math.min(1, claimed / pagesSent) });
+  }
+  return rows.sort((a, b) => b.rate - a.rate || b.claimed - a.claimed || a.name.localeCompare(b.name));
 }

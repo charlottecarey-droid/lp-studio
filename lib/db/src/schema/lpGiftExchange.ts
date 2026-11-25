@@ -45,6 +45,9 @@ export const lpGiftTransfersTable = pgTable(
     tier: text("tier").notNull(),
     qty: integer("qty").notNull().default(1),
     note: text("note").notNull().default(""),
+    /** The receiver's thank-you note to the giver (Nov 2026); null until sent. */
+    thanks: text("thanks"),
+    thankedAt: timestamp("thanked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lp_gift_transfers_tenant_idx").on(t.tenantId)],
