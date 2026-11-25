@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideGiftClaim, orderStatusForSlug, parseInventoryTab, parseOrdersTab, soldOutGifts } from "./gift-sheet-status";
+import { decideGiftClaim, orderStatusForSlug, parseAllocationsTab, parseInventoryTab, parseInventoryTiers, parseOrdersTab, repGiftSummary, soldOutGifts, tierKey } from "./gift-sheet-status";
 
 const inventory = [
   ["Kit", "Gift name on the form (must match)", "Ordered", "Claimed", "Remaining"],
@@ -55,5 +55,63 @@ describe("decideGiftClaim", () => {
   });
   it("lets an available gift through", () => {
     expect(decideGiftClaim(data, "gift-new", "Dandy Meta Ray-Bans")).toBeNull();
+  });
+});
+
+describe("rep gift allocations", () => {
+  const inv = [
+    ["Kit", "Gift name on the form (must match)", "Ordered", "Claimed", "Remaining", "Unit cost", "Total cost (ordered)", "Spent so far (claimed)", "Tier"],
+    ["AirPods kit", "Branded AirPods kit", "75", "0", "75", "$300", "", "", "Premium"],
+    ["Yeti", "Yeti Mug and Wireless Charger Duo", "200", "0", "200", "$115", "", "", "Mid-value"],
+    ["Hoodie", "Premium Zip Up Hoodie", "42", "0", "42", "$75", "", "", "Swag"],
+    ["Total", "", "317", "0", "317", "", "", "", ""],
+    ["Swag budget (cap)", "$10,000", "", "", "", "", "", "", ""],
+  ];
+  const alloc = [
+    ["Rep email", "Name", "Role", "Premium", "Mid-value", "Swag", "Premium redeemed", "Mid-value redeemed", "Swag redeemed"],
+    ["Austin.Donohue@meetdandy.com", "Austin Donohue", "Strategic AE", "10", "6", "3", "1", "0", "0"],
+    ["nick.golden@meetdandy.com", "Nick Golden", "Enterprise AE", "4", "", "2", "0", "0", "0"],
+    ["Total", "", "", "14", "6", "5", "", "", ""],
+    [],
+    ["Not yet allocated (reserve)", "", "", "0", "0", "26"],
+  ];
+  const ord = [
+    ["Timestamp", "Page", "Slug", "Variant", "Gift", "Email", "Rep email"],
+    ["t1", "P", "a", "", "Branded AirPods kit", "x@x.com", "austin.donohue@meetdandy.com"],
+    ["t2", "P", "b", "", "yeti mug and wireless charger duo", "y@x.com", "AUSTIN.DONOHUE@meetdandy.com"],
+    ["t3", "P", "c", "", "Mystery gift", "z@x.com", "austin.donohue@meetdandy.com"],
+    ["t4", "P", "d", "", "Premium Zip Up Hoodie", "w@x.com", "nick.golden@meetdandy.com"],
+  ];
+  it("maps tier labels", () => {
+    expect([tierKey("Premium"), tierKey(" mid-tier"), tierKey("SWAG"), tierKey("other")]).toEqual(["premium", "mid", "swag", null]);
+  });
+  it("reads gift tiers from the Inventory tab", () => {
+    expect([...parseInventoryTiers(inv)]).toEqual([["branded airpods kit", "premium"], ["yeti mug and wireless charger duo", "mid"], ["premium zip up hoodie", "swag"]]);
+    expect(parseInventoryTiers(inventory).size).toBe(0);
+  });
+  it("reads allocations by email, ignoring formula columns and non-rep rows", () => {
+    const a = parseAllocationsTab(alloc);
+    expect([...a.keys()]).toEqual(["austin.donohue@meetdandy.com", "nick.golden@meetdandy.com"]);
+    expect(a.get("austin.donohue@meetdandy.com")).toEqual({ email: "austin.donohue@meetdandy.com", name: "Austin Donohue", allocated: { premium: 10, mid: 6, swag: 3 } });
+    expect(a.get("nick.golden@meetdandy.com")?.allocated).toEqual({ premium: 4, mid: 0, swag: 2 });
+    expect(parseAllocationsTab([["Name", "Premium"]]).size).toBe(0);
+  });
+  it("summarises a rep's allocation against redemptions on their pages", () => {
+    const data = { orders: parseOrdersTab(ord).orders, tiers: parseInventoryTiers(inv), allocations: parseAllocationsTab(alloc) };
+    expect(repGiftSummary(data, "Austin.Donohue@meetdandy.com")).toEqual({
+      allocated: true, name: "Austin Donohue", untiered: 1,
+      tiers: [
+        { tier: "premium", allocated: 10, redeemed: 1, remaining: 9 },
+        { tier: "mid", allocated: 6, redeemed: 1, remaining: 5 },
+        { tier: "swag", allocated: 3, redeemed: 0, remaining: 3 },
+      ],
+    });
+    const stranger = repGiftSummary(data, "nobody@meetdandy.com");
+    expect(stranger.allocated).toBe(false);
+    expect(stranger.tiers.every((t) => t.allocated === 0 && t.redeemed === 0)).toBe(true);
+  });
+  it("reads an order's rep email when the column exists", () => {
+    expect(parseOrdersTab(ord).orders[1].repEmail).toBe("austin.donohue@meetdandy.com");
+    expect(parseOrdersTab(orders).orders[0].repEmail).toBe("");
   });
 });
