@@ -70,3 +70,15 @@ export function orderStatusForSlug(orders: GiftOrderRow[], slug: string): { orde
   const row = shipped ?? mine[mine.length - 1];
   return { ordered: true, shipped: !!shipped, shipDate: shipped?.shipDate ?? "", gift: row.gift };
 }
+
+/**
+ * Submit-time guard for a gift claim: a page that already has an order can't
+ * place another, and a gift that has sold out since the page loaded can't be
+ * claimed. Null when the claim may go ahead.
+ */
+export function decideGiftClaim(data: GiftSheetData, slug: string, gift: string): { code: "already_ordered" | "gift_sold_out"; gift: string } | null {
+  const status = orderStatusForSlug(data.orders, slug);
+  if (status.ordered) return { code: "already_ordered", gift: status.gift };
+  if (soldOutGifts(data.stock, data.claimed, [gift]).length > 0) return { code: "gift_sold_out", gift };
+  return null;
+}

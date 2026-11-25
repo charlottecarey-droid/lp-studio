@@ -18,6 +18,7 @@ import {
   type SalesforceConfig,
 } from "../../lib/notifications";
 import { syncLeadToSheets, syncLeadToMarketo } from "./integrations";
+import { checkGiftClaim } from "./gift-status";
 import { buildGlobalFormCrmFields } from "../../lib/crmFieldSuppression";
 import { resolveRepRecipientForTenant } from "../../lib/sales/rep-directory";
 import { appendGuestApplicationToSheet } from "./podcast-availability";
@@ -374,6 +375,14 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
   const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));
   if (!page) {
     res.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  // Holiday gift pages: refuse a second order from the same page, or a gift
+  // that sold out since the page loaded (vendor-sheet stock; fails open).
+  const claimIssue = await checkGiftClaim({ tenantId: page.tenantId, blocks: page.blocks, slug: page.slug, fields });
+  if (claimIssue) {
+    res.status(409).json({ error: claimIssue.code, gift: claimIssue.gift });
     return;
   }
 

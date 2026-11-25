@@ -173,6 +173,8 @@ export function AtelierGiftForm({ props, brand, pageId, variantId, onFieldChange
           <div className="order-1 p-8 lg:order-2 lg:col-span-7 lg:p-12">
             {f.shipped ? (
               <AtelierSuccess palette={pal} headline="Your gift has shipped." message={`It shipped${f.shipped.date ? ` on ${f.shipped.date}` : ""}. Watch for a shipping confirmation, and reach out to your Dandy rep with any questions.`} gift={f.shipped.gift || f.gift} />
+            ) : f.ordered ? (
+              <AtelierSuccess palette={pal} headline="We have your order." message="Your gift is being prepared. Your Dandy rep will follow up with tracking once it ships." gift={f.ordered.gift || f.gift} />
             ) : f.allSoldOut ? (
               <AtelierSuccess palette={pal} headline="Every gift has been claimed." message="Thank you for stopping by. Reach out to your Dandy rep and they'll take it from here." gift="" />
             ) : f.status === "success" ? (

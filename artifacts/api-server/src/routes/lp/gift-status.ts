@@ -16,7 +16,7 @@ import { getRequestHost } from "../../lib/requestHost";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getIntegration } from "../../lib/lpIntegrationsStore";
 import { readTabValues, type SheetsConfig } from "../../lib/google-sheets";
-import { orderStatusForSlug, parseInventoryTab, parseOrdersTab, soldOutGifts, type GiftSheetData } from "../../lib/gift-sheet-status";
+import { decideGiftClaim, orderStatusForSlug, parseInventoryTab, parseOrdersTab, soldOutGifts, type GiftSheetData } from "../../lib/gift-sheet-status";
 
 const router = Router();
 const limiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
@@ -32,10 +32,10 @@ async function tenantFor(req: Parameters<typeof getRequestHost>[0]): Promise<num
   return match?.tenantId ?? null;
 }
 
-async function loadSheet(tenantId: number, formId: number): Promise<GiftSheetData | null> {
+async function loadSheet(tenantId: number, formId: number, fresh = false): Promise<GiftSheetData | null> {
   const key = `${tenantId}:${formId}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
+  if (!fresh && hit && Date.now() - hit.at < TTL_MS) return hit.data;
   let data: GiftSheetData | null = null;
   try {
     const [form] = await db
@@ -92,5 +92,27 @@ router.get("/lp/gifts/order-status", limiter, async (req, res): Promise<void> =>
   const data = page ? await loadSheet(tenantId, formId) : null;
   res.json(data && page ? orderStatusForSlug(data.orders, page.slug) : none);
 });
+
+/**
+ * Called by POST /lp/leads before a gift-form submission is stored: re-reads the
+ * sheet (no cache) and refuses a second order from the same page or a gift that
+ * has sold out since the page loaded. Null = go ahead; also null whenever the
+ * page has no gift form or the sheet can't be read (fail open).
+ */
+export async function checkGiftClaim(args: { tenantId: number; blocks: unknown; slug: string; fields: Record<string, unknown> }): Promise<{ code: "already_ordered" | "gift_sold_out"; gift: string } | null> {
+  try {
+    const block = Array.isArray(args.blocks)
+      ? (args.blocks as Array<{ type?: string; props?: { formId?: unknown } }>).find((b) => b?.type === "gift-form")
+      : undefined;
+    const formId = Number(block?.props?.formId);
+    const gift = typeof args.fields.Gift === "string" ? args.fields.Gift.trim() : "";
+    if (!block || !Number.isInteger(formId) || formId <= 0 || !gift) return null;
+    const data = await loadSheet(args.tenantId, formId, true);
+    return data ? decideGiftClaim(data, args.slug, gift) : null;
+  } catch (err) {
+    console.error("gift-status: claim check failed:", err);
+    return null;
+  }
+}
 
 export default router;

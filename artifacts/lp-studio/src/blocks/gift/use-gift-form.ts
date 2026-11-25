@@ -4,7 +4,7 @@ import { buildAttributionBody, resolveHiddenValue } from "@/lib/global-form-subm
 import { safeNavigate } from "@/lib/safe-url";
 import { fetchGlobalForm, mapToGlobalForm, type PublicGlobalForm } from "./global-form-map";
 import type { GiftFormBlockProps } from "../BlockGiftForm";
-import { isGiftSoldOut, readGiftFromSearch, selectGift, setSoldOut, useGiftSelection, type GiftDetail } from "./gift-selection";
+import { getGiftSelection, isGiftSoldOut, readGiftFromSearch, selectGift, setSoldOut, useGiftSelection, type GiftDetail } from "./gift-selection";
 
 export type GiftFormValues = Record<string, string>;
 
@@ -77,6 +77,8 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
   // page's order status (shipped?) from the vendor sheet. Both fail open.
   const pageIdForStatus = opts.pageId ?? ctx.pageId;
   const [shipped, setShipped] = useState<{ date: string; gift: string } | null>(null);
+  // This page already has an order that hasn't shipped yet.
+  const [ordered, setOrdered] = useState<{ gift: string } | null>(null);
   useEffect(() => {
     if (isEditor || !props.formId) return;
     let alive = true;
@@ -87,7 +89,11 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
     if (pageIdForStatus) {
       fetch(`/api/lp/gifts/order-status?formId=${props.formId}&pageId=${pageIdForStatus}`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { shipped?: boolean; shipDate?: string; gift?: string } | null) => { if (alive && d?.shipped) setShipped({ date: d.shipDate ?? "", gift: d.gift ?? "" }); })
+        .then((d: { ordered?: boolean; shipped?: boolean; shipDate?: string; gift?: string } | null) => {
+          if (!alive || !d) return;
+          if (d.shipped) setShipped({ date: d.shipDate ?? "", gift: d.gift ?? "" });
+          else if (d.ordered) setOrdered({ gift: d.gift ?? "" });
+        })
         .catch(() => {});
     }
     return () => { alive = false; };
@@ -186,6 +192,19 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+        if (resp.status === 409) {
+          // The server re-checked the order sheet: this page already ordered, or
+          // the gift sold out since the page loaded.
+          const info = (await resp.json().catch(() => ({}))) as { error?: string; gift?: string };
+          if (info.error === "already_ordered") { setOrdered({ gift: info.gift ?? gift }); setStatus("idle"); return; }
+          if (info.error === "gift_sold_out") {
+            setSoldOut([...getGiftSelection().soldOut, info.gift ?? gift]);
+            setStep(0);
+            setErrors({ gift: "That gift was just claimed. Please pick another." });
+            setStatus("idle");
+            return;
+          }
+        }
         if (!resp.ok) throw new Error("submit failed");
       }
       setStatus("success");
@@ -197,5 +216,5 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
     }
   };
 
-  return { options, details, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, goTo, submit, shipped, allSoldOut };
+  return { options, details, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, goTo, submit, shipped, ordered, allSoldOut };
 }

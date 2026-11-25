@@ -119,7 +119,7 @@ function ClassicGiftForm({ props, brand, pageId, variantId, onFieldChange }: Pro
   const anim = useAnimInitial();
   const pal = resolveGiftPalette(props, brand);
   const isEditor = !!onFieldChange;
-  const { options, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, submit, shipped, allSoldOut } = useGiftForm(props, { pageId, variantId, isEditor });
+  const { options, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, submit, shipped, ordered, allSoldOut } = useGiftForm(props, { pageId, variantId, isEditor });
   const nextSteps = (props.nextSteps ?? []).filter(Boolean).slice(0, 4);
   const stepTitles = [props.stepOneTitle || "Your pick", props.stepTwoTitle || "About you", props.stepThreeTitle || "Where to send it"];
 
@@ -263,6 +263,8 @@ function ClassicGiftForm({ props, brand, pageId, variantId, onFieldChange }: Pro
         >
           {shipped ? (
             <SuccessState palette={pal} headline="Your gift has shipped." message={`It shipped${shipped.date ? ` on ${shipped.date}` : ""}. Watch for a shipping confirmation, and reach out to your Dandy rep with any questions.`} gift={shipped.gift || gift} reduced={reduced} />
+          ) : ordered ? (
+            <SuccessState palette={pal} headline="We have your order." message="Your gift is being prepared. Your Dandy rep will follow up with tracking once it ships." gift={ordered.gift || gift} reduced={reduced} />
           ) : allSoldOut ? (
             <SuccessState palette={pal} headline="Every gift has been claimed." message="Thank you for stopping by. Reach out to your Dandy rep and they'll take it from here." gift="" reduced={reduced} />
           ) : status === "success" ? (

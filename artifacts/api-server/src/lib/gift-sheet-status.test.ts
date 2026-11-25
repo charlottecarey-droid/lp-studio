@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orderStatusForSlug, parseInventoryTab, parseOrdersTab, soldOutGifts } from "./gift-sheet-status";
+import { decideGiftClaim, orderStatusForSlug, parseInventoryTab, parseOrdersTab, soldOutGifts } from "./gift-sheet-status";
 
 const inventory = [
   ["Kit", "Gift name on the form (must match)", "Ordered", "Claimed", "Remaining"],
@@ -40,5 +40,20 @@ describe("gift sheet status", () => {
   it("tolerates a missing Ship date column", () => {
     const { orders: rows } = parseOrdersTab([["Slug", "Gift"], ["gift-aaa", "Mug"]]);
     expect(orderStatusForSlug(rows, "gift-aaa").shipped).toBe(false);
+  });
+});
+
+describe("decideGiftClaim", () => {
+  const stock = parseInventoryTab(inventory);
+  const parsed = parseOrdersTab(orders);
+  const data = { stock, claimed: parsed.claimed, orders: parsed.orders };
+  it("blocks a second order from the same page", () => {
+    expect(decideGiftClaim(data, "gift-aaa", "Dandy Meta Ray-Bans")).toEqual({ code: "already_ordered", gift: "Branded AirPods kit" });
+  });
+  it("blocks a gift that has sold out", () => {
+    expect(decideGiftClaim(data, "gift-new", "Premium Zip Up Hoodie")).toEqual({ code: "gift_sold_out", gift: "Premium Zip Up Hoodie" });
+  });
+  it("lets an available gift through", () => {
+    expect(decideGiftClaim(data, "gift-new", "Dandy Meta Ray-Bans")).toBeNull();
   });
 });
