@@ -134,3 +134,37 @@ export function claimCountLeaderboard(
   });
   return rows.sort((a, b) => b.claimed - a.claimed || b.rate - a.rate || a.name.localeCompare(b.name));
 }
+
+export interface PileOffer { id: number; repEmail: string; remaining: number }
+
+/**
+ * Fill a request from the pile before posting it: walk open offers (oldest
+ * first, as given), skipping the requester's own, taking up to `qty` gifts.
+ * `giverLeft` caps each giver at what they still have across all their offers.
+ * Returns what to take from each offer, offers to close because their giver
+ * has nothing left, and how many are still needed.
+ */
+export function planPileFill(offers: PileOffer[], requester: string, qty: number, giverLeft: Map<string, number>): { takes: Array<{ postId: number; from: string; take: number }>; exhausted: number[]; stillNeeded: number } {
+  const me = requester.trim().toLowerCase();
+  const left = new Map(giverLeft);
+  const takes: Array<{ postId: number; from: string; take: number }> = [];
+  const exhausted: number[] = [];
+  let need = qty;
+  for (const o of offers) {
+    if (need <= 0) break;
+    const from = o.repEmail.trim().toLowerCase();
+    if (from === me || o.remaining < 1) continue;
+    const has = Math.max(0, left.get(from) ?? 0);
+    if (has === 0) { exhausted.push(o.id); continue; }
+    const take = Math.min(need, o.remaining, has);
+    takes.push({ postId: o.id, from, take });
+    left.set(from, has - take);
+    need -= take;
+  }
+  return { takes, exhausted, stillNeeded: need };
+}
+
+/** Everything a rep can drop in the pile at once: per tier, what's free (left minus open offers). */
+export function dropAllPlan(balances: TierBalance[], openOffers: OpenOfferLike[], email: string): Array<{ tier: GiftTierKey; qty: number }> {
+  return GIFT_TIER_KEYS.map((tier) => ({ tier, qty: Math.min(50, availableToOffer(balances, openOffers, email, tier)) })).filter((t) => t.qty > 0);
+}

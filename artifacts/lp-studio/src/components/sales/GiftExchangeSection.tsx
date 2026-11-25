@@ -39,6 +39,7 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
   const [data, setData] = useState<ExchangeData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | "post" | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [thanking, setThanking] = useState<{ giverEmail: string; message: string } | null>(null);
   const [form, setForm] = useState<{ kind: FormKind; tier: TierId; qty: string; note: string; toEmail: string } | null>(null);
 
@@ -50,13 +51,13 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const call = async (key: number | "post", url: string, init: RequestInit) => {
-    setBusy(key); setError(null);
+  const call = async (key: number | "post", url: string, init: RequestInit): Promise<false | Record<string, unknown>> => {
+    setBusy(key); setError(null); setNotice(null);
     try {
       const r = await fetch(url, { ...init, headers: { "Content-Type": "application/json" } });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) { setError(body?.error || "That didn't work. Try again."); return false; }
-      return true;
+      return (body ?? {}) as Record<string, unknown>;
     } catch {
       setError("That didn't work. Try again."); return false;
     } finally {
@@ -69,10 +70,31 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
 
   const submit = async () => {
     if (!form) return;
-    const ok = form.kind === "give"
-      ? await call("post", "/api/lp/gifts/exchange/send", { method: "POST", body: JSON.stringify({ toEmail: form.toEmail, tier: form.tier, qty: Number(form.qty), note: form.note }) })
-      : await call("post", "/api/lp/gifts/exchange/posts", { method: "POST", body: JSON.stringify({ kind: form.kind, tier: form.tier, qty: Number(form.qty), note: form.note }) });
-    if (ok) setForm(null);
+    if (form.kind === "give") {
+      const ok = await call("post", "/api/lp/gifts/exchange/send", { method: "POST", body: JSON.stringify({ toEmail: form.toEmail, tier: form.tier, qty: Number(form.qty), note: form.note }) });
+      if (ok) setForm(null);
+      return;
+    }
+    const res = await call("post", "/api/lp/gifts/exchange/posts", { method: "POST", body: JSON.stringify({ kind: form.kind, tier: form.tier, qty: Number(form.qty), note: form.note }) });
+    if (!res) return;
+    const filled = (res.filled as Array<{ name: string; qty: number }> | undefined) ?? [];
+    const posted = Number(res.posted ?? 0);
+    if (form.kind === "request" && filled.length) {
+      const got = filled.reduce((n, f) => n + f.qty, 0);
+      setNotice(`🎁 Got ${got} ${LABELS[form.tier]} from the pile (from ${filled.map((f) => f.name).join(", ")}).${posted ? ` Posted a request for ${posted} more.` : ""}`);
+    }
+    setForm(null);
+  };
+
+  // While putting gifts up for grabs: reps already hunting for this kind of gift.
+  const hunters = form?.kind === "offer" ? data.posts.filter((p) => p.kind === "request" && !p.mine && p.tier === form.tier).slice(0, 2) : [];
+  const mineOffered = (tier: TierId) => data.posts.filter((p) => p.mine && p.kind === "offer" && p.tier === tier).reduce((n, p) => n + p.remaining, 0);
+  const free = (Object.keys(LABELS) as TierId[]).map((t) => ({ tier: t, qty: Math.max(0, left(t) - mineOffered(t)) })).filter((f) => f.qty > 0);
+  const dropAll = async () => {
+    const list = free.map((f) => `${f.qty} ${LABELS[f.tier]}`).join(", ");
+    if (!window.confirm(`Drop all your free gifts in the pile (${list})? Other reps can claim them right away. You can remove a post later.`)) return;
+    const ok = await call("post", "/api/lp/gifts/exchange/drop-all", { method: "POST", body: JSON.stringify({ note: form?.note ?? "" }) });
+    if (ok) { setForm(null); setNotice(`🎁 Dropped ${list} in the pile. Thanks for sharing!`); }
   };
 
   return (
@@ -131,9 +153,30 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
             <Button size="sm" onClick={submit} disabled={busy === "post" || (form.kind === "give" && !form.toEmail)} className="gap-1.5">{busy === "post" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{form.kind === "give" ? "Give" : "Post"}</Button>
             <Button size="sm" variant="ghost" onClick={() => { setForm(null); setError(null); }}>Cancel</Button>
           </div>
+          {hunters.map((h) => {
+            const n = Math.max(1, Math.min(Number(form.qty) || 1, h.remaining, left(h.tier)));
+            return (
+              <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs">
+                <span>🎯 <span className="font-medium">{h.repName || h.repEmail}</span> is hunting for {h.remaining} {LABELS[h.tier]}. Give to them instead?</span>
+                <Button size="sm" variant="outline" disabled={busy === h.id || left(h.tier) < 1} onClick={async () => {
+                  const ok = await call(h.id, `/api/lp/gifts/exchange/posts/${h.id}/act`, { method: "POST", body: JSON.stringify({ qty: n }) });
+                  if (ok) setForm(null);
+                }}>Give {n}</Button>
+              </div>
+            );
+          })}
+          {form.kind === "offer" && free.length > 0 && (
+            <div className="border-t pt-2 text-xs text-muted-foreground">
+              Done gifting?{" "}
+              <button type="button" className="font-medium text-foreground underline underline-offset-4" disabled={busy === "post"} onClick={dropAll}>
+                Drop all my gifts in the pile
+              </button>{" "}({free.map((f) => `${f.qty} ${LABELS[f.tier]}`).join(", ")})
+            </div>
+          )}
         </div>
       )}
 
+      {notice && <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{notice}</div>}
       {error && <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</div>}
 
       {data.posts.length === 0 ? (

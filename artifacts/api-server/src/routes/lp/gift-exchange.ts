@@ -1,8 +1,9 @@
 // Holiday gifting exchange for the Sales Console gifting page (Nov 2026).
 //   GET    /lp/gifts/my-allocation?email=      → a rep's per-tier balance
 //   GET    /lp/gifts/exchange                  → open posts + the signed-in rep's balance
-//   POST   /lp/gifts/exchange/posts            → { kind: offer|request, tier, qty, note }
-//   POST   /lp/gifts/exchange/posts/:id/act    → Claim (offer) or Give (request): moves ONE gift
+//   POST   /lp/gifts/exchange/posts            → { kind: offer|request, tier, qty, note }; a request takes from the pile first
+//   POST   /lp/gifts/exchange/posts/:id/act    → Claim (offer) or Give (request): { qty? } gifts, default 1
+//   POST   /lp/gifts/exchange/drop-all         → put every free gift up for grabs
 //   DELETE /lp/gifts/exchange/posts/:id        → poster cancels their own post
 //   POST   /lp/gifts/exchange/send             → { toEmail, tier, qty, note }: give gifts straight to one rep
 //   POST   /lp/gifts/exchange/thanks           → { giverEmail, message }: thank a rep for gifts they gave you
@@ -13,11 +14,11 @@
 // lock so two reps can't take the same gift or overdraw a balance.
 import { Router, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db, lpGiftPostsTable, lpGiftTransfersTable, lpPagesTable } from "@workspace/db";
 import { appendRowToTab } from "../../lib/google-sheets";
 import { repGiftSummary, type GiftTierKey } from "../../lib/gift-sheet-status";
-import { availableToOffer, balancesWithTransfers, claimCountLeaderboard, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction, type TierBalance } from "../../lib/gift-exchange";
+import { availableToOffer, balancesWithTransfers, claimCountLeaderboard, claimLeaderboard, dropAllPlan, parsePostInput, planPileFill, parseSendInput, parseThanks, transferForAction, type TierBalance } from "../../lib/gift-exchange";
 import { giftSheetConfig, giftSourceFormId, loadSheet } from "./gift-status";
 
 const router = Router();
@@ -173,23 +174,76 @@ router.post("/lp/gifts/exchange/posts", limiter, async (req, res): Promise<void>
   const input = parsePostInput(req.body);
   if ("error" in input) { res.status(400).json({ error: input.error }); return; }
   try {
-    const post = await db.transaction(async (tx) => {
+    const out = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(${LOCK_NS}, ${me.tenantId})`);
       const { summary, balances } = await repBalance(me.tenantId, me.email, { tx });
+      const filled: Array<{ postId: number; from: string; name: string; take: number }> = [];
+      let qty = input.qty;
       if (input.kind === "offer") {
         const free = availableToOffer(balances, await openOffers(me.tenantId, tx), me.email, input.tier);
         if (free < input.qty) throw new HttpError(409, free === 0 ? `You don't have any ${TIER_LABEL[input.tier]} gifts free to give.` : `You only have ${free} ${TIER_LABEL[input.tier]} gift${free === 1 ? "" : "s"} free to give.`);
+      } else {
+        // A request takes what it can from the pile first; only the rest is posted.
+        const pile = await tx.select().from(lpGiftPostsTable)
+          .where(and(eq(lpGiftPostsTable.tenantId, me.tenantId), eq(lpGiftPostsTable.status, "open"), eq(lpGiftPostsTable.kind, "offer"), eq(lpGiftPostsTable.tier, input.tier)))
+          .orderBy(asc(lpGiftPostsTable.createdAt));
+        const giverLeft = new Map<string, number>();
+        let fresh = true;
+        for (const o of pile) {
+          const g = o.repEmail.toLowerCase();
+          if (g === me.email || giverLeft.has(g)) continue;
+          giverLeft.set(g, leftOf((await repBalance(me.tenantId, g, { fresh, tx })).balances, input.tier));
+          fresh = false;
+        }
+        const plan = planPileFill(pile, me.email, input.qty, giverLeft);
+        for (const id of plan.exhausted) await tx.update(lpGiftPostsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(lpGiftPostsTable.id, id));
+        for (const t of plan.takes) {
+          const o = pile.find((p) => p.id === t.postId)!;
+          await tx.insert(lpGiftTransfersTable).values({ tenantId: me.tenantId, postId: o.id, fromEmail: t.from, toEmail: me.email, tier: o.tier, qty: t.take, note: o.note });
+          const remaining = o.remaining - t.take;
+          await tx.update(lpGiftPostsTable).set({ remaining, status: remaining === 0 ? "done" : "open", updatedAt: new Date() }).where(eq(lpGiftPostsTable.id, o.id));
+          filled.push({ postId: o.id, from: t.from, name: o.repName || t.from, take: t.take });
+        }
+        qty = plan.stillNeeded;
       }
-      const [row] = await tx.insert(lpGiftPostsTable).values({
-        tenantId: me.tenantId, kind: input.kind, repEmail: me.email, repName: summary.name, tier: input.tier, qty: input.qty, remaining: input.qty, note: input.note,
-      }).returning();
-      return row;
+      let id: number | null = null;
+      if (qty > 0) {
+        const [row] = await tx.insert(lpGiftPostsTable).values({
+          tenantId: me.tenantId, kind: input.kind, repEmail: me.email, repName: summary.name, tier: input.tier, qty, remaining: qty, note: input.note,
+        }).returning({ id: lpGiftPostsTable.id });
+        id = row.id;
+      }
+      return { id, filled, posted: qty };
     });
-    res.status(201).json({ id: post.id });
+    res.status(201).json({ id: out.id, posted: out.posted, filled: out.filled.map((f) => ({ name: f.name, qty: f.take })) });
+    for (const f of out.filled) void mirrorToSheet(me.tenantId, { from: f.from, to: me.email, tier: input.tier, qty: f.take, post: `#${f.postId} offer (filled a request)`, note: input.note });
   } catch (err) {
     if (err instanceof HttpError) { res.status(err.status).json({ error: err.message }); return; }
     console.error("gift-exchange: post failed:", err);
     res.status(500).json({ error: "Couldn't post that." });
+  }
+});
+
+router.post("/lp/gifts/exchange/drop-all", limiter, async (req, res): Promise<void> => {
+  const me = signedIn(req, res);
+  if (!me) return;
+  const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 280) : "";
+  try {
+    const dropped = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${LOCK_NS}, ${me.tenantId})`);
+      const { summary, balances } = await repBalance(me.tenantId, me.email, { fresh: true, tx });
+      const plan = dropAllPlan(balances, await openOffers(me.tenantId, tx), me.email);
+      if (!plan.length) throw new HttpError(409, "You don't have any free gifts to drop.");
+      for (const t of plan) {
+        await tx.insert(lpGiftPostsTable).values({ tenantId: me.tenantId, kind: "offer", repEmail: me.email, repName: summary.name, tier: t.tier, qty: t.qty, remaining: t.qty, note });
+      }
+      return plan;
+    });
+    res.status(201).json({ dropped });
+  } catch (err) {
+    if (err instanceof HttpError) { res.status(err.status).json({ error: err.message }); return; }
+    console.error("gift-exchange: drop-all failed:", err);
+    res.status(500).json({ error: "Couldn't drop your gifts." });
   }
 });
 
@@ -206,22 +260,25 @@ router.post("/lp/gifts/exchange/posts/:id/act", limiter, async (req, res): Promi
       const move = transferForAction(post, me.email);
       if ("error" in move) throw new HttpError(400, move.error);
       // The giver's balance, with recipient claims read fresh from the sheet.
+      const want = Math.max(1, Math.min(Number.isInteger(Number(req.body?.qty)) ? Number(req.body.qty) : 1, post.remaining, 50));
       const { balances } = await repBalance(me.tenantId, move.from, { fresh: true, tx });
-      if (leftOf(balances, post.tier) < 1) {
+      const has = leftOf(balances, post.tier);
+      if (has < 1) {
         if (post.kind === "offer") {
           await tx.update(lpGiftPostsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(lpGiftPostsTable.id, post.id));
           throw new HttpError(409, `${post.repName || post.repEmail} has no ${TIER_LABEL[post.tier as GiftTierKey] ?? post.tier} gifts left, so this post is closed.`);
         }
         throw new HttpError(409, `You don't have any ${TIER_LABEL[post.tier as GiftTierKey] ?? post.tier} gifts left to give.`);
       }
-      await tx.insert(lpGiftTransfersTable).values({ tenantId: me.tenantId, postId: post.id, fromEmail: move.from, toEmail: move.to, tier: post.tier, qty: 1, note: post.note });
-      const remaining = post.remaining - 1;
+      const n = Math.min(want, has);
+      await tx.insert(lpGiftTransfersTable).values({ tenantId: me.tenantId, postId: post.id, fromEmail: move.from, toEmail: move.to, tier: post.tier, qty: n, note: post.note });
+      const remaining = post.remaining - n;
       await tx.update(lpGiftPostsTable).set({ remaining, status: remaining === 0 ? "done" : "open", updatedAt: new Date() }).where(eq(lpGiftPostsTable.id, post.id));
-      return { post, move, remaining };
+      return { post, move, remaining, n };
     });
-    res.json({ ok: true, remaining: done.remaining });
+    res.json({ ok: true, remaining: done.remaining, moved: done.n });
     // Mirror to the sheet after responding; the DB is the record, so a failure only logs.
-    void mirrorToSheet(me.tenantId, { from: done.move.from, to: done.move.to, tier: done.post.tier, qty: 1, post: `#${done.post.id} ${done.post.kind}`, note: done.post.note });
+    void mirrorToSheet(me.tenantId, { from: done.move.from, to: done.move.to, tier: done.post.tier, qty: done.n, post: `#${done.post.id} ${done.post.kind}`, note: done.post.note });
   } catch (err) {
     if (err instanceof HttpError) { res.status(err.status).json({ error: err.message }); return; }
     console.error("gift-exchange: act failed:", err);

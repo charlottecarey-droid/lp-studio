@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableToOffer, balancesWithTransfers, claimCountLeaderboard, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction } from "./gift-exchange";
+import { availableToOffer, balancesWithTransfers, claimCountLeaderboard, claimLeaderboard, dropAllPlan, parsePostInput, planPileFill, parseSendInput, parseThanks, transferForAction } from "./gift-exchange";
 
 const summary = {
   tiers: [
@@ -64,5 +64,25 @@ describe("gift exchange", () => {
     const orders = [{ repEmail: "a@x.com" }, { repEmail: "a@x.com" }, { repEmail: "b@x.com" }, { repEmail: "b@x.com" }, { repEmail: "c@x.com" }, { repEmail: "" }];
     const rows = claimCountLeaderboard(pages, orders, undefined);
     expect(rows.map((r) => [r.email, r.claimed, r.pagesSent])).toEqual([["b@x.com", 2, 2], ["a@x.com", 2, 10], ["c@x.com", 1, 1]]);
+  });
+  it("fills a request from the pile, oldest first, within each giver's balance", () => {
+    const offers = [
+      { id: 1, repEmail: "me@x.com", remaining: 5 },
+      { id: 2, repEmail: "nick@x.com", remaining: 2 },
+      { id: 3, repEmail: "gone@x.com", remaining: 3 },
+      { id: 4, repEmail: "nick@x.com", remaining: 4 },
+      { id: 5, repEmail: "molly@x.com", remaining: 4 },
+    ];
+    const left = new Map([["nick@x.com", 3], ["gone@x.com", 0], ["molly@x.com", 9]]);
+    expect(planPileFill(offers, "ME@x.com", 6, left)).toEqual({
+      takes: [{ postId: 2, from: "nick@x.com", take: 2 }, { postId: 4, from: "nick@x.com", take: 1 }, { postId: 5, from: "molly@x.com", take: 3 }],
+      exhausted: [3],
+      stillNeeded: 0,
+    });
+    expect(planPileFill([], "me@x.com", 2, new Map())).toEqual({ takes: [], exhausted: [], stillNeeded: 2 });
+  });
+  it("plans dropping everything free", () => {
+    const b = balancesWithTransfers(summary, [], "a@x.com");
+    expect(dropAllPlan(b, [{ repEmail: "a@x.com", tier: "premium", remaining: 3 }], "a@x.com")).toEqual([{ tier: "premium", qty: 5 }, { tier: "mid", qty: 6 }]);
   });
 });
