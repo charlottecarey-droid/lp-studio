@@ -3,6 +3,7 @@
 // lib/gift-sheet-status.ts):
 //   GET /lp/gifts/availability?formId=   → { soldOut: string[] }
 //   GET /lp/gifts/order-status?formId=&pageId= → { ordered, shipped, shipDate, gift }
+//   GET /lp/gifts/my-allocation?email=        → a rep's per-tier allocation (signed-in only)
 // Tenant comes from the request host (like the public GET /lp/forms/:id); only
 // the sheet configured on that tenant's own form is read, and only booleans,
 // gift names and a ship date leave. Cached 60s. Fails OPEN: if the sheet can't
@@ -10,17 +11,20 @@
 // hiccup never blocks someone from claiming a gift.
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, lpFormsTable, lpPagesTable } from "@workspace/db";
 import { getRequestHost } from "../../lib/requestHost";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getIntegration } from "../../lib/lpIntegrationsStore";
 import { readTabValues, type SheetsConfig } from "../../lib/google-sheets";
-import { decideGiftClaim, orderStatusForSlug, parseInventoryTab, parseOrdersTab, soldOutGifts, type GiftSheetData } from "../../lib/gift-sheet-status";
+import { decideGiftClaim, orderStatusForSlug, parseAllocationsTab, parseInventoryTab, parseInventoryTiers, parseOrdersTab, repGiftSummary, soldOutGifts, type GiftSheetData } from "../../lib/gift-sheet-status";
 
 const router = Router();
 const limiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
 const INVENTORY_TAB = "Inventory";
+const ALLOCATIONS_TAB = "Allocations";
+// The Sales Console gifting wizard's source pages; their gift form names the sheet.
+const GIFT_SOURCE_SLUGS = ["holiday-gifts-premium", "holiday-gifts-mid", "holiday-gifts-swag"];
 const TTL_MS = 60_000;
 const cache = new Map<string, { at: number; data: GiftSheetData | null }>();
 
@@ -48,12 +52,16 @@ async function loadSheet(tenantId: number, formId: number, fresh = false): Promi
     if (override?.enabled !== false && base?.serviceAccountEmail && base.privateKey) {
       const cfg: SheetsConfig = { ...base, sheetId: override?.sheetId?.trim() || base.sheetId, tabName: override?.tabName?.trim() || base.tabName };
       if (cfg.sheetId) {
-        const [ordersValues, inventoryValues] = await Promise.all([
+        const [ordersValues, inventoryValues, allocationValues] = await Promise.all([
           readTabValues(cfg, cfg.tabName || "Leads"),
           readTabValues(cfg, INVENTORY_TAB).catch(() => [] as string[][]),
+          readTabValues(cfg, ALLOCATIONS_TAB).catch(() => [] as string[][]),
         ]);
         const { claimed, orders } = parseOrdersTab(ordersValues);
-        data = { stock: parseInventoryTab(inventoryValues), claimed, orders };
+        data = {
+          stock: parseInventoryTab(inventoryValues), claimed, orders,
+          tiers: parseInventoryTiers(inventoryValues), allocations: parseAllocationsTab(allocationValues),
+        };
       }
     }
   } catch (err) {
@@ -91,6 +99,51 @@ router.get("/lp/gifts/order-status", limiter, async (req, res): Promise<void> =>
     .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
   const data = page ? await loadSheet(tenantId, formId) : null;
   res.json(data && page ? orderStatusForSlug(data.orders, page.slug) : none);
+});
+
+/** The gift form the wizard's source pages use (first one found), or null. */
+async function giftSourceFormId(tenantId: number): Promise<number | null> {
+  for (const slug of GIFT_SOURCE_SLUGS) {
+    const [page] = await db
+      .select({ blocks: lpPagesTable.blocks })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, slug)));
+    const blocks = Array.isArray(page?.blocks) ? (page.blocks as Array<{ type?: string; props?: { formId?: unknown } }>) : [];
+    const id = formIdOf(blocks.find((b) => b?.type === "gift-form")?.props?.formId);
+    if (id) return id;
+  }
+  return null;
+}
+
+// A rep's gift allocation for the Sales Console: per tier, what the Allocations
+// tab gives them, how many of their recipients have claimed (orders whose
+// "Rep email" is theirs) and what's left, plus how many gift pages carry their
+// rep_email. Signed-in users of the tenant only. `email` defaults to the user.
+router.get("/lp/gifts/my-allocation", limiter, async (req, res): Promise<void> => {
+  res.set("Cache-Control", "no-store");
+  const authUser = (req as { authUser?: { tenantId?: number | null; email?: string | null } }).authUser;
+  const tenantId = typeof authUser?.tenantId === "number" ? authUser.tenantId : null;
+  if (!tenantId) { res.status(401).json({ error: "Sign in to see your gift allocation." }); return; }
+  const email = String(req.query.email ?? authUser?.email ?? "").trim().toLowerCase();
+  if (!email.includes("@")) { res.status(400).json({ error: "email is required" }); return; }
+  try {
+    const formId = await giftSourceFormId(tenantId);
+    const data = formId ? await loadSheet(tenantId, formId) : null;
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(lpPagesTable)
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        eq(lpPagesTable.isTemplate, false),
+        sql`lower(${lpPagesTable.pageVariables}->>'rep_email') = ${email}`,
+        sql`${lpPagesTable.blocks} @> '[{"type":"gift-form"}]'::jsonb`,
+      ));
+    if (!data) { res.json({ email, configured: false, linksSent: n }); return; }
+    res.json({ email, configured: !!data.allocations?.size, linksSent: n, ...repGiftSummary(data, email) });
+  } catch (err) {
+    console.error("gift-status: allocation failed:", err);
+    res.status(500).json({ error: "Couldn't load your gift allocation." });
+  }
 });
 
 /**
