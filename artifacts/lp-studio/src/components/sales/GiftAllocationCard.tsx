@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type TierId = "premium" | "mid" | "swag";
-interface TierRow { tier: TierId; allocated: number; redeemed: number; remaining: number }
+interface TierRow { tier: TierId; allocated: number; redeemed: number; received: number; given: number; left: number }
 export interface GiftAllocation {
   email: string;
   configured: boolean;
@@ -18,11 +18,11 @@ const LABELS: Record<TierId, string> = { premium: "Premium", mid: "Mid-value", s
 
 /**
  * The selected rep's holiday gift allocation, read from the gifting sheet's
- * Allocations tab (GET /lp/gifts/my-allocation). "Left" counts down as their
- * recipients claim gifts, not as links go out, so reps can send more links than
- * they have gifts. Renders nothing until an allocation sheet is set up.
+ * Allocations tab plus rep-to-rep transfers (GET /lp/gifts/my-allocation).
+ * "Left" counts down as their recipients claim gifts, not as links go out, so
+ * reps can send more links than they have gifts. Renders nothing until an allocation sheet is set up.
  */
-export function GiftAllocationCard({ email }: { email: string }) {
+export function GiftAllocationCard({ email, version = 0 }: { email: string; version?: number }) {
   const [data, setData] = useState<GiftAllocation | null>(null);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function GiftAllocationCard({ email }: { email: string }) {
       .then((d: GiftAllocation | null) => { if (!cancelled) setData(d); })
       .catch(() => { if (!cancelled) setData(null); });
     return () => { cancelled = true; };
-  }, [email]);
+  }, [email, version]);
 
   if (!data || !data.configured) return null;
 
@@ -51,7 +51,7 @@ export function GiftAllocationCard({ email }: { email: string }) {
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Gift className="h-4 w-4" />
-          {data.name ? `${data.name}'s gifts` : "Your gifts"}
+          {data.name ? `${data.name}'s loot` : "Your loot"}
         </div>
         <div className="text-xs text-muted-foreground">{data.linksSent} gift page{data.linksSent === 1 ? "" : "s"} sent</div>
       </div>
@@ -59,12 +59,15 @@ export function GiftAllocationCard({ email }: { email: string }) {
         {(data.tiers ?? []).map((t) => (
           <div key={t.tier} className="rounded-lg border p-3">
             <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{LABELS[t.tier]}</div>
-            <div className={cn("mt-1 text-2xl font-semibold tabular-nums", t.remaining <= 0 && t.allocated > 0 && "text-muted-foreground")}>
-              {Math.max(t.remaining, 0)}
-              <span className="ml-1 text-sm font-normal text-muted-foreground">of {t.allocated} left</span>
+            <div className={cn("mt-1 text-2xl font-semibold tabular-nums", t.left <= 0 && "text-muted-foreground")}>
+              {Math.max(t.left, 0)}
+              <span className="ml-1 text-sm font-normal text-muted-foreground">left</span>
             </div>
             <div className="mt-0.5 text-xs text-muted-foreground">
-              {t.redeemed} claimed{t.remaining < 0 ? ` · ${-t.remaining} over` : ""}
+              {t.allocated} allocated · {t.redeemed} claimed
+              {t.received ? ` · +${t.received} received` : ""}
+              {t.given ? ` · −${t.given} given` : ""}
+              {t.left < 0 ? ` · ${-t.left} over` : ""}
             </div>
           </div>
         ))}
