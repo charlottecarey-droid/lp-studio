@@ -319,7 +319,7 @@ export default function SalesGifting() {
         </header>
         <div className="space-y-4">
           <div role="tablist" aria-label="Holiday gifting" className="mx-auto flex w-fit rounded-full border p-1 text-sm">
-            {([["send", "Send gifts"], ["trade", "Trade gifts with reps"]] as const).map(([id, label]) => (
+            {([["send", "Send gifts"], ["trade", "Trade gifts"]] as const).map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)}
                 className={cn("rounded-full px-4 py-1.5 transition-colors", view === id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
                 {label}
