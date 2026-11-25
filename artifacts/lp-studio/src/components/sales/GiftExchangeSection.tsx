@@ -79,7 +79,7 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
           <div className="flex flex-wrap items-center gap-2">
             <Input type="number" min={1} max={50} value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} className="h-8 w-20" aria-label="How many" />
             <Select value={form.tier} onValueChange={(v) => setForm({ ...form, tier: v as TierId })}>
-              <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
               <SelectContent>{(Object.keys(LABELS) as TierId[]).map((t) => <SelectItem key={t} value={t}>{LABELS[t]}{form.kind === "offer" ? ` (${left(t)} left)` : ""}</SelectItem>)}</SelectContent>
             </Select>
             <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note (optional), e.g. which account" className="h-8 min-w-[12rem] flex-1" maxLength={280} />
