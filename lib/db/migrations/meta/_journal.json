@@ -1212,6 +1212,13 @@
       "when": 1758117600000,
       "tag": "0172_claude_connector",
       "breakpoints": false
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1758204000000,
+      "tag": "0173_gift_exchange",
+      "breakpoints": false
     }
   ]
 }

@@ -1,0 +1,67 @@
+/**
+ * Holiday gifting exchange — pure rules (Nov 2026). Reps post gifts "up for
+ * grabs" (offers) or ask for gifts (requests); each Claim / Give moves ONE gift.
+ * The routes (routes/lp/gift-exchange.ts) do the locking, reading and writing.
+ */
+import { GIFT_TIER_KEYS, type GiftTierKey, type RepGiftSummary } from "./gift-sheet-status";
+
+export type GiftPostKind = "offer" | "request";
+export interface TransferLike { fromEmail: string; toEmail: string; tier: string; qty: number }
+export interface OpenOfferLike { repEmail: string; tier: string; remaining: number }
+
+export interface TierBalance { tier: GiftTierKey; allocated: number; redeemed: number; received: number; given: number; left: number }
+
+/** Per-tier balance: allocated − claimed by recipients + received − given. */
+export function balancesWithTransfers(summary: Pick<RepGiftSummary, "tiers">, transfers: TransferLike[], email: string): TierBalance[] {
+  const me = email.trim().toLowerCase();
+  return GIFT_TIER_KEYS.map((tier) => {
+    const base = summary.tiers.find((t) => t.tier === tier) ?? { allocated: 0, redeemed: 0 };
+    let received = 0;
+    let given = 0;
+    for (const t of transfers) {
+      if (t.tier !== tier) continue;
+      if (t.toEmail.toLowerCase() === me) received += t.qty;
+      if (t.fromEmail.toLowerCase() === me) given += t.qty;
+    }
+    return { tier, allocated: base.allocated, redeemed: base.redeemed, received, given, left: base.allocated - base.redeemed + received - given };
+  });
+}
+
+/** What a rep can still put up for grabs: left, minus what their open offers already promise. */
+export function availableToOffer(balances: TierBalance[], openOffers: OpenOfferLike[], email: string, tier: GiftTierKey): number {
+  const me = email.trim().toLowerCase();
+  const left = balances.find((b) => b.tier === tier)?.left ?? 0;
+  const promised = openOffers
+    .filter((o) => o.repEmail.toLowerCase() === me && o.tier === tier)
+    .reduce((n, o) => n + o.remaining, 0);
+  return Math.max(0, left - promised);
+}
+
+export interface PostInput { kind: GiftPostKind; tier: GiftTierKey; qty: number; note: string }
+
+/** Validates a new post's body. Quantity 1–50, note trimmed to 280 characters. */
+export function parsePostInput(body: unknown): PostInput | { error: string } {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const kind = b.kind === "offer" || b.kind === "request" ? b.kind : null;
+  if (!kind) return { error: "Choose whether you're giving gifts away or asking for them." };
+  const tier = GIFT_TIER_KEYS.find((t) => t === b.tier);
+  if (!tier) return { error: "Choose Premium, Mid-value or Swag." };
+  const qty = Number(b.qty);
+  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return { error: "Quantity must be between 1 and 50." };
+  const note = typeof b.note === "string" ? b.note.trim().slice(0, 280) : "";
+  return { kind, tier, qty, note };
+}
+
+/**
+ * Who gives and who receives when `actorEmail` clicks a post's button:
+ * Claim on an offer moves a gift poster → actor; Give on a request moves actor → poster.
+ */
+export function transferForAction(post: { kind: string; repEmail: string }, actorEmail: string): { from: string; to: string } | { error: string } {
+  const actor = actorEmail.trim().toLowerCase();
+  const poster = post.repEmail.trim().toLowerCase();
+  if (!actor) return { error: "Sign in to trade gifts." };
+  if (actor === poster) return { error: "That's your own post." };
+  if (post.kind === "offer") return { from: poster, to: actor };
+  if (post.kind === "request") return { from: actor, to: poster };
+  return { error: "Unknown post type." };
+}
