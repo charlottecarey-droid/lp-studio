@@ -4,7 +4,7 @@ import { buildAttributionBody, resolveHiddenValue } from "@/lib/global-form-subm
 import { safeNavigate } from "@/lib/safe-url";
 import { fetchGlobalForm, mapToGlobalForm, type PublicGlobalForm } from "./global-form-map";
 import type { GiftFormBlockProps } from "../BlockGiftForm";
-import { getGiftSelection, isGiftSoldOut, readGiftFromSearch, selectGift, setSoldOut, useGiftSelection, type GiftDetail } from "./gift-selection";
+import { getGiftSelection, isGiftSoldOut, liveFallbackOptions, readGiftFromSearch, selectGift, setGiftFallback, setSoldOut, useGiftSelection, type GiftDetail } from "./gift-selection";
 
 export type GiftFormValues = Record<string, string>;
 
@@ -40,10 +40,17 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
   const ownOptions = (props.options ?? []).map((o) => o.trim()).filter(Boolean);
   // Gifts the vendor sheet marks sold out can't be picked, so they leave the options.
   const allOptions = ownOptions.length > 0 ? ownOptions : selection.options;
-  const options = allOptions.filter((o) => !isGiftSoldOut(selection.soldOut, o));
-  const allSoldOut = !isEditor && allOptions.length > 0 && options.length === 0;
-  const details: Record<string, GiftDetail> = selection.details;
-  const sizes = (props.sizeOptions ?? []).map((s) => s.trim()).filter(Boolean);
+  const ownOptions2 = allOptions.filter((o) => !isGiftSoldOut(selection.soldOut, o));
+  const ownAllSoldOut = !isEditor && allOptions.length > 0 && ownOptions2.length === 0;
+  // Every gift on the page is gone: offer the server's fallback (same tier, then swag) if there is one.
+  const fallbackCards = ownAllSoldOut ? liveFallbackOptions(selection) : [];
+  const fallback = fallbackCards.length ? selection.fallback : null;
+  const options = fallback ? fallbackCards.map((o) => o.name) : ownOptions2;
+  const allSoldOut = ownAllSoldOut && !fallback;
+  const details: Record<string, GiftDetail> = fallback
+    ? { ...selection.details, ...Object.fromEntries(fallbackCards.map((o) => [o.name, { imageUrl: o.imageUrl, imageAlt: o.imageAlt, caption: o.caption, fit: o.fit }])) }
+    : selection.details;
+  const sizes = (fallback ? (fallback.kind === "swag" ? fallback.sizeOptions : []) : (props.sizeOptions ?? [])).map((s) => s.trim()).filter(Boolean);
   const askSize = sizes.length > 0;
 
   const [step, setStep] = useState(0);
@@ -98,6 +105,20 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
     }
     return () => { alive = false; };
   }, [isEditor, props.formId, pageIdForStatus]);
+
+  // All of the page's gifts are gone: ask the server what else it can offer.
+  useEffect(() => {
+    if (!ownAllSoldOut || !props.formId || !pageIdForStatus) return;
+    let alive = true;
+    fetch(`/api/lp/gifts/fallback?formId=${props.formId}&pageId=${pageIdForStatus}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { kind?: "tier" | "swag" | null; note?: string; options?: Array<{ name: string }>; sizeOptions?: string[] } | null) => {
+        if (!alive) return;
+        setGiftFallback(d?.kind && Array.isArray(d.options) && d.options.length ? { kind: d.kind, note: d.note ?? "", options: d.options, sizeOptions: d.sizeOptions ?? [] } : null);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [ownAllSoldOut, props.formId, pageIdForStatus]);
 
   // The picker's choice (or a ?gift= deep link) pre-fills step one.
   const gift = selection.selected || values.gift || "";
@@ -179,6 +200,8 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
       "Sent by": cleanPrefill(props.sentBy),
       "Rep email": cleanPrefill(props.repEmail),
       Source: props.source || "holiday-gift",
+      // The server re-decides this at submit; it's here so the sheet row says why the gift differs.
+      ...(fallback ? { Fallback: fallback.kind } : {}),
     };
     const fields = props.formId
       ? mapToGlobalForm(globalForm?.steps, { firstName: values.firstName, lastName: values.lastName, email: values.email, company: values.company, role: values.role, phone: values.phone, address: values.address, address2: values.address2, city: values.city, state: values.state, zip: values.zip, notes: values.notes, gift, size: values.size }, nativeFields)

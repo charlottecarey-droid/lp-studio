@@ -7,7 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { INVITE_BODY, INVITE_PILL_CLASS, displayStyle, pillStyle } from "@/lib/invite-theme";
 import { KitProductTile, type KitTileFit } from "./kit/KitProductTile";
 import { GIFT_CSS, GIFT_TILE, GiftKicker, SparkleField, resolveGiftPalette } from "./gift/gift-theme";
-import { isGiftSoldOut, selectGift, useGiftSelection } from "./gift/gift-selection";
+import { isGiftSoldOut, selectGift, useGiftSelection, liveFallbackOptions } from "./gift/gift-selection";
 import { DEFAULT_LIMITED_NOTE, SINGLE_GIFT_PICKER_COPY } from "@/lib/gift-copy";
 import { useRegisterGiftOptions } from "./gift/use-register-gift-options";
 import { cn } from "@/lib/utils";
@@ -119,8 +119,13 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
 
   // Sold-out gifts are hidden on the live page (the builder keeps showing them,
   // marked). One left is a featured gift, not a choice (see AtelierGiftPicker).
-  const shown = isEditor ? options : options.filter((o) => !isGiftSoldOut(selection.soldOut, o.name));
-  const allGone = !isEditor && options.length > 0 && shown.length === 0;
+  const ownShown = isEditor ? options : options.filter((o) => !isGiftSoldOut(selection.soldOut, o.name));
+  const ownGone = !isEditor && options.length > 0 && ownShown.length === 0;
+  // All of the page's own gifts are gone: show the fallback the form fetched (same tier, then swag).
+  const fallbackCards = ownGone ? (liveFallbackOptions(selection) as GiftOption[]) : [];
+  const shown = fallbackCards.length ? fallbackCards : ownShown;
+  const allGone = ownGone && fallbackCards.length === 0;
+  const fallbackNote = fallbackCards.length ? selection.fallback?.note ?? "" : "";
   const single = shown.length === 1 && !isEditor;
   const narrowedToOne = single && options.length > 1;
   const limitedNote = props.limitedNote === undefined ? DEFAULT_LIMITED_NOTE : props.limitedNote.trim();
@@ -155,6 +160,9 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
         <div className={cn("mt-14 grid grid-cols-1 gap-6 lg:mt-20", single ? "mx-auto max-w-[460px]" : cols)}>
           {allGone ? (
             <p className="col-span-full py-10 text-center text-[15px]" style={{ color: pal.muted }}>Every gift has been claimed. Thank you for stopping by.</p>
+          ) : null}
+          {fallbackNote ? (
+            <p className="col-span-full text-center text-[15px]" style={{ color: pal.muted }}>{fallbackNote}</p>
           ) : null}
           {shown.map((it, i) => {
             const picked = !isEditor && selection.selected !== "" && selection.selected === it.name;

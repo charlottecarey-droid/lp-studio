@@ -16,6 +16,25 @@ export interface GiftDetail {
   fit?: "contain" | "cover";
 }
 
+/** A gift card offered as a fallback (same shape as a picker option). */
+export interface GiftFallbackOption {
+  name: string;
+  caption?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  fit?: "contain" | "cover";
+  hoverImageUrl?: string;
+  hoverImageAlt?: string;
+  badge?: string;
+}
+
+/**
+ * When every gift a page offers has sold out, the server may offer others
+ * (GET /lp/gifts/fallback): more gifts of the same tier, else swag. The
+ * picker shows these instead of "every gift has been claimed".
+ */
+export interface GiftFallback { kind: "tier" | "swag"; note: string; options: GiftFallbackOption[]; sizeOptions: string[] }
+
 export interface GiftSelectionState {
   /** Names registered by the picker, in display order. */
   options: string[];
@@ -25,9 +44,11 @@ export interface GiftSelectionState {
   selected: string;
   /** Gifts the vendor sheet says are out of stock, lowercased + trimmed (see isGiftSoldOut). */
   soldOut: string[];
+  /** Gifts offered once the page's own are all gone (null until fetched / when there are none). */
+  fallback: GiftFallback | null;
 }
 
-let state: GiftSelectionState = { options: [], details: {}, selected: "", soldOut: [] };
+let state: GiftSelectionState = { options: [], details: {}, selected: "", soldOut: [], fallback: null };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -61,6 +82,17 @@ export function setSoldOut(names: string[]): void {
   emit();
 }
 
+export function setGiftFallback(fallback: GiftFallback | null): void {
+  if (JSON.stringify(fallback) === JSON.stringify(state.fallback)) return;
+  state = { ...state, fallback };
+  emit();
+}
+
+/** The fallback cards still in stock, or [] (the picker and the form agree on this list). */
+export function liveFallbackOptions(s: GiftSelectionState): GiftFallbackOption[] {
+  return s.fallback ? s.fallback.options.filter((o) => !isGiftSoldOut(s.soldOut, o.name)) : [];
+}
+
 /** How many of the page's gifts are still available (live pages hide the sold-out ones). */
 export function useGiftStock(): { total: number; remaining: number } {
   const s = useGiftSelection();
@@ -77,7 +109,7 @@ export function getGiftSelection(): GiftSelectionState {
 
 /** Test/editor helper: forget everything. */
 export function resetGiftSelection(): void {
-  state = { options: [], details: {}, selected: "", soldOut: [] };
+  state = { options: [], details: {}, selected: "", soldOut: [], fallback: null };
   emit();
 }
 
