@@ -3,6 +3,7 @@ import { Check, CheckCircle2, Copy, Download, Gift, Loader2, Upload, AlertCircle
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { GiftPagePreview } from "@/components/sales/GiftPagePreview";
+import { GiftAllocationCard } from "@/components/sales/GiftAllocationCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -313,6 +314,7 @@ export default function SalesGifting() {
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Send something worth opening</h1>
           <p className="mx-auto max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Choose the gifts, add your note and your details, and we'll build a personal gift page for every recipient.</p>
         </header>
+        <GiftAllocationCard email={repEmail} />
 
         <ol className="flex flex-wrap items-center justify-center gap-x-2 gap-y-3 text-sm">
           {STEPS.map((label, i) => (
