@@ -115,3 +115,22 @@ export function claimLeaderboard(
   }
   return rows.sort((a, b) => b.rate - a.rate || b.claimed - a.claimed || a.name.localeCompare(b.name));
 }
+
+/**
+ * Most-claimed leaderboard: reps ranked by how many recipients claimed a gift
+ * from their pages (no page minimum; reps with no claims are left off).
+ * Sorted by claims, then rate, then name.
+ */
+export function claimCountLeaderboard(
+  pagesByRep: Map<string, number>,
+  orders: Pick<GiftOrderRow, "repEmail">[],
+  allocations: Map<string, RepAllocation> | undefined,
+): LeaderRow[] {
+  const claims = new Map<string, number>();
+  for (const o of orders) if (o.repEmail) claims.set(o.repEmail, (claims.get(o.repEmail) ?? 0) + 1);
+  const rows: LeaderRow[] = [...claims].map(([email, claimed]) => {
+    const pagesSent = Math.max(pagesByRep.get(email) ?? 0, claimed);
+    return { email, name: allocations?.get(email)?.name || email, pagesSent, claimed, rate: pagesSent ? claimed / pagesSent : 0 };
+  });
+  return rows.sort((a, b) => b.claimed - a.claimed || b.rate - a.rate || a.name.localeCompare(b.name));
+}

@@ -13,7 +13,7 @@ interface Balance { tier: TierId; left: number }
 interface ToThank { giverEmail: string; giverName: string; gifts: Partial<Record<TierId, number>> }
 interface LeaderRow { name: string; pagesSent: number; claimed: number; rate: number; me: boolean }
 interface Leaderboard { top: LeaderRow[]; myRank: number | null; mine: LeaderRow | null; ranked: number; minPages: number }
-interface ExchangeData { me: string; balances: Balance[]; posts: Post[]; reps?: Array<{ email: string; name: string }>; toThank?: ToThank[]; leaderboard?: Leaderboard }
+interface ExchangeData { me: string; balances: Balance[]; posts: Post[]; reps?: Array<{ email: string; name: string }>; toThank?: ToThank[]; leaderboard?: Leaderboard; mostClaimed?: Leaderboard }
 type FormKind = Kind | "give";
 
 const LABELS: Record<TierId, string> = { premium: "Premium", mid: "Mid-value", swag: "Swag" };
@@ -169,36 +169,48 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
       )}
       <p className="mt-3 text-[11px] text-muted-foreground">You're trading as {data.me}. Claim 1 and Give 1 on a post each move one gift.</p>
     </Card>
-    {data.leaderboard && <ClaimLeaderboard board={data.leaderboard} />}
+    {(data.leaderboard || data.mostClaimed) && (
+      <div className="grid gap-4 md:grid-cols-2">
+        {data.mostClaimed && <ClaimLeaderboard board={data.mostClaimed} mode="count" />}
+        {data.leaderboard && <ClaimLeaderboard board={data.leaderboard} mode="rate" />}
+      </div>
+    )}
     </div>
   );
 }
 
-/** Reps ranked by the share of their gift pages that recipients have claimed. */
-function ClaimLeaderboard({ board }: { board: Leaderboard }) {
+/** Most gifts claimed (quantity) or claim rate (quality), side by side on the Trade gifts tab. */
+function ClaimLeaderboard({ board, mode }: { board: Leaderboard; mode: "count" | "rate" }) {
   const medal = (i: number) => ["🥇", "🥈", "🥉"][i] ?? `${i + 1}`;
+  const rate = mode === "rate";
+  const score = (r: LeaderRow) => (rate ? pct(r.rate) : String(r.claimed));
+  const detail = (r: LeaderRow) => (rate ? `${r.claimed} of ${r.pagesSent}` : `${r.pagesSent} sent`);
   return (
     <Card className="p-4 sm:p-5">
-      <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Trophy className="h-4 w-4" />Claim leaderboard</div>
-      <p className="mb-3 text-xs text-muted-foreground">Share of each rep's gift pages that recipients have claimed. You're on the board once you've sent {board.minPages} pages.</p>
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Trophy className="h-4 w-4" />{rate ? "Best claim rate" : "Most gifts claimed"}</div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        {rate ? `Share of each rep's gift pages that recipients claimed. You're ranked once you've sent ${board.minPages} pages.` : "How many recipients claimed a gift from each rep's pages."}
+      </p>
       {board.top.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No one's on the board yet.</p>
+        <p className="text-xs text-muted-foreground">{rate ? "No one's on the board yet." : "No gifts claimed yet. Be the first."}</p>
       ) : (
         <ol className="space-y-1">
           {board.top.map((r, i) => (
             <li key={`${r.name}-${i}`} className={cn("flex items-center gap-3 rounded-md px-2 py-1.5 text-sm", r.me && "bg-muted font-medium")}>
-              <span className="w-6 text-center tabular-nums">{medal(i)}</span>
+              <span className="w-6 shrink-0 text-center tabular-nums">{medal(i)}</span>
               <span className="min-w-0 flex-1 truncate">{r.me ? `${r.name} (you)` : r.name}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{r.claimed} of {r.pagesSent} claimed</span>
-              <span className="w-12 text-right font-semibold tabular-nums">{pct(r.rate)}</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{detail(r)}</span>
+              <span className="w-10 shrink-0 text-right font-semibold tabular-nums">{score(r)}</span>
             </li>
           ))}
         </ol>
       )}
       {board.mine && board.myRank && board.myRank > board.top.length && (
-        <p className="mt-2 text-xs text-muted-foreground">You're #{board.myRank} of {board.ranked} at {pct(board.mine.rate)} ({board.mine.claimed} of {board.mine.pagesSent} claimed).</p>
+        <p className="mt-2 text-xs text-muted-foreground">You're #{board.myRank} of {board.ranked} with {score(board.mine)}.</p>
       )}
-      {!board.mine && <p className="mt-2 text-xs text-muted-foreground">Send {board.minPages} gift pages to get on the board.</p>}
+      {!board.mine && board.top.length > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">{rate ? `Send ${board.minPages} gift pages to get ranked.` : "Get your first gift claimed to get on the board."}</p>
+      )}
     </Card>
   );
 }

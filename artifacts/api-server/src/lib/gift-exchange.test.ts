@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableToOffer, balancesWithTransfers, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction } from "./gift-exchange";
+import { availableToOffer, balancesWithTransfers, claimCountLeaderboard, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction } from "./gift-exchange";
 
 const summary = {
   tiers: [
@@ -58,5 +58,11 @@ describe("gift exchange", () => {
     const alloc = new Map([["a@x.com", { email: "a@x.com", name: "Ann", allocated: { premium: 0, mid: 0, swag: 0 } }]]);
     const rows = claimLeaderboard(pages, orders, alloc, 5);
     expect(rows.map((r) => [r.name, r.claimed, r.rate])).toEqual([["b@x.com", 3, 0.6], ["Ann", 4, 0.4], ["d@x.com", 0, 0]]);
+  });
+  it("ranks reps by number of claims, with no page minimum", () => {
+    const pages = new Map([["a@x.com", 10], ["b@x.com", 2], ["d@x.com", 8]]);
+    const orders = [{ repEmail: "a@x.com" }, { repEmail: "a@x.com" }, { repEmail: "b@x.com" }, { repEmail: "b@x.com" }, { repEmail: "c@x.com" }, { repEmail: "" }];
+    const rows = claimCountLeaderboard(pages, orders, undefined);
+    expect(rows.map((r) => [r.email, r.claimed, r.pagesSent])).toEqual([["b@x.com", 2, 2], ["a@x.com", 2, 10], ["c@x.com", 1, 1]]);
   });
 });

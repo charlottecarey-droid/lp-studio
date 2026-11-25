@@ -17,7 +17,7 @@ import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db, lpGiftPostsTable, lpGiftTransfersTable, lpPagesTable } from "@workspace/db";
 import { appendRowToTab } from "../../lib/google-sheets";
 import { repGiftSummary, type GiftTierKey } from "../../lib/gift-sheet-status";
-import { availableToOffer, balancesWithTransfers, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction, type TierBalance } from "../../lib/gift-exchange";
+import { availableToOffer, balancesWithTransfers, claimCountLeaderboard, claimLeaderboard, parsePostInput, parseSendInput, parseThanks, transferForAction, type TierBalance } from "../../lib/gift-exchange";
 import { giftSheetConfig, giftSourceFormId, loadSheet } from "./gift-status";
 
 const router = Router();
@@ -143,8 +143,11 @@ router.get("/lp/gifts/exchange", limiter, async (req, res): Promise<void> => {
       row.gifts[t.tier] = (row.gifts[t.tier] ?? 0) + t.qty;
       byGiver.set(g, row);
     }
-    const board = claimLeaderboard(await pagesByRep(me.tenantId, formId), sheet?.orders ?? [], sheet?.allocations);
+    const pages = await pagesByRep(me.tenantId, formId);
+    const board = claimLeaderboard(pages, sheet?.orders ?? [], sheet?.allocations);
     const myRank = board.findIndex((r) => r.email === me.email);
+    const countBoard = claimCountLeaderboard(pages, sheet?.orders ?? [], sheet?.allocations);
+    const myCountRank = countBoard.findIndex((r) => r.email === me.email);
     const reps = [...(sheet?.allocations?.values() ?? [])]
       .filter((r) => r.email !== me.email)
       .map((r) => ({ email: r.email, name: r.name }))
@@ -155,6 +158,7 @@ router.get("/lp/gifts/exchange", limiter, async (req, res): Promise<void> => {
       reps,
       toThank: [...byGiver.values()],
       leaderboard: { top: board.slice(0, 10).map(({ email, ...r }) => ({ ...r, me: email === me.email })), myRank: myRank >= 0 ? myRank + 1 : null, mine: myRank >= 0 ? board[myRank] : null, ranked: board.length, minPages: 5 },
+      mostClaimed: { top: countBoard.slice(0, 10).map(({ email, ...r }) => ({ ...r, me: email === me.email })), myRank: myCountRank >= 0 ? myCountRank + 1 : null, mine: myCountRank >= 0 ? countBoard[myCountRank] : null, ranked: countBoard.length, minPages: 0 },
       posts: posts.map((p) => ({ id: p.id, kind: p.kind, repEmail: p.repEmail, repName: p.repName, tier: p.tier, qty: p.qty, remaining: p.remaining, note: p.note, createdAt: p.createdAt, mine: p.repEmail.toLowerCase() === me.email })),
     });
   } catch (err) {
