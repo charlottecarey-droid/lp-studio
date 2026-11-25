@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCircle2, Download, Gift, Image as ImageIcon, Loader2, Upload, AlertCircle, ExternalLink } from "lucide-react";
+import { Check, CheckCircle2, Copy, Download, Gift, Loader2, Upload, AlertCircle, ExternalLink } from "lucide-react";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { GiftPagePreview } from "@/components/sales/GiftPagePreview";
@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, resolveEffectiveMicrositeDomain } from "@/context/AuthContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
-import { copyEmailPreview } from "@/lib/email-preview";
+import { ComposeButtons, useEmailPreviewCopy, useMailClient, useOutreachTemplates } from "@/components/sales/EmailPreviewModal";
 import { ImagePicker } from "@/components/ImagePicker";
 import { mergeTeamMembers, teamMemberCalendar, type TeamMember } from "@/pages/builder/property-panels/GiftPanels";
 import {
@@ -190,7 +190,6 @@ export default function SalesGifting() {
   const createdKey = result?.data.created.map((c) => c.id).join(",") ?? "";
   const [previews, setPreviews] = useState<Record<number, { imageUrl: string; linkLabel: string }>>({});
   const [previewsDone, setPreviewsDone] = useState(0);
-  const [copied, setCopied] = useState<number | null>(null);
   useEffect(() => {
     if (!result) return;
     let cancelled = false;
@@ -212,16 +211,13 @@ export default function SalesGifting() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createdKey]);
 
-  const copyPreview = async (c: { id: number; slug: string; url?: string }) => {
-    try {
-      const kind = await copyEmailPreview({ pageId: c.id, pageUrl: linkOf(c) });
-      setCopied(c.id);
-      setPublishMsg(kind === "rich" ? "Copied. Paste it into your email to show the page preview." : "Copied the link only (this browser can't copy the image).");
-      setTimeout(() => setCopied((cur) => (cur === c.id ? null : cur)), 2500);
-    } catch {
-      setPublishMsg("Couldn't copy. Use Copy link instead.");
-    }
-  };
+  // Same copy + "open a draft" behaviour (and icons) as the Pages view: the
+  // card goes on the clipboard and Gmail (or the workspace's mail app) opens
+  // with the recipient, subject and link filled in.
+  const outreach = useOutreachTemplates(true);
+  const { busyKey, copiedKey, copyPreview } = useEmailPreviewCopy(outreach);
+  const GIFT_EMAIL_TITLE = "A holiday gift for you";
+  const mailClient = useMailClient();
 
   const linksCsv = () => {
     if (!result) return;
@@ -266,7 +262,7 @@ export default function SalesGifting() {
           <SalesPageHeader title="Your gift pages are ready" description={`${data.pagesGenerated} page${data.pagesGenerated === 1 ? "" : "s"} created${data.failed.length ? `, ${data.failed.length} failed` : ""}.`} actions={<>{canPublish && data.created.some((c) => c.status !== "published") && <Button onClick={publishAll} disabled={publishing} className="gap-1.5">{publishing && <Loader2 className="w-4 h-4 animate-spin" />}Publish all</Button>}<Button variant="outline" onClick={linksCsv} className="gap-1.5"><Download className="w-4 h-4" />Download links (CSV)</Button><Button onClick={reset}>Start another</Button></>} />
           {publishMsg && <Notice tone="blue">{publishMsg}</Notice>}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Copy email preview</span> puts a clickable picture of the page on your clipboard. Paste it into Gmail or Outlook and your recipient sees the preview, which opens their private link.
+            <span className="font-medium text-foreground">Email preview</span> copies a clickable picture of the page. The send icon does the same and opens a draft to the recipient in {mailClient === "gmail" ? "Gmail" : "your email app"}: click into the message and paste (⌘V). The picture opens their private link.
             The CSV adds <span className="font-mono">preview_image</span> and <span className="font-mono">email_html</span> columns for sequence tools that take an HTML field.
             {previewsDone < data.created.length ? ` Preparing previews: ${previewsDone} of ${data.created.length} (the CSV fills in as they finish).` : ""}
           </p>
@@ -286,7 +282,16 @@ export default function SalesGifting() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">{c.status ?? "draft"}</span>
                     <Button size="sm" variant="outline" onClick={() => navigator.clipboard?.writeText(linkOf(c))}>Copy link</Button>
-                    <Button size="sm" variant="outline" onClick={() => void copyPreview(c)} className="gap-1.5"><ImageIcon className="w-3.5 h-3.5" />{copied === c.id ? "Copied" : "Copy email preview"}</Button>
+                    <Button size="sm" variant="outline" disabled={busyKey !== null} title="Copy a clickable preview of the page to paste into an email" onClick={() => void copyPreview({ key: `p${c.id}`, pageId: c.id, pageUrl: linkOf(c), title: GIFT_EMAIL_TITLE })} className="gap-1.5">
+                      {busyKey === `p${c.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : copiedKey === `p${c.id}` ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === `p${c.id}` ? "Copied" : "Email preview"}
+                    </Button>
+                    <ComposeButtons
+                      disabled={busyKey !== null}
+                      name={[v.first_name, v.last_name].filter(Boolean).join(" ")}
+                      email={v.email}
+                      onCompose={(target) => void copyPreview({ key: `p${c.id}`, pageId: c.id, pageUrl: linkOf(c), title: GIFT_EMAIL_TITLE, compose: { target, to: v.email, firstName: v.first_name } })}
+                    />
                     <a href={linkOf(c)} target="_blank" rel="noreferrer" aria-label="Open page"><ExternalLink className="w-4 h-4 text-muted-foreground" /></a>
                   </div>
                 </div>
