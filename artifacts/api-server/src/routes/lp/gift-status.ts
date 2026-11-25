@@ -3,7 +3,6 @@
 // lib/gift-sheet-status.ts):
 //   GET /lp/gifts/availability?formId=   → { soldOut: string[] }
 //   GET /lp/gifts/order-status?formId=&pageId= → { ordered, shipped, shipDate, gift }
-//   GET /lp/gifts/my-allocation?email=        → a rep's per-tier allocation (signed-in only)
 // Tenant comes from the request host (like the public GET /lp/forms/:id); only
 // the sheet configured on that tenant's own form is read, and only booleans,
 // gift names and a ship date leave. Cached 60s. Fails OPEN: if the sheet can't
@@ -11,13 +10,13 @@
 // hiccup never blocks someone from claiming a gift.
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, lpFormsTable, lpPagesTable } from "@workspace/db";
 import { getRequestHost } from "../../lib/requestHost";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getIntegration } from "../../lib/lpIntegrationsStore";
 import { readTabValues, type SheetsConfig } from "../../lib/google-sheets";
-import { decideGiftClaim, orderStatusForSlug, parseAllocationsTab, parseInventoryTab, parseInventoryTiers, parseOrdersTab, repGiftSummary, soldOutGifts, type GiftSheetData } from "../../lib/gift-sheet-status";
+import { decideGiftClaim, orderStatusForSlug, parseAllocationsTab, parseInventoryTab, parseInventoryTiers, parseOrdersTab, soldOutGifts, type GiftSheetData } from "../../lib/gift-sheet-status";
 
 const router = Router();
 const limiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
@@ -36,33 +35,38 @@ async function tenantFor(req: Parameters<typeof getRequestHost>[0]): Promise<num
   return match?.tenantId ?? null;
 }
 
-async function loadSheet(tenantId: number, formId: number, fresh = false): Promise<GiftSheetData | null> {
+/** The sheet a tenant's gift form writes to (the form's override on the tenant's Sheets integration), or null. */
+export async function giftSheetConfig(tenantId: number, formId: number): Promise<SheetsConfig | null> {
+  const [form] = await db
+    .select({ sheetsConfig: lpFormsTable.sheetsConfig })
+    .from(lpFormsTable)
+    .where(and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, formId)));
+  const override = form?.sheetsConfig as { enabled?: boolean; sheetId?: string; tabName?: string } | null | undefined;
+  const row = await getIntegration("google_sheets", tenantId);
+  const base = row?.enabled ? (row.config as SheetsConfig) : null;
+  if (override?.enabled === false || !base?.serviceAccountEmail || !base.privateKey) return null;
+  const cfg: SheetsConfig = { ...base, sheetId: override?.sheetId?.trim() || base.sheetId, tabName: override?.tabName?.trim() || base.tabName };
+  return cfg.sheetId ? cfg : null;
+}
+
+export async function loadSheet(tenantId: number, formId: number, fresh = false): Promise<GiftSheetData | null> {
   const key = `${tenantId}:${formId}`;
   const hit = cache.get(key);
   if (!fresh && hit && Date.now() - hit.at < TTL_MS) return hit.data;
   let data: GiftSheetData | null = null;
   try {
-    const [form] = await db
-      .select({ sheetsConfig: lpFormsTable.sheetsConfig })
-      .from(lpFormsTable)
-      .where(and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, formId)));
-    const override = form?.sheetsConfig as { enabled?: boolean; sheetId?: string; tabName?: string } | null | undefined;
-    const row = await getIntegration("google_sheets", tenantId);
-    const base = row?.enabled ? (row.config as SheetsConfig) : null;
-    if (override?.enabled !== false && base?.serviceAccountEmail && base.privateKey) {
-      const cfg: SheetsConfig = { ...base, sheetId: override?.sheetId?.trim() || base.sheetId, tabName: override?.tabName?.trim() || base.tabName };
-      if (cfg.sheetId) {
-        const [ordersValues, inventoryValues, allocationValues] = await Promise.all([
-          readTabValues(cfg, cfg.tabName || "Leads"),
-          readTabValues(cfg, INVENTORY_TAB).catch(() => [] as string[][]),
-          readTabValues(cfg, ALLOCATIONS_TAB).catch(() => [] as string[][]),
-        ]);
-        const { claimed, orders } = parseOrdersTab(ordersValues);
-        data = {
-          stock: parseInventoryTab(inventoryValues), claimed, orders,
-          tiers: parseInventoryTiers(inventoryValues), allocations: parseAllocationsTab(allocationValues),
-        };
-      }
+    const cfg = await giftSheetConfig(tenantId, formId);
+    if (cfg) {
+      const [ordersValues, inventoryValues, allocationValues] = await Promise.all([
+        readTabValues(cfg, cfg.tabName || "Leads"),
+        readTabValues(cfg, INVENTORY_TAB).catch(() => [] as string[][]),
+        readTabValues(cfg, ALLOCATIONS_TAB).catch(() => [] as string[][]),
+      ]);
+      const { claimed, orders } = parseOrdersTab(ordersValues);
+      data = {
+        stock: parseInventoryTab(inventoryValues), claimed, orders,
+        tiers: parseInventoryTiers(inventoryValues), allocations: parseAllocationsTab(allocationValues),
+      };
     }
   } catch (err) {
     console.error("gift-status: sheet read failed:", err);
@@ -102,7 +106,7 @@ router.get("/lp/gifts/order-status", limiter, async (req, res): Promise<void> =>
 });
 
 /** The gift form the wizard's source pages use (first one found), or null. */
-async function giftSourceFormId(tenantId: number): Promise<number | null> {
+export async function giftSourceFormId(tenantId: number): Promise<number | null> {
   for (const slug of GIFT_SOURCE_SLUGS) {
     const [page] = await db
       .select({ blocks: lpPagesTable.blocks })
@@ -114,37 +118,6 @@ async function giftSourceFormId(tenantId: number): Promise<number | null> {
   }
   return null;
 }
-
-// A rep's gift allocation for the Sales Console: per tier, what the Allocations
-// tab gives them, how many of their recipients have claimed (orders whose
-// "Rep email" is theirs) and what's left, plus how many gift pages carry their
-// rep_email. Signed-in users of the tenant only. `email` defaults to the user.
-router.get("/lp/gifts/my-allocation", limiter, async (req, res): Promise<void> => {
-  res.set("Cache-Control", "no-store");
-  const authUser = (req as { authUser?: { tenantId?: number | null; email?: string | null } }).authUser;
-  const tenantId = typeof authUser?.tenantId === "number" ? authUser.tenantId : null;
-  if (!tenantId) { res.status(401).json({ error: "Sign in to see your gift allocation." }); return; }
-  const email = String(req.query.email ?? authUser?.email ?? "").trim().toLowerCase();
-  if (!email.includes("@")) { res.status(400).json({ error: "email is required" }); return; }
-  try {
-    const formId = await giftSourceFormId(tenantId);
-    const data = formId ? await loadSheet(tenantId, formId) : null;
-    const [{ n }] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(lpPagesTable)
-      .where(and(
-        eq(lpPagesTable.tenantId, tenantId),
-        eq(lpPagesTable.isTemplate, false),
-        sql`lower(${lpPagesTable.pageVariables}->>'rep_email') = ${email}`,
-        sql`${lpPagesTable.blocks} @> '[{"type":"gift-form"}]'::jsonb`,
-      ));
-    if (!data) { res.json({ email, configured: false, linksSent: n }); return; }
-    res.json({ email, configured: !!data.allocations?.size, linksSent: n, ...repGiftSummary(data, email) });
-  } catch (err) {
-    console.error("gift-status: allocation failed:", err);
-    res.status(500).json({ error: "Couldn't load your gift allocation." });
-  }
-});
 
 /**
  * Called by POST /lp/leads before a gift-form submission is stored: re-reads the

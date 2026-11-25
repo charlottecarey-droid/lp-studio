@@ -155,6 +155,22 @@ export async function appendLeadRow(config: SheetsConfig, lead: LeadRow): Promis
   });
 }
 
+/**
+ * Append one row to a named tab, creating the tab with `header` as row 1 when
+ * it doesn't exist yet. USER_ENTERED so numbers land as numbers (the gifting
+ * sheet's SUMIFS read them).
+ */
+export async function appendRowToTab(config: SheetsConfig, tabName: string, header: string[], row: Array<string | number>): Promise<void> {
+  const sheets = google.sheets({ version: "v4", auth: makeAuth(config) });
+  const spreadsheetId = config.sheetId;
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+  if (!(spreadsheet.data.sheets ?? []).some((s) => s.properties?.title === tabName)) {
+    await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: [{ addSheet: { properties: { title: tabName } } }] } });
+    await sheets.spreadsheets.values.update({ spreadsheetId, range: `'${tabName}'!A1`, valueInputOption: "RAW", requestBody: { values: [header] } });
+  }
+  await sheets.spreadsheets.values.append({ spreadsheetId, range: `'${tabName}'!A1`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
+}
+
 /** Every cell of a tab (columns A–ZZ) as strings; a missing tab throws. */
 export async function readTabValues(config: SheetsConfig, tabName: string): Promise<string[][]> {
   const sheets = google.sheets({ version: "v4", auth: makeAuth(config) });
