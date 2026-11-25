@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CheckCircle2, Download, Gift, Loader2, Upload, AlertCircle, ExternalLink } from "lucide-react";
+import { Check, CheckCircle2, Download, Gift, Image as ImageIcon, Loader2, Upload, AlertCircle, ExternalLink } from "lucide-react";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { GiftPagePreview } from "@/components/sales/GiftPagePreview";
@@ -10,11 +10,11 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, resolveEffectiveMicrositeDomain } from "@/context/AuthContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
-import { toCsv } from "@/lib/csv";
+import { copyEmailPreview } from "@/lib/email-preview";
 import { ImagePicker } from "@/components/ImagePicker";
 import { mergeTeamMembers, teamMemberCalendar, type TeamMember } from "@/pages/builder/property-panels/GiftPanels";
 import {
-  GIFT_TIERS, MAX_PICKED_GIFTS, planRepSave, WIZARD_COLUMNS, allGifts, applyWizardDefaults, buildGiftProps, composeSource, manualRow, majorityTier,
+  GIFT_TIERS, MAX_PICKED_GIFTS, planRepSave, WIZARD_COLUMNS, allGifts, applyWizardDefaults, buildGiftProps, buildLinksCsv, composeSource, manualRow, majorityTier,
   parseWizardCsv, wizardCsvTemplate,
   type RawLibraryRow, type RepForm, type GiftAudience, type GiftLayoutChoice, type GiftSourceBlocks, type GiftTierId, type WizardRow,
 } from "@/lib/gift-wizard";
@@ -182,14 +182,56 @@ export default function SalesGifting() {
 
   // Hotlink (/p/<token>) when the server made one, so the URL never carries a name.
   const linkOf = (c: { slug: string; url?: string }) => c.url ?? getLpPageUrl(c.slug, micrositeDomain, tenantHost);
+
+  // Email preview cards: captured one page at a time in the background (the
+  // server renders each in a headless browser, ~10s apiece) so the CSV and the
+  // per-row copy button have images ready. Failures just leave that row blank.
+  // Keyed by page ids so Publish all (which only flips statuses) doesn't restart the captures.
+  const createdKey = result?.data.created.map((c) => c.id).join(",") ?? "";
+  const [previews, setPreviews] = useState<Record<number, { imageUrl: string; linkLabel: string }>>({});
+  const [previewsDone, setPreviewsDone] = useState(0);
+  const [copied, setCopied] = useState<number | null>(null);
+  useEffect(() => {
+    if (!result) return;
+    let cancelled = false;
+    setPreviews({}); setPreviewsDone(0);
+    (async () => {
+      for (const c of result.data.created) {
+        if (cancelled) return;
+        try {
+          const r = await fetch(`${API_BASE}/lp/pages/${c.id}/email-preview`, { method: "POST" });
+          if (r.ok) {
+            const d = (await r.json()) as { imageUrl?: string; linkLabel?: string | null };
+            if (d.imageUrl && !cancelled) setPreviews((p) => ({ ...p, [c.id]: { imageUrl: new URL(d.imageUrl!, window.location.origin).toString(), linkLabel: (d.linkLabel ?? "").trim() } }));
+          }
+        } catch { /* leave this row without a preview */ }
+        if (!cancelled) setPreviewsDone((n) => n + 1);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createdKey]);
+
+  const copyPreview = async (c: { id: number; slug: string; url?: string }) => {
+    try {
+      const kind = await copyEmailPreview({ pageId: c.id, pageUrl: linkOf(c) });
+      setCopied(c.id);
+      setPublishMsg(kind === "rich" ? "Copied. Paste it into your email to show the page preview." : "Copied the link only (this browser can't copy the image).");
+      setTimeout(() => setCopied((cur) => (cur === c.id ? null : cur)), 2500);
+    } catch {
+      setPublishMsg("Couldn't copy. Use Copy link instead.");
+    }
+  };
+
   const linksCsv = () => {
     if (!result) return;
-    const lines = [["first_name", "last_name", "company", "email", "rep_email", "status", "link"]];
-    for (const c of result.data.created) {
-      const v = result.rows[c.index]?.variables ?? {};
-      lines.push([v.first_name ?? "", v.last_name ?? "", v.company ?? "", v.email ?? "", v.rep_email ?? "", c.status ?? "draft", linkOf(c)]);
-    }
-    download("gift-page-links.csv", toCsv(lines));
+    download("gift-page-links.csv", buildLinksCsv(result.data.created.map((c) => ({
+      variables: result.rows[c.index]?.variables ?? {},
+      status: c.status ?? "draft",
+      link: linkOf(c),
+      previewImage: previews[c.id]?.imageUrl ?? "",
+      linkLabel: previews[c.id]?.linkLabel ?? "",
+    }))));
   };
 
   const [publishing, setPublishing] = useState(false);
@@ -223,6 +265,11 @@ export default function SalesGifting() {
         <div className="mx-auto w-full max-w-3xl space-y-6 py-4 sm:py-8">
           <SalesPageHeader title="Your gift pages are ready" description={`${data.pagesGenerated} page${data.pagesGenerated === 1 ? "" : "s"} created${data.failed.length ? `, ${data.failed.length} failed` : ""}.`} actions={<>{canPublish && data.created.some((c) => c.status !== "published") && <Button onClick={publishAll} disabled={publishing} className="gap-1.5">{publishing && <Loader2 className="w-4 h-4 animate-spin" />}Publish all</Button>}<Button variant="outline" onClick={linksCsv} className="gap-1.5"><Download className="w-4 h-4" />Download links (CSV)</Button><Button onClick={reset}>Start another</Button></>} />
           {publishMsg && <Notice tone="blue">{publishMsg}</Notice>}
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Copy email preview</span> puts a clickable picture of the page on your clipboard. Paste it into Gmail or Outlook and your recipient sees the preview, which opens their private link.
+            The CSV adds <span className="font-mono">preview_image</span> and <span className="font-mono">email_html</span> columns for sequence tools that take an HTML field.
+            {previewsDone < data.created.length ? ` Preparing previews: ${previewsDone} of ${data.created.length} (the CSV fills in as they finish).` : ""}
+          </p>
           {data.publishSkipped && <Notice tone="amber">{data.publishSkipped} The pages were saved as drafts.</Notice>}
           {(data.repUnmatched?.length ?? 0) > 0 && <Notice tone="amber">No Sales Reps match for {data.repUnmatched!.join(", ")}. Those pages keep the template's rep. Fix the rep in Content Library → Sales Reps and run it again.</Notice>}
           {data.created.some((c) => c.url) && <Notice tone="blue">These are private hotlinks: the URL has no names in it. Each recipient is added as a contact, and views show up under Sales → Pages and Activity.</Notice>}
@@ -239,6 +286,7 @@ export default function SalesGifting() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">{c.status ?? "draft"}</span>
                     <Button size="sm" variant="outline" onClick={() => navigator.clipboard?.writeText(linkOf(c))}>Copy link</Button>
+                    <Button size="sm" variant="outline" onClick={() => void copyPreview(c)} className="gap-1.5"><ImageIcon className="w-3.5 h-3.5" />{copied === c.id ? "Copied" : "Copy email preview"}</Button>
                     <a href={linkOf(c)} target="_blank" rel="noreferrer" aria-label="Open page"><ExternalLink className="w-4 h-4 text-muted-foreground" /></a>
                   </div>
                 </div>

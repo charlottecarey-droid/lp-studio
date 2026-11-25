@@ -154,3 +154,10 @@ export async function appendLeadRow(config: SheetsConfig, lead: LeadRow): Promis
     requestBody: { values: [row] },
   });
 }
+
+/** Every cell of a tab (columns A–ZZ) as strings; a missing tab throws. */
+export async function readTabValues(config: SheetsConfig, tabName: string): Promise<string[][]> {
+  const sheets = google.sheets({ version: "v4", auth: makeAuth(config) });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: config.sheetId, range: `'${tabName}'!A:ZZ` });
+  return (res.data.values ?? []) as string[][];
+}

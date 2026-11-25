@@ -7,6 +7,7 @@
  * answers + an optional uploaded list become rows for bulk-generate.
  */
 import { parseBulkCsv, slugify, toCsv } from "@/lib/csv";
+import { buildEmailPreviewHtml } from "@/lib/email-preview";
 
 export type GiftTierId = "premium" | "mid" | "swag";
 export type GiftAudience = "prospect" | "customer";
@@ -313,4 +314,33 @@ export function planRepSave(rows: RawLibraryRow[], f: RepForm):
       content: { ...(r.content ?? {}), ...edits, email: String(r.content?.email ?? email) },
     })),
   };
+}
+
+export interface LinkExportItem {
+  variables: Record<string, string>;
+  status: string;
+  /** The recipient's hotlink. */
+  link: string;
+  /** Absolute URL of the page's preview card, once captured ("" until then). */
+  previewImage: string;
+  /** Caption under the pasted card; "" = the built-in default. */
+  linkLabel: string;
+}
+
+export const LINK_EXPORT_HEADER = ["first_name", "last_name", "company", "email", "rep_email", "status", "link", "preview_image", "email_html"];
+
+/**
+ * The rep's links export. `email_html` is the same linked-preview snippet the
+ * "Copy email preview" button puts on the clipboard (image that clicks through
+ * to the hotlink + a text link), for sequence tools that take an HTML field.
+ * Gmail's compose box won't render pasted HTML source, so reps paste from the
+ * button there; rows whose preview isn't captured yet leave both columns blank.
+ */
+export function buildLinksCsv(items: LinkExportItem[]): string {
+  const rows = items.map((it) => {
+    const v = it.variables;
+    const html = it.previewImage ? buildEmailPreviewHtml({ pageUrl: it.link, imageUrl: it.previewImage, title: it.linkLabel || null }) : "";
+    return [v.first_name ?? "", v.last_name ?? "", v.company ?? "", v.email ?? "", v.rep_email ?? "", it.status, it.link, it.previewImage, html];
+  });
+  return toCsv([LINK_EXPORT_HEADER, ...rows]);
 }

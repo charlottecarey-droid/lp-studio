@@ -4,7 +4,7 @@ import { buildAttributionBody, resolveHiddenValue } from "@/lib/global-form-subm
 import { safeNavigate } from "@/lib/safe-url";
 import { fetchGlobalForm, mapToGlobalForm, type PublicGlobalForm } from "./global-form-map";
 import type { GiftFormBlockProps } from "../BlockGiftForm";
-import { readGiftFromSearch, selectGift, useGiftSelection, type GiftDetail } from "./gift-selection";
+import { isGiftSoldOut, readGiftFromSearch, selectGift, setSoldOut, useGiftSelection, type GiftDetail } from "./gift-selection";
 
 export type GiftFormValues = Record<string, string>;
 
@@ -38,7 +38,10 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
   const { isEditor } = opts;
 
   const ownOptions = (props.options ?? []).map((o) => o.trim()).filter(Boolean);
-  const options = ownOptions.length > 0 ? ownOptions : selection.options;
+  // Gifts the vendor sheet marks sold out can't be picked, so they leave the options.
+  const allOptions = ownOptions.length > 0 ? ownOptions : selection.options;
+  const options = allOptions.filter((o) => !isGiftSoldOut(selection.soldOut, o));
+  const allSoldOut = !isEditor && allOptions.length > 0 && options.length === 0;
   const details: Record<string, GiftDetail> = selection.details;
   const sizes = (props.sizeOptions ?? []).map((s) => s.trim()).filter(Boolean);
   const askSize = sizes.length > 0;
@@ -69,6 +72,26 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
     fetchGlobalForm(props.formId).then((f) => { if (alive) setGlobalForm(f); });
     return () => { alive = false; };
   }, [props.formId]);
+
+  // Live page + linked form: pull stock (which gifts are sold out) and this
+  // page's order status (shipped?) from the vendor sheet. Both fail open.
+  const pageIdForStatus = opts.pageId ?? ctx.pageId;
+  const [shipped, setShipped] = useState<{ date: string; gift: string } | null>(null);
+  useEffect(() => {
+    if (isEditor || !props.formId) return;
+    let alive = true;
+    fetch(`/api/lp/gifts/availability?formId=${props.formId}`)
+      .then((r) => (r.ok ? r.json() : { soldOut: [] }))
+      .then((d: { soldOut?: string[] }) => { if (alive && Array.isArray(d.soldOut)) setSoldOut(d.soldOut); })
+      .catch(() => {});
+    if (pageIdForStatus) {
+      fetch(`/api/lp/gifts/order-status?formId=${props.formId}&pageId=${pageIdForStatus}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { shipped?: boolean; shipDate?: string; gift?: string } | null) => { if (alive && d?.shipped) setShipped({ date: d.shipDate ?? "", gift: d.gift ?? "" }); })
+        .catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [isEditor, props.formId, pageIdForStatus]);
 
   // The picker's choice (or a ?gift= deep link) pre-fills step one.
   const gift = selection.selected || values.gift || "";
@@ -174,5 +197,5 @@ export function useGiftForm(props: GiftFormBlockProps, opts: { pageId?: number; 
     }
   };
 
-  return { options, details, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, goTo, submit };
+  return { options, details, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, goTo, submit, shipped, allSoldOut };
 }

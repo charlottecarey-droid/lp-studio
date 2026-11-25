@@ -5,6 +5,7 @@ import { StaticRenderContext } from "@/lib/reveal-fallback";
 import { DEFAULT_BRAND } from "@/lib/brand-config";
 import { BlockGiftHero } from "@/blocks/BlockGiftHero";
 import { BlockGiftPicker } from "@/blocks/BlockGiftPicker";
+import { resetGiftSelection, setSoldOut, selectGift } from "@/blocks/gift/gift-selection";
 import { buildGiftProps } from "./gift-wizard";
 import { resolvePreviewTokens } from "@/components/sales/GiftPagePreview";
 
@@ -41,5 +42,28 @@ describe("single-gift picker", () => {
     const html = renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, createElement(BlockGiftPicker as never, { props, brand: DEFAULT_BRAND })));
     expect(html).toContain("Choose this one");
     expect(html.toLowerCase()).toContain("choose one");
+  });
+});
+
+describe("sold-out gifts", () => {
+  const props = (layout: "classic" | "atelier") => ({ layout, headline: "h", options: [{ name: "Branded AirPods kit" }, { name: "Dandy Meta Ray-Bans" }] });
+  const html = (layout: "classic" | "atelier") => renderToStaticMarkup(createElement(StaticRenderContext.Provider, { value: true }, createElement(BlockGiftPicker as never, { props: props(layout), brand: DEFAULT_BRAND })));
+  it("marks only the sold-out gift, in both layouts, and drops a sold-out selection", () => {
+    resetGiftSelection();
+    selectGift("Branded AirPods kit");
+    setSoldOut(["branded airpods kit"]);
+    for (const layout of ["classic", "atelier"] as const) {
+      const out = html(layout);
+      expect(out).toContain("Sold out");
+      // Atelier shows a badge on the tile as well as the disabled link; Classic only the button.
+      expect(out.match(/Sold out/g)?.length).toBe(layout === "atelier" ? 2 : 1);
+      expect(out).toContain("Choose this one"); // the other gift is still available
+    }
+    resetGiftSelection();
+  });
+  it("shows no sold-out marker when the sheet reports none", () => {
+    resetGiftSelection();
+    setSoldOut([]);
+    expect(html("atelier")).not.toContain("Sold out");
   });
 });

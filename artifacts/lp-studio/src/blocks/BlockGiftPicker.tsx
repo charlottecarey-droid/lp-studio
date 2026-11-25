@@ -7,7 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { INVITE_BODY, INVITE_PILL_CLASS, displayStyle, pillStyle } from "@/lib/invite-theme";
 import { KitProductTile, type KitTileFit } from "./kit/KitProductTile";
 import { GIFT_CSS, GIFT_TILE, GiftKicker, SparkleField, resolveGiftPalette } from "./gift/gift-theme";
-import { selectGift, useGiftSelection } from "./gift/gift-selection";
+import { isGiftSoldOut, selectGift, useGiftSelection } from "./gift/gift-selection";
 import { useRegisterGiftOptions } from "./gift/use-register-gift-options";
 import { cn } from "@/lib/utils";
 import { AtelierGiftPicker } from "./gift/AtelierGiftPicker";
@@ -103,8 +103,9 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
     ? (i: number, patch: Partial<GiftOption>) => onFieldChange({ ...props, options: options.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) })
     : undefined;
 
+  const outOfStock = (name: string) => !isEditor && isGiftSoldOut(selection.soldOut, name);
   const choose = (name: string) => {
-    if (isEditor) return;
+    if (isEditor || outOfStock(name)) return;
     selectGift(name);
     const anchor = props.formAnchor || "#redeem";
     if (anchor.startsWith("#")) {
@@ -116,8 +117,8 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
   // One gift is a featured gift, not a choice (see AtelierGiftPicker).
   const single = options.length === 1 && !isEditor;
   useEffect(() => {
-    if (single) selectGift(options[0].name);
-  }, [single, options]);
+    if (single && !isGiftSoldOut(selection.soldOut, options[0].name)) selectGift(options[0].name);
+  }, [single, options, selection.soldOut]);
   const claimText = props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
 
   const cols = options.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : options.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
@@ -146,6 +147,7 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
           {options.map((it, i) => {
             const picked = !isEditor && selection.selected !== "" && selection.selected === it.name;
             const markedPicked = picked && !single;
+            const out = outOfStock(it.name);
             return (
               <motion.article
                 key={i}
@@ -155,7 +157,7 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
                 whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.7, delay: Math.min(i * 0.08, 0.32), ease: [0.16, 1, 0.3, 1] }}
-                className="relative flex flex-col overflow-hidden rounded-[26px] p-4 pb-6 transition-shadow"
+                className={cn("relative flex flex-col overflow-hidden rounded-[26px] p-4 pb-6 transition-shadow", out && "opacity-60 grayscale")}
                 style={{
                   background: pal.cream,
                   color: pal.creamInk,
@@ -214,12 +216,15 @@ function ClassicGiftPicker({ props, brand, onFieldChange }: Props) {
                     <button
                       type="button"
                       onClick={() => choose(it.name)}
+                      disabled={out}
                       aria-pressed={markedPicked}
-                      className={cn(INVITE_PILL_CLASS, "!min-h-[42px] !px-5 !text-[13px]")}
+                      className={cn(INVITE_PILL_CLASS, "!min-h-[42px] !px-5 !text-[13px]", out && "cursor-not-allowed")}
                       style={markedPicked ? { background: pal.creamInk, color: pal.cream } : { background: pal.accent, color: pal.onAccent, boxShadow: `0 10px 30px -14px ${pal.accent}` }}
                     >
                       {markedPicked ? <Check className="h-4 w-4" aria-hidden strokeWidth={3} /> : <Gift className="h-4 w-4" aria-hidden />}
-                      {markedPicked ? (
+                      {out ? (
+                        <span>Sold out</span>
+                      ) : markedPicked ? (
                         <InlineText as="span" value={props.chosenText || "Your pick"} onUpdate={field("chosenText")} />
                       ) : single ? (
                         <span>{claimText}</span>

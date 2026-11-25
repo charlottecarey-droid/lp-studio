@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planRepSave, allGifts, applyWizardDefaults, buildGiftProps, composeSource, fixCountCopy, majorityTier, giftNames, giftSourceLabel, manualRow, parseWizardCsv, wizardCsvTemplate } from "./gift-wizard";
+import { buildLinksCsv, LINK_EXPORT_HEADER, planRepSave, allGifts, applyWizardDefaults, buildGiftProps, composeSource, fixCountCopy, majorityTier, giftNames, giftSourceLabel, manualRow, parseWizardCsv, wizardCsvTemplate } from "./gift-wizard";
 
 const source = {
   "gift-hero": { headline: "Pick the gift", envelopeIntro: false, kicker: "Happy holidays from Dandy", tagFrom: "From your Dandy team" },
@@ -143,5 +143,21 @@ describe("a single picked gift", () => {
       expect(out["gift-picker"].chooseText).toBe("Claim this gift");
       expect(String(out["gift-hero"].subheadline)).not.toMatch(/choose|pick/i);
     }
+  });
+});
+
+describe("links export", () => {
+  const item = { variables: { first_name: "Ada", company: "Acme" }, status: "published", link: "https://x.com/p/abc123", previewImage: "https://x.com/api/storage/objects/uploads/card", linkLabel: "" };
+  it("adds the preview image and a pasteable linked-image snippet", () => {
+    const csv = buildLinksCsv([item]);
+    expect(csv.split("\n")[0]).toBe(LINK_EXPORT_HEADER.join(","));
+    expect(csv).toContain("https://x.com/api/storage/objects/uploads/card");
+    expect(csv).toContain('<a href=""https://x.com/p/abc123""'); // CSV-escaped quotes
+    expect(csv).toContain("Visit your personalized page");
+  });
+  it("leaves both preview columns blank until the card is ready", () => {
+    const csv = buildLinksCsv([{ ...item, previewImage: "" }]);
+    expect(csv).not.toContain("<img");
+    expect(csv.trim().endsWith("https://x.com/p/abc123,,")).toBe(true);
   });
 });

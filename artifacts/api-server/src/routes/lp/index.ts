@@ -47,6 +47,7 @@ import adminTemplatesRouter from "./adminTemplates";
 import conversionScoringRouter from "./conversion-scoring";
 import pageSpeedRouter from "./page-speed";
 import programmaticPagesRouter from "./programmatic-pages";
+import giftStatusRouter from "./gift-status";
 import adMapRouter from "./ad-map";
 import pageDetailRouter from "./page-detail";
 import rssSyncRouter from "./rss-sync";
@@ -169,6 +170,7 @@ router.use(templatesRouter);
 router.use(adminTemplatesRouter);
 router.use(conversionScoringRouter);
 router.use(programmaticPagesRouter);
+router.use(giftStatusRouter);
 router.use(pageDetailRouter); // per-page analytics detail (static /lp/analytics/pages/:pageId/* — before any :pageId catch-alls)
 router.use(adMapRouter);
 router.use(rssSyncRouter);

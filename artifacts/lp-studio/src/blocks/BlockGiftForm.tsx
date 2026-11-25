@@ -119,7 +119,7 @@ function ClassicGiftForm({ props, brand, pageId, variantId, onFieldChange }: Pro
   const anim = useAnimInitial();
   const pal = resolveGiftPalette(props, brand);
   const isEditor = !!onFieldChange;
-  const { options, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, submit } = useGiftForm(props, { pageId, variantId, isEditor });
+  const { options, sizes, askSize, step, values, errors, status, gift, set, chooseGift, goNext, goBack, submit, shipped, allSoldOut } = useGiftForm(props, { pageId, variantId, isEditor });
   const nextSteps = (props.nextSteps ?? []).filter(Boolean).slice(0, 4);
   const stepTitles = [props.stepOneTitle || "Your pick", props.stepTwoTitle || "About you", props.stepThreeTitle || "Where to send it"];
 
@@ -261,7 +261,11 @@ function ClassicGiftForm({ props, brand, pageId, variantId, onFieldChange }: Pro
           className="relative rounded-[26px] p-6 sm:p-8 lg:col-span-7"
           style={{ background: pal.cream, color: pal.creamInk, boxShadow: `0 60px 120px -50px rgba(0,0,0,0.9), 0 0 0 1px ${pal.creamLine}` }}
         >
-          {status === "success" ? (
+          {shipped ? (
+            <SuccessState palette={pal} headline="Your gift has shipped." message={`It shipped${shipped.date ? ` on ${shipped.date}` : ""}. Watch for a shipping confirmation, and reach out to your Dandy rep with any questions.`} gift={shipped.gift || gift} reduced={reduced} />
+          ) : allSoldOut ? (
+            <SuccessState palette={pal} headline="Every gift has been claimed." message="Thank you for stopping by. Reach out to your Dandy rep and they'll take it from here." gift="" reduced={reduced} />
+          ) : status === "success" ? (
             <SuccessState palette={pal} headline={props.successHeadline || "It's on its way."} message={props.successMessage || ""} gift={gift} reduced={reduced} />
           ) : (
             <form onSubmit={(e) => void submit(e)} noValidate data-gift-step={step + 1} className="flex flex-col gap-6">

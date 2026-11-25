@@ -171,7 +171,11 @@ export function AtelierGiftForm({ props, brand, pageId, variantId, onFieldChange
 
           {/* Steps */}
           <div className="order-1 p-8 lg:order-2 lg:col-span-7 lg:p-12">
-            {f.status === "success" ? (
+            {f.shipped ? (
+              <AtelierSuccess palette={pal} headline="Your gift has shipped." message={`It shipped${f.shipped.date ? ` on ${f.shipped.date}` : ""}. Watch for a shipping confirmation, and reach out to your Dandy rep with any questions.`} gift={f.shipped.gift || f.gift} />
+            ) : f.allSoldOut ? (
+              <AtelierSuccess palette={pal} headline="Every gift has been claimed." message="Thank you for stopping by. Reach out to your Dandy rep and they'll take it from here." gift="" />
+            ) : f.status === "success" ? (
               <AtelierSuccess palette={pal} headline={props.successHeadline || "It's on its way."} message={props.successMessage || ""} gift={f.gift} />
             ) : (
               <form onSubmit={(e) => void f.submit(e)} noValidate data-gift-step={f.step + 1} className="flex flex-col gap-8">

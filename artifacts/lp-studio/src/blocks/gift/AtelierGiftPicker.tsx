@@ -8,7 +8,7 @@ import { InlineImage } from "@/components/InlineImage";
 import type { GiftOption, GiftPickerBlockProps } from "../BlockGiftPicker";
 import { ATELIER_BODY, ATELIER_CSS, ATELIER_LINK_CLASS, ATELIER_SERIF, AtelierEyebrow, GiftBoxArt, LeatherTag, SatinBand, SatinBow, resolveAtelierPalette } from "./atelier-theme";
 import { AtelierHeadline } from "./AtelierHeadline";
-import { selectGift, useGiftSelection } from "./gift-selection";
+import { isGiftSoldOut, selectGift, useGiftSelection } from "./gift-selection";
 import { useRegisterGiftOptions } from "./use-register-gift-options";
 import { cn } from "@/lib/utils";
 import { GiftFlip } from "./GiftFlip";
@@ -39,8 +39,9 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
     ? (i: number, patch: Partial<GiftOption>) => onFieldChange({ ...props, options: options.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) })
     : undefined;
 
+  const outOfStock = (name: string) => !isEditor && isGiftSoldOut(selection.soldOut, name);
   const choose = (name: string) => {
-    if (isEditor) return;
+    if (isEditor || outOfStock(name)) return;
     selectGift(name);
     const anchor = props.formAnchor || "#redeem";
     if (anchor.startsWith("#")) document.getElementById(anchor.slice(1))?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
@@ -50,8 +51,8 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
   // selected for the visitor, and the card sits centred wearing its ribbon.
   const single = options.length === 1 && !isEditor;
   useEffect(() => {
-    if (single) selectGift(options[0].name);
-  }, [single, options]);
+    if (single && !isGiftSoldOut(selection.soldOut, options[0].name)) selectGift(options[0].name);
+  }, [single, options, selection.soldOut]);
   const claimText = props.chooseText && props.chooseText !== "Choose this one" ? props.chooseText : "Claim this gift";
 
   const cols = options.length >= 4 ? "md:grid-cols-2 lg:grid-cols-4" : options.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
@@ -85,6 +86,7 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
             const picked = !isEditor && selection.selected !== "" && selection.selected === it.name;
             const dressed = picked || single; // ribbon, bow and tag
             const markedPicked = picked && !single; // "Your pick" label state
+            const out = outOfStock(it.name);
             return (
               <motion.article
                 key={i}
@@ -94,7 +96,7 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                 whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.8, delay: Math.min(i * 0.1, 0.3), ease: [0.16, 1, 0.3, 1] }}
-                className="atl-card flex flex-col"
+                className={cn("atl-card flex flex-col", out && "opacity-60 grayscale")}
               >
                 <GiftFlip
                   enabled={!isEditor}
@@ -134,6 +136,9 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                     <GiftBoxArt palette={pal} variant="single" className="atl-zoom absolute inset-x-[8%] top-[14%] w-[84%]" />
                   )}
                 >
+                  {out && (
+                    <span className="absolute right-5 top-5 z-10 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ background: pal.ink, color: pal.ivory }}>Sold out</span>
+                  )}
                   {(it.badge || !single) && (
                     <span className="absolute left-5 top-5 text-[11px] font-medium uppercase tracking-[0.28em]" style={{ color: pal.muted }}>
                       {it.badge || `No. ${String(i + 1).padStart(2, "0")}`}
@@ -159,19 +164,22 @@ export function AtelierGiftPicker({ props, brand, onFieldChange }: { props: Gift
                   <button
                     type="button"
                     onClick={() => choose(it.name)}
+                    disabled={out}
                     aria-pressed={markedPicked}
-                    className={`${ATELIER_LINK_CLASS} mt-3 self-start`}
+                    className={`${ATELIER_LINK_CLASS} mt-3 self-start${out ? " cursor-not-allowed" : ""}`}
                     style={{ color: markedPicked ? pal.ribbon : pal.ink }}
                   >
                     {markedPicked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> : null}
-                    {markedPicked ? (
+                    {out ? (
+                      <span>Sold out</span>
+                    ) : markedPicked ? (
                       <InlineText as="span" value={props.chosenText || "Your pick"} onUpdate={field("chosenText")} />
                     ) : single ? (
                       <span>{claimText}</span>
                     ) : (
                       <InlineText as="span" value={props.chooseText || "Choose this one"} onUpdate={field("chooseText")} />
                     )}
-                    {!markedPicked && <ArrowRight className="h-3.5 w-3.5" aria-hidden />}
+                    {!markedPicked && !out && <ArrowRight className="h-3.5 w-3.5" aria-hidden />}
                   </button>
                 </div>
               </motion.article>

@@ -23,9 +23,11 @@ export interface GiftSelectionState {
   details: Record<string, GiftDetail>;
   /** The visitor's current choice (a name from `options`, or ""). */
   selected: string;
+  /** Gifts the vendor sheet says are out of stock, lowercased + trimmed (see isGiftSoldOut). */
+  soldOut: string[];
 }
 
-let state: GiftSelectionState = { options: [], details: {}, selected: "" };
+let state: GiftSelectionState = { options: [], details: {}, selected: "", soldOut: [] };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -50,13 +52,26 @@ export function selectGift(name: string): void {
   emit();
 }
 
+/** Record which gifts are out of stock; a sold-out gift can't stay selected. */
+export function setSoldOut(names: string[]): void {
+  const next = [...new Set(names.map((n) => n.trim().toLowerCase()).filter(Boolean))].sort();
+  if (JSON.stringify(next) === JSON.stringify(state.soldOut)) return;
+  const selectedGone = state.selected !== "" && next.includes(state.selected.trim().toLowerCase());
+  state = { ...state, soldOut: next, selected: selectedGone ? "" : state.selected };
+  emit();
+}
+
+export function isGiftSoldOut(soldOut: string[], name: string): boolean {
+  return soldOut.includes(name.trim().toLowerCase());
+}
+
 export function getGiftSelection(): GiftSelectionState {
   return state;
 }
 
 /** Test/editor helper: forget everything. */
 export function resetGiftSelection(): void {
-  state = { options: [], details: {}, selected: "" };
+  state = { options: [], details: {}, selected: "", soldOut: [] };
   emit();
 }
 
