@@ -4,6 +4,7 @@
 //   POST   /lp/gifts/exchange/posts            → { kind: offer|request, tier, qty, note }
 //   POST   /lp/gifts/exchange/posts/:id/act    → Claim (offer) or Give (request): moves ONE gift
 //   DELETE /lp/gifts/exchange/posts/:id        → poster cancels their own post
+//   POST   /lp/gifts/exchange/send             → { toEmail, tier, qty, note }: give gifts straight to one rep
 // Signed-in tenant users only; the acting rep is always the signed-in user.
 // Allocation + recipient claims come from the gifting sheet (gift-status.ts);
 // rep-to-rep moves live in lp_gift_transfers and are mirrored, best effort, to
@@ -15,7 +16,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db, lpGiftPostsTable, lpGiftTransfersTable, lpPagesTable } from "@workspace/db";
 import { appendRowToTab } from "../../lib/google-sheets";
 import { repGiftSummary, type GiftTierKey } from "../../lib/gift-sheet-status";
-import { availableToOffer, balancesWithTransfers, parsePostInput, transferForAction, type TierBalance } from "../../lib/gift-exchange";
+import { availableToOffer, balancesWithTransfers, parsePostInput, parseSendInput, transferForAction, type TierBalance } from "../../lib/gift-exchange";
 import { giftSheetConfig, giftSourceFormId, loadSheet } from "./gift-status";
 
 const router = Router();
@@ -97,9 +98,16 @@ router.get("/lp/gifts/exchange", limiter, async (req, res): Promise<void> => {
       .orderBy(desc(lpGiftPostsTable.createdAt))
       .limit(200);
     const { balances } = await repBalance(me.tenantId, me.email);
+    const formId = await giftSourceFormId(me.tenantId);
+    const sheet = formId ? await loadSheet(me.tenantId, formId) : null;
+    const reps = [...(sheet?.allocations?.values() ?? [])]
+      .filter((r) => r.email !== me.email)
+      .map((r) => ({ email: r.email, name: r.name }))
+      .sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
     res.json({
       me: me.email,
       balances,
+      reps,
       posts: posts.map((p) => ({ id: p.id, kind: p.kind, repEmail: p.repEmail, repName: p.repName, tier: p.tier, qty: p.qty, remaining: p.remaining, note: p.note, createdAt: p.createdAt, mine: p.repEmail.toLowerCase() === me.email })),
     });
   } catch (err) {
@@ -162,22 +170,47 @@ router.post("/lp/gifts/exchange/posts/:id/act", limiter, async (req, res): Promi
     });
     res.json({ ok: true, remaining: done.remaining });
     // Mirror to the sheet after responding; the DB is the record, so a failure only logs.
-    void (async () => {
-      try {
-        const formId = await giftSourceFormId(me.tenantId);
-        const cfg = formId ? await giftSheetConfig(me.tenantId, formId) : null;
-        if (!cfg) return;
-        await appendRowToTab(cfg, TRANSFERS_TAB, TRANSFERS_HEADER, [
-          new Date().toISOString(), done.move.from, done.move.to, TIER_LABEL[done.post.tier as GiftTierKey] ?? done.post.tier, 1, `#${done.post.id} ${done.post.kind}`, done.post.note,
-        ]);
-      } catch (err) {
-        console.error("gift-exchange: Transfers tab append failed:", err);
-      }
-    })();
+    void mirrorToSheet(me.tenantId, { from: done.move.from, to: done.move.to, tier: done.post.tier, qty: 1, post: `#${done.post.id} ${done.post.kind}`, note: done.post.note });
   } catch (err) {
     if (err instanceof HttpError) { res.status(err.status).json({ error: err.message }); return; }
     console.error("gift-exchange: act failed:", err);
     res.status(500).json({ error: "Couldn't move that gift." });
+  }
+});
+
+/** Best-effort copy of a move to the sheet's Transfers tab; the DB is the record. */
+async function mirrorToSheet(tenantId: number, row: { from: string; to: string; tier: string; qty: number; post: string; note: string }): Promise<void> {
+  try {
+    const formId = await giftSourceFormId(tenantId);
+    const cfg = formId ? await giftSheetConfig(tenantId, formId) : null;
+    if (!cfg) return;
+    await appendRowToTab(cfg, TRANSFERS_TAB, TRANSFERS_HEADER, [new Date().toISOString(), row.from, row.to, TIER_LABEL[row.tier as GiftTierKey] ?? row.tier, row.qty, row.post, row.note]);
+  } catch (err) {
+    console.error("gift-exchange: Transfers tab append failed:", err);
+  }
+}
+
+router.post("/lp/gifts/exchange/send", limiter, async (req, res): Promise<void> => {
+  const me = signedIn(req, res);
+  if (!me) return;
+  const input = parseSendInput(req.body, me.email);
+  if ("error" in input) { res.status(400).json({ error: input.error }); return; }
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${LOCK_NS}, ${me.tenantId})`);
+      const { balances, formId } = await repBalance(me.tenantId, me.email, { fresh: true, tx });
+      const sheet = formId ? await loadSheet(me.tenantId, formId) : null;
+      if (!sheet?.allocations?.has(input.toEmail)) throw new HttpError(400, "That person isn't on the gifting sheet's Allocations tab.");
+      const free = availableToOffer(balances, await openOffers(me.tenantId, tx), me.email, input.tier);
+      if (free < input.qty) throw new HttpError(409, free === 0 ? `You don't have any ${TIER_LABEL[input.tier]} gifts free to give.` : `You only have ${free} ${TIER_LABEL[input.tier]} gift${free === 1 ? "" : "s"} free to give.`);
+      await tx.insert(lpGiftTransfersTable).values({ tenantId: me.tenantId, postId: null, fromEmail: me.email, toEmail: input.toEmail, tier: input.tier, qty: input.qty, note: input.note });
+    });
+    res.json({ ok: true });
+    void mirrorToSheet(me.tenantId, { from: me.email, to: input.toEmail, tier: input.tier, qty: input.qty, post: "direct", note: input.note });
+  } catch (err) {
+    if (err instanceof HttpError) { res.status(err.status).json({ error: err.message }); return; }
+    console.error("gift-exchange: send failed:", err);
+    res.status(500).json({ error: "Couldn't give those gifts." });
   }
 });
 

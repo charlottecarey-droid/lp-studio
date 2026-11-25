@@ -65,3 +65,19 @@ export function transferForAction(post: { kind: string; repEmail: string }, acto
   if (post.kind === "request") return { from: actor, to: poster };
   return { error: "Unknown post type." };
 }
+
+export interface SendInput { toEmail: string; tier: GiftTierKey; qty: number; note: string }
+
+/** Validates a direct give to one rep: recipient email, tier, quantity 1–50, note ≤ 280. */
+export function parseSendInput(body: unknown, fromEmail: string): SendInput | { error: string } {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const toEmail = typeof b.toEmail === "string" ? b.toEmail.trim().toLowerCase() : "";
+  if (!toEmail.includes("@")) return { error: "Choose who to give gifts to." };
+  if (toEmail === fromEmail.trim().toLowerCase()) return { error: "You can't give gifts to yourself." };
+  const tier = GIFT_TIER_KEYS.find((t) => t === b.tier);
+  if (!tier) return { error: "Choose Premium, Mid-value or Swag." };
+  const qty = Number(b.qty);
+  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return { error: "Quantity must be between 1 and 50." };
+  const note = typeof b.note === "string" ? b.note.trim().slice(0, 280) : "";
+  return { toEmail, tier, qty, note };
+}

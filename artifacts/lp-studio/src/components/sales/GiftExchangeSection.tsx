@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightLeft, HandHeart, Loader2, Plus } from "lucide-react";
+import { ArrowRightLeft, HandHeart, Loader2, Plus, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,8 @@ type TierId = "premium" | "mid" | "swag";
 type Kind = "offer" | "request";
 interface Post { id: number; kind: Kind; repEmail: string; repName: string; tier: TierId; qty: number; remaining: number; note: string; createdAt: string; mine: boolean }
 interface Balance { tier: TierId; left: number }
-interface ExchangeData { me: string; balances: Balance[]; posts: Post[] }
+interface ExchangeData { me: string; balances: Balance[]; posts: Post[]; reps?: Array<{ email: string; name: string }> }
+type FormKind = Kind | "give";
 
 const LABELS: Record<TierId, string> = { premium: "Premium", mid: "Mid-value", swag: "Swag" };
 
@@ -30,7 +31,7 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
   const [data, setData] = useState<ExchangeData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | "post" | null>(null);
-  const [form, setForm] = useState<{ kind: Kind; tier: TierId; qty: string; note: string } | null>(null);
+  const [form, setForm] = useState<{ kind: FormKind; tier: TierId; qty: string; note: string; toEmail: string } | null>(null);
 
   const load = useCallback(() => {
     fetch("/api/lp/gifts/exchange")
@@ -59,7 +60,9 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
 
   const submit = async () => {
     if (!form) return;
-    const ok = await call("post", "/api/lp/gifts/exchange/posts", { method: "POST", body: JSON.stringify({ kind: form.kind, tier: form.tier, qty: Number(form.qty), note: form.note }) });
+    const ok = form.kind === "give"
+      ? await call("post", "/api/lp/gifts/exchange/send", { method: "POST", body: JSON.stringify({ toEmail: form.toEmail, tier: form.tier, qty: Number(form.qty), note: form.note }) })
+      : await call("post", "/api/lp/gifts/exchange/posts", { method: "POST", body: JSON.stringify({ kind: form.kind, tier: form.tier, qty: Number(form.qty), note: form.note }) });
     if (ok) setForm(null);
   };
 
@@ -68,26 +71,33 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold"><ArrowRightLeft className="h-4 w-4" />Up for grabs &amp; requests</div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setForm({ kind: "offer", tier: "mid", qty: "1", note: "" })}><HandHeart className="h-3.5 w-3.5" />Put gifts up for grabs</Button>
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setForm({ kind: "request", tier: "mid", qty: "1", note: "" })}><Plus className="h-3.5 w-3.5" />Request gifts</Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setForm({ kind: "give", tier: "mid", qty: "1", note: "", toEmail: "" })}><Send className="h-3.5 w-3.5" />Give to a rep</Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setForm({ kind: "offer", tier: "mid", qty: "1", note: "", toEmail: "" })}><HandHeart className="h-3.5 w-3.5" />Put gifts up for grabs</Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setForm({ kind: "request", tier: "mid", qty: "1", note: "", toEmail: "" })}><Plus className="h-3.5 w-3.5" />Request gifts</Button>
         </div>
       </div>
 
-      <p className="mb-3 text-xs text-muted-foreground">Have gifts you won't use? Put them up for grabs. Need more? Ask the other reps here.</p>
+      <p className="mb-3 text-xs text-muted-foreground">Have gifts you won't use? Give them to a rep or put them up for grabs. Need more? Ask the other reps here.</p>
 
       {form && (
         <div className="mb-3 space-y-2 rounded-lg border bg-muted/30 p-3">
-          <div className="text-xs font-medium">{form.kind === "offer" ? "Put gifts from your loot up for grabs" : "Ask other reps for gifts"}</div>
+          <div className="text-xs font-medium">{form.kind === "give" ? "Give gifts from your loot to a rep" : form.kind === "offer" ? "Put gifts from your loot up for grabs" : "Ask other reps for gifts"}</div>
           <div className="flex flex-wrap items-center gap-2">
+            {form.kind === "give" && (
+              <Select value={form.toEmail} onValueChange={(v) => setForm({ ...form, toEmail: v })}>
+                <SelectTrigger className="h-8 w-56"><SelectValue placeholder="Choose a rep" /></SelectTrigger>
+                <SelectContent>{(data.reps ?? []).map((r) => <SelectItem key={r.email} value={r.email}>{r.name || r.email}</SelectItem>)}</SelectContent>
+              </Select>
+            )}
             <Input type="number" min={1} max={50} value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} className="h-8 w-20" aria-label="How many" />
             <Select value={form.tier} onValueChange={(v) => setForm({ ...form, tier: v as TierId })}>
               <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>{(Object.keys(LABELS) as TierId[]).map((t) => <SelectItem key={t} value={t}>{LABELS[t]}{form.kind === "offer" ? ` (${left(t)} left)` : ""}</SelectItem>)}</SelectContent>
+              <SelectContent>{(Object.keys(LABELS) as TierId[]).map((t) => <SelectItem key={t} value={t}>{LABELS[t]}{form.kind !== "request" ? ` (${left(t)} left)` : ""}</SelectItem>)}</SelectContent>
             </Select>
             <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note (optional), e.g. which account" className="h-8 min-w-[12rem] flex-1" maxLength={280} />
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={submit} disabled={busy === "post"} className="gap-1.5">{busy === "post" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Post</Button>
+            <Button size="sm" onClick={submit} disabled={busy === "post" || (form.kind === "give" && !form.toEmail)} className="gap-1.5">{busy === "post" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{form.kind === "give" ? "Give" : "Post"}</Button>
             <Button size="sm" variant="ghost" onClick={() => { setForm(null); setError(null); }}>Cancel</Button>
           </div>
         </div>
@@ -125,7 +135,7 @@ export function GiftExchangeSection({ onChange }: { onChange?: () => void }) {
           })}
         </ul>
       )}
-      <p className="mt-3 text-[11px] text-muted-foreground">You're trading as {data.me}. Each click moves one gift.</p>
+      <p className="mt-3 text-[11px] text-muted-foreground">You're trading as {data.me}. Claim 1 and Give 1 on a post each move one gift.</p>
     </Card>
   );
 }

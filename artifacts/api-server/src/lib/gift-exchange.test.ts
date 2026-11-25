@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableToOffer, balancesWithTransfers, parsePostInput, transferForAction } from "./gift-exchange";
+import { availableToOffer, balancesWithTransfers, parsePostInput, parseSendInput, transferForAction } from "./gift-exchange";
 
 const summary = {
   tiers: [
@@ -40,5 +40,11 @@ describe("gift exchange", () => {
     expect(transferForAction({ kind: "offer", repEmail: "A@x.com" }, "b@x.com")).toEqual({ from: "a@x.com", to: "b@x.com" });
     expect(transferForAction({ kind: "request", repEmail: "a@x.com" }, "B@x.com")).toEqual({ from: "b@x.com", to: "a@x.com" });
     expect(transferForAction({ kind: "offer", repEmail: "a@x.com" }, "A@x.com")).toHaveProperty("error");
+  });
+  it("validates a direct give", () => {
+    expect(parseSendInput({ toEmail: " B@x.com ", tier: "premium", qty: 2, note: "Heartland" }, "a@x.com")).toEqual({ toEmail: "b@x.com", tier: "premium", qty: 2, note: "Heartland" });
+    expect(parseSendInput({ toEmail: "A@x.com", tier: "premium", qty: 1 }, "a@x.com")).toHaveProperty("error");
+    expect(parseSendInput({ toEmail: "nobody", tier: "premium", qty: 1 }, "a@x.com")).toHaveProperty("error");
+    expect(parseSendInput({ toEmail: "b@x.com", tier: "premium", qty: 51 }, "a@x.com")).toHaveProperty("error");
   });
 });
