@@ -7,6 +7,9 @@ import { logger } from "../../lib/logger";
 import { encryptCredential } from "../../lib/encryption";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 
+import { parseDigestSettingsPatch, readDigestSettings } from "../../lib/gifting-digest";
+import { sendGiftingDigest } from "../../lib/giftingDigestPoller";
+
 const router = Router();
 
 // HMAC-signed OAuth `state` — identical construction to the SFDC flow
@@ -182,6 +185,7 @@ router.get("/slack/connection", requireAuth, async (req, res): Promise<void> => 
       defaultChannelId: connection.defaultChannelId,
       defaultChannelName: connection.defaultChannelName,
       eventToggles: connection.eventToggles,
+      giftingDigest: (({ enabled, channelId, hour, lastSentAt }) => ({ enabled, channelId, hour, lastSentAt }))(readDigestSettings((connection as { metadata?: unknown }).metadata)),
       status: connection.status,
       lastError: connection.lastError,
       createdAt: connection.createdAt,
@@ -225,6 +229,7 @@ router.patch("/slack/settings", requireAuth, async (req, res): Promise<void> => 
       defaultChannelId?: string;
       defaultChannelName?: string;
       eventToggles?: Partial<SlackEventToggles>;
+      giftingDigest?: unknown;
     };
 
     const update: Record<string, unknown> = {};
@@ -237,6 +242,14 @@ router.patch("/slack/settings", requireAuth, async (req, res): Promise<void> => 
         hot_visit: typeof body.eventToggles.hot_visit === "boolean" ? body.eventToggles.hot_visit : current.hot_visit !== false,
         ai_briefing: typeof body.eventToggles.ai_briefing === "boolean" ? body.eventToggles.ai_briefing : current.ai_briefing !== false,
       };
+    }
+
+    if (body.giftingDigest !== undefined) {
+      const patch = parseDigestSettingsPatch(body.giftingDigest);
+      if ("error" in patch) { res.status(400).json({ error: patch.error }); return; }
+      const meta = ((connection as { metadata?: Record<string, unknown> }).metadata ?? {}) as Record<string, unknown>;
+      const current = (meta.giftingDigest ?? {}) as Record<string, unknown>;
+      update.metadata = { ...meta, giftingDigest: { ...current, ...patch } };
     }
 
     if (Object.keys(update).length === 0) {
@@ -255,6 +268,7 @@ router.patch("/slack/settings", requireAuth, async (req, res): Promise<void> => 
       defaultChannelId: updated.defaultChannelId,
       defaultChannelName: updated.defaultChannelName,
       eventToggles: updated.eventToggles,
+      giftingDigest: readDigestSettings(updated.metadata),
     });
   } catch (err) {
     logger.error(err, "Error updating Slack settings");
@@ -319,6 +333,27 @@ router.post("/slack/test/:event", requireAuth, async (req, res): Promise<void> =
   } catch (err) {
     logger.error(err, "Error sending Slack test message");
     res.status(500).json({ error: "Failed to send test message" });
+  }
+});
+
+/**
+ * POST /slack/gifting-digest/send
+ * Post the holiday gifting summary to its channel right now (even on a quiet
+ * day), covering the last 24 hours. Doesn't change the daily schedule.
+ */
+router.post("/slack/gifting-digest/send", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const connection = await slackService.getConnectionForTenant(tenantId);
+    if (!connection || connection.status !== "connected") { res.status(404).json({ error: "Connect Slack first." }); return; }
+    const cfg = readDigestSettings((connection as { metadata?: unknown }).metadata);
+    if (!cfg.channelId) { res.status(400).json({ error: "Add the channel ID for the gifting summary first." }); return; }
+    const result = await sendGiftingDigest(tenantId, cfg.channelId, { now: new Date(), force: true });
+    if (result === "sent") { res.json({ success: true }); return; }
+    res.status(502).json({ error: result === "quiet" ? "Couldn't read the gifting sheet." : "Slack didn't accept the message. Is LP Studio invited to that channel?" });
+  } catch (err) {
+    logger.error(err, "Error sending gifting digest");
+    res.status(500).json({ error: "Failed to send the summary" });
   }
 });
 

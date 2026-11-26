@@ -33,6 +33,7 @@ import { startHubspotSyncPoller } from "./lib/hubspotSyncPoller";
 import { startSfdcMicrositeRequestPoller } from "./lib/sfdcMicrositeRequestPoller";
 import { startBlogPublishPoller } from "./lib/blogPublishPoller";
 import { startPartnerRoomPoller } from "./lib/partnerRoomPoller";
+import { startGiftingDigestPoller } from "./lib/giftingDigestPoller";
 import { startBlogProgramPoller } from "./lib/blogProgramPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
@@ -668,6 +669,7 @@ const httpServer = app.listen(port, (err) => {
   // send the weekly digest on Monday mornings. Production-only unless
   // ROOM_POLLER_ENABLED=1 (see poller).
   startPartnerRoomPoller();
+  startGiftingDigestPoller();
 
   // Blog Phase 4 — autonomous content-program tick. In AUTONOMOUS mode keeps
   // the publishing backlog healthy (tops up recommendations, generates drafts

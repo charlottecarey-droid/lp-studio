@@ -14,10 +14,11 @@
 // lock so two reps can't take the same gift or overdraw a balance.
 import { Router, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
-import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, sql } from "drizzle-orm";
 import { db, lpGiftPostsTable, lpGiftTransfersTable, lpPagesTable } from "@workspace/db";
 import { appendRowToTab } from "../../lib/google-sheets";
-import { repGiftSummary, type GiftTierKey } from "../../lib/gift-sheet-status";
+import { giftKey, repGiftSummary, type GiftTierKey } from "../../lib/gift-sheet-status";
+import { buildGiftingDigest, runningLowGifts } from "../../lib/gifting-digest";
 import { availableToOffer, balancesWithTransfers, claimCountLeaderboard, claimLeaderboard, dropAllPlan, parsePostInput, planPileFill, parseSendInput, parseThanks, transferForAction, type TierBalance } from "../../lib/gift-exchange";
 import { giftSheetConfig, giftSourceFormId, loadSheet } from "./gift-status";
 
@@ -364,5 +365,63 @@ router.delete("/lp/gifts/exchange/posts/:id", limiter, async (req, res): Promise
     res.status(500).json({ error: "Couldn't remove that post." });
   }
 });
+
+const GIFTING_URL = "https://app.lpstudio.ai/sales/gifting";
+
+/**
+ * The daily Slack summary for a tenant (lib/gifting-digest.ts builds the
+ * message): claims and gift pages since `since`, campaign totals, open posts,
+ * both leaderboards and gifts running low. Null on a day with no activity
+ * unless `force` (the settings page's "Send now").
+ */
+export async function giftingDigestFor(tenantId: number, opts: { now: Date; since: Date; force?: boolean }) {
+  const formId = await giftSourceFormId(tenantId);
+  const sheet = formId ? await loadSheet(tenantId, formId, true) : null;
+  if (!sheet) return null;
+  const tierOf = (gift: string): GiftTierKey | undefined => sheet.tiers?.get(giftKey(gift));
+  const claimedInWindow: Record<GiftTierKey, number> = { premium: 0, mid: 0, swag: 0 };
+  for (const o of sheet.orders) {
+    const at = Date.parse(o.timestamp ?? "");
+    const t = tierOf(o.gift);
+    if (t && Number.isFinite(at) && at >= opts.since.getTime() && at < opts.now.getTime()) claimedInWindow[t] += 1;
+  }
+  const totals: Record<GiftTierKey, { claimed: number; ordered: number }> = { premium: { claimed: 0, ordered: 0 }, mid: { claimed: 0, ordered: 0 }, swag: { claimed: 0, ordered: 0 } };
+  const gifts: Array<{ name: string; ordered: number; claimed: number }> = [];
+  for (const [name, ordered] of sheet.stock) {
+    const t = sheet.tiers?.get(name);
+    if (!t || ordered <= 0) continue;
+    const claimed = sheet.claimed.get(name) ?? 0;
+    totals[t].ordered += ordered;
+    totals[t].claimed += claimed;
+    gifts.push({ name, ordered, claimed });
+  }
+  // Inventory keys are lowercased; show the sheet's own spelling from the order rows when we have one.
+  const display = new Map<string, string>();
+  for (const o of sheet.orders) display.set(giftKey(o.gift), o.gift.trim());
+  const [{ pages }] = await db.select({ pages: sql<number>`count(*)::int` }).from(lpPagesTable)
+    .where(and(giftPageFilter(tenantId, formId), gte(lpPagesTable.createdAt, opts.since), sql`${lpPagesTable.createdAt} < ${opts.now}`));
+  const [{ moves }] = await db.select({ moves: sql<number>`count(*)::int` }).from(lpGiftTransfersTable)
+    .where(and(eq(lpGiftTransfersTable.tenantId, tenantId), gte(lpGiftTransfersTable.createdAt, opts.since)));
+  const [{ posts }] = await db.select({ posts: sql<number>`count(*)::int` }).from(lpGiftPostsTable)
+    .where(and(eq(lpGiftPostsTable.tenantId, tenantId), gte(lpGiftPostsTable.createdAt, opts.since)));
+  const open = await db.select().from(lpGiftPostsTable)
+    .where(and(eq(lpGiftPostsTable.tenantId, tenantId), eq(lpGiftPostsTable.status, "open")))
+    .orderBy(asc(lpGiftPostsTable.createdAt));
+  const asRow = (p: typeof open[number]) => ({ name: p.repName || nameFor(sheet.allocations, p.repEmail.toLowerCase()), tier: p.tier as GiftTierKey, remaining: p.remaining });
+  const pageCounts = await pagesByRep(tenantId, formId);
+  return buildGiftingDigest({
+    now: opts.now,
+    claimedInWindow,
+    pagesInWindow: pages,
+    exchangeActivity: moves + posts,
+    totals,
+    offers: open.filter((p) => p.kind === "offer").map(asRow),
+    requests: open.filter((p) => p.kind === "request").map(asRow),
+    mostClaimed: claimCountLeaderboard(pageCounts, sheet.orders, sheet.allocations).slice(0, 3).map((r) => ({ name: r.name, claimed: r.claimed })),
+    bestRate: claimLeaderboard(pageCounts, sheet.orders, sheet.allocations).slice(0, 3).map((r) => ({ name: r.name, rate: r.rate })),
+    runningLow: runningLowGifts(gifts).map((g) => ({ ...g, name: display.get(g.name) ?? g.name })),
+    appUrl: GIFTING_URL,
+  }, { force: opts.force });
+}
 
 export default router;
