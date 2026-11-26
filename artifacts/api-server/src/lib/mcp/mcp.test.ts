@@ -20,7 +20,8 @@ import { requireAuth, getTenantId, type AuthUser } from "../../middleware/requir
 import { inject } from "../../test-utils/injectRequest";
 import { dispatch, setDispatchApp, rateLimitAddressFor } from "./dispatch";
 import { isAllowedRedirectUri, normalizeScope, redirectUriMatches, verifyPkceS256, scopeHas } from "./oauthStore";
-import { compact, TOOLS } from "./tools";
+import { auditArgs, compact, TOOLS } from "./tools";
+import { deepMerge, findBlock, outlineOf } from "./pageTools";
 import { buildMcpServer } from "../../routes/mcp";
 
 const rep: AuthUser = {
@@ -60,12 +61,15 @@ describe("redirect URI allowlist", () => {
 
 describe("scopes", () => {
   it("defaults to everything and drops unknown scopes", () => {
-    expect(normalizeScope(undefined)).toBe("lpstudio:read lpstudio:drafts");
-    expect(normalizeScope("bogus")).toBe("lpstudio:read lpstudio:drafts");
+    expect(normalizeScope(undefined)).toBe("lpstudio:read lpstudio:drafts lpstudio:pages");
+    expect(normalizeScope("bogus")).toBe("lpstudio:read lpstudio:drafts lpstudio:pages");
     expect(normalizeScope("lpstudio:read")).toBe("lpstudio:read");
   });
   it("drafts implies read", () => {
     expect(scopeHas(normalizeScope("lpstudio:drafts"), "lpstudio:read")).toBe(true);
+  });
+  it("page editing implies read", () => {
+    expect(normalizeScope("lpstudio:pages")).toBe("lpstudio:read lpstudio:pages");
   });
 });
 
@@ -136,10 +140,11 @@ describe("MCP server", () => {
     return client;
   }
 
-  it("lists read and draft tools for a full grant", async () => {
-    const client = await connect("lpstudio:read lpstudio:drafts");
+  it("lists every tool for a full grant", async () => {
+    const client = await connect("lpstudio:read lpstudio:drafts lpstudio:pages");
     const names = (await client.listTools()).tools.map((t) => t.name);
     expect(names).toEqual(TOOLS.map((t) => t.name));
+    expect(names).toContain("update_block");
     expect(names).toContain("generate_microsite");
     expect(names).toContain("weekly_summary");
   });
@@ -151,6 +156,26 @@ describe("MCP server", () => {
     expect(names).not.toContain("create_partner_hub");
     expect(names).not.toContain("draft_email");
     expect(names).toContain("list_my_accounts");
+    expect(names).not.toContain("get_page");
+    expect(names).not.toContain("publish_page");
+  });
+
+  it("hides page tools from a grant without page editing", async () => {
+    const client = await connect("lpstudio:read lpstudio:drafts");
+    const names = (await client.listTools()).tools.map((t) => t.name);
+    expect(names).toContain("generate_microsite");
+    for (const n of ["get_page", "update_page", "update_block", "restore_page_version", "publish_page", "screenshot_page"]) expect(names).not.toContain(n);
+  });
+
+  it("flags publishing and restoring as destructive", async () => {
+    const client = await connect("lpstudio:read lpstudio:pages");
+    const tools = (await client.listTools()).tools;
+    const hint = (n: string) => tools.find((t) => t.name === n)?.annotations?.destructiveHint;
+    expect(hint("publish_page")).toBe(true);
+    expect(hint("unpublish_page")).toBe(true);
+    expect(hint("restore_page_version")).toBe(true);
+    expect(hint("update_block")).toBe(false);
+    expect(hint("get_page")).toBe(false);
   });
 
   it("whoami reports the rep and their permissions", async () => {
@@ -160,9 +185,12 @@ describe("MCP server", () => {
     expect(data).toMatchObject({ email: "rep@example.com", workspaceId: 77, canCreateDrafts: false, app: "https://app.example" });
   });
 
-  it("marks only the creating tools as not read-only", () => {
+  it("marks only the creating and editing tools as not read-only", () => {
     const writers = TOOLS.filter((t) => !t.readOnly).map((t) => t.name).sort();
-    expect(writers).toEqual(["create_partner_hub", "generate_microsite"]);
+    expect(writers).toEqual([
+      "checkpoint_page", "create_page", "create_partner_hub", "duplicate_page", "generate_microsite", "publish_page",
+      "restore_page_version", "unpublish_page", "update_block", "update_page", "upload_media",
+    ]);
     for (const t of TOOLS.filter((x) => x.scope === "lpstudio:read")) expect(t.readOnly).toBe(true);
   });
 });
@@ -181,5 +209,34 @@ describe("consent host + issuer", () => {
     const { issuerForResource } = await import("../../routes/mcp");
     expect(issuerForResource("https://lpstudio.ai/api/mcp", "https://app.lpstudio.ai/api/oauth")).toBe("https://lpstudio.ai/api/oauth");
     expect(issuerForResource(null, "https://app.lpstudio.ai/api/oauth")).toBe("https://app.lpstudio.ai/api/oauth");
+  });
+});
+
+describe("page tool helpers", () => {
+  const blocks = [
+    { id: "hero-1", type: "hero", props: { headline: "Hello there", cta: { label: "Book", url: "#" }, imageUrl: "https://x/y.png" } },
+    { id: "sec-1", type: "section", props: {}, children: [{ id: "txt-1", type: "rich-text", props: { html: "<p>Inner copy</p>" } }] },
+  ];
+
+  it("finds nested blocks and outlines the tree", () => {
+    expect(findBlock(blocks, "txt-1")?.type).toBe("rich-text");
+    expect(findBlock(blocks, "nope")).toBeNull();
+    const outline = outlineOf(blocks);
+    expect(outline.map((o) => [o.id, o.depth])).toEqual([["hero-1", 0], ["sec-1", 0], ["txt-1", 1]]);
+    expect(outline[0].text).toContain("Hello there");
+    expect(outline[0].text).not.toContain("https://");
+    expect(outline[2]).toMatchObject({ parentId: "sec-1", text: "Inner copy" });
+  });
+
+  it("deep-merges props: objects merge, arrays and scalars replace, null clears", () => {
+    expect(deepMerge({ a: 1, cta: { label: "Book", url: "#" }, list: [1, 2] }, { cta: { label: "Talk" }, list: [3], b: null })).toEqual({
+      a: 1, cta: { label: "Talk", url: "#" }, list: [3], b: null,
+    });
+  });
+
+  it("keeps big payloads out of the audit log", () => {
+    const a = auditArgs({ pageId: 3, blocks: [{}, {}], customCss: "x".repeat(1000), ctaDefault: { label: "Hi" } });
+    expect(a).toMatchObject({ pageId: 3, blocks: "[2 items]", ctaDefault: { label: "Hi" } });
+    expect(String(a.customCss).length).toBeLessThan(400);
   });
 });

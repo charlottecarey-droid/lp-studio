@@ -5,6 +5,8 @@ import trackingRouter from "./tracking";
 import resultsRouter from "./results";
 import brandRouter from "./brand";
 import pagesRouter from "./pages";
+import pageVersionsRouter from "./page-versions";
+import fontsRouter from "./fonts";
 import collaborationRouter from "./collaboration";
 import analyticsRouter from "./analytics";
 import chatAnalyticsRouter from "./chat-analytics";
@@ -130,6 +132,8 @@ router.use(resultsRouter);
 router.use(brandRouter);
 router.use(performanceRouter); // Must come before pagesRouter to avoid /lp/pages/:pageId catching /lp/pages/performance/batch
 router.use(exportHtmlRouter); // static HTML export of a published page (Task: Export HTML)
+router.use(fontsRouter);
+router.use(pageVersionsRouter); // before pagesRouter: /lp/pages/deleted must not hit /lp/pages/:pageId
 router.use(pagesRouter);
 router.use(collaborationRouter);
 router.use(analyticsRouter);

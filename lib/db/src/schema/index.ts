@@ -5,6 +5,7 @@ export * from "./lpEvents";
 export * from "./lpAssetEvents";
 export * from "./lpBrandSettings";
 export * from "./lpPages";
+export * from "./lpPageVersions";
 export * from "./lpCollaboration";
 export * from "./lpMedia";
 export * from "./lpPageVisits";

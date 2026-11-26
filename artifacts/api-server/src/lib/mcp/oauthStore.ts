@@ -15,7 +15,9 @@ import { isRootSuperadminEmail } from "../rootSuperadmin";
 
 export const SCOPE_READ = "lpstudio:read";
 export const SCOPE_DRAFTS = "lpstudio:drafts";
-export const SUPPORTED_SCOPES = [SCOPE_READ, SCOPE_DRAFTS] as const;
+/** Edit, version, restore and publish pages (Nov 2026). */
+export const SCOPE_PAGES = "lpstudio:pages";
+export const SUPPORTED_SCOPES = [SCOPE_READ, SCOPE_DRAFTS, SCOPE_PAGES] as const;
 
 export const ACCESS_TOKEN_TTL_S = 60 * 60; // 1 hour
 export const REFRESH_TOKEN_TTL_S = 60 * 60 * 24 * 60; // 60 days
@@ -34,7 +36,8 @@ export function normalizeScope(requested: string | null | undefined): string {
   const known = asked.filter((s): s is (typeof SUPPORTED_SCOPES)[number] => (SUPPORTED_SCOPES as readonly string[]).includes(s));
   const picked = known.length ? known : [...SUPPORTED_SCOPES];
   // Drafts always implies read: a tool that makes a draft has to find the account first.
-  if (picked.includes(SCOPE_DRAFTS) && !picked.includes(SCOPE_READ)) picked.unshift(SCOPE_READ);
+  // Same for page editing.
+  if ((picked.includes(SCOPE_DRAFTS) || picked.includes(SCOPE_PAGES)) && !picked.includes(SCOPE_READ)) picked.unshift(SCOPE_READ);
   return [...new Set(picked)].join(" ");
 }
 

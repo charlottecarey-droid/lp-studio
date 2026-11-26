@@ -57,6 +57,8 @@ export interface PageScreenshotOptions {
    * stronger guarantee than the generic waits below.
    */
   readyWaitSelector?: string;
+  /** Capture the whole scrollable page instead of just the viewport. */
+  fullPage?: boolean;
 }
 
 export async function capturePageScreenshot(opts: PageScreenshotOptions): Promise<Buffer> {
@@ -186,7 +188,7 @@ async function captureNow(opts: PageScreenshotOptions): Promise<Buffer> {
       .catch(() => {});
     await page.waitForTimeout(400);
 
-    const buffer = await page.screenshot({ type: "png" });
+    const buffer = await page.screenshot({ type: "png", fullPage: opts.fullPage === true });
     await context.close();
     return buffer;
   } finally {

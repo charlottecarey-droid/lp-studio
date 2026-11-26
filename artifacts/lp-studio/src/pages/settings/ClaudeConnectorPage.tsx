@@ -52,6 +52,12 @@ function CopyButton({ text, label = "Copy", testId }: { text: string; label?: st
   );
 }
 
+/** "Read only" / "Read + drafts" / "Read + drafts + page editing". */
+function accessLabel(scope: string): string {
+  const extras = [scope.includes("lpstudio:drafts") ? "drafts" : null, scope.includes("lpstudio:pages") ? "page editing" : null].filter(Boolean);
+  return extras.length ? `Read + ${extras.join(" + ")}` : "Read only";
+}
+
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "never");
 
 export function buildScheduledPrompt(opts: { ownPrompt: string; channel: string; day: string; time: string }): string {
@@ -112,7 +118,7 @@ export function ClaudeConnectorContent() {
       <section>
         <SettingsSectionHeader
           title="Use LP Studio in Claude"
-          description="Let your own Claude read your LP Studio accounts, page engagement and Partner Hubs, and create drafts for you. It acts as you, in this workspace, and can't publish or send anything."
+          description="Let your own Claude read your LP Studio accounts, page engagement and Partner Hubs, and create drafts for you. If you allow it, Claude can also edit pages and publish them when you say so. It acts as you, in this workspace, and never sends anything."
         />
         <Card className="p-4 mt-3 space-y-4">
           <div>
@@ -128,7 +134,7 @@ export function ClaudeConnectorContent() {
             </li>
             <li>Name it “LP Studio”, paste the link above, and add it.</li>
             <li>
-              Click <strong>Connect</strong>. LP Studio asks you to sign in and approve. Choose whether Claude may create drafts.
+              Click <strong>Connect</strong>. LP Studio asks you to sign in and approve. Choose whether Claude may create drafts and edit pages. Already connected? Disconnect and connect again to turn on page editing.
             </li>
             <li>Try it in a chat: “What happened on my accounts in LP Studio this week?”</li>
           </ol>
@@ -217,7 +223,7 @@ export function ClaudeConnectorContent() {
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{c.clientName || "Claude"}</div>
                   <div className="text-xs text-muted-foreground">
-                    {c.scope.includes("lpstudio:drafts") ? "Read + create drafts" : "Read only"} · connected {fmt(c.createdAt)} · last used {fmt(c.lastUsedAt)}
+                    {accessLabel(c.scope)} · connected {fmt(c.createdAt)} · last used {fmt(c.lastUsedAt)}
                   </div>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => void disconnect(c.id)}>

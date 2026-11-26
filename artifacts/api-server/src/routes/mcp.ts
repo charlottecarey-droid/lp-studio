@@ -29,6 +29,7 @@ import { writeAuditLog } from "../lib/auditLog";
 import {
   ACCESS_TOKEN_TTL_S,
   SCOPE_DRAFTS,
+  SCOPE_PAGES,
   SUPPORTED_SCOPES,
   claimAuthRequest,
   consumeSecret,
@@ -50,7 +51,7 @@ import {
   verifyPkceS256,
   type Grant,
 } from "../lib/mcp/oauthStore";
-import { TOOLS, runTool, type ToolContext } from "../lib/mcp/tools";
+import { TOOLS, auditArgs, runTool, type ToolContext } from "../lib/mcp/tools";
 
 const router = Router();
 
@@ -255,6 +256,7 @@ router.get("/oauth/requests/:id", requireAuth, async (req: Request, res: Respons
     redirectHost: new URL(ar.redirectUri).host,
     scopes: ar.scope.split(" "),
     canAskForDrafts: scopeHas(ar.scope, SCOPE_DRAFTS),
+    canAskForPages: scopeHas(ar.scope, SCOPE_PAGES),
     user: { name: user.name, email: user.email },
     workspace: user.tenantId ? { id: user.tenantId, name: ws?.rows[0]?.name ?? "" } : null,
   });
@@ -285,7 +287,12 @@ router.post("/oauth/requests/:id/decision", requireAuth, async (req: Request, re
     res.status(403).json({ error: "You need to be an active member of a workspace to connect Claude." });
     return;
   }
-  const scope = req.body?.allowDrafts === false ? normalizeScope(ar.scope.split(" ").filter((s) => s !== SCOPE_DRAFTS).join(" ") || "lpstudio:read") : ar.scope;
+  // The rep can untick drafts and/or page editing on the consent screen.
+  const dropped = new Set<string>([
+    ...(req.body?.allowDrafts === false ? [SCOPE_DRAFTS] : []),
+    ...(req.body?.allowPages === false ? [SCOPE_PAGES] : []),
+  ]);
+  const scope = dropped.size ? normalizeScope(ar.scope.split(" ").filter((s) => !dropped.has(s)).join(" ") || "lpstudio:read") : ar.scope;
   const { grantId, code } = await createGrantWithCode({ clientId: ar.clientId, userId: user.userId, tenantId: user.tenantId, scope }, ar.redirectUri, ar.codeChallenge);
   await writeAuditLog({
     actorUserId: user.userId,
@@ -419,7 +426,9 @@ export function buildMcpServer(ctx: ToolContext, grantId: string): McpServer {
     { name: "lp-studio", title: "LP Studio", version: "1.0.0" },
     {
       instructions:
-        "LP Studio is the rep's landing-page and account-engagement workspace. For a weekly update call weekly_summary first. Links point into the LP Studio app. Draft tools never publish or send anything; tell the rep to review drafts in LP Studio.",
+        "LP Studio is the rep's landing-page and account-engagement workspace. For a weekly update call weekly_summary first. Links point into the LP Studio app. Draft tools never publish or send anything; tell the rep to review drafts in LP Studio. " +
+        "Page editing (when allowed): read a page with get_page (use view='outline' first on big pages), change one block with update_block, or several with update_page. Every save is versioned: list_page_versions / restore_page_version undo changes, checkpoint_page marks a known-good state, list_deleted_pages brings back deleted pages. " +
+        "Saving a PUBLISHED page changes the live page immediately; get_page says whether a page is live and where. publish_page / unpublish_page need the rep's explicit go-ahead in this conversation.",
     },
   );
   for (const tool of TOOLS) {
@@ -430,7 +439,7 @@ export function buildMcpServer(ctx: ToolContext, grantId: string): McpServer {
         title: tool.title,
         description: tool.description,
         inputSchema: tool.input,
-        annotations: { title: tool.title, readOnlyHint: tool.readOnly, destructiveHint: false, idempotentHint: tool.readOnly, openWorldHint: false },
+        annotations: { title: tool.title, readOnlyHint: tool.readOnly, destructiveHint: tool.destructive === true, idempotentHint: tool.readOnly, openWorldHint: false },
       },
       async (args: Record<string, unknown>) => {
         if (!tool.readOnly) {
@@ -440,7 +449,7 @@ export function buildMcpServer(ctx: ToolContext, grantId: string): McpServer {
             action: `claude_connector.${tool.name}`,
             targetType: "mcp_grant",
             targetKey: grantId,
-            metadata: { tenantId: ctx.user.tenantId, args },
+            metadata: { tenantId: ctx.user.tenantId, args: auditArgs(args) },
           });
         }
         return runTool(tool, ctx, args);

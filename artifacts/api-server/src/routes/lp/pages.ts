@@ -35,6 +35,7 @@ import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 import { pickPageStyleOverrides } from "../../lib/page-style-overrides";
 import { tagTeamPhotosFromBlocks } from "../../lib/teamPhotoTagging";
+import { recordPageVersion, SNAPSHOT_FIELDS } from "../../lib/pageVersions";
 
 /**
  * A fingerprint of a page's saved blocks (md5 of the stored jsonb text, so key order
@@ -185,7 +186,7 @@ const GRID_PIECE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "bento-showcase",
 ]);
 
-async function userCanManageBlocks(user: AuthUser | undefined): Promise<boolean> {
+export async function userCanManageBlocks(user: AuthUser | undefined): Promise<boolean> {
   if (!user) return false;
   if (user.isAdmin) return true;
   if (user.permissions["blocks"]) return true;
@@ -196,7 +197,7 @@ async function userCanManageBlocks(user: AuthUser | undefined): Promise<boolean>
  *  found, or null when none are present. Container blocks store children at
  *  `children: PageBlock[]`; we recurse into anything that looks like one.
  */
-function findGridPieceInTree(blocks: unknown): string | null {
+export function findGridPieceInTree(blocks: unknown): string | null {
   if (!Array.isArray(blocks)) return null;
   for (const raw of blocks) {
     if (!raw || typeof raw !== "object") continue;
@@ -1060,6 +1061,8 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   // silently putting the old content back. force: true is the user's explicit "keep mine".
   const baseBlocksVersion = typeof req.body?.baseBlocksVersion === "string" ? (req.body.baseBlocksVersion as string) : null;
   const forceSave = req.body?.force === true;
+  // Optional changelog line for this save; forces a version snapshot.
+  const versionNote = typeof req.body?.versionNote === "string" ? (req.body.versionNote as string) : null;
   const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, ogCardHeadline, ogCardSubheadline, ogCardBackground, ogCardPartnerLogo, ogCardLinkLabel, emailEmbedSource, animationsEnabled, smoothScroll, showCookieBanner, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
     title?: string;
     slug?: string;
@@ -1232,20 +1235,33 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     updates.ogCardVersion = null;
   }
 
-  // Capture pre-update state so we can detect status transitions + slug
-  // renames for the prerender cache lifecycle (task #364).
-  const [preUpdate] = await db
-    .select({ status: lpPagesTable.status, slug: lpPagesTable.slug })
-    .from(lpPagesTable)
-    .where(ownershipWhere);
-
   try {
+    // Capture pre-update state so we can detect status transitions + slug
+    // renames for the prerender cache lifecycle (task #364), and snapshot it
+    // into version history before content or status changes.
+    const [preUpdate] = await withDbRetry(() => db
+      .select()
+      .from(lpPagesTable)
+      .where(ownershipWhere));
+
+    if (preUpdate) {
+      const changesContent = SNAPSHOT_FIELDS.some((k) => (updates as Record<string, unknown>)[k] !== undefined);
+      const changesStatus = updates.status !== undefined && updates.status !== preUpdate.status;
+      if (changesContent || changesStatus) {
+        await recordPageVersion(preUpdate, {
+          reason: changesStatus ? (updates.status === "published" ? "publish" : preUpdate.status === "published" ? "unpublish" : "save") : "save",
+          note: versionNote,
+          by: req.authUser?.email ?? null,
+        });
+      }
+    }
+
     const guard = updates.blocks !== undefined && baseBlocksVersion && !forceSave;
-    const [saved] = await db
+    const [saved] = await withDbRetry(() => db
       .update(lpPagesTable)
       .set(updates)
       .where(guard ? and(ownershipWhere, sql`${BLOCKS_VERSION} = ${baseBlocksVersion}`) : ownershipWhere)
-      .returning({ ...getTableColumns(lpPagesTable), blocksVersion: BLOCKS_VERSION });
+      .returning({ ...getTableColumns(lpPagesTable), blocksVersion: BLOCKS_VERSION }));
     if (!saved) {
       if (guard) {
         const [now] = await db
@@ -1298,7 +1314,14 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   } catch (err) {
     if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A page with that slug already exists" });
+    } else if (isTransientDbError(err)) {
+      // Pool briefly saturated by background sweeps (see dbResilience.ts) and
+      // still failing after retries: say so, so callers retry instead of
+      // treating it as a broken save.
+      console.warn(`PUT /lp/pages/${id} transient DB error:`, String(err));
+      res.status(503).json({ error: "LP Studio is busy right now and didn't save. Try again in a few seconds.", code: "temporarily_unavailable", retryable: true });
     } else {
+      console.error(`PUT /lp/pages/${id} error:`, err);
       res.status(500).json({ error: "Failed to update page" });
     }
   }
@@ -1668,15 +1691,23 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
 
   // Title: when we're personalizing, prefer "<target> <rest-of-template-title>"
   // over "Copy of <template-title>" so the page title reads naturally.
+  const titleOverride = typeof req.body?.title === "string" ? (req.body.title as string).trim().slice(0, 300) : "";
+  const slugOverride = typeof req.body?.slug === "string" ? (req.body.slug as string).trim().toLowerCase() : "";
+  if (slugOverride && ((!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slugOverride) && slugOverride.length !== 1) || slugOverride.length > 255)) {
+    res.status(400).json({ error: "slug must match /^[a-z0-9][a-z0-9-]*[a-z0-9]$/ or be a single character" });
+    return;
+  }
   let newTitle: string;
-  if (shouldRewrite) {
+  if (titleOverride) {
+    newTitle = titleOverride;
+  } else if (shouldRewrite) {
     const rewritten = rewriteString(source.title);
     newTitle = rewritten !== source.title ? rewritten : `${targetName} — ${source.title}`;
   } else {
     newTitle = `Copy of ${source.title}`;
   }
 
-  const baseSlug = `${source.slug}-copy`;
+  const baseSlug = slugOverride || `${source.slug}-copy`;
   let slug = baseSlug;
   let suffix = 2;
   while (true) {
@@ -1750,9 +1781,11 @@ router.delete("/lp/pages/:pageId", async (req, res): Promise<void> => {
   // HTML file in object storage (task #364). DB row is the source of truth;
   // the cache is best-effort.
   const [pre] = await db
-    .select({ slug: lpPagesTable.slug, status: lpPagesTable.status })
+    .select()
     .from(lpPagesTable)
     .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+  // Keep a restorable copy: GET /lp/pages/deleted + restore bring it back.
+  if (pre) await recordPageVersion(pre, { reason: "delete", by: req.authUser?.email ?? null });
   await db.delete(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
   if (pre && pre.status === "published") {
     triggerPublishedDelete(tenantId, pre.slug);

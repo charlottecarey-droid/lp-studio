@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, FilePlus2, ShieldCheck } from "lucide-react";
+import { BookOpen, FilePen, FilePlus2, ShieldCheck } from "lucide-react";
 
 interface RequestInfo {
   clientName: string;
   redirectHost: string;
   canAskForDrafts: boolean;
+  canAskForPages?: boolean;
   user: { name: string; email: string };
   workspace: { id: number; name: string } | null;
 }
@@ -27,6 +28,7 @@ export default function ClaudeConnectPage() {
   const [info, setInfo] = useState<RequestInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allowDrafts, setAllowDrafts] = useState(true);
+  const [allowPages, setAllowPages] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function ClaudeConnectPage() {
       const res = await fetch(`/api/oauth/requests/${encodeURIComponent(requestId)}/decision`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approve, allowDrafts }),
+        body: JSON.stringify({ approve, allowDrafts, allowPages }),
       });
       const data = (await res.json().catch(() => ({}))) as { redirectUrl?: string; error?: string };
       if (!res.ok || !data.redirectUrl) throw new Error(data.error || "Couldn't finish connecting. Start again from Claude.");
@@ -106,6 +108,22 @@ export default function ClaudeConnectPage() {
                       <Checkbox id="allow-drafts" checked={allowDrafts} onCheckedChange={(v) => setAllowDrafts(v === true)} data-testid="claude-allow-drafts" />
                       <Label htmlFor="allow-drafts" className="text-sm font-normal">
                         Allow drafts
+                      </Label>
+                    </div>
+                  </div>
+                </li>
+              )}
+              {info.canAskForPages && (
+                <li className="flex gap-2">
+                  <FilePen className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
+                  <div className="space-y-2">
+                    <span>
+                      Edit pages: create, duplicate and change pages, restore earlier versions, and publish or unpublish when you say so. Changes to a live page show up on the live page. Every change is saved in the page's version history.
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="allow-pages" checked={allowPages} onCheckedChange={(v) => setAllowPages(v === true)} data-testid="claude-allow-pages" />
+                      <Label htmlFor="allow-pages" className="text-sm font-normal">
+                        Allow page editing
                       </Label>
                     </div>
                   </div>

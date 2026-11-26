@@ -136,6 +136,7 @@ describe.skipIf(!dbAvailable)("Claude connector (MCP + OAuth) end to end", () =>
     // Tables may not exist yet on a fresh test branch; the migration is idempotent.
     const sql = fs.readFileSync(path.resolve(__dirname, "../../../../lib/db/migrations/0172_claude_connector.sql"), "utf8");
     await pool.query(sql);
+    await pool.query(fs.readFileSync(path.resolve(__dirname, "../../../../lib/db/migrations/0175_lp_page_versions.sql"), "utf8"));
 
     const a = await mkTenant("a");
     const b = await mkTenant("b");
@@ -170,6 +171,8 @@ describe.skipIf(!dbAvailable)("Claude connector (MCP + OAuth) end to end", () =>
     await pool.query(`DELETE FROM mcp_oauth_tokens WHERE grant_id IN (SELECT id FROM mcp_oauth_grants WHERE tenant_id = ANY($1))`, [[tenantA, tenantB]]);
     await pool.query(`DELETE FROM mcp_oauth_grants WHERE tenant_id = ANY($1)`, [[tenantA, tenantB]]);
     await pool.query(`DELETE FROM sales_accounts WHERE tenant_id = ANY($1)`, [[tenantA, tenantB]]);
+    await pool.query(`DELETE FROM lp_page_versions WHERE tenant_id = ANY($1)`, [[tenantA, tenantB]]);
+    await pool.query(`DELETE FROM lp_pages WHERE tenant_id = ANY($1)`, [[tenantA, tenantB]]);
     for (const t of [tenantA, tenantB]) if (t) await deleteTenantCascade(pool, t);
     await pool.query(`DELETE FROM app_users WHERE id = ANY($1)`, [[userA, userB]]);
   }, 60_000);
@@ -235,6 +238,134 @@ describe.skipIf(!dbAvailable)("Claude connector (MCP + OAuth) end to end", () =>
     const tryIt = await mcp(access, "tools/call", { name: "create_partner_hub", arguments: { accountId: accountA } });
     const body = tryIt.json as { result?: { isError?: boolean }; error?: unknown };
     expect(body.error ?? body.result?.isError).toBeTruthy();
+  });
+
+  it("edits pages: create, one-block edit, versions, restore, duplicate, delete and bring back", async () => {
+    const { access } = await connect();
+    const names = ((await mcp(access, "tools/list")).json as { result: { tools: { name: string }[] } }).result.tools.map((t) => t.name);
+    expect(names).toContain("update_block");
+
+    const created = await callTool(access, "create_page", {
+      title: "MCP Page Test",
+      blocks: [
+        { id: "hero-1", type: "hero", props: { headline: "Original headline", subheadline: "Sub" } },
+        { id: "sec-1", type: "section", props: {}, children: [{ id: "txt-1", type: "rich-text", props: { html: "<p>Inner copy</p>" } }] },
+      ],
+    });
+    expect(created.isError, created.text).toBeFalsy();
+    const page = created.data as { id: number; slug: string; status: string; blocksVersion: string };
+    expect(page).toMatchObject({ slug: "mcp-page-test", status: "draft" });
+
+    const outline = await callTool(access, "get_page", { pageId: page.id, view: "outline" });
+    const o = outline.data as { outline: { id: string; depth: number }[]; blocksVersion: string; isLive: boolean };
+    expect(o.outline.map((b) => b.id)).toEqual(["hero-1", "sec-1", "txt-1"]);
+    expect(o.isLive).toBe(false);
+    const staleVersion = o.blocksVersion;
+
+    // One nested block, deep-merged, with a changelog note.
+    const edit = await callTool(access, "update_block", { pageId: page.id, blockId: "txt-1", props: { html: "<p>New copy</p>" }, note: "copy tweak" });
+    expect(edit.isError, edit.text).toBeFalsy();
+    expect((edit.data as { block: { props: { html: string } } }).block.props.html).toBe("<p>New copy</p>");
+    const hero = await callTool(access, "get_page", { pageId: page.id, view: "blocks", blockIds: ["hero-1"] });
+    expect((hero.data as { blocks: { props: Record<string, string> }[] }).blocks[0].props).toEqual({ headline: "Original headline", subheadline: "Sub" });
+
+    // Whole-page save from a stale read is refused, not silently applied.
+    const stale = await callTool(access, "update_page", { pageId: page.id, blocks: [], blocksVersion: staleVersion });
+    expect(stale.isError).toBe(true);
+    expect(stale.text).toMatch(/changed since you read it/);
+    const noVersion = await callTool(access, "update_page", { pageId: page.id, blocks: [] });
+    expect(noVersion.isError).toBe(true);
+
+    // History has the pre-edit state with its note; restoring brings it back.
+    const versions = await callTool(access, "list_page_versions", { pageId: page.id });
+    const v = (versions.data as { versions: { id: number; reason: string; note: string | null }[] }).versions;
+    const checkpoint = v.find((x) => x.note === "copy tweak");
+    expect(checkpoint?.reason).toBe("checkpoint");
+    const restored = await callTool(access, "restore_page_version", { versionId: checkpoint!.id });
+    expect(restored.isError, restored.text).toBeFalsy();
+    const after = await callTool(access, "get_page", { pageId: page.id, view: "blocks", blockIds: ["txt-1"] });
+    expect((after.data as { blocks: { props: { html: string } }[] }).blocks[0].props.html).toBe("<p>Inner copy</p>");
+    // ...and the restore itself is undoable.
+    const v2 = ((await callTool(access, "list_page_versions", { pageId: page.id })).data as { versions: { reason: string }[] }).versions;
+    expect(v2[0].reason).toBe("restore");
+
+    // Duplicate for a 3b version.
+    const dup = await callTool(access, "duplicate_page", { pageId: page.id, title: "MCP Page Test 3b", slug: "mcp-page-test-3b" });
+    expect(dup.isError, dup.text).toBeFalsy();
+    expect(dup.data).toMatchObject({ title: "MCP Page Test 3b", slug: "mcp-page-test-3b", status: "draft" });
+
+    // Another workspace's page is invisible.
+    const other = await pool.query<{ id: number }>(`INSERT INTO lp_pages (tenant_id, title, slug, blocks) VALUES ($1, 'Decoy', $2, '[]') RETURNING id`, [tenantB, `${SLUG}-decoy`]);
+    expect((await callTool(access, "get_page", { pageId: other.rows[0].id })).isError).toBe(true);
+    expect((await callTool(access, "update_block", { pageId: other.rows[0].id, blockId: "x", props: { a: 1 } })).isError).toBe(true);
+
+    // Delete in the app, then bring it back.
+    const dupId = (dup.data as { id: number }).id;
+    const del = await inject(app, { method: "DELETE", url: `/api/lp/pages/${dupId}`, headers: { cookie: `lp_sid=${sidA}` } });
+    expect(del.status).toBe(200);
+    const deleted = await callTool(access, "list_deleted_pages", {});
+    const gone = (deleted.data as { pages: { pageId: number; versionId: number; title: string }[] }).pages.find((p) => p.pageId === dupId);
+    expect(gone?.title).toBe("MCP Page Test 3b");
+    const back = await callTool(access, "restore_page_version", { versionId: gone!.versionId });
+    expect(back.isError, back.text).toBeFalsy();
+    expect(back.data).toMatchObject({ recreated: true, page: { title: "MCP Page Test 3b", slug: "mcp-page-test-3b", status: "draft" } });
+    const stillGone = (((await callTool(access, "list_deleted_pages", {})).data) as { pages: { pageId: number }[] }).pages.map((p) => p.pageId);
+    expect(stillGone).not.toContain(dupId);
+
+    // Publishing needs an explicit confirm.
+    const noConfirm = await mcp(access, "tools/call", { name: "publish_page", arguments: { pageId: page.id } });
+    const nc = noConfirm.json as { result?: { isError?: boolean }; error?: unknown };
+    expect(nc.error ?? nc.result?.isError).toBeTruthy();
+  });
+
+  it("page helpers: brand, block catalog, media, preview link, stable fonts", async () => {
+    const { access } = await connect();
+    const brand = await callTool(access, "get_brand");
+    expect(brand.isError, brand.text).toBeFalsy();
+    expect((brand.data as { fonts: { stableFiles: string[] } }).fonts.stableFiles[0]).toMatch(/\/api\/lp\/fonts\/BagossStandard-Regular\.woff2$/);
+
+    const catalog = await callTool(access, "list_block_types", { query: "hero" });
+    expect((catalog.data as { types: string[] }).types.some((t) => t.startsWith("hero "))).toBe(true);
+    const detail = await callTool(access, "list_block_types", { types: ["custom-html", "hero"] });
+    expect(detail.isError, detail.text).toBeFalsy();
+    expect(detail.text).toContain("__lpOpenCta");
+    expect(detail.text).toContain("modalChilipiperUrl");
+
+    const media = await callTool(access, "list_media", {});
+    expect(media.isError, media.text).toBeFalsy();
+    const bad = await callTool(access, "upload_media", { url: "http://169.254.169.254/latest/meta-data" });
+    expect(bad.isError).toBe(true);
+
+    const created = await callTool(access, "create_page", { title: "Preview Probe" });
+    const id = (created.data as { id: number }).id;
+    const preview = await callTool(access, "get_preview_url", { pageId: id });
+    expect((preview.data as { previewUrl: string }).previewUrl).toMatch(/\/preview\/preview-probe\?reviewToken=[0-9a-f]+$/);
+
+    const font = await inject(app, { method: "GET", url: "/api/lp/fonts/BagossStandard-Regular.woff2" });
+    expect(font.status).toBe(200);
+    expect(font.headers["access-control-allow-origin"]).toBe("*");
+    const sneaky = await inject(app, { method: "GET", url: "/api/lp/fonts/..%2F..%2Fpackage.json" });
+    expect(sneaky.status).not.toBe(200);
+  });
+
+  it("a connection without page editing can't use page tools", async () => {
+    const reg = await post("/api/oauth/register", { client_name: "Claude", redirect_uris: [REDIRECT] });
+    const clientId = (reg.json as { client_id: string }).client_id;
+    const verifier = crypto.randomBytes(32).toString("base64url");
+    const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+    const q = new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: "S256", state: "s" });
+    const auth = await inject(app, { method: "GET", url: `/api/oauth/authorize?${q}` });
+    const requestId = new URL(String(auth.headers.location)).searchParams.get("request")!;
+    const details = await inject(app, { method: "GET", url: `/api/oauth/requests/${requestId}`, headers: { cookie: `lp_sid=${sidA}` } });
+    expect(details.json).toMatchObject({ canAskForPages: true });
+    const decision = await post(`/api/oauth/requests/${requestId}/decision`, { approve: true, allowDrafts: true, allowPages: false }, { cookie: `lp_sid=${sidA}` });
+    const code = new URL((decision.json as { redirectUrl: string }).redirectUrl).searchParams.get("code")!;
+    const tok = await postForm("/api/oauth/token", { grant_type: "authorization_code", code, code_verifier: verifier, client_id: clientId, redirect_uri: REDIRECT });
+    const access = (tok.json as { access_token: string; scope: string }).access_token;
+    expect((tok.json as { scope: string }).scope).toBe("lpstudio:read lpstudio:drafts");
+    const names = ((await mcp(access, "tools/list")).json as { result: { tools: { name: string }[] } }).result.tools.map((t) => t.name);
+    expect(names).toContain("generate_microsite");
+    expect(names).not.toContain("update_page");
   });
 
   it("rotates refresh tokens and rejects reuse", async () => {

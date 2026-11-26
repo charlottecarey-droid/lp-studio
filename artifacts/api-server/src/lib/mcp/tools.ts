@@ -5,56 +5,21 @@
  * rep, so it sees exactly what the rep sees in the app. Tools only reshape
  * and trim what the route returns so it reads well to a model.
  *
- * Two scopes:
+ * Three scopes:
  *   - lpstudio:read   — everything that only reads.
  *   - lpstudio:drafts — makes drafts the rep reviews in LP Studio (microsite,
  *                       Partner Hub) or text Claude hands back (email draft).
- *                       Nothing is published or sent by any tool.
+ *   - lpstudio:pages  — reads and edits pages, versions and restores them, and
+ *                       publishes/unpublishes on the rep's say-so (pageTools.ts).
+ * Nothing is ever sent by any tool.
  */
 import { z } from "zod";
 import type { AuthUser } from "../../middleware/requireAuth";
-import { dispatch, dispatchError, type DispatchResult } from "./dispatch";
-import { SCOPE_DRAFTS, SCOPE_READ, scopeHas } from "./oauthStore";
+import { SCOPE_DRAFTS, SCOPE_PAGES, SCOPE_READ, scopeHas } from "./oauthStore";
+import { PAGE_TOOLS } from "./pageTools";
+import { call, links, pick, qs, RichResult, ToolError, type ToolContext, type ToolDef, type ToolResult } from "./toolKit";
 
-export interface ToolContext {
-  user: AuthUser;
-  scope: string;
-  /** Public origin the rep reached LP Studio on, for links back into the app. */
-  origin: string;
-}
-
-export interface ToolResult {
-  [key: string]: unknown;
-  content: { type: "text"; text: string }[];
-  isError?: boolean;
-}
-
-export interface ToolDef {
-  name: string;
-  title: string;
-  description: string;
-  scope: typeof SCOPE_READ | typeof SCOPE_DRAFTS;
-  readOnly: boolean;
-  input: z.ZodRawShape;
-  run: (ctx: ToolContext, args: Record<string, unknown>) => Promise<unknown>;
-}
-
-/* ── helpers ────────────────────────────────────────────────────────────── */
-
-class ToolError extends Error {}
-
-async function call(ctx: ToolContext, method: "GET" | "POST", path: string, body?: unknown, timeoutMs?: number): Promise<unknown> {
-  const r: DispatchResult = await dispatch(ctx.user, { method, path, body, timeoutMs });
-  if (r.status < 200 || r.status >= 300) throw new ToolError(dispatchError(r));
-  return r.json;
-}
-
-const qs = (params: Record<string, string | number | undefined | null>): string => {
-  const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== "") sp.set(k, String(v));
-  const s = sp.toString();
-  return s ? `?${s}` : "";
-};
+export { RichResult, ToolError, type ToolContent, type ToolContext, type ToolDef, type ToolResult } from "./toolKit";
 
 const norm = (s: unknown): string => (typeof s === "string" ? s.trim().toLowerCase() : "");
 const DAY_MS = 86_400_000;
@@ -80,18 +45,6 @@ export function compact(value: unknown, depth = 0): unknown {
   }
   return out;
 }
-
-const pick = (o: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
-  const out: Record<string, unknown> = {};
-  for (const k of keys) if (o[k] !== undefined && o[k] !== null && o[k] !== "") out[k] = o[k];
-  return out;
-};
-
-const links = (ctx: ToolContext) => ({
-  account: (id: unknown) => `${ctx.origin}/sales/accounts/${id}`,
-  page: (id: unknown) => `${ctx.origin}/builder/${id}`,
-  hub: (id: unknown) => `${ctx.origin}/sales/partnerships/${id}`,
-});
 
 type Row = Record<string, unknown>;
 
@@ -164,6 +117,7 @@ export const TOOLS: ToolDef[] = [
       workspaceId: ctx.user.tenantId,
       role: ctx.user.role,
       canCreateDrafts: scopeHas(ctx.scope, SCOPE_DRAFTS),
+      canEditPages: scopeHas(ctx.scope, SCOPE_PAGES),
       today: new Date().toISOString().slice(0, 10),
       app: ctx.origin,
     }),
@@ -508,6 +462,8 @@ export const TOOLS: ToolDef[] = [
       };
     },
   },
+
+  ...PAGE_TOOLS,
 ];
 
 /** Run one tool for the MCP server: scope check, error → isError result. */
@@ -515,15 +471,42 @@ export async function runTool(tool: ToolDef, ctx: ToolContext, args: Record<stri
   if (!scopeHas(ctx.scope, tool.scope)) {
     return {
       isError: true,
-      content: [{ type: "text", text: "This connection is read-only. To let Claude create drafts, disconnect LP Studio in Claude and reconnect it with drafts allowed." }],
+      content: [{
+        type: "text",
+        text: tool.scope === SCOPE_PAGES
+          ? "This connection can't edit pages. To turn it on, disconnect LP Studio in Claude and connect again, ticking 'Allow page editing'."
+          : "This connection is read-only. To let Claude create drafts, disconnect LP Studio in Claude and reconnect it with drafts allowed.",
+      }],
     };
   }
   try {
     const data = await tool.run(ctx, args ?? {});
+    if (data instanceof RichResult) {
+      return {
+        content: [
+          { type: "text", text: JSON.stringify(data.data) },
+          ...data.images.map((im) => ({ type: "image" as const, data: im.data, mimeType: im.mimeType })),
+        ],
+      };
+    }
     return { content: [{ type: "text", text: JSON.stringify(data) }] };
   } catch (err) {
     const msg = err instanceof ToolError ? err.message : "LP Studio hit an error running that. Try again, or check the app.";
     if (!(err instanceof ToolError)) console.error(`[mcp] tool ${tool.name} failed:`, err);
     return { isError: true, content: [{ type: "text", text: msg }] };
   }
+}
+
+/** Tool args as stored in the audit log: big payloads (page blocks, CSS) summarised, not copied. */
+export function auditArgs(args: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(args ?? {})) {
+    if (Array.isArray(v)) out[k] = `[${v.length} items]`;
+    else if (typeof v === "string" && v.length > 300) out[k] = `${v.slice(0, 300)}… (${v.length} chars)`;
+    else if (v && typeof v === "object") {
+      const json = JSON.stringify(v);
+      out[k] = json.length > 1000 ? `{object, ${json.length} chars}` : v;
+    } else out[k] = v;
+  }
+  return out;
 }

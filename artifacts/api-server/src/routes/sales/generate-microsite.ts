@@ -1,4 +1,5 @@
 import { Router, type Request as ExpressRequest, type Response as ExpressResponse } from "express";
+import { buildGeneratedPageTitle } from "../../lib/generatedPageTitle";
 import { eq, desc, and, or } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable, sfdcOpportunitiesTable } from "@workspace/db";
@@ -3265,6 +3266,7 @@ export function buildSystemPrompt(
     copyPrinciples,
     "",
     "Return ONLY valid JSON: { \"title\": string, \"slug\": string, \"blocks\": Block[] }",
+    "\"title\" is the page's internal name in the rep's page list: 3-8 words naming what this page is about (e.g. \"Clinical quality partnership\"), not just the company name.",
     "Each Block MUST use: { \"type\": string, \"props\": { ...fields } }",
     "Never put content fields at the top level of a block. Always nest inside props.",
   ].filter(s => s !== "").join("\n");
@@ -5539,13 +5541,21 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),
     // try appending -2, -3, ... up to MAX_ATTEMPTS before giving up.
     const MAX_SLUG_ATTEMPTS = 5;
+    // Internal name reps see in the page list: account, topic, contact, date —
+    // never just the account name (several identical names led to deletes of the wrong page).
+    const internalTitle = buildGeneratedPageTitle({
+      company: deriveCompanyName(account),
+      aiTitle: parsed.title,
+      contactName: contact ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") : null,
+      objective: objective ?? null,
+    });
     let page: typeof lpPagesTable.$inferInsert & { id: number } | undefined;
     for (let attempt = 1; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
       const slug = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
       try {
         const [inserted] = await db.insert(lpPagesTable).values({
           tenantId: account.tenantId,
-          title: parsed.title,
+          title: internalTitle,
           slug,
           blocks: normalizedBlocks,
           status: "draft",

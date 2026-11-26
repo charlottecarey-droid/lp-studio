@@ -13,6 +13,7 @@ import { isProtectedEnterpriseSlug } from "../lib/planFeatures";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { readImageDimensions } from "../lib/imageDimensions";
+import { fetchAsset } from "../lib/brand-import/assets-uploader";
 import { autoTagImage, VALID_PURPOSES, isSocialCardDims, PROMO_GRAPHIC_TAG, type ImagePurpose } from "../lib/imageAutoTag";
 
 /**
@@ -503,6 +504,60 @@ router.post("/lp/upload", (req: Request, res: Response) => {
       res.status(500).json({ error: "Upload failed" });
     }
   });
+});
+
+/**
+ * Import an image into the media library from a public URL (or a data: URL).
+ * Used by the Claude connector's upload_media tool, which can't send files.
+ * SSRF-guarded and size-capped by fetchAsset (images only, 5 MB, public hosts,
+ * every redirect hop re-checked). Body: { url, title?, tags?: string[] }.
+ * Responds with the same shape as a library item.
+ */
+router.post("/lp/media/import-url", async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId == null) return;
+  const url = typeof req.body?.url === "string" ? req.body.url.trim() : "";
+  if (!url) {
+    res.status(400).json({ error: "url is required" });
+    return;
+  }
+  const fetched = await fetchAsset(url);
+  if (!fetched.ok) {
+    res.status(400).json({ error: `Couldn't import that image (${fetched.reason}). It must be a public image URL under 5 MB.` });
+    return;
+  }
+  try {
+    const { buffer, mimeType } = fetched.asset;
+    const servePath = await objectStorageService.uploadObjectEntity(buffer, mimeType);
+    const fallbackTitle = (() => {
+      try {
+        return decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+      } catch {
+        return "";
+      }
+    })();
+    const title = (typeof req.body?.title === "string" && req.body.title.trim().slice(0, 200)) || fallbackTitle || "Imported image";
+    const tags = Array.isArray(req.body?.tags)
+      ? (req.body.tags as unknown[]).filter((t): t is string => typeof t === "string").map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 20)
+      : [];
+    const dims = await readImageDimensions(buffer, mimeType);
+    const [record] = await db.insert(lpMediaTable).values({
+      tenantId,
+      title,
+      url: `/api/storage${servePath}`,
+      mediaType: "image",
+      mimeType,
+      sizeBytes: buffer.length,
+      width: dims?.width ?? null,
+      height: dims?.height ?? null,
+      tags,
+    }).returning();
+    setImmediate(() => autoTagImage(record.id, buffer, mimeType, tags));
+    res.status(201).json({ id: record.id, title: record.title, url: record.url, mimeType, sizeBytes: buffer.length, width: record.width, height: record.height, tags });
+  } catch (error) {
+    req.log.error({ err: error }, "Error importing image from URL");
+    res.status(500).json({ error: "Import failed" });
+  }
 });
 
 /**

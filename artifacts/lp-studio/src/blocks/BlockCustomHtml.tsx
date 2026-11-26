@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CustomHtmlBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { usePageContext } from "@/lib/page-context";
+import { resolveCtaConfig } from "@/lib/cta/ctaConfig";
+import { parseLpCtaMessage, resolveLpCtaAction } from "@/lib/custom-html-cta";
 
 interface Props {
   props: CustomHtmlBlockProps;
@@ -120,10 +124,20 @@ ${baseTag}
   return injectHeightReporter(content);
 }
 
-export function BlockCustomHtml({ props }: Props) {
+export function BlockCustomHtml({ props, brand }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const raw = (props.html || "").trim();
   const srcDoc = useMemo(() => buildSrcDoc(raw), [raw]);
+  const ctx = usePageContext();
+  // A native CTA modal the frame asked for (see lib/custom-html-cta.ts).
+  const [modal, setModal] = useState<{ mode: "chilipiper" | "form"; email: string; url?: string } | null>(null);
+  const cta = useMemo(
+    () => resolveCtaConfig({ tenantDefault: ctx.tenantDefaultCta, pageOverride: ctx.pageCta }),
+    [ctx.tenantDefaultCta, ctx.pageCta],
+  );
+  // Read inside the message handler without re-subscribing on every render.
+  const latest = useRef({ cta, brandCp: brand?.chilipiperUrl });
+  latest.current = { cta, brandCp: brand?.chilipiperUrl };
 
   // The frame is origin-isolated (no `allow-same-origin`), so we can't read its
   // contentDocument to size it. Listen for the height it posts back instead.
@@ -132,6 +146,16 @@ export function BlockCustomHtml({ props }: Props) {
     if (!iframe) return;
     const onMessage = (e: MessageEvent) => {
       if (e.source !== iframe.contentWindow) return;
+      // The frame asking to open LP Studio's own CTA modal (Chili Piper, form…).
+      const ctaReq = parseLpCtaMessage(e.data);
+      if (ctaReq) {
+        const action = resolveLpCtaAction(ctaReq, latest.current.cta, latest.current.brandCp);
+        if (action.kind === "chilipiper") setModal({ mode: "chilipiper", email: action.email, url: action.url });
+        else if (action.kind === "form") setModal({ mode: "form", email: action.email });
+        else if (action.kind === "navigate") window.location.assign(action.url);
+        else console.warn("[custom-html] __lpOpenCta ignored:", action.reason);
+        return;
+      }
       const data = e.data as { __lpCustomHtmlHeight?: unknown } | null;
       const h =
         data && typeof data === "object" && typeof data.__lpCustomHtmlHeight === "number"
@@ -170,6 +194,41 @@ export function BlockCustomHtml({ props }: Props) {
         style={{ minHeight: "60px", display: "block" }}
         scrolling="no"
       />
+      {modal && (
+        <EmailCaptureModal
+          open
+          onClose={() => setModal(null)}
+          email={modal.email}
+          mode={modal.mode}
+          chilipiperUrl={modal.url}
+          formSource={cta.modalFormSource ?? "simple"}
+          linkedFormId={cta.modalFormId}
+          marketoBaseUrl={cta.modalMarketoBaseUrl}
+          marketoMunchkinId={cta.modalMarketoMunchkinId}
+          marketoFormId={cta.modalMarketoFormId}
+          chiliPiperConfig={
+            cta.modalChiliPiperHandoffUrl
+              ? { url: cta.modalChiliPiperHandoffUrl, mode: cta.modalChiliPiperHandoffMode ?? "modal", fieldMap: cta.modalChiliPiperHandoffFieldMap }
+              : null
+          }
+          formConfig={{
+            headline: cta.modalHeadline,
+            subheadline: cta.modalSubheadline,
+            submitText: cta.modalSubmitText,
+            successMessage: cta.modalSuccessMessage,
+            disclaimer: cta.modalDisclaimer,
+            showFirstName: cta.modalShowFirstName,
+            showLastName: cta.modalShowLastName,
+            showPhone: cta.modalShowPhone,
+            showCompany: cta.modalShowCompany,
+          }}
+          brand={brand}
+          pageId={ctx.pageId ?? undefined}
+          variantId={ctx.variantId ?? undefined}
+          source="custom-html"
+          theme={brand?.modalTheme ?? undefined}
+        />
+      )}
     </div>
   );
 }
