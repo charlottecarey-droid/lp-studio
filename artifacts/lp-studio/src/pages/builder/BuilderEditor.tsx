@@ -63,6 +63,7 @@ import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { OgCharCount, OgDimensionWarning, ShareCardPreview } from "@/components/og-share-card";
 import { AdCopyDialog } from "@/components/builder/AdCopyDialog";
 import { ExportHtmlDialog } from "@/components/builder/ExportHtmlDialog";
+import { VersionHistoryDialog } from "@/components/builder/VersionHistoryDialog";
 import { LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
 import { isFullPageTemplate } from "@workspace/lp-template-engine";
 import { buildTemplateGroups, type TemplateGroupShape } from "@/lib/template-library";
@@ -1525,6 +1526,7 @@ function BuilderEditorInner() {
   const [abTestModalOpen, setAbTestModalOpen] = useState(false);
   const [adCopyDialogOpen, setAdCopyDialogOpen] = useState(false);
   const [exportHtmlDialogOpen, setExportHtmlDialogOpen] = useState(false);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [abTestName, setAbTestName] = useState("");
   const [abTestSlug, setAbTestSlug] = useState("");
   const [abTestCreating, setAbTestCreating] = useState(false);
@@ -3248,6 +3250,7 @@ function BuilderEditorInner() {
         onOpenAbTest={() => setAbTestModalOpen(true)}
         onOpenAdCopy={Number.isFinite(pageIdNum) ? () => setAdCopyDialogOpen(true) : undefined}
         onExportHtml={Number.isFinite(pageIdNum) ? () => setExportHtmlDialogOpen(true) : undefined}
+        onOpenVersionHistory={Number.isFinite(pageIdNum) && pageIdNum > 0 && !catalogMode ? () => setVersionHistoryOpen(true) : undefined}
         onRewriteCopy={pageIdNum > 0 ? () => navigate(`/pages?rewrite=${pageIdNum}`) : undefined}
         onPublish={handlePublish}
         onToggleCommentMode={() => setCommentMode(prev => !prev)}
@@ -3568,6 +3571,23 @@ function BuilderEditorInner() {
           onClose={() => setAdCopyDialogOpen(false)}
           pageId={pageIdNum}
           pageTitle={title}
+        />
+      )}
+
+      {Number.isFinite(pageIdNum) && pageIdNum > 0 && (
+        <VersionHistoryDialog
+          open={versionHistoryOpen}
+          onClose={() => setVersionHistoryOpen(false)}
+          pageId={pageIdNum}
+          isDirty={isDirty}
+          isLive={status === "published"}
+          onRestored={() => {
+            // The restore happened on the server; drop local state without the
+            // "unsaved changes" prompt and load the restored page fresh.
+            markSaved();
+            toast({ title: "Version restored", description: "Loading the restored page…" });
+            setTimeout(() => window.location.reload(), 60);
+          }}
         />
       )}
 

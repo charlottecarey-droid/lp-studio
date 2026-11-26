@@ -4,7 +4,7 @@ import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
   Clock, Megaphone, Users, ChevronDown, X, MoreHorizontal, Loader2,
-  LayoutGrid, SlidersHorizontal, Sparkles, Undo2, Redo2, FileCode,
+  LayoutGrid, SlidersHorizontal, Sparkles, Undo2, Redo2, FileCode, History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,7 @@ interface BuilderTopBarProps {
   /** Export a static HTML copy of the published page for hosting elsewhere.
    *  Omit to hide the menu item (e.g. catalog mode / unsaved new page). */
   onExportHtml?: () => void;
+  onOpenVersionHistory?: () => void;
   onPublish: () => void;
   onToggleCommentMode: () => void;
   onShareForReview: () => void;
@@ -123,6 +124,7 @@ export function BuilderTopBar({
   onOpenAdCopy,
   onRewriteCopy,
   onExportHtml,
+  onOpenVersionHistory,
   onPublish,
   onToggleCommentMode,
   onShareForReview,
@@ -459,6 +461,12 @@ export function BuilderTopBar({
             <DropdownMenuItem onClick={onExportHtml} className="gap-2 text-xs" data-testid="export-html-button">
               <FileCode className="w-3.5 h-3.5 text-emerald-600" />
               Export HTML
+            </DropdownMenuItem>
+          )}
+          {onOpenVersionHistory && (
+            <DropdownMenuItem onClick={onOpenVersionHistory} className="gap-2 text-xs" data-testid="version-history-button">
+              <History className="w-3.5 h-3.5 text-sky-600" />
+              Version history
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
