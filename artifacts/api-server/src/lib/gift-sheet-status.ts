@@ -14,6 +14,8 @@ export interface GiftOrderRow {
   slug: string; gift: string; shipDate: string; repEmail: string;
   /** "tier" | "swag" when the recipient claimed a fallback because the page's own gifts were gone; "" otherwise. */
   fallback?: string;
+  /** The row's Timestamp cell as written (ISO from LPStudio); "" when missing. */
+  timestamp?: string;
 }
 export type GiftTierKey = "premium" | "mid" | "swag";
 export const GIFT_TIER_KEYS: GiftTierKey[] = ["premium", "mid", "swag"];
@@ -59,12 +61,13 @@ export function parseOrdersTab(values: string[][]): { claimed: Map<string, numbe
   const shipCol = header.findIndex((h) => /^ship(ped)?([ _-]?date)?$/i.test(h));
   const repCol = header.findIndex((h) => /^rep[ _-]?email$/i.test(h));
   const fallbackCol = header.findIndex((h) => /^fallback$/i.test(h));
+  const tsCol = header.findIndex((h) => /^timestamp$/i.test(h));
   if (giftCol < 0) return { claimed, orders };
   for (const row of values.slice(1)) {
     const gift = cell(row, giftCol);
     if (!gift) continue;
     claimed.set(giftKey(gift), (claimed.get(giftKey(gift)) ?? 0) + 1);
-    orders.push({ slug: cell(row, slugCol), gift, shipDate: cell(row, shipCol), repEmail: cell(row, repCol).toLowerCase(), fallback: cell(row, fallbackCol).toLowerCase() });
+    orders.push({ slug: cell(row, slugCol), gift, shipDate: cell(row, shipCol), repEmail: cell(row, repCol).toLowerCase(), fallback: cell(row, fallbackCol).toLowerCase(), timestamp: cell(row, tsCol) });
   }
   return { claimed, orders };
 }
