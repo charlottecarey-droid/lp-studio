@@ -61,6 +61,37 @@ export function publicOrigin(req: Request): string {
   const pinned = (process.env.MCP_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
   return pinned || getRequestOrigin(req);
 }
+/**
+ * Where the consent page lives. The apex (lpstudio.ai / www.lpstudio.ai)
+ * serves the marketing site, which has no /connect/claude route, so a
+ * connector added with the apex URL would land on the marketing 404. Send
+ * those to the app host; every other origin already serves the app.
+ */
+export function consentOriginFor(origin: string): string {
+  try {
+    const u = new URL(origin);
+    const h = u.hostname.toLowerCase();
+    if (h === "lpstudio.ai" || h === "www.lpstudio.ai") return `${u.protocol}//app.lpstudio.ai`;
+  } catch {
+    // not a URL — leave it alone
+  }
+  return origin;
+}
+
+/**
+ * The `iss` we return to Claude must be the issuer Claude discovered, which is
+ * the origin of the resource it connected to — not necessarily the host the
+ * consent page ran on (see consentOriginFor).
+ */
+export function issuerForResource(resource: string | null, fallbackIssuer: string): string {
+  if (!resource) return fallbackIssuer;
+  try {
+    return `${new URL(resource).origin}/api/oauth`;
+  } catch {
+    return fallbackIssuer;
+  }
+}
+
 const issuerOf = (req: Request) => `${publicOrigin(req)}/api/oauth`;
 const resourceOf = (req: Request) => `${publicOrigin(req)}/api/mcp`;
 const resourceMetadataUrl = (req: Request) => `${publicOrigin(req)}/api/.well-known/oauth-protected-resource`;
@@ -200,7 +231,7 @@ router.get("/oauth/authorize", async (req: Request, res: Response): Promise<void
       scope: normalizeScope(q.scope),
       resource,
     });
-    res.redirect(302, `${publicOrigin(req)}/connect/claude?request=${encodeURIComponent(id)}`);
+    res.redirect(302, `${consentOriginFor(publicOrigin(req))}/connect/claude?request=${encodeURIComponent(id)}`);
   } catch (err) {
     req.log?.error({ err }, "[mcp] authorize failed");
     redirectWithError(res, redirectUri, "server_error", state, issuer);
@@ -237,7 +268,7 @@ router.post("/oauth/requests/:id/decision", requireAuth, async (req: Request, re
     return;
   }
   const approve = req.body?.approve === true;
-  const issuer = issuerOf(req);
+  const issuer = issuerForResource(ar.resource, issuerOf(req));
   if (!(await claimAuthRequest(ar.id))) {
     res.status(409).json({ error: "This connection request was already answered." });
     return;

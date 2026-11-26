@@ -166,3 +166,20 @@ describe("MCP server", () => {
     for (const t of TOOLS.filter((x) => x.scope === "lpstudio:read")) expect(t.readOnly).toBe(true);
   });
 });
+
+describe("consent host + issuer", () => {
+  it("sends apex hosts to the app host (the apex is the marketing site)", async () => {
+    const { consentOriginFor } = await import("../../routes/mcp");
+    expect(consentOriginFor("https://lpstudio.ai")).toBe("https://app.lpstudio.ai");
+    expect(consentOriginFor("https://www.lpstudio.ai")).toBe("https://app.lpstudio.ai");
+    expect(consentOriginFor("https://app.lpstudio.ai")).toBe("https://app.lpstudio.ai");
+    expect(consentOriginFor("https://lp.meetdandy.com")).toBe("https://lp.meetdandy.com");
+    expect(consentOriginFor("http://localhost:5173")).toBe("http://localhost:5173");
+  });
+
+  it("returns the issuer Claude discovered, not the consent page's host", async () => {
+    const { issuerForResource } = await import("../../routes/mcp");
+    expect(issuerForResource("https://lpstudio.ai/api/mcp", "https://app.lpstudio.ai/api/oauth")).toBe("https://lpstudio.ai/api/oauth");
+    expect(issuerForResource(null, "https://app.lpstudio.ai/api/oauth")).toBe("https://app.lpstudio.ai/api/oauth");
+  });
+});
