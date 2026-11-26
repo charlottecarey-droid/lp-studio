@@ -50,7 +50,7 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "POST", pattern: /^\/lp\/leads$/ },           // POST /lp/leads (form submissions)
   { method: "POST", pattern: /^\/lp\/chat-capture$/ },    // POST /lp/chat-capture — published-page lead-capture bot (fail-closed: page must be published AND contain a chat-capture block; per-IP rate limit + turn caps in the route)
   { method: "POST", pattern: /^\/lp\/heatmap$/ },         // POST /lp/heatmap — anonymous visitor click/scroll ingest from published pages. Aggregate GET /lp/pages/:id/heatmap stays auth-gated.
-  { method: "GET",  pattern: /^\/lp\/gifts\/(availability|order-status)$/ }, // GET /lp/gifts/availability + /order-status — public read-only gift stock / ship status from the vendor order sheet (booleans, gift names and a ship date only; fails open)
+  { method: "GET",  pattern: /^\/lp\/gifts\/(availability|order-status|fallback)$/ }, // GET /lp/gifts/availability + /order-status + /fallback (gift cards offered when a page's gifts are all gone) — public read-only gift stock / ship status from the vendor order sheet (booleans, gift names and a ship date only; fails open)
   { method: "GET",  pattern: /^\/lp\/forms\/\d+$/ },      // GET /lp/forms/:id — public form config for landing page rendering (writes still require auth)
   { method: "*",    pattern: /^\/lp\/review\// },         // GET/PATCH /lp/review/:token
   { method: "GET",  pattern: /^\/lp\/resolve-token\// },  // GET /lp/resolve-token/:token
