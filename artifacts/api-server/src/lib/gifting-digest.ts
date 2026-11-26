@@ -111,7 +111,7 @@ export function parseDigestSettingsPatch(body: unknown): Partial<GiftingDigestSe
   if (b.enabled !== undefined) out.enabled = b.enabled === true;
   if (b.channelId !== undefined) {
     const id = String(b.channelId).trim();
-    if (id && !/^[CG][A-Z0-9]{6,}$/.test(id)) return { error: "That doesn't look like a Slack channel ID (it starts with C, e.g. C0CLWPPUKKP)." };
+    if (id && !/^[CG][A-Z0-9]{6,}$/.test(id)) return { error: "That doesn't look like a Slack channel ID (it starts with C, e.g. C0CLLP00TRV)." };
     out.channelId = id;
   }
   if (b.hour !== undefined) {

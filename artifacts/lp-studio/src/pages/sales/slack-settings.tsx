@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
+import { GiftingDigestCard, type GiftingDigestSettings } from "@/components/sales/GiftingDigestCard";
 
 const API_BASE = "/api";
 
@@ -55,6 +56,7 @@ interface SlackConnection {
   defaultChannelId?: string | null;
   defaultChannelName?: string | null;
   eventToggles?: EventToggles;
+  giftingDigest?: GiftingDigestSettings;
   status?: string;
   lastError?: string | null;
   createdAt?: string;
@@ -391,6 +393,8 @@ export default function SlackSettingsPage() {
                 ))}
               </div>
             </Card>
+
+            <GiftingDigestCard initial={connection?.giftingDigest} onBanner={setBanner} />
           </>
         )}
       </div>
