@@ -35,7 +35,7 @@ import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 import { pickPageStyleOverrides } from "../../lib/page-style-overrides";
 import { tagTeamPhotosFromBlocks } from "../../lib/teamPhotoTagging";
-import { recordPageVersion, SNAPSHOT_FIELDS } from "../../lib/pageVersions";
+import { recordPageVersion, SNAPSHOT_FIELDS, versionAuthor } from "../../lib/pageVersions";
 
 /**
  * A fingerprint of a page's saved blocks (md5 of the stored jsonb text, so key order
@@ -1248,10 +1248,13 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
       const changesContent = SNAPSHOT_FIELDS.some((k) => (updates as Record<string, unknown>)[k] !== undefined);
       const changesStatus = updates.status !== undefined && updates.status !== preUpdate.status;
       if (changesContent || changesStatus) {
+        const author = versionAuthor(req);
         await recordPageVersion(preUpdate, {
           reason: changesStatus ? (updates.status === "published" ? "publish" : preUpdate.status === "published" ? "unpublish" : "save") : "save",
           note: versionNote,
-          by: req.authUser?.email ?? null,
+          by: author.by,
+          // Every change Claude makes gets its own version; builder autosaves coalesce.
+          always: author.viaClaude,
         });
       }
     }
@@ -1785,7 +1788,7 @@ router.delete("/lp/pages/:pageId", async (req, res): Promise<void> => {
     .from(lpPagesTable)
     .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
   // Keep a restorable copy: GET /lp/pages/deleted + restore bring it back.
-  if (pre) await recordPageVersion(pre, { reason: "delete", by: req.authUser?.email ?? null });
+  if (pre) await recordPageVersion(pre, { reason: "delete", by: versionAuthor(req).by });
   await db.delete(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
   if (pre && pre.status === "published") {
     triggerPublishedDelete(tenantId, pre.slug);

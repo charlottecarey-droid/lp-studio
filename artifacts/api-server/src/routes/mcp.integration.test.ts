@@ -281,6 +281,16 @@ describe.skipIf(!dbAvailable)("Claude connector (MCP + OAuth) end to end", () =>
     const v = (versions.data as { versions: { id: number; reason: string; note: string | null }[] }).versions;
     const checkpoint = v.find((x) => x.note === "copy tweak");
     expect(checkpoint?.reason).toBe("checkpoint");
+
+    // Every Claude save gets its own version (no 15-minute coalescing), credited "via Claude".
+    const before = v.length;
+    await callTool(access, "update_block", { pageId: page.id, blockId: "hero-1", props: { headline: "Edit one" } });
+    await callTool(access, "update_block", { pageId: page.id, blockId: "hero-1", props: { headline: "Edit two" } });
+    const v3 = ((await callTool(access, "list_page_versions", { pageId: page.id })).data as { versions: { createdBy: string | null }[] }).versions;
+    expect(v3.length).toBe(before + 2);
+    expect(v3[0].createdBy).toBe(`${SLUG}-a@example.com via Claude`);
+    const row = await pool.query<{ updated_by: string }>(`SELECT updated_by FROM lp_pages WHERE id = $1`, [page.id]);
+    expect(row.rows[0].updated_by).toBe(`${SLUG}-a@example.com`);
     const restored = await callTool(access, "restore_page_version", { versionId: checkpoint!.id });
     expect(restored.isError, restored.text).toBeFalsy();
     const after = await callTool(access, "get_page", { pageId: page.id, view: "blocks", blockIds: ["txt-1"] });

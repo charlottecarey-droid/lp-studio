@@ -16,7 +16,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { triggerPublishedRender } from "../../lib/triggerPublishedRender";
 import { getRequestHost } from "../../lib/requestHost";
 import { isUniqueViolation } from "../../lib/dbErrors";
-import { cleanNote, loadPage, recordPageVersion, versionSummary, type PageSnapshot } from "../../lib/pageVersions";
+import { cleanNote, loadPage, recordPageVersion, versionAuthor, versionSummary, type PageSnapshot } from "../../lib/pageVersions";
 import { findGridPieceInTree, userCanManageBlocks } from "./pages";
 
 const router = Router();
@@ -72,7 +72,7 @@ router.post("/lp/pages/:pageId/checkpoint", async (req, res): Promise<void> => {
   if (!pageId) { res.status(400).json({ error: "Invalid page ID" }); return; }
   const page = await loadPage(tenantId, pageId);
   if (!page) { res.status(404).json({ error: "Page not found" }); return; }
-  const id = await recordPageVersion(page, { reason: "checkpoint", note: cleanNote(req.body?.note) ?? "Checkpoint", by: req.authUser?.email ?? null });
+  const id = await recordPageVersion(page, { reason: "checkpoint", note: cleanNote(req.body?.note) ?? "Checkpoint", by: versionAuthor(req).by });
   if (!id) { res.status(500).json({ error: "Couldn't save a checkpoint. Try again." }); return; }
   res.status(201).json({ versionId: id, pageId });
 });
@@ -106,7 +106,9 @@ router.post("/lp/page-versions/:versionId/restore", async (req, res): Promise<vo
     .where(and(eq(lpPageVersionsTable.tenantId, tenantId), eq(lpPageVersionsTable.id, versionId)));
   if (!v) { res.status(404).json({ error: "Version not found" }); return; }
   const snap = (v.snapshot ?? {}) as PageSnapshot;
+  // Page rows keep the plain email (other code matches on it); versions show "via Claude".
   const by = req.authUser?.email ?? null;
+  const versionBy = versionAuthor(req).by;
 
   const offending = findGridPieceInTree(snap.blocks);
   if (offending && !(await userCanManageBlocks(req.authUser))) {
@@ -120,7 +122,7 @@ router.post("/lp/page-versions/:versionId/restore", async (req, res): Promise<vo
 
   const current = await loadPage(tenantId, v.pageId);
   if (current) {
-    await recordPageVersion(current, { reason: "restore", note: cleanNote(req.body?.note) ?? `Before restoring version ${v.id}`, by });
+    await recordPageVersion(current, { reason: "restore", note: cleanNote(req.body?.note) ?? `Before restoring version ${v.id}`, by: versionBy });
     const [saved] = await db
       .update(lpPagesTable)
       .set({ ...fields, updatedBy: by, ogCardImage: null, ogCardVersion: null })

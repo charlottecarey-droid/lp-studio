@@ -6,6 +6,8 @@
  *     (SESSION_MS since the last snapshot by the same person), so builder
  *     autosaves don't flood the history;
  *   - always when the save carries a note (an explicit checkpoint);
+ *   - always for saves made through the Claude connector, so every change
+ *     Claude makes can be undone on its own (author shows "… via Claude");
  *   - before a restore (so a restore can itself be undone);
  *   - before a status change (publish / unpublish);
  *   - before a delete (so a deleted page can be brought back).
@@ -13,8 +15,10 @@
  * Restoring puts the snapshot's content back on the page and keeps the page's
  * current status: restoring never publishes or unpublishes anything by itself.
  */
+import type { Request } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, lpPagesTable, lpPageVersionsTable, type LpPage } from "@workspace/db";
+import { getInternalAuthUser } from "../middleware/internalAuth";
 
 /** Content columns captured in a snapshot and written back by a restore. */
 export const SNAPSHOT_FIELDS = [
@@ -46,6 +50,17 @@ const SESSION_MS = 15 * 60_000;
 /** Versions kept per page; older ones are pruned on insert. Delete snapshots are never pruned. */
 const KEEP_PER_PAGE = 100;
 
+/**
+ * Who a version is credited to, and whether the change came through the Claude
+ * connector. The connector's in-process requests carry an internal auth user
+ * (lib/mcp/dispatch.ts) that a browser request can't set, so this can't be faked.
+ */
+export function versionAuthor(req: Request): { by: string | null; viaClaude: boolean } {
+  const viaClaude = getInternalAuthUser(req) !== undefined;
+  const email = req.authUser?.email ?? null;
+  return { by: email && viaClaude ? `${email} via Claude` : email, viaClaude };
+}
+
 export function snapshotOf(page: LpPage): PageSnapshot {
   const out: Record<string, unknown> = {};
   for (const k of SNAPSHOT_FIELDS) out[k] = page[k] ?? null;
@@ -66,11 +81,11 @@ export function cleanNote(raw: unknown): string | null {
  */
 export async function recordPageVersion(
   page: LpPage,
-  opts: { reason: VersionReason; note?: string | null; by?: string | null },
+  opts: { reason: VersionReason; note?: string | null; by?: string | null; always?: boolean },
 ): Promise<number | null> {
   try {
     const note = cleanNote(opts.note);
-    if (opts.reason === "save" && !note) {
+    if (opts.reason === "save" && !note && !opts.always) {
       const [last] = await db
         .select({ createdAt: lpPageVersionsTable.createdAt, createdBy: lpPageVersionsTable.createdBy })
         .from(lpPageVersionsTable)
