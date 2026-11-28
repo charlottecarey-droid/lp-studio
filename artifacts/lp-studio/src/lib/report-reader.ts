@@ -54,6 +54,16 @@ export interface ReportTocEntry {
   page: number;
 }
 
+/** In-book email gate: pages after `previewPages` stay out of the book until unlocked. */
+export interface ReportViewerGate {
+  locked: boolean;
+  previewPages: number;
+  eyebrow?: string;
+  title?: string;
+  body?: string;
+  button?: string;
+}
+
 export interface ReportViewerConfig {
   title: string;
   pdfUrl: string;
@@ -73,6 +83,7 @@ export interface ReportViewerConfig {
   coverLetter?: ReportCoverLetter | null;
   /** Pages are `section.page.rr-pdfp[data-rr-pdf]` placeholders filled by postMessage. */
   pdfMode?: boolean;
+  gate?: ReportViewerGate | null;
 }
 
 /** postMessage key the frame uses to report its height to the parent. */
@@ -114,6 +125,19 @@ function clampDim(v: number | undefined, fallback: number): number {
 function safeShareUrl(url: string): string {
   const u = url.trim();
   return /^https?:\/\//i.test(u) ? u.split("#")[0] : "";
+}
+
+function sanitizeGate(g: ReportViewerGate): ReportViewerGate {
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
+  const n = Math.floor(Number(g.previewPages));
+  return {
+    locked: true,
+    previewPages: Number.isFinite(n) && n >= 1 ? Math.min(n, 200) : 4,
+    eyebrow: str(g.eyebrow, 80),
+    title: str(g.title, 160),
+    body: str(g.body, 600),
+    button: str(g.button, 60),
+  };
 }
 
 function sanitizeLetter(l: ReportCoverLetter): ReportCoverLetter {
@@ -158,6 +182,7 @@ export function buildReportSrcDoc(reportHtml: string, config: ReportViewerConfig
       .map((t) => ({ title: t.title.trim().slice(0, 160), page: Math.floor(t.page) })),
     coverLetter: config.coverLetter ? sanitizeLetter(config.coverLetter) : null,
     pdfMode: !!config.pdfMode,
+    gate: config.gate?.locked ? sanitizeGate(config.gate) : null,
   };
   const head = `<base target="_top"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${VIEWER_CSS}</style>`;
   const tail = `<script>window.__RR=${escapeScriptJson(cfg)};</script><script>${VIEWER_JS}</script>`;
@@ -186,3 +211,21 @@ export function buildPdfReportHtml(numPages: number): string {
 export function looksLikePdfSrc(src: string): boolean {
   return /\.pdf(\?|#|$)/i.test(src.trim());
 }
+
+/** Form + gate-page defaults for a report's email gate (merged under the block's `gate` props). */
+export const REPORT_GATE_DEFAULTS = {
+  previewPages: 4,
+  eyebrow: "Keep reading",
+  title: "Get the full report",
+  body: "Tell us where to send it and the rest of the report unlocks right here, along with the PDF.",
+  buttonLabel: "Unlock the full report",
+  modalFormSource: "simple" as const,
+  modalHeadline: "Get the full report",
+  modalSubheadline: "The rest of the report unlocks as soon as you submit. No login, nothing to remember.",
+  modalSubmitText: "Unlock the report",
+  modalSuccessMessage: "You're in. Opening the full report.",
+  modalShowFirstName: true,
+  modalShowLastName: true,
+  modalShowCompany: true,
+  modalShowPhone: false,
+};

@@ -36,7 +36,7 @@ describe("parseAssetEventBody — Content Hub beacon validation", () => {
   it("accepts report-reader events (page dwell, shares, assessments)", () => {
     const page = parseAssetEventBody({ ...good, assetKind: "report", assetKey: "consolidation-gap-2027", action: "page", value: 42, detail: "07|Central authority" });
     expect(page).toMatchObject({ assetKind: "report", action: "page", value: 42, detail: "07|Central authority" });
-    for (const action of ["share", "play", "assessment", "cta", "fullscreen", "progress", "section", "download"]) {
+    for (const action of ["share", "play", "assessment", "cta", "fullscreen", "gate", "unlock", "progress", "section", "download"]) {
       expect(parseAssetEventBody({ ...good, assetKind: "report", action })?.action).toBe(action);
     }
   });

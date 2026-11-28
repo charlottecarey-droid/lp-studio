@@ -8,6 +8,8 @@ import { resolveCtaConfig } from "@/lib/cta/ctaConfig";
 import { parseLpCtaMessage, resolveLpCtaAction } from "@/lib/custom-html-cta";
 import { resolveHubPalette } from "@/lib/hub-theme";
 import { HubAssetViewer } from "./hub/HubAssetViewer";
+import { HubGateModal } from "./hub/HubGate";
+import { readHubUnlock } from "./hub/hub-gate";
 import { isTrackingSuppressed, type HubAsset } from "./hub/hub-assets";
 import {
   buildPdfReportHtml,
@@ -16,6 +18,7 @@ import {
   looksLikePdfSrc,
   parseReportPageHash,
   REPORT_HEIGHT_KEY,
+  REPORT_GATE_DEFAULTS,
   REPORT_MAX_HEIGHT,
   type ReportTocEntry,
 } from "@/lib/report-reader";
@@ -48,8 +51,8 @@ function msg<T>(data: unknown, key: string): T | null {
  * Report reader block: a paginated HTML report (see lib/report-reader) — or
  * any PDF, rendered with pdf.js — shown as a page-curling magazine or a
  * scrolling read, with contents, share-a-page links, full screen, a personal
- * cover letter, in-report video and assessments, and page-level reading
- * analytics (Analytics → Resources). The report renders in the same
+ * cover letter, in-report video and assessments, an optional email gate after
+ * a few preview pages, and page-level reading analytics (Analytics → Resources). The report renders in the same
  * origin-isolated sandbox as the custom-html block.
  */
 export function BlockReportReader({ props, brand, blockId }: Props) {
@@ -114,6 +117,16 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  // ── Email gate: preview pages, then the Content Hub unlock ───────────────
+  const gate = useMemo(() => ({ ...REPORT_GATE_DEFAULTS, ...(props.gate ?? {}) }), [props.gate]);
+  const gateOn = !!props.gate?.enabled;
+  // A ref, not state: unlocking tells the open frame directly, so the
+  // document isn't rebuilt (and the reader keeps their place).
+  const unlockedRef = useRef(false);
+  const lockedNow = gateOn && !unlockedRef.current && !readHubUnlock();
+  const [gateOpen, setGateOpen] = useState(false);
+  const unlockRef = useRef<() => void>(() => {});
+
   const letter = props.coverLetter;
   const srcDoc = useMemo(
     () =>
@@ -141,8 +154,11 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
               showUnresolved: suppressed,
             }
           : null,
+        gate: lockedNow
+          ? { locked: true, previewPages: gate.previewPages ?? 4, eyebrow: gate.eyebrow, title: gate.title, body: gate.body, button: gate.buttonLabel }
+          : null,
       }),
-    [doc, props.title, props.pdfUrl, props.view, props.allowViewToggle, props.allowShare, props.allowFullscreen, props.showContents, letter, isPdf, src, startPage, suppressed],
+    [doc, props.title, props.pdfUrl, props.view, props.allowViewToggle, props.allowShare, props.allowFullscreen, props.showContents, letter, isPdf, src, startPage, suppressed, gate, gateOn],
   );
 
   // ── Tracking context (latest values for the long-lived listeners) ─────────
@@ -157,6 +173,7 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
   const latest = useRef({ cta, brandCp: brand?.chilipiperUrl, track: { pageId: ctx.pageId, sessionId: ctx.sessionId, blockId }, report });
   latest.current = { cta, brandCp: brand?.chilipiperUrl, track: { pageId: ctx.pageId, sessionId: ctx.sessionId, blockId }, report };
   const palette = useMemo(() => resolveHubPalette({}, brand, "dark"), [brand]);
+  const formPalette = useMemo(() => resolveHubPalette({}, brand, "light"), [brand]);
 
   // ── Frame ↔ page messaging ────────────────────────────────────────────────
   useEffect(() => {
@@ -185,10 +202,13 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
       if (!raf) raf = requestAnimationFrame(sendViewport);
     };
 
+    const rendered = new Set<number>();
     const streamPdfPages = async () => {
       const pdf = pdfRef.current;
       if (!pdf) return;
       const token = ++renderToken;
+      // Behind the gate, only the preview pages are rendered and sent.
+      const limit = gateOn && !unlockedRef.current && !readHubUnlock() ? Math.max(1, gate.previewPages ?? 4) : pdf.numPages;
       const width = Math.round(816 * Math.min(2, Math.max(1.25, window.devicePixelRatio || 1)));
       // Start where the reader opens (deep link), then the rest in order.
       const first = Math.max(0, Math.min(pdf.numPages - 1, (startPage ?? 1) - 1));
@@ -196,6 +216,8 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
       const { renderPdfPage } = await import("@/lib/report-pdf");
       for (const i of order) {
         if (token !== renderToken || pdfRef.current !== pdf) return;
+        if (i >= limit || rendered.has(i)) continue;
+        rendered.add(i);
         try {
           const { blob, links } = await renderPdfPage(pdf, i, width);
           if (token !== renderToken) return;
@@ -240,7 +262,19 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
         window.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
         return;
       }
+      if (msg(e.data, "__lpReportGate") != null) {
+        setGateOpen(true);
+        return;
+      }
       if (msg(e.data, "__lpReportReady") != null) void streamPdfPages();
+    };
+
+    unlockRef.current = () => {
+      if (unlockedRef.current) return;
+      unlockedRef.current = true;
+      iframe.contentWindow?.postMessage({ __lpReportUnlock: 1 }, "*");
+      trackReportEvent(latest.current.track, latest.current.report, { action: "unlock" });
+      if (pdfRef.current) void streamPdfPages();
     };
 
     const onLoad = () => {
@@ -292,6 +326,19 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
         scrolling="no"
       />
       <HubAssetViewer asset={video} onClose={() => setVideo(null)} palette={palette} />
+      {gateOn && (
+        <HubGateModal
+          gate={{ ...gate, enabled: true, mode: "first-open" }}
+          open={gateOpen}
+          onClose={() => setGateOpen(false)}
+          onUnlocked={() => {
+            setGateOpen(false);
+            unlockRef.current();
+          }}
+          palette={formPalette}
+          brand={brand}
+        />
+      )}
       {modal && (
         <EmailCaptureModal
           open

@@ -15,6 +15,8 @@
  *   assessment  value = score, detail = result title
  *   cta         detail = CTA label clicked inside the report
  *   fullscreen  entered full-screen reading
+ *   gate        email gate shown / clicked (detail = "shown" | "clicked" | "next" | "contents" | "download")
+ *   unlock      the visitor passed the gate (sent by the parent after the form)
  *
  * The frame only ever sends `{ a, v?, d? }`; everything identifying (page id,
  * session, lead) is added here, in the parent, and the server re-validates.
@@ -33,6 +35,8 @@ export const REPORT_EVENT_ACTIONS = [
   "assessment",
   "cta",
   "fullscreen",
+  "gate",
+  "unlock",
 ] as const;
 export type ReportEventAction = (typeof REPORT_EVENT_ACTIONS)[number];
 
@@ -51,7 +55,8 @@ export function parseReportEventMessage(data: unknown): ReportEvent | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const action = typeof r.a === "string" ? r.a : "";
-  if (!ACTIONS.has(action) || action === "view") return null; // "view" is the parent's to send
+  // "view" and "unlock" are the parent's to send, never the frame's.
+  if (!ACTIONS.has(action) || action === "view" || action === "unlock") return null;
   const out: ReportEvent = { action: action as ReportEventAction };
   if (typeof r.v === "number" && Number.isFinite(r.v) && r.v >= 0) out.value = Math.min(Math.round(r.v), 86_400);
   if (typeof r.d === "string" && r.d.trim()) out.detail = r.d.trim().slice(0, 200);

@@ -638,6 +638,20 @@ export interface ReportReaderCoverLetter {
   signImage?: string;
 }
 
+/** Email gate for a report: the first `previewPages` pages are free, then a
+ *  gate page asks for the form below (the shared modal-form config). The unlock
+ *  is the Content Hub unlock, remembered per browser across the site. */
+export interface ReportReaderGate extends CtaModalConfig {
+  enabled: boolean;
+  /** Pages readable before the gate (cover letter not counted). Default 4. */
+  previewPages?: number;
+  /** The gate page inside the book. */
+  eyebrow?: string;
+  title?: string;
+  body?: string;
+  buttonLabel?: string;
+}
+
 /** Paginated HTML report — or any PDF — shown as a page-turning magazine or a scrolling read. */
 export interface ReportReaderBlockProps {
   /** URL of the report: an HTML document whose pages are `section.page`, or a PDF (https:// or same-origin path). */
@@ -657,6 +671,7 @@ export interface ReportReaderBlockProps {
   /** Stable analytics key (Analytics → Resources). Blank = slug of the title. */
   trackingKey?: string;
   coverLetter?: ReportReaderCoverLetter;
+  gate?: ReportReaderGate;
 }
 
 /* ── Grid pieces (task #120) ───────────────────────────────────────────── */

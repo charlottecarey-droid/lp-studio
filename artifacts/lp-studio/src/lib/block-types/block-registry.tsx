@@ -1153,6 +1153,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       allowFullscreen: true,
       trackingKey: "",
       coverLetter: { enabled: false, eyebrow: "", greeting: "", body: "", signName: "", signTitle: "", signImage: "" },
+      gate: { enabled: false, previewPages: 4 },
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

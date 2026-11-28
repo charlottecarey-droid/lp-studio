@@ -577,6 +577,8 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
           ROUND(AVG(r.value) FILTER (WHERE r.action = 'assessment'))::int AS "avgScore",
           COUNT(*) FILTER (WHERE r.action = 'cta')::int AS "ctaClicks",
           COUNT(*) FILTER (WHERE r.action = 'fullscreen')::int AS "fullscreens",
+          COUNT(DISTINCT r.session_id) FILTER (WHERE r.action = 'gate')::int AS "gateSessions",
+          COUNT(DISTINCT r.session_id) FILTER (WHERE r.action = 'unlock')::int AS "unlocks",
           (SELECT ROUND(AVG(COALESCE(s.max_pct, 0)))::int FROM s WHERE s.page_id = r.page_id AND s.asset_key = r.asset_key) AS "avgCompletion",
           (SELECT ROUND(AVG(s.secs))::int FROM s WHERE s.page_id = r.page_id AND s.asset_key = r.asset_key AND s.secs IS NOT NULL) AS "avgReadSeconds",
           MAX(r.created_at) AS "lastAt"
