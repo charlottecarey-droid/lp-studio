@@ -66,6 +66,7 @@ export type {
   RichTextBlockProps,
   CustomHtmlBlockProps,
   ReportReaderBlockProps,
+  ReportReaderCoverLetter,
   SpacerBlockProps,
   FormBlockProps,
   ChatCaptureBlockProps,

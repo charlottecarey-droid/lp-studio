@@ -1143,10 +1143,16 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "Content",
     defaultProps: (): ReportReaderBlockProps => ({
       src: "",
+      source: "auto",
       pdfUrl: "",
       title: "",
       view: "auto",
       allowViewToggle: true,
+      showContents: true,
+      allowShare: true,
+      allowFullscreen: true,
+      trackingKey: "",
+      coverLetter: { enabled: false, eyebrow: "", greeting: "", body: "", signName: "", signTitle: "", signImage: "" },
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

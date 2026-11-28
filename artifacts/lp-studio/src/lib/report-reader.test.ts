@@ -45,3 +45,37 @@ describe("buildReportSrcDoc", () => {
     expect(out).toContain('"view":"auto"');
   });
 });
+
+describe("report reader extras", () => {
+  it("parses #report-pN deep links", async () => {
+    const { parseReportPageHash } = await import("./report-reader");
+    expect(parseReportPageHash("#report-p7")).toBe(7);
+    expect(parseReportPageHash("#report-p0")).toBeNull();
+    expect(parseReportPageHash("#other")).toBeNull();
+  });
+
+  it("builds one placeholder page per PDF page", async () => {
+    const { buildPdfReportHtml } = await import("./report-reader");
+    const html = buildPdfReportHtml(3);
+    expect(html.match(/class="page rr-pdfp"/g)).toHaveLength(3);
+    expect(html).toContain('data-rr-pdf="2"');
+  });
+
+  it("sanitises share URLs, page sizes and the cover letter", () => {
+    const out = buildReportSrcDoc("<p>x</p>", {
+      ...cfg,
+      shareUrl: "javascript:alert(1)",
+      pageWidth: 99999,
+      coverLetter: { greeting: "Hi {{company}}", signImage: "javascript:alert(1)" },
+    });
+    expect(out).toContain('"shareUrl":""');
+    expect(out).toContain('"pageWidth":816');
+    expect(out).not.toContain("javascript:alert(1)");
+    expect(out).toContain("Hi {{company}}");
+  });
+
+  it("strips the hash from share URLs", () => {
+    const out = buildReportSrcDoc("<p>x</p>", { ...cfg, shareUrl: "https://example.com/r?a=1#report-p3" });
+    expect(out).toContain('"shareUrl":"https://example.com/r?a=1"');
+  });
+});

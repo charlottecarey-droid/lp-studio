@@ -198,7 +198,7 @@ export function trackHubInteraction(ctx: HubTrackContext, interaction: HubIntera
   sendHubBeacon(buildHubInteractionPayload(ctx, interaction, extra));
 }
 
-function sendHubBeacon(payload: Record<string, unknown> | null): void {
+export function sendHubBeacon(payload: Record<string, unknown> | null): void {
   if (!payload) return;
   try {
     const body = JSON.stringify(payload);

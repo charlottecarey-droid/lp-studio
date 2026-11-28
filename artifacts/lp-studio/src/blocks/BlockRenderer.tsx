@@ -937,7 +937,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "custom-html":
         return <BlockCustomHtml props={block.props} brand={brand} />;
       case "report-reader":
-        return <BlockReportReader props={block.props} brand={brand} />;
+        return <BlockReportReader props={block.props} brand={brand} blockId={block.id} />;
       case "grid-image":
         return <BlockGridImage props={block.props} brand={brand} />;
       case "grid-headline-sub":

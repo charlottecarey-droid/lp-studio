@@ -8,8 +8,15 @@
 /** Resource actions, plus phase-3 signals: `progress` (video milestone), `time`
  *  (seconds the viewer stayed open) and the hub-level `search` / `section` /
  *  `audience` interactions (kind "hub", synthetic asset keys). */
-export const ASSET_EVENT_ACTIONS = new Set(["seen", "view", "open", "download", "progress", "time", "search", "section", "audience"]);
-export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link", "image", "text", "hub"]);
+export const ASSET_EVENT_ACTIONS = new Set([
+  "seen", "view", "open", "download", "progress", "time", "search", "section", "audience",
+  // Report reader (kind "report"): `page` (value = seconds on a page, detail =
+  // "07|Page title"), `share` (detail = page linked), `play` (detail = video),
+  // `assessment` (value = score, detail = result), `cta` (detail = label),
+  // `fullscreen`. `progress` = furthest milestone %, `section` = contents jump.
+  "page", "share", "play", "assessment", "cta", "fullscreen",
+]);
+export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link", "image", "text", "hub", "report"]);
 /** Actions that count as "engaged with a resource" in the funnel. */
 export const RESOURCE_ACTIONS = ["view", "open", "download"] as const;
 
