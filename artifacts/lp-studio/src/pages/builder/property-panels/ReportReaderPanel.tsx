@@ -1,9 +1,13 @@
-import type { ReportReaderBlockProps, ReportReaderCoverLetter } from "@/lib/block-types";
+import { useState } from "react";
+import type { CtaModalConfig, ReportReaderBlockProps, ReportReaderCoverLetter, ReportReaderGate } from "@/lib/block-types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { PdfUploadButton } from "@/components/PdfUploadButton";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { clearHubUnlock, readHubUnlock } from "@/blocks/hub/hub-gate";
+import { REPORT_GATE_DEFAULTS } from "@/lib/report-reader";
 
 interface Props {
   props: ReportReaderBlockProps;
@@ -39,6 +43,59 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
     <div className="flex items-center justify-between gap-3">
       <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
       <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+function GateFields({ gate, onChange }: { gate: ReportReaderGate | undefined; onChange: (g: ReportReaderGate) => void }) {
+  const cfg: ReportReaderGate = { ...REPORT_GATE_DEFAULTS, enabled: false, ...(gate ?? {}) };
+  const set = (patch: Partial<ReportReaderGate>) => onChange({ ...cfg, ...patch });
+  const [unlocked, setUnlocked] = useState(() => !!readHubUnlock());
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <Toggle label="Email gate after a few pages" checked={!!cfg.enabled} onChange={(v) => set({ enabled: v })} />
+      {cfg.enabled && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Readers flip through the first pages freely, then a gate page asks for the form below. Once they submit, the rest unlocks in place (PDF download
+            included). The unlock is remembered in their browser across your site, and their submission becomes a lead. Everything they read afterwards is
+            attributed to them in Analytics → Resources.
+          </p>
+          <Field label="Free pages before the gate">
+            <Input
+              type="number"
+              min={1}
+              max={50}
+              value={cfg.previewPages ?? 4}
+              onChange={(e) => set({ previewPages: Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)) })}
+            />
+          </Field>
+          <Field label="Gate page: eyebrow">
+            <Input value={cfg.eyebrow ?? ""} onChange={(e) => set({ eyebrow: e.target.value })} />
+          </Field>
+          <Field label="Gate page: headline">
+            <Input value={cfg.title ?? ""} onChange={(e) => set({ title: e.target.value })} />
+          </Field>
+          <Field label="Gate page: text">
+            <Textarea rows={3} value={cfg.body ?? ""} onChange={(e) => set({ body: e.target.value })} />
+          </Field>
+          <Field label="Gate page: button">
+            <Input value={cfg.buttonLabel ?? ""} onChange={(e) => set({ buttonLabel: e.target.value })} />
+          </Field>
+          <CtaButtonModalConfigSection ctaAction="modal-form" value={cfg} onChange={(next: CtaModalConfig) => onChange({ ...cfg, ...next })} />
+          <button
+            type="button"
+            onClick={() => {
+              clearHubUnlock();
+              setUnlocked(false);
+            }}
+            disabled={!unlocked}
+            className="w-full rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
+          >
+            {unlocked ? "Forget my unlock in this browser (test the gate again)" : "This browser has not unlocked yet"}
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -101,6 +158,8 @@ export function ReportReaderPanel({ props, onChange }: Props) {
         <Toggle label="Share a page (copies a link like #report-p7)" checked={props.allowShare !== false} onChange={(v) => onChange({ ...props, allowShare: v })} />
         <Toggle label="Full-screen reading" checked={props.allowFullscreen !== false} onChange={(v) => onChange({ ...props, allowFullscreen: v })} />
       </div>
+
+      <GateFields gate={props.gate} onChange={(gate) => onChange({ ...props, gate })} />
 
       <div className="space-y-3 rounded-md border p-3">
         <Toggle label="Personal cover letter (page 2)" checked={!!letter.enabled} onChange={(v) => setLetter({ enabled: v })} />

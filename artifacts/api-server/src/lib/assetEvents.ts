@@ -13,8 +13,9 @@ export const ASSET_EVENT_ACTIONS = new Set([
   // Report reader (kind "report"): `page` (value = seconds on a page, detail =
   // "07|Page title"), `share` (detail = page linked), `play` (detail = video),
   // `assessment` (value = score, detail = result), `cta` (detail = label),
-  // `fullscreen`. `progress` = furthest milestone %, `section` = contents jump.
-  "page", "share", "play", "assessment", "cta", "fullscreen",
+  // `fullscreen`, `gate` (email gate shown / clicked, detail = where) and
+  // `unlock` (gate passed). `progress` = furthest milestone %, `section` = contents jump.
+  "page", "share", "play", "assessment", "cta", "fullscreen", "gate", "unlock",
 ]);
 export const ASSET_EVENT_KINDS = new Set(["pdf", "video", "link", "image", "text", "hub", "report"]);
 /** Actions that count as "engaged with a resource" in the funnel. */

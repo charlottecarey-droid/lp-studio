@@ -67,6 +67,7 @@ export type {
   CustomHtmlBlockProps,
   ReportReaderBlockProps,
   ReportReaderCoverLetter,
+  ReportReaderGate,
   SpacerBlockProps,
   FormBlockProps,
   ChatCaptureBlockProps,

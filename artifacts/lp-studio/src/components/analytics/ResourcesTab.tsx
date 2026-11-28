@@ -117,6 +117,8 @@ interface ReportRow {
   avgScore: number | null;
   ctaClicks: number;
   fullscreens: number;
+  gateSessions?: number;
+  unlocks?: number;
   avgCompletion: number | null;
   avgReadSeconds: number | null;
   lastAt: string | null;
@@ -152,7 +154,7 @@ const fmtSecs = (s: number | null | undefined) => (s == null ? "—" : s < 60 ? 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const ACTION_LABEL: Record<string, string> = {
   view: "Viewed", open: "Opened", download: "Downloaded", progress: "Watched", time: "Time open",
-  page: "Read", share: "Shared", play: "Played video", assessment: "Took the assessment", cta: "Clicked", fullscreen: "Read full screen", section: "Jumped to",
+  page: "Read", share: "Shared", gate: "Reached the email gate", unlock: "Unlocked the report", play: "Played video", assessment: "Took the assessment", cta: "Clicked", fullscreen: "Read full screen", section: "Jumped to",
 };
 /** "07|Central authority" → { no: 7, label: "Central authority" } (report `page` / `share` details). */
 function splitPageDetail(detail: string | null): { no: number | null; label: string } {
@@ -574,6 +576,7 @@ function ReportReading({ report: r, pages, showPage }: { report: ReportRow; page
     `${r.readers} reader${r.readers === 1 ? "" : "s"}`,
     r.avgCompletion != null ? `${r.avgCompletion}% avg completion` : null,
     r.avgReadSeconds != null ? `${fmtSecs(r.avgReadSeconds)} avg read time` : null,
+    r.gateSessions ? `email gate: ${r.unlocks ?? 0} of ${r.gateSessions} unlocked (${rate(r.unlocks ?? 0, r.gateSessions)})` : null,
     r.downloads ? `${r.downloads} PDF downloads` : null,
     r.shares ? `${r.shares} page links shared` : null,
     r.plays ? `${r.plays} video plays` : null,

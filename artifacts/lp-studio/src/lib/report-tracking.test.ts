@@ -11,6 +11,8 @@ describe("report tracking", () => {
   it("rejects unknown actions, and view (the parent sends that)", () => {
     expect(parseReportEventMessage({ __lpReportEvent: { a: "hover" } })).toBeNull();
     expect(parseReportEventMessage({ __lpReportEvent: { a: "view" } })).toBeNull();
+    expect(parseReportEventMessage({ __lpReportEvent: { a: "unlock" } })).toBeNull();
+    expect(parseReportEventMessage({ __lpReportEvent: { a: "gate", d: "shown" } })).toEqual({ action: "gate", detail: "shown" });
     expect(parseReportEventMessage({ other: 1 })).toBeNull();
     expect(parseReportEventMessage(null)).toBeNull();
   });
