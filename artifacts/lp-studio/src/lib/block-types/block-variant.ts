@@ -25,6 +25,7 @@ import type {
   ResourceLinkListBlockProps,
   RichTextBlockProps,
   CustomHtmlBlockProps,
+  ReportReaderBlockProps,
   GridImageBlockProps,
   GridHeadlineSubBlockProps,
   GridParagraphBulletsBlockProps,
@@ -340,6 +341,7 @@ export type BlockVariant =
   | { type: "resource-link-list"; props: ResourceLinkListBlockProps }
   | { type: "rich-text"; props: RichTextBlockProps }
   | { type: "custom-html"; props: CustomHtmlBlockProps }
+  | { type: "report-reader"; props: ReportReaderBlockProps }
   | { type: "grid-image"; props: GridImageBlockProps }
   | { type: "grid-headline-sub"; props: GridHeadlineSubBlockProps }
   | { type: "grid-paragraph-bullets"; props: GridParagraphBulletsBlockProps }

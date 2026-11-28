@@ -97,6 +97,7 @@ import BlockResources from "./BlockResources";
 import { BlockResourceLinkList } from "./BlockResourceLinkList";
 import { BlockRichText } from "./BlockRichText";
 import { BlockCustomHtml } from "./BlockCustomHtml";
+import { BlockReportReader } from "./BlockReportReader";
 import {
   BlockGridImage,
   BlockGridHeadlineSub,
@@ -935,6 +936,8 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
         return <BlockRichText props={block.props} brand={brand} />;
       case "custom-html":
         return <BlockCustomHtml props={block.props} brand={brand} />;
+      case "report-reader":
+        return <BlockReportReader props={block.props} brand={brand} />;
       case "grid-image":
         return <BlockGridImage props={block.props} brand={brand} />;
       case "grid-headline-sub":

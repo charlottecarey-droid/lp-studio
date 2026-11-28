@@ -104,6 +104,11 @@ const CTA_DOC = {
   blockLevel: "Older blocks keep CTA fields in props (ctaText/ctaUrl/ctaAction/chilipiperUrl/cta1ChilipiperUrl); blockSettings.useCustomCta=true makes a block use its own CTA instead of the page default.",
 };
 
+const REPORT_READER_DOC = {
+  props: "{ src: string (URL of the report document: https:// or a same-origin path such as /reports/<slug>/report.html), pdfUrl: string (optional PDF download link), title: string (toolbar title), view: 'auto' | 'magazine' | 'scroll' (auto = magazine on wide screens, scroll on narrow), allowViewToggle: boolean }",
+  document: "The report is a normal HTML document. Each page is a <section class=\"page\"> designed at 816x1056 CSS px. The viewer adds rr-mag or rr-scroll to <html>, so the report can style fixed pages (html.rr-mag ...) and a reflowed reading layout (html.rr-scroll ...). Links with data-cp open the page's Chili Piper modal; data-form opens the lead form modal. It renders in the same sandbox as custom-html.",
+};
+
 const CUSTOM_HTML_DOC = {
   props: "{ html: string } — a snippet or a full HTML document, rendered in a sandboxed iframe (scripts, forms and popups allowed; no access to the parent page). Height auto-fits.",
   openNativeCta:
@@ -264,7 +269,7 @@ export const pageExtrasTools: ToolDef[] = [
             type: t,
             known: t in DEFAULT_BLOCK_TAGS,
             tags: DEFAULT_BLOCK_TAGS[t] ?? [],
-            props: t === "custom-html" ? CUSTOM_HTML_DOC : (micrositeSchemaFor(t) ?? "No prop doc for this type. Read an existing block of this type with get_page to see its props."),
+            props: t === "custom-html" ? CUSTOM_HTML_DOC : t === "report-reader" ? REPORT_READER_DOC : (micrositeSchemaFor(t) ?? "No prop doc for this type. Read an existing block of this type with get_page to see its props."),
           })),
           blockShape: "{ id: unique string, type, props: {...}, blockSettings?: {...}, children?: Block[] (section, columns, grid, stack only) }",
           blockSettings: BLOCK_SETTINGS_DOC,

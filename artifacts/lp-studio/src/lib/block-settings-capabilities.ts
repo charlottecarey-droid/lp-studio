@@ -135,6 +135,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   // Pure structural --------------------------------------------------------
   "spacer": SPACER_CAPS,
   "custom-html": { ...ANCHOR_ONLY, spacing: true, paddingX: true, bgColor: true },
+  "report-reader": { ...ANCHOR_ONLY, spacing: true, bgColor: true },
 
   // Hero-ish ---------------------------------------------------------------
   "hero": HERO_LIKE,

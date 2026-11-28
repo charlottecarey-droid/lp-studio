@@ -627,6 +627,18 @@ export interface CustomHtmlBlockProps {
   html: string;
 }
 
+/** Paginated HTML report shown as a page-turning magazine or a scrolling read. */
+export interface ReportReaderBlockProps {
+  /** URL of the report document (https:// or same-origin path). Pages are `section.page`. */
+  src: string;
+  /** Optional PDF download link shown in the toolbar. */
+  pdfUrl: string;
+  /** Toolbar title. Empty hides it (the toolbar still shows if toggle/PDF are on). */
+  title: string;
+  view: "auto" | "magazine" | "scroll";
+  allowViewToggle: boolean;
+}
+
 /* ── Grid pieces (task #120) ───────────────────────────────────────────── */
 
 export interface GridImageBlockProps {
