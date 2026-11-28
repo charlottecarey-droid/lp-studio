@@ -84,6 +84,8 @@ export interface ReportViewerConfig {
   /** Pages are `section.page.rr-pdfp[data-rr-pdf]` placeholders filled by postMessage. */
   pdfMode?: boolean;
   gate?: ReportViewerGate | null;
+  /** The parent renders the toolbar and drives the frame (__lpReportCmd / __lpReportState). */
+  externalToolbar?: boolean;
 }
 
 /** postMessage key the frame uses to report its height to the parent. */
@@ -183,6 +185,7 @@ export function buildReportSrcDoc(reportHtml: string, config: ReportViewerConfig
     coverLetter: config.coverLetter ? sanitizeLetter(config.coverLetter) : null,
     pdfMode: !!config.pdfMode,
     gate: config.gate?.locked ? sanitizeGate(config.gate) : null,
+    externalToolbar: !!config.externalToolbar,
   };
   const head = `<base target="_top"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${VIEWER_CSS}</style>`;
   const tail = `<script>window.__RR=${escapeScriptJson(cfg)};</script><script>${VIEWER_JS}</script>`;
