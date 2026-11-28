@@ -10,6 +10,7 @@ import { resolveHubPalette } from "@/lib/hub-theme";
 import { HubAssetViewer } from "./hub/HubAssetViewer";
 import { HubGateModal } from "./hub/HubGate";
 import { readHubUnlock } from "./hub/hub-gate";
+import { ReportToolbar, type ReportFrameState } from "./report/ReportToolbar";
 import { isTrackingSuppressed, type HubAsset } from "./hub/hub-assets";
 import {
   buildPdfReportHtml,
@@ -140,7 +141,7 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
         toc: doc.toc,
         pdfMode: isPdf,
         startPage: startPage ?? undefined,
-        shareUrl: props.allowShare === false || suppressed || typeof window === "undefined" ? "" : window.location.href.split("#")[0],
+        externalToolbar: true,
         allowFullscreen: props.allowFullscreen !== false,
         showContents: props.showContents !== false,
         coverLetter: letter?.enabled
@@ -158,7 +159,7 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
           ? { locked: true, previewPages: gate.previewPages ?? 4, eyebrow: gate.eyebrow, title: gate.title, body: gate.body, button: gate.buttonLabel }
           : null,
       }),
-    [doc, props.title, props.pdfUrl, props.view, props.allowViewToggle, props.allowShare, props.allowFullscreen, props.showContents, letter, isPdf, src, startPage, suppressed, gate, gateOn],
+    [doc, props.title, props.pdfUrl, props.view, props.allowViewToggle, props.allowFullscreen, props.showContents, letter, isPdf, src, startPage, suppressed, gate, gateOn],
   );
 
   // ── Tracking context (latest values for the long-lived listeners) ─────────
@@ -175,6 +176,82 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
   const palette = useMemo(() => resolveHubPalette({}, brand, "dark"), [brand]);
   const formPalette = useMemo(() => resolveHubPalette({}, brand, "light"), [brand]);
 
+  // ── Page-side toolbar (sticky; drives the frame with __lpReportCmd) ──────
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const [frameState, setFrameState] = useState<ReportFrameState | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; url?: string } | null>(null);
+  const toastTimer = useRef<number>(0);
+  const showToast = (t: { msg: string; url?: string }) => {
+    setToast(t);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), t.url ? 9000 : 2600);
+  };
+  const cmd = (c: Record<string, unknown>) => iframeRef.current?.contentWindow?.postMessage({ __lpReportCmd: c }, "*");
+  const pdfHref = props.pdfUrl || (isPdf ? src : "");
+  const stateRef = useRef(frameState);
+  stateRef.current = frameState;
+
+  useEffect(() => {
+    const onFs = () => {
+      const on = !!wrapRef.current && document.fullscreenElement === wrapRef.current;
+      setFullscreen(on);
+      cmd({ c: "fs", on, vh: window.innerHeight });
+      if (on) trackReportEvent(latest.current.track, latest.current.report, { action: "fullscreen" });
+    };
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  // Arrow keys turn pages while the book is on screen (not while typing or in a modal).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (stateRef.current?.mode !== "mag" || e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      const r = iframeRef.current?.getBoundingClientRect();
+      if (!r || r.bottom < 120 || r.top > window.innerHeight - 120) return;
+      cmd({ c: "key", k: e.key });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const onShare = () => {
+    const page = stateRef.current?.page ?? 1;
+    const url = `${window.location.href.split("#")[0]}#report-p${page}`;
+    const done = (ok: boolean) => showToast(ok ? { msg: `Link to page ${page} copied` } : { msg: `Copy this link to page ${page}:`, url });
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(() => done(true), () => done(false));
+    else done(false);
+    trackReportEvent(latest.current.track, latest.current.report, { action: "share", detail: stateRef.current?.pid || undefined });
+  };
+  const onFullscreen = () => {
+    const el = wrapRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void el.requestFullscreen?.().catch(() => {});
+  };
+  const onContents = (t: { t: string; n: number; lk: boolean }) => {
+    cmd({ c: "goto", n: t.n });
+    trackReportEvent(latest.current.track, latest.current.report, { action: "section", detail: t.t });
+    if (t.lk && gateOn) {
+      setGateOpen(true);
+      trackReportEvent(latest.current.track, latest.current.report, { action: "gate", detail: "contents" });
+    }
+  };
+  const onDownload = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (stateRef.current?.locked && gateOn) {
+      e.preventDefault();
+      setGateOpen(true);
+      trackReportEvent(latest.current.track, latest.current.report, { action: "gate", detail: "download" });
+      return;
+    }
+    trackReportEvent(latest.current.track, latest.current.report, { action: "download" });
+  };
+
   // ── Frame ↔ page messaging ────────────────────────────────────────────────
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -190,16 +267,23 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
       const win = iframe.contentWindow;
       if (!win) return;
       const r = iframe.getBoundingClientRect();
-      const top = Math.max(0, -r.top);
-      const bottom = Math.max(top, Math.min(r.height, window.innerHeight - r.top));
-      win.postMessage({ __lpReportViewport: { top: Math.round(top), bottom: Math.round(bottom) } }, "*");
+      const bar = barRef.current;
+      const barH = bar ? bar.offsetHeight : 0;
+      // The sticky toolbar covers the top of the frame once it sticks.
+      const barBottom = bar ? bar.getBoundingClientRect().bottom : 0;
+      const vh = document.fullscreenElement ? document.fullscreenElement.clientHeight : window.innerHeight;
+      const top = Math.max(0, barBottom - r.top);
+      const bottom = Math.max(top, Math.min(r.height, vh - r.top));
+      win.postMessage({ __lpReportViewport: { top: Math.round(top), bottom: Math.round(bottom), vh: Math.round(vh), bar: barH } }, "*");
       if (!viewed && bottom - top > 120) {
         viewed = true;
         trackReportEvent(latest.current.track, latest.current.report, { action: "view" });
       }
     };
+    // ~8 updates a second is plenty for page tracking; per-frame messages
+    // to the frame while scrolling only cost smoothness.
     const queueViewport = () => {
-      if (!raf) raf = requestAnimationFrame(sendViewport);
+      if (!raf) raf = window.setTimeout(sendViewport, 120);
     };
 
     const rendered = new Set<number>();
@@ -258,8 +342,19 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
       const sc = msg<{ y?: unknown }>(e.data, "__lpReportScroll");
       if (sc && typeof sc.y === "number" && Number.isFinite(sc.y)) {
         scrolledByFrame = true;
-        const top = iframe.getBoundingClientRect().top + window.scrollY + Math.max(0, Math.min(sc.y, REPORT_MAX_HEIGHT)) - 12;
+        const barH = barRef.current?.offsetHeight ?? 0;
+        const top = iframe.getBoundingClientRect().top + window.scrollY + Math.max(0, Math.min(sc.y, REPORT_MAX_HEIGHT)) - (sc.y > 0 ? barH + 8 : barH);
         window.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
+        return;
+      }
+      const st = msg<ReportFrameState>(e.data, "__lpReportState");
+      if (st && typeof st === "object" && (st.mode === "mag" || st.mode === "scroll") && Array.isArray(st.toc)) {
+        setFrameState(st);
+        return;
+      }
+      const tst = msg<{ msg?: unknown }>(e.data, "__lpReportToast");
+      if (tst && typeof tst.msg === "string") {
+        showToast({ msg: tst.msg.slice(0, 160) });
         return;
       }
       if (msg(e.data, "__lpReportGate") != null) {
@@ -286,13 +381,16 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
     window.addEventListener("message", onMessage);
     window.addEventListener("scroll", queueViewport, { passive: true });
     window.addEventListener("resize", queueViewport);
+    const wrap = wrapRef.current; // scrolls itself in full screen
+    wrap?.addEventListener("scroll", queueViewport, { passive: true });
     iframe.addEventListener("load", onLoad);
     return () => {
       renderToken++;
-      if (raf) cancelAnimationFrame(raf);
+      if (raf) window.clearTimeout(raf);
       window.removeEventListener("message", onMessage);
       window.removeEventListener("scroll", queueViewport);
       window.removeEventListener("resize", queueViewport);
+      wrap?.removeEventListener("scroll", queueViewport);
       iframe.removeEventListener("load", onLoad);
     };
   }, [srcDoc, startPage]);
@@ -312,7 +410,25 @@ export function BlockReportReader({ props, brand, blockId }: Props) {
   }
 
   return (
-    <div className="report-reader-block w-full overflow-hidden">
+    // No overflow-hidden here: it would stop the toolbar from sticking.
+    <div ref={wrapRef} className={`report-reader-block relative w-full ${fullscreen ? "overflow-auto bg-[#040C09]" : ""}`}>
+      <ReportToolbar
+        ref={barRef}
+        title={props.title ?? ""}
+        state={frameState}
+        showContents={props.showContents !== false}
+        allowShare={props.allowShare !== false && !suppressed}
+        allowFullscreen={props.allowFullscreen !== false}
+        allowViewToggle={props.allowViewToggle ?? true}
+        pdfHref={pdfHref}
+        fullscreen={fullscreen}
+        toast={toast}
+        onContents={onContents}
+        onShare={onShare}
+        onFullscreen={onFullscreen}
+        onView={(m) => cmd({ c: "view", v: m })}
+        onDownload={onDownload}
+      />
       <iframe
         ref={iframeRef}
         title={props.title || "Report"}
