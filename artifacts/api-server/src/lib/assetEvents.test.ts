@@ -33,6 +33,14 @@ describe("parseAssetEventBody — Content Hub beacon validation", () => {
     expect(parseAssetEventBody({ ...good, assetKind: "hub", action: "audience", detail: "/patients" })?.detail).toBe("/patients");
   });
 
+  it("accepts report-reader events (page dwell, shares, assessments)", () => {
+    const page = parseAssetEventBody({ ...good, assetKind: "report", assetKey: "consolidation-gap-2027", action: "page", value: 42, detail: "07|Central authority" });
+    expect(page).toMatchObject({ assetKind: "report", action: "page", value: 42, detail: "07|Central authority" });
+    for (const action of ["share", "play", "assessment", "cta", "fullscreen", "progress", "section", "download"]) {
+      expect(parseAssetEventBody({ ...good, assetKind: "report", action })?.action).toBe(action);
+    }
+  });
+
   it("caps free-text lengths so a hostile beacon can't bloat rows", () => {
     const out = parseAssetEventBody({ ...good, assetKey: "k".repeat(500), assetTitle: "t".repeat(500), blockId: "b".repeat(500) });
     expect(out?.assetKey).toHaveLength(120);

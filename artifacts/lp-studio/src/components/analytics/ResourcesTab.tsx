@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Download, ExternalLink, FolderOpen, Layers, ScanEye, UserCheck, Users } from "lucide-react";
+import { BookOpen, Download, ExternalLink, FolderOpen, Layers, ScanEye, UserCheck, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -9,7 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
  * GET /api/lp/analytics/resources: the seen → opened → downloaded funnel per
  * resource across every hub page, a per-page roll-up, and the people
  * identified through a resource gate with what they opened. Filterable by
- * page (`?pageId=` deep-links from a page's own analytics panel).
+ * page (`?pageId=` deep-links from a page's own analytics panel). Report
+ * reader blocks also report page-level reading (readers and seconds per page,
+ * completion, shares, assessments) in the Reports card and person timelines.
  */
 interface Totals {
   resources: number;
@@ -100,6 +102,35 @@ interface PersonRow {
   lastAsset: string | null;
   lastAt: string | null;
 }
+interface ReportRow {
+  pageId: number;
+  pageTitle: string | null;
+  pageSlug: string | null;
+  assetKey: string;
+  assetTitle: string | null;
+  readers: number;
+  identified: number;
+  downloads: number;
+  shares: number;
+  plays: number;
+  assessments: number;
+  avgScore: number | null;
+  ctaClicks: number;
+  fullscreens: number;
+  avgCompletion: number | null;
+  avgReadSeconds: number | null;
+  lastAt: string | null;
+}
+interface ReportPageRow {
+  pageId: number;
+  assetKey: string;
+  pageNo: number;
+  label: string | null;
+  readers: number;
+  totalSeconds: number;
+  avgSeconds: number | null;
+  identified: number;
+}
 interface ResourcesData {
   days: number;
   pageId: number | null;
@@ -110,14 +141,51 @@ interface ResourcesData {
   searches: SearchRow[];
   sections: SectionRow[];
   audience: AudienceRow[];
+  reports?: ReportRow[];
+  reportPages?: ReportPageRow[];
 }
 
-const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "Video", link: "Link", image: "Image", text: "Copy" };
+const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "Video", link: "Link", image: "Image", text: "Copy", report: "Report" };
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—");
 const rate = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 100)}%` : "—");
 const fmtSecs = (s: number | null | undefined) => (s == null ? "—" : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`);
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-const ACTION_LABEL: Record<string, string> = { view: "Viewed", open: "Opened", download: "Downloaded", progress: "Watched", time: "Time open" };
+const ACTION_LABEL: Record<string, string> = {
+  view: "Viewed", open: "Opened", download: "Downloaded", progress: "Watched", time: "Time open",
+  page: "Read", share: "Shared", play: "Played video", assessment: "Took the assessment", cta: "Clicked", fullscreen: "Read full screen", section: "Jumped to",
+};
+/** "07|Central authority" → { no: 7, label: "Central authority" } (report `page` / `share` details). */
+function splitPageDetail(detail: string | null): { no: number | null; label: string } {
+  const m = /^(\d{1,4})\|(.*)$/.exec(detail ?? "");
+  return m ? { no: parseInt(m[1], 10), label: m[2] } : { no: null, label: detail ?? "" };
+}
+function eventSummary(e: TimelineEvent): string {
+  const label = ACTION_LABEL[e.action] ?? e.action;
+  if (e.action === "progress") return `${e.assetKind === "report" ? "Reached" : label} ${e.value ?? 0}%`;
+  if (e.action === "time" && e.value != null) return `${label} ${fmtSecs(e.value)}`;
+  if (e.action === "page" || e.action === "share") {
+    const d = splitPageDetail(e.detail);
+    const where = d.no ? `p.${d.no}${d.label ? ` · ${d.label}` : ""}` : d.label;
+    return `${label} ${where}${e.action === "page" && e.value != null ? ` (${fmtSecs(e.value)})` : ""}`;
+  }
+  if (e.action === "assessment") return `${label}: ${e.detail ?? ""}${e.value != null ? ` (score ${e.value})` : ""}`;
+  if ((e.action === "play" || e.action === "cta" || e.action === "section") && e.detail) return `${label} ${e.detail}`;
+  return label;
+}
+
+/** The report pages a person spent the most time on (from their timeline). */
+function topReadPages(events: TimelineEvent[]): { key: string; title: string; no: number | null; label: string; seconds: number }[] {
+  const byPage = new Map<string, { key: string; title: string; no: number | null; label: string; seconds: number }>();
+  for (const e of events) {
+    if (e.action !== "page" || e.value == null) continue;
+    const d = splitPageDetail(e.detail);
+    const k = `${e.assetKey}#${d.no ?? d.label}`;
+    const row = byPage.get(k) ?? { key: k, title: e.assetTitle || e.assetKey, no: d.no, label: d.label, seconds: 0 };
+    row.seconds += e.value;
+    byPage.set(k, row);
+  }
+  return [...byPage.values()].sort((a, b) => b.seconds - a.seconds).slice(0, 5);
+}
 
 /** One identified person's resource timeline, fetched on expand. */
 function PersonTimeline({ leadId, days }: { leadId: number; days: number }) {
@@ -136,17 +204,34 @@ function PersonTimeline({ leadId, days }: { leadId: number; days: number }) {
   if (failed) return <p className="px-3 py-2 text-xs text-destructive">Could not load this person's timeline.</p>;
   if (!events) return <Skeleton className="m-3 h-12" />;
   if (events.length === 0) return <p className="px-3 py-2 text-xs text-muted-foreground">No resource activity in the last {Math.max(days, 90)} days.</p>;
+  const top = topReadPages(events);
   return (
-    <ol className="divide-y border-t bg-muted/20 text-xs" data-testid="person-timeline">
-      {events.map((e) => (
-        <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-1.5">
-          <span className="w-[120px] shrink-0 tabular-nums text-muted-foreground">{fmtTime(e.at)}</span>
-          <span className="font-medium">{ACTION_LABEL[e.action] ?? e.action}{e.action === "progress" && e.value != null ? ` ${e.value}%` : e.action === "time" && e.value != null ? ` ${fmtSecs(e.value)}` : ""}</span>
-          <span className="truncate">{e.assetTitle || e.assetKey}</span>
-          <span className="text-muted-foreground">{KIND_LABEL[e.assetKind] ?? e.assetKind}{e.pageTitle ? ` · ${e.pageTitle}` : ""}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="border-t bg-muted/20">
+      {top.length > 0 && (
+        <div className="px-3 py-2 text-xs" data-testid="person-top-pages">
+          <p className="mb-1 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Most-read report pages</p>
+          <ol className="space-y-0.5">
+            {top.map((t) => (
+              <li key={t.key} className="flex items-baseline gap-2">
+                <span className="w-12 shrink-0 tabular-nums font-medium">{fmtSecs(t.seconds)}</span>
+                <span className="truncate">{t.no ? `p.${t.no} · ` : ""}{t.label}</span>
+                <span className="truncate text-muted-foreground">{t.title}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      <ol className="divide-y border-t text-xs" data-testid="person-timeline">
+        {events.map((e) => (
+          <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-1.5">
+            <span className="w-[120px] shrink-0 tabular-nums text-muted-foreground">{fmtTime(e.at)}</span>
+            <span className="font-medium">{eventSummary(e)}</span>
+            <span className="truncate">{e.assetTitle || e.assetKey}</span>
+            <span className="text-muted-foreground">{KIND_LABEL[e.assetKind] ?? e.assetKind}{e.pageTitle ? ` · ${e.pageTitle}` : ""}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -340,6 +425,22 @@ export function ResourcesTab({ days, active }: { days: number; active: boolean }
         </Card>
       )}
 
+      {data && (data.reports?.length ?? 0) > 0 && (
+        <Card data-testid="report-reading">
+          <CardHeader className="space-y-0">
+            <CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4 text-muted-foreground" />Reports: page-level reading</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Report reader blocks. Readers is sessions that opened the report; completion is the furthest point reached, averaged. Each bar is the average time readers spent on that page.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {data.reports!.map((r) => (
+              <ReportReading key={`${r.pageId}-${r.assetKey}`} report={r} pages={(data.reportPages ?? []).filter((p) => p.pageId === r.pageId && p.assetKey === r.assetKey)} showPage={!pageId} />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {data && data.people.length > 0 && (
         <Card>
           <CardHeader className="space-y-0">
@@ -461,5 +562,81 @@ function PersonRows({ person: p, days, pageId }: { person: PersonRow; days: numb
                       </tr>
                     )}
     </>
+  );
+}
+
+function ReportReading({ report: r, pages, showPage }: { report: ReportRow; pages: ReportPageRow[]; showPage: boolean }) {
+  const [sort, setSort] = useState<"order" | "time">("order");
+  const maxAvg = Math.max(1, ...pages.map((p) => p.avgSeconds ?? 0));
+  const hot = new Set([...pages].sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 3).map((p) => p.pageNo));
+  const rows = sort === "order" ? pages : [...pages].sort((a, b) => b.totalSeconds - a.totalSeconds);
+  const facts = [
+    `${r.readers} reader${r.readers === 1 ? "" : "s"}`,
+    r.avgCompletion != null ? `${r.avgCompletion}% avg completion` : null,
+    r.avgReadSeconds != null ? `${fmtSecs(r.avgReadSeconds)} avg read time` : null,
+    r.downloads ? `${r.downloads} PDF downloads` : null,
+    r.shares ? `${r.shares} page links shared` : null,
+    r.plays ? `${r.plays} video plays` : null,
+    r.assessments ? `${r.assessments} assessments${r.avgScore != null ? ` (avg score ${r.avgScore})` : ""}` : null,
+    r.ctaClicks ? `${r.ctaClicks} CTA clicks` : null,
+    r.identified ? `${r.identified} identified` : null,
+  ].filter(Boolean);
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <p className="font-medium">{r.assetTitle || r.assetKey}</p>
+          {showPage && <p className="text-[11px] text-muted-foreground">{r.pageTitle || r.pageSlug || `Page ${r.pageId}`} · last read {fmtDate(r.lastAt)}</p>}
+        </div>
+        {pages.length > 1 && (
+          <div className="flex gap-1 text-[11px]" role="group" aria-label="Sort pages">
+            {(["order", "time"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setSort(k)}
+                aria-pressed={sort === k}
+                className={`rounded border px-2 py-0.5 ${sort === k ? "bg-foreground text-background" : "text-muted-foreground"}`}
+              >
+                {k === "order" ? "Page order" : "Most read"}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">{facts.join(" · ")}</p>
+      {pages.length === 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">No page-level reading yet. It appears once a reader spends a few seconds on a page.</p>
+      ) : (
+        <table className="mt-3 w-full text-xs">
+          <thead>
+            <tr className="text-muted-foreground border-b">
+              <Th>Page</Th><Th>Avg time on page</Th><Th right title="Sessions that spent 2+ seconds on the page">Readers</Th><Th right title="Readers of this page ÷ readers of the report">Reach</Th><Th right>Identified</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.pageNo} className="border-b last:border-0">
+                <td className="py-1.5 pr-3 max-w-[320px]">
+                  <span className="tabular-nums text-muted-foreground mr-2">{p.pageNo === 0 ? "—" : p.pageNo}</span>
+                  <span className={hot.has(p.pageNo) ? "font-semibold" : ""}>{p.label || `Page ${p.pageNo}`}</span>
+                </td>
+                <td className="py-1.5 pr-3 w-[38%]">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 flex-1 rounded bg-muted">
+                      <div className={`h-2 rounded ${hot.has(p.pageNo) ? "bg-primary" : "bg-primary/45"}`} style={{ width: `${Math.round(((p.avgSeconds ?? 0) / maxAvg) * 100)}%` }} />
+                    </div>
+                    <span className="w-14 text-right tabular-nums">{fmtSecs(p.avgSeconds)}</span>
+                  </div>
+                </td>
+                <td className="py-1.5 pr-3 text-right tabular-nums">{p.readers}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{rate(p.readers, r.readers)}</td>
+                <td className="py-1.5 text-right tabular-nums">{p.identified}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }

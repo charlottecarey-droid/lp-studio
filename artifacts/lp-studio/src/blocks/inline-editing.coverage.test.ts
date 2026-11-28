@@ -34,6 +34,7 @@ const EXEMPT: Record<string, string> = {
   "BlockPopup.tsx": "overlay shown behind a trigger, not editable in place",
   "BlockRoiCalculator.tsx": "calculator inputs/formulas are panel-managed",
   "BlockCustomHtml.tsx": "raw HTML block",
+  "BlockReportReader.tsx": "renders an external report document in a sandboxed frame; edited in the property panel",
   "BlockCustomSchema.tsx": "raw JSON-LD block",
   "BlockRichText.tsx": "uses the inline Tiptap editor instead",
   "BlockSpatialTour.tsx": "scene/hotspot media experience, panel-managed",

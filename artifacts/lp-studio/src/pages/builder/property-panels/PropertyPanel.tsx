@@ -30,6 +30,7 @@ import ResourcesPanel from "./ResourcesPanel";
 import ResourceLinkListPanel from "./ResourceLinkListPanel";
 import { RichTextPanel } from "./RichTextPanel";
 import { CustomHtmlPanel } from "./CustomHtmlPanel";
+import { ReportReaderPanel } from "./ReportReaderPanel";
 // --- Graduated section blocks (auto-batched routing) ---
 import { BenefitsAlternatingRowsPanel } from "./BenefitsAlternatingRowsPanel";
 import { BenefitsBentoPanel } from "./BenefitsBentoPanel";
@@ -2298,6 +2299,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "custom-html":
         return (
           <CustomHtmlPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "report-reader":
+        return (
+          <ReportReaderPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

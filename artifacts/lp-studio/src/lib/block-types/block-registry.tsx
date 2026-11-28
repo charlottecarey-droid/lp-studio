@@ -32,6 +32,7 @@ import type {
   ResourceLinkListBlockProps,
   RichTextBlockProps,
   CustomHtmlBlockProps,
+  ReportReaderBlockProps,
   GridImageBlockProps,
   GridHeadlineSubBlockProps,
   GridParagraphBulletsBlockProps,
@@ -1133,6 +1134,38 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="14" y="27" width="60" height="3" rx="1" fill="#cdd6f4" opacity="0.4" />
         <rect x="14" y="34" width="80" height="3" rx="1" fill="#cdd6f4" opacity="0.3" />
         <text x="8" y="48" fontSize="9" fontFamily="monospace" fill="#89b4fa">&lt;/div&gt;</text>
+      </svg>
+    ),
+  },
+  {
+    type: "report-reader",
+    label: "Report Reader",
+    category: "Content",
+    defaultProps: (): ReportReaderBlockProps => ({
+      src: "",
+      source: "auto",
+      pdfUrl: "",
+      title: "",
+      view: "auto",
+      allowViewToggle: true,
+      showContents: true,
+      allowShare: true,
+      allowFullscreen: true,
+      trackingKey: "",
+      coverLetter: { enabled: false, eyebrow: "", greeting: "", body: "", signName: "", signTitle: "", signImage: "" },
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#040C09" rx="4" />
+        <rect x="22" y="10" width="37" height="48" fill="#FDFCFA" />
+        <rect x="61" y="10" width="37" height="48" fill="#FDFCFA" />
+        <rect x="27" y="16" width="22" height="3" fill="#003A30" />
+        <rect x="27" y="23" width="27" height="2" fill="#94a3b8" />
+        <rect x="27" y="28" width="24" height="2" fill="#94a3b8" />
+        <rect x="66" y="16" width="18" height="3" fill="#003A30" />
+        <rect x="66" y="24" width="26" height="10" fill="#C7E738" />
+        <rect x="66" y="38" width="24" height="2" fill="#94a3b8" />
+        <circle cx="52" cy="64" r="2" fill="#94a3b8" /><circle cx="68" cy="64" r="2" fill="#C7E738" />
       </svg>
     ),
   },
@@ -10531,6 +10564,7 @@ export function createBlock(type: "resources"): Extract<PageBlock, { type: "reso
 export function createBlock(type: "resource-link-list"): Extract<PageBlock, { type: "resource-link-list" }>;
 export function createBlock(type: "rich-text"): Extract<PageBlock, { type: "rich-text" }>;
 export function createBlock(type: "custom-html"): Extract<PageBlock, { type: "custom-html" }>;
+export function createBlock(type: "report-reader"): Extract<PageBlock, { type: "report-reader" }>;
 export function createBlock(type: "grid-image"): Extract<PageBlock, { type: "grid-image" }>;
 export function createBlock(type: "grid-headline-sub"): Extract<PageBlock, { type: "grid-headline-sub" }>;
 export function createBlock(type: "grid-paragraph-bullets"): Extract<PageBlock, { type: "grid-paragraph-bullets" }>;
@@ -10673,6 +10707,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "resource-link-list": return { id, type: "resource-link-list", props: props as ResourceLinkListBlockProps };
     case "rich-text": return { id, type: "rich-text", props: props as RichTextBlockProps };
     case "custom-html": return { id, type: "custom-html", props: props as CustomHtmlBlockProps };
+    case "report-reader": return { id, type: "report-reader", props: props as ReportReaderBlockProps };
     case "grid-image": return { id, type: "grid-image", props: props as GridImageBlockProps };
     case "grid-headline-sub": return { id, type: "grid-headline-sub", props: props as GridHeadlineSubBlockProps };
     case "grid-paragraph-bullets": return { id, type: "grid-paragraph-bullets", props: props as GridParagraphBulletsBlockProps };

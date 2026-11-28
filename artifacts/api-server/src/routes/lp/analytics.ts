@@ -422,7 +422,7 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
   const since = new Date(Date.now() - days * 86_400_000);
   const pageFilter = pageId ? sql`AND e.page_id = ${pageId}` : sql``;
   try {
-    const [totals, assets, pages, people, searches, sections, audience] = await Promise.all([
+    const [totals, assets, pages, people, searches, sections, audience, reports, reportPages] = await Promise.all([
       db.execute(sql`
         SELECT
           COUNT(DISTINCT e.session_id) FILTER (WHERE e.action = 'seen')::int AS "seenSessions",
@@ -546,6 +546,66 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
         ORDER BY "clicks" DESC
         LIMIT 50
       `),
+      // Report reader (asset kind "report"): one row per report with reach,
+      // completion (furthest milestone per session), read time and actions.
+      db.execute(sql`
+        WITH r AS (
+          SELECT e.*, COALESCE(e.lead_id, l.id) AS person_id
+          FROM lp_asset_events e
+          LEFT JOIN lp_leads l ON l.tenant_id = e.tenant_id AND l.session_id = e.session_id AND e.lead_id IS NULL
+          WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.asset_kind = 'report' ${pageFilter}
+        ),
+        s AS (
+          SELECT page_id, asset_key, session_id,
+            MAX(value) FILTER (WHERE action = 'progress') AS max_pct,
+            SUM(value) FILTER (WHERE action = 'page') AS secs
+          FROM r
+          GROUP BY page_id, asset_key, session_id
+        )
+        SELECT
+          r.page_id AS "pageId",
+          MAX(p.title) AS "pageTitle",
+          MAX(p.slug) AS "pageSlug",
+          r.asset_key AS "assetKey",
+          (ARRAY_AGG(r.asset_title ORDER BY r.created_at DESC) FILTER (WHERE r.asset_title IS NOT NULL))[1] AS "assetTitle",
+          COUNT(DISTINCT r.session_id) FILTER (WHERE r.action IN ('view', 'page'))::int AS "readers",
+          COUNT(DISTINCT r.person_id) FILTER (WHERE r.person_id IS NOT NULL)::int AS "identified",
+          COUNT(*) FILTER (WHERE r.action = 'download')::int AS "downloads",
+          COUNT(*) FILTER (WHERE r.action = 'share')::int AS "shares",
+          COUNT(*) FILTER (WHERE r.action = 'play')::int AS "plays",
+          COUNT(*) FILTER (WHERE r.action = 'assessment')::int AS "assessments",
+          ROUND(AVG(r.value) FILTER (WHERE r.action = 'assessment'))::int AS "avgScore",
+          COUNT(*) FILTER (WHERE r.action = 'cta')::int AS "ctaClicks",
+          COUNT(*) FILTER (WHERE r.action = 'fullscreen')::int AS "fullscreens",
+          (SELECT ROUND(AVG(COALESCE(s.max_pct, 0)))::int FROM s WHERE s.page_id = r.page_id AND s.asset_key = r.asset_key) AS "avgCompletion",
+          (SELECT ROUND(AVG(s.secs))::int FROM s WHERE s.page_id = r.page_id AND s.asset_key = r.asset_key AND s.secs IS NOT NULL) AS "avgReadSeconds",
+          MAX(r.created_at) AS "lastAt"
+        FROM r
+        LEFT JOIN lp_pages p ON p.id = r.page_id
+        GROUP BY r.page_id, r.asset_key
+        ORDER BY "readers" DESC, "lastAt" DESC
+        LIMIT 50
+      `),
+      // Page-level reading: `page` events carry seconds on a page and
+      // detail "NN|Page title". Readers, total and average seconds per page.
+      db.execute(sql`
+        SELECT
+          e.page_id AS "pageId",
+          e.asset_key AS "assetKey",
+          split_part(e.detail, '|', 1)::int AS "pageNo",
+          (ARRAY_AGG(NULLIF(split_part(e.detail, '|', 2), '') ORDER BY e.created_at DESC))[1] AS "label",
+          COUNT(DISTINCT e.session_id)::int AS "readers",
+          SUM(e.value)::int AS "totalSeconds",
+          ROUND(SUM(e.value)::numeric / NULLIF(COUNT(DISTINCT e.session_id), 0))::int AS "avgSeconds",
+          COUNT(DISTINCT COALESCE(e.lead_id, l.id)) FILTER (WHERE COALESCE(e.lead_id, l.id) IS NOT NULL)::int AS "identified"
+        FROM lp_asset_events e
+        LEFT JOIN lp_leads l ON l.tenant_id = e.tenant_id AND l.session_id = e.session_id AND e.lead_id IS NULL
+        WHERE e.tenant_id = ${tenantId} AND e.created_at >= ${since} AND e.asset_kind = 'report' AND e.action = 'page'
+          AND e.detail ~ '^[0-9]{1,4}[|]' ${pageFilter}
+        GROUP BY e.page_id, e.asset_key, split_part(e.detail, '|', 1)::int
+        ORDER BY e.page_id, e.asset_key, "pageNo"
+        LIMIT 3000
+      `),
     ]);
     const t = (totals.rows[0] ?? {}) as Record<string, number>;
     res.json({
@@ -572,6 +632,8 @@ router.get("/lp/analytics/resources", async (req, res): Promise<void> => {
       searches: searches.rows,
       sections: sections.rows,
       audience: audience.rows,
+      reports: reports.rows,
+      reportPages: reportPages.rows,
     });
   } catch (err) {
     console.error("[analytics] resources error:", err);

@@ -65,6 +65,8 @@ export type {
   ResourceLinkKind,
   RichTextBlockProps,
   CustomHtmlBlockProps,
+  ReportReaderBlockProps,
+  ReportReaderCoverLetter,
   SpacerBlockProps,
   FormBlockProps,
   ChatCaptureBlockProps,

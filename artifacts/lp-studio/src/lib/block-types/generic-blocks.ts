@@ -627,6 +627,38 @@ export interface CustomHtmlBlockProps {
   html: string;
 }
 
+/** Personal note shown as page 2 of a report (page variables like {{company}} allowed). */
+export interface ReportReaderCoverLetter {
+  enabled: boolean;
+  eyebrow?: string;
+  greeting?: string;
+  body?: string;
+  signName?: string;
+  signTitle?: string;
+  signImage?: string;
+}
+
+/** Paginated HTML report — or any PDF — shown as a page-turning magazine or a scrolling read. */
+export interface ReportReaderBlockProps {
+  /** URL of the report: an HTML document whose pages are `section.page`, or a PDF (https:// or same-origin path). */
+  src: string;
+  /** How to read `src`. "auto" = PDF when the URL ends in .pdf, else HTML. Uploaded files have no extension: pick "pdf". */
+  source?: "auto" | "html" | "pdf";
+  /** Optional PDF download link shown in the toolbar (PDF mode falls back to `src`). */
+  pdfUrl: string;
+  /** Toolbar title. Empty hides it (the toolbar still shows if toggle/PDF are on). */
+  title: string;
+  view: "auto" | "magazine" | "scroll";
+  allowViewToggle: boolean;
+  /** Toolbar extras. All default on. */
+  showContents?: boolean;
+  allowShare?: boolean;
+  allowFullscreen?: boolean;
+  /** Stable analytics key (Analytics → Resources). Blank = slug of the title. */
+  trackingKey?: string;
+  coverLetter?: ReportReaderCoverLetter;
+}
+
 /* ── Grid pieces (task #120) ───────────────────────────────────────────── */
 
 export interface GridImageBlockProps {

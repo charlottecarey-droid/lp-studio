@@ -104,6 +104,15 @@ const CTA_DOC = {
   blockLevel: "Older blocks keep CTA fields in props (ctaText/ctaUrl/ctaAction/chilipiperUrl/cta1ChilipiperUrl); blockSettings.useCustomCta=true makes a block use its own CTA instead of the page default.",
 };
 
+const REPORT_READER_DOC = {
+  props:
+    "{ src: string (an HTML report or a PDF: https:// or a same-origin path such as /reports/<slug>/report.html), source: 'auto' | 'html' | 'pdf' (auto = PDF when src ends in .pdf; uploaded files have no extension, so set 'pdf'), pdfUrl: string (optional download link; PDF mode falls back to src), title: string (toolbar title, also the analytics name), view: 'auto' | 'magazine' | 'scroll' (auto = magazine on wide screens, scroll on narrow), allowViewToggle: boolean, showContents: boolean, allowShare: boolean (copy a link to the current page, #report-p7), allowFullscreen: boolean, trackingKey: string (stable analytics key; blank = slug of the title), coverLetter: { enabled: boolean, eyebrow, greeting, body (blank line between paragraphs), signName, signTitle, signImage } (page 2; page variables like {{company}} allowed — a letter with an unresolved variable is skipped for that visitor) }",
+  document:
+    "HTML reports: a normal HTML document where each page is a <section class=\"page\"> designed at 816x1056 CSS px. The viewer adds rr-mag or rr-scroll to <html>, so the report can style fixed pages (html.rr-mag ...) and a reflowed reading layout (html.rr-scroll ...). data-toc=\"Chapter\" on a page adds a Contents entry; data-title names the page in analytics. Links with data-cp open the page's Chili Piper modal; data-form opens the lead form modal; <a data-rr-video=\"https://youtube.com/watch?v=…\"> plays in the page's video player. <div data-rr-assessment><script type=\"application/json\">{ questions:[{q, options:[{label, score}]}], results:[{min, title, body, cta, ctaAction:'chilipiper'|'form'}] }</script>static fallback</div> becomes a scored assessment. PDFs: pages render with pdf.js; links and bookmarks carry over. Renders in the same sandbox as custom-html.",
+  analytics:
+    "Tracked as a Content Hub resource (kind 'report') in Analytics → Resources: views, PDF downloads, seconds per page, completion, contents jumps, shared page links, video plays, assessment scores and CTA clicks, attributed to identified people like other hub resources.",
+};
+
 const CUSTOM_HTML_DOC = {
   props: "{ html: string } — a snippet or a full HTML document, rendered in a sandboxed iframe (scripts, forms and popups allowed; no access to the parent page). Height auto-fits.",
   openNativeCta:
@@ -264,7 +273,7 @@ export const pageExtrasTools: ToolDef[] = [
             type: t,
             known: t in DEFAULT_BLOCK_TAGS,
             tags: DEFAULT_BLOCK_TAGS[t] ?? [],
-            props: t === "custom-html" ? CUSTOM_HTML_DOC : (micrositeSchemaFor(t) ?? "No prop doc for this type. Read an existing block of this type with get_page to see its props."),
+            props: t === "custom-html" ? CUSTOM_HTML_DOC : t === "report-reader" ? REPORT_READER_DOC : (micrositeSchemaFor(t) ?? "No prop doc for this type. Read an existing block of this type with get_page to see its props."),
           })),
           blockShape: "{ id: unique string, type, props: {...}, blockSettings?: {...}, children?: Block[] (section, columns, grid, stack only) }",
           blockSettings: BLOCK_SETTINGS_DOC,
