@@ -60,13 +60,39 @@ html.rr,html.rr body{margin:0}
 .rr-book{position:absolute;left:0;top:0;width:1632px;height:1056px;transform-origin:0 0;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.3,.7,.2,1)}
 .rr-spine{position:absolute;left:815px;top:0;width:2px;height:1056px;background:linear-gradient(90deg,rgba(0,0,0,.35),rgba(255,255,255,.08));z-index:999;pointer-events:none;opacity:0;transition:opacity .4s}
 .rr-book.rr-open .rr-spine{opacity:1}
-.rr-leaf{position:absolute;left:816px;top:0;width:816px;height:1056px;transform-origin:0 50%;transform-style:preserve-3d;transition:transform 1s cubic-bezier(.45,.05,.25,1)}
+.rr-leaf{position:absolute;left:816px;top:0;width:816px;height:1056px;transform-origin:0 50%;transform-style:preserve-3d}
 .rr-leaf.rr-fl{transform:rotateY(-180deg)}
 .rr-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background:#fff;box-shadow:0 18px 40px -22px rgba(0,0,0,.55)}
 .rr-face.rr-b{transform:rotateY(180deg)}
 .rr-face:after{content:"";position:absolute;inset:0;pointer-events:none}
 .rr-face.rr-f:after{background:linear-gradient(90deg,rgba(0,0,0,.18),rgba(0,0,0,0) 6%)}
 .rr-face.rr-b:after{background:linear-gradient(270deg,rgba(0,0,0,.18),rgba(0,0,0,0) 6%)}
+.rr-leaf.rr-af{animation:rrTurnF 1.05s cubic-bezier(.45,.05,.3,1) both}
+.rr-leaf.rr-ab{animation:rrTurnB 1.05s cubic-bezier(.45,.05,.3,1) both}
+@keyframes rrTurnF{0%{transform:rotateY(0) skewY(0)}28%{transform:rotateY(-42deg) skewY(-7deg) scaleX(.97)}55%{transform:rotateY(-100deg) skewY(-3deg)}80%{transform:rotateY(-158deg) skewY(2deg)}100%{transform:rotateY(-180deg) skewY(0)}}
+@keyframes rrTurnB{0%{transform:rotateY(-180deg) skewY(0)}28%{transform:rotateY(-138deg) skewY(7deg) scaleX(.97)}55%{transform:rotateY(-80deg) skewY(3deg)}80%{transform:rotateY(-22deg) skewY(-2deg)}100%{transform:rotateY(0) skewY(0)}}
+.rr-shade{position:absolute;inset:0;pointer-events:none;opacity:0;z-index:5;background-size:300% 100%;background-repeat:no-repeat}
+.rr-f .rr-shade{background-image:linear-gradient(90deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.22) 42%,rgba(255,255,255,.45) 50%,rgba(0,0,0,.28) 58%,rgba(0,0,0,0) 70%)}
+.rr-b .rr-shade{background-image:linear-gradient(270deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.22) 42%,rgba(255,255,255,.45) 50%,rgba(0,0,0,.28) 58%,rgba(0,0,0,0) 70%)}
+.rr-af .rr-f .rr-shade,.rr-ab .rr-b .rr-shade{animation:rrSheenOut 1.05s ease-in both}
+.rr-af .rr-b .rr-shade,.rr-ab .rr-f .rr-shade{animation:rrSheenIn 1.05s ease-out both}
+@keyframes rrSheenOut{0%{opacity:0;background-position:100% 0}20%{opacity:1}100%{opacity:1;background-position:0 0}}
+@keyframes rrSheenIn{0%{opacity:1;background-position:100% 0}80%{opacity:1}100%{opacity:0;background-position:0 0}}
+.rr-cast{position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0}
+.rr-f .rr-cast{background:linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,.12) 35%,rgba(0,0,0,0) 70%)}
+.rr-b .rr-cast{background:linear-gradient(270deg,rgba(0,0,0,.45),rgba(0,0,0,.12) 35%,rgba(0,0,0,0) 70%)}
+.rr-cast.rr-reveal{animation:rrReveal 1.05s ease-out both}
+.rr-cast.rr-cover{animation:rrCover 1.05s ease-in both}
+@keyframes rrReveal{0%{opacity:1}100%{opacity:0}}
+@keyframes rrCover{0%{opacity:0}100%{opacity:.9}}
+.rr-corner{position:absolute;bottom:0;width:150px;height:150px;z-index:6;cursor:pointer;display:none}
+.rr-f .rr-corner{right:0}.rr-b .rr-corner{left:0}
+.rr-face.rr-vis .rr-corner{display:block}
+.rr-curl{position:absolute;bottom:0;width:38px;height:38px;transition:width .35s cubic-bezier(.3,.7,.2,1),height .35s cubic-bezier(.3,.7,.2,1);filter:drop-shadow(-3px -3px 5px rgba(0,0,0,.22))}
+.rr-f .rr-curl{right:0;border-top-left-radius:22% 30%;background:linear-gradient(to top left,#040c09 0,#1a2f29 49.6%,#ffffff 50.4%,#f1eee6 72%,#d6d1c3 100%)}
+.rr-b .rr-curl{left:0;border-top-right-radius:22% 30%;filter:drop-shadow(3px -3px 5px rgba(0,0,0,.22));background:linear-gradient(to top right,#040c09 0,#1a2f29 49.6%,#ffffff 50.4%,#f1eee6 72%,#d6d1c3 100%)}
+.rr-corner:hover .rr-curl{width:120px;height:120px}
+.rr-turning .rr-corner{display:none!important}
 .rr-ctl{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:22px;color:#FAF8F3;font:500 13px Inter,system-ui,sans-serif}
 .rr-ctl button{width:52px;height:52px;border-radius:50%;border:1px solid rgba(250,248,243,.35);background:rgba(250,248,243,.04);color:#FAF8F3;display:grid;place-items:center;cursor:pointer}
 .rr-ctl button:hover{background:#C7E738;border-color:#C7E738;color:#003A30}
@@ -77,7 +103,7 @@ html.rr,html.rr body{margin:0}
 .rr-hint{text-align:center;font:12px Inter,system-ui,sans-serif;color:rgba(250,248,243,.5);margin-top:10px}
 .rr-mode-scroll .rr-fit{margin:0 auto;overflow:hidden}
 .rr-mode-scroll .rr-fit>section.page{transform-origin:0 0}
-@media (prefers-reduced-motion:reduce){.rr-leaf,.rr-book{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.rr-leaf,.rr-book{transition:none!important;animation:none!important}.rr-shade,.rr-cast,.rr-curl{animation:none!important;transition:none!important}}
 `;
 
 const ARROW_L = '<svg viewBox="0 0 16 16" fill="none"><path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.6"/></svg>';
@@ -113,7 +139,7 @@ function magView(){var wrap=D.createElement('div');wrap.className='rr-mode-mag';
  var stage=D.createElement('div');stage.className='rr-stage';var book=D.createElement('div');book.className='rr-book';book.innerHTML='<div class="rr-spine"></div>';stage.appendChild(book);wrap.appendChild(stage);
  var list=pages.slice();if(list.length%2)list.push(null);var L=list.length/2,leaves=[];
  for(var i=0;i<L;i++){var lf=D.createElement('div');lf.className='rr-leaf';lf.style.zIndex=L-i;
-  ['rr-f','rr-b'].forEach(function(k,j){var fc=D.createElement('div');fc.className='rr-face '+k;var pg=list[i*2+j];if(pg)fc.appendChild(pg);lf.appendChild(fc)});book.appendChild(lf);leaves.push(lf)}
+  ['rr-f','rr-b'].forEach(function(k,j){var fc=D.createElement('div');fc.className='rr-face '+k;var pg=list[i*2+j];if(pg)fc.appendChild(pg);fc.insertAdjacentHTML('beforeend','<div class="rr-shade"></div><div class="rr-cast"></div><div class="rr-corner" aria-hidden="true"><div class="rr-curl"></div></div>');lf.appendChild(fc)});book.appendChild(lf);leaves.push(lf)}
  var ctl=D.createElement('div');ctl.className='rr-ctl';ctl.innerHTML='<button type="button" aria-label="Previous page">${ARROW_L}</button><div class="rr-pg" aria-live="polite"></div><button type="button" aria-label="Next page">${ARROW_R}</button>';wrap.appendChild(ctl);
  var hint=D.createElement('p');hint.className='rr-hint';hint.textContent='Use the arrows, your keyboard or swipe to turn the page.';wrap.appendChild(hint);
  var prev=ctl.children[0],pgl=ctl.children[1],next=ctl.children[2],cur=0,busy=false,s=1,N=pages.length;
@@ -121,14 +147,20 @@ function magView(){var wrap=D.createElement('div');wrap.className='rr-mode-mag';
  function fit(){var w=Math.min(H.clientWidth-48,1500),h=Math.max(420,Math.min((screen.availHeight||900)-240,980));s=Math.min(w/1632,h/1056);stage.style.width=(1632*s)+'px';stage.style.height=(1056*s)+'px';place();post()}
  function place(){var x=cur===0?-408:(cur===L?408:0);book.style.transform='translateX('+(x*s)+'px) scale('+s+')';book.classList.toggle('rr-open',cur>0&&cur<L)}
  function label(){if(cur===0)pgl.innerHTML='<b>Cover</b>';else if(cur===L)pgl.innerHTML='<b>End</b>';else pgl.innerHTML='<b>'+(cur*2)+'&ndash;'+Math.min(cur*2+1,N)+'</b> / '+N;prev.disabled=cur===0;next.disabled=cur===L}
- function go(d){if(busy)return;var t=cur+d;if(t<0||t>L)return;busy=true;var ms=reduce?0:1000;
-  if(d>0){var i0=cur,a=leaves[i0];a.style.zIndex=1000;a.classList.add('rr-fl');setTimeout(function(){a.style.zIndex=i0+1},ms)}
-  else{var t0=t,b=leaves[t0];b.style.zIndex=1000;b.classList.remove('rr-fl');setTimeout(function(){b.style.zIndex=L-t0},ms)}
-  cur=t;place();label();setTimeout(function(){busy=false},reduce?0:650)}
+ function face(i,k){var l=leaves[i];return l?l.children[k]:null}
+ function vis(){[].forEach.call(book.querySelectorAll('.rr-vis'),function(f){f.classList.remove('rr-vis')});var r=face(cur,0),l=face(cur-1,1);if(r&&r.querySelector('section.page'))r.classList.add('rr-vis');if(l&&l.querySelector('section.page'))l.classList.add('rr-vis')}
+ function fx(el,c,ms){if(!el)return;var x=el.querySelector('.rr-cast');x.classList.remove('rr-reveal','rr-cover');void x.offsetWidth;x.classList.add(c);setTimeout(function(){x.classList.remove(c)},ms)}
+ function go(d){if(busy)return;var t=cur+d;if(t<0||t>L)return;busy=true;var ms=reduce?0:1050;book.classList.add('rr-turning');
+  var lf=d>0?leaves[cur]:leaves[t],idx=d>0?cur:t;lf.style.zIndex=1000;
+  if(!reduce){lf.classList.remove('rr-af','rr-ab');void lf.offsetWidth;lf.classList.add(d>0?'rr-af':'rr-ab');
+   if(d>0){fx(face(idx+1,0),'rr-reveal',ms);fx(face(idx-1,1),'rr-cover',ms)}else{fx(face(idx-1,1),'rr-reveal',ms);fx(face(idx+1,0),'rr-cover',ms)}}
+  lf.classList.toggle('rr-fl',d>0);
+  setTimeout(function(){lf.classList.remove('rr-af','rr-ab');lf.style.zIndex=d>0?idx+1:L-idx;book.classList.remove('rr-turning');vis()},ms);
+  cur=t;place();label();setTimeout(function(){busy=false},reduce?0:700)}
  prev.onclick=function(){go(-1)};next.onclick=function(){go(1)};
  leaves.forEach(function(l,i){l.children[0].addEventListener('click',function(e){if(e.target.closest('a,button'))return;if(cur===i)go(1)});l.children[1].addEventListener('click',function(e){if(e.target.closest('a,button'))return;if(cur===i+1)go(-1)})});
  var sx=null;stage.addEventListener('touchstart',function(e){sx=e.touches[0].clientX},{passive:true});stage.addEventListener('touchend',function(e){if(sx===null)return;var dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>40)go(dx<0?1:-1);sx=null});
- fit();label();return{resize:fit,key:function(k){if(k==='ArrowRight')go(1);if(k==='ArrowLeft')go(-1)}}}
+ fit();label();vis();return{resize:fit,key:function(k){if(k==='ArrowRight')go(1);if(k==='ArrowLeft')go(-1)}}}
 function pick(){return C.view==='magazine'?'mag':C.view==='scroll'?'scroll':(H.clientWidth>=900?'mag':'scroll')}
 function show(m){if(m===mode)return;mode=m;clear();H.classList.toggle('rr-mag',m==='mag');H.classList.toggle('rr-scroll',m==='scroll');view=m==='mag'?magView():scrollView();pressed();post()}
 D.addEventListener('keydown',function(e){if(view&&view.key)view.key(e.key)});
